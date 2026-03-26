@@ -2,31 +2,28 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { usePathname } from "next/navigation";
-import Image from "next/image";
 import Link from "next/link";
+import { LayoutDashboard, BadgeCheck } from "lucide-react";
 import { LanguageThemeToggle } from "@/components/language-theme-toggle";
 import { useLocale } from "@/components/providers/locale-provider";
+import { WorldMapBg } from "@/components/ui/WorldMapBg";
 
 const authLayoutMessages = {
   en: {
     headingLine1: "The Editorial",
-    headingHighlight: "Standard",
-    headingLine2: "of",
-    headingLine3: "Management.",
-    quote: '"Precision is the foundation of professional excellence."',
-    quoteSource: "Editorial Management Protocol",
-    executives: "500+ Active Executives",
+    headingLine2: "Standard of",
+    headingHighlight: "Management.",
+    desc: "A professional CRM for teams managing clients, suppliers, and business operations — all in one place.",
+    trust: "Trusted by thousands of editorial teams.",
     privacy: "Privacy",
     terms: "Terms",
   },
   fr: {
     headingLine1: "La Reference",
-    headingHighlight: "Editoriale",
-    headingLine2: "de la",
-    headingLine3: "Gestion.",
-    quote: '"La precision est le fondement de l\'excellence professionnelle."',
-    quoteSource: "Protocole de Gestion Editoriale",
-    executives: "500+ Cadres Actifs",
+    headingLine2: "Editoriale de la",
+    headingHighlight: "Gestion.",
+    desc: "Un CRM professionnel pour les equipes gerant clients, fournisseurs et operations commerciales — au meme endroit.",
+    trust: "Approuve par des milliers d'equipes editoriales.",
     privacy: "Confidentialite",
     terms: "Conditions",
   },
@@ -42,118 +39,105 @@ export default function AuthLayout({
   const t = authLayoutMessages[locale];
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-[#F8FAFC] p-4 md:p-8">
-      {/* Centered card-style container like the screenshot */}
-      <div className="w-full max-w-[1000px] min-h-[640px] grid lg:grid-cols-2 bg-white rounded-[32px] overflow-hidden shadow-[0_32px_64px_-16px_rgba(0,30,60,0.12)] border border-zinc-100/50">
-        
-        {/* Left Creative Block */}
-        <div className="hidden lg:block relative bg-[#001e3c] p-12 text-white overflow-hidden">
-          {/* Abstract background depth */}
-          <div className="absolute top-[-10%] right-[-10%] w-[60%] h-[40%] bg-blue-400/10 blur-[120px] rounded-full" />
-          <div className="absolute bottom-[-5%] left-[-5%] w-[40%] h-[30%] bg-indigo-500/10 blur-[100px] rounded-full" />
-          
-          <div className="relative z-10 h-full flex flex-col">
-            <div className="flex items-center gap-2.5">
-              <div className="h-9 w-9 relative rounded-xl overflow-hidden shadow-2xl">
-                <Image 
-                  src="/logo-v2.webp" 
-                  alt="Executive CRM" 
-                  fill 
-                  className="object-cover"
-                />
+    <div className="min-h-screen w-full bg-[#f8fafc] flex flex-col">
+      {/* Mobile top bar */}
+      <header className="lg:hidden flex items-center justify-between px-5 py-4 bg-white border-b border-zinc-100">
+        <div className="flex items-center gap-2.5">
+          <div className="rounded-lg bg-[#020b18] border border-[#020b18] p-1.5">
+            <LayoutDashboard className="h-4 w-4 text-white" />
+          </div>
+          <p className="text-sm font-bold text-[#020b18] tracking-tight">CRM Roberto</p>
+        </div>
+        <LanguageThemeToggle />
+      </header>
+
+      <div className="flex flex-1 items-stretch lg:overflow-hidden">
+        {/* Left panel */}
+        <aside className="hidden lg:flex w-[420px] xl:w-[480px] shrink-0 flex-col bg-[#020b18] text-white relative overflow-hidden">
+          {/* World map background */}
+          <WorldMapBg
+            className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+            strokeColor="white"
+            strokeOpacity={0.45}
+            gridOpacity={0.1}
+          />
+
+          {/* Vignette overlays */}
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_60%_40%,transparent_30%,#020b18_80%)] pointer-events-none" />
+          <div className="absolute bottom-0 left-0 right-0 h-48 bg-gradient-to-t from-[#020b18] to-transparent pointer-events-none" />
+          <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-[#020b18] to-transparent pointer-events-none" />
+
+          {/* Subtle emerald glow */}
+          <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72 rounded-full bg-emerald-500/5 blur-3xl pointer-events-none" />
+
+          <div className="relative z-10 flex flex-col h-full p-12 xl:p-14">
+            {/* Brand mark */}
+            <div className="flex items-center gap-3">
+              <div className="rounded-xl bg-white/10 border border-white/15 p-2.5 backdrop-blur-sm">
+                <LayoutDashboard className="h-4 w-4 text-white" />
               </div>
-              <span className="font-bold text-xs tracking-[0.2em] uppercase opacity-80">Executive CRM</span>
+              <p className="text-[13px] font-bold tracking-widest text-white/90 uppercase">CRM Roberto</p>
             </div>
 
-            <div className="mt-20 space-y-6">
-              <h1 className="font-poppins text-5xl font-bold leading-[1.1] tracking-tight">
-                {t.headingLine1} <br />
-                <span className="text-blue-400/90">{t.headingHighlight}</span> {t.headingLine2} <br />
-                {t.headingLine3}
+            {/* Centred content */}
+            <div className="my-auto">
+              <h1 className="font-heading text-[2.6rem] xl:text-[3rem] font-black leading-[1.05] tracking-tight">
+                {t.headingLine1}
+                <br />
+                {t.headingLine2}
+                <br />
+                <span className="text-emerald-400">{t.headingHighlight}</span>
               </h1>
-              <div className="relative w-full aspect-square max-w-[280px] mt-8 rounded-2xl overflow-hidden border border-white/10 shadow-2xl group">
-                <Image 
-                  src="https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=800" 
-                  alt="Modern Office" 
-                  fill 
-                  className="object-cover group-hover:scale-105 transition-transform duration-700"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#001e3c]/80 via-transparent to-transparent" />
-                <div className="absolute bottom-4 left-4 right-4">
-                  <p className="font-roboto text-[10px] font-medium text-white/60 italic leading-relaxed">
-                    {t.quote}
-                  </p>
-                  <p className="text-[8px] uppercase tracking-widest text-white/40 mt-1">— {t.quoteSource}</p>
-                </div>
-              </div>
+
+              <div className="mt-8 mb-8 w-16 h-px bg-white/15" />
+
+              <p className="text-[13px] text-white/40 leading-[1.75] max-w-[280px]">
+                {t.desc}
+              </p>
             </div>
 
-            <div className="mt-auto flex items-center justify-between pt-10 border-t border-white/5">
-              <div className="flex items-center gap-3">
-                <div className="flex -space-x-3">
-                  {[
-                    "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=100",
-                    "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=100",
-                    "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=100"
-                  ].map((src, i) => (
-                    <div key={i} className="h-9 w-9 rounded-full border-2 border-[#001e3c] bg-zinc-800 overflow-hidden relative ring-1 ring-white/10">
-                      <Image src={src} alt="User" fill className="object-cover" />
-                    </div>
-                  ))}
-                </div>
-                <span className="text-[10px] text-zinc-400 font-bold tracking-widest uppercase ml-1">
-                  {t.executives}
-                </span>
+            {/* Trust badge */}
+            <div className="flex items-center gap-3">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/8">
+                <BadgeCheck className="h-4 w-4 text-white/70" />
               </div>
-              <div className="text-[9px] uppercase tracking-[0.3em] text-zinc-600 font-bold">
-                Build 2026.1
-              </div>
+              <p className="text-[12px] text-white/35 font-medium leading-snug">{t.trust}</p>
             </div>
           </div>
-        </div>
+        </aside>
 
-        {/* Right Form Area with Motion Transition */}
-        <div className="relative flex flex-col justify-center bg-white p-8 text-zinc-900 lg:p-14 overflow-hidden">
-          <div className="absolute right-8 top-8 z-20">
+        {/* Right — form area */}
+        <main className="flex-1 flex flex-col min-h-0 bg-white lg:bg-[#f8fafc] relative">
+          <div className="hidden lg:block absolute top-5 right-6 z-20">
             <LanguageThemeToggle />
           </div>
 
-          {/* Mobile Logo */}
-          <div className="lg:hidden absolute top-8 left-8 flex items-center gap-2">
-            <div className="h-8 w-8 relative rounded-lg overflow-hidden">
-              <Image src="/logo-v2.webp" alt="Logo" fill className="object-cover" />
+          <div className="flex-1 overflow-y-auto">
+            <div className="min-h-full flex flex-col justify-center px-5 py-10 sm:px-10 md:px-16 lg:px-20 xl:px-24">
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                  key={pathname}
+                  initial={{ opacity: 0, y: 14 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.38, ease: [0.19, 1, 0.22, 1] }}
+                  className="w-full max-w-sm mx-auto"
+                >
+                  {children}
+                </motion.div>
+              </AnimatePresence>
             </div>
-            <span className="font-bold text-[10px] tracking-widest uppercase text-[#001e3c]">Executive CRM</span>
           </div>
 
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div
-              key={pathname}
-              initial={{ opacity: 0, scale: 0.98, filter: "blur(20px)" }}
-              animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
-              exit={{ opacity: 0, scale: 1.02, filter: "blur(20px)" }}
-              transition={{ 
-                duration: 0.5, 
-                ease: [0.19, 1, 0.22, 1],
-                opacity: { duration: 0.4 }
-              }}
-              className="w-full max-w-[340px] mx-auto"
-            >
-              {children}
-            </motion.div>
-          </AnimatePresence>
-
-          {/* Footer Info Lines */}
-          <div className="mt-14 flex items-center justify-between border-t border-zinc-100 pt-8 text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-400">
-            <span>© 2026 Executive CRM</span>
-            <div className="flex gap-6">
+          <footer className="px-5 sm:px-10 md:px-16 lg:px-20 xl:px-24 py-5 border-t border-zinc-100 bg-white flex flex-wrap items-center justify-between gap-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-zinc-400">
+            <span>© 2026 CRM Roberto</span>
+            <div className="flex gap-5">
               <Link href="#" className="hover:text-zinc-600 transition-colors">{t.privacy}</Link>
               <Link href="#" className="hover:text-zinc-600 transition-colors">{t.terms}</Link>
             </div>
-          </div>
-        </div>
+          </footer>
+        </main>
       </div>
     </div>
   );
 }
-

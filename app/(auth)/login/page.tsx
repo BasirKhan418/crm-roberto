@@ -37,6 +37,9 @@ const loginMessages = {
     loginButton: "Login",
     signupPrompt: "New to the executive platform?",
     signupCta: "Signup",
+    toastLoginSuccess: "Login successful! Redirecting to dashboard...",
+    toastLoginFailed: "Login failed. Please check your credentials and try again.",
+    toastLoginError: "An error occurred during login. Please try again.",
   },
   fr: {
     heading: "Bon retour",
@@ -47,6 +50,9 @@ const loginMessages = {
     loginButton: "Connexion",
     signupPrompt: "Nouveau sur la plateforme executive ?",
     signupCta: "Inscription",
+    toastLoginSuccess: "Connexion reussie ! Redirection vers le tableau de bord...",
+    toastLoginFailed: "Echec de la connexion. Veuillez verifier vos identifiants et reessayer.",
+    toastLoginError: "Une erreur s'est produite lors de la connexion. Veuillez reessayer.",
   },
 } as const
 
@@ -78,7 +84,7 @@ export default function LoginPage() {
       console.log("Login result:", result)
         setIsLoading(false)
         if(result.success){
-          toast.success(result.message || "Login successful! Redirecting to dashboard...")
+          toast.success(result.message || t.toastLoginSuccess)
           if(result.isOnboardingComplete){
             router.push("/dashboard")
           }
@@ -88,11 +94,11 @@ export default function LoginPage() {
           }
         }
         else{
-          toast.error(result.message || "Login failed. Please check your credentials and try again.")
+          toast.error(result.message || t.toastLoginFailed)
         }
     }
     catch(error){
-      toast.error("An error occurred during login. Please try again.")
+      toast.error(t.toastLoginError)
       console.error("Login error:", error)
       setIsLoading(false)
     }
@@ -103,54 +109,48 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-2">
-        <h1 className="font-poppins text-4xl font-semibold tracking-tight text-zinc-900">
+    <div className="space-y-8">
+      {/* Heading */}
+      <div className="space-y-1.5">
+        <h1 className="font-heading text-3xl font-semibold tracking-tight text-zinc-900">
           {t.heading}
         </h1>
-        <p className="font-roboto text-zinc-500 font-medium text-sm">
+        <p className="text-sm text-muted-foreground">
           {t.subtitle}
         </p>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-        <div className="space-y-2">
-          <Label 
-            htmlFor="email" 
-            className="text-[10px] font-bold uppercase tracking-widest text-zinc-600 ml-0.5"
-          >
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        {/* Email */}
+        <div className="space-y-1.5">
+          <Label htmlFor="email" className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
             {t.emailLabel}
           </Label>
-          <div className="relative">
-            <Input
-              id="email"
-              type="email"
-              placeholder="name@company.com"
-              className={cn(
-                "h-12 bg-zinc-50/50 border-zinc-400 text-zinc-900 focus:bg-white transition-all rounded-none border-t-0 border-r-0 border-l-0 border-b-[1.5px] px-0 shadow-none focus-visible:ring-0 focus-visible:border-zinc-900 placeholder:text-zinc-300",
-                errors.email && "border-red-500 focus:border-red-500"
-              )}
-              {...register("email")}
-            />
-          </div>
+          <Input
+            id="email"
+            type="email"
+            placeholder="name@company.com"
+            autoComplete="email"
+            className={cn(
+              "h-11 bg-zinc-50 border-zinc-200 text-zinc-900 rounded-lg focus-visible:ring-2 focus-visible:ring-[#001e3c]/20 focus-visible:border-[#001e3c] transition-all placeholder:text-zinc-300",
+              errors.email && "border-red-400 focus-visible:ring-red-200 focus-visible:border-red-400"
+            )}
+            {...register("email")}
+          />
           {errors.email && (
-            <p className="font-roboto text-[11px] font-semibold text-red-600 mt-1.5 ml-0.5">
-              {errors.email.message}
-            </p>
+            <p className="text-xs font-medium text-red-600">{errors.email.message}</p>
           )}
         </div>
 
-        <div className="space-y-2">
+        {/* Password */}
+        <div className="space-y-1.5">
           <div className="flex items-center justify-between">
-            <Label 
-              htmlFor="password" 
-              className="text-[10px] font-bold uppercase tracking-widest text-zinc-600 ml-0.5"
-            >
+            <Label htmlFor="password" className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
               {t.passwordLabel}
             </Label>
-            <Link 
-              href="/forgot-password" 
-              className="text-[10px] font-bold uppercase tracking-widest text-[#001e3c] hover:text-zinc-600 transition-colors"
+            <Link
+              href="/forgot-password"
+              className="text-[11px] font-semibold text-[#001e3c] hover:underline underline-offset-4 transition-colors"
             >
               {t.forgotPassword}
             </Link>
@@ -160,54 +160,49 @@ export default function LoginPage() {
               id="password"
               type={showPassword ? "text" : "password"}
               placeholder="••••••••"
+              autoComplete="current-password"
               className={cn(
-                "h-12 bg-zinc-50/50 border-zinc-400 text-zinc-900 focus:bg-white transition-all rounded-none border-t-0 border-r-0 border-l-0 border-b-[1.5px] px-0 shadow-none focus-visible:ring-0 focus-visible:border-zinc-900 placeholder:text-zinc-300 pr-10",
-                errors.password && "border-red-500 focus:border-red-500"
+                "h-11 bg-zinc-50 border-zinc-200 text-zinc-900 rounded-lg focus-visible:ring-2 focus-visible:ring-[#001e3c]/20 focus-visible:border-[#001e3c] transition-all placeholder:text-zinc-300 pr-10",
+                errors.password && "border-red-400 focus-visible:ring-red-200 focus-visible:border-red-400"
               )}
               {...register("password")}
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-0 top-1/2 -translate-y-1/2 h-8 w-8 flex items-center justify-center text-zinc-400 hover:text-zinc-600 transition-colors"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 transition-colors"
+              aria-label={showPassword ? "Hide password" : "Show password"}
             >
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           </div>
           {errors.password && (
-            <p className="font-roboto text-[11px] font-semibold text-red-600 mt-1.5 ml-0.5">
-              {errors.password.message}
-            </p>
+            <p className="text-xs font-medium text-red-600">{errors.password.message}</p>
           )}
         </div>
 
-        <Button 
-          className="w-full h-12 bg-[#001e3c] hover:bg-[#002b54] text-white rounded-md shadow-lg shadow-blue-900/10 text-sm font-semibold transition-all active:scale-[0.98] mt-4" 
-          type="submit" 
+        <Button
+          className="w-full h-11 bg-[#001e3c] hover:bg-[#002b54] text-white rounded-lg text-sm font-semibold transition-all active:scale-[0.98] shadow-sm mt-2"
+          type="submit"
           disabled={isLoading}
         >
           {isLoading ? (
-            <Loader2 className="h-4 w-4 animate-spin text-white/50" />
+            <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
-            <div className="flex items-center justify-center gap-2">
-              <span>{t.loginButton}</span>
+            <span className="flex items-center gap-2">
+              {t.loginButton}
               <ArrowRight className="h-4 w-4" />
-            </div>
+            </span>
           )}
         </Button>
       </form>
 
-      <div className="pt-4 text-center">
-        <p className="font-roboto text-zinc-500 text-sm font-medium">
-          {t.signupPrompt}{" "}
-          <Link 
-            href="/signup" 
-            className="text-[#001e3c] font-bold hover:underline underline-offset-4"
-          >
-            {t.signupCta}
-          </Link>
-        </p>
-      </div>
+      <p className="text-center text-sm text-zinc-500">
+        {t.signupPrompt}{" "}
+        <Link href="/signup" className="font-semibold text-[#001e3c] hover:underline underline-offset-4">
+          {t.signupCta}
+        </Link>
+      </p>
     </div>
   )
 }

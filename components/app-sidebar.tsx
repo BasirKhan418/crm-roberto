@@ -16,7 +16,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { Building2Icon, CommandIcon, LanguagesIcon, LayoutDashboardIcon, LogOutIcon, NotebookPenIcon, TruckIcon, UsersIcon } from "lucide-react"
+import { Building2Icon, LanguagesIcon, LayoutDashboard, LayoutDashboardIcon, LogOutIcon, NotebookPenIcon, TruckIcon, UsersIcon } from "lucide-react"
 import { useLocale } from "@/components/providers/locale-provider"
 import { useAuthMe } from "@/hooks/useAuthMe"
 
@@ -76,8 +76,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               className="h-auto rounded-xl border border-sidebar-border/80 bg-sidebar-accent/50 p-2 data-[slot=sidebar-menu-button]:p-2!"
             >
               <div className="flex items-center gap-2">
-                <div className="rounded-lg bg-primary/10 p-1.5 text-primary">
-                  <CommandIcon className="size-4" />
+                <div className="rounded-lg bg-primary p-1.5 text-primary-foreground">
+                  <LayoutDashboard className="size-4" />
                 </div>
                 <div className="grid text-left leading-tight">
                   <span className="text-base font-semibold">CRM Roberto</span>
