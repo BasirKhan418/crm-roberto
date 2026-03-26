@@ -14,7 +14,7 @@ const checkMe = async (fch:boolean) => {
               if(fch){
                   const user = await getUserByEmail(decoded.email);
                   if(user.success){
-                      return { message: "User data fetched successfully", success: true, user: { id: decoded.sub, name: decoded.name, email: decoded.email, isOnboardingComplete: user.user.isOnboardingComplete } };
+                      return { message: "User data fetched successfully", success: true, user: { id: decoded.sub, name: decoded.name, email: decoded.email, isOnboardingComplete: user.user.isOnboardingComplete,isEmailVerified: user.user.isEmailVerified } };
                   }
               }
               return { message: "User data fetched successfully", success: true, user: { id: decoded.sub, name: decoded.name, email: decoded.email } };

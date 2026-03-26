@@ -5,6 +5,7 @@ export interface AuthorizedUser {
   name: string;
   email: string;
   isOnboardingComplete?: boolean;
+  isEmailVerified?: boolean;
 }
 
 interface UseMeResult {
