@@ -14,11 +14,12 @@ import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { useDashboard } from '@/hooks/useDashboard';
 
 export default function DashboardPage() {
-  const { activity, followUps, loading, error, activityError, followUpsError } = useDashboard();
+  const { activity, followUps, loading, error, activityError, followUpsError, refetch } = useDashboard();
   const [statsRefreshKey, setStatsRefreshKey] = useState(0);
 
-  function refetchStats() {
+  function handleQuickAddSuccess() {
     setStatsRefreshKey((prev) => prev + 1);
+    refetch();
   }
 
   return (
@@ -40,7 +41,7 @@ export default function DashboardPage() {
                 <h1 className="font-heading text-2xl font-semibold tracking-tight">Dashboard</h1>
                 <p className="text-sm text-muted-foreground">Overview of your CRM activity and upcoming work.</p>
               </div>
-              <QuickAddButtons onSuccess={refetchStats} />
+              <QuickAddButtons onSuccess={handleQuickAddSuccess} />
             </div>
 
             {error ? <ErrorMessage message={error} /> : null}
