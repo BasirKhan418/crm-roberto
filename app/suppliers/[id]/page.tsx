@@ -7,6 +7,16 @@ import { PencilIcon, PlusIcon, Trash2Icon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import CrmShell from '@/components/crm-shell';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import EmptyState from '@/components/ui/EmptyState';
@@ -55,7 +65,9 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isNoteOpen, setIsNoteOpen] = useState(false);
   const [isNoteEditOpen, setIsNoteEditOpen] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeletingSupplier, setIsDeletingSupplier] = useState(false);
   const [isNoteUpdating, setIsNoteUpdating] = useState(false);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
 
@@ -149,11 +161,7 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
       return;
     }
 
-    const confirmed = window.confirm('Delete this supplier and linked notes?');
-    if (!confirmed) {
-      return;
-    }
-
+    setIsDeletingSupplier(true);
     try {
       const response = await fetch(`/api/suppliers/${supplier._id}`, { method: 'DELETE' });
       const data = (await response.json()) as { success: boolean; message?: string };
@@ -164,6 +172,9 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
       router.push('/suppliers');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to delete supplier');
+    } finally {
+      setIsDeletingSupplier(false);
+      setIsDeleteConfirmOpen(false);
     }
   }
 
@@ -295,7 +306,37 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
                   </SheetContent>
                 </Sheet>
 
-                <Button variant="destructive" size="sm" onClick={removeSupplier}><Trash2Icon />Delete</Button>
+                <Button variant="destructive" size="sm" onClick={() => setIsDeleteConfirmOpen(true)}><Trash2Icon />Delete</Button>
+
+                <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete supplier?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will permanently delete this supplier and linked notes.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel asChild>
+                        <Button variant="outline">Cancel</Button>
+                      </AlertDialogCancel>
+                      <AlertDialogAction
+                        asChild
+                        onClick={(event) => {
+                          event.preventDefault();
+                          if (isDeletingSupplier) {
+                            return;
+                          }
+                          void removeSupplier();
+                        }}
+                      >
+                        <Button variant="destructive" disabled={isDeletingSupplier}>
+                          {isDeletingSupplier ? 'Deleting...' : 'Delete supplier'}
+                        </Button>
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
 
                 <Sheet open={isNoteOpen} onOpenChange={setIsNoteOpen}>
                   <SheetTrigger asChild>

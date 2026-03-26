@@ -196,7 +196,7 @@ export default function SignupPage() {
               id="fullName"
               placeholder="John Doe"
               className={cn(
-                "h-12 bg-zinc-50/50 border-zinc-400 focus:bg-white transition-all rounded-none border-t-0 border-r-0 border-l-0 border-b-[1.5px] px-0 shadow-none focus-visible:ring-0 focus-visible:border-zinc-900 placeholder:text-zinc-300",
+                "h-12 bg-zinc-50/50 border-zinc-400 text-zinc-900 focus:bg-white transition-all rounded-none border-t-0 border-r-0 border-l-0 border-b-[1.5px] px-0 shadow-none focus-visible:ring-0 focus-visible:border-zinc-900 placeholder:text-zinc-300",
                 errors.fullName && "border-red-500 focus:border-red-500"
               )}
               {...register("fullName")}
@@ -220,7 +220,7 @@ export default function SignupPage() {
               type="email"
               placeholder="name@company.com"
               className={cn(
-                "h-12 bg-zinc-50/50 border-zinc-400 focus:bg-white transition-all rounded-none border-t-0 border-r-0 border-l-0 border-b-[1.5px] px-0 shadow-none focus-visible:ring-0 focus-visible:border-zinc-900 placeholder:text-zinc-300",
+                "h-12 bg-zinc-50/50 border-zinc-400 text-zinc-900 focus:bg-white transition-all rounded-none border-t-0 border-r-0 border-l-0 border-b-[1.5px] px-0 shadow-none focus-visible:ring-0 focus-visible:border-zinc-900 placeholder:text-zinc-300",
                 errors.email && "border-red-500 focus:border-red-500"
               )}
               {...register("email")}
@@ -245,7 +245,7 @@ export default function SignupPage() {
                 type={showPassword ? "text" : "password"}
                 placeholder="••••••••"
                 className={cn(
-                  "h-12 bg-zinc-50/50 border-zinc-400 focus:bg-white transition-all rounded-none border-t-0 border-r-0 border-l-0 border-b-[1.5px] px-0 shadow-none focus-visible:ring-0 focus-visible:border-zinc-900 placeholder:text-zinc-300 pr-10",
+                  "h-12 bg-zinc-50/50 border-zinc-400 text-zinc-900 focus:bg-white transition-all rounded-none border-t-0 border-r-0 border-l-0 border-b-[1.5px] px-0 shadow-none focus-visible:ring-0 focus-visible:border-zinc-900 placeholder:text-zinc-300 pr-10",
                   errors.password && "border-red-500 focus:border-red-500"
                 )}
                 {...register("password")}
@@ -278,7 +278,7 @@ export default function SignupPage() {
                 type={showPassword ? "text" : "password"}
                 placeholder="••••••••"
                 className={cn(
-                  "h-12 bg-zinc-50/50 border-zinc-400 focus:bg-white transition-all rounded-none border-t-0 border-r-0 border-l-0 border-b-[1.5px] px-0 shadow-none focus-visible:ring-0 focus-visible:border-zinc-900 placeholder:text-zinc-300 pr-10",
+                  "h-12 bg-zinc-50/50 border-zinc-400 text-zinc-900 focus:bg-white transition-all rounded-none border-t-0 border-r-0 border-l-0 border-b-[1.5px] px-0 shadow-none focus-visible:ring-0 focus-visible:border-zinc-900 placeholder:text-zinc-300 pr-10",
                   errors.confirmPassword && "border-red-500 focus:border-red-500"
                 )}
                 {...register("confirmPassword")}
@@ -326,7 +326,7 @@ export default function SignupPage() {
                   type="text"
                   maxLength={1}
                   className={cn(
-                    "w-10 h-12 text-center text-lg font-bold border-b-2 bg-zinc-50 focus:bg-white focus:border-[#001e3c] focus:outline-none transition-all",
+                    "w-10 h-12 text-center text-lg font-bold text-zinc-900 border-b-2 bg-zinc-50 focus:bg-white focus:border-[#001e3c] focus:outline-none transition-all",
                     otpErrors.otp ? "border-red-500" : "border-zinc-300"
                   )}
                   onChange={(e) => {

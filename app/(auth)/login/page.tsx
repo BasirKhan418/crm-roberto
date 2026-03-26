@@ -129,7 +129,7 @@ export default function LoginPage() {
               type="email"
               placeholder="name@company.com"
               className={cn(
-                "h-12 bg-zinc-50/50 border-zinc-400 focus:bg-white transition-all rounded-none border-t-0 border-r-0 border-l-0 border-b-[1.5px] px-0 shadow-none focus-visible:ring-0 focus-visible:border-zinc-900 placeholder:text-zinc-300",
+                "h-12 bg-zinc-50/50 border-zinc-400 text-zinc-900 focus:bg-white transition-all rounded-none border-t-0 border-r-0 border-l-0 border-b-[1.5px] px-0 shadow-none focus-visible:ring-0 focus-visible:border-zinc-900 placeholder:text-zinc-300",
                 errors.email && "border-red-500 focus:border-red-500"
               )}
               {...register("email")}
@@ -163,7 +163,7 @@ export default function LoginPage() {
               type={showPassword ? "text" : "password"}
               placeholder="••••••••"
               className={cn(
-                "h-12 bg-zinc-50/50 border-zinc-400 focus:bg-white transition-all rounded-none border-t-0 border-r-0 border-l-0 border-b-[1.5px] px-0 shadow-none focus-visible:ring-0 focus-visible:border-zinc-900 placeholder:text-zinc-300 pr-10",
+                "h-12 bg-zinc-50/50 border-zinc-400 text-zinc-900 focus:bg-white transition-all rounded-none border-t-0 border-r-0 border-l-0 border-b-[1.5px] px-0 shadow-none focus-visible:ring-0 focus-visible:border-zinc-900 placeholder:text-zinc-300 pr-10",
                 errors.password && "border-red-500 focus:border-red-500"
               )}
               {...register("password")}

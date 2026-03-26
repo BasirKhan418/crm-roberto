@@ -83,7 +83,7 @@ export default function AuthLayout({
         </div>
 
         {/* Right Form Area with Motion Transition */}
-        <div className="relative flex flex-col justify-center bg-white p-8 lg:p-14 overflow-hidden">
+        <div className="relative flex flex-col justify-center bg-white p-8 text-zinc-900 lg:p-14 overflow-hidden">
           {/* Mobile Logo */}
           <div className="lg:hidden absolute top-8 left-8 flex items-center gap-2">
             <div className="h-8 w-8 relative rounded-lg overflow-hidden">
