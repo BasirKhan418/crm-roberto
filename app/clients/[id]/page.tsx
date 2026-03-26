@@ -54,7 +54,10 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
 
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isNoteOpen, setIsNoteOpen] = useState(false);
+  const [isNoteEditOpen, setIsNoteEditOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isNoteUpdating, setIsNoteUpdating] = useState(false);
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
 
   const [editForm, setEditForm] = useState({
     fullName: '',
@@ -66,6 +69,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   });
 
   const [noteForm, setNoteForm] = useState({ title: '', description: '', followUpDate: '' });
+  const [editNoteForm, setEditNoteForm] = useState({ title: '', description: '', followUpDate: '' });
 
   useEffect(() => {
     params.then((resolved) => setClientId(resolved.id));
@@ -195,6 +199,52 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     }
   }
 
+  function openNoteEdit(note: NoteItem) {
+    setEditingNoteId(note._id);
+    setEditNoteForm({
+      title: note.title,
+      description: note.description,
+      followUpDate: note.followUpDate ? String(note.followUpDate).slice(0, 10) : '',
+    });
+    setIsNoteEditOpen(true);
+  }
+
+  async function updateNote() {
+    if (!editingNoteId) {
+      return;
+    }
+    if (!editNoteForm.title.trim() || !editNoteForm.description.trim()) {
+      toast.error('Title and description are required');
+      return;
+    }
+
+    setIsNoteUpdating(true);
+    try {
+      const response = await fetch(`/api/notes/${editingNoteId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: editNoteForm.title,
+          description: editNoteForm.description,
+          followUpDate: editNoteForm.followUpDate || null,
+        }),
+      });
+      const data = (await response.json()) as { success: boolean; message?: string };
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || 'Failed to update note');
+      }
+
+      toast.success('Note updated');
+      setIsNoteEditOpen(false);
+      setEditingNoteId(null);
+      await loadDetails();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update note');
+    } finally {
+      setIsNoteUpdating(false);
+    }
+  }
+
   return (
     <CrmShell title="Client detail">
       {error ? <ErrorMessage message={error} /> : null}
@@ -283,6 +333,39 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                     </SheetFooter>
                   </SheetContent>
                 </Sheet>
+
+                <Sheet
+                  open={isNoteEditOpen}
+                  onOpenChange={(open) => {
+                    setIsNoteEditOpen(open);
+                    if (!open) {
+                      setEditingNoteId(null);
+                    }
+                  }}
+                >
+                  <SheetContent side="right" className="w-full sm:max-w-lg">
+                    <SheetHeader>
+                      <SheetTitle>Edit note</SheetTitle>
+                      <SheetDescription>Update this client note.</SheetDescription>
+                    </SheetHeader>
+                    <div className="space-y-3 px-4">
+                      <div className="space-y-1.5"><Label>Title</Label><Input value={editNoteForm.title} onChange={(e) => setEditNoteForm((p) => ({ ...p, title: e.target.value }))} /></div>
+                      <div className="space-y-1.5">
+                        <Label>Description</Label>
+                        <textarea
+                          className="min-h-28 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                          value={editNoteForm.description}
+                          onChange={(e) => setEditNoteForm((p) => ({ ...p, description: e.target.value }))}
+                        />
+                      </div>
+                      <div className="space-y-1.5"><Label>Follow-up date</Label><Input type="date" value={editNoteForm.followUpDate} onChange={(e) => setEditNoteForm((p) => ({ ...p, followUpDate: e.target.value }))} /></div>
+                    </div>
+                    <SheetFooter>
+                      <Button variant="outline" onClick={() => setIsNoteEditOpen(false)}>Cancel</Button>
+                      <Button onClick={updateNote} disabled={isNoteUpdating}>{isNoteUpdating ? 'Saving...' : 'Save changes'}</Button>
+                    </SheetFooter>
+                  </SheetContent>
+                </Sheet>
               </div>
             </CardContent>
           </Card>
@@ -300,7 +383,12 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                   <div key={note._id} className={`rounded-lg border border-border/70 p-3 ${index === timeline.length - 1 ? '' : ''}`}>
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <h3 className="text-sm font-semibold">{note.title}</h3>
-                      <span className="text-xs text-muted-foreground">{new Date(note.createdAt).toLocaleString('en-US')}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">{new Date(note.createdAt).toLocaleString('en-US')}</span>
+                        <Button type="button" variant="ghost" size="icon-sm" onClick={() => openNoteEdit(note)}>
+                          <PencilIcon />
+                        </Button>
+                      </div>
                     </div>
                     <p className="mt-1 text-sm text-muted-foreground">{note.description}</p>
                     {note.followUpDate ? (

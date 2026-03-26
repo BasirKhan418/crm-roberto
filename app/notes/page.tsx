@@ -3,10 +3,20 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { PlusIcon, SearchIcon, Trash2Icon } from 'lucide-react';
+import { PencilIcon, PlusIcon, SearchIcon, Trash2Icon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import CrmShell from '@/components/crm-shell';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import EmptyState from '@/components/ui/EmptyState';
@@ -50,13 +60,26 @@ export default function NotesPage() {
   const [filter, setFilter] = useState<'all' | 'client' | 'supplier'>('all');
 
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
 
   const [clients, setClients] = useState<LinkedEntity[]>([]);
   const [suppliers, setSuppliers] = useState<LinkedEntity[]>([]);
 
   const [form, setForm] = useState({
+    title: '',
+    description: '',
+    linkedType: 'client' as 'client' | 'supplier',
+    linkedId: '',
+    followUpDate: '',
+  });
+
+  const [editForm, setEditForm] = useState({
     title: '',
     description: '',
     linkedType: 'client' as 'client' | 'supplier',
@@ -137,6 +160,17 @@ export default function NotesPage() {
     }
   }, [form.linkedType, form.linkedId, clients, suppliers]);
 
+  useEffect(() => {
+    if (!isEditOpen) {
+      return;
+    }
+
+    const options = editForm.linkedType === 'client' ? clients : suppliers;
+    if (options.length > 0 && !options.some((item) => item._id === editForm.linkedId)) {
+      setEditForm((prev) => ({ ...prev, linkedId: options[0]._id }));
+    }
+  }, [isEditOpen, editForm.linkedType, editForm.linkedId, clients, suppliers]);
+
   async function createNote() {
     if (!form.title.trim() || !form.description.trim() || !form.linkedId) {
       toast.error('Title, description, and linked record are required');
@@ -168,11 +202,6 @@ export default function NotesPage() {
   }
 
   async function deleteNote(noteId: string) {
-    const confirmed = window.confirm('Delete this note?');
-    if (!confirmed) {
-      return;
-    }
-
     setDeletingNoteId(noteId);
     try {
       const response = await fetch(`/api/notes/${noteId}`, {
@@ -187,6 +216,8 @@ export default function NotesPage() {
       setNotes((prev) => prev.filter((note) => note._id !== noteId));
       setPagination((prev) => ({ ...prev, total: Math.max(0, prev.total - 1) }));
       toast.success('Note deleted');
+      setIsDeleteConfirmOpen(false);
+      setDeleteTargetId(null);
       await loadNotes();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to delete note');
@@ -195,7 +226,59 @@ export default function NotesPage() {
     }
   }
 
+  function openEditNote(note: Note) {
+    setEditingNoteId(note._id);
+    setEditForm({
+      title: note.title,
+      description: note.description,
+      linkedType: note.linkedType,
+      linkedId: note.linkedId?._id || '',
+      followUpDate: note.followUpDate ? String(note.followUpDate).slice(0, 10) : '',
+    });
+    setIsEditOpen(true);
+  }
+
+  async function updateNote() {
+    if (!editingNoteId) {
+      return;
+    }
+    if (!editForm.title.trim() || !editForm.description.trim() || !editForm.linkedId) {
+      toast.error('Title, description, and linked record are required');
+      return;
+    }
+
+    setIsUpdating(true);
+    try {
+      const response = await fetch(`/api/notes/${editingNoteId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: editForm.title,
+          description: editForm.description,
+          linkedType: editForm.linkedType,
+          linkedId: editForm.linkedId,
+          followUpDate: editForm.followUpDate || null,
+        }),
+      });
+
+      const data = (await response.json()) as { success: boolean; message?: string };
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || 'Failed to update note');
+      }
+
+      toast.success('Note updated');
+      setIsEditOpen(false);
+      setEditingNoteId(null);
+      await loadNotes();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update note');
+    } finally {
+      setIsUpdating(false);
+    }
+  }
+
   const linkedOptions = form.linkedType === 'client' ? clients : suppliers;
+  const editLinkedOptions = editForm.linkedType === 'client' ? clients : suppliers;
 
   return (
     <CrmShell title="Notes">
@@ -212,13 +295,13 @@ export default function NotesPage() {
               Add note
             </Button>
           </SheetTrigger>
-          <SheetContent side="right" className="w-full sm:max-w-lg">
+          <SheetContent side="right" className="w-full p-0 sm:max-w-xl">
             <SheetHeader>
               <SheetTitle>Create note</SheetTitle>
               <SheetDescription>Add note from global view and link it to client or supplier.</SheetDescription>
             </SheetHeader>
 
-            <div className="space-y-3 px-4">
+            <div className="max-h-[calc(100svh-10rem)] space-y-3 overflow-y-auto px-4 pb-4 sm:px-6">
               <div className="space-y-1.5">
                 <Label>Title</Label>
                 <Input value={form.title} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} />
@@ -275,6 +358,113 @@ export default function NotesPage() {
             </SheetFooter>
           </SheetContent>
         </Sheet>
+
+        <Sheet
+          open={isEditOpen}
+          onOpenChange={(open) => {
+            setIsEditOpen(open);
+            if (!open) {
+              setEditingNoteId(null);
+            }
+          }}
+        >
+          <SheetContent side="right" className="w-full p-0 sm:max-w-xl">
+            <SheetHeader>
+              <SheetTitle>Edit note</SheetTitle>
+              <SheetDescription>Update note details and linked record.</SheetDescription>
+            </SheetHeader>
+
+            <div className="max-h-[calc(100svh-10rem)] space-y-3 overflow-y-auto px-4 pb-4 sm:px-6">
+              <div className="space-y-1.5">
+                <Label>Title</Label>
+                <Input value={editForm.title} onChange={(e) => setEditForm((p) => ({ ...p, title: e.target.value }))} />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Description</Label>
+                <textarea
+                  className="min-h-28 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                  value={editForm.description}
+                  onChange={(e) => setEditForm((p) => ({ ...p, description: e.target.value }))}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label>Linked type</Label>
+                  <Select
+                    value={editForm.linkedType}
+                    onValueChange={(value: 'client' | 'supplier') =>
+                      setEditForm((p) => ({ ...p, linkedType: value, linkedId: '' }))
+                    }
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="client">Client</SelectItem>
+                      <SelectItem value="supplier">Supplier</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label>Linked record</Label>
+                  <Select value={editForm.linkedId} onValueChange={(value) => setEditForm((p) => ({ ...p, linkedId: value }))}>
+                    <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectContent>
+                      {editLinkedOptions.map((item) => (
+                        <SelectItem key={item._id} value={item._id}>{item.fullName}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Follow-up date</Label>
+                <Input
+                  type="date"
+                  value={editForm.followUpDate}
+                  onChange={(e) => setEditForm((p) => ({ ...p, followUpDate: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <SheetFooter>
+              <Button variant="outline" onClick={() => setIsEditOpen(false)}>Cancel</Button>
+              <Button onClick={updateNote} disabled={isUpdating}>{isUpdating ? 'Saving...' : 'Save changes'}</Button>
+            </SheetFooter>
+          </SheetContent>
+        </Sheet>
+
+        <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete note?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. The note will be permanently removed.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel asChild>
+                <Button variant="outline">Cancel</Button>
+              </AlertDialogCancel>
+              <AlertDialogAction
+                asChild
+                onClick={(event) => {
+                  event.preventDefault();
+                  if (!deleteTargetId || deletingNoteId === deleteTargetId) {
+                    return;
+                  }
+                  void deleteNote(deleteTargetId);
+                }}
+              >
+                <Button variant="destructive" disabled={!deleteTargetId || deletingNoteId === deleteTargetId}>
+                  {deletingNoteId === deleteTargetId ? 'Deleting...' : 'Delete note'}
+                </Button>
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
 
       <Card>
@@ -325,8 +515,19 @@ export default function NotesPage() {
                       type="button"
                       variant="ghost"
                       size="icon-sm"
+                      onClick={() => openEditNote(note)}
+                    >
+                      <PencilIcon />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
                       className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-                      onClick={() => deleteNote(note._id)}
+                      onClick={() => {
+                        setDeleteTargetId(note._id);
+                        setIsDeleteConfirmOpen(true);
+                      }}
                       disabled={deletingNoteId === note._id}
                     >
                       <Trash2Icon />
