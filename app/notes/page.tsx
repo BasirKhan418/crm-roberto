@@ -607,7 +607,7 @@ export default function NotesPage() {
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <h3 className="text-base font-semibold">{note.title}</h3>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">{new Date(note.createdAt).toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')}</span>
+                    <span className="text-xs text-muted-foreground">{new Date(note.createdAt).toLocaleString('en-US')}</span>
                     <Button
                       type="button"
                       variant="ghost"
@@ -637,11 +637,11 @@ export default function NotesPage() {
                     className="rounded-full bg-sky-100 px-2 py-1 text-sky-700 hover:bg-sky-200 dark:bg-sky-900/40 dark:text-sky-300"
                     href={`/${note.linkedType === 'client' ? 'clients' : 'suppliers'}/${note.linkedId?._id}`}
                   >
-                    {note.linkedType === 'client' ? t.client : t.supplier} · {note.linkedId?.fullName}
+                    {note.linkedType === 'client' ? 'Client' : 'Supplier'} · {note.linkedId?.fullName}
                   </Link>
                   {note.followUpDate ? (
                     <span className="rounded-full bg-amber-100 px-2 py-1 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
-                      {t.followUp}: {new Date(note.followUpDate).toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-US')}
+                      {t.followUp}: {new Date(note.followUpDate).toLocaleDateString('en-US')}
                     </span>
                   ) : null}
                 </div>

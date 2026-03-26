@@ -521,7 +521,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <h3 className="text-sm font-semibold">{note.title}</h3>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground">{new Date(note.createdAt).toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')}</span>
+                        <span className="text-xs text-muted-foreground">{new Date(note.createdAt).toLocaleString('en-US')}</span>
                         <Button type="button" variant="ghost" size="icon-sm" onClick={() => openNoteEdit(note)}>
                           <PencilIcon />
                         </Button>
@@ -529,7 +529,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                     </div>
                     <p className="mt-1 text-sm text-muted-foreground">{note.description}</p>
                     {note.followUpDate ? (
-                      <p className="mt-2 text-xs text-sky-600 dark:text-sky-400">{t.followUp}: {new Date(note.followUpDate).toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-US')}</p>
+                      <p className="mt-2 text-xs text-sky-600 dark:text-sky-400">{t.followUp}: {new Date(note.followUpDate).toLocaleDateString('en-US')}</p>
                     ) : null}
                   </div>
                 ))

@@ -161,7 +161,7 @@ export default function ClientsPage() {
     } finally {
       setLoading(false);
     }
-  }, [query]);
+  }, [query, t.fetchFailed]);
 
   useEffect(() => {
     loadClients();
@@ -319,7 +319,7 @@ export default function ClientsPage() {
                       <TableCell>{client.email || '-'}</TableCell>
                       <TableCell>{client.phone || '-'}</TableCell>
                       <TableCell>{client.companyName || '-'}</TableCell>
-                      <TableCell>{new Date(client.createdAt).toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-US')}</TableCell>
+                      <TableCell>{new Date(client.createdAt).toLocaleDateString('en-US')}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

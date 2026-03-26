@@ -20,7 +20,7 @@ function getStartOfDay(date: Date): number {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
 }
 
-function formatFollowUpDate(dateStr: string | undefined, locale: 'en' | 'fr'): string {
+function formatFollowUpDate(dateStr?: string): string {
   if (!dateStr) {
     return '--';
   }
@@ -38,14 +38,14 @@ function formatFollowUpDate(dateStr: string | undefined, locale: 'en' | 'fr'): s
   const targetStart = getStartOfDay(date);
 
   if (targetStart === todayStart) {
-    return locale === 'fr' ? 'Aujourd\'hui' : 'Today';
+    return 'Today';
   }
 
   if (targetStart === tomorrowStart) {
-    return locale === 'fr' ? 'Demain' : 'Tomorrow';
+    return 'Tomorrow';
   }
 
-  return date.toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-US', { day: 'numeric', month: 'short' });
+  return date.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
 }
 
 function buildLinkedPath(item: FollowUpItem): string {
@@ -59,18 +59,10 @@ export default function FollowUpsList({ followUps = [], loading = false, error =
   const t = {
     en: {
       title: 'Upcoming follow-ups',
-      untitled: 'Untitled follow-up',
-      client: 'Client',
-      supplier: 'Supplier',
-      unknown: 'Unknown',
       empty: 'No upcoming follow-ups. Add a follow-up date to any note.',
     },
     fr: {
       title: 'Suivis a venir',
-      untitled: 'Suivi sans titre',
-      client: 'Client',
-      supplier: 'Fournisseur',
-      unknown: 'Inconnu',
       empty: 'Aucun suivi a venir. Ajoutez une date de suivi a une note.',
     },
   }[locale];
@@ -108,17 +100,17 @@ export default function FollowUpsList({ followUps = [], loading = false, error =
                   className={`flex items-start gap-3 py-2 ${isLast ? '' : 'border-b border-border/70'}`}
                 >
                   <span className="min-w-16 pt-0.5 text-xs font-semibold text-sky-600 dark:text-sky-400">
-                    {formatFollowUpDate(item.followUpDate, locale)}
+                    {formatFollowUpDate(item.followUpDate)}
                   </span>
 
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm text-foreground">{item.title ?? t.untitled}</p>
+                    <p className="truncate text-sm text-foreground">{item.title ?? 'Untitled follow-up'}</p>
                     <Link
                       href={buildLinkedPath(item)}
                       className="mt-1 inline-flex max-w-full items-center rounded-full bg-sky-100 px-2 py-0.5 text-xs text-sky-700 hover:bg-sky-200 dark:bg-sky-900/40 dark:text-sky-300 dark:hover:bg-sky-900/60"
                     >
                       <span className="truncate">
-                        {item.linkedType === 'client' ? t.client : t.supplier} - {item.linkedId?.fullName ?? t.unknown}
+                        {item.linkedType === 'client' ? 'Client' : 'Supplier'} - {item.linkedId?.fullName ?? 'Unknown'}
                       </span>
                     </Link>
                   </div>

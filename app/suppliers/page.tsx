@@ -161,7 +161,7 @@ export default function SuppliersPage() {
     } finally {
       setLoading(false);
     }
-  }, [query]);
+  }, [query, t.fetchFailed]);
 
   useEffect(() => {
     loadSuppliers();
@@ -319,7 +319,7 @@ export default function SuppliersPage() {
                       <TableCell>{supplier.email || '-'}</TableCell>
                       <TableCell>{supplier.phone || '-'}</TableCell>
                       <TableCell>{supplier.companyName || '-'}</TableCell>
-                      <TableCell>{new Date(supplier.createdAt).toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-US')}</TableCell>
+                      <TableCell>{new Date(supplier.createdAt).toLocaleDateString('en-US')}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

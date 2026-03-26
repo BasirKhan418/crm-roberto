@@ -44,7 +44,7 @@ interface ActivityFeedProps {
   error?: string | null;
 }
 
-function relativeTime(dateString: string | undefined, locale: 'en' | 'fr'): string {
+function relativeTime(dateString?: string): string {
   if (!dateString) {
     return '--';
   }
@@ -59,29 +59,29 @@ function relativeTime(dateString: string | undefined, locale: 'en' | 'fr'): stri
   const mins = Math.floor(diffMs / 60000);
 
   if (mins < 1) {
-    return locale === 'fr' ? 'A l\'instant' : 'Just now';
+    return 'Just now';
   }
 
   if (mins < 60) {
-    return locale === 'fr' ? `Il y a ${mins} min` : `${mins}m ago`;
+    return `${mins}m ago`;
   }
 
   if (mins < 1440) {
-    return locale === 'fr' ? `Il y a ${Math.floor(mins / 60)} h` : `${Math.floor(mins / 60)}h ago`;
+    return `${Math.floor(mins / 60)}h ago`;
   }
 
   if (mins < 2880) {
-    return locale === 'fr' ? 'Hier' : 'Yesterday';
+    return 'Yesterday';
   }
 
-  return new Date(timestamp).toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-US', {
+  return new Date(timestamp).toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
   });
 }
 
-function getActivityText(item: ActivityItem, locale: 'en' | 'fr'): string {
-  const action = item.action ? (ACTION_LABEL[locale][item.action] ?? item.action) : locale === 'fr' ? 'Activite' : 'Activity';
+function getActivityText(item: ActivityItem): string {
+  const action = item.action ? (ACTION_LABEL.en[item.action] ?? item.action) : 'Activity';
   const name = item.entityName ? ` - ${item.entityName}` : '';
 
   return `${action}${name}`;
@@ -123,9 +123,9 @@ export default function ActivityFeed({ activity = [], loading = false, error = n
                 <span
                   className={`mt-1.5 size-2 shrink-0 rounded-full ${DOT_CLASS[item.entityType ?? ''] ?? 'bg-muted-foreground/50'}`}
                 />
-                <p className="flex-1 text-sm text-foreground">{getActivityText(item, locale)}</p>
+                <p className="flex-1 text-sm text-foreground">{getActivityText(item)}</p>
                 <span className="text-xs text-muted-foreground whitespace-nowrap">
-                  {relativeTime(item.createdAt, locale)}
+                  {relativeTime(item.createdAt)}
                 </span>
               </div>
             );
