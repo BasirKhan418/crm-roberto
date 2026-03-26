@@ -49,10 +49,10 @@ export default function LoginPage() {
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <h1 className="text-4xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="font-poppins text-4xl font-semibold tracking-tight text-zinc-900">
           Welcome Back
         </h1>
-        <p className="text-zinc-500 font-medium text-sm">
+        <p className="font-roboto text-zinc-500 font-medium text-sm">
           Sign in to your editorial dashboard.
         </p>
       </div>
@@ -78,7 +78,7 @@ export default function LoginPage() {
             />
           </div>
           {errors.email && (
-            <p className="text-[11px] font-semibold text-red-600 mt-1.5 ml-0.5">
+            <p className="font-roboto text-[11px] font-semibold text-red-600 mt-1.5 ml-0.5">
               {errors.email.message}
             </p>
           )}
@@ -119,7 +119,7 @@ export default function LoginPage() {
             </button>
           </div>
           {errors.password && (
-            <p className="text-[11px] font-semibold text-red-600 mt-1.5 ml-0.5">
+            <p className="font-roboto text-[11px] font-semibold text-red-600 mt-1.5 ml-0.5">
               {errors.password.message}
             </p>
           )}
@@ -142,7 +142,7 @@ export default function LoginPage() {
       </form>
 
       <div className="pt-4 text-center">
-        <p className="text-zinc-500 text-sm font-medium">
+        <p className="font-roboto text-zinc-500 text-sm font-medium">
           New to the executive platform?{" "}
           <Link 
             href="/signup" 

@@ -37,7 +37,7 @@ export default function AuthLayout({
             </div>
 
             <div className="mt-20 space-y-6">
-              <h1 className="text-5xl font-bold leading-[1.1] tracking-tight">
+              <h1 className="font-poppins text-5xl font-bold leading-[1.1] tracking-tight">
                 The Editorial <br />
                 <span className="text-blue-400/90">Standard</span> of <br />
                 Management.
@@ -51,7 +51,7 @@ export default function AuthLayout({
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#001e3c]/80 via-transparent to-transparent" />
                 <div className="absolute bottom-4 left-4 right-4">
-                  <p className="text-[10px] font-medium text-white/60 italic leading-relaxed">
+                  <p className="font-roboto text-[10px] font-medium text-white/60 italic leading-relaxed">
                     &quot;Precision is the foundation of professional excellence.&quot;
                   </p>
                   <p className="text-[8px] uppercase tracking-widest text-white/40 mt-1">— Editorial Management Protocol</p>

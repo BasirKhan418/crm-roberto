@@ -55,10 +55,10 @@ export default function SignupPage() {
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <h1 className="text-4xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="font-poppins text-4xl font-semibold tracking-tight text-zinc-900">
           Create Account
         </h1>
-        <p className="text-zinc-500 font-medium text-sm">
+        <p className="font-roboto text-zinc-500 font-medium text-sm">
           Join the executive management platform.
         </p>
       </div>
@@ -81,7 +81,7 @@ export default function SignupPage() {
             {...register("fullName")}
           />
           {errors.fullName && (
-            <p className="text-[11px] font-semibold text-red-600 mt-1.5 ml-0.5">
+            <p className="font-roboto text-[11px] font-semibold text-red-600 mt-1.5 ml-0.5">
               {errors.fullName.message}
             </p>
           )}
@@ -105,7 +105,7 @@ export default function SignupPage() {
             {...register("email")}
           />
           {errors.email && (
-            <p className="text-[11px] font-semibold text-red-600 mt-1.5 ml-0.5">
+            <p className="font-roboto text-[11px] font-semibold text-red-600 mt-1.5 ml-0.5">
               {errors.email.message}
             </p>
           )}
@@ -138,7 +138,7 @@ export default function SignupPage() {
             </button>
           </div>
           {errors.password && (
-            <p className="text-[11px] font-semibold text-red-600 mt-1.5 ml-0.5">
+            <p className="font-roboto text-[11px] font-semibold text-red-600 mt-1.5 ml-0.5">
               {errors.password.message}
             </p>
           )}
@@ -171,7 +171,7 @@ export default function SignupPage() {
             </button>
           </div>
           {errors.confirmPassword && (
-            <p className="text-[11px] font-semibold text-red-600 mt-1.5 ml-0.5">
+            <p className="font-roboto text-[11px] font-semibold text-red-600 mt-1.5 ml-0.5">
               {errors.confirmPassword.message}
             </p>
           )}
@@ -194,7 +194,7 @@ export default function SignupPage() {
       </form>
 
       <div className="pt-4 text-center">
-        <p className="text-zinc-500 text-sm font-medium">
+        <p className="font-roboto text-zinc-500 text-sm font-medium">
           Already have an account?{" "}
           <Link 
             href="/login" 
