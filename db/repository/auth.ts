@@ -25,7 +25,7 @@ const registerUser = async (name: string, email: string, password: string) => {
 const loginUser = async (email: string, password: string) => {
     try {
         await ConnectDb();
-        const user = await User.findOne({ email }).select("+password");
+        const user = await User.findOne({ email,isEmailVerified: true }).select("+password");
         console.log("User found:", user);
         if (!user) {
             return { message: "User not found", success: false };

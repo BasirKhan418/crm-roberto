@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
+import { toast } from "sonner"
 import { 
   ArrowRight,
   Loader2,
@@ -40,10 +41,39 @@ export default function LoginPage() {
 
   async function onSubmit(data: LoginValues) {
     setIsLoading(true)
-    setTimeout(() => {
+    try{
+      const response = await fetch("/api/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      })
+      const result = await response.json()
+      console.log("Login result:", result)
+        setIsLoading(false)
+        if(result.success){
+          toast.success(result.message || "Login successful! Redirecting to dashboard...")
+          if(result.isOnboardingComplet){
+            router.push("/dashboard")
+          }
+          else{
+            router.push("/onboarding")
+          }
+        }
+        else{
+          toast.error(result.message || "Login failed. Please check your credentials and try again.")
+        }
+    }
+    catch(error){
+      toast.error("An error occurred during login. Please try again.")
+      console.error("Login error:", error)
       setIsLoading(false)
-      router.push("/dashboard")
-    }, 1500)
+    }
+    // setTimeout(() => {
+    //   setIsLoading(false)
+    //   router.push("/dashboard")
+    // }, 1500)
   }
 
   return (
