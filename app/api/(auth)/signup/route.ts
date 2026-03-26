@@ -24,7 +24,13 @@ export async function POST(request: NextRequest) {
         if (result.success) {
             //generate token and set cookie 
             const token = jwt.sign({ sub: result.user._id, name: result.user.name, email: result.user.email }, process.env.JWT_SECRET || "", { expiresIn: '7d' });
-            cookieStore.set("token", token, { httpOnly: true, secure: true, sameSite: "strict", maxAge: 7 * 24 * 60 * 60 });
+            cookieStore.set("token", token, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: "strict",
+                maxAge: 7 * 24 * 60 * 60,
+                path: "/",
+            });
             
             //trigger otp generation and sending email here
             const otp = Math.floor(100000 + Math.random() * 900000).toString(); // Generate a 6-digit OTP

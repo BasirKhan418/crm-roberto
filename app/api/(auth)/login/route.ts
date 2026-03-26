@@ -19,7 +19,13 @@ export async function POST(request: NextRequest) {
         //generate token and set cookie
         if(result.success){
             const token = jwt.sign({ sub: result.user._id, name: result.user.name, email: result.user.email }, process.env.JWT_SECRET || "", { expiresIn: '7d' });
-            cookieStore.set("token", token, { httpOnly: true, secure: true, sameSite: "strict", maxAge: 7 * 24 * 60 * 60 });
+            cookieStore.set("token", token, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: "strict",
+                maxAge: 7 * 24 * 60 * 60,
+                path: "/",
+            });
             return NextResponse.json({ message: result.message, success: true, isOnboardingComplete: result.user.isOnboardingComplete });
         }
         //in case of login failure, clear any existing token cookie

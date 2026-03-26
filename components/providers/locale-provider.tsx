@@ -15,7 +15,7 @@ type LocaleContextValue = {
 const LocaleContext = React.createContext<LocaleContextValue | null>(null)
 
 export function LocaleProvider({ children }: { children: React.ReactNode }) {
-  const [locale, setLocaleState] = React.useState<Locale>("en")
+  const [locale, setLocaleState] = React.useState<Locale>("fr")
 
   React.useEffect(() => {
     const savedLocale = window.localStorage.getItem(LOCALE_STORAGE_KEY)
@@ -25,9 +25,8 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
       return
     }
 
-    const browserLocale = navigator.language.toLowerCase().startsWith("fr") ? "fr" : "en"
-    setLocaleState(browserLocale)
-    document.documentElement.lang = browserLocale
+    setLocaleState("fr")
+    document.documentElement.lang = "fr"
   }, [])
 
   const setLocale = React.useCallback((nextLocale: Locale) => {

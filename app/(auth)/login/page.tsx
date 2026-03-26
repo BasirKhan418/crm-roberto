@@ -20,7 +20,7 @@ import { Label } from "@/components/ui/label"
 import { useLocale } from "@/components/providers/locale-provider"
 import { cn } from "@/lib/utils"
 
-const loginSchema = z.z.object({
+const loginSchema = z.object({
   email: z.string().email("Please enter a valid business email address."),
   password: z.string().min(1, "Password is required to access your account."),
 })
