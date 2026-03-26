@@ -25,22 +25,26 @@ export default async function proxy(request: NextRequest) {
       return NextResponse.redirect(new URL('/login', request.url));
     }
   }
-  if(URL12.some((url) => request.nextUrl.pathname.startsWith(url))) {
+
+  if (publicRoutes.some((route) => matchesExactRoute(pathname, route))) {
     const res = await useMe(false);
-    if(res.success){
+
+    if (res.success && pathname !== '/dashboard') {
       return NextResponse.redirect(new URL('/dashboard', request.url));
     }
     if(res.success && res.user&&res.user.isEmailVerified&&!res.user.isOnboardingComplete && pathname !== '/onboarding'){
       return NextResponse.redirect(new URL('/onboarding', request.url));
     }
   }
-  if(request.nextUrl.pathname=="/onboarding"){
+
+  if (pathname === '/onboarding') {
     const res = await useMe(true);
 
     if (!res.success) {
       return NextResponse.redirect(new URL('/login', request.url));
     }
-    if(res.success && res.user && res.user.isOnboardingComplete){
+
+    if (res.user?.isOnboardingComplete) {
       return NextResponse.redirect(new URL('/dashboard', request.url));
     }
   }
