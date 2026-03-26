@@ -14,10 +14,8 @@ export async function POST(request: NextRequest) {
         if (!validation.success) {
             return NextResponse.json({ message: validation.error.issues[0].message, success: false });
         }
-        //hash password
-        const hashedPassword = await argon2.hash(password + pepper);
-        //saved user to db
-        const result = await loginUser(email, hashedPassword);
+       
+        const result = await loginUser(email, password);
         //generate token and set cookie
         if(result.success){
             const token = jwt.sign({ sub: result.user._id,name: result.user.name,email: result.user.email }, process.env.JWT_SECRET ||"", { expiresIn: '7d' });

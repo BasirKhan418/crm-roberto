@@ -1,5 +1,6 @@
 
 import ConnectDb from "../connectDb";
+import argon2 from "argon2";
 import User from "../models/User";
 const registerUser = async (name: string, email: string, password: string) => {
     try{
@@ -19,19 +20,28 @@ const registerUser = async (name: string, email: string, password: string) => {
 
 
 const loginUser = async (email: string, password: string) => {
-    try{
+    try {
         await ConnectDb();
         const user = await User.findOne({ email }).select("+password");
+        console.log("User found:", user);
         if (!user) {
             return { message: "User not found", success: false };
         }
-        if (user.password !== password) {
+
+        const pepper = process.env.PASSWORD_PEPPER;
+
+        const isValid = await argon2.verify(
+            user.password,           // stored hash
+            password + pepper        // raw input + pepper
+        );
+
+        if (!isValid) {
             return { message: "Invalid password", success: false };
         }
+
         return { message: "Login successful", success: true, user };
-    }
-    catch(error){
-        return { message: "Error logging in user"+error, success: false };
+    } catch (error) {
+        return { message: "Error logging in user" + error, success: false };
     }
 };
 
