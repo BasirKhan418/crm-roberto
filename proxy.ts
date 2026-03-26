@@ -10,6 +10,7 @@ const publicRoutes = ['/', '/login', '/signup', '/forgot-password'];
 function matchesExactRoute(pathname: string, route: string): boolean {
   return pathname === route;
 }
+// sample 
 
 function matchesRoutePrefix(pathname: string, route: string): boolean {
   return pathname === route || pathname.startsWith(`${route}/`);
