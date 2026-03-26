@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { use, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { 
@@ -20,7 +20,31 @@ export default function IdentitySetupPage() {
  const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [isAgreed, setIsAgreed] = useState(true)
-
+  const fetchUserData = async () => {
+    try{
+      const response = await fetch("/api/me?fch=true", {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+      const result = await response.json()
+      if(result.success){
+        if(result.user.isOnboardingComplete){
+          router.push("/dashboard")
+        }
+      }
+      else{
+        router.push("/login")
+      }
+    }
+    catch(error){
+      console.error("Error fetching user data:", error)
+    }
+  }
+  useEffect(() => {
+    fetchUserData();
+  },[])
   const handleComplete = () => {
     if (!isAgreed) return
     setIsLoading(true)
