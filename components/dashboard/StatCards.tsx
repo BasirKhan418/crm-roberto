@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useLocale } from '@/components/providers/locale-provider';
 
 interface DashboardStats {
   totalClients?: number;
@@ -27,6 +28,23 @@ function toWholeNumber(value: unknown): number {
 }
 
 export default function StatCards() {
+  const { locale } = useLocale();
+  const t = {
+    en: {
+      loadError: 'Could not load stats.',
+      totalClients: 'Total clients',
+      totalSuppliers: 'Total suppliers',
+      notesWeek: 'Notes this week',
+      aria: 'Dashboard stats',
+    },
+    fr: {
+      loadError: 'Impossible de charger les statistiques.',
+      totalClients: 'Total des clients',
+      totalSuppliers: 'Total des fournisseurs',
+      notesWeek: 'Notes cette semaine',
+      aria: 'Statistiques du tableau de bord',
+    },
+  }[locale];
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -56,7 +74,7 @@ export default function StatCards() {
         }
 
         // Keep the last successful values visible if a transient request fails.
-        setFetchError('Could not load stats.');
+        setFetchError(t.loadError);
       } finally {
         if (!controller.signal.aborted) {
           setLoading(false);
@@ -67,18 +85,18 @@ export default function StatCards() {
     loadStats();
 
     return () => controller.abort();
-  }, []);
+  }, [t.loadError]);
 
   const cards = [
-    { label: 'Total clients', value: toWholeNumber(stats?.totalClients) },
-    { label: 'Total suppliers', value: toWholeNumber(stats?.totalSuppliers) },
-    { label: 'Notes this week', value: toWholeNumber(stats?.notesThisWeek) },
+    { label: t.totalClients, value: toWholeNumber(stats?.totalClients) },
+    { label: t.totalSuppliers, value: toWholeNumber(stats?.totalSuppliers) },
+    { label: t.notesWeek, value: toWholeNumber(stats?.notesThisWeek) },
   ];
   const hasStats = stats !== null;
   const showError = Boolean(fetchError) && !hasStats;
 
   return (
-    <section className="mb-6 grid grid-cols-1 gap-3 md:grid-cols-3" aria-label="Dashboard stats">
+    <section className="mb-6 grid grid-cols-1 gap-3 md:grid-cols-3" aria-label={t.aria}>
       {showError ? (
         <div className="md:col-span-3">
           <ErrorMessage message={fetchError ?? undefined} />

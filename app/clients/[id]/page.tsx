@@ -7,6 +7,7 @@ import { PencilIcon, PlusIcon, Trash2Icon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import CrmShell from '@/components/crm-shell';
+import { useLocale } from '@/components/providers/locale-provider';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -55,6 +56,101 @@ interface DetailResponse {
 
 export default function ClientDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
+  const { locale } = useLocale();
+  const t = {
+    en: {
+      loadFailed: 'Failed to load client details',
+      updateFailed: 'Failed to update client',
+      updated: 'Client updated',
+      deleteFailed: 'Failed to delete client',
+      deleted: 'Client deleted',
+      noteValidation: 'Title and description are required',
+      noteAddFailed: 'Failed to add note',
+      noteAdded: 'Note added',
+      noteUpdateFailed: 'Failed to update note',
+      noteUpdated: 'Note updated',
+      shellTitle: 'Client detail',
+      notFound: 'Client not found.',
+      profileSubtitle: 'Client profile and contact details.',
+      email: 'Email',
+      phone: 'Phone',
+      address: 'Address',
+      company: 'Company',
+      vat: 'VAT',
+      edit: 'Edit',
+      editClient: 'Edit client',
+      editClientDesc: 'Update core profile fields.',
+      name: 'Name',
+      vatTax: 'VAT/Tax ID',
+      cancel: 'Cancel',
+      saving: 'Saving...',
+      saveChanges: 'Save changes',
+      delete: 'Delete',
+      deleteTitle: 'Delete client?',
+      deleteDesc: 'This will permanently delete this client and linked notes.',
+      deleting: 'Deleting...',
+      deleteClient: 'Delete client',
+      addNote: 'Add note',
+      addNoteTitle: 'Add note',
+      addNoteDesc: 'This note is automatically linked to this client.',
+      title: 'Title',
+      description: 'Description',
+      followUpDate: 'Follow-up date',
+      saveNote: 'Save note',
+      editNote: 'Edit note',
+      editNoteDesc: 'Update this client note.',
+      timeline: 'Interaction timeline',
+      timelineDesc: 'Newest notes first so context is always visible.',
+      timelineEmpty: 'No notes yet. Add your first note from this profile.',
+      followUp: 'Follow-up',
+    },
+    fr: {
+      loadFailed: 'Impossible de charger les details du client',
+      updateFailed: 'Impossible de mettre a jour le client',
+      updated: 'Client mis a jour',
+      deleteFailed: 'Impossible de supprimer le client',
+      deleted: 'Client supprime',
+      noteValidation: 'Le titre et la description sont requis',
+      noteAddFailed: 'Impossible d\'ajouter la note',
+      noteAdded: 'Note ajoutee',
+      noteUpdateFailed: 'Impossible de mettre a jour la note',
+      noteUpdated: 'Note mise a jour',
+      shellTitle: 'Detail client',
+      notFound: 'Client introuvable.',
+      profileSubtitle: 'Profil client et coordonnees.',
+      email: 'E-mail',
+      phone: 'Telephone',
+      address: 'Adresse',
+      company: 'Entreprise',
+      vat: 'TVA',
+      edit: 'Modifier',
+      editClient: 'Modifier le client',
+      editClientDesc: 'Mettez a jour les champs principaux du profil.',
+      name: 'Nom',
+      vatTax: 'TVA/ID fiscal',
+      cancel: 'Annuler',
+      saving: 'Enregistrement...',
+      saveChanges: 'Enregistrer les modifications',
+      delete: 'Supprimer',
+      deleteTitle: 'Supprimer le client ?',
+      deleteDesc: 'Cette action supprimera definitivement ce client et ses notes liees.',
+      deleting: 'Suppression...',
+      deleteClient: 'Supprimer le client',
+      addNote: 'Ajouter une note',
+      addNoteTitle: 'Ajouter une note',
+      addNoteDesc: 'Cette note est automatiquement liee a ce client.',
+      title: 'Titre',
+      description: 'Description',
+      followUpDate: 'Date de suivi',
+      saveNote: 'Enregistrer la note',
+      editNote: 'Modifier la note',
+      editNoteDesc: 'Mettez a jour cette note client.',
+      timeline: 'Chronologie des interactions',
+      timelineDesc: 'Les notes les plus recentes en premier pour garder le contexte visible.',
+      timelineEmpty: 'Aucune note. Ajoutez votre premiere note depuis ce profil.',
+      followUp: 'Suivi',
+    },
+  }[locale];
 
   const [clientId, setClientId] = useState('');
   const [client, setClient] = useState<ClientRecord | null>(null);
@@ -102,7 +198,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       const data = (await response.json()) as DetailResponse;
 
       if (!response.ok || !data.success || !data.data) {
-        throw new Error(data.message || 'Failed to load client details');
+        throw new Error(data.message || t.loadFailed);
       }
 
       setClient(data.data.client);
@@ -116,13 +212,13 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         vatNumber: data.data.client.vatNumber || '',
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load client details');
+      setError(err instanceof Error ? err.message : t.loadFailed);
       setClient(null);
       setTimeline([]);
     } finally {
       setLoading(false);
     }
-  }, [endpoint]);
+  }, [endpoint, t.loadFailed]);
 
   useEffect(() => {
     loadDetails();
@@ -143,14 +239,14 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
 
       const data = (await response.json()) as { success: boolean; message?: string };
       if (!response.ok || !data.success) {
-        throw new Error(data.message || 'Failed to update client');
+        throw new Error(data.message || t.updateFailed);
       }
 
-      toast.success('Client updated');
+      toast.success(t.updated);
       setIsEditOpen(false);
       await loadDetails();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to update client');
+      toast.error(err instanceof Error ? err.message : t.updateFailed);
     } finally {
       setIsSaving(false);
     }
@@ -166,12 +262,12 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       const response = await fetch(`/api/clients/${client._id}`, { method: 'DELETE' });
       const data = (await response.json()) as { success: boolean; message?: string };
       if (!response.ok || !data.success) {
-        throw new Error(data.message || 'Failed to delete client');
+        throw new Error(data.message || t.deleteFailed);
       }
-      toast.success('Client deleted');
+      toast.success(t.deleted);
       router.push('/clients');
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to delete client');
+      toast.error(err instanceof Error ? err.message : t.deleteFailed);
     } finally {
       setIsDeletingClient(false);
       setIsDeleteConfirmOpen(false);
@@ -183,7 +279,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       return;
     }
     if (!noteForm.title.trim() || !noteForm.description.trim()) {
-      toast.error('Title and description are required');
+      toast.error(t.noteValidation);
       return;
     }
 
@@ -196,15 +292,15 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       });
       const data = (await response.json()) as { success: boolean; message?: string };
       if (!response.ok || !data.success) {
-        throw new Error(data.message || 'Failed to add note');
+        throw new Error(data.message || t.noteAddFailed);
       }
 
-      toast.success('Note added');
+      toast.success(t.noteAdded);
       setIsNoteOpen(false);
       setNoteForm({ title: '', description: '', followUpDate: '' });
       await loadDetails();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to add note');
+      toast.error(err instanceof Error ? err.message : t.noteAddFailed);
     } finally {
       setIsSaving(false);
     }
@@ -225,7 +321,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       return;
     }
     if (!editNoteForm.title.trim() || !editNoteForm.description.trim()) {
-      toast.error('Title and description are required');
+      toast.error(t.noteValidation);
       return;
     }
 
@@ -242,22 +338,22 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       });
       const data = (await response.json()) as { success: boolean; message?: string };
       if (!response.ok || !data.success) {
-        throw new Error(data.message || 'Failed to update note');
+        throw new Error(data.message || t.noteUpdateFailed);
       }
 
-      toast.success('Note updated');
+      toast.success(t.noteUpdated);
       setIsNoteEditOpen(false);
       setEditingNoteId(null);
       await loadDetails();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to update note');
+      toast.error(err instanceof Error ? err.message : t.noteUpdateFailed);
     } finally {
       setIsNoteUpdating(false);
     }
   }
 
   return (
-    <CrmShell title="Client detail">
+    <CrmShell title={t.shellTitle}>
       {error ? <ErrorMessage message={error} /> : null}
 
       {loading ? (
@@ -266,65 +362,65 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
           <Skeleton className="h-56 w-full" />
         </div>
       ) : !client ? (
-        <EmptyState message="Client not found." />
+        <EmptyState message={t.notFound} />
       ) : (
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_1.2fr]">
           <Card>
             <CardHeader className="border-b">
               <CardTitle className="text-xl">{client.fullName}</CardTitle>
-              <p className="text-sm text-muted-foreground">Client profile and contact details.</p>
+              <p className="text-sm text-muted-foreground">{t.profileSubtitle}</p>
             </CardHeader>
             <CardContent className="space-y-2 pt-4 text-sm">
-              <p><span className="text-muted-foreground">Email:</span> {client.email || '-'}</p>
-              <p><span className="text-muted-foreground">Phone:</span> {client.phone || '-'}</p>
-              <p><span className="text-muted-foreground">Address:</span> {client.address || '-'}</p>
-              <p><span className="text-muted-foreground">Company:</span> {client.companyName || '-'}</p>
-              <p><span className="text-muted-foreground">VAT:</span> {client.vatNumber || '-'}</p>
+              <p><span className="text-muted-foreground">{t.email}:</span> {client.email || '-'}</p>
+              <p><span className="text-muted-foreground">{t.phone}:</span> {client.phone || '-'}</p>
+              <p><span className="text-muted-foreground">{t.address}:</span> {client.address || '-'}</p>
+              <p><span className="text-muted-foreground">{t.company}:</span> {client.companyName || '-'}</p>
+              <p><span className="text-muted-foreground">{t.vat}:</span> {client.vatNumber || '-'}</p>
 
               <div className="flex flex-wrap gap-2 pt-3">
                 <Sheet open={isEditOpen} onOpenChange={setIsEditOpen}>
                   <SheetTrigger asChild>
                     <Button variant="outline" size="sm">
                       <PencilIcon />
-                      Edit
+                      {t.edit}
                     </Button>
                   </SheetTrigger>
                   <SheetContent side="right" className="w-full sm:max-w-lg">
                     <SheetHeader>
-                      <SheetTitle>Edit client</SheetTitle>
-                      <SheetDescription>Update core profile fields.</SheetDescription>
+                      <SheetTitle>{t.editClient}</SheetTitle>
+                      <SheetDescription>{t.editClientDesc}</SheetDescription>
                     </SheetHeader>
                     <div className="space-y-3 px-4">
-                      <div className="space-y-1.5"><Label>Name</Label><Input value={editForm.fullName} onChange={(e) => setEditForm((p) => ({ ...p, fullName: e.target.value }))} /></div>
-                      <div className="space-y-1.5"><Label>Email</Label><Input value={editForm.email} onChange={(e) => setEditForm((p) => ({ ...p, email: e.target.value }))} /></div>
-                      <div className="space-y-1.5"><Label>Phone</Label><Input value={editForm.phone} onChange={(e) => setEditForm((p) => ({ ...p, phone: e.target.value }))} /></div>
-                      <div className="space-y-1.5"><Label>Address</Label><Input value={editForm.address} onChange={(e) => setEditForm((p) => ({ ...p, address: e.target.value }))} /></div>
-                      <div className="space-y-1.5"><Label>Company</Label><Input value={editForm.companyName} onChange={(e) => setEditForm((p) => ({ ...p, companyName: e.target.value }))} /></div>
-                      <div className="space-y-1.5"><Label>VAT/Tax ID</Label><Input value={editForm.vatNumber} onChange={(e) => setEditForm((p) => ({ ...p, vatNumber: e.target.value }))} /></div>
+                      <div className="space-y-1.5"><Label>{t.name}</Label><Input value={editForm.fullName} onChange={(e) => setEditForm((p) => ({ ...p, fullName: e.target.value }))} /></div>
+                      <div className="space-y-1.5"><Label>{t.email}</Label><Input value={editForm.email} onChange={(e) => setEditForm((p) => ({ ...p, email: e.target.value }))} /></div>
+                      <div className="space-y-1.5"><Label>{t.phone}</Label><Input value={editForm.phone} onChange={(e) => setEditForm((p) => ({ ...p, phone: e.target.value }))} /></div>
+                      <div className="space-y-1.5"><Label>{t.address}</Label><Input value={editForm.address} onChange={(e) => setEditForm((p) => ({ ...p, address: e.target.value }))} /></div>
+                      <div className="space-y-1.5"><Label>{t.company}</Label><Input value={editForm.companyName} onChange={(e) => setEditForm((p) => ({ ...p, companyName: e.target.value }))} /></div>
+                      <div className="space-y-1.5"><Label>{t.vatTax}</Label><Input value={editForm.vatNumber} onChange={(e) => setEditForm((p) => ({ ...p, vatNumber: e.target.value }))} /></div>
                     </div>
                     <SheetFooter>
-                      <Button variant="outline" onClick={() => setIsEditOpen(false)}>Cancel</Button>
-                      <Button onClick={saveClient} disabled={isSaving}>{isSaving ? 'Saving...' : 'Save changes'}</Button>
+                      <Button variant="outline" onClick={() => setIsEditOpen(false)}>{t.cancel}</Button>
+                      <Button onClick={saveClient} disabled={isSaving}>{isSaving ? t.saving : t.saveChanges}</Button>
                     </SheetFooter>
                   </SheetContent>
                 </Sheet>
 
                 <Button variant="destructive" size="sm" onClick={() => setIsDeleteConfirmOpen(true)}>
                   <Trash2Icon />
-                  Delete
+                  {t.delete}
                 </Button>
 
                 <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
                   <AlertDialogContent>
                     <AlertDialogHeader>
-                      <AlertDialogTitle>Delete client?</AlertDialogTitle>
+                      <AlertDialogTitle>{t.deleteTitle}</AlertDialogTitle>
                       <AlertDialogDescription>
-                        This will permanently delete this client and linked notes.
+                        {t.deleteDesc}
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel asChild>
-                        <Button variant="outline">Cancel</Button>
+                        <Button variant="outline">{t.cancel}</Button>
                       </AlertDialogCancel>
                       <AlertDialogAction
                         asChild
@@ -337,7 +433,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                         }}
                       >
                         <Button variant="destructive" disabled={isDeletingClient}>
-                          {isDeletingClient ? 'Deleting...' : 'Delete client'}
+                          {isDeletingClient ? t.deleting : t.deleteClient}
                         </Button>
                       </AlertDialogAction>
                     </AlertDialogFooter>
@@ -348,29 +444,29 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                   <SheetTrigger asChild>
                     <Button size="sm">
                       <PlusIcon />
-                      Add note
+                      {t.addNote}
                     </Button>
                   </SheetTrigger>
                   <SheetContent side="right" className="w-full sm:max-w-lg">
                     <SheetHeader>
-                      <SheetTitle>Add note</SheetTitle>
-                      <SheetDescription>This note is automatically linked to this client.</SheetDescription>
+                      <SheetTitle>{t.addNoteTitle}</SheetTitle>
+                      <SheetDescription>{t.addNoteDesc}</SheetDescription>
                     </SheetHeader>
                     <div className="space-y-3 px-4">
-                      <div className="space-y-1.5"><Label>Title</Label><Input value={noteForm.title} onChange={(e) => setNoteForm((p) => ({ ...p, title: e.target.value }))} /></div>
+                      <div className="space-y-1.5"><Label>{t.title}</Label><Input value={noteForm.title} onChange={(e) => setNoteForm((p) => ({ ...p, title: e.target.value }))} /></div>
                       <div className="space-y-1.5">
-                        <Label>Description</Label>
+                        <Label>{t.description}</Label>
                         <textarea
                           className="min-h-28 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
                           value={noteForm.description}
                           onChange={(e) => setNoteForm((p) => ({ ...p, description: e.target.value }))}
                         />
                       </div>
-                      <div className="space-y-1.5"><Label>Follow-up date</Label><Input type="date" value={noteForm.followUpDate} onChange={(e) => setNoteForm((p) => ({ ...p, followUpDate: e.target.value }))} /></div>
+                      <div className="space-y-1.5"><Label>{t.followUpDate}</Label><Input type="date" value={noteForm.followUpDate} onChange={(e) => setNoteForm((p) => ({ ...p, followUpDate: e.target.value }))} /></div>
                     </div>
                     <SheetFooter>
-                      <Button variant="outline" onClick={() => setIsNoteOpen(false)}>Cancel</Button>
-                      <Button onClick={addNote} disabled={isSaving}>{isSaving ? 'Saving...' : 'Save note'}</Button>
+                      <Button variant="outline" onClick={() => setIsNoteOpen(false)}>{t.cancel}</Button>
+                      <Button onClick={addNote} disabled={isSaving}>{isSaving ? t.saving : t.saveNote}</Button>
                     </SheetFooter>
                   </SheetContent>
                 </Sheet>
@@ -386,24 +482,24 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                 >
                   <SheetContent side="right" className="w-full sm:max-w-lg">
                     <SheetHeader>
-                      <SheetTitle>Edit note</SheetTitle>
-                      <SheetDescription>Update this client note.</SheetDescription>
+                      <SheetTitle>{t.editNote}</SheetTitle>
+                      <SheetDescription>{t.editNoteDesc}</SheetDescription>
                     </SheetHeader>
                     <div className="space-y-3 px-4">
-                      <div className="space-y-1.5"><Label>Title</Label><Input value={editNoteForm.title} onChange={(e) => setEditNoteForm((p) => ({ ...p, title: e.target.value }))} /></div>
+                      <div className="space-y-1.5"><Label>{t.title}</Label><Input value={editNoteForm.title} onChange={(e) => setEditNoteForm((p) => ({ ...p, title: e.target.value }))} /></div>
                       <div className="space-y-1.5">
-                        <Label>Description</Label>
+                        <Label>{t.description}</Label>
                         <textarea
                           className="min-h-28 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
                           value={editNoteForm.description}
                           onChange={(e) => setEditNoteForm((p) => ({ ...p, description: e.target.value }))}
                         />
                       </div>
-                      <div className="space-y-1.5"><Label>Follow-up date</Label><Input type="date" value={editNoteForm.followUpDate} onChange={(e) => setEditNoteForm((p) => ({ ...p, followUpDate: e.target.value }))} /></div>
+                      <div className="space-y-1.5"><Label>{t.followUpDate}</Label><Input type="date" value={editNoteForm.followUpDate} onChange={(e) => setEditNoteForm((p) => ({ ...p, followUpDate: e.target.value }))} /></div>
                     </div>
                     <SheetFooter>
-                      <Button variant="outline" onClick={() => setIsNoteEditOpen(false)}>Cancel</Button>
-                      <Button onClick={updateNote} disabled={isNoteUpdating}>{isNoteUpdating ? 'Saving...' : 'Save changes'}</Button>
+                      <Button variant="outline" onClick={() => setIsNoteEditOpen(false)}>{t.cancel}</Button>
+                      <Button onClick={updateNote} disabled={isNoteUpdating}>{isNoteUpdating ? t.saving : t.saveChanges}</Button>
                     </SheetFooter>
                   </SheetContent>
                 </Sheet>
@@ -413,19 +509,19 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
 
           <Card>
             <CardHeader className="border-b">
-              <CardTitle>Interaction timeline</CardTitle>
-              <p className="text-sm text-muted-foreground">Newest notes first so context is always visible.</p>
+              <CardTitle>{t.timeline}</CardTitle>
+              <p className="text-sm text-muted-foreground">{t.timelineDesc}</p>
             </CardHeader>
             <CardContent className="space-y-3 pt-4">
               {timeline.length === 0 ? (
-                <EmptyState message="No notes yet. Add your first note from this profile." />
+                <EmptyState message={t.timelineEmpty} />
               ) : (
                 timeline.map((note, index) => (
                   <div key={note._id} className={`rounded-lg border border-border/70 p-3 ${index === timeline.length - 1 ? '' : ''}`}>
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <h3 className="text-sm font-semibold">{note.title}</h3>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground">{new Date(note.createdAt).toLocaleString('en-US')}</span>
+                        <span className="text-xs text-muted-foreground">{new Date(note.createdAt).toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')}</span>
                         <Button type="button" variant="ghost" size="icon-sm" onClick={() => openNoteEdit(note)}>
                           <PencilIcon />
                         </Button>
@@ -433,7 +529,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                     </div>
                     <p className="mt-1 text-sm text-muted-foreground">{note.description}</p>
                     {note.followUpDate ? (
-                      <p className="mt-2 text-xs text-sky-600 dark:text-sky-400">Follow-up: {new Date(note.followUpDate).toLocaleDateString('en-US')}</p>
+                      <p className="mt-2 text-xs text-sky-600 dark:text-sky-400">{t.followUp}: {new Date(note.followUpDate).toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-US')}</p>
                     ) : null}
                   </div>
                 ))

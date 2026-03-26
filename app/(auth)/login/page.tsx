@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
@@ -17,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { useLocale } from "@/components/providers/locale-provider"
 import { cn } from "@/lib/utils"
 
 const loginSchema = z.z.object({
@@ -26,11 +27,36 @@ const loginSchema = z.z.object({
 
 type LoginValues = z.infer<typeof loginSchema>
 
+const loginMessages = {
+  en: {
+    heading: "Welcome Back",
+    subtitle: "Sign in to your editorial dashboard.",
+    emailLabel: "Email Address",
+    passwordLabel: "Password",
+    forgotPassword: "Forgot password?",
+    loginButton: "Login",
+    signupPrompt: "New to the executive platform?",
+    signupCta: "Signup",
+  },
+  fr: {
+    heading: "Bon retour",
+    subtitle: "Connectez-vous a votre tableau de bord editorial.",
+    emailLabel: "Adresse e-mail",
+    passwordLabel: "Mot de passe",
+    forgotPassword: "Mot de passe oublie ?",
+    loginButton: "Connexion",
+    signupPrompt: "Nouveau sur la plateforme executive ?",
+    signupCta: "Inscription",
+  },
+} as const
+
 export default function LoginPage() {
   const router = useRouter()
+  const { locale } = useLocale()
+  const t = loginMessages[locale]
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
- const fetchUserData = async () => {
+ const fetchUserData = useCallback(async () => {
     try{
       const response = await fetch("/api/me?fch=true", {
         method: "GET",
@@ -54,10 +80,10 @@ export default function LoginPage() {
     catch(error){
       console.error("Error fetching user data:", error)
     }
-  }
+  }, [router])
   useEffect(() => {
     fetchUserData()
-  }, [])
+  }, [fetchUserData])
   const {
     register,
     handleSubmit,
@@ -108,10 +134,10 @@ export default function LoginPage() {
     <div className="space-y-6">
       <div className="space-y-2">
         <h1 className="font-poppins text-4xl font-semibold tracking-tight text-zinc-900">
-          Welcome Back
+          {t.heading}
         </h1>
         <p className="font-roboto text-zinc-500 font-medium text-sm">
-          Sign in to your editorial dashboard.
+          {t.subtitle}
         </p>
       </div>
 
@@ -121,7 +147,7 @@ export default function LoginPage() {
             htmlFor="email" 
             className="text-[10px] font-bold uppercase tracking-widest text-zinc-600 ml-0.5"
           >
-            Email Address
+            {t.emailLabel}
           </Label>
           <div className="relative">
             <Input
@@ -148,13 +174,13 @@ export default function LoginPage() {
               htmlFor="password" 
               className="text-[10px] font-bold uppercase tracking-widest text-zinc-600 ml-0.5"
             >
-              Password
+              {t.passwordLabel}
             </Label>
             <Link 
               href="/forgot-password" 
               className="text-[10px] font-bold uppercase tracking-widest text-[#001e3c] hover:text-zinc-600 transition-colors"
             >
-              Forgot password?
+              {t.forgotPassword}
             </Link>
           </div>
           <div className="relative">
@@ -192,7 +218,7 @@ export default function LoginPage() {
             <Loader2 className="h-4 w-4 animate-spin text-white/50" />
           ) : (
             <div className="flex items-center justify-center gap-2">
-              <span>Login</span>
+              <span>{t.loginButton}</span>
               <ArrowRight className="h-4 w-4" />
             </div>
           )}
@@ -201,12 +227,12 @@ export default function LoginPage() {
 
       <div className="pt-4 text-center">
         <p className="font-roboto text-zinc-500 text-sm font-medium">
-          New to the executive platform?{" "}
+          {t.signupPrompt}{" "}
           <Link 
             href="/signup" 
             className="text-[#001e3c] font-bold hover:underline underline-offset-4"
           >
-            Signup
+            {t.signupCta}
           </Link>
         </p>
       </div>

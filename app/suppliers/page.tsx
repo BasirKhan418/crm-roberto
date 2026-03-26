@@ -7,6 +7,7 @@ import { PlusIcon, SearchIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import CrmShell from '@/components/crm-shell';
+import { useLocale } from '@/components/providers/locale-provider';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import EmptyState from '@/components/ui/EmptyState';
@@ -38,6 +39,70 @@ interface Pagination {
 const initialPagination: Pagination = { page: 1, limit: 10, total: 0, totalPages: 0 };
 
 export default function SuppliersPage() {
+  const { locale } = useLocale();
+  const t = {
+    en: {
+      fetchFailed: 'Failed to fetch suppliers',
+      nameRequired: 'Supplier name is required',
+      createFailed: 'Failed to create supplier',
+      created: 'Supplier created',
+      shellTitle: 'Suppliers',
+      heading: 'Suppliers',
+      subtitle: 'Track suppliers with contextual notes and negotiation history.',
+      addSupplier: 'Add Supplier',
+      addTitle: 'Add new supplier',
+      addDesc: 'Create a supplier and it will appear immediately in your list.',
+      name: 'Name',
+      email: 'Email',
+      phone: 'Phone',
+      address: 'Address',
+      company: 'Company',
+      vat: 'VAT/Tax ID',
+      cancel: 'Cancel',
+      saving: 'Saving...',
+      saveSupplier: 'Save supplier',
+      directory: 'Supplier directory',
+      search: 'Search by name, email, company...',
+      empty: 'No suppliers yet. Add your first supplier to keep operational context in one place.',
+      createdCol: 'Created',
+      page: 'Page',
+      of: 'of',
+      total: 'total',
+      previous: 'Previous',
+      next: 'Next',
+    },
+    fr: {
+      fetchFailed: 'Impossible de recuperer les fournisseurs',
+      nameRequired: 'Le nom du fournisseur est requis',
+      createFailed: 'Impossible de creer le fournisseur',
+      created: 'Fournisseur cree',
+      shellTitle: 'Fournisseurs',
+      heading: 'Fournisseurs',
+      subtitle: 'Suivez les fournisseurs avec notes contextuelles et historique de negociation.',
+      addSupplier: 'Ajouter un fournisseur',
+      addTitle: 'Ajouter un nouveau fournisseur',
+      addDesc: 'Creez un fournisseur et il apparaitra immediatement dans la liste.',
+      name: 'Nom',
+      email: 'E-mail',
+      phone: 'Telephone',
+      address: 'Adresse',
+      company: 'Entreprise',
+      vat: 'TVA/ID fiscal',
+      cancel: 'Annuler',
+      saving: 'Enregistrement...',
+      saveSupplier: 'Enregistrer le fournisseur',
+      directory: 'Repertoire des fournisseurs',
+      search: 'Rechercher par nom, e-mail, entreprise...',
+      empty: 'Aucun fournisseur. Ajoutez votre premier fournisseur.',
+      createdCol: 'Cree le',
+      page: 'Page',
+      of: 'sur',
+      total: 'au total',
+      previous: 'Precedent',
+      next: 'Suivant',
+    },
+  }[locale];
+
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [pagination, setPagination] = useState<Pagination>(initialPagination);
   const [loading, setLoading] = useState(true);
@@ -83,13 +148,13 @@ export default function SuppliersPage() {
       };
 
       if (!response.ok || !data.success) {
-        throw new Error(data.message || 'Failed to fetch suppliers');
+        throw new Error(data.message || t.fetchFailed);
       }
 
       setSuppliers(data.data ?? []);
       setPagination((prev) => data.pagination ?? prev);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to fetch suppliers';
+      const message = err instanceof Error ? err.message : t.fetchFailed;
       setError(message);
       setSuppliers([]);
       setPagination((prev) => ({ ...prev, total: 0, totalPages: 0 }));
@@ -104,7 +169,7 @@ export default function SuppliersPage() {
 
   async function handleCreateSupplier() {
     if (!form.fullName.trim()) {
-      toast.error('Supplier name is required');
+      toast.error(t.nameRequired);
       return;
     }
 
@@ -126,75 +191,75 @@ export default function SuppliersPage() {
 
       const data = (await response.json()) as { success: boolean; message?: string };
       if (!response.ok || !data.success) {
-        throw new Error(data.message || 'Failed to create supplier');
+        throw new Error(data.message || t.createFailed);
       }
 
-      toast.success('Supplier created');
+      toast.success(t.created);
       setIsAddOpen(false);
       setForm({ fullName: '', email: '', phone: '', address: '', companyName: '', vatNumber: '' });
       setPagination((prev) => ({ ...prev, page: 1 }));
       await loadSuppliers();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to create supplier');
+      toast.error(err instanceof Error ? err.message : t.createFailed);
     } finally {
       setIsSubmitting(false);
     }
   }
 
   return (
-    <CrmShell title="Suppliers">
+    <CrmShell title={t.shellTitle}>
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="font-heading text-2xl font-semibold tracking-tight">Suppliers</h1>
-          <p className="text-sm text-muted-foreground">Track suppliers with contextual notes and negotiation history.</p>
+          <h1 className="font-heading text-2xl font-semibold tracking-tight">{t.heading}</h1>
+          <p className="text-sm text-muted-foreground">{t.subtitle}</p>
         </div>
 
         <Sheet open={isAddOpen} onOpenChange={setIsAddOpen}>
           <SheetTrigger asChild>
             <Button>
               <PlusIcon />
-                Add Supplier
+                {t.addSupplier}
             </Button>
           </SheetTrigger>
           <SheetContent side="right" className="w-full sm:max-w-lg">
             <SheetHeader>
-              <SheetTitle>Add new supplier</SheetTitle>
-              <SheetDescription>Create a supplier and it will appear immediately in your list.</SheetDescription>
+              <SheetTitle>{t.addTitle}</SheetTitle>
+              <SheetDescription>{t.addDesc}</SheetDescription>
             </SheetHeader>
             <div className="space-y-3 px-4">
               <div className="space-y-1.5">
-                <Label htmlFor="supplier-full-name">Name</Label>
+                <Label htmlFor="supplier-full-name">{t.name}</Label>
                 <Input id="supplier-full-name" value={form.fullName} onChange={(e) => setForm((p) => ({ ...p, fullName: e.target.value }))} />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="supplier-email">Email</Label>
+                <Label htmlFor="supplier-email">{t.email}</Label>
                 <Input id="supplier-email" type="email" value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="supplier-phone">Phone</Label>
+                <Label htmlFor="supplier-phone">{t.phone}</Label>
                 <Input id="supplier-phone" value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="supplier-address">Address</Label>
+                <Label htmlFor="supplier-address">{t.address}</Label>
                 <Input id="supplier-address" value={form.address} onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))} />
               </div>
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <div className="space-y-1.5">
-                  <Label htmlFor="supplier-company">Company</Label>
+                  <Label htmlFor="supplier-company">{t.company}</Label>
                   <Input id="supplier-company" value={form.companyName} onChange={(e) => setForm((p) => ({ ...p, companyName: e.target.value }))} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="supplier-vat">VAT/Tax ID</Label>
+                  <Label htmlFor="supplier-vat">{t.vat}</Label>
                   <Input id="supplier-vat" value={form.vatNumber} onChange={(e) => setForm((p) => ({ ...p, vatNumber: e.target.value }))} />
                 </div>
               </div>
             </div>
             <SheetFooter>
               <Button variant="outline" onClick={() => setIsAddOpen(false)}>
-                Cancel
+                {t.cancel}
               </Button>
               <Button onClick={handleCreateSupplier} disabled={isSubmitting}>
-                {isSubmitting ? 'Saving...' : 'Save supplier'}
+                {isSubmitting ? t.saving : t.saveSupplier}
               </Button>
             </SheetFooter>
           </SheetContent>
@@ -203,12 +268,12 @@ export default function SuppliersPage() {
 
       <Card>
         <CardHeader className="border-b">
-          <CardTitle className="text-base">Supplier directory</CardTitle>
+          <CardTitle className="text-base">{t.directory}</CardTitle>
           <div className="relative mt-3 max-w-md">
             <SearchIcon className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
             <Input
               className="pl-8"
-              placeholder="Search by name, email, company..."
+              placeholder={t.search}
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               onKeyDown={(e) => {
@@ -230,17 +295,17 @@ export default function SuppliersPage() {
               ))}
             </div>
           ) : suppliers.length === 0 ? (
-            <EmptyState message="No suppliers yet. Add your first supplier to keep operational context in one place." />
+            <EmptyState message={t.empty} />
           ) : (
             <>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Phone</TableHead>
-                    <TableHead>Company</TableHead>
-                    <TableHead>Created</TableHead>
+                    <TableHead>{t.name}</TableHead>
+                    <TableHead>{t.email}</TableHead>
+                    <TableHead>{t.phone}</TableHead>
+                    <TableHead>{t.company}</TableHead>
+                    <TableHead>{t.createdCol}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -254,7 +319,7 @@ export default function SuppliersPage() {
                       <TableCell>{supplier.email || '-'}</TableCell>
                       <TableCell>{supplier.phone || '-'}</TableCell>
                       <TableCell>{supplier.companyName || '-'}</TableCell>
-                      <TableCell>{new Date(supplier.createdAt).toLocaleDateString('en-US')}</TableCell>
+                      <TableCell>{new Date(supplier.createdAt).toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-US')}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -262,7 +327,7 @@ export default function SuppliersPage() {
 
               <div className="mt-4 flex items-center justify-between">
                 <p className="text-xs text-muted-foreground">
-                  Page {pagination.page} of {Math.max(pagination.totalPages, 1)} - {pagination.total} total
+                  {t.page} {pagination.page} {t.of} {Math.max(pagination.totalPages, 1)} - {pagination.total} {t.total}
                 </p>
                 <div className="flex gap-2">
                   <Button
@@ -271,7 +336,7 @@ export default function SuppliersPage() {
                     disabled={pagination.page <= 1}
                     onClick={() => setPagination((prev) => ({ ...prev, page: prev.page - 1 }))}
                   >
-                    Previous
+                    {t.previous}
                   </Button>
                   <Button
                     variant="outline"
@@ -279,7 +344,7 @@ export default function SuppliersPage() {
                     disabled={pagination.totalPages === 0 || pagination.page >= pagination.totalPages}
                     onClick={() => setPagination((prev) => ({ ...prev, page: prev.page + 1 }))}
                   >
-                    Next
+                    {t.next}
                   </Button>
                 </div>
               </div>

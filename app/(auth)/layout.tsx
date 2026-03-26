@@ -4,12 +4,42 @@ import { motion, AnimatePresence } from "framer-motion";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
+import { LanguageThemeToggle } from "@/components/language-theme-toggle";
+import { useLocale } from "@/components/providers/locale-provider";
+
+const authLayoutMessages = {
+  en: {
+    headingLine1: "The Editorial",
+    headingHighlight: "Standard",
+    headingLine2: "of",
+    headingLine3: "Management.",
+    quote: '"Precision is the foundation of professional excellence."',
+    quoteSource: "Editorial Management Protocol",
+    executives: "500+ Active Executives",
+    privacy: "Privacy",
+    terms: "Terms",
+  },
+  fr: {
+    headingLine1: "La Reference",
+    headingHighlight: "Editoriale",
+    headingLine2: "de la",
+    headingLine3: "Gestion.",
+    quote: '"La precision est le fondement de l\'excellence professionnelle."',
+    quoteSource: "Protocole de Gestion Editoriale",
+    executives: "500+ Cadres Actifs",
+    privacy: "Confidentialite",
+    terms: "Conditions",
+  },
+} as const;
+
 export default function AuthLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const { locale } = useLocale();
+  const t = authLayoutMessages[locale];
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-[#F8FAFC] p-4 md:p-8">
@@ -37,9 +67,9 @@ export default function AuthLayout({
 
             <div className="mt-20 space-y-6">
               <h1 className="font-poppins text-5xl font-bold leading-[1.1] tracking-tight">
-                The Editorial <br />
-                <span className="text-blue-400/90">Standard</span> of <br />
-                Management.
+                {t.headingLine1} <br />
+                <span className="text-blue-400/90">{t.headingHighlight}</span> {t.headingLine2} <br />
+                {t.headingLine3}
               </h1>
               <div className="relative w-full aspect-square max-w-[280px] mt-8 rounded-2xl overflow-hidden border border-white/10 shadow-2xl group">
                 <Image 
@@ -51,9 +81,9 @@ export default function AuthLayout({
                 <div className="absolute inset-0 bg-gradient-to-t from-[#001e3c]/80 via-transparent to-transparent" />
                 <div className="absolute bottom-4 left-4 right-4">
                   <p className="font-roboto text-[10px] font-medium text-white/60 italic leading-relaxed">
-                    &quot;Precision is the foundation of professional excellence.&quot;
+                    {t.quote}
                   </p>
-                  <p className="text-[8px] uppercase tracking-widest text-white/40 mt-1">— Editorial Management Protocol</p>
+                  <p className="text-[8px] uppercase tracking-widest text-white/40 mt-1">— {t.quoteSource}</p>
                 </div>
               </div>
             </div>
@@ -72,7 +102,7 @@ export default function AuthLayout({
                   ))}
                 </div>
                 <span className="text-[10px] text-zinc-400 font-bold tracking-widest uppercase ml-1">
-                  500+ Active Executives
+                  {t.executives}
                 </span>
               </div>
               <div className="text-[9px] uppercase tracking-[0.3em] text-zinc-600 font-bold">
@@ -84,6 +114,10 @@ export default function AuthLayout({
 
         {/* Right Form Area with Motion Transition */}
         <div className="relative flex flex-col justify-center bg-white p-8 text-zinc-900 lg:p-14 overflow-hidden">
+          <div className="absolute right-8 top-8 z-20">
+            <LanguageThemeToggle />
+          </div>
+
           {/* Mobile Logo */}
           <div className="lg:hidden absolute top-8 left-8 flex items-center gap-2">
             <div className="h-8 w-8 relative rounded-lg overflow-hidden">
@@ -113,8 +147,8 @@ export default function AuthLayout({
           <div className="mt-14 flex items-center justify-between border-t border-zinc-100 pt-8 text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-400">
             <span>© 2026 Executive CRM</span>
             <div className="flex gap-6">
-              <Link href="#" className="hover:text-zinc-600 transition-colors">Privacy</Link>
-              <Link href="#" className="hover:text-zinc-600 transition-colors">Terms</Link>
+              <Link href="#" className="hover:text-zinc-600 transition-colors">{t.privacy}</Link>
+              <Link href="#" className="hover:text-zinc-600 transition-colors">{t.terms}</Link>
             </div>
           </div>
         </div>

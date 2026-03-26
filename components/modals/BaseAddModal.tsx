@@ -6,6 +6,7 @@ import { useEffect } from 'react';
 import { X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { useLocale } from '@/components/providers/locale-provider';
 
 interface BaseAddModalProps {
   title: string;
@@ -20,6 +21,9 @@ export default function BaseAddModal({
   onClose,
   children,
 }: BaseAddModalProps) {
+  const { locale } = useLocale();
+  const closeLabel = locale === 'fr' ? 'Fermer la fenetre' : 'Close modal';
+
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') {
@@ -49,7 +53,7 @@ export default function BaseAddModal({
             <h3 className="font-heading text-lg font-semibold">{title}</h3>
             <p className="text-sm text-muted-foreground">{description}</p>
           </div>
-          <Button type="button" size="icon-sm" variant="ghost" aria-label="Close modal" onClick={onClose}>
+          <Button type="button" size="icon-sm" variant="ghost" aria-label={closeLabel} onClick={onClose}>
             <X />
           </Button>
         </div>

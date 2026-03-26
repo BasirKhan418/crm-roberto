@@ -8,6 +8,7 @@ import BaseAddModal from '@/components/modals/BaseAddModal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useLocale } from '@/components/providers/locale-provider';
 
 interface AddSupplierModalProps {
   onClose: () => void;
@@ -15,6 +16,42 @@ interface AddSupplierModalProps {
 }
 
 export default function AddSupplierModal({ onClose, onSuccess }: AddSupplierModalProps) {
+  const { locale } = useLocale();
+  const t = {
+    en: {
+      nameRequired: 'Supplier name is required',
+      failedCreate: 'Failed to create supplier',
+      created: 'Supplier created',
+      title: 'Add supplier',
+      description: 'Create a supplier from dashboard quick actions.',
+      name: 'Name',
+      email: 'Email',
+      phone: 'Phone',
+      address: 'Address',
+      company: 'Company',
+      vat: 'VAT/Tax ID',
+      cancel: 'Cancel',
+      saving: 'Saving...',
+      save: 'Save supplier',
+    },
+    fr: {
+      nameRequired: 'Le nom du fournisseur est requis',
+      failedCreate: 'Impossible de creer le fournisseur',
+      created: 'Fournisseur cree',
+      title: 'Ajouter un fournisseur',
+      description: 'Creez un fournisseur depuis les actions rapides du tableau de bord.',
+      name: 'Nom',
+      email: 'E-mail',
+      phone: 'Telephone',
+      address: 'Adresse',
+      company: 'Entreprise',
+      vat: 'TVA/ID fiscal',
+      cancel: 'Annuler',
+      saving: 'Enregistrement...',
+      save: 'Enregistrer le fournisseur',
+    },
+  }[locale];
+
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
     fullName: '',
@@ -27,7 +64,7 @@ export default function AddSupplierModal({ onClose, onSuccess }: AddSupplierModa
 
   async function handleSave() {
     if (!form.fullName.trim()) {
-      toast.error('Supplier name is required');
+      toast.error(t.nameRequired);
       return;
     }
 
@@ -48,14 +85,14 @@ export default function AddSupplierModal({ onClose, onSuccess }: AddSupplierModa
 
       const data = (await response.json()) as { success: boolean; message?: string };
       if (!response.ok || !data.success) {
-        throw new Error(data.message || 'Failed to create supplier');
+        throw new Error(data.message || t.failedCreate);
       }
 
-      toast.success('Supplier created');
+      toast.success(t.created);
       onSuccess?.();
       onClose();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to create supplier');
+      toast.error(error instanceof Error ? error.message : t.failedCreate);
     } finally {
       setLoading(false);
     }
@@ -63,42 +100,42 @@ export default function AddSupplierModal({ onClose, onSuccess }: AddSupplierModa
 
   return (
     <BaseAddModal
-      title="Add supplier"
-      description="Create a supplier from dashboard quick actions."
+      title={t.title}
+      description={t.description}
       onClose={onClose}
     >
       <div className="space-y-3">
         <div className="space-y-1.5">
-          <Label>Name</Label>
+          <Label>{t.name}</Label>
           <Input value={form.fullName} onChange={(e) => setForm((p) => ({ ...p, fullName: e.target.value }))} />
         </div>
         <div className="space-y-1.5">
-          <Label>Email</Label>
+          <Label>{t.email}</Label>
           <Input type="email" value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} />
         </div>
         <div className="space-y-1.5">
-          <Label>Phone</Label>
+          <Label>{t.phone}</Label>
           <Input value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} />
         </div>
         <div className="space-y-1.5">
-          <Label>Address</Label>
+          <Label>{t.address}</Label>
           <Input value={form.address} onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))} />
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="space-y-1.5">
-            <Label>Company</Label>
+            <Label>{t.company}</Label>
             <Input value={form.companyName} onChange={(e) => setForm((p) => ({ ...p, companyName: e.target.value }))} />
           </div>
           <div className="space-y-1.5">
-            <Label>VAT/Tax ID</Label>
+            <Label>{t.vat}</Label>
             <Input value={form.vatNumber} onChange={(e) => setForm((p) => ({ ...p, vatNumber: e.target.value }))} />
           </div>
         </div>
       </div>
 
       <div className="mt-4 flex justify-end gap-2">
-        <Button variant="outline" onClick={onClose}>Cancel</Button>
-        <Button onClick={handleSave} disabled={loading}>{loading ? 'Saving...' : 'Save supplier'}</Button>
+        <Button variant="outline" onClick={onClose}>{t.cancel}</Button>
+        <Button onClick={handleSave} disabled={loading}>{loading ? t.saving : t.save}</Button>
       </div>
     </BaseAddModal>
   );

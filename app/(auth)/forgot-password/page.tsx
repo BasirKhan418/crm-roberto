@@ -7,11 +7,8 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { 
-  ArrowRight,
   Loader2,
   CheckCircle2,
-  Mail,
-  Lock,
   Eye,
   EyeOff
 } from "lucide-react"
@@ -19,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { useLocale } from "@/components/providers/locale-provider"
 import { cn } from "@/lib/utils"
 import {toast} from "sonner"
 const emailSchema = z.object({
@@ -39,8 +37,53 @@ const resetPasswordSchema = z.object({
 
 type Step = "email" | "otp" | "reset" | "completed"
 
+const forgotMessages = {
+  en: {
+    emailTitle: "Reset Password",
+    otpTitle: "Verify OTP",
+    resetTitle: "New Password",
+    completedTitle: "Success!",
+    emailSubtitle: "Enter your email to receive a reset code.",
+    resetSubtitle: "Set a strong password for your account.",
+    completedSubtitle: "Your password has been reset successfully.",
+    emailLabel: "Email Address",
+    sendCode: "Send Code",
+    otpLabel: "6-Digit Verification Code",
+    verifyCode: "Verify Code",
+    backToEmail: "Back to email",
+    newPassword: "New Password",
+    confirmPassword: "Confirm Password",
+    resetButton: "Reset Password",
+    goToLogin: "Go to Login",
+    rememberPrompt: "Remember your password?",
+    loginCta: "Login",
+  },
+  fr: {
+    emailTitle: "Reinitialiser le mot de passe",
+    otpTitle: "Verifier le code",
+    resetTitle: "Nouveau mot de passe",
+    completedTitle: "Succes !",
+    emailSubtitle: "Entrez votre e-mail pour recevoir un code de reinitialisation.",
+    resetSubtitle: "Definissez un mot de passe securise pour votre compte.",
+    completedSubtitle: "Votre mot de passe a ete reinitialise avec succes.",
+    emailLabel: "Adresse e-mail",
+    sendCode: "Envoyer le code",
+    otpLabel: "Code de verification a 6 chiffres",
+    verifyCode: "Verifier le code",
+    backToEmail: "Retour a l'e-mail",
+    newPassword: "Nouveau mot de passe",
+    confirmPassword: "Confirmer le mot de passe",
+    resetButton: "Reinitialiser le mot de passe",
+    goToLogin: "Aller a la connexion",
+    rememberPrompt: "Vous vous souvenez du mot de passe ?",
+    loginCta: "Connexion",
+  },
+} as const
+
 export default function ForgotPasswordPage() {
   const router = useRouter()
+  const { locale } = useLocale()
+  const t = forgotMessages[locale]
   const [step, setStep] = useState<Step>("email")
   const [isLoading, setIsLoading] = useState(false)
   const [userEmail, setUserEmail] = useState("")
@@ -82,7 +125,7 @@ export default function ForgotPasswordPage() {
       }
 
     }
-    catch(error){
+    catch{
       toast.error("An error occurred while processing your request.");
     }
   }
@@ -108,7 +151,7 @@ export default function ForgotPasswordPage() {
           setStep("reset")
         }
     }
-    catch(error){
+    catch{
       toast.error("An error occurred while processing your request.");
     }
   }
@@ -133,7 +176,7 @@ export default function ForgotPasswordPage() {
           setStep("completed")
         }
     }
-    catch(error){
+    catch{
       toast.error("An error occurred while processing your request.");
     }
   }
@@ -142,16 +185,16 @@ export default function ForgotPasswordPage() {
     <div className="space-y-6">
       <div className="space-y-2">
         <h1 className="text-4xl font-semibold tracking-tight text-zinc-900">
-          {step === "email" && "Reset Password"}
-          {step === "otp" && "Verify OTP"}
-          {step === "reset" && "New Password"}
-          {step === "completed" && "Success!"}
+          {step === "email" && t.emailTitle}
+          {step === "otp" && t.otpTitle}
+          {step === "reset" && t.resetTitle}
+          {step === "completed" && t.completedTitle}
         </h1>
         <p className="text-zinc-500 font-medium text-sm">
-          {step === "email" && "Enter your email to receive a reset code."}
+          {step === "email" && t.emailSubtitle}
           {step === "otp" && `We've sent a 6-digit code to ${userEmail}`}
-          {step === "reset" && "Set a strong password for your account."}
-          {step === "completed" && "Your password has been reset successfully."}
+          {step === "reset" && t.resetSubtitle}
+          {step === "completed" && t.completedSubtitle}
         </p>
       </div>
 
@@ -159,7 +202,7 @@ export default function ForgotPasswordPage() {
         <form onSubmit={emailForm.handleSubmit(onEmailSubmit)} className="space-y-5">
           <div className="space-y-2">
             <Label htmlFor="email" className="text-[10px] font-bold uppercase tracking-widest text-zinc-600 ml-0.5">
-              Email Address
+              {t.emailLabel}
             </Label>
             <Input
               id="email"
@@ -178,7 +221,7 @@ export default function ForgotPasswordPage() {
             )}
           </div>
           <Button className="w-full h-12 bg-[#001e3c] hover:bg-[#002b54] text-white rounded-md shadow-lg shadow-blue-900/10 text-sm font-semibold transition-all active:scale-[0.98]" type="submit" disabled={isLoading}>
-            {isLoading ? <Loader2 className="h-4 w-4 animate-spin text-white/50" /> : "Send Code"}
+            {isLoading ? <Loader2 className="h-4 w-4 animate-spin text-white/50" /> : t.sendCode}
           </Button>
         </form>
       )}
@@ -187,7 +230,7 @@ export default function ForgotPasswordPage() {
         <form onSubmit={otpForm.handleSubmit(onOtpSubmit)} className="space-y-6">
           <div className="space-y-4">
             <Label htmlFor="otp" className="text-[10px] font-bold uppercase tracking-widest text-zinc-600 ml-0.5 block text-center">
-              6-Digit Verification Code
+              {t.otpLabel}
             </Label>
             <div className="flex justify-between gap-2 max-w-[320px] mx-auto">
               {[0, 1, 2, 3, 4, 5].map((index) => (
@@ -236,10 +279,10 @@ export default function ForgotPasswordPage() {
             )}
           </div>
           <Button className="w-full h-12 bg-[#001e3c] hover:bg-[#002b54] text-white rounded-md shadow-lg shadow-blue-900/10 text-sm font-semibold transition-all active:scale-[0.98]" type="submit" disabled={isLoading}>
-            {isLoading ? <Loader2 className="h-4 w-4 animate-spin text-white/50" /> : "Verify Code"}
+            {isLoading ? <Loader2 className="h-4 w-4 animate-spin text-white/50" /> : t.verifyCode}
           </Button>
-          <button type="button" onClick={() => setStep("email")} className="w-full text-center text-[11px] font-bold uppercase tracking-[0.1em] text-zinc-500 hover:text-[#001e3c] transition-colors">
-            Back to email
+          <button type="button" onClick={() => setStep("email")} className="w-full text-center text-[11px] font-bold uppercase tracking-widest text-zinc-500 hover:text-[#001e3c] transition-colors">
+            {t.backToEmail}
           </button>
         </form>
       )}
@@ -248,7 +291,7 @@ export default function ForgotPasswordPage() {
         <form onSubmit={resetForm.handleSubmit(onResetSubmit)} className="space-y-5">
           <div className="space-y-2">
             <Label htmlFor="password" className="text-[10px] font-bold uppercase tracking-widest text-zinc-600 ml-0.5">
-              New Password
+              {t.newPassword}
             </Label>
             <div className="relative">
               <Input
@@ -274,7 +317,7 @@ export default function ForgotPasswordPage() {
 
           <div className="space-y-2">
             <Label htmlFor="confirmPassword" className="text-[10px] font-bold uppercase tracking-widest text-zinc-600 ml-0.5">
-              Confirm Password
+              {t.confirmPassword}
             </Label>
             <Input
               id="confirmPassword"
@@ -294,7 +337,7 @@ export default function ForgotPasswordPage() {
           </div>
 
           <Button className="w-full h-12 bg-[#001e3c] hover:bg-[#002b54] text-white rounded-md shadow-lg shadow-blue-900/10 text-sm font-semibold transition-all active:scale-[0.98]" type="submit" disabled={isLoading}>
-            {isLoading ? <Loader2 className="h-4 w-4 animate-spin text-white/50" /> : "Reset Password"}
+            {isLoading ? <Loader2 className="h-4 w-4 animate-spin text-white/50" /> : t.resetButton}
           </Button>
         </form>
       )}
@@ -307,16 +350,16 @@ export default function ForgotPasswordPage() {
             </div>
           </div>
           <Button onClick={() => router.push("/login")} className="w-full h-12 bg-[#001e3c] hover:bg-[#002b54] text-white rounded-md shadow-lg shadow-blue-900/10 text-sm font-semibold transition-all active:scale-[0.98]">
-            Go to Login
+            {t.goToLogin}
           </Button>
         </div>
       )}
 
       <div className="pt-4 text-center">
         <p className="text-zinc-500 text-sm font-medium">
-          Remember your password?{" "}
+          {t.rememberPrompt}{" "}
           <Link href="/login" className="text-[#001e3c] font-bold hover:underline underline-offset-4">
-            Login
+            {t.loginCta}
           </Link>
         </p>
       </div>

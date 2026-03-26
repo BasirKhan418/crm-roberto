@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useLocale } from '@/components/providers/locale-provider';
 
 interface LinkedEntity {
   _id: string;
@@ -21,6 +22,56 @@ interface AddNoteModalProps {
 }
 
 export default function AddNoteModal({ onClose, onSuccess }: AddNoteModalProps) {
+  const { locale } = useLocale();
+  const t = {
+    en: {
+      titleRequired: 'Note title is required',
+      descriptionRequired: 'Description is required',
+      selectLinked: 'Please select a',
+      failedCreate: 'Failed to create note',
+      created: 'Note created',
+      title: 'Add note',
+      description: 'Create a note and optionally schedule a follow-up date.',
+      noteTitle: 'Title',
+      noteDescription: 'Description',
+      linkedType: 'Linked type',
+      linkedRecord: 'Linked record',
+      loading: 'Loading...',
+      select: 'Select',
+      noneAvailable: 'No',
+      availableSuffix: 'available',
+      client: 'Client',
+      supplier: 'Supplier',
+      followUp: 'Follow-up date (optional)',
+      cancel: 'Cancel',
+      saving: 'Saving...',
+      save: 'Save note',
+    },
+    fr: {
+      titleRequired: 'Le titre de la note est requis',
+      descriptionRequired: 'La description est requise',
+      selectLinked: 'Veuillez selectionner un',
+      failedCreate: 'Impossible de creer la note',
+      created: 'Note creee',
+      title: 'Ajouter une note',
+      description: 'Creez une note et planifiez eventuellement une date de suivi.',
+      noteTitle: 'Titre',
+      noteDescription: 'Description',
+      linkedType: 'Type lie',
+      linkedRecord: 'Element lie',
+      loading: 'Chargement...',
+      select: 'Selectionner',
+      noneAvailable: 'Aucun',
+      availableSuffix: 'disponible',
+      client: 'Client',
+      supplier: 'Fournisseur',
+      followUp: 'Date de suivi (optionnelle)',
+      cancel: 'Annuler',
+      saving: 'Enregistrement...',
+      save: 'Enregistrer la note',
+    },
+  }[locale];
+
   const [loading, setLoading] = useState(false);
   const [optionsLoading, setOptionsLoading] = useState(true);
   const [clients, setClients] = useState<LinkedEntity[]>([]);
@@ -76,15 +127,15 @@ export default function AddNoteModal({ onClose, onSuccess }: AddNoteModalProps) 
 
   async function handleSave() {
     if (!form.title.trim()) {
-      toast.error('Note title is required');
+      toast.error(t.titleRequired);
       return;
     }
     if (!form.description.trim()) {
-      toast.error('Description is required');
+      toast.error(t.descriptionRequired);
       return;
     }
     if (!form.linkedId) {
-      toast.error(`Please select a ${form.linkedType}`);
+      toast.error(`${t.selectLinked} ${form.linkedType === 'client' ? t.client.toLowerCase() : t.supplier.toLowerCase()}`);
       return;
     }
 
@@ -104,14 +155,14 @@ export default function AddNoteModal({ onClose, onSuccess }: AddNoteModalProps) 
 
       const data = (await response.json()) as { success: boolean; message?: string };
       if (!response.ok || !data.success) {
-        throw new Error(data.message || 'Failed to create note');
+        throw new Error(data.message || t.failedCreate);
       }
 
-      toast.success('Note created');
+      toast.success(t.created);
       onSuccess?.();
       onClose();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to create note');
+      toast.error(error instanceof Error ? error.message : t.failedCreate);
     } finally {
       setLoading(false);
     }
@@ -119,17 +170,17 @@ export default function AddNoteModal({ onClose, onSuccess }: AddNoteModalProps) 
 
   return (
     <BaseAddModal
-      title="Add note"
-      description="Create a note and optionally schedule a follow-up date."
+      title={t.title}
+      description={t.description}
       onClose={onClose}
     >
       <div className="space-y-3">
         <div className="space-y-1.5">
-          <Label>Title</Label>
+          <Label>{t.noteTitle}</Label>
           <Input value={form.title} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} />
         </div>
         <div className="space-y-1.5">
-          <Label>Description</Label>
+          <Label>{t.noteDescription}</Label>
           <textarea
             className="w-full rounded-md border bg-background px-3 py-2 text-sm"
             rows={4}
@@ -139,7 +190,7 @@ export default function AddNoteModal({ onClose, onSuccess }: AddNoteModalProps) 
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="space-y-1.5">
-            <Label>Linked type</Label>
+            <Label>{t.linkedType}</Label>
             <Select
               value={form.linkedType}
               onValueChange={(value: 'client' | 'supplier') =>
@@ -148,16 +199,16 @@ export default function AddNoteModal({ onClose, onSuccess }: AddNoteModalProps) 
             >
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="client">Client</SelectItem>
-                <SelectItem value="supplier">Supplier</SelectItem>
+                <SelectItem value="client">{t.client}</SelectItem>
+                <SelectItem value="supplier">{t.supplier}</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label>Linked record</Label>
+            <Label>{t.linkedRecord}</Label>
             <Select value={form.linkedId} onValueChange={(value) => setForm((p) => ({ ...p, linkedId: value }))}>
               <SelectTrigger>
-                <SelectValue placeholder={optionsLoading ? 'Loading...' : `Select ${form.linkedType}`} />
+                <SelectValue placeholder={optionsLoading ? t.loading : `${t.select} ${form.linkedType === 'client' ? t.client.toLowerCase() : t.supplier.toLowerCase()}`} />
               </SelectTrigger>
               <SelectContent>
                 {linkedOptions.length > 0 ? (
@@ -168,7 +219,7 @@ export default function AddNoteModal({ onClose, onSuccess }: AddNoteModalProps) 
                   ))
                 ) : (
                   <SelectItem value="none" disabled>
-                    No {form.linkedType}s available
+                    {t.noneAvailable} {form.linkedType === 'client' ? `${t.client.toLowerCase()}s` : `${t.supplier.toLowerCase()}s`} {t.availableSuffix}
                   </SelectItem>
                 )}
               </SelectContent>
@@ -176,7 +227,7 @@ export default function AddNoteModal({ onClose, onSuccess }: AddNoteModalProps) 
           </div>
         </div>
         <div className="space-y-1.5">
-          <Label>Follow-up date (optional)</Label>
+          <Label>{t.followUp}</Label>
           <Input
             type="date"
             value={form.followUpDate}
@@ -186,8 +237,8 @@ export default function AddNoteModal({ onClose, onSuccess }: AddNoteModalProps) 
       </div>
 
       <div className="mt-4 flex justify-end gap-2">
-        <Button variant="outline" onClick={onClose}>Cancel</Button>
-        <Button onClick={handleSave} disabled={loading}>{loading ? 'Saving...' : 'Save note'}</Button>
+        <Button variant="outline" onClick={onClose}>{t.cancel}</Button>
+        <Button onClick={handleSave} disabled={loading}>{loading ? t.saving : t.save}</Button>
       </div>
     </BaseAddModal>
   );

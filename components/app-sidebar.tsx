@@ -16,20 +16,56 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { Building2Icon, CommandIcon, LayoutDashboardIcon, LogOutIcon, NotebookPenIcon, TruckIcon, UsersIcon } from "lucide-react"
+import { Building2Icon, CommandIcon, LanguagesIcon, LayoutDashboardIcon, LogOutIcon, NotebookPenIcon, TruckIcon, UsersIcon } from "lucide-react"
+import { useLocale } from "@/components/providers/locale-provider"
 import { useAuthMe } from "@/hooks/useAuthMe"
 
 const navItems = [
-  { title: "Dashboard", url: "/dashboard", icon: <LayoutDashboardIcon /> },
-  { title: "Clients", url: "/clients", icon: <UsersIcon /> },
-  { title: "Suppliers", url: "/suppliers", icon: <TruckIcon /> },
-  { title: "Notes", url: "/notes", icon: <NotebookPenIcon /> },
-  { title: "Company Profile", url: "/profile", icon: <Building2Icon /> },
-]
+  { key: "dashboard", url: "/dashboard", icon: <LayoutDashboardIcon /> },
+  { key: "clients", url: "/clients", icon: <UsersIcon /> },
+  { key: "suppliers", url: "/suppliers", icon: <TruckIcon /> },
+  { key: "notes", url: "/notes", icon: <NotebookPenIcon /> },
+  { key: "companyProfile", url: "/profile", icon: <Building2Icon /> },
+] as const
+
+const sidebarMessages = {
+  en: {
+    tagline: "Business context, always ready",
+    workspace: "Workspace",
+    preferences: "Preferences",
+    language: "Language",
+    session: "Session",
+    logout: "Logout",
+    nav: {
+      dashboard: "Dashboard",
+      clients: "Clients",
+      suppliers: "Suppliers",
+      notes: "Notes",
+      companyProfile: "Company Profile",
+    },
+  },
+  fr: {
+    tagline: "Contexte metier, toujours pret",
+    workspace: "Espace de travail",
+    preferences: "Preferences",
+    language: "Langue",
+    session: "Session",
+    logout: "Deconnexion",
+    nav: {
+      dashboard: "Tableau de bord",
+      clients: "Clients",
+      suppliers: "Fournisseurs",
+      notes: "Notes",
+      companyProfile: "Profil d'entreprise",
+    },
+  },
+} as const
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname()
   const { user } = useAuthMe()
+  const { locale, toggleLocale } = useLocale()
+  const t = sidebarMessages[locale]
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>
@@ -45,7 +81,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 </div>
                 <div className="grid text-left leading-tight">
                   <span className="text-base font-semibold">CRM Roberto</span>
-                  <span className="text-xs text-muted-foreground">Business context, always ready</span>
+                  <span className="text-xs text-muted-foreground">{t.tagline}</span>
                 </div>
               </div>
             </SidebarMenuButton>
@@ -54,10 +90,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup className="pt-1">
-          <SidebarGroupLabel>Workspace</SidebarGroupLabel>
+          <SidebarGroupLabel>{t.workspace}</SidebarGroupLabel>
           <SidebarMenu className="px-2">
             {navItems.map((item) => (
-              <SidebarMenuItem key={item.title}>
+              <SidebarMenuItem key={item.key}>
                 <SidebarMenuButton
                   asChild
                   isActive={pathname === item.url || pathname.startsWith(`${item.url}/`)}
@@ -65,21 +101,32 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 >
                   <Link href={item.url}>
                     {item.icon}
-                    <span>{item.title}</span>
+                    <span>{t.nav[item.key]}</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             ))}
           </SidebarMenu>
         </SidebarGroup>
+        <SidebarGroup className="pt-0">
+          <SidebarGroupLabel>{t.preferences}</SidebarGroupLabel>
+          <SidebarMenu className="px-2">
+            <SidebarMenuItem>
+              <SidebarMenuButton onClick={toggleLocale} className="h-10">
+                <LanguagesIcon />
+                <span>{t.language}: {locale === "en" ? "FR" : "EN"}</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroup>
         <SidebarGroup className="mt-auto pt-0">
-          <SidebarGroupLabel>Session</SidebarGroupLabel>
+          <SidebarGroupLabel>{t.session}</SidebarGroupLabel>
           <SidebarMenu className="px-2 pb-2">
             <SidebarMenuItem>
               <SidebarMenuButton asChild className="h-10 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300">
                 <Link href="/logout">
                   <LogOutIcon />
-                  <span>Logout</span>
+                  <span>{t.logout}</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

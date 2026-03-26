@@ -16,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { useLocale } from "@/components/providers/locale-provider"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 const signupSchema = z.object({
@@ -34,8 +35,45 @@ const otpSchema = z.object({
   otp: z.string().length(6, "OTP must be exactly 6 digits"),
 })
 
+const signupMessages = {
+  en: {
+    verifyOtpTitle: "Verify OTP",
+    createAccountTitle: "Create Account",
+    createSubtitle: "Join the executive management platform.",
+    fullName: "Full Name",
+    email: "Email Address",
+    password: "Password",
+    confirmPassword: "Confirm Password",
+    createAccountButton: "Create Account",
+    otpLabel: "6-Digit Verification Code",
+    verifyCode: "Verify Code",
+    resendOtp: "Resend OTP",
+    backToSignup: "Back to Signup",
+    existingPrompt: "Already have an account?",
+    loginCta: "Log In",
+  },
+  fr: {
+    verifyOtpTitle: "Verifier le code",
+    createAccountTitle: "Creer un compte",
+    createSubtitle: "Rejoignez la plateforme de gestion executive.",
+    fullName: "Nom complet",
+    email: "Adresse e-mail",
+    password: "Mot de passe",
+    confirmPassword: "Confirmer le mot de passe",
+    createAccountButton: "Creer un compte",
+    otpLabel: "Code de verification a 6 chiffres",
+    verifyCode: "Verifier le code",
+    resendOtp: "Renvoyer le code",
+    backToSignup: "Retour a l'inscription",
+    existingPrompt: "Vous avez deja un compte ?",
+    loginCta: "Connexion",
+  },
+} as const
+
 export default function SignupPage() {
   const router = useRouter()
+  const { locale } = useLocale()
+  const t = signupMessages[locale]
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [showOtp, setShowOtp] = useState(false)
@@ -174,12 +212,12 @@ export default function SignupPage() {
     <div className="space-y-6">
       <div className="space-y-2">
         <h1 className="font-poppins text-4xl font-semibold tracking-tight text-zinc-900">
-          {showOtp ? "Verify OTP" : "Create Account"}
+          {showOtp ? t.verifyOtpTitle : t.createAccountTitle}
         </h1>
         <p className="font-roboto text-zinc-500 font-medium text-sm">
           {showOtp 
             ? `We've sent a 6-digit code to ${userEmail}` 
-            : "Join the executive management platform."}
+            : t.createSubtitle}
         </p>
       </div>
 
@@ -190,7 +228,7 @@ export default function SignupPage() {
               htmlFor="fullName" 
               className="text-[10px] font-bold uppercase tracking-widest text-zinc-600 ml-0.5"
             >
-              Full Name
+              {t.fullName}
             </Label>
             <Input
               id="fullName"
@@ -213,7 +251,7 @@ export default function SignupPage() {
               htmlFor="email" 
               className="text-[10px] font-bold uppercase tracking-widest text-zinc-600 ml-0.5"
             >
-              Email Address
+              {t.email}
             </Label>
             <Input
               id="email"
@@ -237,7 +275,7 @@ export default function SignupPage() {
               htmlFor="password" 
               className="text-[10px] font-bold uppercase tracking-widest text-zinc-600 ml-0.5"
             >
-              Password
+              {t.password}
             </Label>
             <div className="relative">
               <Input
@@ -270,7 +308,7 @@ export default function SignupPage() {
               htmlFor="confirmPassword" 
               className="text-[10px] font-bold uppercase tracking-widest text-zinc-600 ml-0.5"
             >
-              Confirm Password
+              {t.confirmPassword}
             </Label>
             <div className="relative">
               <Input
@@ -307,7 +345,7 @@ export default function SignupPage() {
               <Loader2 className="h-4 w-4 animate-spin text-white/50" />
             ) : (
               <div className="flex items-center justify-center gap-2">
-                <span>Create Account</span>
+                <span>{t.createAccountButton}</span>
                 <ArrowRight className="h-4 w-4" />
               </div>
             )}
@@ -317,7 +355,7 @@ export default function SignupPage() {
         <form onSubmit={handleSubmitOtp(onOtpSubmit)} className="space-y-6">
           <div className="space-y-4">
             <Label htmlFor="otp" className="text-[10px] font-bold uppercase tracking-widest text-zinc-600 ml-0.5 block text-center">
-              6-Digit Verification Code
+              {t.otpLabel}
             </Label>
             <div className="flex justify-between gap-2 max-w-[320px] mx-auto">
               {[0, 1, 2, 3, 4, 5].map((index) => (
@@ -369,7 +407,7 @@ export default function SignupPage() {
             type="submit" 
             disabled={isLoading}
           >
-            {isLoading ? <Loader2 className="h-4 w-4 animate-spin text-white/50" /> : "Verify Code"}
+            {isLoading ? <Loader2 className="h-4 w-4 animate-spin text-white/50" /> : t.verifyCode}
           </Button>
           <button
             type="button"
@@ -377,26 +415,26 @@ export default function SignupPage() {
             disabled={isLoading}
             className="w-full text-center text-[11px] font-bold uppercase tracking-widest text-zinc-500 hover:text-[#001e3c] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Resend OTP
+            {t.resendOtp}
           </button>
           <button 
             type="button" 
             onClick={() => setShowOtp(false)} 
             className="w-full text-center text-[11px] font-bold uppercase tracking-widest text-zinc-500 hover:text-[#001e3c] transition-colors"
           >
-            Back to Signup
+            {t.backToSignup}
           </button>
         </form>
       )}
 
       <div className="pt-4 text-center">
         <p className="font-roboto text-zinc-500 text-sm font-medium">
-          Already have an account?{" "}
+          {t.existingPrompt}{" "}
           <Link 
             href="/login" 
             className="text-[#001e3c] font-bold hover:underline underline-offset-4"
           >
-            Log In
+            {t.loginCta}
           </Link>
         </p>
       </div>
