@@ -16,7 +16,10 @@ export async function POST(request: NextRequest) {
         const hashedPassword = await argon2.hash(password + pepper);
         //saved user to db
         const result = await registerUser(name, email, hashedPassword);
-        return NextResponse.json(result);   
+        if(result.success){
+           //trigger otp generation and sending email here
+        }
+        return NextResponse.json(result,{ status: result.success ? 200 : 400 });   
     }
     catch(error){
         return NextResponse.json({ message: "Error registering user"+error, success: false });

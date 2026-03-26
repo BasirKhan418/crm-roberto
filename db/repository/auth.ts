@@ -6,8 +6,11 @@ const registerUser = async (name: string, email: string, password: string) => {
     try{
         await ConnectDb();
         const existingUser = await User.findOne({ email });
-        if (existingUser) {
-            return { message: "User with this email already exists" ,success : false};
+        if (existingUser && existingUser.isEmailVerified === false) {
+            return { message: "User with this email already exists verify otp and complete registration", success: true};
+        }
+        if (existingUser && existingUser.isEmailVerified === true) {
+            return { message: "User with this email already exists", success: false };
         }
         const newUser = new User({ name, email, password });
         await newUser.save();
