@@ -23,10 +23,71 @@ export interface DashboardFollowUpItem {
   title: string;
   followUpDate: Date;
   linkedType: 'client' | 'supplier' | string;
-  linkedId: {
+  linkedId: string | {
     _id?: string;
     fullName?: string;
   } | null;
+}
+
+interface LinkedEntityRecord {
+  _id: string;
+  fullName?: string;
+}
+
+async function hydrateFollowUps(userId: string, rows: DashboardFollowUpItem[]): Promise<DashboardFollowUpItem[]> {
+  const clientIds = new Set<string>();
+  const supplierIds = new Set<string>();
+
+  for (const row of rows) {
+    if (!row.linkedId) {
+      continue;
+    }
+
+    const linkedId = String(row.linkedId);
+    if (!linkedId) {
+      continue;
+    }
+
+    if (row.linkedType === 'client') {
+      clientIds.add(linkedId);
+    } else if (row.linkedType === 'supplier') {
+      supplierIds.add(linkedId);
+    }
+  }
+
+  const [clients, suppliers] = await Promise.all([
+    clientIds.size > 0
+      ? Client.find({ user: userId, _id: { $in: Array.from(clientIds) } }).select('_id fullName').lean()
+      : Promise.resolve([]),
+    supplierIds.size > 0
+      ? Supplier.find({ user: userId, _id: { $in: Array.from(supplierIds) } }).select('_id fullName').lean()
+      : Promise.resolve([]),
+  ]);
+
+  const clientMap = new Map<string, LinkedEntityRecord>();
+  const supplierMap = new Map<string, LinkedEntityRecord>();
+
+  for (const client of clients as LinkedEntityRecord[]) {
+    clientMap.set(String(client._id), { _id: String(client._id), fullName: client.fullName });
+  }
+
+  for (const supplier of suppliers as LinkedEntityRecord[]) {
+    supplierMap.set(String(supplier._id), { _id: String(supplier._id), fullName: supplier.fullName });
+  }
+
+  return rows.map((row) => {
+    if (!row.linkedId) {
+      return row;
+    }
+
+    const linkedId = String(row.linkedId);
+    const linkedEntity = row.linkedType === 'client' ? clientMap.get(linkedId) : supplierMap.get(linkedId);
+
+    return {
+      ...row,
+      linkedId: linkedEntity ?? { _id: linkedId, fullName: undefined },
+    };
+  });
 }
 
 function getStartOfWeek(referenceDate: Date): Date {
@@ -85,8 +146,7 @@ export const getDashboardFollowUps = async (userId: string): Promise<DashboardFo
   })
     .sort({ followUpDate: 1 })
     .select('_id title followUpDate linkedType linkedId')
-    .populate({ path: 'linkedId', select: '_id fullName' })
     .lean();
 
-  return rows as DashboardFollowUpItem[];
+  return hydrateFollowUps(userId, rows as DashboardFollowUpItem[]);
 };

@@ -61,6 +61,7 @@ export default function FollowUpsList({ followUps = [], loading = false, error =
       return Number.isFinite(dateTime) && dateTime >= referenceNow;
     })
     .sort((a, b) => new Date(a.followUpDate ?? 0).getTime() - new Date(b.followUpDate ?? 0).getTime());
+  const showError = Boolean(error) && items.length === 0;
 
   return (
     <Card className="h-full gap-0">
@@ -71,13 +72,13 @@ export default function FollowUpsList({ followUps = [], loading = false, error =
       </CardHeader>
 
       <CardContent className="space-y-2 px-4 pt-4">
-        {error ? <ErrorMessage message={error} /> : null}
+        {showError ? <ErrorMessage message={error ?? undefined} /> : null}
 
-        {loading && !error
+        {loading && !showError
           ? [1, 2, 3].map((index) => <Skeleton key={index} className="h-5 w-full" />)
           : null}
 
-        {!loading && !error
+        {!loading && !showError
           ? items.map((item, index) => {
               const isLast = index === items.length - 1;
 
@@ -106,7 +107,7 @@ export default function FollowUpsList({ followUps = [], loading = false, error =
             })
           : null}
 
-        {!loading && !error && items.length === 0 ? (
+        {!loading && !showError && items.length === 0 ? (
           <EmptyState message="No upcoming follow-ups. Add a follow-up date to any note." />
         ) : null}
       </CardContent>

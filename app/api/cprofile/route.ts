@@ -1,7 +1,8 @@
 import { NextResponse,NextRequest } from "next/server";
 import { createCompanyProfileSchema } from "@/validators/cprofile.schema";
 import checkMe from "@/utils/middlewares/checkMe";
-import { createCompanyProfile } from "@/db/repository/cprofile";
+import { createCompanyProfile, getCompanyProfileByUserId, updateCompanyProfileByUserId } from "@/db/repository/cprofile";
+import getMe from "@/utils/middlewares/useMe";
 export const POST = async (request: NextRequest) => {
     try{
         const  data = await request.json();
@@ -30,5 +31,47 @@ export const POST = async (request: NextRequest) => {
     }
     catch(error){
         return NextResponse.json({ message: "Error creating company profile"+error, success: false });
+    }
+}
+
+export const GET = async () => {
+    try {
+        const me = await getMe(true);
+        if (!me.success || !me.user) {
+            return NextResponse.json({ message: me.message || "Unauthorized", success: false }, { status: 401 });
+        }
+
+        const result = await getCompanyProfileByUserId(me.user.id);
+        if (!result.success) {
+            return NextResponse.json(result, { status: 404 });
+        }
+
+        return NextResponse.json(result);
+    }
+    catch (error) {
+        return NextResponse.json({ message: "Error fetching company profile" + error, success: false }, { status: 500 });
+    }
+}
+
+export const PATCH = async (request: NextRequest) => {
+    try {
+        const me = await getMe(true);
+        if (!me.success || !me.user) {
+            return NextResponse.json({ message: me.message || "Unauthorized", success: false }, { status: 401 });
+        }
+
+        const data = await request.json();
+        const sanitizedData = { ...data };
+        delete sanitizedData.user;
+
+        const result = await updateCompanyProfileByUserId(me.user.id, sanitizedData);
+        if (!result.success) {
+            return NextResponse.json(result, { status: 404 });
+        }
+
+        return NextResponse.json(result);
+    }
+    catch (error) {
+        return NextResponse.json({ message: "Error updating company profile" + error, success: false }, { status: 500 });
     }
 }

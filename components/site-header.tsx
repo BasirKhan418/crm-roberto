@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 
-export function SiteHeader() {
+export function SiteHeader({ title = "Documents" }: { title?: string }) {
   const [mounted, setMounted] = React.useState(false)
   const [theme, setTheme] = React.useState<"light" | "dark">("light")
 
@@ -36,7 +36,7 @@ export function SiteHeader() {
           orientation="vertical"
           className="mx-2 data-[orientation=vertical]:h-4"
         />
-        <h1 className="text-base font-medium">Documents</h1>
+        <h1 className="text-base font-medium">{title}</h1>
         <div className="ml-auto">
           <Button
             variant="outline"

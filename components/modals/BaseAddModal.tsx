@@ -11,7 +11,6 @@ interface BaseAddModalProps {
   title: string;
   description: string;
   onClose: () => void;
-  onSuccess?: () => void;
   children?: ReactNode;
 }
 
@@ -19,7 +18,6 @@ export default function BaseAddModal({
   title,
   description,
   onClose,
-  onSuccess,
   children,
 }: BaseAddModalProps) {
   useEffect(() => {
@@ -57,21 +55,6 @@ export default function BaseAddModal({
         </div>
 
         <div className="space-y-3">{children}</div>
-
-        <div className="mt-4 flex justify-end gap-2">
-          <Button type="button" variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            onClick={() => {
-              onSuccess?.();
-              onClose();
-            }}
-          >
-            Save
-          </Button>
-        </div>
       </div>
     </div>
   );

@@ -12,6 +12,10 @@ interface DashboardStats {
   notesThisWeek?: number;
 }
 
+function isAbortError(reason: unknown): boolean {
+  return reason instanceof DOMException && reason.name === 'AbortError';
+}
+
 function toWholeNumber(value: unknown): number {
   const parsed = Number(value);
 
@@ -31,6 +35,8 @@ export default function StatCards() {
     const controller = new AbortController();
 
     async function loadStats() {
+      setLoading(true);
+
       try {
         setFetchError(null);
         const response = await fetch('/api/dashboard/stats', {
@@ -44,11 +50,17 @@ export default function StatCards() {
 
         const data = (await response.json()) as DashboardStats;
         setStats(data);
-      } catch {
-        setStats(null);
+      } catch (caughtError) {
+        if (isAbortError(caughtError) || controller.signal.aborted) {
+          return;
+        }
+
+        // Keep the last successful values visible if a transient request fails.
         setFetchError('Could not load stats.');
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
       }
     }
 
@@ -62,12 +74,14 @@ export default function StatCards() {
     { label: 'Total suppliers', value: toWholeNumber(stats?.totalSuppliers) },
     { label: 'Notes this week', value: toWholeNumber(stats?.notesThisWeek) },
   ];
+  const hasStats = stats !== null;
+  const showError = Boolean(fetchError) && !hasStats;
 
   return (
     <section className="mb-6 grid grid-cols-1 gap-3 md:grid-cols-3" aria-label="Dashboard stats">
-      {fetchError ? (
+      {showError ? (
         <div className="md:col-span-3">
-          <ErrorMessage message={fetchError} />
+          <ErrorMessage message={fetchError ?? undefined} />
         </div>
       ) : null}
 

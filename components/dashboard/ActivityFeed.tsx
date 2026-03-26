@@ -75,6 +75,7 @@ function getActivityText(item: ActivityItem): string {
 
 export default function ActivityFeed({ activity = [], loading = false, error = null }: ActivityFeedProps) {
   const items = Array.isArray(activity) ? activity.slice(0, 10) : [];
+  const showError = Boolean(error) && items.length === 0;
 
   return (
     <Card className="h-full gap-0">
@@ -84,7 +85,7 @@ export default function ActivityFeed({ activity = [], loading = false, error = n
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-1 px-4 pt-4">
-        {error ? <ErrorMessage message={error} /> : null}
+        {showError ? <ErrorMessage message={error ?? undefined} /> : null}
 
         {loading &&
           [1, 2, 3, 4, 5].map((index) => (
@@ -111,7 +112,7 @@ export default function ActivityFeed({ activity = [], loading = false, error = n
             );
           })}
 
-        {!loading && !error && items.length === 0 ? (
+        {!loading && !showError && items.length === 0 ? (
           <EmptyState message="No activity yet. Add your first client to get started." />
         ) : null}
       </CardContent>

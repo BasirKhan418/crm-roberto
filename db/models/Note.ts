@@ -30,7 +30,9 @@ const NoteSchema = new mongoose.Schema(
     linkedId: {
       type: mongoose.Schema.Types.ObjectId,
       required: true,
-      refPath: "linkedType",
+      ref: function (this: { linkedType: "client" | "supplier" }) {
+        return this.linkedType === "client" ? "Client" : "Supplier";
+      },
     },
 
     followUpDate: {

@@ -27,6 +27,15 @@ export interface NoteListResult {
   pagination: PaginationMeta;
 }
 
+interface LinkedEntityRecord {
+  _id: string;
+  fullName?: string;
+}
+
+interface RawNoteRecord extends Omit<NoteRecord, 'linkedId'> {
+  linkedId: string;
+}
+
 function isValidObjectId(value: string): boolean {
   return mongoose.Types.ObjectId.isValid(value);
 }
@@ -45,6 +54,58 @@ async function ensureLinkedEntityExists(userId: string, linkedType: 'client' | '
   return Boolean(exists);
 }
 
+async function hydrateNotesWithLinkedEntities(userId: string, rawNotes: RawNoteRecord[]): Promise<NoteRecord[]> {
+  const clientIds = new Set<string>();
+  const supplierIds = new Set<string>();
+
+  for (const note of rawNotes) {
+    if (!note.linkedId) {
+      continue;
+    }
+
+    const linkedId = String(note.linkedId);
+    if (!linkedId) {
+      continue;
+    }
+
+    if (note.linkedType === 'client') {
+      clientIds.add(linkedId);
+    } else {
+      supplierIds.add(linkedId);
+    }
+  }
+
+  const [clients, suppliers] = await Promise.all([
+    clientIds.size > 0
+      ? Client.find({ user: userId, _id: { $in: Array.from(clientIds) } }).select('_id fullName').lean()
+      : Promise.resolve([]),
+    supplierIds.size > 0
+      ? Supplier.find({ user: userId, _id: { $in: Array.from(supplierIds) } }).select('_id fullName').lean()
+      : Promise.resolve([]),
+  ]);
+
+  const clientMap = new Map<string, LinkedEntityRecord>();
+  const supplierMap = new Map<string, LinkedEntityRecord>();
+
+  for (const client of clients as LinkedEntityRecord[]) {
+    clientMap.set(String(client._id), { _id: String(client._id), fullName: client.fullName });
+  }
+
+  for (const supplier of suppliers as LinkedEntityRecord[]) {
+    supplierMap.set(String(supplier._id), { _id: String(supplier._id), fullName: supplier.fullName });
+  }
+
+  return rawNotes.map((note) => {
+    const linkedId = String(note.linkedId);
+    const linkedEntity = note.linkedType === 'client' ? clientMap.get(linkedId) : supplierMap.get(linkedId);
+
+    return {
+      ...note,
+      linkedId: linkedEntity ?? { _id: linkedId, fullName: undefined },
+    };
+  });
+}
+
 export const createNote = async (userId: string, payload: CreateNoteDTO): Promise<NoteRecord | null> => {
   await ConnectDb();
 
@@ -58,8 +119,13 @@ export const createNote = async (userId: string, payload: CreateNoteDTO): Promis
     user: userId,
   });
 
-  const withLinked = await Note.findById(created._id).populate({ path: 'linkedId', select: '_id fullName' }).lean();
-  return (withLinked as NoteRecord | null) || null;
+  const raw = (await Note.findById(created._id).lean()) as RawNoteRecord | null;
+  if (!raw) {
+    return null;
+  }
+
+  const hydrated = await hydrateNotesWithLinkedEntities(userId, [raw]);
+  return hydrated[0] ?? null;
 };
 
 export const listNotes = async (
@@ -93,13 +159,14 @@ export const listNotes = async (
       .sort({ [options.sortBy]: sortDirection })
       .skip(skip)
       .limit(options.limit)
-      .populate({ path: 'linkedId', select: '_id fullName' })
       .lean(),
     Note.countDocuments(query),
   ]);
 
+  const hydratedItems = await hydrateNotesWithLinkedEntities(userId, items as RawNoteRecord[]);
+
   return {
-    items: items as NoteRecord[],
+    items: hydratedItems,
     pagination: buildPagination(options.page, options.limit, total),
   };
 };
@@ -111,11 +178,13 @@ export const getNoteById = async (userId: string, noteId: string): Promise<NoteR
     return null;
   }
 
-  const note = await Note.findOne({ _id: noteId, user: userId })
-    .populate({ path: 'linkedId', select: '_id fullName' })
-    .lean();
+  const note = (await Note.findOne({ _id: noteId, user: userId }).lean()) as RawNoteRecord | null;
+  if (!note) {
+    return null;
+  }
 
-  return (note as NoteRecord | null) || null;
+  const hydrated = await hydrateNotesWithLinkedEntities(userId, [note]);
+  return hydrated[0] ?? null;
 };
 
 export const updateNoteById = async (
@@ -136,14 +205,18 @@ export const updateNoteById = async (
     }
   }
 
-  const updated = await Note.findOneAndUpdate({ _id: noteId, user: userId }, payload, {
+  const updated = (await Note.findOneAndUpdate({ _id: noteId, user: userId }, payload, {
     new: true,
     runValidators: true,
   })
-    .populate({ path: 'linkedId', select: '_id fullName' })
-    .lean();
+    .lean()) as RawNoteRecord | null;
 
-  return (updated as NoteRecord | null) || null;
+  if (!updated) {
+    return null;
+  }
+
+  const hydrated = await hydrateNotesWithLinkedEntities(userId, [updated]);
+  return hydrated[0] ?? null;
 };
 
 export const deleteNoteById = async (userId: string, noteId: string): Promise<boolean> => {

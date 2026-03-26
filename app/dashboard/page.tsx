@@ -32,7 +32,7 @@ export default function DashboardPage() {
     >
       <AppSidebar variant="inset" />
       <SidebarInset>
-        <SiteHeader />
+        <SiteHeader title="Dashboard" />
         <main className="flex flex-1 flex-col">
           <div className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 lg:px-6 lg:py-6">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">

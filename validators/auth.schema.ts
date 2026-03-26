@@ -28,3 +28,19 @@ export const loginSchema = z.object({
   email: emailSchema,
   password: z.string().min(1, "Password is required"),
 });
+
+// Authenticated Change Password Schema
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Current password is required"),
+    newPassword: passwordSchema,
+    confirmPassword: z.string().min(1, "Confirm password is required"),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    path: ["confirmPassword"],
+    message: "Passwords do not match",
+  })
+  .refine((data) => data.currentPassword !== data.newPassword, {
+    path: ["newPassword"],
+    message: "New password must be different from current password",
+  });
