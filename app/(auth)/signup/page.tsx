@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
-
+import { toast } from "sonner"
 const signupSchema = z.object({
   fullName: z.string().min(2, "Full Name must be at least 2 characters"),
   email: z.string().email("Invalid email format"),
@@ -60,20 +60,74 @@ export default function SignupPage() {
 
   async function onSubmit(data: SignupValues) {
     setIsLoading(true)
-    setTimeout(() => {
-      setUserEmail(data.email)
+    console.log("Signup Data:", data)
+    try{
+      const response = await fetch("/api/signup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: data.fullName,
+          email: data.email,
+          password: data.password,
+        }),
+      })
+      const result = await response.json()
       setIsLoading(false)
-      setShowOtp(true)
-    }, 1500)
+      if(result.success){
+        toast.success(result.message || "Signup successful! Please verify your email.")
+        setUserEmail(data.email)
+        setShowOtp(true)
+      }
+      else{
+        toast.error(result.message || "Signup failed. Please try again.")
+      }
+
+    }
+    catch(error){
+      toast.error("Error occurred while signing up. Please try again.");
+      console.error("Signup error:", error)
+    }
+    // setTimeout(() => {
+    //   setUserEmail(data.email)
+    //   setIsLoading(false)
+    //   setShowOtp(true)
+    // }, 1500)
   }
 
   async function onOtpSubmit(data: { otp: string }) {
     setIsLoading(true)
-    setTimeout(() => {
+    try{
+      const response = await fetch("/api/verify-otp", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: userEmail,
+          otp: data.otp,
+        }),
+      })
+      const result = await response.json()
       setIsLoading(false)
-      // Redirect to onboarding as per screenshot request
-      router.push("/onboarding")
-    }, 1500)
+      if(result.success){
+        toast.success("OTP verified successfully! Redirecting to onboarding...")
+        router.push("/onboarding")
+      }
+      else{
+        toast.error(result.message || "OTP verification failed. Please try again.")
+      }
+    }
+    catch(error){
+      toast.error("Error occurred while verifying OTP. Please try again.");
+      console.error("OTP verification error:", error)
+    }
+    // setTimeout(() => {
+    //   setIsLoading(false)
+    //   // Redirect to onboarding as per screenshot request
+    //   router.push("/onboarding")
+    // }, 1500)
   }
 
   return (

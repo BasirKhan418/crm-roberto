@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-
+import { Toaster } from "sonner";
 export default function AuthLayout({
   children,
 }: {
@@ -14,6 +14,7 @@ export default function AuthLayout({
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-[#F8FAFC] p-4 md:p-8">
+      <Toaster position="top-right" richColors />
       {/* Centered card-style container like the screenshot */}
       <div className="w-full max-w-[1000px] min-h-[640px] grid lg:grid-cols-2 bg-white rounded-[32px] overflow-hidden shadow-[0_32px_64px_-16px_rgba(0,30,60,0.12)] border border-zinc-100/50">
         

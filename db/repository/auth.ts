@@ -10,7 +10,7 @@ const registerUser = async (name: string, email: string, password: string) => {
             return { message: "User with this email already exists verify otp and complete registration", success: true};
         }
         if (existingUser && existingUser.isEmailVerified === true) {
-            return { message: "User with this email already exists", success: false };
+            return { message: "User with this email already exists . Please Login to continue !", success: false };
         }
         const newUser = new User({ name, email, password });
         await newUser.save();
@@ -48,4 +48,19 @@ const loginUser = async (email: string, password: string) => {
     }
 };
 
-export { registerUser, loginUser };
+const markEmailAsVerified = async (email: string) => {
+    try {
+        await ConnectDb();
+        const user = await User.findOne({ email });
+        if (!user) {
+            return { message: "User not found", success: false };
+        }
+        user.isEmailVerified = true;
+        await user.save();
+        return { message: "Email marked as verified", success: true };
+    } catch (error) {
+        return { message: "Error marking email as verified" + error, success: false };
+    }
+}
+
+export { registerUser, loginUser, markEmailAsVerified };
