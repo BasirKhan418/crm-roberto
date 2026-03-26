@@ -1,12 +1,12 @@
 "use client"
 
-import { use, useEffect, useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
+import {toast} from "sonner"
 import { 
   ArrowRight, 
   Loader2,
-  ShieldCheck,
   ArrowLeft,
   Check
 } from "lucide-react"
@@ -15,11 +15,22 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
+
+const ONBOARDING_DRAFT_KEY = "onboarding_company_profile_draft"
+
 export default function IdentitySetupPage() {
   //if serach params hash not there redirect to logi
  const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [isAgreed, setIsAgreed] = useState(true)
+  const [formData, setFormData] = useState({
+    companyName: "",
+    ownerName: "",
+    businessEmail: "",
+    phone: "",
+    vatNumber: "",
+    address: "",
+  })
   const fetchUserData = async () => {
     try{
       const response = await fetch("/api/me?fch=true", {
@@ -42,16 +53,74 @@ export default function IdentitySetupPage() {
       console.error("Error fetching user data:", error)
     }
   }
+
+  const loadDraftFromLocalStorage = () => {
+    try {
+      const rawDraft = localStorage.getItem(ONBOARDING_DRAFT_KEY)
+      if (!rawDraft) {
+        return
+      }
+
+      const parsedDraft = JSON.parse(rawDraft)
+      setFormData((prev) => ({
+        ...prev,
+        ...parsedDraft,
+      }))
+    } catch {
+      localStorage.removeItem(ONBOARDING_DRAFT_KEY)
+    }
+  }
+
   useEffect(() => {
+    toast("Loading user data...", { icon: <Loader2 className="h-4 w-4 animate-spin" /> })
     fetchUserData();
+    loadDraftFromLocalStorage();
   },[])
-  const handleComplete = () => {
-    if (!isAgreed) return
+
+  const handleSaveDraft = () => {
+    try {
+      localStorage.setItem(ONBOARDING_DRAFT_KEY, JSON.stringify(formData))
+      toast.success("Draft saved successfully")
+      router.push("/login")
+    } catch {
+      toast.error("Unable to save draft. Please try again.")
+    }
+  }
+
+  const handleComplete = async () => {
+    if (!isAgreed) {
+      toast.error("You must agree to the terms to complete the setup.")
+      return;
+    }
     setIsLoading(true)
-    setTimeout(() => {
+    try{
+      const response = await fetch("/api/cprofile", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      })
+      const result = await response.json()
+      console.log("Company profile creation result:", result)
+      if (result.success) {
+        localStorage.removeItem(ONBOARDING_DRAFT_KEY)
+        toast.success(result.message || "Onboarding completed successfully")
+        router.push("/dashboard")
+        return
+      }
+      else{
+ toast.error(result.message || "Error completing onboarding. Please try again.")
+      }
+     
+    }
+    catch{
+      toast.error("Error completing onboarding. Please try again.")
+    }
+    finally {
       setIsLoading(false)
-      router.push("/dashboard")
-    }, 1500)
+    }
+
   }
 
   return (
@@ -113,11 +182,11 @@ export default function IdentitySetupPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-12">
             {[
-              { label: "Company Name", placeholder: "Acme Corporation" },
-              { label: "Owner Name", placeholder: "Eleanor Vance" },
-              { label: "Business Email", placeholder: "executive@company.com" },
-              { label: "Phone Number", placeholder: "+1 (555) 000-0000" },
-              { label: "VAT Number", placeholder: "IE 1234567T" }
+              { key: "companyName", label: "Company Name", placeholder: "Acme Corporation" },
+              { key: "ownerName", label: "Owner Name", placeholder: "Eleanor Vance" },
+              { key: "businessEmail", label: "Business Email", placeholder: "executive@company.com" },
+              { key: "phone", label: "Phone Number", placeholder: "9876543210" },
+              { key: "vatNumber", label: "VAT Number", placeholder: "IE 1234567T" }
             ].map((field, i) => (
               <div key={i} className="group space-y-2 relative">
                 <Label className="text-[11px] font-bold uppercase tracking-[0.15em] text-zinc-600 ml-0.5">
@@ -126,6 +195,13 @@ export default function IdentitySetupPage() {
                 <div className="relative">
                   <Input 
                     placeholder={field.placeholder} 
+                    value={formData[field.key as keyof typeof formData]}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        [field.key]: e.target.value,
+                      }))
+                    }
                     className="h-12 bg-zinc-50/50 border-t-0 border-x-0 border-b border-zinc-400 rounded-none px-3 shadow-none focus-visible:ring-0 focus-visible:border-transparent transition-all placeholder:text-zinc-300 font-medium text-zinc-900 text-base" 
                   />
                   <span className="absolute bottom-[-1px] left-1/2 w-0 h-[1.5px] bg-[#001e3c] transition-all duration-500 ease-out group-focus-within:left-0 group-focus-within:w-full" />
@@ -140,6 +216,13 @@ export default function IdentitySetupPage() {
               <div className="relative">
                 <Input 
                   placeholder="123 Editorial Way, Suite 400, New York, NY" 
+                  value={formData.address}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      address: e.target.value,
+                    }))
+                  }
                   className="h-12 bg-zinc-50/50 border-t-0 border-x-0 border-b border-zinc-400 rounded-none px-3 shadow-none focus-visible:ring-0 focus-visible:border-transparent transition-all placeholder:text-zinc-300 font-medium text-zinc-900 text-base" 
                 />
                 <span className="absolute bottom-[-1px] left-1/2 w-0 h-[1.5px] bg-[#001e3c] transition-all duration-500 ease-out group-focus-within:left-0 group-focus-within:w-full" />
@@ -170,7 +253,11 @@ export default function IdentitySetupPage() {
           </div>
 
           <div className="mt-20 flex items-center justify-between">
-            <button className="text-[11px] font-bold text-zinc-400 hover:text-[#001e3c] flex items-center gap-3 transition-colors uppercase tracking-[0.2em] group">
+            <button
+              type="button"
+              onClick={handleSaveDraft}
+              className="text-[11px] font-bold text-zinc-400 hover:text-[#001e3c] flex items-center gap-3 transition-colors uppercase tracking-[0.2em] group"
+            >
               <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
               Save draft & Exit
             </button>

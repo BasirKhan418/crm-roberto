@@ -1,0 +1,34 @@
+import { NextResponse,NextRequest } from "next/server";
+import { createCompanyProfileSchema } from "@/validators/cprofile.schema";
+import checkMe from "@/utils/middlewares/checkMe";
+import { createCompanyProfile } from "@/db/repository/cprofile";
+export const POST = async (request: NextRequest) => {
+    try{
+        const  data = await request.json();
+        
+        const rs = await checkMe(true);
+        console.log("checkMe result in cprofile route:", rs);
+        if(!rs.success){
+            return NextResponse.json({ message: "Unauthorized", success: false }, { status: 401 });
+        }
+        if(!rs.user){
+            return NextResponse.json({ message: "User not found", success: false }, { status: 401 });
+        }
+        if(rs.user.isOnboardingComplete){
+            return NextResponse.json({ message: "Onboarding already completed", success: false }, { status: 400 });
+        }
+        const validatedData = createCompanyProfileSchema.safeParse({ ...data, user: rs.user.id });
+
+        if (!validatedData.success) {
+            return NextResponse.json({ message: validatedData.error.issues[0].message, success: false });
+        }
+       
+        const result = await createCompanyProfile(validatedData.data);
+        //send an email to user here welcoming them and confirming company profile creation
+        //todo
+        return NextResponse.json(result);
+    }
+    catch(error){
+        return NextResponse.json({ message: "Error creating company profile"+error, success: false });
+    }
+}
