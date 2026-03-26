@@ -20,7 +20,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
-
+import {toast} from "sonner"
 const emailSchema = z.object({
   email: z.string().email("Please enter a valid business email address."),
 })
@@ -45,6 +45,7 @@ export default function ForgotPasswordPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [userEmail, setUserEmail] = useState("")
   const [showPassword, setShowPassword] = useState(false)
+  const [token, setToken] = useState("")
 
   const emailForm = useForm<{ email: string }>({
     resolver: zodResolver(emailSchema),
@@ -62,27 +63,79 @@ export default function ForgotPasswordPage() {
 
   async function onEmailSubmit(data: { email: string }) {
     setIsLoading(true)
-    setTimeout(() => {
-      setUserEmail(data.email)
+    try{
+      const response = await fetch("/api/forgot", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email: data.email, status: "forgot" }),
+      })
+      const result = await response.json()
       setIsLoading(false)
-      setStep("otp")
-    }, 1500)
+      if (!result.success) {
+        toast.error(result.message);
+      } else {
+        setUserEmail(data.email)
+        toast.success(result.message || "Forgot password email sent successfully! Please check your inbox for the OTP.")
+        setStep("otp")
+      }
+
+    }
+    catch(error){
+      toast.error("An error occurred while processing your request.");
+    }
   }
 
   async function onOtpSubmit(data: { otp: string }) {
     setIsLoading(true)
-    setTimeout(() => {
+    try{
+      const response = await fetch("/api/forgot", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email: userEmail, status: "verify", otp: data.otp }),
+      })
+      const result = await response.json()
       setIsLoading(false)
-      setStep("reset")
-    }, 1500)
+      if (!result.success) {
+        toast.error(result.message);
+      }
+        else {
+          setToken(result.token)
+          toast.success(result.message || "OTP verified successfully! Please set your new password.")
+          setStep("reset")
+        }
+    }
+    catch(error){
+      toast.error("An error occurred while processing your request.");
+    }
   }
 
   async function onResetSubmit(data: z.infer<typeof resetPasswordSchema>) {
     setIsLoading(true)
-    setTimeout(() => {
+    try{
+      const response = await fetch("/api/reset", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email: userEmail, password: data.password, token }),
+      })
+      const result = await response.json()
       setIsLoading(false)
-      setStep("completed")
-    }, 1500)
+      if (!result.success) {
+        toast.error(result.message);
+      }
+        else {          
+          toast.success(result.message || "Your password has been reset successfully! You can now log in with your new password.")
+          setStep("completed")
+        }
+    }
+    catch(error){
+      toast.error("An error occurred while processing your request.");
+    }
   }
 
   return (

@@ -63,4 +63,6 @@ const markEmailAsVerified = async (email: string) => {
     }
 }
 
+
+
 export { registerUser, loginUser, markEmailAsVerified };

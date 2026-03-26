@@ -6,6 +6,7 @@ export const generateOtp = async (key: string, otp: string, ttl: number)=>{
         const redisClient = await setConnectionRedis();
         //rate limiting: per user can request otp only 5 times in 5 minutes
         const userOtpCount = await redisClient.incr(`otp_count:${key}`);
+      
         if(userOtpCount > 5){
             return { message: "Too many OTP requests. Please try again later.", success: false };
         }
