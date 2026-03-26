@@ -3,6 +3,7 @@ import { createCompanyProfileSchema } from "@/validators/cprofile.schema";
 import checkMe from "@/utils/middlewares/checkMe";
 import { createCompanyProfile, getCompanyProfileByUserId, updateCompanyProfileByUserId } from "@/db/repository/cprofile";
 import getMe from "@/utils/middlewares/useMe";
+import { sendWelcomeEmail } from "@/emails/auth/sendWelcomeEmail";
 export const POST = async (request: NextRequest) => {
     try{
         const  data = await request.json();
@@ -25,8 +26,8 @@ export const POST = async (request: NextRequest) => {
         }
        
         const result = await createCompanyProfile(validatedData.data);
-        //send an email to user here welcoming them and confirming company profile creation
-        //todo
+            //send an email to user here welcoming them and confirming company profile creation
+            await sendWelcomeEmail({ email: rs.user.email, name: rs.user.name || "User" });
         return NextResponse.json(result);
     }
     catch(error){

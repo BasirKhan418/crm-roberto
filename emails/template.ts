@@ -294,8 +294,6 @@ export const getEmailTemplate = (content: string) => {
             <a href="https://roberto.devsomeware.com/privacy" style="color:#8b9299;text-decoration:none;margin:0 10px;">Privacy Policy</a>
             <span style="color:#4a5258;">•</span>
             <a href="https://roberto.devsomeware.com/terms" style="color:#8b9299;text-decoration:none;margin:0 10px;">Terms</a>
-            <span style="color:#4a5258;">•</span>
-           /a>
           </div>
 
           <!-- Copyright -->
