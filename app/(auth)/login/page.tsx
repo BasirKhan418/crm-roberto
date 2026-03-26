@@ -54,10 +54,11 @@ export default function LoginPage() {
         setIsLoading(false)
         if(result.success){
           toast.success(result.message || "Login successful! Redirecting to dashboard...")
-          if(result.isOnboardingComplet){
+          if(result.isOnboardingComplete){
             router.push("/dashboard")
           }
           else{
+          
             router.push("/onboarding")
           }
         }

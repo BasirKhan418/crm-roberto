@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { 
@@ -15,9 +15,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
-
 export default function IdentitySetupPage() {
-  const router = useRouter()
+  //if serach params hash not there redirect to logi
+ const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [isAgreed, setIsAgreed] = useState(true)
 

@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
         const result = await loginUser(email, password);
         //generate token and set cookie
         if(result.success){
-            const token = jwt.sign({ sub: result.user._id,name: result.user.name,email: result.user.email }, process.env.JWT_SECRET ||"", { expiresIn: '7d' });
+            const token = jwt.sign({ sub: result.user._id, name: result.user.name, email: result.user.email }, process.env.JWT_SECRET || "", { expiresIn: '7d' });
             cookieStore.set("token", token, { httpOnly: true, secure: true, sameSite: "strict", maxAge: 7 * 24 * 60 * 60 });
             return NextResponse.json({ message: result.message, success: true, isOnboardingComplete: result.user.isOnboardingComplete });
         }
