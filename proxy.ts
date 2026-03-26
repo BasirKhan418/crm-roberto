@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 const URL11= ["/dashboard", "/clients", "/suppliers", "/notes", "/follow-up-tracking", "/profile"];
+const URL12= ["/login", "/", "/signup", "/forgot-password"];
 import { useMe } from './utils/middlewares/useMe';
 export default async function proxy (request: NextRequest) {
   if(URL11.some((url) => request.nextUrl.pathname.startsWith(url))) {
@@ -8,7 +9,7 @@ export default async function proxy (request: NextRequest) {
       return NextResponse.redirect(new URL('/login', request.url));
     }
   }
-  if(request.nextUrl.pathname=="/login"||request.nextUrl.pathname=="/"||request.nextUrl.pathname=="/signup"||request.nextUrl.pathname.startsWith("/forgot-password")){
+  if(URL12.some((url) => request.nextUrl.pathname.startsWith(url))) {
     const res = await useMe(false);
     if(res.success){
       return NextResponse.redirect(new URL('/dashboard', request.url));
