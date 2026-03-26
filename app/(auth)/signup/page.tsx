@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 
-const signupSchema = z.z.object({
+const signupSchema = z.object({
   fullName: z.string().min(2, "Full Name must be at least 2 characters"),
   email: z.string().email("Invalid email format"),
   password: z.string().min(8, "Password must be at least 8 characters"),
@@ -79,11 +79,10 @@ export default function SignupPage() {
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-<<<<<<< HEAD
-        <h1 className="text-4xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="font-poppins text-4xl font-semibold tracking-tight text-zinc-900">
           {showOtp ? "Verify OTP" : "Create Account"}
         </h1>
-        <p className="text-zinc-500 font-medium text-sm">
+        <p className="font-roboto text-zinc-500 font-medium text-sm">
           {showOtp 
             ? `We've sent a 6-digit code to ${userEmail}` 
             : "Join the executive management platform."}
@@ -99,105 +98,6 @@ export default function SignupPage() {
             >
               Full Name
             </Label>
-=======
-        <h1 className="font-poppins text-4xl font-semibold tracking-tight text-zinc-900">
-          Create Account
-        </h1>
-        <p className="font-roboto text-zinc-500 font-medium text-sm">
-          Join the executive management platform.
-        </p>
-      </div>
-
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-        <div className="space-y-2">
-          <Label 
-            htmlFor="fullName" 
-            className="text-[10px] font-bold uppercase tracking-widest text-zinc-600 ml-0.5"
-          >
-            Full Name
-          </Label>
-          <Input
-            id="fullName"
-            placeholder="John Doe"
-            className={cn(
-              "h-12 bg-zinc-50/50 border-zinc-400 focus:bg-white transition-all rounded-none border-t-0 border-r-0 border-l-0 border-b-[1.5px] px-0 shadow-none focus-visible:ring-0 focus-visible:border-zinc-900 placeholder:text-zinc-300",
-              errors.fullName && "border-red-500 focus:border-red-500"
-            )}
-            {...register("fullName")}
-          />
-          {errors.fullName && (
-            <p className="font-roboto text-[11px] font-semibold text-red-600 mt-1.5 ml-0.5">
-              {errors.fullName.message}
-            </p>
-          )}
-        </div>
-
-        <div className="space-y-2">
-          <Label 
-            htmlFor="email" 
-            className="text-[10px] font-bold uppercase tracking-widest text-zinc-600 ml-0.5"
-          >
-            Email Address
-          </Label>
-          <Input
-            id="email"
-            type="email"
-            placeholder="name@company.com"
-            className={cn(
-              "h-12 bg-zinc-50/50 border-zinc-400 focus:bg-white transition-all rounded-none border-t-0 border-r-0 border-l-0 border-b-[1.5px] px-0 shadow-none focus-visible:ring-0 focus-visible:border-zinc-900 placeholder:text-zinc-300",
-              errors.email && "border-red-500 focus:border-red-500"
-            )}
-            {...register("email")}
-          />
-          {errors.email && (
-            <p className="font-roboto text-[11px] font-semibold text-red-600 mt-1.5 ml-0.5">
-              {errors.email.message}
-            </p>
-          )}
-        </div>
-
-        <div className="space-y-2">
-          <Label 
-            htmlFor="password" 
-            className="text-[10px] font-bold uppercase tracking-widest text-zinc-600 ml-0.5"
-          >
-            Password
-          </Label>
-          <div className="relative">
-            <Input
-              id="password"
-              type={showPassword ? "text" : "password"}
-              placeholder="••••••••"
-              className={cn(
-                "h-12 bg-zinc-50/50 border-zinc-400 focus:bg-white transition-all rounded-none border-t-0 border-r-0 border-l-0 border-b-[1.5px] px-0 shadow-none focus-visible:ring-0 focus-visible:border-zinc-900 placeholder:text-zinc-300 pr-10",
-                errors.password && "border-red-500 focus:border-red-500"
-              )}
-              {...register("password")}
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-0 top-1/2 -translate-y-1/2 h-8 w-8 flex items-center justify-center text-zinc-400 hover:text-zinc-600 transition-colors"
-            >
-              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </button>
-          </div>
-          {errors.password && (
-            <p className="font-roboto text-[11px] font-semibold text-red-600 mt-1.5 ml-0.5">
-              {errors.password.message}
-            </p>
-          )}
-        </div>
-
-        <div className="space-y-2">
-          <Label 
-            htmlFor="confirmPassword" 
-            className="text-[10px] font-bold uppercase tracking-widest text-zinc-600 ml-0.5"
-          >
-            Confirm Password
-          </Label>
-          <div className="relative">
->>>>>>> 1c511ea5e2836720ea824ab6c2079608398fbed2
             <Input
               id="fullName"
               placeholder="John Doe"
@@ -208,20 +108,11 @@ export default function SignupPage() {
               {...register("fullName")}
             />
             {errors.fullName && (
-              <p className="text-[11px] font-semibold text-red-600 mt-1.5 ml-0.5">
+              <p className="font-roboto text-[11px] font-semibold text-red-600 mt-1.5 ml-0.5">
                 {errors.fullName.message}
               </p>
             )}
           </div>
-<<<<<<< HEAD
-=======
-          {errors.confirmPassword && (
-            <p className="font-roboto text-[11px] font-semibold text-red-600 mt-1.5 ml-0.5">
-              {errors.confirmPassword.message}
-            </p>
-          )}
-        </div>
->>>>>>> 1c511ea5e2836720ea824ab6c2079608398fbed2
 
           <div className="space-y-2">
             <Label 
@@ -241,7 +132,7 @@ export default function SignupPage() {
               {...register("email")}
             />
             {errors.email && (
-              <p className="text-[11px] font-semibold text-red-600 mt-1.5 ml-0.5">
+              <p className="font-roboto text-[11px] font-semibold text-red-600 mt-1.5 ml-0.5">
                 {errors.email.message}
               </p>
             )}
@@ -274,7 +165,7 @@ export default function SignupPage() {
               </button>
             </div>
             {errors.password && (
-              <p className="text-[11px] font-semibold text-red-600 mt-1.5 ml-0.5">
+              <p className="font-roboto text-[11px] font-semibold text-red-600 mt-1.5 ml-0.5">
                 {errors.password.message}
               </p>
             )}
@@ -307,7 +198,7 @@ export default function SignupPage() {
               </button>
             </div>
             {errors.confirmPassword && (
-              <p className="text-[11px] font-semibold text-red-600 mt-1.5 ml-0.5">
+              <p className="font-roboto text-[11px] font-semibold text-red-600 mt-1.5 ml-0.5">
                 {errors.confirmPassword.message}
               </p>
             )}
@@ -345,7 +236,7 @@ export default function SignupPage() {
                     otpErrors.otp ? "border-red-500" : "border-zinc-300"
                   )}
                   onChange={(e) => {
-                    const value = e.target.value.replace(/[^0-9]/g, '');
+                    const value = e.target.value.replace(/[^0-9]/g, "");
                     e.target.value = value;
                     
                     if (value && index < 5) {
@@ -353,16 +244,15 @@ export default function SignupPage() {
                       nextInput?.focus();
                     }
                     
-                    // Update the actual hidden form field
                     const parent = (e.target as HTMLInputElement).parentElement;
                     if (parent) {
-                      const inputs = Array.from(parent.querySelectorAll('input')) as HTMLInputElement[];
-                      const otpValue = inputs.map(i => i.value).join('');
+                      const inputs = Array.from(parent.querySelectorAll("input")) as HTMLInputElement[];
+                      const otpValue = inputs.map(i => i.value).join("");
                       setOtpValue("otp", otpValue);
                     }
                   }}
                   onKeyDown={(e) => {
-                    if (e.key === 'Backspace' && !(e.target as HTMLInputElement).value && index > 0) {
+                    if (e.key === "Backspace" && !(e.target as HTMLInputElement).value && index > 0) {
                       const prevInput = (e.target as HTMLFormElement).parentElement?.children[index - 1] as HTMLInputElement;
                       prevInput?.focus();
                     }
@@ -375,7 +265,7 @@ export default function SignupPage() {
               {...registerOtp("otp")}
             />
             {otpErrors.otp && (
-              <p className="text-[11px] font-semibold text-red-600 mt-1.5 text-center">
+              <p className="font-roboto text-[11px] font-semibold text-red-600 mt-1.5 text-center">
                 {otpErrors.otp.message}
               </p>
             )}
@@ -390,7 +280,7 @@ export default function SignupPage() {
           <button 
             type="button" 
             onClick={() => setShowOtp(false)} 
-            className="w-full text-center text-[11px] font-bold uppercase tracking-[0.1em] text-zinc-500 hover:text-[#001e3c] transition-colors"
+            className="w-full text-center text-[11px] font-bold uppercase tracking-widest text-zinc-500 hover:text-[#001e3c] transition-colors"
           >
             Back to Signup
           </button>
@@ -404,7 +294,7 @@ export default function SignupPage() {
             href="/login" 
             className="text-[#001e3c] font-bold hover:underline underline-offset-4"
           >
-            Signup
+            Log In
           </Link>
         </p>
       </div>
