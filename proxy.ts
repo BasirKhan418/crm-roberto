@@ -8,4 +8,19 @@ export default async function proxy (request: NextRequest) {
       return NextResponse.redirect(new URL('/login', request.url));
     }
   }
+  if(request.nextUrl.pathname=="/login"||request.nextUrl.pathname=="/"||request.nextUrl.pathname=="/signup"||request.nextUrl.pathname.startsWith("/forgot-password")){
+    const res = await useMe(false);
+    if(res.success){
+      return NextResponse.redirect(new URL('/dashboard', request.url));
+    }
+  }
+  if(request.nextUrl.pathname=="/onboarding"){
+    const res = await useMe(true);
+    if(!res.success){
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
+    if(res.success && res.user && res.user.isOnboardingComplete){
+      return NextResponse.redirect(new URL('/dashboard', request.url));
+    }
+  }
 }

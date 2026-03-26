@@ -56,34 +56,6 @@ export default function LoginPage() {
   const t = loginMessages[locale]
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
- const fetchUserData = useCallback(async () => {
-    try{
-      const response = await fetch("/api/me?fch=true", {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      })
-      const result = await response.json()
-      if(result.success){
-        if(result.user.isOnboardingComplete){
-          router.push("/dashboard")
-        }
-        else{
-          router.push("/onboarding")
-        }
-      }
-      else{
-        router.push("/login")
-      }
-    }
-    catch(error){
-      console.error("Error fetching user data:", error)
-    }
-  }, [router])
-  useEffect(() => {
-    fetchUserData()
-  }, [fetchUserData])
   const {
     register,
     handleSubmit,

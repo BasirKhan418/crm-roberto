@@ -73,28 +73,6 @@ export default function IdentitySetupPage() {
     address: "",
   })
 
-  const fetchUserData = useCallback(async () => {
-    try {
-      const response = await fetch("/api/me?fch=true", {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      })
-      const result = await response.json()
-
-      if (result.success) {
-        if (result.user.isOnboardingComplete) {
-          router.push("/dashboard")
-        }
-      } else {
-        router.push("/login")
-      }
-    } catch (error) {
-      console.error("Error fetching user data:", error)
-    }
-  }, [router])
-
   const loadDraftFromLocalStorage = () => {
     try {
       const rawDraft = localStorage.getItem(ONBOARDING_DRAFT_KEY)
@@ -113,9 +91,8 @@ export default function IdentitySetupPage() {
   }
 
   useEffect(() => {
-    fetchUserData()
     loadDraftFromLocalStorage()
-  }, [fetchUserData])
+  }, [])
 
   const handleSaveDraft = () => {
     try {
