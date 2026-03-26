@@ -40,6 +40,11 @@ export default function SignupPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [showOtp, setShowOtp] = useState(false)
   const [userEmail, setUserEmail] = useState("")
+  const [signupPayload, setSignupPayload] = useState<{
+    name: string
+    email: string
+    password: string
+  } | null>(null)
 
   const {
     register,
@@ -61,22 +66,24 @@ export default function SignupPage() {
   async function onSubmit(data: SignupValues) {
     setIsLoading(true)
     console.log("Signup Data:", data)
+    const payload = {
+      name: data.fullName,
+      email: data.email,
+      password: data.password,
+    }
     try{
       const response = await fetch("/api/signup", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          name: data.fullName,
-          email: data.email,
-          password: data.password,
-        }),
+        body: JSON.stringify(payload),
       })
       const result = await response.json()
       setIsLoading(false)
       if(result.success){
         toast.success(result.message || "Signup successful! Please verify your email.")
+        setSignupPayload(payload)
         setUserEmail(data.email)
         setShowOtp(true)
       }
@@ -94,6 +101,39 @@ export default function SignupPage() {
     //   setIsLoading(false)
     //   setShowOtp(true)
     // }, 1500)
+  }
+
+  async function onResendOtp() {
+    if (!signupPayload) {
+      toast.error("Signup details not found. Please sign up again.")
+      return
+    }
+
+    setIsLoading(true)
+
+    try {
+      const response = await fetch("/api/signup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(signupPayload),
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        toast.success( "OTP resent successfully! Please check your email.")
+        setIsLoading(false)
+        return
+      }
+
+      setIsLoading(false)
+      toast.error(result.message || "Failed to resend OTP. Please try again.")
+    } catch {
+      setIsLoading(false)
+      toast.error("Failed to resend OTP. Please try again.")
+    }
   }
 
   async function onOtpSubmit(data: { otp: string }) {
@@ -331,6 +371,14 @@ export default function SignupPage() {
           >
             {isLoading ? <Loader2 className="h-4 w-4 animate-spin text-white/50" /> : "Verify Code"}
           </Button>
+          <button
+            type="button"
+            onClick={onResendOtp}
+            disabled={isLoading}
+            className="w-full text-center text-[11px] font-bold uppercase tracking-widest text-zinc-500 hover:text-[#001e3c] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Resend OTP
+          </button>
           <button 
             type="button" 
             onClick={() => setShowOtp(false)} 
