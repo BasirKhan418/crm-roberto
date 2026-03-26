@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+const URL11= ["/dashboard", "/clients", "/suppliers", "/notes", "/follow-up-tracking", "/profile"];
+const URL12= ["/login", "/forgot-password", "/signup"];
 import { useMe } from './utils/middlewares/useMe';
 
 const protectedRoutePrefixes = ['/dashboard', '/clients', '/suppliers', '/notes', '/follow-up-tracking', '/profile'];
@@ -23,23 +25,22 @@ export default async function proxy(request: NextRequest) {
       return NextResponse.redirect(new URL('/login', request.url));
     }
   }
-
-  if (publicRoutes.some((route) => matchesExactRoute(pathname, route))) {
+  if(URL12.some((url) => request.nextUrl.pathname.startsWith(url))) {
     const res = await useMe(false);
-
-    if (res.success && pathname !== '/dashboard') {
+    if(res.success){
       return NextResponse.redirect(new URL('/dashboard', request.url));
     }
+    if(res.success && res.user&&res.user.isEmailVerified&&!res.user.isOnboardingComplete && pathname !== '/onboarding'){
+      return NextResponse.redirect(new URL('/onboarding', request.url));
+    }
   }
-
-  if (pathname === '/onboarding') {
+  if(request.nextUrl.pathname=="/onboarding"){
     const res = await useMe(true);
 
     if (!res.success) {
       return NextResponse.redirect(new URL('/login', request.url));
     }
-
-    if (res.user?.isOnboardingComplete) {
+    if(res.success && res.user && res.user.isOnboardingComplete){
       return NextResponse.redirect(new URL('/dashboard', request.url));
     }
   }
