@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
@@ -30,7 +30,34 @@ export default function LoginPage() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
-
+ const fetchUserData = async () => {
+    try{
+      const response = await fetch("/api/me?fch=true", {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+      const result = await response.json()
+      if(result.success){
+        if(result.user.isOnboardingComplete){
+          router.push("/dashboard")
+        }
+        else{
+          router.push("/onboarding")
+        }
+      }
+      else{
+        router.push("/login")
+      }
+    }
+    catch(error){
+      console.error("Error fetching user data:", error)
+    }
+  }
+  useEffect(() => {
+    fetchUserData()
+  }, [])
   const {
     register,
     handleSubmit,

@@ -72,7 +72,6 @@ export default function IdentitySetupPage() {
   }
 
   useEffect(() => {
-    toast("Loading user data...", { icon: <Loader2 className="h-4 w-4 animate-spin" /> })
     fetchUserData();
     loadDraftFromLocalStorage();
   },[])
