@@ -16,7 +16,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { Building2Icon, LanguagesIcon, LayoutDashboard, LayoutDashboardIcon, LogOutIcon, NotebookPenIcon, TruckIcon, UsersIcon } from "lucide-react"
+import { Building2Icon, LanguagesIcon, LayoutDashboard, LayoutDashboardIcon, LogOutIcon, NotebookPenIcon, PackageSearchIcon, ReceiptTextIcon, TruckIcon, UsersIcon } from "lucide-react"
 import { useLocale } from "@/components/providers/locale-provider"
 import { useAuthMe } from "@/hooks/useAuthMe"
 
@@ -24,6 +24,8 @@ const navItems = [
   { key: "dashboard", url: "/dashboard", icon: <LayoutDashboardIcon /> },
   { key: "clients", url: "/clients", icon: <UsersIcon /> },
   { key: "suppliers", url: "/suppliers", icon: <TruckIcon /> },
+  { key: "catalogue", url: "/catalogue", icon: <PackageSearchIcon /> },
+  { key: "quotes", url: "/quotes", icon: <ReceiptTextIcon /> },
   { key: "notes", url: "/notes", icon: <NotebookPenIcon /> },
   { key: "companyProfile", url: "/profile", icon: <Building2Icon /> },
 ] as const
@@ -40,6 +42,8 @@ const sidebarMessages = {
       dashboard: "Dashboard",
       clients: "Clients",
       suppliers: "Suppliers",
+      catalogue: "Products & Services",
+      quotes: "Quotes",
       notes: "Notes",
       companyProfile: "Company Profile",
     },
@@ -55,6 +59,8 @@ const sidebarMessages = {
       dashboard: "Tableau de bord",
       clients: "Clients",
       suppliers: "Fournisseurs",
+      catalogue: "Produits & Services",
+      quotes: "Devis",
       notes: "Notes",
       companyProfile: "Profil d'entreprise",
     },
@@ -97,7 +103,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 <SidebarMenuButton
                   asChild
                   isActive={pathname === item.url || pathname.startsWith(`${item.url}/`)}
-                  className="h-10"
+                  className="h-10 bg-transparent text-(--color-text-secondary) hover:bg-transparent hover:text-(--color-text-secondary) data-[active=true]:bg-(--color-background-info) data-[active=true]:text-(--color-text-info)"
                 >
                   <Link href={item.url}>
                     {item.icon}
@@ -123,7 +129,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SidebarGroupLabel>{t.session}</SidebarGroupLabel>
           <SidebarMenu className="px-2 pb-2">
             <SidebarMenuItem>
-              <SidebarMenuButton asChild className="h-10 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300">
+              <SidebarMenuButton asChild className="h-10 mt-2 bg-transparent text-(--color-text-danger) hover:bg-transparent hover:text-(--color-text-danger)">
                 <Link href="/logout">
                   <LogOutIcon />
                   <span>{t.logout}</span>
