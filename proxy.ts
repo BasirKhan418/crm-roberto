@@ -35,6 +35,9 @@ export default async function proxy(request: NextRequest) {
     if (!payload) {
       return NextResponse.redirect(new URL('/login', request.url));
     }
+    if(payload.isEmailVerified && !payload.isOnboardingComplete){
+      return NextResponse.redirect(new URL('/onboarding', request.url));
+    }
     return NextResponse.next();
   }
 

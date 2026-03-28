@@ -206,15 +206,52 @@ export default function IdentitySetupPage() {
     }
     setLogoUploading(true)
     try {
-      const fd = new FormData()
-      fd.append("logo", file)
-      const res = await fetch("/api/cprofile/logo", { method: "POST", body: fd })
-      const json = await res.json()
-      if (json.success && json.logoUrl) {
-        setLogoUrl(json.logoUrl)
-      } else {
-        toast.error(t.step2UploadFailed)
+      const presignRes = await fetch("/api/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileName: file.name,
+          fileType: file.type,
+          folder: "logos",
+        }),
+      })
+      const presignJson = (await presignRes.json()) as {
+        success: boolean
+        message?: string
+        uploadUrl?: string
+        fileUrl?: string
+        key?: string
       }
+
+      if (!presignRes.ok || !presignJson.success || !presignJson.uploadUrl || !presignJson.fileUrl || !presignJson.key) {
+        throw new Error(presignJson.message || t.step2UploadFailed)
+      }
+
+      const uploadRes = await fetch(presignJson.uploadUrl, {
+        method: "PUT",
+        headers: { "Content-Type": file.type },
+        body: file,
+      })
+
+      if (!uploadRes.ok) {
+        throw new Error(t.step2UploadFailed)
+      }
+
+      const updateRes = await fetch("/api/cprofile/logo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          logoUrl: presignJson.fileUrl,
+          logoKey: presignJson.key,
+        }),
+      })
+      const updateJson = (await updateRes.json()) as { success: boolean; message?: string }
+
+      if (!updateRes.ok || !updateJson.success) {
+        throw new Error(updateJson.message || t.step2UploadFailed)
+      }
+
+      setLogoUrl(presignJson.fileUrl)
     } catch {
       toast.error(t.step2UploadFailed)
     } finally {

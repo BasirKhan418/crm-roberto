@@ -219,12 +219,50 @@ export default function ProfilePage() {
   async function uploadLogo(file: File) {
     setLogoUploading(true);
     try {
-      const fd = new FormData();
-      fd.append('logo', file);
-      const response = await fetch('/api/cprofile/logo', { method: 'POST', body: fd });
-      const data = (await response.json()) as { success: boolean; message?: string; logoUrl?: string };
-      if (!response.ok || !data.success) throw new Error(data.message || t.logoUploadFailed);
-      setLogoUrl(data.logoUrl ?? null);
+      const presignResponse = await fetch('/api/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fileName: file.name,
+          fileType: file.type,
+          folder: 'logos',
+        }),
+      });
+
+      const presignData = (await presignResponse.json()) as {
+        success: boolean;
+        message?: string;
+        uploadUrl?: string;
+        fileUrl?: string;
+        key?: string;
+      };
+
+      if (!presignResponse.ok || !presignData.success || !presignData.uploadUrl || !presignData.fileUrl || !presignData.key) {
+        throw new Error(presignData.message || t.logoUploadFailed);
+      }
+
+      const uploadResponse = await fetch(presignData.uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': file.type },
+        body: file,
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error(t.logoUploadFailed);
+      }
+
+      const updateResponse = await fetch('/api/cprofile/logo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ logoUrl: presignData.fileUrl, logoKey: presignData.key }),
+      });
+      const updateData = (await updateResponse.json()) as { success: boolean; message?: string; logoUrl?: string };
+
+      if (!updateResponse.ok || !updateData.success) {
+        throw new Error(updateData.message || t.logoUploadFailed);
+      }
+
+      setLogoUrl(updateData.logoUrl ?? presignData.fileUrl ?? null);
       toast.success(t.logoUploaded);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t.logoUploadFailed);
