@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { X } from 'lucide-react';
 
 import { createCatalogueItemSchema, updateCatalogueItemSchema } from '@/validators/catalogue.schema';
 import { centsToEuros, eurosToCents } from '@/lib/price';
@@ -65,6 +66,7 @@ export default function CatalogueItemModal({ open, mode, item, onClose, onSaved 
     en: {
       newTitle: 'New product/service',
       editTitle: 'Edit',
+      close: 'Close modal',
       subtitleAdd: 'Create a reusable catalogue item for quotes.',
       subtitleEdit: 'Update this catalogue item.',
       name: 'Name',
@@ -88,6 +90,7 @@ export default function CatalogueItemModal({ open, mode, item, onClose, onSaved 
     fr: {
       newTitle: 'Nouveau produit/service',
       editTitle: 'Modifier',
+      close: 'Fermer la fenetre',
       subtitleAdd: 'Creez un element catalogue reutilisable pour les devis.',
       subtitleEdit: 'Mettez a jour cet element catalogue.',
       name: 'Nom',
@@ -230,6 +233,18 @@ export default function CatalogueItemModal({ open, mode, item, onClose, onSaved 
   return (
     <Dialog open={open} onOpenChange={(next) => (!next ? onClose() : undefined)}>
       <DialogContent className="max-w-120 p-6 sm:p-7">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          className="absolute top-4 right-4"
+          aria-label={t.close}
+          onClick={onClose}
+          disabled={saving}
+        >
+          <X className="size-4" />
+        </Button>
+
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{mode === 'add' ? t.subtitleAdd : t.subtitleEdit}</DialogDescription>
