@@ -17,6 +17,7 @@ export const createActivitySchema = z.object({
     'product_updated',
     'product_deleted',
     'quote_created',
+    'quote_duplicated',
     'quote_updated',
     'quote_deleted',
     'quote_status_changed',

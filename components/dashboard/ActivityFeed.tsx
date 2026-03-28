@@ -24,6 +24,11 @@ const ACTION_LABEL: Record<'en' | 'fr', Record<string, string>> = {
     note_created: 'Note created',
     note_updated: 'Note updated',
     note_deleted: 'Note deleted',
+    quote_created: 'Quote created',
+    quote_duplicated: 'Quote duplicated',
+    quote_updated: 'Quote updated',
+    quote_deleted: 'Quote deleted',
+    quote_status_changed: 'Quote status changed',
   },
   fr: {
     client_created: 'Client ajoute',
@@ -35,6 +40,11 @@ const ACTION_LABEL: Record<'en' | 'fr', Record<string, string>> = {
     note_created: 'Note creee',
     note_updated: 'Note mise a jour',
     note_deleted: 'Note supprimee',
+    quote_created: 'Devis cree',
+    quote_duplicated: 'Devis duplique',
+    quote_updated: 'Devis mis a jour',
+    quote_deleted: 'Devis supprime',
+    quote_status_changed: 'Statut du devis modifie',
   },
 };
 

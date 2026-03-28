@@ -85,6 +85,10 @@ type UpdateQuoteStatusResult =
   | { kind: 'not-found' }
   | { kind: 'invalid-transition'; from: QuoteStatus; to: QuoteStatus };
 
+type DuplicateQuoteResult =
+  | { kind: 'ok'; quote: QuoteRecord; sourceQuoteId: string }
+  | { kind: 'not-found' };
+
 const EDITABLE_STATUSES: QuoteStatus[] = ['draft', 'sent'];
 
 const ALLOWED_STATUS_TRANSITIONS: Record<QuoteStatus, QuoteStatus[]> = {
@@ -327,5 +331,61 @@ export const updateQuoteStatusById = async (
     quote: quote.toObject() as QuoteRecord,
     from,
     to,
+  };
+};
+
+export const duplicateQuoteById = async (userId: string, quoteId: string): Promise<DuplicateQuoteResult> => {
+  await ConnectDb();
+
+  if (!isValidObjectId(quoteId)) {
+    return { kind: 'not-found' };
+  }
+
+  const sourceQuote = await Quote.findOne({ _id: quoteId, user: userId }).lean();
+  if (!sourceQuote) {
+    return { kind: 'not-found' };
+  }
+
+  const lineItems = (sourceQuote as QuoteRecord).lineItems.map((item) => ({
+    productId: item.productId ?? null,
+    name: item.name,
+    quantity: item.quantity,
+    unitPriceExcludingTax: item.unitPriceExcludingTax,
+    vatRate: item.vatRate,
+    totalExcludingTax: calcLineItem(item.unitPriceExcludingTax, item.quantity, item.vatRate).totalExclTax,
+  }));
+
+  const totals = calcQuoteTotals(
+    lineItems.map((item) => ({
+      productId: item.productId ?? null,
+      name: item.name,
+      quantity: item.quantity,
+      unitPriceExcludingTax: item.unitPriceExcludingTax,
+      vatRate: item.vatRate,
+    }))
+  );
+
+  const lastQuoteNumber = await getLastQuoteNumber(userId);
+  const quoteNumber = nextQuoteNumber(lastQuoteNumber);
+
+  const created = await Quote.create({
+    user: userId,
+    quoteNumber,
+    date: new Date(),
+    status: 'draft',
+    clientId: (sourceQuote as QuoteRecord).clientId,
+    clientSnapshot: (sourceQuote as QuoteRecord).clientSnapshot,
+    lineItems,
+    ...totals,
+    notes: (sourceQuote as QuoteRecord).notes ?? null,
+    statusHistory: [{ to: 'draft', changedAt: new Date() }],
+    convertedToInvoice: false,
+    invoiceId: null,
+  });
+
+  return {
+    kind: 'ok',
+    quote: created.toObject() as QuoteRecord,
+    sourceQuoteId: quoteId,
   };
 };

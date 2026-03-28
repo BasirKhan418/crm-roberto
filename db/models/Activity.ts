@@ -29,6 +29,7 @@ const ActivityLogSchema = new mongoose.Schema(
         "quote_updated",
         "quote_deleted",
         "quote_status_changed", 
+        "quote_duplicated",
       ],
     },
 

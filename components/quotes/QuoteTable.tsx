@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 
-import { DownloadIcon, EyeIcon, PencilIcon, Trash2Icon } from 'lucide-react';
+import { CopyIcon, DownloadIcon, EyeIcon, PencilIcon, Trash2Icon } from 'lucide-react';
 
 import { PriceDisplay } from '@/components/ui/PriceDisplay';
 import { StatusBadge, type QuoteStatus } from '@/components/ui/StatusBadge';
@@ -34,6 +34,7 @@ interface QuoteTableProps {
     actions: string;
     view: string;
     edit: string;
+    duplicate: string;
     delete: string;
     downloadPdf: string;
     lockEdit: string;
@@ -41,9 +42,10 @@ interface QuoteTableProps {
   formatDate: (value: string) => string;
   onDelete: (quote: QuoteListItem) => void;
   onDownload: (quote: QuoteListItem) => Promise<void>;
+  onDuplicate: (quote: QuoteListItem) => Promise<void>;
 }
 
-export default function QuoteTable({ items, loading, labels, formatDate, onDelete, onDownload }: QuoteTableProps) {
+export default function QuoteTable({ items, loading, labels, formatDate, onDelete, onDownload, onDuplicate }: QuoteTableProps) {
   return (
     <>
       <div className="space-y-3 md:hidden">
@@ -126,6 +128,13 @@ export default function QuoteTable({ items, loading, labels, formatDate, onDelet
                       <Trash2Icon className="size-3.5" />
                       {labels.delete}
                     </Button>
+
+                    {!canEdit ? (
+                      <Button type="button" size="sm" variant="outline" className="col-span-2" onClick={() => onDuplicate(quote)}>
+                        <CopyIcon className="size-3.5" />
+                        {labels.duplicate}
+                      </Button>
+                    ) : null}
 
                     <Button type="button" size="sm" variant="outline" onClick={() => onDownload(quote)}>
                       <DownloadIcon className="size-3.5" />
@@ -218,6 +227,13 @@ export default function QuoteTable({ items, loading, labels, formatDate, onDelet
                             <Trash2Icon className="size-3.5" />
                             {labels.delete}
                           </Button>
+
+                          {!canEdit ? (
+                            <Button type="button" size="sm" variant="outline" onClick={() => onDuplicate(quote)}>
+                              <CopyIcon className="size-3.5" />
+                              {labels.duplicate}
+                            </Button>
+                          ) : null}
 
                           <Button type="button" size="sm" variant="outline" onClick={() => onDownload(quote)}>
                             <DownloadIcon className="size-3.5" />

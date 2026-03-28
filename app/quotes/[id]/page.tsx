@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 
-import { ArrowLeftIcon, DownloadIcon, PencilIcon, Trash2Icon } from 'lucide-react';
+import { ArrowLeftIcon, CopyIcon, DownloadIcon, PencilIcon, Trash2Icon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import CrmShell from '@/components/crm-shell';
@@ -107,6 +107,7 @@ export default function QuoteDetailPage() {
       shellTitle: 'Quote Detail',
       back: 'Back to quotes',
       edit: 'Edit',
+      duplicate: 'Duplicate',
       download: 'Download PDF',
       delete: 'Delete',
       quote: 'Quote',
@@ -142,6 +143,8 @@ export default function QuoteDetailPage() {
       notFound: 'Quote not found',
       deleteFailed: 'Failed to delete quote',
       deleted: 'Quote deleted',
+      duplicated: 'Quote duplicated',
+      duplicateFailed: 'Failed to duplicate quote',
       downloadFailed: 'Failed to download PDF',
       noData: '-',
     },
@@ -149,6 +152,7 @@ export default function QuoteDetailPage() {
       shellTitle: 'Detail du devis',
       back: 'Retour aux devis',
       edit: 'Modifier',
+      duplicate: 'Dupliquer',
       download: 'Telecharger PDF',
       delete: 'Supprimer',
       quote: 'Devis',
@@ -184,6 +188,8 @@ export default function QuoteDetailPage() {
       notFound: 'Devis introuvable',
       deleteFailed: 'Impossible de supprimer le devis',
       deleted: 'Devis supprime',
+      duplicated: 'Devis duplique',
+      duplicateFailed: 'Impossible de dupliquer le devis',
       downloadFailed: 'Impossible de telecharger le PDF',
       noData: '-',
     },
@@ -282,6 +288,30 @@ export default function QuoteDetailPage() {
     }
   }
 
+  async function duplicateQuote() {
+    if (!quote?._id) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/quotes/${quote._id}/duplicate`, { method: 'POST' });
+      const payload = (await response.json()) as {
+        success?: boolean;
+        message?: string;
+        data?: { _id?: string };
+      };
+
+      if (!response.ok || !payload.success || !payload.data?._id) {
+        throw new Error(payload.message || t.duplicateFailed);
+      }
+
+      toast.success(t.duplicated);
+      router.push(`/quotes/${payload.data._id}/edit`);
+    } catch (duplicateError) {
+      toast.error(duplicateError instanceof Error ? duplicateError.message : t.duplicateFailed);
+    }
+  }
+
   function handleOptimisticStatusChange(newStatus: QuoteStatus) {
     setQuote((prev) => {
       if (!prev) {
@@ -342,6 +372,13 @@ export default function QuoteDetailPage() {
                   </span>
                 )}
               </Button>
+
+              {!canEdit ? (
+                <Button type="button" variant="outline" size="sm" onClick={duplicateQuote}>
+                  <CopyIcon className="size-3.5" />
+                  {t.duplicate}
+                </Button>
+              ) : null}
 
               <StatusChanger
                 quoteId={quote._id}

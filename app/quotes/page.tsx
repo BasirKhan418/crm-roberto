@@ -40,6 +40,8 @@ export default function QuotesPage() {
       currentFilter: 'Current filter',
       deleteFailed: 'Failed to delete quote',
       deleted: 'Quote deleted',
+      duplicated: 'Quote duplicated',
+      duplicateFailed: 'Failed to duplicate quote',
       downloadFailed: 'Failed to download PDF',
       newQuote: 'New quote',
       search: 'Search by quote number or client name...',
@@ -59,6 +61,7 @@ export default function QuotesPage() {
       actions: 'Actions',
       view: 'View',
       edit: 'Edit',
+      duplicate: 'Duplicate',
       delete: 'Delete',
       downloadPdf: 'PDF',
       lockEdit: 'Accepted and refused quotes cannot be edited',
@@ -81,6 +84,8 @@ export default function QuotesPage() {
       currentFilter: 'Filtre actuel',
       deleteFailed: 'Impossible de supprimer le devis',
       deleted: 'Devis supprime',
+      duplicated: 'Devis duplique',
+      duplicateFailed: 'Impossible de dupliquer le devis',
       downloadFailed: 'Impossible de telecharger le PDF',
       newQuote: 'Nouveau devis',
       search: 'Rechercher par numero de devis ou nom client...',
@@ -100,6 +105,7 @@ export default function QuotesPage() {
       actions: 'Actions',
       view: 'Voir',
       edit: 'Modifier',
+      duplicate: 'Dupliquer',
       delete: 'Supprimer',
       downloadPdf: 'PDF',
       lockEdit: 'Les devis acceptes et refuses ne peuvent pas etre modifies',
@@ -209,6 +215,26 @@ export default function QuotesPage() {
     }
   }
 
+  async function handleDuplicateQuote(quote: QuoteListItem) {
+    try {
+      const response = await fetch(`/api/quotes/${quote._id}/duplicate`, { method: 'POST' });
+      const payload = (await response.json()) as {
+        success?: boolean;
+        message?: string;
+        data?: { _id?: string };
+      };
+
+      if (!response.ok || !payload.success || !payload.data?._id) {
+        throw new Error(payload.message || t.duplicateFailed);
+      }
+
+      toast.success(t.duplicated);
+      router.push(`/quotes/${payload.data._id}/edit`);
+    } catch (duplicateError) {
+      toast.error(duplicateError instanceof Error ? duplicateError.message : t.duplicateFailed);
+    }
+  }
+
   const currentFilterLabel =
     status === 'all' ? t.tabAll : status === 'draft' ? t.tabDraft : status === 'sent' ? t.tabSent : status === 'accepted' ? t.tabAccepted : t.tabRefused;
 
@@ -288,10 +314,12 @@ export default function QuotesPage() {
                 actions: t.actions,
                 view: t.view,
                 edit: t.edit,
+                duplicate: t.duplicate,
                 delete: t.delete,
                 downloadPdf: t.downloadPdf,
                 lockEdit: t.lockEdit,
               }}
+              onDuplicate={handleDuplicateQuote}
             />
 
             <div className="flex flex-col gap-2 rounded-lg border border-border/70 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
