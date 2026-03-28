@@ -267,7 +267,7 @@ export default function IdentitySetupPage() {
 
   return (
     <div className="h-screen bg-[#f8fafc] flex overflow-hidden">
-      <aside className="hidden lg:flex w-[420px] xl:w-[480px] shrink-0 flex-col bg-[#020b18] text-white relative overflow-hidden">
+      <aside className="hidden lg:flex w-105 xl:w-120 shrink-0 flex-col bg-[#020b18] text-white relative overflow-hidden">
         <WorldMapBg
           className="absolute inset-0 w-full h-full object-cover pointer-events-none"
           strokeColor="white"
@@ -275,8 +275,8 @@ export default function IdentitySetupPage() {
           gridOpacity={0.1}
         />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_60%_40%,transparent_30%,#020b18_80%)] pointer-events-none" />
-        <div className="absolute bottom-0 left-0 right-0 h-48 bg-gradient-to-t from-[#020b18] to-transparent pointer-events-none" />
-        <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-[#020b18] to-transparent pointer-events-none" />
+        <div className="absolute bottom-0 left-0 right-0 h-48 bg-linear-to-t from-[#020b18] to-transparent pointer-events-none" />
+        <div className="absolute top-0 left-0 right-0 h-32 bg-linear-to-b from-[#020b18] to-transparent pointer-events-none" />
 
         <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72 rounded-full bg-emerald-500/5 blur-3xl pointer-events-none" />
 
@@ -316,7 +316,7 @@ export default function IdentitySetupPage() {
 
             <div className="mt-8 mb-8 w-16 h-px bg-white/15" />
 
-            <p className="text-[13px] text-white/40 leading-[1.75] max-w-[280px]">
+            <p className="text-[13px] text-white/40 leading-[1.75] max-w-70">
               {step === 2 ? t.step2PanelDesc : t.panelDesc}
             </p>
           </div>

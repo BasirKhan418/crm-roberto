@@ -124,8 +124,8 @@ export default function CatalogueTable({
                 </div>
               </div>
             ))
-          : items.map((item) => (
-              <article key={item._id} className="space-y-3 rounded-xl border border-border/70 bg-card/40 p-3">
+            : items.map((item) => (
+              <article key={item._id} className="space-y-3 rounded-xl border border-border/70 bg-white p-3">
                 <div className="flex items-start justify-between gap-2">
                   <h3 className="line-clamp-2 text-sm font-semibold leading-5">{item.name}</h3>
                   <span style={typePill(item.type)}>{item.type === 'product' ? labels.product : labels.service}</span>
@@ -161,7 +161,7 @@ export default function CatalogueTable({
             ))}
       </div>
 
-      <div className="hidden md:block">
+      <div className="hidden overflow-hidden rounded-xl border border-border/70 bg-white md:block">
         <Table className="table-fixed">
           <TableHeader>
             <TableRow>

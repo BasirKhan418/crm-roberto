@@ -68,7 +68,7 @@ export default function QuoteTable({ items, loading, labels, formatDate, onDelet
               const canEdit = quote.status === 'draft' || quote.status === 'sent';
 
               return (
-                <article key={quote._id} className="space-y-3 rounded-xl border border-border/70 bg-card/40 p-3">
+                <article key={quote._id} className="space-y-3 rounded-xl border border-border/70 bg-white p-3">
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <Link href={`/quotes/${quote._id}`} className="text-sm font-semibold text-(--color-text-info) hover:underline">
@@ -146,7 +146,7 @@ export default function QuoteTable({ items, loading, labels, formatDate, onDelet
             })}
       </div>
 
-      <div className="hidden md:block">
+      <div className="hidden overflow-hidden rounded-xl border border-border/70 bg-white md:block">
         <Table>
           <TableHeader>
             <TableRow>
