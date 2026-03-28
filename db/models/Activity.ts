@@ -22,12 +22,19 @@ const ActivityLogSchema = new mongoose.Schema(
         "note_created",
         "note_updated",
         "note_deleted",
+        "product_created",
+        "product_updated",
+        "product_deleted",
+        "quote_created",
+        "quote_updated",
+        "quote_deleted",
+        "quote_status_changed", 
       ],
     },
 
     entityType: {
       type: String,
-      enum: ["client", "supplier", "note"],
+      enum: ["client", "supplier", "note", "product", "quote"],
       required: true,
     },
 
@@ -38,6 +45,10 @@ const ActivityLogSchema = new mongoose.Schema(
 
     entityId: {
       type: mongoose.Schema.Types.ObjectId,
+      default: null,
+    },
+     metadata: {
+      type: mongoose.Schema.Types.Mixed,
       default: null,
     },
   },
