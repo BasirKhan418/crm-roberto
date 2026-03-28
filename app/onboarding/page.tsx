@@ -155,7 +155,7 @@ export default function IdentitySetupPage() {
     try {
       localStorage.setItem(ONBOARDING_DRAFT_KEY, JSON.stringify(formData))
       toast.success(t.toastDraftSaved)
-      router.push("/login")
+      router.push("/logout")
     } catch {
       toast.error(t.toastDraftFailed)
     }
@@ -229,7 +229,7 @@ export default function IdentitySetupPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] flex">
+    <div className="h-screen bg-[#f8fafc] flex overflow-hidden">
       <aside className="hidden lg:flex w-[420px] xl:w-[480px] shrink-0 flex-col bg-[#020b18] text-white relative overflow-hidden">
         <WorldMapBg
           className="absolute inset-0 w-full h-full object-cover pointer-events-none"
@@ -293,8 +293,8 @@ export default function IdentitySetupPage() {
         </div>
       </aside>
 
-      <main className="flex-1 overflow-y-auto bg-[#f8fafc]">
-        <div className="flex justify-end px-5 sm:px-8 pt-5">
+      <main className="flex-1 overflow-y-auto bg-[#f8fafc] flex flex-col">
+        <div className="flex justify-end px-5 sm:px-8 pt-3 pb-1">
           <LanguageThemeToggle />
         </div>
 
@@ -306,17 +306,17 @@ export default function IdentitySetupPage() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -16 }}
           transition={{ duration: 0.5, ease: [0.19, 1, 0.22, 1] }}
-          className="max-w-2xl mx-auto w-full px-5 sm:px-8 pt-8 pb-14"
+          className="max-w-2xl mx-auto w-full px-5 sm:px-8 pt-4 pb-4"
         >
-            <div className="mb-10">
-              <h1 className="font-heading text-3xl sm:text-4xl font-semibold text-[#001e3c] tracking-tight mb-2">
+            <div className="mb-4">
+              <h1 className="font-heading text-2xl font-semibold text-[#001e3c] tracking-tight mb-1">
                 {t.heading}
               </h1>
-              <p className="text-sm text-muted-foreground leading-relaxed max-w-lg">{t.subtitle}</p>
+              <p className="text-xs text-muted-foreground leading-relaxed max-w-lg">{t.subtitle}</p>
             </div>
 
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
               {[
                 { key: "companyName", label: t.companyName, placeholder: "Acme Corporation" },
                 { key: "ownerName", label: t.ownerName, placeholder: "Eleanor Vance" },
@@ -335,7 +335,7 @@ export default function IdentitySetupPage() {
                     onChange={(e) =>
                       setFormData((prev) => ({ ...prev, [field.key]: e.target.value }))
                     }
-                    className="h-11 bg-zinc-50 border-zinc-200 text-zinc-900 rounded-lg focus-visible:ring-2 focus-visible:ring-[#001e3c]/20 focus-visible:border-[#001e3c] transition-all placeholder:text-zinc-300"
+                    className="h-9 bg-zinc-50 border-zinc-200 text-zinc-900 rounded-lg focus-visible:ring-2 focus-visible:ring-[#001e3c]/20 focus-visible:border-[#001e3c] transition-all placeholder:text-zinc-300 text-sm"
                   />
                 </div>
               ))}
@@ -350,7 +350,7 @@ export default function IdentitySetupPage() {
                   onChange={(e) =>
                     setFormData((prev) => ({ ...prev, address: e.target.value }))
                   }
-                  className="h-11 bg-zinc-50 border-zinc-200 text-zinc-900 rounded-lg focus-visible:ring-2 focus-visible:ring-[#001e3c]/20 focus-visible:border-[#001e3c] transition-all placeholder:text-zinc-300"
+                  className="h-9 bg-zinc-50 border-zinc-200 text-zinc-900 rounded-lg focus-visible:ring-2 focus-visible:ring-[#001e3c]/20 focus-visible:border-[#001e3c] transition-all placeholder:text-zinc-300 text-sm"
                 />
                 <p className="text-xs text-zinc-400">{t.hqHint}</p>
               </div>
@@ -359,7 +359,7 @@ export default function IdentitySetupPage() {
             <div
               onClick={() => setIsAgreed(!isAgreed)}
               className={cn(
-                "mt-8 p-5 border rounded-xl flex items-start gap-4 transition-all cursor-pointer",
+                "mt-4 p-3 border rounded-xl flex items-start gap-3 transition-all cursor-pointer",
                 isAgreed
                   ? "bg-zinc-50 border-zinc-200 hover:bg-zinc-100/60"
                   : "bg-red-50/40 border-red-200/60 hover:bg-red-50/60"
@@ -379,7 +379,7 @@ export default function IdentitySetupPage() {
               </div>
             </div>
 
-            <div className="mt-10 flex flex-col-reverse sm:flex-row items-center justify-between gap-4">
+            <div className="mt-4 flex flex-col-reverse sm:flex-row items-center justify-between gap-4">
               <button
                 type="button"
                 onClick={handleSaveDraft}
@@ -415,17 +415,17 @@ export default function IdentitySetupPage() {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -32 }}
             transition={{ duration: 0.5, ease: [0.19, 1, 0.22, 1] }}
-            className="max-w-2xl mx-auto w-full px-5 sm:px-8 pt-8 pb-14"
+            className="max-w-2xl mx-auto w-full px-5 sm:px-8 pt-4 pb-4"
           >
-            <div className="mb-10">
-              <h1 className="font-heading text-3xl sm:text-4xl font-semibold text-[#001e3c] tracking-tight mb-2">
+            <div className="mb-4">
+              <h1 className="font-heading text-2xl font-semibold text-[#001e3c] tracking-tight mb-1">
                 {t.step2Heading}
               </h1>
-              <p className="text-sm text-muted-foreground leading-relaxed max-w-lg">{t.step2Subtitle}</p>
+              <p className="text-xs text-muted-foreground leading-relaxed max-w-lg">{t.step2Subtitle}</p>
             </div>
 
             {/* Logo preview box */}
-            <div className="flex flex-col items-center gap-6 py-10 border-2 border-dashed border-zinc-200 rounded-2xl bg-white">
+            <div className="flex flex-col items-center gap-4 py-6 border-2 border-dashed border-zinc-200 rounded-2xl bg-white">
               <div className="h-24 w-24 rounded-2xl border border-zinc-200 bg-zinc-50 flex items-center justify-center overflow-hidden shadow-sm">
                 {logoUrl ? (
                   <Image src={logoUrl} alt="Company logo" width={96} height={96} className="object-contain w-full h-full" />
@@ -466,7 +466,7 @@ export default function IdentitySetupPage() {
               )}
             </div>
 
-            <div className="mt-10 flex flex-col-reverse sm:flex-row items-center justify-between gap-4">
+            <div className="mt-4 flex flex-col-reverse sm:flex-row items-center justify-between gap-4">
               <button
                 type="button"
                 onClick={() => router.push("/dashboard")}
