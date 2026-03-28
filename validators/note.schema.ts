@@ -5,18 +5,21 @@ const emptyToUndefined = (val: unknown) =>
 
 const objectIdSchema = z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid linkedId');
 
-const followUpDateSchema = z
+const followUpDateValueSchema = z
   .string()
   .datetime({ offset: true })
-  .or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'followUpDate must be ISO date or yyyy-mm-dd'))
-  .optional();
+  .or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'followUpDate must be ISO date or yyyy-mm-dd'));
+
+const requiredFollowUpDateSchema = z
+  .preprocess(emptyToUndefined, followUpDateValueSchema.optional())
+  .refine((value) => typeof value === 'string', { message: 'Follow-up date is required' });
 
 export const createNoteSchema = z.object({
   title: z.string().trim().min(1, 'Title is required'),
   description: z.string().trim().min(1, 'Description is required'),
   linkedType: z.enum(['client', 'supplier']),
   linkedId: objectIdSchema,
-  followUpDate: followUpDateSchema,
+  followUpDate: requiredFollowUpDateSchema,
 });
 
 export const updateNoteSchema = z
@@ -25,10 +28,7 @@ export const updateNoteSchema = z
     description: z.preprocess(emptyToUndefined, z.string().trim().min(1, 'Description is required').optional()),
     linkedType: z.enum(['client', 'supplier']).optional(),
     linkedId: objectIdSchema.optional(),
-    followUpDate: z.preprocess(
-      (val) => (val === '' ? undefined : val),
-      followUpDateSchema.or(z.null()).optional()
-    ),
+    followUpDate: requiredFollowUpDateSchema,
   })
   .refine(
     (data) => {

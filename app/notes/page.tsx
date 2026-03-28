@@ -56,6 +56,7 @@ export default function NotesPage() {
     en: {
       fetchFailed: 'Failed to fetch notes',
       validationRequired: 'Title, description, and linked record are required',
+      dateRequired: 'Follow-up date is required',
       createFailed: 'Failed to create note',
       created: 'Note created',
       deleteFailed: 'Failed to delete note',
@@ -102,6 +103,7 @@ export default function NotesPage() {
     fr: {
       fetchFailed: 'Impossible de recuperer les notes',
       validationRequired: 'Le titre, la description et l\'element lie sont requis',
+      dateRequired: 'La date de suivi est requise',
       createFailed: 'Impossible de creer la note',
       created: 'Note creee',
       deleteFailed: 'Impossible de supprimer la note',
@@ -273,13 +275,23 @@ export default function NotesPage() {
       toast.error(t.validationRequired);
       return;
     }
+    if (!form.followUpDate) {
+      toast.error(t.dateRequired);
+      return;
+    }
 
     setIsSaving(true);
     try {
       const response = await fetch('/api/notes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          title: form.title,
+          description: form.description,
+          linkedType: form.linkedType,
+          linkedId: form.linkedId,
+          followUpDate: form.followUpDate,
+        }),
       });
       const data = (await response.json()) as { success: boolean; message?: string };
       if (!response.ok || !data.success) {
@@ -343,6 +355,10 @@ export default function NotesPage() {
       toast.error(t.validationRequired);
       return;
     }
+    if (!editForm.followUpDate) {
+      toast.error(t.dateRequired);
+      return;
+    }
 
     setIsUpdating(true);
     try {
@@ -354,7 +370,7 @@ export default function NotesPage() {
           description: editForm.description,
           linkedType: editForm.linkedType,
           linkedId: editForm.linkedId,
-          followUpDate: editForm.followUpDate || null,
+          followUpDate: editForm.followUpDate,
         }),
       });
 

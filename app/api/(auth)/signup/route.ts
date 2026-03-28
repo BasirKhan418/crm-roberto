@@ -4,6 +4,7 @@ import { signupSchema } from "@/validators/auth.schema";
 import { registerUser } from "@/db/repository/auth";
 import { generateOtp } from "@/utils/otp/generateOtp";
 import { sendOtpEmail } from "@/emails/auth/verifyEmail";
+import { buildValidationError } from "@/utils/api/validation";
 import { randomInt } from "crypto";
 export async function POST(request: NextRequest) {
     try {
@@ -13,7 +14,7 @@ export async function POST(request: NextRequest) {
         const validation = signupSchema.safeParse({ name, email, password });
 
         if (!validation.success) {
-            return NextResponse.json({ message: validation.error.issues[0].message, success: false });
+            return NextResponse.json(buildValidationError(validation.error), { status: 400 });
         }
         const hashedPassword = await argon2.hash(password + pepper);
         const result = await registerUser(name, email, hashedPassword);

@@ -1,6 +1,7 @@
 import { NextResponse,NextRequest } from "next/server";
 import jwt from "jsonwebtoken";
 import argon2 from "argon2";
+import { buildValidationError } from "@/utils/api/validation";
 import { resetPasswordSchema } from "@/validators/forgot.schema";
 import updateUserPassword from "@/db/repository/updateUserPassword";
 export async function POST(request: NextRequest) {
@@ -8,7 +9,7 @@ export async function POST(request: NextRequest) {
         const { email, password, token } = await request.json();
         const parseResult = resetPasswordSchema.safeParse({ email, password, token });
         if (!parseResult.success) {
-            return NextResponse.json({ message: parseResult.error.issues[0].message, success: false },{ status: 400 });
+            return NextResponse.json(buildValidationError(parseResult.error), { status: 400 });
         }
         //verify token
         try{

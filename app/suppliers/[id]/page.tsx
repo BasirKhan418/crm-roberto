@@ -65,6 +65,7 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
       deleteFailed: 'Failed to delete supplier',
       deleted: 'Supplier deleted',
       noteValidation: 'Title and description are required',
+      noteDateRequired: 'Follow-up date is required',
       noteAddFailed: 'Failed to add note',
       noteAdded: 'Note added',
       noteUpdateFailed: 'Failed to update note',
@@ -111,6 +112,7 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
       deleteFailed: 'Impossible de supprimer le fournisseur',
       deleted: 'Fournisseur supprime',
       noteValidation: 'Le titre et la description sont requis',
+      noteDateRequired: 'La date de suivi est requise',
       noteAddFailed: 'Impossible d\'ajouter la note',
       noteAdded: 'Note ajoutee',
       noteUpdateFailed: 'Impossible de mettre a jour la note',
@@ -282,13 +284,21 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
       toast.error(t.noteValidation);
       return;
     }
+    if (!noteForm.followUpDate) {
+      toast.error(t.noteDateRequired);
+      return;
+    }
 
     setIsSaving(true);
     try {
       const response = await fetch(`/api/suppliers/${supplier._id}/notes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(noteForm),
+        body: JSON.stringify({
+          title: noteForm.title,
+          description: noteForm.description,
+          followUpDate: noteForm.followUpDate,
+        }),
       });
       const data = (await response.json()) as { success: boolean; message?: string };
       if (!response.ok || !data.success) {
@@ -324,6 +334,10 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
       toast.error(t.noteValidation);
       return;
     }
+    if (!editNoteForm.followUpDate) {
+      toast.error(t.noteDateRequired);
+      return;
+    }
 
     setIsNoteUpdating(true);
     try {
@@ -333,7 +347,7 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
         body: JSON.stringify({
           title: editNoteForm.title,
           description: editNoteForm.description,
-          followUpDate: editNoteForm.followUpDate || null,
+          followUpDate: editNoteForm.followUpDate,
         }),
       });
       const data = (await response.json()) as { success: boolean; message?: string };

@@ -2,6 +2,7 @@ import { NextResponse,NextRequest } from "next/server";
 import argon2 from "argon2";
 import { loginSchema } from "@/validators/auth.schema";
 import { loginUser } from "@/db/repository/auth";
+import { buildValidationError } from "@/utils/api/validation";
 import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
 export async function POST(request: NextRequest) {
@@ -12,7 +13,7 @@ export async function POST(request: NextRequest) {
         //validate input
         const validation = loginSchema.safeParse({ email, password });
         if (!validation.success) {
-            return NextResponse.json({ message: validation.error.issues[0].message, success: false });
+            return NextResponse.json(buildValidationError(validation.error), { status: 400 });
         }
        
         const result = await loginUser(email, password);

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { createActivityLog, listActivities } from '@/db/repository/activity';
 import { parseListQuery } from '@/utils/api/query';
+import { buildValidationError } from '@/utils/api/validation';
 import getMe from '@/utils/middlewares/useMe';
 import { createActivitySchema } from '@/validators/activity.schema';
 
@@ -42,7 +43,7 @@ export async function POST(request: NextRequest) {
     const parsed = createActivitySchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json({ success: false, message: parsed.error.issues[0].message }, { status: 400 });
+      return NextResponse.json(buildValidationError(parsed.error), { status: 400 });
     }
 
     const created = await createActivityLog(me.user.id, parsed.data);

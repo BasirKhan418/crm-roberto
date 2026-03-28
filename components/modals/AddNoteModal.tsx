@@ -27,11 +27,12 @@ export default function AddNoteModal({ onClose, onSuccess }: AddNoteModalProps) 
     en: {
       titleRequired: 'Note title is required',
       descriptionRequired: 'Description is required',
+      dateRequired: 'Follow-up date is required',
       selectLinked: 'Please select a',
       failedCreate: 'Failed to create note',
       created: 'Note created',
       title: 'Add note',
-      description: 'Create a note and optionally schedule a follow-up date.',
+      description: 'Create a note and schedule a follow-up date.',
       noteTitle: 'Title',
       noteDescription: 'Description',
       linkedType: 'Linked type',
@@ -42,7 +43,7 @@ export default function AddNoteModal({ onClose, onSuccess }: AddNoteModalProps) 
       availableSuffix: 'available',
       client: 'Client',
       supplier: 'Supplier',
-      followUp: 'Follow-up date (optional)',
+      followUp: 'Follow-up date',
       cancel: 'Cancel',
       saving: 'Saving...',
       save: 'Save note',
@@ -50,11 +51,12 @@ export default function AddNoteModal({ onClose, onSuccess }: AddNoteModalProps) 
     fr: {
       titleRequired: 'Le titre de la note est requis',
       descriptionRequired: 'La description est requise',
+      dateRequired: 'La date de suivi est requise',
       selectLinked: 'Veuillez selectionner un',
       failedCreate: 'Impossible de creer la note',
       created: 'Note creee',
       title: 'Ajouter une note',
-      description: 'Creez une note et planifiez eventuellement une date de suivi.',
+      description: 'Creez une note et planifiez une date de suivi.',
       noteTitle: 'Titre',
       noteDescription: 'Description',
       linkedType: 'Type lie',
@@ -65,7 +67,7 @@ export default function AddNoteModal({ onClose, onSuccess }: AddNoteModalProps) 
       availableSuffix: 'disponible',
       client: 'Client',
       supplier: 'Fournisseur',
-      followUp: 'Date de suivi (optionnelle)',
+      followUp: 'Date de suivi',
       cancel: 'Annuler',
       saving: 'Enregistrement...',
       save: 'Enregistrer la note',
@@ -138,6 +140,10 @@ export default function AddNoteModal({ onClose, onSuccess }: AddNoteModalProps) 
       toast.error(`${t.selectLinked} ${form.linkedType === 'client' ? t.client.toLowerCase() : t.supplier.toLowerCase()}`);
       return;
     }
+    if (!form.followUpDate) {
+      toast.error(t.dateRequired);
+      return;
+    }
 
     setLoading(true);
     try {
@@ -149,7 +155,7 @@ export default function AddNoteModal({ onClose, onSuccess }: AddNoteModalProps) 
           description: form.description,
           linkedType: form.linkedType,
           linkedId: form.linkedId,
-          followUpDate: form.followUpDate || undefined,
+          followUpDate: form.followUpDate,
         }),
       });
 

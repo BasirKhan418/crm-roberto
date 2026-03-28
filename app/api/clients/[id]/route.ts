@@ -8,6 +8,7 @@ import {
   updateClientById,
 } from '@/db/repository/client';
 import { parseListQuery } from '@/utils/api/query';
+import { buildValidationError } from '@/utils/api/validation';
 import getMe from '@/utils/middlewares/useMe';
 import { updateClientSchema } from '@/validators/client.schema';
 
@@ -67,7 +68,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const parsed = updateClientSchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json({ success: false, message: parsed.error.issues[0].message }, { status: 400 });
+      return NextResponse.json(buildValidationError(parsed.error), { status: 400 });
     }
 
     const updated = await updateClientById(me.user.id, id, parsed.data);

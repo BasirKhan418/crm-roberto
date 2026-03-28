@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { createActivityLog } from '@/db/repository/activity';
 import { createClient, listClients } from '@/db/repository/client';
+import { buildValidationError } from '@/utils/api/validation';
 import getMe from '@/utils/middlewares/useMe';
 import { createClientSchema } from '@/validators/client.schema';
 import { parseListQuery } from '@/utils/api/query';
@@ -43,7 +44,7 @@ export async function POST(request: NextRequest) {
     const parsed = createClientSchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json({ success: false, message: parsed.error.issues[0].message }, { status: 400 });
+      return NextResponse.json(buildValidationError(parsed.error), { status: 400 });
     }
 
     const created = await createClient(me.user.id, parsed.data);

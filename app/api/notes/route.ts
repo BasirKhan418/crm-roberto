@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createActivityLog } from '@/db/repository/activity';
 import { createNote, listNotes } from '@/db/repository/note';
 import { parseListQuery } from '@/utils/api/query';
+import { buildValidationError } from '@/utils/api/validation';
 import getMe from '@/utils/middlewares/useMe';
 import { createNoteSchema } from '@/validators/note.schema';
 
@@ -52,7 +53,7 @@ export async function POST(request: NextRequest) {
     const parsed = createNoteSchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json({ success: false, message: parsed.error.issues[0].message }, { status: 400 });
+      return NextResponse.json(buildValidationError(parsed.error), { status: 400 });
     }
 
     const created = await createNote(me.user.id, parsed.data);

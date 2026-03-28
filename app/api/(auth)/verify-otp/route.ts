@@ -2,6 +2,7 @@ import { NextResponse,NextRequest } from "next/server";
 import { verifyOtp } from "@/utils/otp/verifyotp";
 import { markEmailAsVerified } from "@/db/repository/auth";
 import getUserByEmail from "@/db/repository/getUserByEmail";
+import { buildValidationError } from "@/utils/api/validation";
 import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
 import { z } from "zod";
@@ -16,7 +17,7 @@ export async function POST(request: NextRequest) {
         const body = await request.json();
         const parsed = verifyOtpSchema.safeParse(body);
         if (!parsed.success) {
-            return NextResponse.json({ message: parsed.error.issues[0].message, success: false }, { status: 400 });
+            return NextResponse.json(buildValidationError(parsed.error), { status: 400 });
         }
         const { email, otp } = parsed.data;
 

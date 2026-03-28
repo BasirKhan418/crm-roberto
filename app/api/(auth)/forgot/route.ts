@@ -5,13 +5,14 @@ import { generateOtp } from "@/utils/otp/generateOtp";
 import { verifyOtp } from "@/utils/otp/verifyotp";
 import getUserByEmail from "@/db/repository/getUserByEmail";
 import { SendForgotPasswordEmail } from "@/emails/auth/forgotEmail";
+import { buildValidationError } from "@/utils/api/validation";
 import { forgotPasswordSchema } from "@/validators/forgot.schema";
 export async function POST(request: NextRequest) {
     try{
         const { email ,status,otp} = await request.json();
         const parseResult = forgotPasswordSchema.safeParse({ email, status, otp });
         if (!parseResult.success) {
-            return NextResponse.json({ message: parseResult.error.issues[0].message, success: false },{ status: 400 });
+            return NextResponse.json(buildValidationError(parseResult.error), { status: 400 });
         }
         if(status === "forgot"){
             const userResult = await getUserByEmail(email);

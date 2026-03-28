@@ -2,6 +2,7 @@ import { NextResponse,NextRequest } from "next/server";
 import { createCompanyProfileSchema } from "@/validators/cprofile.schema";
 import checkMe from "@/utils/middlewares/checkMe";
 import { createCompanyProfile, getCompanyProfileByUserId, updateCompanyProfileByUserId } from "@/db/repository/cprofile";
+import { buildValidationError } from "@/utils/api/validation";
 import getMe from "@/utils/middlewares/useMe";
 import { sendWelcomeEmail } from "@/emails/auth/sendWelcomeEmail";
 import jwt from "jsonwebtoken";
@@ -24,7 +25,7 @@ export const POST = async (request: NextRequest) => {
         const validatedData = createCompanyProfileSchema.safeParse({ ...data, user: rs.user.id });
 
         if (!validatedData.success) {
-            return NextResponse.json({ message: validatedData.error.issues[0].message, success: false });
+            return NextResponse.json(buildValidationError(validatedData.error), { status: 400 });
         }
        
         const result = await createCompanyProfile(validatedData.data);

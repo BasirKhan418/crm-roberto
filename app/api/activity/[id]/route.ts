@@ -5,6 +5,7 @@ import {
   getActivityById,
   updateActivityById,
 } from '@/db/repository/activity';
+import { buildValidationError } from '@/utils/api/validation';
 import getMe from '@/utils/middlewares/useMe';
 import { updateActivitySchema } from '@/validators/activity.schema';
 
@@ -44,7 +45,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const parsed = updateActivitySchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json({ success: false, message: parsed.error.issues[0].message }, { status: 400 });
+      return NextResponse.json(buildValidationError(parsed.error), { status: 400 });
     }
 
     const updated = await updateActivityById(me.user.id, id, parsed.data);
