@@ -24,6 +24,13 @@ export default function ClientPicker({ value, onChange, onClientSelected }: Clie
       loading: 'Loading...',
       noClients: 'No clients found',
       newClient: 'New client',
+      clientInfo: 'Client info',
+      name: 'Name',
+      company: 'Company',
+      phone: 'Phone',
+      email: 'Email',
+      address: 'Address',
+      vat: 'VAT',
       noCompany: 'No company',
       change: 'Change',
       emptyField: '-',
@@ -33,6 +40,13 @@ export default function ClientPicker({ value, onChange, onClientSelected }: Clie
       loading: 'Chargement...',
       noClients: 'Aucun client trouve',
       newClient: 'Nouveau client',
+      clientInfo: 'Infos client',
+      name: 'Nom',
+      company: 'Entreprise',
+      phone: 'Telephone',
+      email: 'E-mail',
+      address: 'Adresse',
+      vat: 'TVA',
       noCompany: 'Sans entreprise',
       change: 'Changer',
       emptyField: '-',
@@ -156,13 +170,13 @@ export default function ClientPicker({ value, onChange, onClientSelected }: Clie
       </div>
 
       {selectedClient ? (
-        <div className="rounded-lg border border-border/70 bg-linear-to-b from-background to-secondary/25 p-3 text-sm">
-          <div className="flex items-start justify-between gap-2">
+        <div className="rounded-xl border border-border/70 bg-muted/30 p-3 sm:p-4">
+          <div className="mb-3 flex items-start justify-between gap-3">
             <div className="space-y-0.5">
-              <p className="font-semibold">{selectedClient.fullName}</p>
-              <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+              <h3 className="text-base font-semibold tracking-tight">{t.clientInfo}</h3>
+              <p className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Building2Icon className="size-3.5" />
-                {selectedClient.companyName || t.noCompany}
+                {selectedClient.fullName}
               </p>
             </div>
             <button
@@ -179,10 +193,32 @@ export default function ClientPicker({ value, onChange, onClientSelected }: Clie
               {t.change}
             </button>
           </div>
-          <div className="mt-2 space-y-1 text-xs text-muted-foreground">
-            <p>{selectedClient.email || t.emptyField}</p>
-            <p>{selectedClient.address || t.emptyField}</p>
-            <p>{selectedClient.vatNumber || t.emptyField}</p>
+
+          <div className="space-y-1.5 rounded-lg border border-border/60 bg-background/90 px-3 py-2.5 text-sm">
+            <div className="grid grid-cols-[110px_1fr] gap-3">
+              <p className="text-muted-foreground">{t.name}</p>
+              <p className="font-medium text-right wrap-break-word">{selectedClient.fullName || t.emptyField}</p>
+            </div>
+            <div className="grid grid-cols-[110px_1fr] gap-3">
+              <p className="text-muted-foreground">{t.company}</p>
+              <p className="font-medium text-right wrap-break-word">{selectedClient.companyName || t.noCompany}</p>
+            </div>
+            <div className="grid grid-cols-[110px_1fr] gap-3">
+              <p className="text-muted-foreground">{t.phone}</p>
+              <p className="font-medium text-right wrap-break-word">{selectedClient.phone || t.emptyField}</p>
+            </div>
+            <div className="grid grid-cols-[110px_1fr] gap-3">
+              <p className="text-muted-foreground">{t.email}</p>
+              <p className="font-medium text-right wrap-break-word">{selectedClient.email || t.emptyField}</p>
+            </div>
+            <div className="grid grid-cols-[110px_1fr] gap-3">
+              <p className="text-muted-foreground">{t.address}</p>
+              <p className="font-medium text-right wrap-break-word">{selectedClient.address || t.emptyField}</p>
+            </div>
+            <div className="grid grid-cols-[110px_1fr] gap-3">
+              <p className="text-muted-foreground">{t.vat}</p>
+              <p className="font-medium text-right wrap-break-word">{selectedClient.vatNumber || t.emptyField}</p>
+            </div>
           </div>
         </div>
       ) : null}

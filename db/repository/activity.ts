@@ -9,9 +9,10 @@ import { buildPagination } from '@/utils/api/query';
 export interface ActivityRecord {
   _id: string;
   action: string;
-  entityType: 'client' | 'supplier' | 'note';
+  entityType: 'client' | 'supplier' | 'note' | 'product' | 'quote';
   entityName: string;
   entityId?: string | null;
+  metadata?: Record<string, unknown> | null;
   createdAt: Date;
   updatedAt: Date;
 }

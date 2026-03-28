@@ -69,7 +69,9 @@ export default function QuoteTable({ items, loading, labels, formatDate, onDelet
                 <article key={quote._id} className="space-y-3 rounded-xl border border-border/70 bg-card/40 p-3">
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <p className="text-sm font-semibold">{quote.quoteNumber}</p>
+                      <Link href={`/quotes/${quote._id}`} className="text-sm font-semibold text-(--color-text-info) hover:underline">
+                        {quote.quoteNumber}
+                      </Link>
                       <Link href={`/clients/${quote.clientId}`} className="text-sm text-(--color-text-info) hover:underline">
                         {quote.clientSnapshot.fullName}
                       </Link>
@@ -164,7 +166,11 @@ export default function QuoteTable({ items, loading, labels, formatDate, onDelet
 
                   return (
                     <TableRow key={quote._id}>
-                      <TableCell className="font-medium">{quote.quoteNumber}</TableCell>
+                      <TableCell className="font-medium">
+                        <Link href={`/quotes/${quote._id}`} className="text-(--color-text-info) hover:underline">
+                          {quote.quoteNumber}
+                        </Link>
+                      </TableCell>
                       <TableCell>
                         <Link href={`/clients/${quote.clientId}`} className="text-(--color-text-info) hover:underline">
                           {quote.clientSnapshot.fullName}

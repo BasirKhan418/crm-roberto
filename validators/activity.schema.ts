@@ -24,6 +24,7 @@ export const createActivitySchema = z.object({
   entityType: z.enum(['client', 'supplier', 'note', 'product', 'quote']),
   entityName: z.string().trim().min(1, 'entityName is required'),
   entityId: objectIdSchema,
+  metadata: z.record(z.string(), z.unknown()).nullable().optional(),
 });
 
 export const updateActivitySchema = z.object({
@@ -31,6 +32,7 @@ export const updateActivitySchema = z.object({
   entityType: createActivitySchema.shape.entityType.optional(),
   entityName: createActivitySchema.shape.entityName.optional(),
   entityId: objectIdSchema,
+  metadata: createActivitySchema.shape.metadata,
 });
 
 export type CreateActivityDTO = z.infer<typeof createActivitySchema>;

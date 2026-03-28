@@ -61,5 +61,21 @@ export const updateQuoteSchema = z
     { message: 'At least one field must be provided for update' }
   );
 
+const quoteStatusSchema = z.enum(['draft', 'sent', 'accepted', 'refused']);
+
+export const updateQuoteStatusSchema = z
+  .object({
+    to: quoteStatusSchema.optional(),
+    status: quoteStatusSchema.optional(),
+  })
+  .refine((data) => Boolean(data.to || data.status), {
+    message: 'Status is required',
+    path: ['to'],
+  })
+  .transform((data) => ({
+    to: data.to ?? data.status!,
+  }));
+
 export type CreateQuoteDTO = z.infer<typeof createQuoteSchema>;
 export type UpdateQuoteDTO = z.infer<typeof updateQuoteSchema>;
+export type UpdateQuoteStatusDTO = z.infer<typeof updateQuoteStatusSchema>;

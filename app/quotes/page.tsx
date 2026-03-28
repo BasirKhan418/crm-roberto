@@ -36,6 +36,8 @@ export default function QuotesPage() {
       shellTitle: 'Quotes',
       heading: 'Quotes',
       subtitle: 'Track quote lifecycle from draft to decision.',
+      totalResults: 'total results',
+      currentFilter: 'Current filter',
       deleteFailed: 'Failed to delete quote',
       deleted: 'Quote deleted',
       downloadFailed: 'Failed to download PDF',
@@ -75,6 +77,8 @@ export default function QuotesPage() {
       shellTitle: 'Devis',
       heading: 'Devis',
       subtitle: 'Suivez le cycle des devis du brouillon a la decision.',
+      totalResults: 'resultats au total',
+      currentFilter: 'Filtre actuel',
       deleteFailed: 'Impossible de supprimer le devis',
       deleted: 'Devis supprime',
       downloadFailed: 'Impossible de telecharger le PDF',
@@ -205,30 +209,44 @@ export default function QuotesPage() {
     }
   }
 
+  const currentFilterLabel =
+    status === 'all' ? t.tabAll : status === 'draft' ? t.tabDraft : status === 'sent' ? t.tabSent : status === 'accepted' ? t.tabAccepted : t.tabRefused;
+
   return (
     <CrmShell title={t.shellTitle}>
-      <section className="space-y-4">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="font-heading text-2xl font-semibold tracking-tight">{t.heading}</h1>
-            <p className="text-sm text-muted-foreground">{t.subtitle}</p>
+      <section className="space-y-6 pt-1">
+        <div className="rounded-xl border border-border/70 bg-linear-to-b from-background to-secondary/20 p-5 sm:p-6">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h1 className="font-heading text-2xl font-semibold tracking-tight sm:text-3xl">{t.heading}</h1>
+              <p className="text-sm text-muted-foreground">{t.subtitle}</p>
+            </div>
+            <Button type="button" className="w-full sm:w-auto" asChild>
+              <Link href="/quotes/new">
+                <PlusIcon className="size-4" />
+                {t.newQuote}
+              </Link>
+            </Button>
           </div>
-          <Button type="button" className="w-full sm:w-auto" asChild>
-            <Link href="/quotes/new">
-              <PlusIcon className="size-4" />
-              {t.newQuote}
-            </Link>
-          </Button>
         </div>
 
-        <div className="space-y-3 rounded-xl border border-border/70 bg-card/40 p-3 sm:p-4">
-          <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
+        <div className="space-y-2.5 rounded-xl border border-border/70 bg-card p-2.5 shadow-sm sm:p-3">
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="rounded-full border border-border/70 bg-background px-2.5 py-1 text-muted-foreground">
+              {pagination.total} {t.totalResults}
+            </span>
+            <span className="rounded-full border border-border/70 bg-background px-2.5 py-1 text-muted-foreground">
+              {t.currentFilter}: {currentFilterLabel}
+            </span>
+          </div>
+
+          <div className="grid gap-2.5 lg:grid-cols-[1fr_auto] lg:items-center">
             <div className="relative">
               <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input className="h-10 pl-9" value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder={t.search} />
             </div>
             <Select value={sort} onValueChange={(value) => setSort(value === 'amount' ? 'amount' : 'date')}>
-              <SelectTrigger className="h-10 w-full sm:w-44">
+              <SelectTrigger className="h-9 w-full sm:w-40">
                 <SelectValue placeholder={t.sortDate} />
               </SelectTrigger>
               <SelectContent>
@@ -240,12 +258,12 @@ export default function QuotesPage() {
 
           <Tabs value={status} onValueChange={(value) => setStatus(value as QuoteStatusFilter)}>
             <div className="overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              <TabsList className="inline-flex h-12 min-w-max items-center gap-1 rounded-full border border-border/80 bg-muted/40 p-1 overflow-hidden">
-                <TabsTrigger value="all" className="h-10 min-w-24 rounded-full border border-transparent px-4 text-sm font-medium text-foreground/80 hover:bg-background hover:text-foreground data-active:bg-primary data-active:text-primary-foreground">{t.tabAll}</TabsTrigger>
-                <TabsTrigger value="draft" className="h-10 min-w-24 rounded-full border border-transparent px-4 text-sm font-medium text-foreground/80 hover:bg-background hover:text-foreground data-active:bg-primary data-active:text-primary-foreground">{t.tabDraft}</TabsTrigger>
-                <TabsTrigger value="sent" className="h-10 min-w-24 rounded-full border border-transparent px-4 text-sm font-medium text-foreground/80 hover:bg-background hover:text-foreground data-active:bg-primary data-active:text-primary-foreground">{t.tabSent}</TabsTrigger>
-                <TabsTrigger value="accepted" className="h-10 min-w-28 rounded-full border border-transparent px-4 text-sm font-medium text-foreground/80 hover:bg-background hover:text-foreground data-active:bg-primary data-active:text-primary-foreground">{t.tabAccepted}</TabsTrigger>
-                <TabsTrigger value="refused" className="h-10 min-w-28 rounded-full border border-transparent px-4 text-sm font-medium text-foreground/80 hover:bg-background hover:text-foreground data-active:bg-primary data-active:text-primary-foreground">{t.tabRefused}</TabsTrigger>
+              <TabsList className="inline-flex h-10 min-w-max items-center gap-1 rounded-full border border-border/80 bg-muted/40 p-0.5 overflow-hidden">
+                <TabsTrigger value="all" className="h-8 min-w-20 rounded-full border border-transparent px-3 text-sm font-medium text-foreground/80 hover:bg-background hover:text-foreground data-active:bg-primary data-active:text-primary-foreground">{t.tabAll}</TabsTrigger>
+                <TabsTrigger value="draft" className="h-8 min-w-20 rounded-full border border-transparent px-3 text-sm font-medium text-foreground/80 hover:bg-background hover:text-foreground data-active:bg-primary data-active:text-primary-foreground">{t.tabDraft}</TabsTrigger>
+                <TabsTrigger value="sent" className="h-8 min-w-20 rounded-full border border-transparent px-3 text-sm font-medium text-foreground/80 hover:bg-background hover:text-foreground data-active:bg-primary data-active:text-primary-foreground">{t.tabSent}</TabsTrigger>
+                <TabsTrigger value="accepted" className="h-8 min-w-24 rounded-full border border-transparent px-3 text-sm font-medium text-foreground/80 hover:bg-background hover:text-foreground data-active:bg-primary data-active:text-primary-foreground">{t.tabAccepted}</TabsTrigger>
+                <TabsTrigger value="refused" className="h-8 min-w-24 rounded-full border border-transparent px-3 text-sm font-medium text-foreground/80 hover:bg-background hover:text-foreground data-active:bg-primary data-active:text-primary-foreground">{t.tabRefused}</TabsTrigger>
               </TabsList>
             </div>
           </Tabs>

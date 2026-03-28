@@ -3,7 +3,7 @@ import Client from '@/db/models/Client';
 import Quote from '@/db/models/Quote';
 import mongoose from 'mongoose';
 import { calcLineItem, calcQuoteTotals, nextQuoteNumber } from '@/lib/price';
-import type { CreateQuoteDTO, UpdateQuoteDTO } from '@/validators/quote.schema';
+import type { CreateQuoteDTO, UpdateQuoteDTO, UpdateQuoteStatusDTO } from '@/validators/quote.schema';
 
 export type QuoteStatus = 'draft' | 'sent' | 'accepted' | 'refused';
 
@@ -80,7 +80,19 @@ type UpdateQuoteResult =
   | { kind: 'locked' }
   | { kind: 'client-not-found' };
 
+type UpdateQuoteStatusResult =
+  | { kind: 'ok'; quote: QuoteRecord; from: QuoteStatus; to: QuoteStatus }
+  | { kind: 'not-found' }
+  | { kind: 'invalid-transition'; from: QuoteStatus; to: QuoteStatus };
+
 const EDITABLE_STATUSES: QuoteStatus[] = ['draft', 'sent'];
+
+const ALLOWED_STATUS_TRANSITIONS: Record<QuoteStatus, QuoteStatus[]> = {
+  draft: ['sent'],
+  sent: ['accepted', 'refused', 'draft'],
+  accepted: ['draft'],
+  refused: ['draft'],
+};
 
 function isValidObjectId(value: string): boolean {
   return mongoose.Types.ObjectId.isValid(value);
@@ -279,5 +291,41 @@ export const updateQuoteById = async (
   return {
     kind: 'ok',
     quote: quote.toObject() as QuoteRecord,
+  };
+};
+
+export const updateQuoteStatusById = async (
+  userId: string,
+  quoteId: string,
+  payload: UpdateQuoteStatusDTO
+): Promise<UpdateQuoteStatusResult> => {
+  await ConnectDb();
+
+  if (!isValidObjectId(quoteId)) {
+    return { kind: 'not-found' };
+  }
+
+  const quote = await Quote.findOne({ _id: quoteId, user: userId });
+  if (!quote) {
+    return { kind: 'not-found' };
+  }
+
+  const from = quote.status as QuoteStatus;
+  const to = payload.to;
+  const allowedTransitions = ALLOWED_STATUS_TRANSITIONS[from] ?? [];
+
+  if (!allowedTransitions.includes(to)) {
+    return { kind: 'invalid-transition', from, to };
+  }
+
+  quote.status = to;
+  quote.statusHistory.push({ from, to, changedAt: new Date() });
+  await quote.save();
+
+  return {
+    kind: 'ok',
+    quote: quote.toObject() as QuoteRecord,
+    from,
+    to,
   };
 };
