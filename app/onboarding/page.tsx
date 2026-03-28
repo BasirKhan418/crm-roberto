@@ -1,10 +1,11 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { ArrowRight, Loader2, ArrowLeft, Check, LayoutDashboard, BadgeCheck } from "lucide-react"
-import { motion } from "framer-motion"
+import { ArrowRight, Loader2, ArrowLeft, Check, LayoutDashboard, BadgeCheck, BuildingIcon, UploadIcon, CheckCircle2Icon, ImageIcon } from "lucide-react"
+import { motion, AnimatePresence } from "framer-motion"
+import Image from "next/image"
 
 import { LanguageThemeToggle } from "@/components/language-theme-toggle"
 import { useLocale } from "@/components/providers/locale-provider"
@@ -16,6 +17,8 @@ import { WorldMapBg } from "@/components/ui/WorldMapBg"
 import { cn } from "@/lib/utils"
 
 const ONBOARDING_DRAFT_KEY = "onboarding_company_profile_draft"
+const ALLOWED_LOGO_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml']
+const MAX_LOGO_SIZE = 5 * 1024 * 1024
 
 const onboardingMessages = {
   en: {
@@ -44,6 +47,22 @@ const onboardingMessages = {
     toastAgreementRequired: "You must agree to the terms to complete the setup.",
     toastOnboardingSuccess: "Onboarding completed successfully",
     toastOnboardingError: "Error completing onboarding. Please try again.",
+    // Step 2 – logo
+    step2Phase: "Onboarding — Step 2 of 2",
+    step2PanelHighlight: "Brand Identity",
+    step2PanelLine2: "Your Logo.",
+    step2PanelDesc: "Your logo appears on all generated documents — quotes, invoices, and client-facing exports.",
+    step2Heading: "Upload your company logo",
+    step2Subtitle: "Optional but recommended. JPEG, PNG, WebP or SVG — max 5 MB. You can always change it later in Settings.",
+    step2Upload: "Choose logo file",
+    step2Replace: "Replace logo",
+    step2Skip: "Skip for now",
+    step2Finish: "Finish setup",
+    step2Uploading: "Uploading...",
+    step2Finishing: "Finishing...",
+    step2UploadFailed: "Failed to upload logo",
+    step2TypeError: "Invalid file type. Accepted: JPEG, PNG, WebP, SVG",
+    step2SizeError: "File too large. Maximum size is 5 MB",
   },
   fr: {
     phase: "Onboarding — Etape 1 sur 1",
@@ -71,6 +90,22 @@ const onboardingMessages = {
     toastAgreementRequired: "Vous devez accepter les conditions pour finaliser la configuration.",
     toastOnboardingSuccess: "Configuration terminee avec succes",
     toastOnboardingError: "Erreur lors de la finalisation de la configuration. Veuillez reessayer.",
+
+    step2Phase: "Onboarding — Etape 2 sur 2",
+    step2PanelHighlight: "Identite Visuelle",
+    step2PanelLine2: "Votre Logo.",
+    step2PanelDesc: "Votre logo apparait sur tous les documents generes : devis, factures et exports clients.",
+    step2Heading: "Ajoutez le logo de votre entreprise",
+    step2Subtitle: "Optionnel mais recommande. JPEG, PNG, WebP ou SVG — max 5 Mo. Vous pourrez le modifier plus tard dans les Parametres.",
+    step2Upload: "Choisir un fichier logo",
+    step2Replace: "Remplacer le logo",
+    step2Skip: "Ignorer pour l'instant",
+    step2Finish: "Terminer la configuration",
+    step2Uploading: "Telechargement...",
+    step2Finishing: "Finalisation...",
+    step2UploadFailed: "Echec du telechargement du logo",
+    step2TypeError: "Type de fichier invalide. Acceptes : JPEG, PNG, WebP, SVG",
+    step2SizeError: "Fichier trop volumineux. Taille maximale : 5 Mo",
   },
 } as const
 
@@ -81,6 +116,11 @@ export default function IdentitySetupPage() {
 
   const [isLoading, setIsLoading] = useState(false)
   const [isAgreed, setIsAgreed] = useState(true)
+  const [step, setStep] = useState<1 | 2>(1)
+  const [logoUrl, setLogoUrl] = useState<string | null>(null)
+  const [logoUploading, setLogoUploading] = useState(false)
+  const [finishing, setFinishing] = useState(false)
+  const logoInputRef = useRef<HTMLInputElement>(null)
   const [formData, setFormData] = useState({
     companyName: "",
     ownerName: "",
@@ -141,7 +181,7 @@ export default function IdentitySetupPage() {
       if (result.success) {
         localStorage.removeItem(ONBOARDING_DRAFT_KEY)
         toast.success(result.message || t.toastOnboardingSuccess)
-        router.push("/dashboard")
+        setStep(2)
         return
       }
 
@@ -151,6 +191,41 @@ export default function IdentitySetupPage() {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  async function handleLogoFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (!ALLOWED_LOGO_TYPES.includes(file.type)) {
+      toast.error(t.step2TypeError)
+      return
+    }
+    if (file.size > MAX_LOGO_SIZE) {
+      toast.error(t.step2SizeError)
+      return
+    }
+    setLogoUploading(true)
+    try {
+      const fd = new FormData()
+      fd.append("logo", file)
+      const res = await fetch("/api/cprofile/logo", { method: "POST", body: fd })
+      const json = await res.json()
+      if (json.success && json.logoUrl) {
+        setLogoUrl(json.logoUrl)
+      } else {
+        toast.error(t.step2UploadFailed)
+      }
+    } catch {
+      toast.error(t.step2UploadFailed)
+    } finally {
+      setLogoUploading(false)
+      if (logoInputRef.current) logoInputRef.current.value = ""
+    }
+  }
+
+  async function handleFinish() {
+    setFinishing(true)
+    router.push("/dashboard")
   }
 
   return (
@@ -182,20 +257,30 @@ export default function IdentitySetupPage() {
               variant="outline"
               className="border-emerald-400/25 text-emerald-400/60 bg-transparent text-[9px] tracking-[0.2em] uppercase font-semibold rounded-md mb-7"
             >
-              {t.phase}
+              {step === 2 ? t.step2Phase : t.phase}
             </Badge>
             <h1 className="font-heading text-[2.2rem] xl:text-[2.6rem] font-black leading-[1.05] tracking-tight">
-              {t.panelLine1}
-              <br />
-              <span className="text-emerald-400">{t.panelHighlight}</span>
-              <br />
-              {t.panelLine2}
+              {step === 2 ? (
+                <>
+                  <span className="text-emerald-400">{t.step2PanelHighlight}</span>
+                  <br />
+                  {t.step2PanelLine2}
+                </>
+              ) : (
+                <>
+                  {t.panelLine1}
+                  <br />
+                  <span className="text-emerald-400">{t.panelHighlight}</span>
+                  <br />
+                  {t.panelLine2}
+                </>
+              )}
             </h1>
 
             <div className="mt-8 mb-8 w-16 h-px bg-white/15" />
 
             <p className="text-[13px] text-white/40 leading-[1.75] max-w-[280px]">
-              {t.panelDesc}
+              {step === 2 ? t.step2PanelDesc : t.panelDesc}
             </p>
           </div>
 
@@ -213,10 +298,14 @@ export default function IdentitySetupPage() {
           <LanguageThemeToggle />
         </div>
 
+        <AnimatePresence mode="wait">
+          {step === 1 ? (
         <motion.div
+          key="step1"
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: [0.19, 1, 0.22, 1] }}
+          exit={{ opacity: 0, y: -16 }}
+          transition={{ duration: 0.5, ease: [0.19, 1, 0.22, 1] }}
           className="max-w-2xl mx-auto w-full px-5 sm:px-8 pt-8 pb-14"
         >
             <div className="mb-10">
@@ -319,6 +408,91 @@ export default function IdentitySetupPage() {
               </Button>
             </div>
           </motion.div>
+          ) : (
+          <motion.div
+            key="step2"
+            initial={{ opacity: 0, x: 32 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -32 }}
+            transition={{ duration: 0.5, ease: [0.19, 1, 0.22, 1] }}
+            className="max-w-2xl mx-auto w-full px-5 sm:px-8 pt-8 pb-14"
+          >
+            <div className="mb-10">
+              <h1 className="font-heading text-3xl sm:text-4xl font-semibold text-[#001e3c] tracking-tight mb-2">
+                {t.step2Heading}
+              </h1>
+              <p className="text-sm text-muted-foreground leading-relaxed max-w-lg">{t.step2Subtitle}</p>
+            </div>
+
+            {/* Logo preview box */}
+            <div className="flex flex-col items-center gap-6 py-10 border-2 border-dashed border-zinc-200 rounded-2xl bg-white">
+              <div className="h-24 w-24 rounded-2xl border border-zinc-200 bg-zinc-50 flex items-center justify-center overflow-hidden shadow-sm">
+                {logoUrl ? (
+                  <Image src={logoUrl} alt="Company logo" width={96} height={96} className="object-contain w-full h-full" />
+                ) : (
+                  <BuildingIcon className="h-10 w-10 text-zinc-300" />
+                )}
+              </div>
+
+              <input
+                ref={logoInputRef}
+                type="file"
+                accept={ALLOWED_LOGO_TYPES.join(",")}
+                className="hidden"
+                onChange={handleLogoFileChange}
+              />
+
+              <button
+                type="button"
+                disabled={logoUploading}
+                onClick={() => logoInputRef.current?.click()}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg border border-zinc-200 bg-zinc-50 hover:bg-zinc-100 text-sm font-semibold text-zinc-700 transition-all disabled:opacity-50"
+              >
+                {logoUploading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : logoUrl ? (
+                  <UploadIcon className="h-4 w-4" />
+                ) : (
+                  <ImageIcon className="h-4 w-4" />
+                )}
+                {logoUploading ? t.step2Uploading : logoUrl ? t.step2Replace : t.step2Upload}
+              </button>
+
+              {logoUrl && (
+                <div className="flex items-center gap-1.5 text-xs text-emerald-600 font-medium">
+                  <CheckCircle2Icon className="h-3.5 w-3.5" />
+                  Logo uploaded
+                </div>
+              )}
+            </div>
+
+            <div className="mt-10 flex flex-col-reverse sm:flex-row items-center justify-between gap-4">
+              <button
+                type="button"
+                onClick={() => router.push("/dashboard")}
+                className="text-xs font-semibold text-zinc-400 hover:text-[#001e3c] flex items-center gap-2 transition-colors uppercase tracking-wider group"
+              >
+                {t.step2Skip}
+              </button>
+
+              <Button
+                onClick={handleFinish}
+                disabled={finishing || logoUploading}
+                className="h-11 px-8 bg-[#001e3c] hover:bg-[#002850] text-white rounded-lg font-semibold text-sm flex items-center gap-3 transition-all shadow-sm active:scale-[0.98] w-full sm:w-auto"
+              >
+                {finishing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    <span>{t.step2Finish}</span>
+                    <ArrowRight className="h-4 w-4" />
+                  </>
+                )}
+              </Button>
+            </div>
+          </motion.div>
+          )}
+        </AnimatePresence>
         </main>
     </div>
   )

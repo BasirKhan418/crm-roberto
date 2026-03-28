@@ -36,5 +36,13 @@ const CompanyProfileSchema = new mongoose.Schema({
       required: [true, 'VAT number is required'],
       trim: true,
     },
+    logoUrl: {
+      type: String,
+      default: null,
+    },
+    logoKey: {
+      type: String,
+      default: null,
+    },
 }, { timestamps: true })
 export default mongoose.models.CompanyProfile || mongoose.model('CompanyProfile', CompanyProfileSchema);

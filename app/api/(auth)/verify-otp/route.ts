@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
             const userResult = await getUserByEmail(email);
             if (userResult.success && userResult.user) {
                 const token = jwt.sign(
-                    { sub: userResult.user._id, name: userResult.user.name, email: userResult.user.email },
+                    { sub: userResult.user._id, name: userResult.user.name, email: userResult.user.email, isOnboardingComplete: userResult.user.isOnboardingComplete, isEmailVerified: userResult.user.isEmailVerified },
                     process.env.JWT_SECRET || "",
                     { expiresIn: "7d" }
                 );

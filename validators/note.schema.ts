@@ -1,5 +1,8 @@
 import { z } from 'zod';
 
+const emptyToUndefined = (val: unknown) =>
+  typeof val === 'string' && val.trim() === '' ? undefined : val;
+
 const objectIdSchema = z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid linkedId');
 
 const followUpDateSchema = z
@@ -18,11 +21,14 @@ export const createNoteSchema = z.object({
 
 export const updateNoteSchema = z
   .object({
-    title: z.string().trim().min(1, 'Title is required').optional(),
-    description: z.string().trim().min(1, 'Description is required').optional(),
+    title: z.preprocess(emptyToUndefined, z.string().trim().min(1, 'Title is required').optional()),
+    description: z.preprocess(emptyToUndefined, z.string().trim().min(1, 'Description is required').optional()),
     linkedType: z.enum(['client', 'supplier']).optional(),
     linkedId: objectIdSchema.optional(),
-    followUpDate: followUpDateSchema.or(z.null()).optional(),
+    followUpDate: z.preprocess(
+      (val) => (val === '' ? undefined : val),
+      followUpDateSchema.or(z.null()).optional()
+    ),
   })
   .refine(
     (data) => {

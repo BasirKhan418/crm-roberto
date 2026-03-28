@@ -1,12 +1,23 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
-import { SaveIcon } from 'lucide-react';
+import { BuildingIcon, SaveIcon, Trash2Icon, UploadIcon } from 'lucide-react';
+import Image from 'next/image';
 import { toast } from 'sonner';
 
 import CrmShell from '@/components/crm-shell';
 import { useLocale } from '@/components/providers/locale-provider';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import ErrorMessage from '@/components/ui/ErrorMessage';
@@ -22,6 +33,9 @@ interface ProfileForm {
   address: string;
   vatNumber: string;
 }
+
+const ALLOWED_LOGO_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml'];
+const MAX_LOGO_SIZE = 5 * 1024 * 1024; 
 
 const emptyForm: ProfileForm = {
   companyName: '',
@@ -62,6 +76,23 @@ export default function ProfilePage() {
       confirmPassword: 'Confirm password',
       updating: 'Updating...',
       updatePasswordBtn: 'Update password',
+      logoTitle: 'Company Logo',
+      logoSubtitle: 'Used on quotes and invoices. Max 2 MB — JPEG, PNG, WebP or SVG.',
+      uploadLogo: 'Upload logo',
+      replaceLogo: 'Replace logo',
+      deleteLogo: 'Delete logo',
+      deleteLogoTitle: 'Delete company logo?',
+      deleteLogoDesc: 'The logo will be permanently removed from your profile and future documents.',
+      cancel: 'Cancel',
+      confirm: 'Delete',
+      uploading: 'Uploading...',
+      deleting: 'Deleting...',
+      logoUploaded: 'Logo uploaded',
+      logoDeleted: 'Logo deleted',
+      logoUploadFailed: 'Failed to upload logo',
+      logoDeleteFailed: 'Failed to delete logo',
+      logoTypeError: 'Invalid file type. Accepted: JPEG, PNG, WebP, SVG',
+      logoSizeError: 'File too large. Maximum size is 2 MB',
     },
     fr: {
       loadFailed: 'Impossible de charger le profil',
@@ -90,6 +121,23 @@ export default function ProfilePage() {
       confirmPassword: 'Confirmer le mot de passe',
       updating: 'Mise a jour...',
       updatePasswordBtn: 'Mettre a jour le mot de passe',
+      logoTitle: 'Logo entreprise',
+      logoSubtitle: 'Utilise sur les devis et factures. Max 2 Mo — JPEG, PNG, WebP ou SVG.',
+      uploadLogo: 'Telecharger le logo',
+      replaceLogo: 'Remplacer le logo',
+      deleteLogo: 'Supprimer le logo',
+      deleteLogoTitle: 'Supprimer le logo entreprise ?',
+      deleteLogoDesc: 'Le logo sera definitivement supprime de votre profil et des futurs documents.',
+      cancel: 'Annuler',
+      confirm: 'Supprimer',
+      uploading: 'Telechargement...',
+      deleting: 'Suppression...',
+      logoUploaded: 'Logo telecharge',
+      logoDeleted: 'Logo supprime',
+      logoUploadFailed: 'Impossible de telecharger le logo',
+      logoDeleteFailed: 'Impossible de supprimer le logo',
+      logoTypeError: 'Type de fichier invalide. Accepte : JPEG, PNG, WebP, SVG',
+      logoSizeError: 'Fichier trop volumineux. Taille maximale : 2 Mo',
     },
   }[locale];
 
@@ -104,6 +152,12 @@ export default function ProfilePage() {
     newPassword: '',
     confirmPassword: '',
   });
+
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [logoUploading, setLogoUploading] = useState(false);
+  const [logoDeleting, setLogoDeleting] = useState(false);
+  const [showDeleteLogoDialog, setShowDeleteLogoDialog] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     async function loadProfile() {
@@ -134,6 +188,7 @@ export default function ProfilePage() {
           address: data.profile?.address || '',
           vatNumber: data.profile?.vatNumber || '',
         });
+        setLogoUrl((data.profile as Record<string, unknown>)?.logoUrl as string | null ?? null);
       } catch (err) {
         setError(err instanceof Error ? err.message : t.loadFailed);
       } finally {
@@ -143,6 +198,56 @@ export default function ProfilePage() {
 
     loadProfile();
   }, [t.loadFailed]);
+
+  function handleLogoFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!ALLOWED_LOGO_TYPES.includes(file.type)) {
+      toast.error(t.logoTypeError);
+      e.target.value = '';
+      return;
+    }
+    if (file.size > MAX_LOGO_SIZE) {
+      toast.error(t.logoSizeError);
+      e.target.value = '';
+      return;
+    }
+    void uploadLogo(file);
+    e.target.value = '';
+  }
+
+  async function uploadLogo(file: File) {
+    setLogoUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append('logo', file);
+      const response = await fetch('/api/cprofile/logo', { method: 'POST', body: fd });
+      const data = (await response.json()) as { success: boolean; message?: string; logoUrl?: string };
+      if (!response.ok || !data.success) throw new Error(data.message || t.logoUploadFailed);
+      setLogoUrl(data.logoUrl ?? null);
+      toast.success(t.logoUploaded);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t.logoUploadFailed);
+    } finally {
+      setLogoUploading(false);
+    }
+  }
+
+  async function deleteLogo() {
+    setLogoDeleting(true);
+    try {
+      const response = await fetch('/api/cprofile/logo', { method: 'DELETE' });
+      const data = (await response.json()) as { success: boolean; message?: string };
+      if (!response.ok || !data.success) throw new Error(data.message || t.logoDeleteFailed);
+      setLogoUrl(null);
+      toast.success(t.logoDeleted);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t.logoDeleteFailed);
+    } finally {
+      setLogoDeleting(false);
+      setShowDeleteLogoDialog(false);
+    }
+  }
 
   async function saveProfile() {
     setSaving(true);
@@ -208,6 +313,97 @@ export default function ProfilePage() {
         <h1 className="font-heading text-2xl font-semibold tracking-tight">{t.heading}</h1>
         <p className="text-sm text-muted-foreground">{t.subtitle}</p>
       </div>
+
+      {/* Hidden file input for logo */}
+      <input
+        ref={logoInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/svg+xml"
+        className="hidden"
+        onChange={handleLogoFileChange}
+      />
+
+      {/* Logo card */}
+      <Card id="company-logo" className="scroll-mt-20">
+        <CardHeader className="border-b">
+          <CardTitle>{t.logoTitle}</CardTitle>
+          <p className="text-sm text-muted-foreground">{t.logoSubtitle}</p>
+        </CardHeader>
+        <CardContent className="pt-4">
+          {loading ? (
+            <div className="flex items-center gap-4">
+              <Skeleton className="size-24 rounded-xl" />
+              <Skeleton className="h-9 w-32" />
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center gap-4">
+              {/* Preview */}
+              <div className="relative flex size-24 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-muted">
+                {logoUrl ? (
+                  <Image
+                    src={logoUrl}
+                    alt="Company logo"
+                    fill
+                    className="object-contain p-1"
+                    unoptimized
+                  />
+                ) : (
+                  <BuildingIcon className="size-10 text-muted-foreground/40" />
+                )}
+              </div>
+
+              {/* Actions */}
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={logoUploading || logoDeleting}
+                  onClick={() => logoInputRef.current?.click()}
+                >
+                  <UploadIcon />
+                  {logoUploading ? t.uploading : logoUrl ? t.replaceLogo : t.uploadLogo}
+                </Button>
+
+                {logoUrl && (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    disabled={logoDeleting || logoUploading}
+                    onClick={() => setShowDeleteLogoDialog(true)}
+                  >
+                    <Trash2Icon />
+                    {t.deleteLogo}
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Delete logo confirmation */}
+      <AlertDialog open={showDeleteLogoDialog} onOpenChange={setShowDeleteLogoDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t.deleteLogoTitle}</AlertDialogTitle>
+            <AlertDialogDescription>{t.deleteLogoDesc}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel asChild>
+              <Button variant="outline">{t.cancel}</Button>
+            </AlertDialogCancel>
+            <AlertDialogAction asChild>
+              <Button
+                variant="destructive"
+                disabled={logoDeleting}
+                onClick={(e) => { e.preventDefault(); void deleteLogo(); }}
+              >
+                {logoDeleting ? t.deleting : t.confirm}
+              </Button>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Card id="company-profile" className="scroll-mt-20">
         <CardHeader className="border-b">

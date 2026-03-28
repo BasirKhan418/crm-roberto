@@ -7,7 +7,10 @@ const objectIdSchema = z
 const phoneSchema = z
   .string()
   .trim()
-  .regex(/^[6-9]\d{9}$/, "Invalid phone number"); // India-focused
+  .regex(
+    /^(\+352[\s.-]?\d{3}[\s.-]?\d{3}[\s.-]?\d{0,3}|\+33[\s.-]?\d[\s.-]?\d{2}[\s.-]?\d{2}[\s.-]?\d{2}[\s.-]?\d{2}|0\d[\s.-]?\d{2}[\s.-]?\d{2}[\s.-]?\d{2}[\s.-]?\d{2}|\d{6,12})$/,
+    "Invalid phone number. Accepted formats: +352 XXX XXX (Luxembourg), +33 X XX XX XX XX (France), or local number"
+  );
 
 const emailSchema = z
   .string()

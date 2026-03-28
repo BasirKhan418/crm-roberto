@@ -51,3 +51,27 @@ export const updateCompanyProfileByUserId = async (userId: string, data: Partial
         return { message: "Error updating company profile: " + error, success: false };
     }
 }
+
+export const updateCompanyLogoByUserId = async (
+  userId: string,
+  logoUrl: string | null,
+  logoKey: string | null
+) => {
+  try {
+    await ConnectDb();
+    const profile = await CompanyProfile.findOneAndUpdate(
+      { user: userId },
+      { logoUrl, logoKey },
+      { new: true }
+    ).lean();
+
+    if (!profile) {
+      return { message: 'Company profile not found', success: false };
+    }
+
+    return { message: 'Logo updated successfully', success: true, profile };
+  } catch (error) {
+    console.error('Error updating company logo:', error);
+    return { message: 'Error updating company logo: ' + error, success: false };
+  }
+}
