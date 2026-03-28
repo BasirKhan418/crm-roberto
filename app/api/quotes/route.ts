@@ -1,9 +1,68 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-export async function GET(_request: NextRequest) {
-  return NextResponse.json({ success: false, message: 'Quotes list route not implemented yet.' }, { status: 501 });
+import { createActivityLog } from '@/db/repository/activity';
+import { createQuote, listQuotes, type QuoteStatus } from '@/db/repository/quote';
+import { buildValidationError } from '@/utils/api/validation';
+import getMe from '@/utils/middlewares/useMe';
+import { createQuoteSchema } from '@/validators/quote.schema';
+
+export async function GET(request: NextRequest) {
+  try {
+    const me = await getMe(true);
+    if (!me.success || !me.user) {
+      return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
+    }
+
+    const statusParam = request.nextUrl.searchParams.get('status');
+    const searchParam = request.nextUrl.searchParams.get('search')?.trim();
+    const sortParam = request.nextUrl.searchParams.get('sort');
+
+    const status: QuoteStatus | undefined =
+      statusParam === 'draft' || statusParam === 'sent' || statusParam === 'accepted' || statusParam === 'refused'
+        ? statusParam
+        : undefined;
+
+    const sort: 'date' | 'amount' = sortParam === 'amount' ? 'amount' : 'date';
+
+    const quotes = await listQuotes(me.user.id, {
+      status,
+      search: searchParam,
+      sort,
+    });
+
+    return NextResponse.json({ success: true, data: quotes });
+  } catch (error) {
+    return NextResponse.json({ success: false, message: `Error fetching quotes: ${String(error)}` }, { status: 500 });
+  }
 }
 
-export async function POST(_request: NextRequest) {
-  return NextResponse.json({ success: false, message: 'Quote create route not implemented yet.' }, { status: 501 });
+export async function POST(request: NextRequest) {
+  try {
+    const me = await getMe(true);
+    if (!me.success || !me.user) {
+      return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const parsed = createQuoteSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(buildValidationError(parsed.error), { status: 400 });
+    }
+
+    const result = await createQuote(me.user.id, parsed.data);
+    if (result.kind === 'client-not-found') {
+      return NextResponse.json({ success: false, message: 'Client not found' }, { status: 404 });
+    }
+
+    await createActivityLog(me.user.id, {
+      action: 'quote_created',
+      entityType: 'quote',
+      entityName: result.quote.quoteNumber,
+      entityId: result.quote._id,
+    });
+
+    return NextResponse.json({ success: true, data: result.quote }, { status: 201 });
+  } catch (error) {
+    return NextResponse.json({ success: false, message: `Error creating quote: ${String(error)}` }, { status: 500 });
+  }
 }
