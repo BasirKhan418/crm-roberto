@@ -6,6 +6,7 @@ import { useState } from 'react';
 import ActivityFeed from '@/components/dashboard/ActivityFeed';
 import FollowUpsList from '@/components/dashboard/FollowUpsList';
 import QuickAddButtons from '@/components/dashboard/QuickAddButtons';
+import RecentQuotes from '@/components/dashboard/RecentQuotes';
 import StatCards from '@/components/dashboard/StatCards';
 import { useLocale } from '@/components/providers/locale-provider';
 import { AppSidebar } from '@/components/app-sidebar';
@@ -52,8 +53,8 @@ export default function DashboardPage() {
       <SidebarInset>
         <SiteHeader title={t.title} />
         <main className="flex flex-1 flex-col">
-          <div className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 lg:px-6 lg:py-6">
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="@container/main flex flex-1 flex-col gap-5 px-4 py-4 lg:px-6 lg:py-6">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <h1 className="font-heading text-2xl font-semibold tracking-tight">{t.heading}</h1>
                 <p className="text-sm text-muted-foreground">{t.subtitle}</p>
@@ -69,6 +70,8 @@ export default function DashboardPage() {
               <ActivityFeed activity={activity} loading={loading} error={activityError} />
               <FollowUpsList followUps={followUps} loading={loading} error={followUpsError} />
             </section>
+
+            <RecentQuotes refreshKey={statsRefreshKey} />
           </div>
         </main>
       </SidebarInset>

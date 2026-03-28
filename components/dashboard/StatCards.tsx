@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 
 import ErrorMessage from '@/components/ui/ErrorMessage';
+import { PriceDisplay } from '@/components/ui/PriceDisplay';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useLocale } from '@/components/providers/locale-provider';
@@ -11,6 +12,8 @@ interface DashboardStats {
   totalClients?: number;
   totalSuppliers?: number;
   notesThisWeek?: number;
+  quotesThisMonth?: number;
+  acceptedQuotesValue?: number;
 }
 
 function isAbortError(reason: unknown): boolean {
@@ -35,6 +38,8 @@ export default function StatCards() {
       totalClients: 'Total clients',
       totalSuppliers: 'Total suppliers',
       notesWeek: 'Notes this week',
+      quotesMonth: 'Quotes this month',
+      acceptedValue: 'Accepted quotes value',
       aria: 'Dashboard stats',
     },
     fr: {
@@ -42,6 +47,8 @@ export default function StatCards() {
       totalClients: 'Total des clients',
       totalSuppliers: 'Total des fournisseurs',
       notesWeek: 'Notes cette semaine',
+      quotesMonth: 'Devis ce mois-ci',
+      acceptedValue: 'Valeur des devis acceptes',
       aria: 'Statistiques du tableau de bord',
     },
   }[locale];
@@ -87,18 +94,21 @@ export default function StatCards() {
     return () => controller.abort();
   }, [t.loadError]);
 
-  const cards = [
-    { label: t.totalClients, value: toWholeNumber(stats?.totalClients) },
-    { label: t.totalSuppliers, value: toWholeNumber(stats?.totalSuppliers) },
-    { label: t.notesWeek, value: toWholeNumber(stats?.notesThisWeek) },
+  const cards: Array<{ label: string; value: number; type: 'count' | 'currency' }> = [
+    { label: t.totalClients, value: toWholeNumber(stats?.totalClients), type: 'count' },
+    { label: t.totalSuppliers, value: toWholeNumber(stats?.totalSuppliers), type: 'count' },
+    { label: t.notesWeek, value: toWholeNumber(stats?.notesThisWeek), type: 'count' },
+    { label: t.quotesMonth, value: toWholeNumber(stats?.quotesThisMonth), type: 'count' },
+    { label: t.acceptedValue, value: toWholeNumber(stats?.acceptedQuotesValue), type: 'currency' },
   ];
   const hasStats = stats !== null;
   const showError = Boolean(fetchError) && !hasStats;
+  const priceLocale = locale === 'fr' ? 'fr-FR' : 'en-IE';
 
   return (
-    <section className="mb-6 grid grid-cols-1 gap-3 md:grid-cols-3" aria-label={t.aria}>
+    <section className="mb-6 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5" aria-label={t.aria}>
       {showError ? (
-        <div className="md:col-span-3">
+        <div className="md:col-span-2 xl:col-span-5">
           <ErrorMessage message={fetchError ?? undefined} />
         </div>
       ) : null}
@@ -114,7 +124,15 @@ export default function StatCards() {
             {loading ? (
               <Skeleton className="h-8 w-16" />
             ) : (
-              <p className="text-3xl font-semibold tabular-nums">{card.value}</p>
+              card.type === 'currency' ? (
+                <PriceDisplay
+                  cents={card.value}
+                  locale={priceLocale}
+                  className="text-2xl font-semibold tabular-nums sm:text-3xl"
+                />
+              ) : (
+                <p className="text-3xl font-semibold tabular-nums">{card.value}</p>
+              )
             )}
           </CardContent>
         </Card>

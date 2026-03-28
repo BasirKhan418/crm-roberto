@@ -2,12 +2,16 @@ import ConnectDb from '@/db/connectDb';
 import ActivityLog from '@/db/models/Activity';
 import Client from '@/db/models/Client';
 import Note from '@/db/models/Note';
+import Quote from '@/db/models/Quote';
 import Supplier from '@/db/models/Supplier';
+import mongoose from 'mongoose';
 
 export interface DashboardStats {
   totalClients: number;
   totalSuppliers: number;
   notesThisWeek: number;
+  quotesThisMonth: number;
+  acceptedQuotesValue: number;
 }
 
 export interface DashboardActivityItem {
@@ -104,22 +108,46 @@ function getStartOfToday(referenceDate: Date): Date {
   return today;
 }
 
+function getStartOfMonth(referenceDate: Date): Date {
+  return new Date(referenceDate.getFullYear(), referenceDate.getMonth(), 1, 0, 0, 0, 0);
+}
+
 export const getDashboardStats = async (userId: string): Promise<DashboardStats> => {
   await ConnectDb();
 
   const now = new Date();
   const weekStart = getStartOfWeek(now);
+  const monthStart = getStartOfMonth(now);
 
-  const [totalClients, totalSuppliers, notesThisWeek] = await Promise.all([
+  const [totalClients, totalSuppliers, notesThisWeek, quotesThisMonth, acceptedTotals] = await Promise.all([
     Client.countDocuments({ user: userId }),
     Supplier.countDocuments({ user: userId }),
     Note.countDocuments({ user: userId, createdAt: { $gte: weekStart, $lte: now } }),
+    Quote.countDocuments({ user: userId, date: { $gte: monthStart, $lte: now } }),
+    Quote.aggregate<{ total: number }>([
+      {
+        $match: {
+          user: new mongoose.Types.ObjectId(userId),
+          status: 'accepted',
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: '$totalIncludingTax' },
+        },
+      },
+    ]),
   ]);
+
+  const acceptedQuotesValue = acceptedTotals[0]?.total ?? 0;
 
   return {
     totalClients,
     totalSuppliers,
     notesThisWeek,
+    quotesThisMonth,
+    acceptedQuotesValue,
   };
 };
 

@@ -214,23 +214,21 @@ export default function QuotesPage() {
 
   return (
     <CrmShell title={t.shellTitle}>
-      <section className="space-y-6 pt-1">
-        <div className="rounded-xl border border-border/70 bg-linear-to-b from-background to-secondary/20 p-5 sm:p-6">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h1 className="font-heading text-2xl font-semibold tracking-tight sm:text-3xl">{t.heading}</h1>
-              <p className="text-sm text-muted-foreground">{t.subtitle}</p>
-            </div>
-            <Button type="button" className="w-full sm:w-auto" asChild>
-              <Link href="/quotes/new">
-                <PlusIcon className="size-4" />
-                {t.newQuote}
-              </Link>
-            </Button>
+      <section className="space-y-5">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h1 className="font-heading text-2xl font-semibold tracking-tight">{t.heading}</h1>
+            <p className="text-sm text-muted-foreground">{t.subtitle}</p>
           </div>
+          <Button type="button" className="w-full sm:w-auto" asChild>
+            <Link href="/quotes/new">
+              <PlusIcon className="size-4" />
+              {t.newQuote}
+            </Link>
+          </Button>
         </div>
 
-        <div className="space-y-2.5 rounded-xl border border-border/70 bg-card p-2.5 shadow-sm sm:p-3">
+        <div className="space-y-3 rounded-xl border border-border/70 bg-card/40 p-3 sm:p-4">
           <div className="flex flex-wrap items-center gap-2 text-xs">
             <span className="rounded-full border border-border/70 bg-background px-2.5 py-1 text-muted-foreground">
               {pagination.total} {t.totalResults}
@@ -257,13 +255,13 @@ export default function QuotesPage() {
           </div>
 
           <Tabs value={status} onValueChange={(value) => setStatus(value as QuoteStatusFilter)}>
-            <div className="overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              <TabsList className="inline-flex h-10 min-w-max items-center gap-1 rounded-full border border-border/80 bg-muted/40 p-0.5 overflow-hidden">
-                <TabsTrigger value="all" className="h-8 min-w-20 rounded-full border border-transparent px-3 text-sm font-medium text-foreground/80 hover:bg-background hover:text-foreground data-active:bg-primary data-active:text-primary-foreground">{t.tabAll}</TabsTrigger>
-                <TabsTrigger value="draft" className="h-8 min-w-20 rounded-full border border-transparent px-3 text-sm font-medium text-foreground/80 hover:bg-background hover:text-foreground data-active:bg-primary data-active:text-primary-foreground">{t.tabDraft}</TabsTrigger>
-                <TabsTrigger value="sent" className="h-8 min-w-20 rounded-full border border-transparent px-3 text-sm font-medium text-foreground/80 hover:bg-background hover:text-foreground data-active:bg-primary data-active:text-primary-foreground">{t.tabSent}</TabsTrigger>
-                <TabsTrigger value="accepted" className="h-8 min-w-24 rounded-full border border-transparent px-3 text-sm font-medium text-foreground/80 hover:bg-background hover:text-foreground data-active:bg-primary data-active:text-primary-foreground">{t.tabAccepted}</TabsTrigger>
-                <TabsTrigger value="refused" className="h-8 min-w-24 rounded-full border border-transparent px-3 text-sm font-medium text-foreground/80 hover:bg-background hover:text-foreground data-active:bg-primary data-active:text-primary-foreground">{t.tabRefused}</TabsTrigger>
+            <div className="overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <TabsList className="inline-flex h-auto min-w-max items-center gap-1 rounded-lg border border-border/80 bg-transparent p-1">
+                <TabsTrigger value="all" className="rounded-md border border-transparent px-3 py-1 text-sm text-foreground/80 hover:bg-muted/60 hover:text-foreground data-active:border-transparent data-active:bg-primary data-active:text-primary-foreground">{t.tabAll}</TabsTrigger>
+                <TabsTrigger value="draft" className="rounded-md border border-border/80 px-3 py-1 text-sm text-foreground/80 hover:bg-muted/60 hover:text-foreground data-active:border-transparent data-active:bg-primary data-active:text-primary-foreground">{t.tabDraft}</TabsTrigger>
+                <TabsTrigger value="sent" className="rounded-md border border-border/80 px-3 py-1 text-sm text-foreground/80 hover:bg-muted/60 hover:text-foreground data-active:border-transparent data-active:bg-primary data-active:text-primary-foreground">{t.tabSent}</TabsTrigger>
+                <TabsTrigger value="accepted" className="rounded-md border border-border/80 px-3 py-1 text-sm text-foreground/80 hover:bg-muted/60 hover:text-foreground data-active:border-transparent data-active:bg-primary data-active:text-primary-foreground">{t.tabAccepted}</TabsTrigger>
+                <TabsTrigger value="refused" className="rounded-md border border-border/80 px-3 py-1 text-sm text-foreground/80 hover:bg-muted/60 hover:text-foreground data-active:border-transparent data-active:bg-primary data-active:text-primary-foreground">{t.tabRefused}</TabsTrigger>
               </TabsList>
             </div>
           </Tabs>
