@@ -65,6 +65,11 @@ export default function QuotesPage() {
       cancel: 'Cancel',
       deleting: 'Deleting...',
       deleteQuote: 'Delete quote',
+      page: 'Page',
+      of: 'of',
+      total: 'total',
+      previous: 'Previous',
+      next: 'Next',
     },
     fr: {
       shellTitle: 'Devis',
@@ -99,6 +104,11 @@ export default function QuotesPage() {
       cancel: 'Annuler',
       deleting: 'Suppression...',
       deleteQuote: 'Supprimer le devis',
+      page: 'Page',
+      of: 'sur',
+      total: 'au total',
+      previous: 'Precedent',
+      next: 'Suivant',
     },
   }[locale];
 
@@ -106,11 +116,13 @@ export default function QuotesPage() {
   const [searchDebounced, setSearchDebounced] = useState('');
   const [status, setStatus] = useState<QuoteStatusFilter>('all');
   const [sort, setSort] = useState<'date' | 'amount'>('date');
+  const [page, setPage] = useState(1);
+  const limit = 10;
 
   const [deleteTarget, setDeleteTarget] = useState<QuoteListItem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const { quotes, loading, error, refetch } = useQuotes(status, searchDebounced, sort);
+  const { quotes, pagination, loading, error, refetch } = useQuotes(status, searchDebounced, sort, page, limit);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -119,6 +131,23 @@ export default function QuotesPage() {
 
     return () => window.clearTimeout(timeout);
   }, [searchInput]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchDebounced, status, sort]);
+
+  useEffect(() => {
+    if (loading) {
+      return;
+    }
+
+    const pageIsOutOfRange = page > 1 && (pagination.totalPages === 0 || page > pagination.totalPages);
+    if (!pageIsOutOfRange) {
+      return;
+    }
+
+    setPage(Math.max(1, pagination.totalPages));
+  }, [loading, page, pagination.totalPages]);
 
   const formatDate = useCallback(
     (value: string) => {
@@ -144,7 +173,12 @@ export default function QuotesPage() {
 
       toast.success(t.deleted);
       setDeleteTarget(null);
-      await refetch();
+
+      if (page > 1 && quotes.length === 1) {
+        setPage((prev) => prev - 1);
+      } else {
+        await refetch();
+      }
     } catch (deleteError) {
       toast.error(deleteError instanceof Error ? deleteError.message : t.deleteFailed);
     } finally {
@@ -205,13 +239,15 @@ export default function QuotesPage() {
           </div>
 
           <Tabs value={status} onValueChange={(value) => setStatus(value as QuoteStatusFilter)}>
-            <TabsList className="h-auto rounded-lg border border-border/80 bg-transparent p-1">
-              <TabsTrigger value="all" className="rounded-md border border-transparent px-3 py-1 text-foreground/80 hover:bg-background hover:text-foreground data-active:bg-primary data-active:text-primary-foreground">{t.tabAll}</TabsTrigger>
-              <TabsTrigger value="draft" className="rounded-md border border-border/80 px-3 py-1 text-foreground/80 hover:bg-background hover:text-foreground data-active:bg-primary data-active:text-primary-foreground">{t.tabDraft}</TabsTrigger>
-              <TabsTrigger value="sent" className="rounded-md border border-border/80 px-3 py-1 text-foreground/80 hover:bg-background hover:text-foreground data-active:bg-primary data-active:text-primary-foreground">{t.tabSent}</TabsTrigger>
-              <TabsTrigger value="accepted" className="rounded-md border border-border/80 px-3 py-1 text-foreground/80 hover:bg-background hover:text-foreground data-active:bg-primary data-active:text-primary-foreground">{t.tabAccepted}</TabsTrigger>
-              <TabsTrigger value="refused" className="rounded-md border border-border/80 px-3 py-1 text-foreground/80 hover:bg-background hover:text-foreground data-active:bg-primary data-active:text-primary-foreground">{t.tabRefused}</TabsTrigger>
-            </TabsList>
+            <div className="overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <TabsList className="inline-flex h-12 min-w-max items-center gap-1 rounded-full border border-border/80 bg-muted/40 p-1 overflow-hidden">
+                <TabsTrigger value="all" className="h-10 min-w-24 rounded-full border border-transparent px-4 text-sm font-medium text-foreground/80 hover:bg-background hover:text-foreground data-active:bg-primary data-active:text-primary-foreground">{t.tabAll}</TabsTrigger>
+                <TabsTrigger value="draft" className="h-10 min-w-24 rounded-full border border-transparent px-4 text-sm font-medium text-foreground/80 hover:bg-background hover:text-foreground data-active:bg-primary data-active:text-primary-foreground">{t.tabDraft}</TabsTrigger>
+                <TabsTrigger value="sent" className="h-10 min-w-24 rounded-full border border-transparent px-4 text-sm font-medium text-foreground/80 hover:bg-background hover:text-foreground data-active:bg-primary data-active:text-primary-foreground">{t.tabSent}</TabsTrigger>
+                <TabsTrigger value="accepted" className="h-10 min-w-28 rounded-full border border-transparent px-4 text-sm font-medium text-foreground/80 hover:bg-background hover:text-foreground data-active:bg-primary data-active:text-primary-foreground">{t.tabAccepted}</TabsTrigger>
+                <TabsTrigger value="refused" className="h-10 min-w-28 rounded-full border border-transparent px-4 text-sm font-medium text-foreground/80 hover:bg-background hover:text-foreground data-active:bg-primary data-active:text-primary-foreground">{t.tabRefused}</TabsTrigger>
+              </TabsList>
+            </div>
           </Tabs>
         </div>
 
@@ -220,26 +256,48 @@ export default function QuotesPage() {
         {!loading && quotes.length === 0 ? (
           <EmptyState message={t.empty} actionLabel={t.newQuote} onAction={() => router.push('/quotes/new')} />
         ) : (
-          <QuoteTable
-            items={quotes}
-            loading={loading}
-            formatDate={formatDate}
-            onDelete={setDeleteTarget}
-            onDownload={handleDownloadPdf}
-            labels={{
-              quoteNumber: t.quoteNumber,
-              client: t.client,
-              date: t.date,
-              totalIncludingTax: t.totalIncludingTax,
-              status: t.status,
-              actions: t.actions,
-              view: t.view,
-              edit: t.edit,
-              delete: t.delete,
-              downloadPdf: t.downloadPdf,
-              lockEdit: t.lockEdit,
-            }}
-          />
+          <>
+            <QuoteTable
+              items={quotes}
+              loading={loading}
+              formatDate={formatDate}
+              onDelete={setDeleteTarget}
+              onDownload={handleDownloadPdf}
+              labels={{
+                quoteNumber: t.quoteNumber,
+                client: t.client,
+                date: t.date,
+                totalIncludingTax: t.totalIncludingTax,
+                status: t.status,
+                actions: t.actions,
+                view: t.view,
+                edit: t.edit,
+                delete: t.delete,
+                downloadPdf: t.downloadPdf,
+                lockEdit: t.lockEdit,
+              }}
+            />
+
+            <div className="flex flex-col gap-2 rounded-lg border border-border/70 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs text-muted-foreground">
+                {t.page} {pagination.page} {t.of} {Math.max(pagination.totalPages, 1)} - {pagination.total} {t.total}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button type="button" variant="outline" size="sm" disabled={pagination.page <= 1} onClick={() => setPage((prev) => prev - 1)}>
+                  {t.previous}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={pagination.totalPages === 0 || pagination.page >= pagination.totalPages}
+                  onClick={() => setPage((prev) => prev + 1)}
+                >
+                  {t.next}
+                </Button>
+              </div>
+            </div>
+          </>
         )}
       </section>
 

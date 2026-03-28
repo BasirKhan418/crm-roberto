@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { createActivityLog } from '@/db/repository/activity';
-import { deleteQuoteById, updateQuoteById } from '@/db/repository/quote';
+import { deleteQuoteById, getQuoteById, updateQuoteById } from '@/db/repository/quote';
 import { buildValidationError } from '@/utils/api/validation';
 import getMe from '@/utils/middlewares/useMe';
 import { updateQuoteSchema } from '@/validators/quote.schema';
@@ -11,8 +11,33 @@ interface RouteParams {
 }
 
 export async function GET(_request: NextRequest, { params }: RouteParams) {
-  const { id } = await params;
-  return NextResponse.json({ success: false, message: `Quote detail route not implemented yet for id ${id}.` }, { status: 501 });
+  try {
+    const me = await getMe(true);
+    if (!me.success || !me.user) {
+      return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
+    }
+
+    const { id } = await params;
+    const quote = await getQuoteById(me.user.id, id);
+
+    if (!quote) {
+      return NextResponse.json({ success: false, message: 'Quote not found' }, { status: 404 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        ...quote,
+        clientId: String(quote.clientId),
+        lineItems: quote.lineItems.map((line) => ({
+          ...line,
+          productId: line.productId ? String(line.productId) : null,
+        })),
+      },
+    });
+  } catch (error) {
+    return NextResponse.json({ success: false, message: `Error loading quote: ${String(error)}` }, { status: 500 });
+  }
 }
 
 export async function PATCH(request: NextRequest, { params }: RouteParams) {

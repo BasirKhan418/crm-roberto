@@ -16,6 +16,8 @@ export async function GET(request: NextRequest) {
     const statusParam = request.nextUrl.searchParams.get('status');
     const searchParam = request.nextUrl.searchParams.get('search')?.trim();
     const sortParam = request.nextUrl.searchParams.get('sort');
+    const pageParam = Number(request.nextUrl.searchParams.get('page') ?? '1');
+    const limitParam = Number(request.nextUrl.searchParams.get('limit') ?? '10');
 
     const status: QuoteStatus | undefined =
       statusParam === 'draft' || statusParam === 'sent' || statusParam === 'accepted' || statusParam === 'refused'
@@ -23,14 +25,27 @@ export async function GET(request: NextRequest) {
         : undefined;
 
     const sort: 'date' | 'amount' = sortParam === 'amount' ? 'amount' : 'date';
+    const page = Number.isFinite(pageParam) ? Math.max(1, pageParam) : 1;
+    const limit = Number.isFinite(limitParam) ? Math.max(1, Math.min(100, limitParam)) : 10;
 
-    const quotes = await listQuotes(me.user.id, {
+    const result = await listQuotes(me.user.id, {
       status,
       search: searchParam,
       sort,
+      page,
+      limit,
     });
 
-    return NextResponse.json({ success: true, data: quotes });
+    return NextResponse.json({
+      success: true,
+      data: result.items,
+      pagination: {
+        page: result.page,
+        limit: result.limit,
+        total: result.total,
+        totalPages: result.totalPages,
+      },
+    });
   } catch (error) {
     return NextResponse.json({ success: false, message: `Error fetching quotes: ${String(error)}` }, { status: 500 });
   }

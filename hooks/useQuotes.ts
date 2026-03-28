@@ -11,15 +11,44 @@ interface QuotesApiResponse {
   success: boolean;
   message?: string;
   data?: QuoteListItem[];
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 }
 
-export function useQuotes(filter: QuoteStatusFilter = 'all', search = '', sort: QuoteSort = 'date') {
+interface QuotesPagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+const initialPagination: QuotesPagination = {
+  page: 1,
+  limit: 10,
+  total: 0,
+  totalPages: 0,
+};
+
+export function useQuotes(
+  filter: QuoteStatusFilter = 'all',
+  search = '',
+  sort: QuoteSort = 'date',
+  page = 1,
+  limit = 10
+) {
   const [quotes, setQuotes] = useState<QuoteListItem[]>([]);
+  const [pagination, setPagination] = useState<QuotesPagination>(initialPagination);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const query = useMemo(() => {
     const params = new URLSearchParams();
+    params.set('page', String(page));
+    params.set('limit', String(limit));
     params.set('sort', sort);
 
     if (filter !== 'all') {
@@ -32,7 +61,7 @@ export function useQuotes(filter: QuoteStatusFilter = 'all', search = '', sort: 
     }
 
     return params.toString();
-  }, [filter, search, sort]);
+  }, [filter, search, sort, page, limit]);
 
   const fetchQuotes = useCallback(async () => {
     setLoading(true);
@@ -47,8 +76,10 @@ export function useQuotes(filter: QuoteStatusFilter = 'all', search = '', sort: 
       }
 
       setQuotes(payload.data ?? []);
+      setPagination(payload.pagination ?? { ...initialPagination, page, limit });
     } catch (fetchError) {
       setQuotes([]);
+      setPagination((prev) => ({ ...prev, total: 0, totalPages: 0 }));
       setError(fetchError instanceof Error ? fetchError.message : 'Failed to load quotes');
     } finally {
       setLoading(false);
@@ -61,6 +92,7 @@ export function useQuotes(filter: QuoteStatusFilter = 'all', search = '', sort: 
 
   return {
     quotes,
+    pagination,
     loading,
     error,
     refetch: fetchQuotes,

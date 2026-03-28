@@ -13,9 +13,18 @@ import { useLocale } from '@/components/providers/locale-provider';
 interface AddClientModalProps {
   onClose: () => void;
   onSuccess?: () => void;
+  onCreated?: (client: {
+    _id: string;
+    fullName: string;
+    email?: string | null;
+    phone?: string | null;
+    address?: string | null;
+    companyName?: string | null;
+    vatNumber?: string | null;
+  }) => void;
 }
 
-export default function AddClientModal({ onClose, onSuccess }: AddClientModalProps) {
+export default function AddClientModal({ onClose, onSuccess, onCreated }: AddClientModalProps) {
   const { locale } = useLocale();
   const t = {
     en: {
@@ -83,12 +92,27 @@ export default function AddClientModal({ onClose, onSuccess }: AddClientModalPro
         }),
       });
 
-      const data = (await response.json()) as { success: boolean; message?: string };
+      const data = (await response.json()) as {
+        success: boolean;
+        message?: string;
+        data?: {
+          _id: string;
+          fullName: string;
+          email?: string | null;
+          phone?: string | null;
+          address?: string | null;
+          companyName?: string | null;
+          vatNumber?: string | null;
+        };
+      };
       if (!response.ok || !data.success) {
         throw new Error(data.message || t.failedCreate);
       }
 
       toast.success(t.created);
+      if (data.data) {
+        onCreated?.(data.data);
+      }
       onSuccess?.();
       onClose();
     } catch (error) {

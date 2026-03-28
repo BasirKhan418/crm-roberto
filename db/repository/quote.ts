@@ -23,6 +23,14 @@ export interface QuoteListItemRecord {
   };
 }
 
+export interface QuoteListResult {
+  items: QuoteListItemRecord[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
 interface QuoteDeleteRecord {
   _id: string;
   quoteNumber: string;
@@ -60,6 +68,8 @@ interface QuoteRecord {
   updatedAt: Date;
 }
 
+export type QuoteDetailRecord = QuoteRecord;
+
 type CreateQuoteResult =
   | { kind: 'ok'; quote: QuoteRecord }
   | { kind: 'client-not-found' };
@@ -93,8 +103,10 @@ export const listQuotes = async (
     status?: QuoteStatus;
     search?: string;
     sort?: 'date' | 'amount';
+    page?: number;
+    limit?: number;
   }
-): Promise<QuoteListItemRecord[]> => {
+): Promise<QuoteListResult> => {
   await ConnectDb();
 
   const query: Record<string, unknown> = { user: userId };
@@ -111,13 +123,27 @@ export const listQuotes = async (
   }
 
   const sortField = options.sort === 'amount' ? 'totalIncludingTax' : 'date';
+  const page = Math.max(1, options.page ?? 1);
+  const limit = Math.max(1, Math.min(options.limit ?? 10, 100));
+
+  const total = await Quote.countDocuments(query);
+  const totalPages = Math.ceil(total / limit);
+  const skip = (page - 1) * limit;
 
   const quotes = await Quote.find(query)
     .sort({ [sortField]: -1 })
+    .skip(skip)
+    .limit(limit)
     .select('_id quoteNumber date status clientId clientSnapshot.fullName totalIncludingTax')
     .lean();
 
-  return quotes as QuoteListItemRecord[];
+  return {
+    items: quotes as QuoteListItemRecord[],
+    total,
+    page,
+    limit,
+    totalPages,
+  };
 };
 
 export const deleteQuoteById = async (userId: string, quoteId: string): Promise<QuoteDeleteRecord | null> => {
@@ -132,6 +158,17 @@ export const deleteQuoteById = async (userId: string, quoteId: string): Promise<
     .lean();
 
   return (deleted as QuoteDeleteRecord | null) || null;
+};
+
+export const getQuoteById = async (userId: string, quoteId: string): Promise<QuoteDetailRecord | null> => {
+  await ConnectDb();
+
+  if (!isValidObjectId(quoteId)) {
+    return null;
+  }
+
+  const quote = await Quote.findOne({ _id: quoteId, user: userId }).lean();
+  return (quote as QuoteDetailRecord | null) || null;
 };
 
 async function getClientSnapshot(userId: string, clientId: string): Promise<ClientSnapshotRecord | null> {
