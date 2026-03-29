@@ -137,6 +137,7 @@ export default function QuotesPage() {
   const [deleteTarget, setDeleteTarget] = useState<QuoteListItem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [sendTarget, setSendTarget] = useState<QuoteListItem | null>(null);
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
 
   const { quotes, pagination, loading, error, refetch } = useQuotes(status, searchDebounced, sort, page, limit);
 
@@ -226,6 +227,8 @@ export default function QuotesPage() {
   }
 
   async function handleDuplicateQuote(quote: QuoteListItem) {
+    if (duplicatingId) return;
+    setDuplicatingId(quote._id);
     try {
       const response = await fetch(`/api/quotes/${quote._id}/duplicate`, { method: 'POST' });
       const payload = (await response.json()) as {
@@ -242,6 +245,8 @@ export default function QuotesPage() {
       router.push(`/quotes/${payload.data._id}/edit`);
     } catch (duplicateError) {
       toast.error(duplicateError instanceof Error ? duplicateError.message : t.duplicateFailed);
+    } finally {
+      setDuplicatingId(null);
     }
   }
 
@@ -333,6 +338,7 @@ export default function QuotesPage() {
               }}
               onDuplicate={handleDuplicateQuote}
               onSend={setSendTarget}
+              duplicatingId={duplicatingId}
             />
 
             <div className="flex flex-col gap-2 rounded-lg border border-border/70 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
@@ -384,6 +390,8 @@ export default function QuotesPage() {
           quoteId={sendTarget._id}
           quoteNumber={sendTarget.quoteNumber}
           clientEmail={sendTarget.clientSnapshot.email}
+          clientName={sendTarget.clientSnapshot.fullName}
+          companyName={undefined}
           locale={locale as 'en' | 'fr'}
           onSent={() => {
             setSendTarget(null);

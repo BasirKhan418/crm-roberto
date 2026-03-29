@@ -797,6 +797,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         quoteId={sendTarget!._id}
         quoteNumber={sendTarget!.quoteNumber}
         clientEmail={client?.email}
+        clientName={client?.fullName}
+        companyName={undefined}
         locale={locale as 'en' | 'fr'}
         onSent={() => {
           setSendTarget(null);

@@ -197,7 +197,7 @@ export default function LineItemRow({ row, index, products, onChange, onDelete }
 
   return (
     <div className="rounded-xl border border-border/70 bg-linear-to-b from-background to-secondary/25 p-3 md:p-3.5">
-      <div className="grid gap-2.5 sm:grid-cols-2 md:grid-cols-[2.2fr_0.85fr_1.1fr_0.75fr_1.15fr_0.8fr_1.15fr_1.15fr_auto] md:items-start">
+      <div className="grid gap-2.5 sm:grid-cols-2 md:grid-cols-[2fr_0.9fr_1.1fr_0.7fr_1.2fr_0.7fr_1fr_1fr_auto] md:items-start">
         <div className="relative sm:col-span-2 md:col-span-1">
           <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground md:hidden">{t.product}</p>
           <Input

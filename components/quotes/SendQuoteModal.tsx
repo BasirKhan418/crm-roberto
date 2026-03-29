@@ -25,8 +25,9 @@ interface SendQuoteModalProps {
   quoteId: string;
   quoteNumber: string;
   clientEmail: string | null | undefined;
+  clientName: string | null | undefined;
+  companyName: string | null | undefined;
   locale: Locale;
-  /** Called after the email has been sent successfully. */
   onSent?: () => void;
 }
 
@@ -45,8 +46,11 @@ const translations = {
     error: 'Failed to send quote',
     emailRequired: 'Client email is required',
     defaultSubject: (quoteNumber: string) => `Your quote ${quoteNumber}`,
-    defaultMessage: (quoteNumber: string) =>
-      `Hello,\n\nPlease find attached your quote ${quoteNumber}.\n\nFeel free to contact us if you have any questions.\n\nBest regards,`,
+    defaultMessage: (quoteNumber: string, clientName?: string | null, senderCompany?: string | null) => {
+      const greeting = clientName ? `Dear ${clientName},` : 'Hello,';
+      const signOff = senderCompany ? `Best regards,\n${senderCompany}` : 'Best regards,';
+      return `${greeting}\n\nPlease find attached your quote ${quoteNumber}.\n\nFeel free to contact us if you have any questions.\n\n${signOff}`;
+    },
   },
   fr: {
     title: 'Envoyer le devis par e-mail',
@@ -62,8 +66,11 @@ const translations = {
     error: "Impossible d'envoyer le devis",
     emailRequired: "L'e-mail du client est requis",
     defaultSubject: (quoteNumber: string) => `Votre devis ${quoteNumber}`,
-    defaultMessage: (quoteNumber: string) =>
-      `Bonjour,\n\nVeuillez trouver ci-joint votre devis ${quoteNumber}.\n\nN'hésitez pas à revenir vers nous pour toute question.\n\nBien cordialement,`,
+    defaultMessage: (quoteNumber: string, clientName?: string | null, senderCompany?: string | null) => {
+      const greeting = clientName ? `Bonjour ${clientName},` : 'Bonjour,';
+      const signOff = senderCompany ? `Bien cordialement,\n${senderCompany}` : 'Bien cordialement,';
+      return `${greeting}\n\nVeuillez trouver ci-joint votre devis ${quoteNumber}.\n\nN'hésitez pas à revenir vers nous pour toute question.\n\n${signOff}`;
+    },
   },
 };
 
@@ -73,6 +80,8 @@ export default function SendQuoteModal({
   quoteId,
   quoteNumber,
   clientEmail,
+  clientName,
+  companyName,
   locale,
   onSent,
 }: SendQuoteModalProps) {
@@ -80,15 +89,15 @@ export default function SendQuoteModal({
 
   const [email, setEmail] = useState(clientEmail || '');
   const [subject, setSubject] = useState(t.defaultSubject(quoteNumber));
-  const [message, setMessage] = useState(t.defaultMessage(quoteNumber));
+  const [message, setMessage] = useState(t.defaultMessage(quoteNumber, clientName, companyName));
   const [sending, setSending] = useState(false);
 
-  // Reset fields when modal opens with new data
+
   const handleOpenChange = (nextOpen: boolean) => {
     if (nextOpen) {
       setEmail(clientEmail || '');
       setSubject(t.defaultSubject(quoteNumber));
-      setMessage(t.defaultMessage(quoteNumber));
+      setMessage(t.defaultMessage(quoteNumber, clientName, companyName));
     }
     onOpenChange(nextOpen);
   };

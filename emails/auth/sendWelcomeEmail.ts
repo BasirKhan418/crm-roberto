@@ -1,12 +1,58 @@
 import ConnectEmailClient from "../connectEmailClient";
-import { getEmailTemplate } from "../template";
+import { authEmailLayout } from "./authEmailLayout";
+
+type Locale = 'en' | 'fr';
 
 interface SendWelcomeEmailParams {
   email: string;
   name: string;
+  locale?: Locale;
 }
 
-export const sendWelcomeEmail = async ({ email, name }: SendWelcomeEmailParams) => {
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+const t = {
+  en: {
+    subject: 'Welcome — your workspace is ready',
+    heading: 'Welcome',
+    greeting: (name: string) => `Hello ${name},`,
+    intro: 'Your CRM workspace is now ready. Here is what you can do right away:',
+    features: [
+      ['Manage clients', 'Keep complete profiles, contact history, and notes in one place.'],
+      ['Track suppliers', 'Maintain vendor details for more predictable operations.'],
+      ['Activity timelines', 'Stay on top of follow-ups and never miss a next step.'],
+      ['Dashboard', 'Get a quick snapshot of business progress and priorities.'],
+    ] as [string, string][],
+    cta: 'Open dashboard',
+    help: 'Need help getting started? Reply to this email and we will be happy to guide you.',
+    plainText: (name: string, url: string) =>
+      `Hello ${name},\n\nYour CRM workspace is now ready.\n\nOpen your dashboard: ${url}/dashboard\n\nIf you need help, reply to this email.`,
+  },
+  fr: {
+    subject: 'Bienvenue — votre espace est pret',
+    heading: 'Bienvenue',
+    greeting: (name: string) => `Bonjour ${name},`,
+    intro: 'Votre espace CRM est desormais pret. Voici ce que vous pouvez faire des maintenant :',
+    features: [
+      ['Gerer vos clients', 'Centralisez profils, historique et notes en un seul endroit.'],
+      ['Suivre vos fournisseurs', 'Gardez les details de vos fournisseurs pour des operations fiables.'],
+      ['Fil d\'activite', 'Restez au courant de vos relances et ne manquez aucune etape.'],
+      ['Tableau de bord', 'Visualisez la progression et les priorites de votre activite.'],
+    ] as [string, string][],
+    cta: 'Ouvrir le tableau de bord',
+    help: 'Besoin d\'aide pour demarrer ? Repondez a cet e-mail, nous serons ravis de vous accompagner.',
+    plainText: (name: string, url: string) =>
+      `Bonjour ${name},\n\nVotre espace CRM est pret.\n\nOuvrir votre tableau de bord : ${url}/dashboard\n\nSi vous avez besoin d'aide, repondez a cet e-mail.`,
+  },
+};
+
+export const sendWelcomeEmail = async ({ email, name, locale = 'fr' }: SendWelcomeEmailParams) => {
   try {
     const emailTransporter = await ConnectEmailClient();
 
@@ -15,85 +61,48 @@ export const sendWelcomeEmail = async ({ email, name }: SendWelcomeEmailParams) 
     }
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://roberto.devsomeware.com";
-    const subject = "Welcome to CRM APP - Your workspace is ready";
+    const labels = t[locale];
+    const safeName = escapeHtml(name);
 
-    const emailContent = `
-      <div style="
-        background: linear-gradient(135deg, #0A3D62 0%, #2B9EB3 100%);
-        border-radius: 14px;
-        padding: 26px 22px;
-        color: #ffffff;
-        margin-bottom: 24px;
-      ">
-        <p style="margin:0 0 10px 0;font-size:12px;letter-spacing:1.2px;text-transform:uppercase;opacity:.9;">
-          Welcome aboard
-        </p>
-        <h2 style="margin:0;font-size:28px;line-height:1.25;color:#ffffff;">
-          Hi ${name}, your CRM workspace is now live.
-        </h2>
-        <p style="margin:12px 0 0 0;font-size:15px;line-height:1.6;color:#e7f7fb;">
-          Great to have you here. We built this space so you can run client relationships smoothly and close opportunities faster.
-        </p>
-      </div>
+    const featureRows = labels.features.map(([title, desc]) => `
+            <tr>
+              <td style="padding:12px 16px;border-bottom:1px solid #e2e5e9;font-size:14px;color:#374151;line-height:1.6;">
+                <strong style="color:#1a2e44;">${title}</strong><br>
+                <span style="color:#6b7280;">${desc}</span>
+              </td>
+            </tr>
+    `).join('');
 
-      <p style="font-size:16px;line-height:1.7;color:#263238;margin:0 0 16px 0;">
-        Here is what you can do right away:
-      </p>
+    const content = `
+          <h2 style="margin:0 0 6px;font-size:18px;font-weight:700;color:#1a2e44;">${labels.heading}</h2>
+          <div style="height:1px;background:#e2e5e9;margin:16px 0;"></div>
 
-      <table role="presentation" width="100%" style="border-collapse:separate;border-spacing:0 10px;margin:0 0 18px 0;">
-        <tr>
-          <td style="background:#f6fbfd;border:1px solid #dceff5;border-radius:10px;padding:12px 14px;font-size:15px;line-height:1.6;color:#1f2937;">
-            <strong>Manage clients</strong> and keep complete profiles, contact history, and notes in one place.
-          </td>
-        </tr>
-        <tr>
-          <td style="background:#f6fbfd;border:1px solid #dceff5;border-radius:10px;padding:12px 14px;font-size:15px;line-height:1.6;color:#1f2937;">
-            <strong>Track suppliers</strong> and maintain vendor details for more predictable operations.
-          </td>
-        </tr>
-        <tr>
-          <td style="background:#f6fbfd;border:1px solid #dceff5;border-radius:10px;padding:12px 14px;font-size:15px;line-height:1.6;color:#1f2937;">
-            <strong>Use activity timelines</strong> to stay on top of follow-ups and never miss a next step.
-          </td>
-        </tr>
-        <tr>
-          <td style="background:#f6fbfd;border:1px solid #dceff5;border-radius:10px;padding:12px 14px;font-size:15px;line-height:1.6;color:#1f2937;">
-            <strong>Monitor your dashboard</strong> for a quick snapshot of business progress and priorities.
-          </td>
-        </tr>
-      </table>
+          <p style="margin:0 0 14px;font-size:14px;color:#374151;line-height:1.6;">${labels.greeting(safeName)}</p>
+          <p style="margin:0 0 24px;font-size:14px;color:#374151;line-height:1.6;">${labels.intro}</p>
 
-      <div style="text-align:center;margin:24px 0 12px 0;">
-        <a href="${appUrl}/dashboard" target="_blank" style="display:inline-block;background:#0A3D62;color:#ffffff !important;text-decoration:none;font-weight:600;font-size:15px;padding:14px 24px;border-radius:10px;">
-          Open My CRM Dashboard
-        </a>
-      </div>
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#f6f7f9;border:1px solid #e2e5e9;margin:0 0 24px;">
+            ${featureRows}
+          </table>
 
-      <p style="font-size:14px;line-height:1.7;color:#4b5563;margin:10px 0 0 0;">
-        Need help getting started? Reply to this email and our team will be happy to guide you.
-      </p>
+          <table cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
+            <tr>
+              <td style="background:#1a2e44;padding:12px 28px;">
+                <a href="${escapeHtml(appUrl)}/dashboard" target="_blank" style="color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;display:block;">
+                  ${labels.cta}
+                </a>
+              </td>
+            </tr>
+          </table>
+
+          <p style="margin:0;font-size:13px;color:#6b7280;">${labels.help}</p>
     `;
 
     await emailTransporter.sendMail({
-      from: `"CRM APP" <${process.env.EMAIL_USER_V2}>`,
+      from: `"CRM" <${process.env.EMAIL_USER_V2}>`,
       to: email,
-      subject,
-      html: getEmailTemplate(emailContent),
-      text: `
-Hi ${name},
-
-Welcome to CRM APP. Your workspace is now ready.
-
-Here is what you can do next:
-- Manage clients and notes in one place
-- Track suppliers and business relationships
-- Stay on top of follow-ups with activity history
-- View your dashboard for progress insights
-
-Open your dashboard: ${appUrl}/dashboard
-
-If you need help getting started, reply to this email.
-      `,
+      subject: labels.subject,
+      html: authEmailLayout({ title: labels.subject, locale, content }),
+      text: labels.plainText(name, appUrl),
     });
 
     console.log(`Welcome email sent successfully to ${email}`);

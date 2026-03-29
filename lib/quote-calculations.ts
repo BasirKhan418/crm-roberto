@@ -95,10 +95,6 @@ export function computeQuoteLine(input: QuoteLineComputationInput): QuoteLineCom
     Number.isFinite(input.baseUnitPriceExcludingTax) &&
     baseFromPayload > 0;
 
-  // Resolve base price using two recovery strategies:
-  // 1. If explicitly provided and > 0, use it directly
-  // 2. If only discountPercentage is available, back-derive base from unit price
-  // 3. Fallback: base = unit price (no discount)
   let baseUnitPriceExcludingTax: number;
   if (hasBaseFromPayload) {
     baseUnitPriceExcludingTax = baseFromPayload;
@@ -110,8 +106,12 @@ export function computeQuoteLine(input: QuoteLineComputationInput): QuoteLineCom
       : 0;
 
     if (discountPct > 0 && unitPriceExcludingTax > 0) {
-      // Back-derive: base = unitPrice / (1 - discount/100)
-      baseUnitPriceExcludingTax = Math.round(unitPriceExcludingTax / (1 - discountPct / 100));
+      const factor = 1 - discountPct / 100;
+      if (factor > 0) {
+        baseUnitPriceExcludingTax = Math.round(unitPriceExcludingTax / factor);
+      } else {
+        baseUnitPriceExcludingTax = unitPriceExcludingTax;
+      }
     } else {
       baseUnitPriceExcludingTax = unitPriceExcludingTax;
     }

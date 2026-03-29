@@ -107,7 +107,7 @@ export default function LineItemsBuilder({ lineItems, onChange }: LineItemsBuild
 
   return (
     <section className="space-y-3">
-      <div className="hidden items-center gap-2 rounded-md border border-dashed border-border/70 bg-secondary/30 px-2 py-1.5 text-xs font-semibold uppercase text-muted-foreground md:grid md:grid-cols-[2.2fr_0.85fr_1.1fr_0.75fr_1.15fr_0.8fr_1.15fr_1.15fr_auto]">
+      <div className="hidden items-center gap-2 rounded-md border border-dashed border-border/70 bg-secondary/30 px-2 py-1.5 text-xs font-semibold uppercase text-muted-foreground md:grid md:grid-cols-[2fr_0.9fr_1.1fr_0.7fr_1.2fr_0.7fr_1fr_1fr_auto]">
         <span>{t.product}</span>
         <span className="text-right">{t.discount}</span>
         <span className="text-right">{t.discountAmount}</span>

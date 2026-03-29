@@ -236,6 +236,7 @@ export default function QuoteDetailPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
+  const [duplicating, setDuplicating] = useState(false);
 
   const canEdit = quote ? quote.status === 'draft' || quote.status === 'sent' : false;
   const actionButtonClass = 'h-10 w-full justify-start sm:h-8 sm:w-auto sm:justify-center text-center';
@@ -338,9 +339,10 @@ export default function QuoteDetailPage() {
   }
 
   async function duplicateQuote() {
-    if (!quote?._id) {
+    if (!quote?._id || duplicating) {
       return;
     }
+    setDuplicating(true);
 
     try {
       const response = await fetch(`/api/quotes/${quote._id}/duplicate`, { method: 'POST' });
@@ -358,6 +360,8 @@ export default function QuoteDetailPage() {
       router.push(`/quotes/${payload.data._id}/edit`);
     } catch (duplicateError) {
       toast.error(duplicateError instanceof Error ? duplicateError.message : t.duplicateFailed);
+    } finally {
+      setDuplicating(false);
     }
   }
 
@@ -465,7 +469,7 @@ export default function QuoteDetailPage() {
 
             {!canEdit ? (
               <div className="w-full sm:w-auto">
-                <Button type="button" variant="outline" size="sm" className={actionButtonClass} onClick={duplicateQuote}>
+                <Button type="button" variant="outline" size="sm" className={actionButtonClass} disabled={duplicating} onClick={duplicateQuote}>
                   <CopyIcon className="size-3.5" />
                   {t.duplicate}
                 </Button>
@@ -717,6 +721,8 @@ export default function QuoteDetailPage() {
           quoteId={quote._id}
           quoteNumber={quote.quoteNumber}
           clientEmail={quote.clientSnapshot.email}
+          clientName={quote.clientSnapshot.fullName}
+          companyName={undefined}
           locale={locale as 'en' | 'fr'}
           onSent={loadData}
         />

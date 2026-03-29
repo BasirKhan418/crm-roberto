@@ -47,9 +47,10 @@ interface QuoteTableProps {
   onDownload: (quote: QuoteListItem) => Promise<void>;
   onDuplicate: (quote: QuoteListItem) => Promise<void>;
   onSend: (quote: QuoteListItem) => void;
+  duplicatingId?: string | null;
 }
 
-export default function QuoteTable({ items, loading, labels, formatDate, onDelete, onDownload, onDuplicate, onSend }: QuoteTableProps) {
+export default function QuoteTable({ items, loading, labels, formatDate, onDelete, onDownload, onDuplicate, onSend, duplicatingId }: QuoteTableProps) {
   return (
     <>
       <div className="space-y-3 md:hidden">
@@ -148,7 +149,7 @@ export default function QuoteTable({ items, loading, labels, formatDate, onDelet
                       ) : null}
 
                       {!canEdit ? (
-                        <Button type="button" size="sm" variant="outline" className="col-span-2 h-9" onClick={() => onDuplicate(quote)}>
+                        <Button type="button" size="sm" variant="outline" className="col-span-2 h-9" disabled={duplicatingId === quote._id} onClick={() => onDuplicate(quote)}>
                           <CopyIcon className="size-3.5" />
                           {labels.duplicate}
                         </Button>
@@ -243,7 +244,7 @@ export default function QuoteTable({ items, loading, labels, formatDate, onDelet
                           </Button>
 
                           {!canEdit ? (
-                            <Button type="button" size="sm" variant="outline" onClick={() => onDuplicate(quote)}>
+                            <Button type="button" size="sm" variant="outline" disabled={duplicatingId === quote._id} onClick={() => onDuplicate(quote)}>
                               <CopyIcon className="size-3.5" />
                               {labels.duplicate}
                             </Button>

@@ -318,12 +318,12 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     fontSize: 9,
   },
-  colDesc: { width: '30%' },
+  colDesc: { width: '28%' },
   colQty: { width: '8%' },
-  colUnit: { width: '15%' },
-  colDiscount: { width: '15%' },
-  colVat: { width: '10%' },
-  colTotal: { width: '22%' },
+  colUnit: { width: '14%' },
+  colDiscount: { width: '20%' },
+  colVat: { width: '9%' },
+  colTotal: { width: '21%' },
   right: {
     textAlign: 'right',
   },
@@ -503,10 +503,6 @@ function notEmpty(value?: string | null): string {
   return value && value.trim() ? value : '-';
 }
 
-function formatPercent(value: number): string {
-  return `${value.toFixed(2)}%`;
-}
-
 export function QuotePdfTemplate({ quote, company, locale = 'en' }: QuotePdfTemplateProps) {
   const t = translations[locale];
   return (
@@ -606,7 +602,7 @@ export function QuotePdfTemplate({ quote, company, locale = 'en' }: QuotePdfTemp
                 <Text style={[styles.cell, styles.colUnit, styles.right]}>{formatPrice(item.baseUnitPriceExcludingTax)}</Text>
                 <Text style={[styles.cell, styles.colDiscount, styles.right]}>
                   {item.discountAmountExcludingTax > 0
-                    ? `${formatPercent(item.discountPercentage)} (-${formatPrice(item.discountAmountExcludingTax)})`
+                    ? `${item.discountPercentage.toFixed(2)}% (- ${formatPrice(item.discountAmountExcludingTax)})`
                     : '-'}
                 </Text>
                 <Text style={[styles.cell, styles.colVat, styles.right]}>{item.vatRate}%</Text>

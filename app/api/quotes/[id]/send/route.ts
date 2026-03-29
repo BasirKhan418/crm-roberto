@@ -3,7 +3,7 @@ import { renderToBuffer } from '@react-pdf/renderer';
 import React from 'react';
 import type { DocumentProps } from '@react-pdf/renderer';
 import ConnectEmailClient from '@/emails/connectEmailClient';
-import { getEmailTemplate } from '@/emails/template';
+import { getQuoteEmailTemplate } from '@/emails/quoteEmailTemplate';
 import { getCompanyProfileByUserId } from '@/db/repository/cprofile';
 import { getQuoteById, updateQuoteStatusById } from '@/db/repository/quote';
 import { createActivityLog } from '@/db/repository/activity';
@@ -170,12 +170,46 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       ? `Bonjour,\n\nVeuillez trouver ci-joint votre devis ${quote.quoteNumber}.\n\nN'hésitez pas à revenir vers nous pour toute question.\n\nBien cordialement,`
       : `Hello,\n\nPlease find attached your quote ${quote.quoteNumber}.\n\nFeel free to contact us if you have any questions.\n\nBest regards,`);
 
-    const htmlMessage = emailMessage.replace(/\n/g, '<br>');
+    const formatCurrency = (value: number) =>
+      new Intl.NumberFormat(locale === 'fr' ? 'fr-FR' : 'en-US', {
+        style: 'currency',
+        currency: 'EUR',
+      }).format(value);
 
-    const emailContent = `
-      <h2 style="color: #333333; margin-top: 0;">${emailSubject}</h2>
-      <p>${htmlMessage}</p>
-    `;
+    const formatDate = (d: Date | string) =>
+      new Intl.DateTimeFormat(locale === 'fr' ? 'fr-FR' : 'en-GB', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      }).format(new Date(d));
+
+    const emailHtml = getQuoteEmailTemplate({
+      messageBody: emailMessage,
+      subject: emailSubject,
+      company: baseCompanyData
+        ? {
+            companyName: baseCompanyData.companyName,
+            ownerName: baseCompanyData.ownerName,
+            address: baseCompanyData.address,
+            phone: baseCompanyData.phone,
+            email: baseCompanyData.businessEmail,
+            vatNumber: baseCompanyData.vatNumber,
+            logoUrl: baseCompanyData.logoUrl,
+          }
+        : null,
+      client: {
+        fullName: quote.clientSnapshot.fullName,
+        companyName: quote.clientSnapshot.companyName ?? null,
+        email: quote.clientSnapshot.email ?? null,
+      },
+      quote: {
+        quoteNumber: quote.quoteNumber,
+        date: formatDate(quote.date),
+        totalIncludingTax: formatCurrency(derivedTotals.totalIncludingTax),
+        validityDays: quote.validityDays ?? 30,
+      },
+      locale,
+    });
 
     const senderName = baseCompanyData?.companyName || baseCompanyData?.ownerName || 'CRM';
 
@@ -183,7 +217,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       from: `"${senderName}" <${process.env.EMAIL_USER_V2 || process.env.EMAIL_USER}>`,
       to: email.trim(),
       subject: emailSubject,
-      html: getEmailTemplate(emailContent),
+      html: emailHtml,
       text: emailMessage,
       attachments: [
         {
