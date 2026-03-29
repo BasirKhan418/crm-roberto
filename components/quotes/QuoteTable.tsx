@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 
-import { CopyIcon, DownloadIcon, EyeIcon, PencilIcon, Trash2Icon } from 'lucide-react';
+import { CopyIcon, DownloadIcon, EyeIcon, PencilIcon, SendIcon, Trash2Icon } from 'lucide-react';
 
 import { PriceDisplay } from '@/components/ui/PriceDisplay';
 import { StatusBadge, type QuoteStatus } from '@/components/ui/StatusBadge';
@@ -16,6 +16,7 @@ export interface QuoteListItem {
   clientId: string;
   clientSnapshot: {
     fullName: string;
+    email?: string | null;
   };
   date: string;
   totalIncludingTax: number;
@@ -39,14 +40,16 @@ interface QuoteTableProps {
     delete: string;
     downloadPdf: string;
     lockEdit: string;
+    send: string;
   };
   formatDate: (value: string) => string;
   onDelete: (quote: QuoteListItem) => void;
   onDownload: (quote: QuoteListItem) => Promise<void>;
   onDuplicate: (quote: QuoteListItem) => Promise<void>;
+  onSend: (quote: QuoteListItem) => void;
 }
 
-export default function QuoteTable({ items, loading, labels, formatDate, onDelete, onDownload, onDuplicate }: QuoteTableProps) {
+export default function QuoteTable({ items, loading, labels, formatDate, onDelete, onDownload, onDuplicate, onSend }: QuoteTableProps) {
   return (
     <>
       <div className="space-y-3 md:hidden">
@@ -131,6 +134,13 @@ export default function QuoteTable({ items, loading, labels, formatDate, onDelet
                         <DownloadIcon className="size-3.5" />
                         {labels.downloadPdf}
                       </Button>
+
+                      {quote.status === 'draft' ? (
+                        <Button type="button" size="sm" variant="default" className="h-9" onClick={() => onSend(quote)}>
+                          <SendIcon className="size-3.5" />
+                          {labels.send}
+                        </Button>
+                      ) : null}
 
                       <Button type="button" size="sm" variant="destructive" className="h-9" onClick={() => onDelete(quote)}>
                         <Trash2Icon className="size-3.5" />
@@ -243,6 +253,13 @@ export default function QuoteTable({ items, loading, labels, formatDate, onDelet
                             <DownloadIcon className="size-3.5" />
                             {labels.downloadPdf}
                           </Button>
+
+                          {quote.status === 'draft' ? (
+                            <Button type="button" size="sm" variant="default" onClick={() => onSend(quote)}>
+                              <SendIcon className="size-3.5" />
+                              {labels.send}
+                            </Button>
+                          ) : null}
                         </div>
                       </TableCell>
                     </TableRow>

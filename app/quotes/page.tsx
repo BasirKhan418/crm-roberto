@@ -8,6 +8,7 @@ import { PlusIcon, SearchIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import QuoteTable, { type QuoteListItem } from '@/components/quotes/QuoteTable';
+import SendQuoteModal from '@/components/quotes/SendQuoteModal';
 import CrmShell from '@/components/crm-shell';
 import { useQuotes, type QuoteStatusFilter } from '@/hooks/useQuotes';
 import { useLocale } from '@/components/providers/locale-provider';
@@ -66,6 +67,7 @@ export default function QuotesPage() {
       delete: 'Delete',
       downloadPdf: 'PDF',
       lockEdit: 'Accepted and refused quotes cannot be edited',
+      send: 'Send',
       deleteTitle: 'Delete quote?',
       deleteDescription: 'Are you sure you want to delete this quote?',
       cancel: 'Cancel',
@@ -111,6 +113,7 @@ export default function QuotesPage() {
       delete: 'Supprimer',
       downloadPdf: 'PDF',
       lockEdit: 'Les devis acceptes et refuses ne peuvent pas etre modifies',
+      send: 'Envoyer',
       deleteTitle: 'Supprimer le devis ?',
       deleteDescription: 'Voulez-vous vraiment supprimer ce devis ?',
       cancel: 'Annuler',
@@ -133,6 +136,7 @@ export default function QuotesPage() {
 
   const [deleteTarget, setDeleteTarget] = useState<QuoteListItem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [sendTarget, setSendTarget] = useState<QuoteListItem | null>(null);
 
   const { quotes, pagination, loading, error, refetch } = useQuotes(status, searchDebounced, sort, page, limit);
 
@@ -325,8 +329,10 @@ export default function QuotesPage() {
                 delete: t.delete,
                 downloadPdf: t.downloadPdf,
                 lockEdit: t.lockEdit,
+                send: t.send,
               }}
               onDuplicate={handleDuplicateQuote}
+              onSend={setSendTarget}
             />
 
             <div className="flex flex-col gap-2 rounded-lg border border-border/70 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
@@ -370,6 +376,21 @@ export default function QuotesPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {sendTarget ? (
+        <SendQuoteModal
+          open={Boolean(sendTarget)}
+          onOpenChange={(next) => (!next ? setSendTarget(null) : undefined)}
+          quoteId={sendTarget._id}
+          quoteNumber={sendTarget.quoteNumber}
+          clientEmail={sendTarget.clientSnapshot.email}
+          locale={locale as 'en' | 'fr'}
+          onSent={() => {
+            setSendTarget(null);
+            refetch();
+          }}
+        />
+      ) : null}
     </CrmShell>
   );
 }

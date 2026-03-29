@@ -20,6 +20,7 @@ export const createActivitySchema = z.object({
     'quote_duplicated',
     'quote_updated',
     'quote_deleted',
+    'quote_sent',
     'quote_status_changed',
   ]),
   entityType: z.enum(['client', 'supplier', 'note', 'product', 'quote']),

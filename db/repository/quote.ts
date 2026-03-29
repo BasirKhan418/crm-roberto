@@ -25,6 +25,7 @@ export interface QuoteListItemRecord {
   clientId: string;
   clientSnapshot: {
     fullName: string;
+    email?: string | null;
   };
 }
 
@@ -338,7 +339,7 @@ export const listQuotes = async (
     .sort({ [sortField]: -1 })
     .skip(skip)
     .limit(limit)
-    .select('_id quoteNumber date status clientId clientSnapshot.fullName totalIncludingTax')
+    .select('_id quoteNumber date status clientId clientSnapshot.fullName clientSnapshot.email totalIncludingTax')
     .lean();
 
   return {

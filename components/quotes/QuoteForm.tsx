@@ -238,33 +238,15 @@ export default function QuoteForm({ mode, quote }: QuoteFormProps) {
         throw new Error(result.message || t.saveFailed);
       }
 
-      let sendSucceeded = false;
+      const quoteId = result.data?._id || quote?._id;
 
-      if (sendAfterSave) {
-        const quoteId = result.data?._id || quote?._id;
-        if (!quoteId) {
-          throw new Error(t.sendFailed);
-        }
-
-        const sendResponse = await fetch(`/api/quotes/${quoteId}/status`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ to: 'sent' }),
-        });
-
-        if (sendResponse.ok) {
-          sendSucceeded = true;
-        } else {
-          const sendPayload = (await sendResponse.json().catch(() => null)) as { message?: string } | null;
-          throw new Error(sendPayload?.message || t.sendUnavailable);
-        }
+      if (sendAfterSave && quoteId) {
+        toast.success(t.saveDraftSuccess);
+        router.push(`/quotes/${quoteId}?send=1`);
+        return;
       }
 
-      const successMessage = mode === 'edit'
-        ? t.saveChangesSuccess
-        : sendAfterSave
-          ? (sendSucceeded ? t.saveAndSendSuccess : t.saveDraftSuccess)
-          : t.saveDraftSuccess;
+      const successMessage = mode === 'edit' ? t.saveChangesSuccess : t.saveDraftSuccess;
 
       toast.success(successMessage);
       router.push('/quotes');

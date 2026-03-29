@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 
-import { ArrowLeftIcon, CopyIcon, DownloadIcon, PencilIcon, Trash2Icon } from 'lucide-react';
+import { ArrowLeftIcon, CopyIcon, DownloadIcon, PencilIcon, SendIcon, Trash2Icon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import CrmShell from '@/components/crm-shell';
 import { useLocale } from '@/components/providers/locale-provider';
+import SendQuoteModal from '@/components/quotes/SendQuoteModal';
 import StatusChanger from '@/components/quotes/StatusChanger';
 import { computeQuoteLine } from '@/lib/quote-calculations';
 import { PriceDisplay } from '@/components/ui/PriceDisplay';
@@ -112,6 +113,7 @@ function statusLabel(status: QuoteStatus, locale: Locale): string {
 export default function QuoteDetailPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
+  const searchParams = useSearchParams();
   const { locale } = useLocale();
 
   const t = {
@@ -121,6 +123,7 @@ export default function QuoteDetailPage() {
       edit: 'Edit',
       duplicate: 'Duplicate',
       download: 'Download PDF',
+      sendToClient: 'Send to client',
       delete: 'Delete',
       quote: 'Quote',
       date: 'Date',
@@ -175,6 +178,7 @@ export default function QuoteDetailPage() {
       edit: 'Modifier',
       duplicate: 'Dupliquer',
       download: 'Telecharger PDF',
+      sendToClient: 'Envoyer au client',
       delete: 'Supprimer',
       quote: 'Devis',
       date: 'Date',
@@ -231,6 +235,7 @@ export default function QuoteDetailPage() {
   const [company, setCompany] = useState<CompanyProfile | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [sendOpen, setSendOpen] = useState(false);
 
   const canEdit = quote ? quote.status === 'draft' || quote.status === 'sent' : false;
 
@@ -270,6 +275,15 @@ export default function QuoteDetailPage() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Auto-open send modal when redirected from "Save and Send"
+  useEffect(() => {
+    if (!loading && quote && searchParams.get('send') === '1') {
+      setSendOpen(true);
+      // Clean up the URL param without a navigation
+      window.history.replaceState(null, '', `/quotes/${params?.id}`);
+    }
+  }, [loading, quote, searchParams, params?.id]);
 
   async function downloadPdf() {
     if (!quote?._id) {
@@ -456,6 +470,12 @@ export default function QuoteDetailPage() {
             </div>
 
             <div className="flex items-center gap-2">
+              {quote.status === 'draft' ? (
+                <Button type="button" variant="default" size="sm" onClick={() => setSendOpen(true)}>
+                  <SendIcon className="size-3.5" />
+                  {t.sendToClient}
+                </Button>
+              ) : null}
               <Button type="button" variant="outline" size="sm" onClick={downloadPdf}>
                 <DownloadIcon className="size-3.5" />
                 {t.download}
@@ -666,6 +686,18 @@ export default function QuoteDetailPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {quote ? (
+        <SendQuoteModal
+          open={sendOpen}
+          onOpenChange={setSendOpen}
+          quoteId={quote._id}
+          quoteNumber={quote.quoteNumber}
+          clientEmail={quote.clientSnapshot.email}
+          locale={locale as 'en' | 'fr'}
+          onSent={loadData}
+        />
+      ) : null}
     </CrmShell>
   );
 }
