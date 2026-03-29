@@ -276,7 +276,7 @@ export default function QuoteForm({ mode, quote }: QuoteFormProps) {
   }
 
   return (
-    <section className="space-y-5 pb-6">
+    <section className="space-y-5 pb-28 xl:pb-6">
       <header className="rounded-xl border border-border/70 bg-linear-to-b from-background to-secondary/30 p-4 sm:p-5">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="space-y-1">
@@ -386,18 +386,18 @@ export default function QuoteForm({ mode, quote }: QuoteFormProps) {
             </div>
           </section>
 
-          <div className="sticky bottom-0 z-10 rounded-xl border border-border/70 bg-background/95 p-3 shadow-sm backdrop-blur">
+          <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border/70 bg-background/95 px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_-16px_rgba(0,0,0,0.45)] backdrop-blur xl:static xl:rounded-xl xl:border xl:bg-background/95 xl:p-3 xl:shadow-sm">
             <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
               {mode === 'edit' ? (
-                <Button type="button" className="sm:min-w-44" disabled={submitting} onClick={() => saveQuote(false)}>
+                <Button type="button" className="h-11 sm:min-w-44" disabled={submitting} onClick={() => saveQuote(false)}>
                   {submitting ? t.saving : t.saveChanges}
                 </Button>
               ) : (
                 <>
-                  <Button type="button" variant="outline" className="sm:min-w-36" disabled={submitting} onClick={() => saveQuote(false)}>
+                  <Button type="button" variant="outline" className="h-11 sm:min-w-36" disabled={submitting} onClick={() => saveQuote(false)}>
                     {submitting ? t.saving : t.saveDraft}
                   </Button>
-                  <Button type="button" className="sm:min-w-36" disabled={submitting} onClick={() => saveQuote(true)}>
+                  <Button type="button" className="h-11 sm:min-w-36" disabled={submitting} onClick={() => saveQuote(true)}>
                     {submitting ? t.saving : t.saveAndSend}
                   </Button>
                 </>

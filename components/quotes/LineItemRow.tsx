@@ -43,8 +43,12 @@ export default function LineItemRow({ row, index, products, onChange, onDelete }
       name: 'Name',
       qty: 'Qty',
       unitPrice: 'Unit price',
-      vat: 'VAT %',
+      vatRate: 'VAT %',
+      vatAmount: 'VAT',
       total: 'Total',
+      totalExclTax: 'Total HT',
+      totalInclTax: 'Total TTC',
+      removeLine: 'Delete line',
       searchPlaceholder: 'Search product/service',
       lineNamePlaceholder: 'Line name',
       noMatches: 'No matches',
@@ -54,8 +58,12 @@ export default function LineItemRow({ row, index, products, onChange, onDelete }
       name: 'Nom',
       qty: 'Qte',
       unitPrice: 'Prix unitaire',
-      vat: 'TVA %',
+      vatRate: 'TVA %',
+      vatAmount: 'TVA',
       total: 'Total',
+      totalExclTax: 'Total HT',
+      totalInclTax: 'Total TTC',
+      removeLine: 'Supprimer la ligne',
       searchPlaceholder: 'Rechercher un produit/service',
       lineNamePlaceholder: 'Nom de ligne',
       noMatches: 'Aucun resultat',
@@ -75,6 +83,8 @@ export default function LineItemRow({ row, index, products, onChange, onDelete }
   }, [products, search]);
 
   const rowTotalCents = row.unitPriceExcludingTax * row.quantity;
+  const rowVatCents = Math.round(rowTotalCents * (row.vatRate / 100));
+  const rowTotalInclCents = rowTotalCents + rowVatCents;
 
   function handleProductSelect(product: CatalogueItemOption) {
     onChange(index, {
@@ -88,9 +98,9 @@ export default function LineItemRow({ row, index, products, onChange, onDelete }
   }
 
   return (
-    <div className="rounded-lg border border-border/70 bg-secondary/20 p-2.5 md:p-3">
-      <div className="grid gap-2 md:grid-cols-[2.2fr_2fr_0.8fr_1.2fr_0.8fr_1fr_auto] md:items-center">
-        <div className="relative">
+    <div className="rounded-xl border border-border/70 bg-linear-to-b from-background to-secondary/25 p-3 md:p-3.5">
+      <div className="grid gap-2.5 sm:grid-cols-2 md:grid-cols-[2.2fr_2fr_0.8fr_1.2fr_0.8fr_1.6fr_auto] md:items-start">
+        <div className="relative sm:col-span-2 md:col-span-1">
           <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground md:hidden">{t.product}</p>
           <Input
             value={search || row.name}
@@ -123,7 +133,7 @@ export default function LineItemRow({ row, index, products, onChange, onDelete }
           ) : null}
         </div>
 
-        <div>
+        <div className="sm:col-span-2 md:col-span-1">
           <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground md:hidden">{t.name}</p>
           <Input
             value={row.name}
@@ -154,7 +164,7 @@ export default function LineItemRow({ row, index, products, onChange, onDelete }
         </div>
 
         <div>
-          <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground md:hidden">{t.vat}</p>
+          <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground md:hidden">{t.vatRate}</p>
           <Input
             type="number"
             min={0}
@@ -165,13 +175,32 @@ export default function LineItemRow({ row, index, products, onChange, onDelete }
           />
         </div>
 
-        <div className="rounded-md border border-border/60 bg-background px-2 py-2 text-right text-sm font-semibold">
-          <p className="mb-0.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground md:hidden">{t.total}</p>
-          <PriceDisplay cents={rowTotalCents} />
+        <div className="rounded-lg border border-border/70 bg-background px-2.5 py-2.5 sm:col-span-2 md:col-span-1">
+          <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{t.total}</p>
+          <div className="space-y-1.5 text-xs">
+            <div className="flex items-center justify-between gap-2 text-muted-foreground">
+              <span className="whitespace-nowrap">{t.totalExclTax}</span>
+              <PriceDisplay cents={rowTotalCents} className="whitespace-nowrap" />
+            </div>
+            <div className="flex items-center justify-between gap-2 text-muted-foreground">
+              <span className="whitespace-nowrap">{t.vatAmount} ({row.vatRate}%)</span>
+              <PriceDisplay cents={rowVatCents} className="whitespace-nowrap" />
+            </div>
+            <div className="flex items-center justify-between gap-2 border-t border-border/60 pt-1.5 text-sm font-semibold text-foreground">
+              <span className="whitespace-nowrap">{t.totalInclTax}</span>
+              <PriceDisplay cents={rowTotalInclCents} className="whitespace-nowrap font-semibold" />
+            </div>
+          </div>
         </div>
 
-        <Button type="button" size="icon-sm" variant="destructive" className="mt-1 md:mt-0" onClick={() => onDelete(index)}>
+        <Button
+          type="button"
+          variant="destructive"
+          className="w-full sm:col-span-2 md:col-span-1 md:h-full md:w-10 md:px-0"
+          onClick={() => onDelete(index)}
+        >
           <Trash2Icon className="size-4" />
+          <span className="md:hidden">{t.removeLine}</span>
         </Button>
       </div>
     </div>

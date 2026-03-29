@@ -32,6 +32,7 @@ interface QuoteTableProps {
     totalIncludingTax: string;
     status: string;
     actions: string;
+    quickActions: string;
     view: string;
     edit: string;
     duplicate: string;
@@ -68,20 +69,20 @@ export default function QuoteTable({ items, loading, labels, formatDate, onDelet
               const canEdit = quote.status === 'draft' || quote.status === 'sent';
 
               return (
-                <article key={quote._id} className="space-y-3 rounded-xl border border-border/70 bg-white p-3">
+                <article key={quote._id} className="space-y-3 rounded-xl border border-border/70 bg-card/80 p-3.5 shadow-sm">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
-                      <Link href={`/quotes/${quote._id}`} className="block text-sm font-semibold text-(--color-text-info) hover:underline break-words">
+                      <Link href={`/quotes/${quote._id}`} className="block text-sm font-semibold text-(--color-text-info) hover:underline wrap-break-word">
                         {quote.quoteNumber}
                       </Link>
-                      <Link href={`/clients/${quote.clientId}`} className="mt-0.5 block text-sm text-(--color-text-info) hover:underline break-words">
+                      <Link href={`/clients/${quote.clientId}`} className="mt-0.5 block text-sm text-(--color-text-info) hover:underline wrap-break-word">
                         {quote.clientSnapshot.fullName}
                       </Link>
                     </div>
                     <StatusBadge status={quote.status} />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="grid grid-cols-2 gap-2 rounded-lg border border-border/60 bg-background px-2.5 py-2 text-xs">
                     <div>
                       <p className="text-muted-foreground">{labels.date}</p>
                       <p className="font-medium">{formatDate(quote.date)}</p>
@@ -94,52 +95,55 @@ export default function QuoteTable({ items, loading, labels, formatDate, onDelet
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button type="button" size="sm" variant="outline" asChild>
-                      <Link href={`/quotes/${quote._id}`}>
-                        <EyeIcon className="size-3.5" />
-                        {labels.view}
-                      </Link>
-                    </Button>
-
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      asChild={canEdit}
-                      disabled={!canEdit}
-                      title={!canEdit ? labels.lockEdit : labels.edit}
-                      className={!canEdit ? 'opacity-40' : ''}
-                    >
-                      {canEdit ? (
-                        <Link href={`/quotes/${quote._id}/edit`}>
-                          <PencilIcon className="size-3.5" />
-                          {labels.edit}
+                  <div className="space-y-2">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{labels.quickActions}</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button type="button" size="sm" variant="outline" className="h-9" asChild>
+                        <Link href={`/quotes/${quote._id}`}>
+                          <EyeIcon className="size-3.5" />
+                          {labels.view}
                         </Link>
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5">
-                          <PencilIcon className="size-3.5" />
-                          {labels.edit}
-                        </span>
-                      )}
-                    </Button>
-
-                    <Button type="button" size="sm" variant="destructive" onClick={() => onDelete(quote)}>
-                      <Trash2Icon className="size-3.5" />
-                      {labels.delete}
-                    </Button>
-
-                    {!canEdit ? (
-                      <Button type="button" size="sm" variant="outline" className="col-span-2" onClick={() => onDuplicate(quote)}>
-                        <CopyIcon className="size-3.5" />
-                        {labels.duplicate}
                       </Button>
-                    ) : null}
 
-                    <Button type="button" size="sm" variant="outline" onClick={() => onDownload(quote)}>
-                      <DownloadIcon className="size-3.5" />
-                      {labels.downloadPdf}
-                    </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        asChild={canEdit}
+                        disabled={!canEdit}
+                        title={!canEdit ? labels.lockEdit : labels.edit}
+                        className={`h-9 ${!canEdit ? 'opacity-40' : ''}`}
+                      >
+                        {canEdit ? (
+                          <Link href={`/quotes/${quote._id}/edit`}>
+                            <PencilIcon className="size-3.5" />
+                            {labels.edit}
+                          </Link>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5">
+                            <PencilIcon className="size-3.5" />
+                            {labels.edit}
+                          </span>
+                        )}
+                      </Button>
+
+                      <Button type="button" size="sm" variant="outline" className="h-9" onClick={() => onDownload(quote)}>
+                        <DownloadIcon className="size-3.5" />
+                        {labels.downloadPdf}
+                      </Button>
+
+                      <Button type="button" size="sm" variant="destructive" className="h-9" onClick={() => onDelete(quote)}>
+                        <Trash2Icon className="size-3.5" />
+                        {labels.delete}
+                      </Button>
+
+                      {!canEdit ? (
+                        <Button type="button" size="sm" variant="outline" className="col-span-2 h-9" onClick={() => onDuplicate(quote)}>
+                          <CopyIcon className="size-3.5" />
+                          {labels.duplicate}
+                        </Button>
+                      ) : null}
+                    </div>
                   </div>
                 </article>
               );

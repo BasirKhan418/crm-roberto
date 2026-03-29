@@ -106,7 +106,7 @@ export default function CatalogueTable({
 }: CatalogueTableProps) {
   return (
     <>
-      <div className="space-y-2.5 md:hidden">
+      <div className="space-y-3 md:hidden">
         {loading
           ? Array.from({ length: 5 }).map((_, index) => (
               <div key={`mobile-skeleton-${index}`} className="space-y-3 rounded-xl border border-border/70 p-3">
@@ -127,17 +127,17 @@ export default function CatalogueTable({
               </div>
             ))
           : items.map((item) => (
-              <article key={item._id} className="rounded-xl border border-border/70 bg-card p-3">
+              <article key={item._id} className="rounded-xl border border-border/70 bg-card/80 p-3.5 shadow-sm">
                 {/* Header row: name + type badge */}
-                <div className="mb-2.5 flex items-start justify-between gap-2">
+                <div className="mb-3 flex items-start justify-between gap-2">
                   <h3 className="line-clamp-2 text-sm font-semibold leading-5">{item.name}</h3>
                   <span className="shrink-0" style={typePill(item.type)}>
                     {item.type === 'product' ? labels.product : labels.service}
                   </span>
                 </div>
 
-                {/* Stats grid: price / vat / date */}
-                <div className="mb-2.5 grid grid-cols-3 gap-2 text-xs">
+                {/* Stats grid: clearer on narrow screens */}
+                <div className="mb-3 grid grid-cols-2 gap-2 rounded-lg border border-border/60 bg-background px-2.5 py-2 text-xs">
                   <div>
                     <p className="mb-0.5 text-muted-foreground">{labels.priceExcludingTax}</p>
                     <p className="font-medium"><PriceDisplay cents={item.priceExcludingTax} /></p>
@@ -146,7 +146,7 @@ export default function CatalogueTable({
                     <p className="mb-0.5 text-muted-foreground">{labels.vatRate}</p>
                     <p className="font-medium">{item.vatRate}%</p>
                   </div>
-                  <div>
+                  <div className="col-span-2">
                     <p className="mb-0.5 text-muted-foreground">{labels.addedDate}</p>
                     <p className="font-medium">{new Date(item.createdAt).toLocaleDateString()}</p>
                   </div>
@@ -154,7 +154,7 @@ export default function CatalogueTable({
 
                 {/* Description */}
                 {item.description ? (
-                  <p className="mb-2.5 line-clamp-2 text-xs text-muted-foreground">{item.description}</p>
+                  <p className="mb-3 line-clamp-2 text-xs text-muted-foreground">{item.description}</p>
                 ) : null}
 
                 {/* Actions */}

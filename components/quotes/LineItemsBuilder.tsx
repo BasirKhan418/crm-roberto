@@ -100,7 +100,7 @@ export default function LineItemsBuilder({ lineItems, onChange }: LineItemsBuild
 
   return (
     <section className="space-y-3">
-      <div className="hidden items-center gap-2 rounded-md border border-dashed border-border/70 bg-secondary/30 px-2 py-1.5 text-xs font-semibold uppercase text-muted-foreground md:grid md:grid-cols-[2.2fr_2fr_0.8fr_1.2fr_0.8fr_1fr_auto]">
+      <div className="hidden items-center gap-2 rounded-md border border-dashed border-border/70 bg-secondary/30 px-2 py-1.5 text-xs font-semibold uppercase text-muted-foreground md:grid md:grid-cols-[2.2fr_2fr_0.8fr_1.2fr_0.8fr_1.6fr_auto]">
         <span>{t.product}</span>
         <span>{t.name}</span>
         <span>{t.qty}</span>
@@ -113,7 +113,7 @@ export default function LineItemsBuilder({ lineItems, onChange }: LineItemsBuild
       {error ? <ErrorMessage message={error} /> : null}
 
       {lineItems.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-border/80 bg-linear-to-b from-background to-secondary/20 px-4 py-6 text-sm text-muted-foreground">
+        <div className="rounded-xl border border-dashed border-border/80 bg-linear-to-b from-background to-secondary/20 px-4 py-6 text-sm text-muted-foreground">
           <div className="flex items-center gap-2 text-foreground/90">
             <BoxesIcon className="size-4" />
             <span className="font-medium">{t.noItemsTitle}</span>
@@ -121,7 +121,7 @@ export default function LineItemsBuilder({ lineItems, onChange }: LineItemsBuild
           <p className="mt-1 text-sm text-muted-foreground">{t.noItemsSubtitle}</p>
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-2.5">
           {lineItems.map((row, index) => (
             <LineItemRow
               key={`line-item-${index}`}
@@ -135,10 +135,12 @@ export default function LineItemsBuilder({ lineItems, onChange }: LineItemsBuild
         </div>
       )}
 
-      <Button type="button" variant="outline" className="gap-1.5" onClick={addRow}>
-        <PlusIcon className="size-4" />
-        {t.addLine}
-      </Button>
+      <div className="sticky bottom-2 z-10 rounded-xl border border-border/70 bg-background/95 p-2 shadow-sm backdrop-blur md:static md:border-0 md:bg-transparent md:p-0 md:shadow-none">
+        <Button type="button" variant="outline" className="h-11 w-full gap-1.5 md:h-10 md:w-auto" onClick={addRow}>
+          <PlusIcon className="size-4" />
+          {t.addLine}
+        </Button>
+      </div>
     </section>
   );
 }

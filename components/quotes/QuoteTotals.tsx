@@ -16,7 +16,7 @@ interface QuoteTotalsProps {
 
 function TotalRow({ label, cents, bold = false }: { label: string; cents: number; bold?: boolean }) {
   return (
-    <div className={`flex items-center justify-between border-b border-border/60 py-2.5 ${bold ? 'font-semibold' : ''}`}>
+    <div className={`flex items-center justify-between border-b border-border/60 py-2 ${bold ? 'font-semibold' : ''}`}>
       <span className={bold ? 'text-foreground' : 'text-muted-foreground'}>{label}</span>
       <PriceDisplay cents={cents} className={bold ? 'font-semibold' : ''} />
     </div>
@@ -44,13 +44,13 @@ export default function QuoteTotals({ lineItems }: QuoteTotalsProps) {
 
   return (
     <div className="rounded-xl border border-border/70 bg-linear-to-b from-background to-secondary/25 p-4 shadow-sm">
-      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t.summary}</p>
+      <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t.summary}</p>
       <TotalRow label={t.totalExclTax} cents={totals.totalExcludingTax} />
       <TotalRow label={t.vat} cents={totals.totalVat} />
-      <div className="mt-3 rounded-lg border border-border/70 bg-background px-3 py-3">
-        <div className="flex items-center justify-between text-base font-semibold">
+      <div className="mt-3 rounded-lg border border-(--color-text-info)/25 bg-(--color-background-info) px-3 py-3">
+        <div className="flex items-center justify-between text-base font-semibold sm:text-lg">
           <span>{t.totalInclTax}</span>
-          <PriceDisplay cents={totals.totalIncludingTax} className="font-semibold" />
+          <PriceDisplay cents={totals.totalIncludingTax} className="font-semibold text-(--color-text-info)" />
         </div>
       </div>
     </div>
