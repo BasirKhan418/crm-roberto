@@ -197,30 +197,33 @@ export default function LineItemRow({ row, index, products, onChange, onDelete }
 
   return (
     <div className="rounded-xl border border-border/70 bg-linear-to-b from-background to-secondary/25 p-3 md:p-3.5">
-      <div className="grid gap-2.5 sm:grid-cols-2 md:grid-cols-[2fr_0.9fr_1.1fr_0.7fr_1.2fr_0.7fr_1fr_1fr_auto] md:items-start">
+      <div className="grid items-center gap-2 sm:grid-cols-2 md:grid-cols-[2fr_0.9fr_1.1fr_0.7fr_1.2fr_0.7fr_1fr_1fr_auto]">
         <div className="relative sm:col-span-2 md:col-span-1">
           <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground md:hidden">{t.product}</p>
-          <Input
-            value={search || row.name}
-            onFocus={() => setIsOpen(true)}
-            onChange={(event) => {
-              const next = event.target.value;
-              setSearch(next);
-              onChange(index, { name: next, productId: null, productImageUrl: null });
-              setIsOpen(true);
-            }}
-            placeholder={t.searchPlaceholder}
-          />
-          {row.productImageUrl ? (
-            <img
-              src={row.productImageUrl}
-              alt={row.name || 'Product'}
-              className="mt-1 h-7 w-7 rounded border border-border/60 object-cover"
-              onError={(event) => {
-                event.currentTarget.style.display = 'none';
+          <div className="relative">
+            {row.productImageUrl ? (
+              <img
+                src={row.productImageUrl}
+                alt={row.name || 'Product'}
+                className="absolute left-2 top-1/2 h-5 w-5 -translate-y-1/2 rounded border border-border/60 object-cover"
+                onError={(event) => {
+                  event.currentTarget.style.display = 'none';
+                }}
+              />
+            ) : null}
+            <Input
+              value={search || row.name}
+              onFocus={() => setIsOpen(true)}
+              onChange={(event) => {
+                const next = event.target.value;
+                setSearch(next);
+                onChange(index, { name: next, productId: null, productImageUrl: null });
+                setIsOpen(true);
               }}
+              placeholder={t.searchPlaceholder}
+              className={row.productImageUrl ? 'pl-9' : ''}
             />
-          ) : null}
+          </div>
           {isOpen ? (
             <div className="absolute z-20 mt-1 max-h-52 w-full overflow-auto rounded-md border border-border bg-background p-1 shadow-lg">
               {filtered.length === 0 ? (
@@ -339,26 +342,27 @@ export default function LineItemRow({ row, index, products, onChange, onDelete }
 
         <div>
           <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground md:hidden">{t.totalExclTax}</p>
-          <div className="text-right text-sm font-semibold">
-            <PriceDisplay cents={computed.totalExcludingTax} className="whitespace-nowrap font-semibold" />
+          <div className="flex h-9 items-center justify-end">
+            <PriceDisplay cents={computed.totalExcludingTax} className="whitespace-nowrap text-sm font-semibold" />
           </div>
         </div>
 
         <div>
           <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground md:hidden">{t.totalInclTax}</p>
-          <div className="text-right text-sm font-semibold">
-            <PriceDisplay cents={computed.totalIncludingTax} className="whitespace-nowrap font-semibold" />
+          <div className="flex h-9 items-center justify-end">
+            <PriceDisplay cents={computed.totalIncludingTax} className="whitespace-nowrap text-sm font-semibold" />
           </div>
         </div>
 
         <Button
           type="button"
-          variant="destructive"
-          className="w-full sm:col-span-2 md:col-span-1 md:h-full md:w-10 md:px-0"
+          variant="ghost"
+          size="icon"
+          className="h-9 w-full shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive sm:col-span-2 md:col-span-1 md:w-9"
           onClick={() => onDelete(index)}
         >
           <Trash2Icon className="size-4" />
-          <span className="md:hidden">{t.removeLine}</span>
+          <span className="ml-1.5 md:hidden">{t.removeLine}</span>
         </Button>
       </div>
     </div>
