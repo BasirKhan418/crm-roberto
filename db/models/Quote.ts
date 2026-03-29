@@ -34,6 +34,20 @@ const LineItemSchema = new mongoose.Schema(
       min: [0, "Price cannot be negative"],
     },
 
+    baseUnitPriceExcludingTax: {
+      type: Number,
+      required: [true, "Base unit price is required"],
+      min: [0, "Base price cannot be negative"],
+    },
+
+    discountPercentage: {
+      type: Number,
+      required: [true, "Discount percentage is required"],
+      min: [0, "Discount cannot be negative"],
+      max: [100, "Discount cannot exceed 100"],
+      default: 0,
+    },
+
     vatRate: {
       type: Number,
       required: [true, "VAT rate is required"],
@@ -41,10 +55,34 @@ const LineItemSchema = new mongoose.Schema(
       max: [100, "VAT rate cannot exceed 100"],
     },
 
+    totalExcludingTaxBeforeDiscount: {
+      type: Number,
+      min: [0, "Total before discount cannot be negative"],
+      default: 0,
+    },
+
+    discountAmountExcludingTax: {
+      type: Number,
+      min: [0, "Discount amount cannot be negative"],
+      default: 0,
+    },
+
     totalExcludingTax: {
       type: Number,
       required: true,
       min: [0, "Total cannot be negative"],
+    },
+
+    vatAmount: {
+      type: Number,
+      min: [0, "VAT amount cannot be negative"],
+      default: 0,
+    },
+
+    totalIncludingTax: {
+      type: Number,
+      min: [0, "Total including tax cannot be negative"],
+      default: 0,
     },
   },
   { _id: true } 
@@ -134,6 +172,18 @@ const QuoteSchema = new mongoose.Schema(
       type: Number,
       required: true,
       min: 0,
+    },
+
+    totalExcludingTaxBeforeDiscount: {
+      type: Number,
+      min: 0,
+      default: 0,
+    },
+
+    totalDiscountExcludingTax: {
+      type: Number,
+      min: 0,
+      default: 0,
     },
 
     // Sum of VAT per line (each line can have a different VAT rate)

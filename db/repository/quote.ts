@@ -3,7 +3,7 @@ import Client from '@/db/models/Client';
 import Quote from '@/db/models/Quote';
 import QuoteSequence from '../models/QuoteSequence';
 import mongoose from 'mongoose';
-import { calcLineItem, calcQuoteTotals } from '@/lib/price';
+import { computeQuoteLine, computeQuoteTotalsFromComputedLines } from '@/lib/quote-calculations';
 import type { CreateQuoteDTO, UpdateQuoteDTO, UpdateQuoteStatusDTO } from '@/validators/quote.schema';
 
 export type QuoteStatus = 'draft' | 'sent' | 'accepted' | 'refused';
@@ -62,10 +62,18 @@ interface QuoteRecord {
     productImageUrl?: string | null;
     name: string;
     quantity: number;
+    baseUnitPriceExcludingTax: number;
     unitPriceExcludingTax: number;
+    discountPercentage: number;
     vatRate: number;
+    totalExcludingTaxBeforeDiscount: number;
+    discountAmountExcludingTax: number;
     totalExcludingTax: number;
+    vatAmount: number;
+    totalIncludingTax: number;
   }>;
+  totalExcludingTaxBeforeDiscount: number;
+  totalDiscountExcludingTax: number;
   totalExcludingTax: number;
   totalVat: number;
   totalIncludingTax: number;
@@ -392,12 +400,24 @@ export const createQuote = async (userId: string, payload: CreateQuoteDTO): Prom
     return { kind: 'client-not-found' };
   }
 
-  const lineItems = payload.lineItems.map((item) => ({
-    ...item,
-    totalExcludingTax: calcLineItem(item.unitPriceExcludingTax, item.quantity, item.vatRate).totalExclTax,
+  const computedLines = payload.lineItems.map((item) =>
+    computeQuoteLine({
+      quantity: item.quantity,
+      unitPriceExcludingTax: item.unitPriceExcludingTax,
+      baseUnitPriceExcludingTax: item.baseUnitPriceExcludingTax,
+      discountPercentage: item.discountPercentage,
+      vatRate: item.vatRate,
+    })
+  );
+
+  const lineItems = payload.lineItems.map((item, index) => ({
+    productId: item.productId ?? null,
+    productImageUrl: item.productImageUrl ?? null,
+    name: item.name,
+    ...computedLines[index],
   }));
 
-  const totals = calcQuoteTotals(payload.lineItems);
+  const totals = computeQuoteTotalsFromComputedLines(computedLines);
 
   for (let attempt = 0; attempt < MAX_QUOTE_NUMBER_RETRIES; attempt += 1) {
     const quoteNumber = await allocateNextQuoteNumber(userId);
@@ -480,12 +500,26 @@ export const updateQuoteById = async (
   }
 
   if (payload.lineItems) {
-    quote.lineItems = payload.lineItems.map((item) => ({
-      ...item,
-      totalExcludingTax: calcLineItem(item.unitPriceExcludingTax, item.quantity, item.vatRate).totalExclTax,
+    const computedLines = payload.lineItems.map((item) =>
+      computeQuoteLine({
+        quantity: item.quantity,
+        unitPriceExcludingTax: item.unitPriceExcludingTax,
+        baseUnitPriceExcludingTax: item.baseUnitPriceExcludingTax,
+        discountPercentage: item.discountPercentage,
+        vatRate: item.vatRate,
+      })
+    );
+
+    quote.lineItems = payload.lineItems.map((item, index) => ({
+      productId: item.productId ?? null,
+      productImageUrl: item.productImageUrl ?? null,
+      name: item.name,
+      ...computedLines[index],
     }));
 
-    const totals = calcQuoteTotals(payload.lineItems);
+    const totals = computeQuoteTotalsFromComputedLines(computedLines);
+    quote.totalExcludingTaxBeforeDiscount = totals.totalExcludingTaxBeforeDiscount;
+    quote.totalDiscountExcludingTax = totals.totalDiscountExcludingTax;
     quote.totalExcludingTax = totals.totalExcludingTax;
     quote.totalVat = totals.totalVat;
     quote.totalIncludingTax = totals.totalIncludingTax;
@@ -548,25 +582,25 @@ export const duplicateQuoteById = async (userId: string, quoteId: string): Promi
     return { kind: 'not-found' };
   }
 
-  const lineItems = (sourceQuote as QuoteRecord).lineItems.map((item) => ({
-    productId: item.productId ?? null,
-    productImageUrl: item.productImageUrl ?? null,
-    name: item.name,
-    quantity: item.quantity,
-    unitPriceExcludingTax: item.unitPriceExcludingTax,
-    vatRate: item.vatRate,
-    totalExcludingTax: calcLineItem(item.unitPriceExcludingTax, item.quantity, item.vatRate).totalExclTax,
-  }));
-
-  const totals = calcQuoteTotals(
-    lineItems.map((item) => ({
-      productId: item.productId ?? null,
-      name: item.name,
+  const lineItems = (sourceQuote as QuoteRecord).lineItems.map((item) => {
+    const computed = computeQuoteLine({
       quantity: item.quantity,
       unitPriceExcludingTax: item.unitPriceExcludingTax,
+      baseUnitPriceExcludingTax: item.baseUnitPriceExcludingTax ?? item.unitPriceExcludingTax,
+      discountPercentage: item.discountPercentage ?? 0,
       vatRate: item.vatRate,
-    }))
-  );
+    });
+
+    return {
+      productId: item.productId ?? null,
+      productImageUrl: item.productImageUrl ?? null,
+      name: item.name,
+      ...computed,
+    };
+  });
+
+  // lineItems already contain freshly computed values from above
+  const totals = computeQuoteTotalsFromComputedLines(lineItems);
 
   for (let attempt = 0; attempt < MAX_QUOTE_NUMBER_RETRIES; attempt += 1) {
     const quoteNumber = await allocateNextQuoteNumber(userId);

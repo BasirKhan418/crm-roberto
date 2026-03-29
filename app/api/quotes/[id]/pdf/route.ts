@@ -5,6 +5,7 @@ import type { DocumentProps } from '@react-pdf/renderer';
 
 import { getCompanyProfileByUserId } from '@/db/repository/cprofile';
 import { getQuoteById } from '@/db/repository/quote';
+import { computeQuoteLine } from '@/lib/quote-calculations';
 import { QuotePdfTemplate } from '@/lib/pdf/QuotePdfTemplate';
 import getMe from '@/utils/middlewares/useMe';
 
@@ -33,6 +34,53 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const companyResult = await getCompanyProfileByUserId(me.user.id);
     const company = companyResult.success ? (companyResult.profile as Record<string, unknown>) : null;
 
+    // CRITICAL: Always recompute from base data to guarantee consistency.
+    // Never trust stored totals — they may be stale or calculated incorrectly.
+    const computedLines = quote.lineItems.map((item) =>
+      computeQuoteLine({
+        quantity: item.quantity,
+        unitPriceExcludingTax: item.unitPriceExcludingTax,
+        baseUnitPriceExcludingTax: item.baseUnitPriceExcludingTax,
+        discountPercentage: item.discountPercentage,
+        vatRate: item.vatRate,
+      })
+    );
+
+    const lineItems = quote.lineItems.map((item, idx) => {
+      const computed = computedLines[idx];
+      return {
+        name: item.name,
+        quantity: computed.quantity,
+        baseUnitPriceExcludingTax: computed.baseUnitPriceExcludingTax,
+        unitPriceExcludingTax: computed.unitPriceExcludingTax,
+        discountPercentage: computed.discountPercentage,
+        vatRate: computed.vatRate,
+        totalExcludingTaxBeforeDiscount: computed.totalExcludingTaxBeforeDiscount,
+        discountAmountExcludingTax: computed.discountAmountExcludingTax,
+        totalExcludingTax: computed.totalExcludingTax,
+        vatAmount: computed.vatAmount,
+        totalIncludingTax: computed.totalIncludingTax,
+      };
+    });
+
+    const derivedTotals = computedLines.reduce(
+      (acc, item) => {
+        acc.totalExcludingTaxBeforeDiscount += item.totalExcludingTaxBeforeDiscount;
+        acc.totalDiscountExcludingTax += item.discountAmountExcludingTax;
+        acc.totalExcludingTax += item.totalExcludingTax;
+        acc.totalVat += item.vatAmount;
+        acc.totalIncludingTax += item.totalIncludingTax;
+        return acc;
+      },
+      {
+        totalExcludingTaxBeforeDiscount: 0,
+        totalDiscountExcludingTax: 0,
+        totalExcludingTax: 0,
+        totalVat: 0,
+        totalIncludingTax: 0,
+      }
+    );
+
     const quoteData = {
       quoteNumber: quote.quoteNumber,
       date: quote.date,
@@ -45,16 +93,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         phone: quote.clientSnapshot.phone ?? null,
         vatNumber: quote.clientSnapshot.vatNumber ?? null,
       },
-      lineItems: quote.lineItems.map((item) => ({
-        name: item.name,
-        quantity: item.quantity,
-        unitPriceExcludingTax: item.unitPriceExcludingTax,
-        vatRate: item.vatRate,
-        totalExcludingTax: item.totalExcludingTax,
-      })),
-      totalExcludingTax: quote.totalExcludingTax,
-      totalVat: quote.totalVat,
-      totalIncludingTax: quote.totalIncludingTax,
+      lineItems,
+      totalExcludingTaxBeforeDiscount: derivedTotals.totalExcludingTaxBeforeDiscount,
+      totalDiscountExcludingTax: derivedTotals.totalDiscountExcludingTax,
+      totalExcludingTax: derivedTotals.totalExcludingTax,
+      totalVat: derivedTotals.totalVat,
+      totalIncludingTax: derivedTotals.totalIncludingTax,
       notes: quote.notes ?? null,
       paymentTerms: quote.paymentTerms ?? null,
       validityDays: quote.validityDays ?? 30,

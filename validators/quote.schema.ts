@@ -34,15 +34,35 @@ const lineItemSchema = z.object({
   ),
   name: z.string().trim().min(1, 'Line item name is required'),
   quantity: z.preprocess(toNumber, z.number().min(1, 'Quantity must be at least 1')),
+  baseUnitPriceExcludingTax: z.preprocess(
+    toNumber,
+    z.number().min(0, 'Base unit price excluding tax cannot be negative').optional()
+  ),
   unitPriceExcludingTax: z.preprocess(
     toNumber,
     z.number().min(0, 'Unit price excluding tax cannot be negative')
+  ),
+  discountPercentage: z.preprocess(
+    toNumber,
+    z.number().min(0, 'Discount cannot be negative').max(100, 'Discount cannot exceed 100').optional()
   ),
   vatRate: z.preprocess(
     toNumber,
     z.number().min(0, 'VAT rate cannot be negative').max(100, 'VAT rate cannot exceed 100')
   ),
-});
+}).transform((item) => ({
+  ...item,
+  // Ensure baseUnitPriceExcludingTax is always a positive number — fall back to unitPrice
+  baseUnitPriceExcludingTax:
+    typeof item.baseUnitPriceExcludingTax === 'number' && item.baseUnitPriceExcludingTax > 0
+      ? item.baseUnitPriceExcludingTax
+      : item.unitPriceExcludingTax,
+  // Ensure discountPercentage is always a number
+  discountPercentage:
+    typeof item.discountPercentage === 'number' && item.discountPercentage >= 0
+      ? item.discountPercentage
+      : 0,
+}));
 
 const dateFieldSchema = z.preprocess(emptyToUndefined, z.coerce.date().optional());
 

@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import { Trash2Icon } from 'lucide-react';
 
 import { centsToEuros, eurosToCents } from '@/lib/price';
+import { computeQuoteLine, deriveDiscountPercentageFromUnitPrice, deriveUnitPriceFromDiscount } from '@/lib/quote-calculations';
 import { useLocale } from '@/components/providers/locale-provider';
 import { PriceDisplay } from '@/components/ui/PriceDisplay';
 import { Button } from '@/components/ui/button';
@@ -26,7 +27,9 @@ export interface QuoteLineItem {
   productImageUrl?: string | null;
   name: string;
   quantity: number;
+  baseUnitPriceExcludingTax: number;
   unitPriceExcludingTax: number;
+  discountPercentage: number;
   vatRate: number;
 }
 
@@ -54,43 +57,64 @@ function isImageAttachment(url?: string | null, mime?: string | null): boolean {
   return /\.(png|jpe?g|webp|gif|svg)(\?.*)?$/i.test(url);
 }
 
+function getEffectiveBaseUnitPrice(row: QuoteLineItem): number {
+  const base = row.baseUnitPriceExcludingTax;
+  if (Number.isFinite(base) && base > 0) {
+    return Math.round(base);
+  }
+
+  const unit = Number.isFinite(row.unitPriceExcludingTax) ? row.unitPriceExcludingTax : 0;
+  return Math.max(0, Math.round(unit));
+}
+
+function toEditableNumberString(value: number): string {
+  if (!Number.isFinite(value)) {
+    return '0';
+  }
+
+  return String(value);
+}
+
 export default function LineItemRow({ row, index, products, onChange, onDelete }: LineItemRowProps) {
   const { locale } = useLocale();
   const t = {
     en: {
       product: 'Product',
-      name: 'Name',
+      discount: 'Discount %',
+      discountAmount: 'Discount HT',
       qty: 'Qty',
-      unitPrice: 'Unit price',
+      unitPrice: 'Unit price HT',
       vatRate: 'VAT %',
-      vatAmount: 'VAT',
-      total: 'Total',
       totalExclTax: 'Total HT',
       totalInclTax: 'Total TTC',
       removeLine: 'Delete line',
       searchPlaceholder: 'Search product/service',
-      lineNamePlaceholder: 'Line name',
       noMatches: 'No matches',
     },
     fr: {
       product: 'Produit',
-      name: 'Nom',
+      discount: 'Remise %',
+      discountAmount: 'Remise HT',
       qty: 'Qte',
-      unitPrice: 'Prix unitaire',
+      unitPrice: 'Prix unitaire HT',
       vatRate: 'TVA %',
-      vatAmount: 'TVA',
-      total: 'Total',
       totalExclTax: 'Total HT',
       totalInclTax: 'Total TTC',
       removeLine: 'Supprimer la ligne',
       searchPlaceholder: 'Rechercher un produit/service',
-      lineNamePlaceholder: 'Nom de ligne',
       noMatches: 'Aucun resultat',
     },
   }[locale];
 
   const [search, setSearch] = useState('');
   const [isOpen, setIsOpen] = useState(false);
+
+  const [isEditingDiscount, setIsEditingDiscount] = useState(false);
+  const [discountInputDraft, setDiscountInputDraft] = useState('0');
+  const [isEditingDiscountAmount, setIsEditingDiscountAmount] = useState(false);
+  const [discountAmountInputDraft, setDiscountAmountInputDraft] = useState('0.00');
+  const [isEditingUnitPrice, setIsEditingUnitPrice] = useState(false);
+  const [unitPriceInputDraft, setUnitPriceInputDraft] = useState('0.00');
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -101,25 +125,79 @@ export default function LineItemRow({ row, index, products, onChange, onDelete }
     return products.filter((item) => item.name.toLowerCase().includes(term));
   }, [products, search]);
 
-  const rowTotalCents = row.unitPriceExcludingTax * row.quantity;
-  const rowVatCents = Math.round(rowTotalCents * (row.vatRate / 100));
-  const rowTotalInclCents = rowTotalCents + rowVatCents;
+  const computed = computeQuoteLine({
+    quantity: row.quantity,
+    unitPriceExcludingTax: row.unitPriceExcludingTax,
+    baseUnitPriceExcludingTax: row.baseUnitPriceExcludingTax,
+    discountPercentage: row.discountPercentage,
+    vatRate: row.vatRate,
+  });
+
+  const discountInputValue = isEditingDiscount
+    ? discountInputDraft
+    : toEditableNumberString(Number(computed.discountPercentage.toFixed(2)));
+  const discountAmountInputValue = isEditingDiscountAmount
+    ? discountAmountInputDraft
+    : centsToEuros(computed.discountAmountExcludingTax);
+  const unitPriceInputValue = isEditingUnitPrice
+    ? unitPriceInputDraft
+    : centsToEuros(row.unitPriceExcludingTax);
 
   function handleProductSelect(product: CatalogueItemOption) {
     onChange(index, {
       productId: product._id,
       productImageUrl: isImageAttachment(product.attachmentUrl, product.attachmentMimeType) ? product.attachmentUrl ?? null : null,
       name: product.name,
+      baseUnitPriceExcludingTax: product.priceExcludingTax,
       unitPriceExcludingTax: product.priceExcludingTax,
+      discountPercentage: 0,
       vatRate: product.vatRate,
     });
     setSearch(product.name);
     setIsOpen(false);
   }
 
+  function handleDiscountChange(value: string) {
+    const base = getEffectiveBaseUnitPrice(row);
+    const discount = Math.min(100, Math.max(0, Number(value) || 0));
+
+    onChange(index, {
+      baseUnitPriceExcludingTax: base,
+      discountPercentage: discount,
+      unitPriceExcludingTax: deriveUnitPriceFromDiscount(base, discount),
+    });
+  }
+
+  function handleDiscountAmountChange(value: string) {
+    const base = getEffectiveBaseUnitPrice(row);
+    const qty = Math.max(1, Number(row.quantity) || 1);
+    const maxDiscountAmount = base * qty;
+    const requested = eurosToCents(value || 0);
+    const clamped = Math.min(maxDiscountAmount, Math.max(0, requested));
+    const discountPercent = maxDiscountAmount > 0 ? (clamped / maxDiscountAmount) * 100 : 0;
+
+    onChange(index, {
+      baseUnitPriceExcludingTax: base,
+      discountPercentage: discountPercent,
+      unitPriceExcludingTax: deriveUnitPriceFromDiscount(base, discountPercent),
+    });
+  }
+
+  function handleUnitPriceChange(value: string) {
+    const base = getEffectiveBaseUnitPrice(row);
+    const negotiated = eurosToCents(value || 0);
+    const discount = deriveDiscountPercentageFromUnitPrice(base, negotiated);
+
+    onChange(index, {
+      baseUnitPriceExcludingTax: base,
+      unitPriceExcludingTax: negotiated,
+      discountPercentage: discount,
+    });
+  }
+
   return (
     <div className="rounded-xl border border-border/70 bg-linear-to-b from-background to-secondary/25 p-3 md:p-3.5">
-      <div className="grid gap-2.5 sm:grid-cols-2 md:grid-cols-[2.2fr_2fr_0.8fr_1.2fr_0.8fr_1.6fr_auto] md:items-start">
+      <div className="grid gap-2.5 sm:grid-cols-2 md:grid-cols-[2.2fr_0.85fr_1.1fr_0.75fr_1.15fr_0.8fr_1.15fr_1.15fr_auto] md:items-start">
         <div className="relative sm:col-span-2 md:col-span-1">
           <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground md:hidden">{t.product}</p>
           <Input
@@ -175,12 +253,44 @@ export default function LineItemRow({ row, index, products, onChange, onDelete }
           ) : null}
         </div>
 
-        <div className="sm:col-span-2 md:col-span-1">
-          <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground md:hidden">{t.name}</p>
+        <div>
+          <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground md:hidden">{t.discount}</p>
           <Input
-            value={row.name}
-            onChange={(event) => onChange(index, { name: event.target.value })}
-            placeholder={t.lineNamePlaceholder}
+            type="number"
+            min={0}
+            max={100}
+            step="0.01"
+            className="text-right"
+            value={discountInputValue}
+            onFocus={() => {
+              setIsEditingDiscount(true);
+              setDiscountInputDraft(discountInputValue);
+            }}
+            onChange={(event) => setDiscountInputDraft(event.target.value)}
+            onBlur={() => {
+              setIsEditingDiscount(false);
+              handleDiscountChange(discountInputDraft);
+            }}
+          />
+        </div>
+
+        <div>
+          <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground md:hidden">{t.discountAmount}</p>
+          <Input
+            type="number"
+            min={0}
+            step="0.01"
+            className="text-right text-destructive"
+            value={discountAmountInputValue}
+            onFocus={() => {
+              setIsEditingDiscountAmount(true);
+              setDiscountAmountInputDraft(discountAmountInputValue);
+            }}
+            onChange={(event) => setDiscountAmountInputDraft(event.target.value)}
+            onBlur={() => {
+              setIsEditingDiscountAmount(false);
+              handleDiscountAmountChange(discountAmountInputDraft);
+            }}
           />
         </div>
 
@@ -200,8 +310,17 @@ export default function LineItemRow({ row, index, products, onChange, onDelete }
             type="number"
             min={0}
             step="0.01"
-            value={centsToEuros(row.unitPriceExcludingTax)}
-            onChange={(event) => onChange(index, { unitPriceExcludingTax: eurosToCents(event.target.value || 0) })}
+            className="text-right"
+            value={unitPriceInputValue}
+            onFocus={() => {
+              setIsEditingUnitPrice(true);
+              setUnitPriceInputDraft(unitPriceInputValue);
+            }}
+            onChange={(event) => setUnitPriceInputDraft(event.target.value)}
+            onBlur={() => {
+              setIsEditingUnitPrice(false);
+              handleUnitPriceChange(unitPriceInputDraft);
+            }}
           />
         </div>
 
@@ -212,26 +331,23 @@ export default function LineItemRow({ row, index, products, onChange, onDelete }
             min={0}
             max={100}
             step="0.1"
+            className="text-right"
             value={row.vatRate}
             onChange={(event) => onChange(index, { vatRate: Number(event.target.value) || 0 })}
           />
         </div>
 
-        <div className="rounded-lg border border-border/70 bg-background px-2.5 py-2.5 sm:col-span-2 md:col-span-1">
-          <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{t.total}</p>
-          <div className="space-y-1.5 text-xs">
-            <div className="flex items-center justify-between gap-2 text-muted-foreground">
-              <span className="whitespace-nowrap">{t.totalExclTax}</span>
-              <PriceDisplay cents={rowTotalCents} className="whitespace-nowrap" />
-            </div>
-            <div className="flex items-center justify-between gap-2 text-muted-foreground">
-              <span className="whitespace-nowrap">{t.vatAmount} ({row.vatRate}%)</span>
-              <PriceDisplay cents={rowVatCents} className="whitespace-nowrap" />
-            </div>
-            <div className="flex items-center justify-between gap-2 border-t border-border/60 pt-1.5 text-sm font-semibold text-foreground">
-              <span className="whitespace-nowrap">{t.totalInclTax}</span>
-              <PriceDisplay cents={rowTotalInclCents} className="whitespace-nowrap font-semibold" />
-            </div>
+        <div>
+          <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground md:hidden">{t.totalExclTax}</p>
+          <div className="text-right text-sm font-semibold">
+            <PriceDisplay cents={computed.totalExcludingTax} className="whitespace-nowrap font-semibold" />
+          </div>
+        </div>
+
+        <div>
+          <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground md:hidden">{t.totalInclTax}</p>
+          <div className="text-right text-sm font-semibold">
+            <PriceDisplay cents={computed.totalIncludingTax} className="whitespace-nowrap font-semibold" />
           </div>
         </div>
 

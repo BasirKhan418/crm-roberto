@@ -22,9 +22,15 @@ interface CompanyData {
 interface QuoteLineItem {
   name: string;
   quantity: number;
+  baseUnitPriceExcludingTax: number;
   unitPriceExcludingTax: number;
+  discountPercentage: number;
   vatRate: number;
+  totalExcludingTaxBeforeDiscount: number;
+  discountAmountExcludingTax: number;
   totalExcludingTax: number;
+  vatAmount: number;
+  totalIncludingTax: number;
 }
 
 interface QuoteData {
@@ -40,6 +46,8 @@ interface QuoteData {
     vatNumber?: string | null;
   };
   lineItems: QuoteLineItem[];
+  totalExcludingTaxBeforeDiscount: number;
+  totalDiscountExcludingTax: number;
   totalExcludingTax: number;
   totalVat: number;
   totalIncludingTax: number;
@@ -71,7 +79,9 @@ const translations = {
     colQty: 'Qty',
     colUnit: 'Unit excl.',
     colVat: 'VAT %',
-    colTotal: 'Total',
+    colTotal: 'Total HT (net)',
+    discount: 'Discount',
+    totalNet: 'Total excl. tax (net)',
     totalExcl: 'Total excl. tax',
     totalVat: 'VAT',
     totalIncl: 'Total incl. tax',
@@ -111,7 +121,9 @@ const translations = {
     colQty: 'Qte',
     colUnit: 'Unit. HT',
     colVat: 'TVA %',
-    colTotal: 'Total',
+    colTotal: 'Total HT (net)',
+    discount: 'Remise',
+    totalNet: 'Total HT (net)',
     totalExcl: 'Total HT',
     totalVat: 'TVA',
     totalIncl: 'Total TTC',
@@ -306,12 +318,12 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     fontSize: 9,
   },
-  colNo: { width: '8%' },
-  colDesc: { width: '34%' },
-  colQty: { width: '10%' },
-  colUnit: { width: '18%' },
+  colDesc: { width: '30%' },
+  colQty: { width: '8%' },
+  colUnit: { width: '15%' },
+  colDiscount: { width: '15%' },
   colVat: { width: '10%' },
-  colTotal: { width: '20%' },
+  colTotal: { width: '22%' },
   right: {
     textAlign: 'right',
   },
@@ -491,6 +503,10 @@ function notEmpty(value?: string | null): string {
   return value && value.trim() ? value : '-';
 }
 
+function formatPercent(value: number): string {
+  return `${value.toFixed(2)}%`;
+}
+
 export function QuotePdfTemplate({ quote, company, locale = 'en' }: QuotePdfTemplateProps) {
   const t = translations[locale];
   return (
@@ -565,10 +581,10 @@ export function QuotePdfTemplate({ quote, company, locale = 'en' }: QuotePdfTemp
           <Text style={styles.sectionTitle}>{t.lineItems}</Text>
           <View style={styles.table}>
             <View style={styles.tableHeader} fixed>
-              <Text style={[styles.cell, styles.colNo]}>#</Text>
               <Text style={[styles.cell, styles.colDesc]}>{t.colDesc}</Text>
               <Text style={[styles.cell, styles.colQty, styles.right]}>{t.colQty}</Text>
               <Text style={[styles.cell, styles.colUnit, styles.right]}>{t.colUnit}</Text>
+              <Text style={[styles.cell, styles.colDiscount, styles.right]}>{t.discount}</Text>
               <Text style={[styles.cell, styles.colVat, styles.right]}>{t.colVat}</Text>
               <Text style={[styles.cell, styles.colTotal, styles.right]}>{t.colTotal}</Text>
             </View>
@@ -583,10 +599,16 @@ export function QuotePdfTemplate({ quote, company, locale = 'en' }: QuotePdfTemp
                   ...(index === quote.lineItems.length - 1 ? [styles.rowLast] : []),
                 ]}
               >
-                <Text style={[styles.cell, styles.colNo]}>{index + 1}</Text>
-                <Text style={[styles.cell, styles.colDesc]}>{item.name}</Text>
+                <Text style={[styles.cell, styles.colDesc]}>
+                  {item.name}
+                </Text>
                 <Text style={[styles.cell, styles.colQty, styles.right]}>{item.quantity}</Text>
-                <Text style={[styles.cell, styles.colUnit, styles.right]}>{formatPrice(item.unitPriceExcludingTax)}</Text>
+                <Text style={[styles.cell, styles.colUnit, styles.right]}>{formatPrice(item.baseUnitPriceExcludingTax)}</Text>
+                <Text style={[styles.cell, styles.colDiscount, styles.right]}>
+                  {item.discountAmountExcludingTax > 0
+                    ? `${formatPercent(item.discountPercentage)} (-${formatPrice(item.discountAmountExcludingTax)})`
+                    : '-'}
+                </Text>
                 <Text style={[styles.cell, styles.colVat, styles.right]}>{item.vatRate}%</Text>
                 <Text style={[styles.cell, styles.colTotal, styles.right]}>{formatPrice(item.totalExcludingTax)}</Text>
               </View>
@@ -597,6 +619,14 @@ export function QuotePdfTemplate({ quote, company, locale = 'en' }: QuotePdfTemp
         <View style={styles.totalsSection} wrap={false}>
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>{t.totalExcl}</Text>
+            <Text style={styles.totalValue}>{formatPrice(quote.totalExcludingTaxBeforeDiscount)}</Text>
+          </View>
+          <View style={styles.totalRow}>
+            <Text style={styles.totalLabel}>{t.discount}</Text>
+            <Text style={styles.totalValue}>- {formatPrice(quote.totalDiscountExcludingTax)}</Text>
+          </View>
+          <View style={styles.totalRow}>
+            <Text style={styles.totalLabel}>{t.totalNet}</Text>
             <Text style={styles.totalValue}>{formatPrice(quote.totalExcludingTax)}</Text>
           </View>
           <View style={styles.totalRow}>

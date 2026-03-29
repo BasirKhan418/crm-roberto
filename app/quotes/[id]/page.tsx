@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import CrmShell from '@/components/crm-shell';
 import { useLocale } from '@/components/providers/locale-provider';
 import StatusChanger from '@/components/quotes/StatusChanger';
+import { computeQuoteLine } from '@/lib/quote-calculations';
 import { PriceDisplay } from '@/components/ui/PriceDisplay';
 import { StatusBadge, type QuoteStatus } from '@/components/ui/StatusBadge';
 import {
@@ -46,10 +47,18 @@ interface QuoteDetail {
     productImageUrl?: string | null;
     name: string;
     quantity: number;
+    baseUnitPriceExcludingTax: number;
     unitPriceExcludingTax: number;
+    discountPercentage: number;
     vatRate: number;
+    totalExcludingTaxBeforeDiscount: number;
+    discountAmountExcludingTax: number;
     totalExcludingTax: number;
+    vatAmount: number;
+    totalIncludingTax: number;
   }>;
+  totalExcludingTaxBeforeDiscount: number;
+  totalDiscountExcludingTax: number;
   totalExcludingTax: number;
   totalVat: number;
   totalIncludingTax: number;
@@ -128,9 +137,13 @@ export default function QuoteDetailPage() {
       description: 'Description',
       qty: 'Qty',
       unitExcl: 'Unit excl.',
+      discount: 'Discount %',
+      discountHt: 'Discount HT',
       vatRate: 'VAT %',
       lineTotal: 'Total',
       totalExcl: 'Total excl. tax',
+      discountAmount: 'Discount',
+      totalNet: 'Total excl. tax (net)',
       totalVat: 'VAT',
       totalIncl: 'Total incl. tax',
       notes: 'Notes / Conditions',
@@ -178,9 +191,13 @@ export default function QuoteDetailPage() {
       description: 'Description',
       qty: 'Qte',
       unitExcl: 'Unitaire HT',
+      discount: 'Remise %',
+      discountHt: 'Remise HT',
       vatRate: 'TVA %',
       lineTotal: 'Total',
       totalExcl: 'Total HT',
+      discountAmount: 'Remise',
+      totalNet: 'Total HT (net)',
       totalVat: 'TVA',
       totalIncl: 'Total TTC',
       notes: 'Notes / Conditions',
@@ -349,6 +366,38 @@ export default function QuoteDetailPage() {
     return [...quote.statusHistory].sort((a, b) => +new Date(a.changedAt) - +new Date(b.changedAt));
   }, [quote?.statusHistory]);
 
+  const derivedTotals = useMemo(() => {
+    if (!quote) {
+      return null;
+    }
+
+    const lineComputed = quote.lineItems.map((item) =>
+      computeQuoteLine({
+        quantity: item.quantity,
+        unitPriceExcludingTax: item.unitPriceExcludingTax,
+        baseUnitPriceExcludingTax: item.baseUnitPriceExcludingTax,
+        discountPercentage: item.discountPercentage,
+        vatRate: item.vatRate,
+      })
+    );
+
+    // Always use freshly computed values — never fall back to stale DB totals
+    const sumGross = lineComputed.reduce((sum, item) => sum + item.totalExcludingTaxBeforeDiscount, 0);
+    const sumDiscount = lineComputed.reduce((sum, item) => sum + item.discountAmountExcludingTax, 0);
+    const sumNet = lineComputed.reduce((sum, item) => sum + item.totalExcludingTax, 0);
+    const sumVat = lineComputed.reduce((sum, item) => sum + item.vatAmount, 0);
+    const sumTtc = lineComputed.reduce((sum, item) => sum + item.totalIncludingTax, 0);
+
+    return {
+      totalExcludingTaxBeforeDiscount: sumGross,
+      totalDiscountExcludingTax: sumDiscount,
+      totalExcludingTax: sumNet,
+      totalVat: sumVat,
+      totalIncludingTax: sumTtc,
+      lineComputed,
+    };
+  }, [quote]);
+
   return (
     <CrmShell title={t.shellTitle}>
       {loading ? (
@@ -477,12 +526,17 @@ export default function QuoteDetailPage() {
                       <th className="px-3 py-2 text-left font-medium">{t.description}</th>
                       <th className="px-3 py-2 text-right font-medium">{t.qty}</th>
                       <th className="px-3 py-2 text-right font-medium">{t.unitExcl}</th>
+                      <th className="px-3 py-2 text-right font-medium">{t.discount}</th>
+                      <th className="px-3 py-2 text-right font-medium">{t.discountHt}</th>
                       <th className="px-3 py-2 text-right font-medium">{t.vatRate}</th>
                       <th className="px-3 py-2 text-right font-medium">{t.lineTotal}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {quote.lineItems.map((item, index) => (
+                      (() => {
+                        const computed = derivedTotals?.lineComputed[index] ?? null;
+                        return (
                       <tr key={item._id || `${item.name}-${index}`} className="border-t border-border/60 odd:bg-background even:bg-secondary/10">
                         <td className="px-3 py-2">{index + 1}</td>
                         <td className="px-3 py-2 font-medium">
@@ -501,10 +555,14 @@ export default function QuoteDetailPage() {
                           </span>
                         </td>
                         <td className="px-3 py-2 text-right">{item.quantity}</td>
-                        <td className="px-3 py-2 text-right"><PriceDisplay cents={item.unitPriceExcludingTax} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} /></td>
+                        <td className="px-3 py-2 text-right"><PriceDisplay cents={computed?.baseUnitPriceExcludingTax ?? item.baseUnitPriceExcludingTax} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} /></td>
+                        <td className="px-3 py-2 text-right">{Number(computed?.discountPercentage ?? item.discountPercentage).toFixed(2)}%</td>
+                        <td className="px-3 py-2 text-right text-destructive">- <PriceDisplay cents={computed?.discountAmountExcludingTax ?? item.discountAmountExcludingTax} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} /></td>
                         <td className="px-3 py-2 text-right">{item.vatRate}%</td>
-                        <td className="px-3 py-2 text-right font-semibold"><PriceDisplay cents={item.totalExcludingTax} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} /></td>
+                        <td className="px-3 py-2 text-right font-semibold"><PriceDisplay cents={computed?.totalExcludingTax ?? item.totalExcludingTax} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} /></td>
                       </tr>
+                        );
+                      })()
                     ))}
                   </tbody>
                 </table>
@@ -515,15 +573,23 @@ export default function QuoteDetailPage() {
               <div className="w-full max-w-sm rounded-xl border border-border/70 bg-card p-3">
                 <div className="flex items-center justify-between border-b border-border/60 py-2 text-sm">
                   <span className="text-muted-foreground">{t.totalExcl}</span>
-                  <PriceDisplay cents={quote.totalExcludingTax} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} />
+                  <PriceDisplay cents={derivedTotals?.totalExcludingTaxBeforeDiscount ?? 0} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} />
+                </div>
+                <div className="flex items-center justify-between border-b border-border/60 py-2 text-sm">
+                  <span className="text-muted-foreground">{t.discountAmount}</span>
+                  <span className="text-destructive">- <PriceDisplay cents={derivedTotals?.totalDiscountExcludingTax ?? 0} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} /></span>
+                </div>
+                <div className="flex items-center justify-between border-b border-border/60 py-2 text-sm">
+                  <span className="text-muted-foreground">{t.totalNet}</span>
+                  <PriceDisplay cents={derivedTotals?.totalExcludingTax ?? 0} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} />
                 </div>
                 <div className="flex items-center justify-between border-b border-border/60 py-2 text-sm">
                   <span className="text-muted-foreground">{t.totalVat}</span>
-                  <PriceDisplay cents={quote.totalVat} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} />
+                  <PriceDisplay cents={derivedTotals?.totalVat ?? 0} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} />
                 </div>
                 <div className="flex items-center justify-between py-2 text-base font-semibold">
                   <span>{t.totalIncl}</span>
-                  <PriceDisplay cents={quote.totalIncludingTax} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="font-semibold" />
+                  <PriceDisplay cents={derivedTotals?.totalIncludingTax ?? 0} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="font-semibold" />
                 </div>
               </div>
             </section>

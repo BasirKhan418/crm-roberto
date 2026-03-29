@@ -25,7 +25,9 @@ const EMPTY_ROW: QuoteLineItem = {
   productImageUrl: null,
   name: '',
   quantity: 1,
+  baseUnitPriceExcludingTax: 0,
   unitPriceExcludingTax: 0,
+  discountPercentage: 0,
   vatRate: 17,
 };
 
@@ -35,11 +37,13 @@ export default function LineItemsBuilder({ lineItems, onChange }: LineItemsBuild
     en: {
       loadError: 'Failed to load products/services',
       product: 'Product',
-      name: 'Name',
+      discount: 'Discount %',
+      discountAmount: 'Discount HT',
       qty: 'Qty',
-      unitPrice: 'Unit price',
+      unitPrice: 'Unit HT',
       vat: 'VAT %',
-      total: 'Total',
+      totalExclTax: 'Total HT',
+      totalInclTax: 'Total TTC',
       noItemsTitle: 'No items yet',
       noItemsSubtitle: 'Click Add a line to start building this quote.',
       addLine: 'Add a line',
@@ -47,11 +51,13 @@ export default function LineItemsBuilder({ lineItems, onChange }: LineItemsBuild
     fr: {
       loadError: 'Impossible de charger les produits/services',
       product: 'Produit',
-      name: 'Nom',
+      discount: 'Remise %',
+      discountAmount: 'Remise HT',
       qty: 'Qte',
-      unitPrice: 'Prix unitaire',
+      unitPrice: 'Unit. HT',
       vat: 'TVA %',
-      total: 'Total',
+      totalExclTax: 'Total HT',
+      totalInclTax: 'Total TTC',
       noItemsTitle: 'Aucune ligne',
       noItemsSubtitle: 'Cliquez sur Ajouter une ligne pour commencer ce devis.',
       addLine: 'Ajouter une ligne',
@@ -101,13 +107,15 @@ export default function LineItemsBuilder({ lineItems, onChange }: LineItemsBuild
 
   return (
     <section className="space-y-3">
-      <div className="hidden items-center gap-2 rounded-md border border-dashed border-border/70 bg-secondary/30 px-2 py-1.5 text-xs font-semibold uppercase text-muted-foreground md:grid md:grid-cols-[2.2fr_2fr_0.8fr_1.2fr_0.8fr_1.6fr_auto]">
+      <div className="hidden items-center gap-2 rounded-md border border-dashed border-border/70 bg-secondary/30 px-2 py-1.5 text-xs font-semibold uppercase text-muted-foreground md:grid md:grid-cols-[2.2fr_0.85fr_1.1fr_0.75fr_1.15fr_0.8fr_1.15fr_1.15fr_auto]">
         <span>{t.product}</span>
-        <span>{t.name}</span>
+        <span className="text-right">{t.discount}</span>
+        <span className="text-right">{t.discountAmount}</span>
         <span>{t.qty}</span>
-        <span>{t.unitPrice}</span>
-        <span>{t.vat}</span>
-        <span className="text-right">{t.total}</span>
+        <span className="text-right">{t.unitPrice}</span>
+        <span className="text-right">{t.vat}</span>
+        <span className="text-right">{t.totalExclTax}</span>
+        <span className="text-right">{t.totalInclTax}</span>
         <span />
       </div>
 

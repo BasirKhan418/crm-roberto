@@ -25,7 +25,9 @@ interface QuoteApiResponse {
       productImageUrl?: string | null;
       name: string;
       quantity: number;
+      baseUnitPriceExcludingTax: number;
       unitPriceExcludingTax: number;
+      discountPercentage: number;
       vatRate: number;
     }>;
   };
@@ -77,14 +79,21 @@ export default function EditQuotePage() {
             notes: payload.data.notes ?? '',
             paymentTerms: payload.data.paymentTerms ?? null,
             validityDays: payload.data.validityDays ?? 30,
-            lineItems: payload.data.lineItems.map((item) => ({
-              productId: item.productId ?? null,
-              productImageUrl: item.productImageUrl ?? null,
-              name: item.name,
-              quantity: item.quantity,
-              unitPriceExcludingTax: item.unitPriceExcludingTax,
-              vatRate: item.vatRate,
-            })),
+            lineItems: payload.data.lineItems.map((item) => {
+              const base = item.baseUnitPriceExcludingTax > 0
+                ? item.baseUnitPriceExcludingTax
+                : item.unitPriceExcludingTax;
+              return {
+                productId: item.productId ?? null,
+                productImageUrl: item.productImageUrl ?? null,
+                name: item.name,
+                quantity: item.quantity,
+                baseUnitPriceExcludingTax: base,
+                unitPriceExcludingTax: item.unitPriceExcludingTax,
+                discountPercentage: item.discountPercentage ?? 0,
+                vatRate: item.vatRate,
+              };
+            }),
           });
         }
       } catch (fetchError) {
