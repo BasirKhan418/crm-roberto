@@ -238,6 +238,7 @@ export default function QuoteDetailPage() {
   const [sendOpen, setSendOpen] = useState(false);
 
   const canEdit = quote ? quote.status === 'draft' || quote.status === 'sent' : false;
+  const actionButtonClass = 'h-10 w-full justify-start sm:h-8 sm:w-auto sm:justify-center text-center';
 
   const loadData = useCallback(async () => {
     if (!params?.id) {
@@ -430,16 +431,24 @@ export default function QuoteDetailPage() {
 
       {!loading && !error && quote ? (
         <section className="space-y-4 print:space-y-3">
-          <div className="flex flex-col gap-2 rounded-xl border border-border/70 bg-card px-3 py-2 print:hidden sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex flex-wrap items-center gap-2">
-              <Button type="button" variant="outline" size="sm" asChild>
+          <div className="flex flex-col gap-2 rounded-xl border border-border/70 bg-card px-3 py-3 print:hidden sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-2 sm:py-2">
+            <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
+              <Button type="button" variant="outline" size="sm" className={actionButtonClass} asChild>
                 <Link href="/quotes">
                   <ArrowLeftIcon className="size-3.5" />
                   {t.back}
                 </Link>
               </Button>
 
-              <Button type="button" variant="outline" size="sm" disabled={!canEdit} asChild={canEdit} title={!canEdit ? t.lockEdit : t.edit}>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className={actionButtonClass}
+                disabled={!canEdit}
+                asChild={canEdit}
+                title={!canEdit ? t.lockEdit : t.edit}
+              >
                 {canEdit ? (
                   <Link href={`/quotes/${quote._id}/edit`}>
                     <PencilIcon className="size-3.5" />
@@ -452,35 +461,49 @@ export default function QuoteDetailPage() {
                   </span>
                 )}
               </Button>
+            </div>
 
-              {!canEdit ? (
-                <Button type="button" variant="outline" size="sm" onClick={duplicateQuote}>
+            {!canEdit ? (
+              <div className="w-full sm:w-auto">
+                <Button type="button" variant="outline" size="sm" className={actionButtonClass} onClick={duplicateQuote}>
                   <CopyIcon className="size-3.5" />
                   {t.duplicate}
                 </Button>
-              ) : null}
+              </div>
+            ) : null}
 
-              <StatusChanger
-                quoteId={quote._id}
-                status={quote.status}
-                locale={locale as Locale}
-                onStatusChanged={handleOptimisticStatusChange}
-                onStatusCommitted={loadData}
-              />
-            </div>
+            <StatusChanger
+              quoteId={quote._id}
+              status={quote.status}
+              locale={locale as Locale}
+              onStatusChanged={handleOptimisticStatusChange}
+              onStatusCommitted={loadData}
+              containerClassName="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:items-center"
+              selectClassName="h-10 w-full sm:h-8 sm:w-44"
+              buttonClassName="h-10 w-full justify-start sm:h-8 sm:w-auto sm:justify-center"
+            />
 
-            <div className="flex items-center gap-2">
+            <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:items-center">
               {quote.status === 'draft' ? (
-                <Button type="button" variant="default" size="sm" onClick={() => setSendOpen(true)}>
+                <Button type="button" variant="default" size="sm" className={actionButtonClass} onClick={() => setSendOpen(true)}>
                   <SendIcon className="size-3.5" />
                   {t.sendToClient}
                 </Button>
               ) : null}
-              <Button type="button" variant="outline" size="sm" onClick={downloadPdf}>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className={quote.status === 'draft' ? actionButtonClass : 'col-span-2 h-10 w-full justify-start sm:col-span-1 sm:h-8 sm:w-auto sm:justify-center'}
+                onClick={downloadPdf}
+              >
                 <DownloadIcon className="size-3.5" />
                 {t.download}
               </Button>
-              <Button type="button" variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}>
+            </div>
+
+            <div className="w-full sm:w-auto">
+              <Button type="button" variant="destructive" size="sm" className={actionButtonClass} onClick={() => setDeleteOpen(true)}>
                 <Trash2Icon className="size-3.5" />
                 {t.delete}
               </Button>
@@ -676,7 +699,7 @@ export default function QuoteDetailPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel asChild>
-              <Button type="button" variant="outline" disabled={deleting}>{t.cancel}</Button>
+              <Button type="button" variant="outline" disabled={deleting} >{t.cancel}</Button>
             </AlertDialogCancel>
             <AlertDialogAction asChild>
               <Button type="button" variant="destructive" disabled={deleting} onClick={deleteQuote}>

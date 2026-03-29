@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { type QuoteStatus } from '@/components/ui/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { cn } from '@/lib/utils';
 
 const NEXT_STATUSES: Record<QuoteStatus, QuoteStatus[]> = {
   draft: ['sent'],
@@ -22,6 +23,9 @@ interface StatusChangerProps {
   locale: 'en' | 'fr';
   onStatusChanged: (newStatus: QuoteStatus) => void;
   onStatusCommitted?: () => void;
+  containerClassName?: string;
+  selectClassName?: string;
+  buttonClassName?: string;
 }
 
 function statusLabel(status: QuoteStatus, locale: 'en' | 'fr') {
@@ -43,7 +47,16 @@ function statusLabel(status: QuoteStatus, locale: 'en' | 'fr') {
   return labels[locale][status];
 }
 
-export default function StatusChanger({ quoteId, status, locale, onStatusChanged, onStatusCommitted }: StatusChangerProps) {
+export default function StatusChanger({
+  quoteId,
+  status,
+  locale,
+  onStatusChanged,
+  onStatusCommitted,
+  containerClassName,
+  selectClassName,
+  buttonClassName,
+}: StatusChangerProps) {
   const t = {
     en: {
       placeholder: 'Change status',
@@ -105,9 +118,9 @@ export default function StatusChanger({ quoteId, status, locale, onStatusChanged
   }
 
   return (
-    <div className="flex items-center gap-2">
+    <div className={cn('flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center', containerClassName)}>
       <Select value={selected} onValueChange={(value) => setSelected(value as QuoteStatus)}>
-        <SelectTrigger className="h-8 w-44">
+        <SelectTrigger className={cn('h-10 w-full sm:h-8 sm:w-44', selectClassName)}>
           <SelectValue placeholder={t.placeholder} />
         </SelectTrigger>
         <SelectContent>
@@ -119,7 +132,13 @@ export default function StatusChanger({ quoteId, status, locale, onStatusChanged
         </SelectContent>
       </Select>
 
-      <Button type="button" size="sm" onClick={submitChange} disabled={!selected || changing}>
+      <Button
+        type="button"
+        size="sm"
+        className={cn('h-10 w-full sm:h-8 sm:w-auto', buttonClassName)}
+        onClick={submitChange}
+        disabled={!selected || changing}
+      >
         {changing ? <Loader2Icon className="size-3.5 animate-spin" /> : null}
         {t.apply}
       </Button>
