@@ -671,49 +671,95 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
 
             {/* Table */}
             {quotesLoading ? (
-              <div className="space-y-2">
-                {[1, 2, 3].map((i) => <div key={i} className="h-10 animate-pulse rounded-md bg-muted" />)}
+              <div className="space-y-3">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="space-y-2 rounded-xl border border-border/70 p-3">
+                    <div className="h-4 w-32 animate-pulse rounded bg-muted" />
+                    <div className="h-4 w-24 animate-pulse rounded bg-muted" />
+                    <div className="h-8 w-full animate-pulse rounded bg-muted" />
+                  </div>
+                ))}
               </div>
             ) : filteredQuotes.length === 0 ? (
               <EmptyState message={t.quotesEmpty} />
             ) : (
-              <div className="overflow-x-auto rounded-lg border border-border/70">
-                <table className="min-w-full text-sm">
-                  <thead className="bg-secondary/40 text-muted-foreground">
-                    <tr>
-                      <th className="px-3 py-2 text-left font-medium">{t.colQuoteNo}</th>
-                      <th className="px-3 py-2 text-left font-medium">{t.colDate}</th>
-                      <th className="px-3 py-2 text-right font-medium">{t.colTotal}</th>
-                      <th className="px-3 py-2 text-left font-medium">{t.colStatus}</th>
-                      <th className="px-3 py-2 text-right font-medium">{t.colActions}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredQuotes.map((q, index) => (
-                      <tr key={q._id} className={`border-t border-border/60 ${index % 2 === 1 ? 'bg-secondary/10' : 'bg-background'}`}>
-                        <td className="px-3 py-2 font-semibold">{q.quoteNumber}</td>
-                        <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">
-                          {new Intl.DateTimeFormat(locale === 'fr' ? 'fr-FR' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(q.date))}
-                        </td>
-                        <td className="px-3 py-2 text-right font-medium">
+              <>
+                <div className="space-y-3 md:hidden">
+                  {filteredQuotes.map((q) => (
+                    <article key={q._id} className="space-y-2.5 rounded-xl border border-border/70 bg-card/80 p-3.5 shadow-sm">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-(--color-text-info)">{q.quoteNumber}</p>
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            {new Intl.DateTimeFormat(locale === 'fr' ? 'fr-FR' : 'en-GB', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric',
+                            }).format(new Date(q.date))}
+                          </p>
+                        </div>
+                        <StatusBadge status={q.status} />
+                      </div>
+
+                      <div className="rounded-lg border border-border/60 bg-background px-2.5 py-2 text-xs">
+                        <p className="text-muted-foreground">{t.colTotal}</p>
+                        <p className="mt-0.5 text-sm font-semibold">
                           <PriceDisplay cents={q.totalIncludingTax} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} />
-                        </td>
-                        <td className="px-3 py-2">
-                          <StatusBadge status={q.status} />
-                        </td>
-                        <td className="px-3 py-2 text-right">
-                          <Button variant="ghost" size="sm" asChild>
-                            <Link href={`/quotes/${q._id}`}>
-                              <EyeIcon className="size-3.5" />
-                              {t.viewQuote}
-                            </Link>
-                          </Button>
-                        </td>
+                        </p>
+                      </div>
+
+                      <Button variant="outline" size="sm" className="h-9 w-full" asChild>
+                        <Link href={`/quotes/${q._id}`}>
+                          <EyeIcon className="size-3.5" />
+                          {t.viewQuote}
+                        </Link>
+                      </Button>
+                    </article>
+                  ))}
+                </div>
+
+                <div className="hidden overflow-x-auto rounded-lg border border-border/70 md:block">
+                  <table className="min-w-full text-sm">
+                    <thead className="bg-secondary/40 text-muted-foreground">
+                      <tr>
+                        <th className="px-3 py-2 text-left font-medium">{t.colQuoteNo}</th>
+                        <th className="px-3 py-2 text-left font-medium">{t.colDate}</th>
+                        <th className="px-3 py-2 text-right font-medium">{t.colTotal}</th>
+                        <th className="px-3 py-2 text-left font-medium">{t.colStatus}</th>
+                        <th className="px-3 py-2 text-right font-medium">{t.colActions}</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {filteredQuotes.map((q, index) => (
+                        <tr key={q._id} className={`border-t border-border/60 ${index % 2 === 1 ? 'bg-secondary/10' : 'bg-background'}`}>
+                          <td className="px-3 py-2 font-semibold">{q.quoteNumber}</td>
+                          <td className="px-3 py-2 whitespace-nowrap text-muted-foreground">
+                            {new Intl.DateTimeFormat(locale === 'fr' ? 'fr-FR' : 'en-GB', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric',
+                            }).format(new Date(q.date))}
+                          </td>
+                          <td className="px-3 py-2 text-right font-medium">
+                            <PriceDisplay cents={q.totalIncludingTax} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} />
+                          </td>
+                          <td className="px-3 py-2">
+                            <StatusBadge status={q.status} />
+                          </td>
+                          <td className="px-3 py-2 text-right">
+                            <Button variant="ghost" size="sm" asChild>
+                              <Link href={`/quotes/${q._id}`}>
+                                <EyeIcon className="size-3.5" />
+                                {t.viewQuote}
+                              </Link>
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>

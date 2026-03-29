@@ -70,6 +70,8 @@ export default function SuppliersPage() {
       total: 'total',
       previous: 'Previous',
       next: 'Next',
+      open: 'Open',
+      noData: '-',
     },
     fr: {
       fetchFailed: 'Impossible de recuperer les fournisseurs',
@@ -100,6 +102,8 @@ export default function SuppliersPage() {
       total: 'au total',
       previous: 'Precedent',
       next: 'Suivant',
+      open: 'Ouvrir',
+      noData: '-',
     },
   }[locale];
 
@@ -298,32 +302,67 @@ export default function SuppliersPage() {
             <EmptyState message={t.empty} />
           ) : (
             <>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t.name}</TableHead>
-                    <TableHead>{t.email}</TableHead>
-                    <TableHead>{t.phone}</TableHead>
-                    <TableHead>{t.company}</TableHead>
-                    <TableHead>{t.createdCol}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {suppliers.map((supplier) => (
-                    <TableRow key={supplier._id}>
-                      <TableCell className="font-medium">
-                        <Link href={`/suppliers/${supplier._id}`} className="hover:underline">
+              <div className="space-y-3 md:hidden">
+                {suppliers.map((supplier) => (
+                  <article key={supplier._id} className="space-y-2.5 rounded-xl border border-border/70 bg-card/80 p-3.5 shadow-sm">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <Link href={`/suppliers/${supplier._id}`} className="block text-sm font-semibold text-(--color-text-info) hover:underline wrap-break-word">
                           {supplier.fullName}
                         </Link>
-                      </TableCell>
-                      <TableCell>{supplier.email || '-'}</TableCell>
-                      <TableCell>{supplier.phone || '-'}</TableCell>
-                      <TableCell>{supplier.companyName || '-'}</TableCell>
-                      <TableCell>{new Date(supplier.createdAt).toLocaleDateString('en-US')}</TableCell>
+                        <p className="mt-0.5 text-xs text-muted-foreground">{supplier.companyName || t.noData}</p>
+                      </div>
+                      <Button type="button" size="sm" variant="outline" asChild>
+                        <Link href={`/suppliers/${supplier._id}`}>{t.open}</Link>
+                      </Button>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 rounded-lg border border-border/60 bg-background px-2.5 py-2 text-xs">
+                      <div>
+                        <p className="text-muted-foreground">{t.email}</p>
+                        <p className="truncate font-medium">{supplier.email || t.noData}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">{t.phone}</p>
+                        <p className="truncate font-medium">{supplier.phone || t.noData}</p>
+                      </div>
+                      <div className="col-span-2">
+                        <p className="text-muted-foreground">{t.createdCol}</p>
+                        <p className="font-medium">{new Date(supplier.createdAt).toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-US')}</p>
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+
+              <div className="hidden md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t.name}</TableHead>
+                      <TableHead>{t.email}</TableHead>
+                      <TableHead>{t.phone}</TableHead>
+                      <TableHead>{t.company}</TableHead>
+                      <TableHead>{t.createdCol}</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {suppliers.map((supplier) => (
+                      <TableRow key={supplier._id}>
+                        <TableCell className="font-medium">
+                          <Link href={`/suppliers/${supplier._id}`} className="hover:underline">
+                            {supplier.fullName}
+                          </Link>
+                        </TableCell>
+                        <TableCell>{supplier.email || t.noData}</TableCell>
+                        <TableCell>{supplier.phone || t.noData}</TableCell>
+                        <TableCell>{supplier.companyName || t.noData}</TableCell>
+                        <TableCell>{new Date(supplier.createdAt).toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-US')}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
 
               <div className="mt-4 flex items-center justify-between">
                 <p className="text-xs text-muted-foreground">
