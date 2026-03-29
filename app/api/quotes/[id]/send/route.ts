@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { renderToBuffer } from '@react-pdf/renderer';
 import React from 'react';
 import type { DocumentProps } from '@react-pdf/renderer';
-
 import ConnectEmailClient from '@/emails/connectEmailClient';
 import { getEmailTemplate } from '@/emails/template';
 import { getCompanyProfileByUserId } from '@/db/repository/cprofile';
@@ -54,8 +53,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const companyResult = await getCompanyProfileByUserId(me.user.id);
     const company = companyResult.success ? (companyResult.profile as Record<string, unknown>) : null;
 
-    // ── Generate PDF ─────────────────────────────────────────────────────────
-
+ // gen pdf
     const computedLines = quote.lineItems.map((item) =>
       computeQuoteLine({
         quantity: item.quantity,
@@ -158,8 +156,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       pdfBuffer = await renderToBuffer(createPdfDocument(''));
     }
 
-    // ── Send email ───────────────────────────────────────────────────────────
-
+ 
     const emailTransporter = await ConnectEmailClient();
     if (!emailTransporter) {
       return NextResponse.json({ success: false, message: 'Failed to connect to email service' }, { status: 500 });
@@ -197,7 +194,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       ],
     });
 
-    // ── Update status: draft → sent ──────────────────────────────────────────
 
     if (quote.status === 'draft') {
       const statusResult = await updateQuoteStatusById(me.user.id, id, { to: 'sent' });
@@ -213,7 +209,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
     }
 
-    // ── Activity log for sending ─────────────────────────────────────────────
 
     await createActivityLog(me.user.id, {
       action: 'quote_sent',
