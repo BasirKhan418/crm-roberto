@@ -70,11 +70,11 @@ export default function QuoteTable({ items, loading, labels, formatDate, onDelet
               return (
                 <article key={quote._id} className="space-y-3 rounded-xl border border-border/70 bg-white p-3">
                   <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <Link href={`/quotes/${quote._id}`} className="text-sm font-semibold text-(--color-text-info) hover:underline">
+                    <div className="min-w-0 flex-1">
+                      <Link href={`/quotes/${quote._id}`} className="block text-sm font-semibold text-(--color-text-info) hover:underline break-words">
                         {quote.quoteNumber}
                       </Link>
-                      <Link href={`/clients/${quote.clientId}`} className="text-sm text-(--color-text-info) hover:underline">
+                      <Link href={`/clients/${quote.clientId}`} className="mt-0.5 block text-sm text-(--color-text-info) hover:underline break-words">
                         {quote.clientSnapshot.fullName}
                       </Link>
                     </div>
