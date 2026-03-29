@@ -220,7 +220,7 @@ export default function ClientsPage() {
 
         <Sheet open={isAddOpen} onOpenChange={setIsAddOpen}>
           <SheetTrigger asChild>
-            <Button>
+            <Button className='lg:h-10 md:h-10 h-10'>
               <PlusIcon />
               {t.addClient}
             </Button>

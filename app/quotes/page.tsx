@@ -256,7 +256,7 @@ export default function QuotesPage() {
             <h1 className="font-heading text-2xl font-semibold tracking-tight">{t.heading}</h1>
             <p className="text-sm text-muted-foreground">{t.subtitle}</p>
           </div>
-          <Button type="button" className="w-full sm:w-auto" asChild>
+          <Button type="button" className="w-full sm:w-auto h-10" asChild>
             <Link href="/quotes/new">
               <PlusIcon className="size-4" />
               {t.newQuote}

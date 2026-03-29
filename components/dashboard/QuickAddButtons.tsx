@@ -21,6 +21,7 @@ export default function QuickAddButtons({ onSuccess }: QuickAddButtonsProps) {
   const [open, setOpen] = useState<OpenModal>(null);
   const router = useRouter();
   const { locale } = useLocale();
+  const quickButtonClass = 'h-10 justify-start font-medium sm:justify-center';
   const t = {
     en: { client: 'Client', supplier: 'Supplier', note: 'Note', quote: 'Quote' },
     fr: { client: 'Client', supplier: 'Fournisseur', note: 'Note', quote: 'Devis' },
@@ -34,7 +35,7 @@ export default function QuickAddButtons({ onSuccess }: QuickAddButtonsProps) {
             type="button"
             variant="outline"
             size="sm"
-            className="justify-start font-medium sm:justify-center"
+            className={`${quickButtonClass} shadow-sm `}
             onClick={() => setOpen('client')}
           >
           <Plus />
@@ -44,7 +45,7 @@ export default function QuickAddButtons({ onSuccess }: QuickAddButtonsProps) {
             type="button"
             variant="outline"
             size="sm"
-            className="justify-start font-medium sm:justify-center"
+            className={`${quickButtonClass} shadow-sm `}
             onClick={() => setOpen('supplier')}
           >
             <Plus />
@@ -54,7 +55,7 @@ export default function QuickAddButtons({ onSuccess }: QuickAddButtonsProps) {
             type="button"
             size="sm"
             variant="outline"
-            className="justify-start border-sky-300 bg-sky-50 text-sky-900 hover:bg-sky-100 sm:justify-center dark:border-sky-800/80 dark:bg-sky-950/30 dark:text-sky-200"
+            className={`${quickButtonClass} border-sky-200 bg-sky-200 text-sky-900 hover:bg-sky-100/70 dark:border-sky-800/70 dark:bg-sky-950/20 dark:text-sky-200 text-black`}
             onClick={() => setOpen('note')}
           >
             <Plus />
@@ -63,7 +64,7 @@ export default function QuickAddButtons({ onSuccess }: QuickAddButtonsProps) {
           <Button
             type="button"
             size="sm"
-            className="justify-start bg-slate-900 text-white hover:bg-slate-800 sm:justify-center dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
+            className={`${quickButtonClass} bg-slate-900 text-white hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200`}
             onClick={() => router.push('/quotes/new')}
           >
             <Plus />

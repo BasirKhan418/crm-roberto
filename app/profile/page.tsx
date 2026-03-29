@@ -394,6 +394,7 @@ export default function ProfilePage() {
               <div className="flex flex-wrap gap-2">
                 <Button
                   variant="outline"
+                  className=''
                   size="sm"
                   disabled={logoUploading || logoDeleting}
                   onClick={() => logoInputRef.current?.click()}
@@ -486,7 +487,7 @@ export default function ProfilePage() {
           )}
 
           <div className="mt-4">
-            <Button onClick={saveProfile} disabled={saving || loading}>
+            <Button onClick={saveProfile} disabled={saving || loading} className='h-10 w-full lg:w-auto md:w-auto '>
               <SaveIcon />
               {saving ? t.saving : t.saveProfile}
             </Button>
@@ -527,7 +528,7 @@ export default function ProfilePage() {
           </div>
 
           <div className="mt-4">
-            <Button onClick={updatePassword} disabled={passwordSaving}>
+            <Button onClick={updatePassword} disabled={passwordSaving} className='h-10 w-full lg:w-auto md:w-auto '>
               <SaveIcon />
               {passwordSaving ? t.updating : t.updatePasswordBtn}
             </Button>

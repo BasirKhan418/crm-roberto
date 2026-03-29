@@ -308,7 +308,7 @@ export default function CataloguePage() {
             <h1 className="font-heading text-2xl font-semibold tracking-tight">{t.heading}</h1>
             <p className="text-sm text-muted-foreground">{t.subtitle}</p>
           </div>
-          <Button type="button" className="w-full sm:w-auto" onClick={() => setCreateOpen(true)}>
+          <Button type="button" className="w-full sm:w-auto h-10" onClick={() => setCreateOpen(true)}>
             <PlusIcon className="size-4" />
             {t.newItem}
           </Button>

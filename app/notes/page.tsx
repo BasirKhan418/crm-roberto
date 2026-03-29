@@ -403,7 +403,7 @@ export default function NotesPage() {
 
         <Sheet open={isAddOpen} onOpenChange={setIsAddOpen}>
           <SheetTrigger asChild>
-            <Button>
+            <Button className='h-10'>
               <PlusIcon />
               {t.addNote}
             </Button>
