@@ -14,12 +14,15 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
-export async function GET(_request: NextRequest, { params }: RouteParams) {
+export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const me = await getMe(true);
     if (!me.success || !me.user) {
       return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
     }
+
+    const rawLocale = request.nextUrl.searchParams.get('locale');
+    const locale: 'en' | 'fr' = rawLocale === 'fr' ? 'fr' : 'en';
 
     const { id } = await params;
     const quote = await getQuoteById(me.user.id, id);
@@ -54,6 +57,8 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
           totalVat: quote.totalVat,
           totalIncludingTax: quote.totalIncludingTax,
           notes: quote.notes ?? null,
+          paymentTerms: quote.paymentTerms ?? null,
+          validityDays: quote.validityDays ?? 30,
         },
         company: company
           ? {
@@ -66,6 +71,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
               logoUrl: (company.logoUrl as string | null) ?? null,
             }
           : null,
+        locale,
       }) as unknown as React.ReactElement<DocumentProps>;
 
     const pdfBuffer = await renderToBuffer(pdfDocument);

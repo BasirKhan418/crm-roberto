@@ -53,6 +53,8 @@ interface QuoteDetail {
   totalVat: number;
   totalIncludingTax: number;
   notes?: string | null;
+  paymentTerms?: string | null;
+  validityDays?: number;
   statusHistory?: Array<{
     from?: QuoteStatus;
     to: QuoteStatus;
@@ -131,6 +133,11 @@ export default function QuoteDetailPage() {
       totalVat: 'VAT',
       totalIncl: 'Total incl. tax',
       notes: 'Notes / Conditions',
+      paymentTerms: 'Payment terms',
+      validity: 'Validity',
+      validityDays: 'days',
+      expires: 'Expires on',
+      expired: 'Expired on',
       history: 'Status history',
       historyEmpty: 'No status transitions yet.',
       lockEdit: 'Accepted and refused quotes cannot be edited',
@@ -176,6 +183,11 @@ export default function QuoteDetailPage() {
       totalVat: 'TVA',
       totalIncl: 'Total TTC',
       notes: 'Notes / Conditions',
+      paymentTerms: 'Conditions de paiement',
+      validity: 'Validite',
+      validityDays: 'jours',
+      expires: 'Valable jusqu au',
+      expired: 'Expire le',
       history: 'Historique des statuts',
       historyEmpty: 'Aucune transition de statut pour le moment.',
       lockEdit: 'Les devis acceptes et refuses ne peuvent pas etre modifies',
@@ -247,7 +259,7 @@ export default function QuoteDetailPage() {
     }
 
     try {
-      const response = await fetch(`/api/quotes/${quote._id}/pdf`);
+      const response = await fetch(`/api/quotes/${quote._id}/pdf?locale=${locale}`);
       if (!response.ok) {
         throw new Error(t.downloadFailed);
       }
@@ -496,6 +508,32 @@ export default function QuoteDetailPage() {
                 </div>
               </div>
             </section>
+
+            {(quote.paymentTerms || quote.validityDays) ? (
+              <section className="mb-4 rounded-xl border border-border/70 bg-card p-4">
+                <dl className="space-y-2 text-sm">
+                  {quote.paymentTerms ? (
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-muted-foreground">{t.paymentTerms}</dt>
+                      <dd className="text-right font-medium">{quote.paymentTerms}</dd>
+                    </div>
+                  ) : null}
+                  {quote.validityDays ? (() => {
+                    const expiryDate = new Date(new Date(quote.date).getTime() + quote.validityDays! * 86400000);
+                    const isExpired = new Date() > expiryDate && quote.status === 'sent';
+                    const formattedExpiry = formatDate(expiryDate.toISOString(), locale as Locale);
+                    return (
+                      <div className="flex justify-between gap-3">
+                        <dt className="text-muted-foreground">{t.validity}</dt>
+                        <dd className={`text-right font-medium ${isExpired ? 'text-destructive' : ''}`}>
+                          {quote.validityDays} {t.validityDays} &mdash; {isExpired ? t.expired : t.expires} {formattedExpiry}
+                        </dd>
+                      </div>
+                    );
+                  })() : null}
+                </dl>
+              </section>
+            ) : null}
 
             {quote.notes ? (
               <section className="mb-4 rounded-xl border border-border/70 bg-card p-4">

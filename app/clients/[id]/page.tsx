@@ -2,12 +2,15 @@
 
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 
-import { PencilIcon, PlusIcon, Trash2Icon } from 'lucide-react';
+import { PencilIcon, PlusIcon, Trash2Icon, FileTextIcon, EyeIcon, SearchIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import CrmShell from '@/components/crm-shell';
 import { useLocale } from '@/components/providers/locale-provider';
+import { PriceDisplay } from '@/components/ui/PriceDisplay';
+import { StatusBadge, type QuoteStatus } from '@/components/ui/StatusBadge';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -43,6 +46,14 @@ interface NoteItem {
   description: string;
   createdAt: string;
   followUpDate?: string | null;
+}
+
+interface ClientQuote {
+  _id: string;
+  quoteNumber: string;
+  date: string;
+  status: QuoteStatus;
+  totalIncludingTax: number;
 }
 
 interface DetailResponse {
@@ -104,6 +115,21 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       timelineDesc: 'Newest notes first so context is always visible.',
       timelineEmpty: 'No notes yet. Add your first note from this profile.',
       followUp: 'Follow-up',
+      quotesTitle: 'Related quotes',
+      quotesDesc: 'All quotes linked to this client.',
+      quotesEmpty: 'No quotes found for this client.',
+      quotesSearch: 'Search by quote number...',
+      quotesAll: 'All',
+      quotesDraft: 'Draft',
+      quotesSent: 'Sent',
+      quotesAccepted: 'Accepted',
+      quotesRefused: 'Refused',
+      colQuoteNo: 'Quote #',
+      colDate: 'Date',
+      colTotal: 'Total TTC',
+      colStatus: 'Status',
+      colActions: 'Actions',
+      viewQuote: 'View',
     },
     fr: {
       loadFailed: 'Impossible de charger les details du client',
@@ -151,12 +177,31 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       timelineDesc: 'Les notes les plus recentes en premier pour garder le contexte visible.',
       timelineEmpty: 'Aucune note. Ajoutez votre premiere note depuis ce profil.',
       followUp: 'Suivi',
+      quotesTitle: 'Devis associes',
+      quotesDesc: 'Tous les devis lies a ce client.',
+      quotesEmpty: 'Aucun devis trouve pour ce client.',
+      quotesSearch: 'Rechercher par numero de devis...',
+      quotesAll: 'Tous',
+      quotesDraft: 'Brouillon',
+      quotesSent: 'Envoye',
+      quotesAccepted: 'Accepte',
+      quotesRefused: 'Refuse',
+      colQuoteNo: 'Devis N',
+      colDate: 'Date',
+      colTotal: 'Total TTC',
+      colStatus: 'Statut',
+      colActions: 'Actions',
+      viewQuote: 'Voir',
     },
   }[locale];
 
   const [clientId, setClientId] = useState('');
   const [client, setClient] = useState<ClientRecord | null>(null);
   const [timeline, setTimeline] = useState<NoteItem[]>([]);
+  const [quotes, setQuotes] = useState<ClientQuote[]>([]);
+  const [quotesLoading, setQuotesLoading] = useState(false);
+  const [quoteSearch, setQuoteSearch] = useState('');
+  const [quoteStatusFilter, setQuoteStatusFilter] = useState<QuoteStatus | 'all'>('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -222,9 +267,27 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     }
   }, [endpoint, t.loadFailed]);
 
+  const loadQuotes = useCallback(async () => {
+    if (!clientId) return;
+    setQuotesLoading(true);
+    try {
+      const res = await fetch(`/api/quotes?clientId=${clientId}&limit=100`, { cache: 'no-store' });
+      const data = (await res.json()) as { success?: boolean; data?: ClientQuote[] };
+      setQuotes(data.data ?? []);
+    } catch {
+      setQuotes([]);
+    } finally {
+      setQuotesLoading(false);
+    }
+  }, [clientId]);
+
   useEffect(() => {
     loadDetails();
   }, [loadDetails]);
+
+  useEffect(() => {
+    loadQuotes();
+  }, [loadQuotes]);
 
   async function saveClient() {
     if (!client) {
@@ -366,6 +429,14 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     }
   }
 
+  const filteredQuotes = useMemo(() => {
+    return quotes.filter((q) => {
+      const matchesStatus = quoteStatusFilter === 'all' || q.status === quoteStatusFilter;
+      const matchesSearch = quoteSearch.trim() === '' || q.quoteNumber.toLowerCase().includes(quoteSearch.toLowerCase());
+      return matchesStatus && matchesSearch;
+    });
+  }, [quotes, quoteStatusFilter, quoteSearch]);
+
   return (
     <CrmShell title={t.shellTitle}>
       {error ? <ErrorMessage message={error} /> : null}
@@ -378,6 +449,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       ) : !client ? (
         <EmptyState message={t.notFound} />
       ) : (
+        <div className="space-y-4">
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_1.2fr]">
           <Card>
             <CardHeader className="border-b">
@@ -550,6 +622,101 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
               )}
             </CardContent>
           </Card>
+        </div>
+
+        <Card>
+          <CardHeader className="border-b">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <CardTitle className="inline-flex items-center gap-2">
+                  <FileTextIcon className="size-4 text-muted-foreground" />
+                  {t.quotesTitle}
+                </CardTitle>
+                <p className="mt-0.5 text-sm text-muted-foreground">{t.quotesDesc}</p>
+              </div>
+              <Button size="sm" asChild>
+                <Link href="/quotes/new">{t.viewQuote}</Link>
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-4 space-y-3">
+            {/* Filters */}
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="relative w-full sm:max-w-xs">
+                <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder={t.quotesSearch}
+                  value={quoteSearch}
+                  onChange={(e) => setQuoteSearch(e.target.value)}
+                  className="pl-8 text-sm"
+                />
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {(['all', 'draft', 'sent', 'accepted', 'refused'] as const).map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setQuoteStatusFilter(s)}
+                    className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
+                      quoteStatusFilter === s
+                        ? 'border-primary bg-primary text-primary-foreground'
+                        : 'border-border bg-background text-muted-foreground hover:bg-secondary'
+                    }`}
+                  >
+                    {s === 'all' ? t.quotesAll : s === 'draft' ? t.quotesDraft : s === 'sent' ? t.quotesSent : s === 'accepted' ? t.quotesAccepted : t.quotesRefused}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Table */}
+            {quotesLoading ? (
+              <div className="space-y-2">
+                {[1, 2, 3].map((i) => <div key={i} className="h-10 animate-pulse rounded-md bg-muted" />)}
+              </div>
+            ) : filteredQuotes.length === 0 ? (
+              <EmptyState message={t.quotesEmpty} />
+            ) : (
+              <div className="overflow-x-auto rounded-lg border border-border/70">
+                <table className="min-w-full text-sm">
+                  <thead className="bg-secondary/40 text-muted-foreground">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-medium">{t.colQuoteNo}</th>
+                      <th className="px-3 py-2 text-left font-medium">{t.colDate}</th>
+                      <th className="px-3 py-2 text-right font-medium">{t.colTotal}</th>
+                      <th className="px-3 py-2 text-left font-medium">{t.colStatus}</th>
+                      <th className="px-3 py-2 text-right font-medium">{t.colActions}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredQuotes.map((q, index) => (
+                      <tr key={q._id} className={`border-t border-border/60 ${index % 2 === 1 ? 'bg-secondary/10' : 'bg-background'}`}>
+                        <td className="px-3 py-2 font-semibold">{q.quoteNumber}</td>
+                        <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">
+                          {new Intl.DateTimeFormat(locale === 'fr' ? 'fr-FR' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(q.date))}
+                        </td>
+                        <td className="px-3 py-2 text-right font-medium">
+                          <PriceDisplay cents={q.totalIncludingTax} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} />
+                        </td>
+                        <td className="px-3 py-2">
+                          <StatusBadge status={q.status} />
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          <Button variant="ghost" size="sm" asChild>
+                            <Link href={`/quotes/${q._id}`}>
+                              <EyeIcon className="size-3.5" />
+                              {t.viewQuote}
+                            </Link>
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
         </div>
       )}
     </CrmShell>

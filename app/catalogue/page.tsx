@@ -283,7 +283,7 @@ export default function CataloguePage() {
         </div>
 
         <div className="space-y-3 rounded-xl border border-border/70 bg-card/40 p-3 sm:p-4">
-          <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
+          <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
             <div className="relative">
               <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -294,7 +294,7 @@ export default function CataloguePage() {
               />
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2 overflow-x-auto pb-0.5">
               <SortButton label={t.sortName} column="name" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
               <SortButton label={t.sortPrice} column="priceExcludingTax" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
               <SortButton label={t.sortDate} column="createdAt" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
@@ -308,22 +308,22 @@ export default function CataloguePage() {
               setPagination((prev) => ({ ...prev, page: 1 }));
             }}
           >
-            <TabsList className="h-auto rounded-lg border border-border/80 bg-transparent p-1">
+            <TabsList className="h-auto w-full rounded-lg border border-border/80 bg-transparent p-1 sm:w-auto">
               <TabsTrigger
                 value="all"
-                className="rounded-md border border-transparent px-3 py-1 text-foreground/80 hover:bg-muted/60 hover:text-foreground data-active:border-transparent data-active:bg-primary data-active:text-primary-foreground"
+                className="flex-1 rounded-md border border-transparent px-3 py-1 text-foreground/80 hover:bg-muted/60 hover:text-foreground data-active:border-transparent data-active:bg-primary data-active:text-primary-foreground sm:flex-none"
               >
                 {t.tabAll}
               </TabsTrigger>
               <TabsTrigger
                 value="product"
-                className="rounded-md border border-border/80 px-3 py-1 text-foreground/80 hover:bg-muted/60 hover:text-foreground data-active:border-transparent data-active:bg-primary data-active:text-primary-foreground"
+                className="flex-1 rounded-md border border-border/80 px-3 py-1 text-foreground/80 hover:bg-muted/60 hover:text-foreground data-active:border-transparent data-active:bg-primary data-active:text-primary-foreground sm:flex-none"
               >
                 {t.tabProducts}
               </TabsTrigger>
               <TabsTrigger
                 value="service"
-                className="rounded-md border border-border/80 px-3 py-1 text-foreground/80 hover:bg-muted/60 hover:text-foreground data-active:border-transparent data-active:bg-primary data-active:text-primary-foreground"
+                className="flex-1 rounded-md border border-border/80 px-3 py-1 text-foreground/80 hover:bg-muted/60 hover:text-foreground data-active:border-transparent data-active:bg-primary data-active:text-primary-foreground sm:flex-none"
               >
                 {t.tabServices}
               </TabsTrigger>

@@ -198,7 +198,7 @@ export default function QuotesPage() {
 
   async function handleDownloadPdf(quote: QuoteListItem) {
     try {
-      const response = await fetch(`/api/quotes/${quote._id}/pdf`);
+      const response = await fetch(`/api/quotes/${quote._id}/pdf?locale=${locale}`);
       if (!response.ok) {
         throw new Error(t.downloadFailed);
       }

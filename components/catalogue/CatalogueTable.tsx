@@ -106,53 +106,64 @@ export default function CatalogueTable({
 }: CatalogueTableProps) {
   return (
     <>
-      <div className="space-y-3 md:hidden">
+      <div className="space-y-2.5 md:hidden">
         {loading
           ? Array.from({ length: 5 }).map((_, index) => (
               <div key={`mobile-skeleton-${index}`} className="space-y-3 rounded-xl border border-border/70 p-3">
-                <Skeleton className="h-4 w-2/3" />
-                <div className="grid grid-cols-2 gap-2">
-                  <Skeleton className="h-4 w-16" />
-                  <Skeleton className="h-4 w-20" />
-                  <Skeleton className="h-4 w-20" />
-                  <Skeleton className="h-4 w-10" />
+                <div className="flex items-start justify-between gap-2">
+                  <Skeleton className="h-4 w-2/3" />
+                  <Skeleton className="h-5 w-16 rounded-full" />
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-full" />
                 </div>
                 <Skeleton className="h-4 w-full" />
                 <div className="flex gap-2">
-                  <Skeleton className="h-7 flex-1" />
-                  <Skeleton className="h-7 flex-1" />
+                  <Skeleton className="h-9 flex-1" />
+                  <Skeleton className="h-9 flex-1" />
                 </div>
               </div>
             ))
-            : items.map((item) => (
-              <article key={item._id} className="space-y-3 rounded-xl border border-border/70 bg-white p-3">
-                <div className="flex items-start justify-between gap-2">
+          : items.map((item) => (
+              <article key={item._id} className="rounded-xl border border-border/70 bg-card p-3">
+                {/* Header row: name + type badge */}
+                <div className="mb-2.5 flex items-start justify-between gap-2">
                   <h3 className="line-clamp-2 text-sm font-semibold leading-5">{item.name}</h3>
-                  <span style={typePill(item.type)}>{item.type === 'product' ? labels.product : labels.service}</span>
+                  <span className="shrink-0" style={typePill(item.type)}>
+                    {item.type === 'product' ? labels.product : labels.service}
+                  </span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 text-xs">
+                {/* Stats grid: price / vat / date */}
+                <div className="mb-2.5 grid grid-cols-3 gap-2 text-xs">
                   <div>
-                    <p className="text-muted-foreground">{labels.priceExcludingTax}</p>
+                    <p className="mb-0.5 text-muted-foreground">{labels.priceExcludingTax}</p>
                     <p className="font-medium"><PriceDisplay cents={item.priceExcludingTax} /></p>
                   </div>
                   <div>
-                    <p className="text-muted-foreground">{labels.vatRate}</p>
+                    <p className="mb-0.5 text-muted-foreground">{labels.vatRate}</p>
                     <p className="font-medium">{item.vatRate}%</p>
+                  </div>
+                  <div>
+                    <p className="mb-0.5 text-muted-foreground">{labels.addedDate}</p>
+                    <p className="font-medium">{new Date(item.createdAt).toLocaleDateString()}</p>
                   </div>
                 </div>
 
-                <div>
-                  <p className="text-xs text-muted-foreground">{labels.description}</p>
-                  <p className="text-sm">{truncate(item.description, 60) || labels.noDescription}</p>
-                </div>
+                {/* Description */}
+                {item.description ? (
+                  <p className="mb-2.5 line-clamp-2 text-xs text-muted-foreground">{item.description}</p>
+                ) : null}
 
+                {/* Actions */}
                 <div className="grid grid-cols-2 gap-2">
-                  <Button type="button" size="sm" variant="outline" onClick={() => onEdit(item)}>
+                  <Button type="button" size="sm" variant="outline" className="h-9" onClick={() => onEdit(item)}>
                     <PencilIcon className="size-3.5" />
                     {labels.edit}
                   </Button>
-                  <Button type="button" size="sm" variant="destructive" onClick={() => onDelete(item)}>
+                  <Button type="button" size="sm" variant="destructive" className="h-9" onClick={() => onDelete(item)}>
                     <Trash2Icon className="size-3.5" />
                     {labels.delete}
                   </Button>
@@ -161,20 +172,20 @@ export default function CatalogueTable({
             ))}
       </div>
 
-      <div className="hidden overflow-hidden rounded-xl border border-border/70 bg-white md:block">
-        <Table className="table-fixed">
+      <div className="hidden overflow-x-auto rounded-xl border border-border/70 bg-card md:block">
+        <Table className="min-w-160 table-fixed w-full">
           <TableHeader>
             <TableRow>
-              <TableHead style={{ width: '28%' }}>
+              <TableHead style={{ width: '26%' }}>
                 <SortHeaderButton label={labels.name} column="name" sortBy={sortBy} sortOrder={sortOrder} onSort={onSort} />
               </TableHead>
-              <TableHead style={{ width: '12%' }}>{labels.type}</TableHead>
-              <TableHead style={{ width: '16%' }}>
+              <TableHead style={{ width: '10%' }}>{labels.type}</TableHead>
+              <TableHead style={{ width: '15%' }}>
                 <SortHeaderButton label={labels.priceExcludingTax} column="priceExcludingTax" sortBy={sortBy} sortOrder={sortOrder} onSort={onSort} />
               </TableHead>
-              <TableHead style={{ width: '10%' }}>{labels.vatRate}</TableHead>
-              <TableHead style={{ width: '24%' }}>{labels.description}</TableHead>
-              <TableHead style={{ width: '10%' }}>{labels.actions}</TableHead>
+              <TableHead style={{ width: '8%' }}>{labels.vatRate}</TableHead>
+              <TableHead style={{ width: '21%' }}>{labels.description}</TableHead>
+              <TableHead style={{ width: '20%' }} className="text-right">{labels.actions}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -182,11 +193,11 @@ export default function CatalogueTable({
               ? Array.from({ length: 5 }).map((_, index) => (
                   <TableRow key={`skeleton-row-${index}`}>
                     <TableCell><Skeleton className="h-4 w-4/5" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-14 rounded-full" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-12" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-10" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-full" /></TableCell>
-                    <TableCell><Skeleton className="h-7 w-20" /></TableCell>
+                    <TableCell><Skeleton className="h-7 w-full" /></TableCell>
                   </TableRow>
                 ))
               : items.map((item) => (
@@ -195,18 +206,18 @@ export default function CatalogueTable({
                     <TableCell>
                       <span style={typePill(item.type)}>{item.type === 'product' ? labels.product : labels.service}</span>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="whitespace-nowrap">
                       <PriceDisplay cents={item.priceExcludingTax} />
                     </TableCell>
                     <TableCell>{item.vatRate}%</TableCell>
                     <TableCell className="truncate" title={item.description ?? labels.noDescription}>{truncate(item.description, 60) || labels.noDescription}</TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1">
-                        <Button type="button" size="sm" variant="outline" onClick={() => onEdit(item)}>
+                      <div className="flex items-center justify-end gap-1">
+                        <Button type="button" size="sm" variant="outline" className="whitespace-nowrap" onClick={() => onEdit(item)}>
                           <PencilIcon className="size-3.5" />
                           {labels.edit}
                         </Button>
-                        <Button type="button" size="sm" variant="destructive" onClick={() => onDelete(item)}>
+                        <Button type="button" size="sm" variant="destructive" className="whitespace-nowrap" onClick={() => onDelete(item)}>
                           <Trash2Icon className="size-3.5" />
                           {labels.delete}
                         </Button>

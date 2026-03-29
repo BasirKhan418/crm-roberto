@@ -43,10 +43,14 @@ export function calcQuoteTotals(
 
 
 export function nextQuoteNumber(lastNumber: string | null): string {
-  if (!lastNumber) {
-    return "DEV-001";
+  const year = new Date().getFullYear();
+  const prefix = `DEV-${year}-`;
+
+  if (!lastNumber || !lastNumber.startsWith(prefix)) {
+    // No quote this year yet — start at 001
+    return `${prefix}001`;
   }
 
-  const num = parseInt(lastNumber.split("-")[1], 10);
-  return `DEV-${String(num + 1).padStart(3, "0")}`;
+  const counter = parseInt(lastNumber.slice(prefix.length), 10);
+  return `${prefix}${String((Number.isFinite(counter) ? counter : 0) + 1).padStart(3, '0')}`;
 }

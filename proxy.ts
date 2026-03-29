@@ -9,7 +9,7 @@ interface TokenPayload {
   isEmailVerified?: boolean;
 }
 
-const protectedRoutePrefixes = ['/dashboard', '/clients', '/suppliers', '/notes', '/follow-up-tracking', '/profile'];
+const protectedRoutePrefixes = ['/dashboard', '/clients', '/suppliers', '/notes', '/follow-up-tracking', '/profile', '/products', '/quotes'];
 const publicRoutes = ['/', '/login', '/signup', '/forgot-password'];
 
 function matchesRoutePrefix(pathname: string, route: string): boolean {

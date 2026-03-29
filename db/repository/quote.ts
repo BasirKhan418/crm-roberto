@@ -64,6 +64,8 @@ interface QuoteRecord {
   totalVat: number;
   totalIncludingTax: number;
   notes?: string | null;
+  paymentTerms?: string | null;
+  validityDays?: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -105,7 +107,13 @@ function isValidObjectId(value: string): boolean {
 export const getLastQuoteNumber = async (userId: string): Promise<string | null> => {
   await ConnectDb();
 
-  const lastQuote = await Quote.findOne({ user: userId })
+  const year = new Date().getFullYear();
+  const prefix = `DEV-${year}-`;
+
+  const lastQuote = await Quote.findOne({
+    user: userId,
+    quoteNumber: { $regex: `^${prefix}` },
+  })
     .sort({ createdAt: -1 })
     .select('quoteNumber')
     .lean();
@@ -121,11 +129,16 @@ export const listQuotes = async (
     sort?: 'date' | 'amount';
     page?: number;
     limit?: number;
+    clientId?: string;
   }
 ): Promise<QuoteListResult> => {
   await ConnectDb();
 
   const query: Record<string, unknown> = { user: userId };
+
+  if (options.clientId && mongoose.Types.ObjectId.isValid(options.clientId)) {
+    query.clientId = new mongoose.Types.ObjectId(options.clientId);
+  }
 
   if (options.status) {
     query.status = options.status;
@@ -230,6 +243,8 @@ export const createQuote = async (userId: string, payload: CreateQuoteDTO): Prom
     lineItems,
     ...totals,
     notes: payload.notes ?? null,
+    paymentTerms: payload.paymentTerms ?? null,
+    validityDays: payload.validityDays ?? 30,
     statusHistory: [{ to: 'draft', changedAt: new Date() }],
   });
 
@@ -276,6 +291,14 @@ export const updateQuoteById = async (
 
   if (payload.notes !== undefined) {
     quote.notes = payload.notes;
+  }
+
+  if (payload.paymentTerms !== undefined) {
+    quote.paymentTerms = payload.paymentTerms;
+  }
+
+  if (payload.validityDays !== undefined) {
+    quote.validityDays = payload.validityDays;
   }
 
   if (payload.lineItems) {
@@ -378,6 +401,8 @@ export const duplicateQuoteById = async (userId: string, quoteId: string): Promi
     lineItems,
     ...totals,
     notes: (sourceQuote as QuoteRecord).notes ?? null,
+    paymentTerms: (sourceQuote as QuoteRecord).paymentTerms ?? null,
+    validityDays: (sourceQuote as QuoteRecord).validityDays ?? 30,
     statusHistory: [{ to: 'draft', changedAt: new Date() }],
     convertedToInvoice: false,
     invoiceId: null,

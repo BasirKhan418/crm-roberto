@@ -17,6 +17,8 @@ interface QuoteApiResponse {
     clientId: string;
     date: string;
     notes?: string | null;
+    paymentTerms?: string | null;
+    validityDays?: number;
     status: 'draft' | 'sent' | 'accepted' | 'refused';
     lineItems: Array<{
       productId?: string | null;
@@ -72,6 +74,8 @@ export default function EditQuotePage() {
             date: payload.data.date,
             status: payload.data.status,
             notes: payload.data.notes ?? '',
+            paymentTerms: payload.data.paymentTerms ?? null,
+            validityDays: payload.data.validityDays ?? 30,
             lineItems: payload.data.lineItems.map((item) => ({
               productId: item.productId ?? null,
               name: item.name,

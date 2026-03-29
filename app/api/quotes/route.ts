@@ -16,6 +16,7 @@ export async function GET(request: NextRequest) {
     const statusParam = request.nextUrl.searchParams.get('status');
     const searchParam = request.nextUrl.searchParams.get('search')?.trim();
     const sortParam = request.nextUrl.searchParams.get('sort');
+    const clientIdParam = request.nextUrl.searchParams.get('clientId')?.trim();
     const pageParam = Number(request.nextUrl.searchParams.get('page') ?? '1');
     const limitParam = Number(request.nextUrl.searchParams.get('limit') ?? '10');
 
@@ -34,6 +35,7 @@ export async function GET(request: NextRequest) {
       sort,
       page,
       limit,
+      clientId: clientIdParam || undefined,
     });
 
     return NextResponse.json({

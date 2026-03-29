@@ -47,6 +47,8 @@ export const createQuoteSchema = z.object({
   date: dateFieldSchema,
   lineItems: z.array(lineItemSchema).min(1, 'At least one line item is required'),
   notes: z.preprocess(emptyToNull, z.string().trim().max(2000, 'Notes cannot exceed 2000 characters').nullable().optional()),
+  paymentTerms: z.preprocess(emptyToNull, z.string().trim().max(500, 'Payment terms cannot exceed 500 characters').nullable().optional()),
+  validityDays: z.preprocess(toNumber, z.number().min(1, 'Validity must be at least 1 day').max(365).optional()),
 });
 
 export const updateQuoteSchema = z
@@ -55,6 +57,8 @@ export const updateQuoteSchema = z
     date: dateFieldSchema,
     lineItems: z.array(lineItemSchema).min(1, 'At least one line item is required').optional(),
     notes: z.preprocess(emptyToNull, z.string().trim().max(2000, 'Notes cannot exceed 2000 characters').nullable().optional()),
+    paymentTerms: z.preprocess(emptyToNull, z.string().trim().max(500, 'Payment terms cannot exceed 500 characters').nullable().optional()),
+    validityDays: z.preprocess(toNumber, z.number().min(1, 'Validity must be at least 1 day').max(365).optional()),
   })
   .refine(
     (data) => Object.keys(data).length > 0,

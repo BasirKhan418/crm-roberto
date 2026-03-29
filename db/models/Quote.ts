@@ -147,13 +147,29 @@ const QuoteSchema = new mongoose.Schema(
 
     // ── Optional fields ───────────────────────────────────────────────────────
 
-    // Free text shown at bottom of quote: payment terms, validity, etc.
+    // Free text shown at bottom of quote
     notes: {
       type: String,
       trim: true,
       default: null,
       maxlength: [2000, "Notes cannot exceed 2000 characters"],
     },
+
+    // Dedicated payment terms field (e.g. "Paiement à 30 jours")
+    paymentTerms: {
+      type: String,
+      trim: true,
+      default: null,
+      maxlength: [500, "Payment terms cannot exceed 500 characters"],
+    },
+
+    // Validity period in days (default 30)
+    validityDays: {
+      type: Number,
+      default: 30,
+      min: [1, "Validity must be at least 1 day"],
+    },
+
     convertedToInvoice: {
       type: Boolean,
       default: false,

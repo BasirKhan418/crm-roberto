@@ -24,6 +24,8 @@ export interface QuoteFormData {
   date: string;
   lineItems: QuoteLineItem[];
   notes?: string | null;
+  paymentTerms?: string | null;
+  validityDays?: number;
   status: 'draft' | 'sent' | 'accepted' | 'refused';
 }
 
@@ -48,7 +50,11 @@ export default function QuoteForm({ mode, quote }: QuoteFormProps) {
       client: 'Client',
       lineItems: 'Line items',
       notes: 'Notes / Conditions',
-      notesPlaceholder: 'Payment terms, delivery details, or additional conditions...',
+      notesPlaceholder: 'Additional remarks or conditions...',
+      paymentTerms: 'Payment terms',
+      paymentTermsPlaceholder: 'e.g. Payment within 30 days',
+      validityDays: 'Validity',
+      validityDaysUnit: 'days',
       saving: 'Saving...',
       saveDraft: 'Save as Draft',
       saveAndSend: 'Save and Send',
@@ -75,7 +81,11 @@ export default function QuoteForm({ mode, quote }: QuoteFormProps) {
       client: 'Client',
       lineItems: 'Lignes',
       notes: 'Notes / Conditions',
-      notesPlaceholder: 'Conditions de paiement, details de livraison ou informations supplementaires...',
+      notesPlaceholder: 'Remarques ou conditions supplementaires...',
+      paymentTerms: 'Conditions de paiement',
+      paymentTermsPlaceholder: 'ex. Paiement a 30 jours',
+      validityDays: 'Duree de validite',
+      validityDaysUnit: 'jours',
       saving: 'Enregistrement...',
       saveDraft: 'Enregistrer en brouillon',
       saveAndSend: 'Enregistrer et envoyer',
@@ -97,6 +107,8 @@ export default function QuoteForm({ mode, quote }: QuoteFormProps) {
   const [date, setDate] = useState(quote?.date ? quote.date.slice(0, 10) : new Date().toISOString().slice(0, 10));
   const [lineItems, setLineItems] = useState<QuoteLineItem[]>(quote?.lineItems ?? []);
   const [notes, setNotes] = useState(quote?.notes ?? '');
+  const [paymentTerms, setPaymentTerms] = useState(quote?.paymentTerms ?? '');
+  const [validityDays, setValidityDays] = useState(quote?.validityDays ?? 30);
   const [quoteNumber, setQuoteNumber] = useState(quote?.quoteNumber ?? '');
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -114,11 +126,11 @@ export default function QuoteForm({ mode, quote }: QuoteFormProps) {
         const response = await fetch('/api/quotes/next-number');
         const payload = (await response.json()) as { quoteNumber?: string };
         if (!cancelled) {
-          setQuoteNumber(payload.quoteNumber || 'DEV-001');
+          setQuoteNumber(payload.quoteNumber || `DEV-${new Date().getFullYear()}-001`);
         }
       } catch {
         if (!cancelled) {
-          setQuoteNumber('DEV-001');
+          setQuoteNumber(`DEV-${new Date().getFullYear()}-001`);
         }
       }
     }
@@ -139,6 +151,8 @@ export default function QuoteForm({ mode, quote }: QuoteFormProps) {
     setDate(quote.date.slice(0, 10));
     setLineItems(quote.lineItems);
     setNotes(quote.notes ?? '');
+    setPaymentTerms(quote.paymentTerms ?? '');
+    setValidityDays(quote.validityDays ?? 30);
     setQuoteNumber(quote.quoteNumber);
   }, [quote]);
 
@@ -191,6 +205,8 @@ export default function QuoteForm({ mode, quote }: QuoteFormProps) {
         date,
         lineItems,
         notes: notes.trim() || null,
+        paymentTerms: paymentTerms.trim() || null,
+        validityDays,
       };
 
       const isCreate = mode === 'create';
@@ -314,18 +330,50 @@ export default function QuoteForm({ mode, quote }: QuoteFormProps) {
         <aside className="space-y-4 xl:sticky xl:top-20 xl:self-start">
           <QuoteTotals lineItems={lineItems} />
 
-          <section className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
-            <Label htmlFor="quote-notes" className="mb-2 inline-flex items-center gap-2">
-              <NotebookTextIcon className="size-4 text-muted-foreground" />
-              {t.notes}
-            </Label>
-            <textarea
-              id="quote-notes"
-              className="mt-1 min-h-36 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-              placeholder={t.notesPlaceholder}
-              value={notes}
-              onChange={(event) => setNotes(event.target.value)}
-            />
+          <section className="rounded-xl border border-border/70 bg-card p-4 shadow-sm space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="quote-payment-terms">
+                {t.paymentTerms}
+              </Label>
+              <Input
+                id="quote-payment-terms"
+                value={paymentTerms}
+                onChange={(event) => setPaymentTerms(event.target.value)}
+                placeholder={t.paymentTermsPlaceholder}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="quote-validity-days">
+                {t.validityDays}
+              </Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="quote-validity-days"
+                  type="number"
+                  min={1}
+                  max={365}
+                  value={validityDays}
+                  onChange={(event) => setValidityDays(Math.max(1, Number(event.target.value) || 30))}
+                  className="w-24"
+                />
+                <span className="text-sm text-muted-foreground">{t.validityDaysUnit}</span>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="quote-notes" className="inline-flex items-center gap-2">
+                <NotebookTextIcon className="size-4 text-muted-foreground" />
+                {t.notes}
+              </Label>
+              <textarea
+                id="quote-notes"
+                className="mt-1 min-h-28 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                placeholder={t.notesPlaceholder}
+                value={notes}
+                onChange={(event) => setNotes(event.target.value)}
+              />
+            </div>
           </section>
 
           <div className="sticky bottom-0 z-10 rounded-xl border border-border/70 bg-background/95 p-3 shadow-sm backdrop-blur">
