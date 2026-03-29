@@ -43,6 +43,7 @@ interface QuoteDetail {
   };
   lineItems: Array<{
     _id?: string;
+    productImageUrl?: string | null;
     name: string;
     quantity: number;
     unitPriceExcludingTax: number;
@@ -484,7 +485,21 @@ export default function QuoteDetailPage() {
                     {quote.lineItems.map((item, index) => (
                       <tr key={item._id || `${item.name}-${index}`} className="border-t border-border/60 odd:bg-background even:bg-secondary/10">
                         <td className="px-3 py-2">{index + 1}</td>
-                        <td className="px-3 py-2 font-medium">{item.name}</td>
+                        <td className="px-3 py-2 font-medium">
+                          <span className="inline-flex items-center gap-2">
+                            {item.productImageUrl ? (
+                              <img
+                                src={item.productImageUrl}
+                                alt={item.name}
+                                className="h-7 w-7 rounded border border-border/60 object-cover"
+                                onError={(event) => {
+                                  event.currentTarget.style.display = 'none';
+                                }}
+                              />
+                            ) : null}
+                            <span>{item.name}</span>
+                          </span>
+                        </td>
                         <td className="px-3 py-2 text-right">{item.quantity}</td>
                         <td className="px-3 py-2 text-right"><PriceDisplay cents={item.unitPriceExcludingTax} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} /></td>
                         <td className="px-3 py-2 text-right">{item.vatRate}%</td>

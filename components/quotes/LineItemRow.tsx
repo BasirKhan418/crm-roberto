@@ -16,11 +16,14 @@ export interface CatalogueItemOption {
   type: 'product' | 'service';
   priceExcludingTax: number;
   vatRate: number;
+  attachmentUrl?: string | null;
+  attachmentMimeType?: string | null;
   description?: string | null;
 }
 
 export interface QuoteLineItem {
   productId: string | null;
+  productImageUrl?: string | null;
   name: string;
   quantity: number;
   unitPriceExcludingTax: number;
@@ -33,6 +36,22 @@ interface LineItemRowProps {
   products: CatalogueItemOption[];
   onChange: (index: number, patch: Partial<QuoteLineItem>) => void;
   onDelete: (index: number) => void;
+}
+
+function isImageMimeType(value?: string | null): boolean {
+  return Boolean(value && value.startsWith('image/'));
+}
+
+function isImageAttachment(url?: string | null, mime?: string | null): boolean {
+  if (isImageMimeType(mime)) {
+    return true;
+  }
+
+  if (!url) {
+    return false;
+  }
+
+  return /\.(png|jpe?g|webp|gif|svg)(\?.*)?$/i.test(url);
 }
 
 export default function LineItemRow({ row, index, products, onChange, onDelete }: LineItemRowProps) {
@@ -89,6 +108,7 @@ export default function LineItemRow({ row, index, products, onChange, onDelete }
   function handleProductSelect(product: CatalogueItemOption) {
     onChange(index, {
       productId: product._id,
+      productImageUrl: isImageAttachment(product.attachmentUrl, product.attachmentMimeType) ? product.attachmentUrl ?? null : null,
       name: product.name,
       unitPriceExcludingTax: product.priceExcludingTax,
       vatRate: product.vatRate,
@@ -108,11 +128,21 @@ export default function LineItemRow({ row, index, products, onChange, onDelete }
             onChange={(event) => {
               const next = event.target.value;
               setSearch(next);
-              onChange(index, { name: next, productId: null });
+              onChange(index, { name: next, productId: null, productImageUrl: null });
               setIsOpen(true);
             }}
             placeholder={t.searchPlaceholder}
           />
+          {row.productImageUrl ? (
+            <img
+              src={row.productImageUrl}
+              alt={row.name || 'Product'}
+              className="mt-1 h-7 w-7 rounded border border-border/60 object-cover"
+              onError={(event) => {
+                event.currentTarget.style.display = 'none';
+              }}
+            />
+          ) : null}
           {isOpen ? (
             <div className="absolute z-20 mt-1 max-h-52 w-full overflow-auto rounded-md border border-border bg-background p-1 shadow-lg">
               {filtered.length === 0 ? (
@@ -125,7 +155,19 @@ export default function LineItemRow({ row, index, products, onChange, onDelete }
                     className="w-full rounded px-2 py-1 text-left text-sm hover:bg-muted"
                     onClick={() => handleProductSelect(product)}
                   >
-                    <span className="font-medium">{product.name}</span>
+                    <span className="inline-flex items-center gap-2">
+                      {product.attachmentUrl && isImageAttachment(product.attachmentUrl, product.attachmentMimeType) ? (
+                        <img
+                          src={product.attachmentUrl}
+                          alt={product.name}
+                          className="h-6 w-6 rounded object-cover"
+                          onError={(event) => {
+                            event.currentTarget.style.display = 'none';
+                          }}
+                        />
+                      ) : null}
+                      <span className="font-medium">{product.name}</span>
+                    </span>
                   </button>
                 ))
               )}

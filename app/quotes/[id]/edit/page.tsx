@@ -22,6 +22,7 @@ interface QuoteApiResponse {
     status: 'draft' | 'sent' | 'accepted' | 'refused';
     lineItems: Array<{
       productId?: string | null;
+      productImageUrl?: string | null;
       name: string;
       quantity: number;
       unitPriceExcludingTax: number;
@@ -78,6 +79,7 @@ export default function EditQuotePage() {
             validityDays: payload.data.validityDays ?? 30,
             lineItems: payload.data.lineItems.map((item) => ({
               productId: item.productId ?? null,
+              productImageUrl: item.productImageUrl ?? null,
               name: item.name,
               quantity: item.quantity,
               unitPriceExcludingTax: item.unitPriceExcludingTax,

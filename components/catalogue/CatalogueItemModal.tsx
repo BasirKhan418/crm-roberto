@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { X } from 'lucide-react';
+import { useEffect, useMemo, useState, type ChangeEvent } from 'react';
+import { Loader2, PaperclipIcon, UploadIcon, X } from 'lucide-react';
 
 import { createCatalogueItemSchema, updateCatalogueItemSchema } from '@/validators/catalogue.schema';
 import { centsToEuros, eurosToCents } from '@/lib/price';
@@ -20,14 +20,34 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 type CatalogueType = 'product' | 'service';
+type CatalogueCurrency = 'EUR';
+const VAT_PRESET_OPTIONS = [17, 8, 3, 0, 20] as const;
+const ALLOWED_ATTACHMENT_TYPES = [
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'image/gif',
+  'application/pdf',
+] as const;
+const MAX_ATTACHMENT_SIZE = 8 * 1024 * 1024;
+
+function isImageMimeType(value?: string | null): boolean {
+  return Boolean(value && value.startsWith('image/'));
+}
 
 export interface CatalogueItemFormValue {
   _id: string;
   name: string;
   type: CatalogueType;
   priceExcludingTax: number;
+  priceIncludingTax: number;
   vatRate: number;
+  currency: CatalogueCurrency;
   description?: string | null;
+  attachmentUrl?: string | null;
+  attachmentKey?: string | null;
+  attachmentMimeType?: string | null;
+  attachmentName?: string | null;
 }
 
 interface CatalogueItemModalProps {
@@ -42,8 +62,11 @@ interface FieldErrors {
   name?: string;
   type?: string;
   priceInput?: string;
+  priceIncludingTax?: string;
   vatRate?: string;
+  currency?: string;
   description?: string;
+  attachment?: string;
 }
 
 function issueToField(path: PropertyKey[]): keyof FieldErrors | null {
@@ -57,6 +80,11 @@ function issueToField(path: PropertyKey[]): keyof FieldErrors | null {
   if (first === 'vatRate') return 'vatRate';
   if (first === 'description') return 'description';
   if (first === 'priceExcludingTax') return 'priceInput';
+  if (first === 'priceIncludingTax') return 'priceIncludingTax';
+  if (first === 'currency') return 'currency';
+  if (first === 'attachmentUrl' || first === 'attachmentKey' || first === 'attachmentMimeType' || first === 'attachmentName') {
+    return 'attachment';
+  }
   return null;
 }
 
@@ -73,8 +101,20 @@ export default function CatalogueItemModal({ open, mode, item, onClose, onSaved 
       type: 'Type',
       product: 'Product',
       service: 'Service',
-      priceExcludingTax: 'Price excl. tax',
+      priceExcludingTax: 'Unit price HT',
+      priceIncludingTax: 'Unit price TTC',
       vatRate: 'VAT rate',
+      vatCustom: 'Custom VAT',
+      vatOther: 'Other',
+      currency: 'Currency',
+      currencyEur: 'EUR',
+      attachment: 'Attachment',
+      viewAttachment: 'View file',
+      replaceAttachment: 'Replace file',
+      uploadAttachment: 'Upload file',
+      removeAttachment: 'Remove file',
+      uploading: 'Uploading...',
+      attachmentHint: 'PNG, JPG, WEBP, GIF or PDF (max 8 MB)',
       description: 'Description',
       descriptionPlaceholder: 'Optional details about this item',
       cancel: 'Cancel',
@@ -86,6 +126,9 @@ export default function CatalogueItemModal({ open, mode, item, onClose, onSaved 
       requiredType: 'Type is required',
       requiredPrice: 'Price is required',
       requiredVat: 'VAT rate is required',
+      attachmentTypeError: 'Unsupported file type',
+      attachmentSizeError: 'File is too large (max 8 MB)',
+      attachmentUploadError: 'Failed to upload file',
     },
     fr: {
       newTitle: 'Nouveau produit/service',
@@ -97,8 +140,20 @@ export default function CatalogueItemModal({ open, mode, item, onClose, onSaved 
       type: 'Type',
       product: 'Produit',
       service: 'Service',
-      priceExcludingTax: 'Prix HT',
+      priceExcludingTax: 'Prix Unitaire HT',
+      priceIncludingTax: 'Prix Unitaire TTC',
       vatRate: 'Taux TVA',
+      vatCustom: 'TVA personnalisee',
+      vatOther: 'Autre',
+      currency: 'Devise',
+      currencyEur: 'EUR',
+      attachment: 'Piece jointe',
+      viewAttachment: 'Voir le fichier',
+      replaceAttachment: 'Remplacer le fichier',
+      uploadAttachment: 'Ajouter une piece jointe',
+      removeAttachment: 'Retirer la piece jointe',
+      uploading: 'Telechargement...',
+      attachmentHint: 'PNG, JPG, WEBP, GIF ou PDF (max 8 Mo)',
       description: 'Description',
       descriptionPlaceholder: 'Details optionnels sur cet element',
       cancel: 'Annuler',
@@ -110,6 +165,9 @@ export default function CatalogueItemModal({ open, mode, item, onClose, onSaved 
       requiredType: 'Le type est requis',
       requiredPrice: 'Le prix est requis',
       requiredVat: 'Le taux TVA est requis',
+      attachmentTypeError: 'Type de fichier non supporte',
+      attachmentSizeError: 'Le fichier est trop volumineux (max 8 Mo)',
+      attachmentUploadError: 'Impossible de telecharger la piece jointe',
     },
   }[locale];
 
@@ -117,10 +175,27 @@ export default function CatalogueItemModal({ open, mode, item, onClose, onSaved 
   const [type, setType] = useState<CatalogueType | ''>('');
   const [priceInput, setPriceInput] = useState('');
   const [vatRate, setVatRate] = useState('17');
+  const [vatMode, setVatMode] = useState<'preset' | 'custom'>('preset');
+  const [currency, setCurrency] = useState<CatalogueCurrency>('EUR');
+  const [attachmentUrl, setAttachmentUrl] = useState<string | null>(null);
+  const [attachmentKey, setAttachmentKey] = useState<string | null>(null);
+  const [attachmentMimeType, setAttachmentMimeType] = useState<string | null>(null);
+  const [attachmentName, setAttachmentName] = useState<string | null>(null);
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
   const [description, setDescription] = useState('');
   const [saving, setSaving] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
   const [errors, setErrors] = useState<FieldErrors>({});
+
+  const unitPriceExcludingTax = useMemo(() => {
+    const parsed = Number(priceInput);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+  }, [priceInput]);
+
+  const unitPriceIncludingTax = useMemo(
+    () => unitPriceExcludingTax * (1 + Number(vatRate || 0) / 100),
+    [unitPriceExcludingTax, vatRate]
+  );
 
   useEffect(() => {
     if (!open) {
@@ -132,12 +207,24 @@ export default function CatalogueItemModal({ open, mode, item, onClose, onSaved 
       setType(item.type);
       setPriceInput(centsToEuros(item.priceExcludingTax));
       setVatRate(String(item.vatRate));
+      setVatMode(VAT_PRESET_OPTIONS.includes(item.vatRate as (typeof VAT_PRESET_OPTIONS)[number]) ? 'preset' : 'custom');
+      setCurrency(item.currency ?? 'EUR');
+      setAttachmentUrl(item.attachmentUrl ?? null);
+      setAttachmentKey(item.attachmentKey ?? null);
+      setAttachmentMimeType(item.attachmentMimeType ?? null);
+      setAttachmentName(item.attachmentName ?? null);
       setDescription(item.description ?? '');
     } else {
       setName('');
       setType('');
       setPriceInput('');
       setVatRate('17');
+      setVatMode('preset');
+      setCurrency('EUR');
+      setAttachmentUrl(null);
+      setAttachmentKey(null);
+      setAttachmentMimeType(null);
+      setAttachmentName(null);
       setDescription('');
     }
 
@@ -152,6 +239,83 @@ export default function CatalogueItemModal({ open, mode, item, onClose, onSaved 
 
     return t.newTitle;
   }, [mode, item, t]);
+
+  async function handleAttachmentFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    setErrors((prev) => ({ ...prev, attachment: undefined }));
+
+    if (!ALLOWED_ATTACHMENT_TYPES.includes(file.type as (typeof ALLOWED_ATTACHMENT_TYPES)[number])) {
+      setErrors((prev) => ({ ...prev, attachment: t.attachmentTypeError }));
+      event.target.value = '';
+      return;
+    }
+
+    if (file.size > MAX_ATTACHMENT_SIZE) {
+      setErrors((prev) => ({ ...prev, attachment: t.attachmentSizeError }));
+      event.target.value = '';
+      return;
+    }
+
+    setUploadingAttachment(true);
+    try {
+      const presignRes = await fetch('/api/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fileName: file.name,
+          fileType: file.type,
+          folder: 'catalogue',
+        }),
+      });
+
+      const presignJson = (await presignRes.json()) as {
+        success?: boolean;
+        message?: string;
+        uploadUrl?: string;
+        fileUrl?: string;
+        key?: string;
+      };
+
+      if (!presignRes.ok || !presignJson.success || !presignJson.uploadUrl || !presignJson.fileUrl || !presignJson.key) {
+        throw new Error(presignJson.message || t.attachmentUploadError);
+      }
+
+      const uploadRes = await fetch(presignJson.uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': file.type },
+        body: file,
+      });
+
+      if (!uploadRes.ok) {
+        throw new Error(t.attachmentUploadError);
+      }
+
+      setAttachmentUrl(presignJson.fileUrl);
+      setAttachmentKey(presignJson.key);
+      setAttachmentMimeType(file.type);
+      setAttachmentName(file.name);
+    } catch (error) {
+      setErrors((prev) => ({
+        ...prev,
+        attachment: error instanceof Error ? error.message : t.attachmentUploadError,
+      }));
+    } finally {
+      setUploadingAttachment(false);
+      event.target.value = '';
+    }
+  }
+
+  function removeAttachment() {
+    setAttachmentUrl(null);
+    setAttachmentKey(null);
+    setAttachmentMimeType(null);
+    setAttachmentName(null);
+    setErrors((prev) => ({ ...prev, attachment: undefined }));
+  }
 
   async function handleSubmit() {
     setErrors({});
@@ -171,7 +335,13 @@ export default function CatalogueItemModal({ open, mode, item, onClose, onSaved 
       name,
       type,
       priceExcludingTax: eurosToCents(priceInput),
+        priceIncludingTax: Math.round(unitPriceIncludingTax * 100),
       vatRate: Number(vatRate),
+        currency,
+        attachmentUrl,
+        attachmentKey,
+        attachmentMimeType,
+        attachmentName,
       description: description.trim() ? description : undefined,
     };
 
@@ -214,9 +384,17 @@ export default function CatalogueItemModal({ open, mode, item, onClose, onSaved 
           ...prev,
           name: apiFieldErrors.name?.[0] ?? prev.name,
           priceInput: apiFieldErrors.priceExcludingTax?.[0] ?? prev.priceInput,
+          priceIncludingTax: apiFieldErrors.priceIncludingTax?.[0] ?? prev.priceIncludingTax,
           vatRate: apiFieldErrors.vatRate?.[0] ?? prev.vatRate,
+          currency: apiFieldErrors.currency?.[0] ?? prev.currency,
           type: apiFieldErrors.type?.[0] ?? prev.type,
           description: apiFieldErrors.description?.[0] ?? prev.description,
+          attachment:
+            apiFieldErrors.attachmentUrl?.[0] ??
+            apiFieldErrors.attachmentKey?.[0] ??
+            apiFieldErrors.attachmentMimeType?.[0] ??
+            apiFieldErrors.attachmentName?.[0] ??
+            prev.attachment,
         }));
         throw new Error(data.message || t.genericError);
       }
@@ -232,7 +410,7 @@ export default function CatalogueItemModal({ open, mode, item, onClose, onSaved 
 
   return (
     <Dialog open={open} onOpenChange={(next) => (!next ? onClose() : undefined)}>
-      <DialogContent className="max-w-120 p-6 sm:p-7">
+      <DialogContent className="w-[calc(100vw-1rem)] max-w-[42rem] max-h-[90vh] overflow-y-auto p-4 sm:p-6">
         <Button
           type="button"
           variant="ghost"
@@ -306,7 +484,7 @@ export default function CatalogueItemModal({ open, mode, item, onClose, onSaved 
                   min={0}
                   step="0.01"
                   inputMode="decimal"
-                  className="pl-7"
+                  className="no-number-spinner pl-7"
                   value={priceInput}
                   onChange={(e) => setPriceInput(e.target.value)}
                   aria-invalid={Boolean(errors.priceInput)}
@@ -316,23 +494,142 @@ export default function CatalogueItemModal({ open, mode, item, onClose, onSaved 
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="catalogue-vat">{t.vatRate}</Label>
-              <div className="relative">
-                <Input
-                  id="catalogue-vat"
-                  type="number"
-                  min={0}
-                  max={100}
-                  step="0.1"
-                  className="pr-7"
-                  value={vatRate}
-                  onChange={(e) => setVatRate(e.target.value)}
-                  aria-invalid={Boolean(errors.vatRate)}
-                />
-                <span className="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 text-[13px] text-muted-foreground">%</span>
-              </div>
+              <Label htmlFor="catalogue-vat-select">{t.vatRate}</Label>
+              <select
+                id="catalogue-vat-select"
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                value={vatMode === 'custom' ? 'other' : vatRate}
+                onChange={(event) => {
+                  const next = event.target.value;
+                  if (next === 'other') {
+                    setVatMode('custom');
+                    if (VAT_PRESET_OPTIONS.includes(Number(vatRate) as (typeof VAT_PRESET_OPTIONS)[number])) {
+                      setVatRate('');
+                    }
+                    return;
+                  }
+
+                  setVatMode('preset');
+                  setVatRate(next);
+                }}
+              >
+                {VAT_PRESET_OPTIONS.map((value) => (
+                  <option key={value} value={String(value)}>
+                    {value}%
+                  </option>
+                ))}
+                <option value="other">{t.vatOther}</option>
+              </select>
+              {vatMode === 'custom' ? (
+                <div className="relative">
+                  <Input
+                    id="catalogue-vat-custom"
+                    type="number"
+                    min={0}
+                    max={100}
+                    step="0.1"
+                    className="no-number-spinner pr-7"
+                    value={vatRate}
+                    onChange={(e) => setVatRate(e.target.value)}
+                    placeholder={t.vatCustom}
+                    aria-invalid={Boolean(errors.vatRate)}
+                  />
+                  <span className="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 text-[13px] text-muted-foreground">%</span>
+                </div>
+              ) : null}
               {errors.vatRate ? <p className="text-xs text-destructive">{errors.vatRate}</p> : null}
             </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="catalogue-price-ttc">{t.priceIncludingTax}</Label>
+              <div className="relative">
+                <span className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-sm text-muted-foreground">€</span>
+                <Input
+                  id="catalogue-price-ttc"
+                  value={unitPriceIncludingTax.toFixed(2)}
+                  readOnly
+                  className="pl-7 bg-muted/30"
+                />
+              </div>
+              {errors.priceIncludingTax ? <p className="text-xs text-destructive">{errors.priceIncludingTax}</p> : null}
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="catalogue-currency">{t.currency}</Label>
+              <Input id="catalogue-currency" value={currency} readOnly className="bg-muted/30" />
+              {errors.currency ? <p className="text-xs text-destructive">{errors.currency}</p> : null}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>{t.attachment}</Label>
+            <div className="rounded-lg border border-border/70 bg-background px-3 py-2.5">
+              {attachmentUrl ? (
+                <div className="flex flex-col gap-3">
+                  <div className="flex min-w-0 items-center gap-2">
+                    {isImageMimeType(attachmentMimeType) ? (
+                      <img
+                        src={attachmentUrl}
+                        alt={attachmentName || 'Attachment preview'}
+                        className="h-10 w-10 rounded-md border border-border/70 object-cover"
+                        onError={(event) => {
+                          event.currentTarget.style.display = 'none';
+                        }}
+                      />
+                    ) : (
+                      <PaperclipIcon className="size-4 shrink-0 text-muted-foreground" />
+                    )}
+                    <p className="truncate text-sm text-foreground/90">{attachmentName || attachmentUrl}</p>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    <a
+                      href={attachmentUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex h-9 items-center justify-center rounded-md border border-input px-3 text-sm hover:bg-muted/60"
+                    >
+                      {t.viewAttachment}
+                    </a>
+
+                    <label className="inline-flex">
+                      <input
+                        type="file"
+                        className="hidden"
+                        accept="image/png,image/jpeg,image/webp,image/gif,application/pdf"
+                        onChange={handleAttachmentFileChange}
+                        disabled={uploadingAttachment || saving}
+                      />
+                      <span className="inline-flex h-9 w-full cursor-pointer items-center justify-center gap-1.5 rounded-md border border-input px-3 text-sm hover:bg-muted/60">
+                        {uploadingAttachment ? <Loader2 className="size-3.5 animate-spin" /> : <UploadIcon className="size-3.5" />}
+                        {uploadingAttachment ? t.uploading : t.replaceAttachment}
+                      </span>
+                    </label>
+
+                    <Button type="button" variant="outline" size="sm" className="h-9" onClick={removeAttachment} disabled={saving || uploadingAttachment}>
+                      {t.removeAttachment}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-xs text-muted-foreground">{t.attachmentHint}</p>
+                  <label className="inline-flex">
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept="image/png,image/jpeg,image/webp,image/gif,application/pdf"
+                      onChange={handleAttachmentFileChange}
+                      disabled={uploadingAttachment || saving}
+                    />
+                    <span className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-md border border-input px-3 text-sm hover:bg-muted/60">
+                      {uploadingAttachment ? <Loader2 className="size-3.5 animate-spin" /> : <UploadIcon className="size-3.5" />}
+                      {uploadingAttachment ? t.uploading : t.uploadAttachment}
+                    </span>
+                  </label>
+                </div>
+              )}
+            </div>
+            {errors.attachment ? <p className="text-xs text-destructive">{errors.attachment}</p> : null}
           </div>
 
           <div className="space-y-1.5">
@@ -348,11 +645,11 @@ export default function CatalogueItemModal({ open, mode, item, onClose, onSaved 
           </div>
         </div>
 
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
+        <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end">
+          <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={onClose} disabled={saving}>
             {t.cancel}
           </Button>
-          <Button type="button" onClick={handleSubmit} disabled={saving}>
+          <Button type="button" className="w-full sm:w-auto" onClick={handleSubmit} disabled={saving}>
             {saving ? t.saving : mode === 'add' ? t.saveAdd : t.saveEdit}
           </Button>
         </DialogFooter>

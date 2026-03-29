@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { ArrowDown, ArrowUp, ArrowUpDown, PlusIcon, SearchIcon } from 'lucide-react';
+import { toast } from 'sonner';
 
 import CatalogueItemModal, { type CatalogueItemFormValue } from '@/components/catalogue/CatalogueItemModal';
 import CatalogueTable, {
@@ -82,6 +83,7 @@ export default function CataloguePage() {
       subtitle: 'Manage reusable products and services for fast quote creation.',
       newItem: 'New item',
       loadingError: 'Failed to load catalogue items',
+      loadItemFailed: 'Failed to load item details',
       searchPlaceholder: 'Search by name, type or description...',
       tabAll: 'All',
       tabProducts: 'Products',
@@ -114,6 +116,7 @@ export default function CataloguePage() {
       subtitle: 'Gerez des produits et services reutilisables pour creer des devis rapidement.',
       newItem: 'Nouvel element',
       loadingError: 'Impossible de charger les elements du catalogue',
+      loadItemFailed: 'Impossible de charger le detail de cet element',
       searchPlaceholder: 'Rechercher par nom, type ou description...',
       tabAll: 'Tous',
       tabProducts: 'Produits',
@@ -238,15 +241,44 @@ export default function CataloguePage() {
     setPagination((prev) => ({ ...prev, page: 1 }));
   }
 
-  function openEdit(item: CatalogueItem) {
-    setEditItem({
-      _id: item._id,
-      name: item.name,
-      type: item.type,
-      priceExcludingTax: item.priceExcludingTax,
-      vatRate: item.vatRate,
-      description: item.description ?? null,
-    });
+  async function openEdit(item: CatalogueItem) {
+    try {
+      const response = await fetch(`/api/catalogue/${item._id}`, { cache: 'no-store' });
+      const payload = (await response.json()) as {
+        success?: boolean;
+        message?: string;
+        data?: CatalogueItem & {
+          fileUrl?: string | null;
+          fileKey?: string | null;
+          fileMimeType?: string | null;
+          fileName?: string | null;
+          imageUrl?: string | null;
+          imageKey?: string | null;
+        };
+      };
+
+      if (!response.ok || !payload.success || !payload.data) {
+        throw new Error(payload.message || t.loadItemFailed);
+      }
+
+      const detail = payload.data;
+      setEditItem({
+        _id: detail._id,
+        name: detail.name,
+        type: detail.type,
+        priceExcludingTax: detail.priceExcludingTax,
+        priceIncludingTax: detail.priceIncludingTax ?? Math.round(detail.priceExcludingTax * (1 + detail.vatRate / 100)),
+        vatRate: detail.vatRate,
+        currency: detail.currency ?? 'EUR',
+        description: detail.description ?? null,
+        attachmentUrl: detail.attachmentUrl ?? detail.fileUrl ?? detail.imageUrl ?? null,
+        attachmentKey: detail.attachmentKey ?? detail.fileKey ?? detail.imageKey ?? null,
+        attachmentMimeType: detail.attachmentMimeType ?? detail.fileMimeType ?? null,
+        attachmentName: detail.attachmentName ?? detail.fileName ?? null,
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t.loadItemFailed);
+    }
   }
 
   async function refreshAfterMutation() {

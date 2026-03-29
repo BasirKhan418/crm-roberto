@@ -22,12 +22,26 @@ const CatalogueItemSchema = new mongoose.Schema(
       required: [true, "Price is required"],
       min: [0, "Price cannot be negative"],
     },
+    priceIncludingTax: {
+      type: Number,
+      required: [true, "Price including tax is required"],
+      min: [0, "Price including tax cannot be negative"],
+    },
     vatRate: {
       type: Number,
       required: [true, "VAT rate is required"],
       default: 17,
       min: [0, "VAT rate cannot be negative"],
       max: [100, "VAT rate cannot exceed 100"],
+    },
+    currency: {
+      type: String,
+      required: true,
+      default: "EUR",
+      enum: {
+        values: ["EUR"],
+        message: "Currency must be EUR",
+      },
     },
     type: {
       type: String,
@@ -42,6 +56,26 @@ const CatalogueItemSchema = new mongoose.Schema(
       trim: true,
       default: null,
       maxlength: [1000, "Description cannot exceed 1000 characters"],
+    },
+    attachmentUrl: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    attachmentKey: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    attachmentMimeType: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    attachmentName: {
+      type: String,
+      trim: true,
+      default: null,
     },
   },
   { timestamps: true }

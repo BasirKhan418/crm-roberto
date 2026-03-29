@@ -9,6 +9,12 @@ const LineItemSchema = new mongoose.Schema(
       default: null,
     },
 
+    productImageUrl: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+
     name: {
       type: String,
       required: [true, "Line item name is required"],

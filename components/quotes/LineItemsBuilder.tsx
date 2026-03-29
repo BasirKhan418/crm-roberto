@@ -22,6 +22,7 @@ interface LineItemsBuilderProps {
 
 const EMPTY_ROW: QuoteLineItem = {
   productId: null,
+  productImageUrl: null,
   name: '',
   quantity: 1,
   unitPriceExcludingTax: 0,

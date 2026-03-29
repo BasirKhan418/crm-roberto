@@ -59,6 +59,7 @@ interface QuoteRecord {
   clientSnapshot: ClientSnapshotRecord;
   lineItems: Array<{
     productId?: string | null;
+    productImageUrl?: string | null;
     name: string;
     quantity: number;
     unitPriceExcludingTax: number;
@@ -549,6 +550,7 @@ export const duplicateQuoteById = async (userId: string, quoteId: string): Promi
 
   const lineItems = (sourceQuote as QuoteRecord).lineItems.map((item) => ({
     productId: item.productId ?? null,
+    productImageUrl: item.productImageUrl ?? null,
     name: item.name,
     quantity: item.quantity,
     unitPriceExcludingTax: item.unitPriceExcludingTax,

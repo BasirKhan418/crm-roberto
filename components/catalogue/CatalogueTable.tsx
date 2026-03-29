@@ -12,8 +12,14 @@ export interface CatalogueItem {
   name: string;
   type: 'product' | 'service';
   priceExcludingTax: number;
+  priceIncludingTax?: number;
   vatRate: number;
+  currency?: 'EUR';
   description?: string | null;
+  attachmentUrl?: string | null;
+  attachmentKey?: string | null;
+  attachmentMimeType?: string | null;
+  attachmentName?: string | null;
   createdAt: string;
 }
 
@@ -46,6 +52,18 @@ interface CatalogueTableProps {
 
 const truncate = (str: string | null | undefined, n = 60) =>
   str && str.length > n ? `${str.slice(0, n)}...` : str ?? '—';
+
+function isImageAttachment(url?: string | null, mime?: string | null): boolean {
+  if (mime?.startsWith('image/')) {
+    return true;
+  }
+
+  if (!url) {
+    return false;
+  }
+
+  return /\.(png|jpe?g|webp|gif|svg)(\?.*)?$/i.test(url);
+}
 
 const typePill = (type: 'product' | 'service') => ({
   fontSize: '11px',
@@ -130,7 +148,19 @@ export default function CatalogueTable({
               <article key={item._id} className="rounded-xl border border-border/70 bg-card/80 p-3.5 shadow-sm">
                 {/* Header row: name + type badge */}
                 <div className="mb-3 flex items-start justify-between gap-2">
-                  <h3 className="line-clamp-2 text-sm font-semibold leading-5">{item.name}</h3>
+                  <div className="flex min-w-0 items-start gap-2">
+                    {item.attachmentUrl && isImageAttachment(item.attachmentUrl, item.attachmentMimeType) ? (
+                      <img
+                        src={item.attachmentUrl}
+                        alt={item.attachmentName || item.name}
+                        className="h-9 w-9 shrink-0 rounded-md border border-border/70 object-cover"
+                        onError={(event) => {
+                          event.currentTarget.style.display = 'none';
+                        }}
+                      />
+                    ) : null}
+                    <h3 className="line-clamp-2 text-sm font-semibold leading-5">{item.name}</h3>
+                  </div>
                   <span className="shrink-0" style={typePill(item.type)}>
                     {item.type === 'product' ? labels.product : labels.service}
                   </span>
@@ -202,7 +232,21 @@ export default function CatalogueTable({
                 ))
               : items.map((item) => (
                   <TableRow key={item._id}>
-                    <TableCell className="truncate font-medium" title={item.name}>{item.name}</TableCell>
+                    <TableCell className="font-medium" title={item.name}>
+                      <div className="flex min-w-0 items-center gap-2">
+                        {item.attachmentUrl && isImageAttachment(item.attachmentUrl, item.attachmentMimeType) ? (
+                          <img
+                            src={item.attachmentUrl}
+                            alt={item.attachmentName || item.name}
+                            className="h-8 w-8 shrink-0 rounded-md border border-border/70 object-cover"
+                            onError={(event) => {
+                              event.currentTarget.style.display = 'none';
+                            }}
+                          />
+                        ) : null}
+                        <span className="truncate">{item.name}</span>
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <span style={typePill(item.type)}>{item.type === 'product' ? labels.product : labels.service}</span>
                     </TableCell>

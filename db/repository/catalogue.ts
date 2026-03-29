@@ -14,7 +14,13 @@ export interface CatalogueRecord {
   name: string;
   description?: string | null;
   priceExcludingTax: number;
+  priceIncludingTax: number;
   vatRate: number;
+  currency: 'EUR';
+  attachmentUrl?: string | null;
+  attachmentKey?: string | null;
+  attachmentMimeType?: string | null;
+  attachmentName?: string | null;
   type: CatalogueType;
   createdAt: Date;
   updatedAt: Date;
@@ -29,14 +35,22 @@ function isValidObjectId(value: string): boolean {
   return mongoose.Types.ObjectId.isValid(value);
 }
 
+function toPriceIncludingTax(priceExcludingTax: number, vatRate: number): number {
+  return Math.round(priceExcludingTax * (1 + vatRate / 100));
+}
+
 export const createCatalogueItem = async (
   userId: string,
   payload: CreateCatalogueItemDTO
 ): Promise<CatalogueRecord> => {
   await ConnectDb();
 
+  const priceIncludingTax = toPriceIncludingTax(payload.priceExcludingTax, payload.vatRate);
+
   const created = await CatalogueItem.create({
     ...payload,
+    currency: payload.currency ?? 'EUR',
+    priceIncludingTax,
     user: userId,
   });
 
@@ -104,7 +118,24 @@ export const updateCatalogueItemById = async (
     return null;
   }
 
-  const updated = await CatalogueItem.findOneAndUpdate({ _id: itemId, user: userId }, payload, {
+  const existing = await CatalogueItem.findOne({ _id: itemId, user: userId })
+    .select('priceExcludingTax vatRate')
+    .lean();
+
+  if (!existing) {
+    return null;
+  }
+
+  const nextPriceExcludingTax = payload.priceExcludingTax ?? (existing as { priceExcludingTax: number }).priceExcludingTax;
+  const nextVatRate = payload.vatRate ?? (existing as { vatRate: number }).vatRate;
+
+  const nextPayload: UpdateCatalogueItemDTO = {
+    ...payload,
+    currency: payload.currency ?? 'EUR',
+    priceIncludingTax: toPriceIncludingTax(nextPriceExcludingTax, nextVatRate),
+  };
+
+  const updated = await CatalogueItem.findOneAndUpdate({ _id: itemId, user: userId }, nextPayload, {
     new: true,
     runValidators: true,
   }).lean();

@@ -28,6 +28,10 @@ const toNumber = (val: unknown) => {
 
 const lineItemSchema = z.object({
   productId: objectIdSchema.optional().nullable(),
+  productImageUrl: z.preprocess(
+    emptyToNull,
+    z.string().trim().url('Line item image must be a valid URL').nullable().optional()
+  ),
   name: z.string().trim().min(1, 'Line item name is required'),
   quantity: z.preprocess(toNumber, z.number().min(1, 'Quantity must be at least 1')),
   unitPriceExcludingTax: z.preprocess(
