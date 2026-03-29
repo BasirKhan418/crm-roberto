@@ -78,7 +78,6 @@ const QuoteSchema = new mongoose.Schema(
     quoteNumber: {
       type: String,
       required: true,
-      unique: true,
       trim: true,
       // example: "DEV-001"
     },
@@ -196,6 +195,9 @@ const QuoteSchema = new mongoose.Schema(
 
 // Speed up list page: all quotes for this user, newest first
 QuoteSchema.index({ user: 1, createdAt: -1 });
+
+// Guarantee quote number uniqueness per user.
+QuoteSchema.index({ user: 1, quoteNumber: 1 }, { unique: true, name: 'unique_user_quote_number' });
 
 // Speed up status filter tabs
 QuoteSchema.index({ user: 1, status: 1 });

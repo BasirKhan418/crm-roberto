@@ -1,14 +1,19 @@
 import ConnectDb from '@/db/connectDb';
 import Client from '@/db/models/Client';
 import Quote from '@/db/models/Quote';
+import QuoteSequence from '../models/QuoteSequence';
 import mongoose from 'mongoose';
-import { calcLineItem, calcQuoteTotals, nextQuoteNumber } from '@/lib/price';
+import { calcLineItem, calcQuoteTotals } from '@/lib/price';
 import type { CreateQuoteDTO, UpdateQuoteDTO, UpdateQuoteStatusDTO } from '@/validators/quote.schema';
 
 export type QuoteStatus = 'draft' | 'sent' | 'accepted' | 'refused';
 
 interface LastQuoteNumberRecord {
   quoteNumber: string;
+}
+
+interface QuoteSequenceRecord {
+  lastCounter: number;
 }
 
 export interface QuoteListItemRecord {
@@ -100,25 +105,186 @@ const ALLOWED_STATUS_TRANSITIONS: Record<QuoteStatus, QuoteStatus[]> = {
   refused: ['draft'],
 };
 
+const MAX_QUOTE_NUMBER_RETRIES = 200;
+const QUOTE_NUMBER_PREFIX = 'DEV';
+let ensureQuoteNumberIndexPromise: Promise<void> | null = null;
+
+function getCurrentQuoteYear(): number {
+  return new Date().getFullYear();
+}
+
+function getQuotePrefix(year: number): string {
+  return `${QUOTE_NUMBER_PREFIX}-${year}-`;
+}
+
+function formatQuoteNumber(year: number, counter: number): string {
+  return `${getQuotePrefix(year)}${String(counter).padStart(3, '0')}`;
+}
+
 function isValidObjectId(value: string): boolean {
   return mongoose.Types.ObjectId.isValid(value);
+}
+
+function isDuplicateKeyError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+
+  return (error as { code?: number }).code === 11000;
+}
+
+async function ensureTenantScopedQuoteNumberIndex(): Promise<void> {
+  if (ensureQuoteNumberIndexPromise) {
+    await ensureQuoteNumberIndexPromise;
+    return;
+  }
+
+  ensureQuoteNumberIndexPromise = (async () => {
+    const indexes = await Quote.collection.indexes();
+    const hasTenantUniqueIndex = indexes.some(
+      (index) =>
+        index.name === 'unique_user_quote_number' &&
+        index.unique === true &&
+        (index.key as Record<string, number>)?.user === 1 &&
+        (index.key as Record<string, number>)?.quoteNumber === 1
+    );
+
+    const hasLegacyGlobalQuoteNumberUnique = indexes.some(
+      (index) =>
+        index.name === 'quoteNumber_1' &&
+        index.unique === true &&
+        (index.key as Record<string, number>)?.quoteNumber === 1 &&
+        Object.keys(index.key as Record<string, number>).length === 1
+    );
+
+    if (hasLegacyGlobalQuoteNumberUnique) {
+      await Quote.collection.dropIndex('quoteNumber_1');
+    }
+
+    if (!hasTenantUniqueIndex) {
+      await Quote.collection.createIndex(
+        { user: 1, quoteNumber: 1 },
+        { unique: true, name: 'unique_user_quote_number' }
+      );
+    }
+  })().catch((error) => {
+    ensureQuoteNumberIndexPromise = null;
+    throw error;
+  });
+
+  await ensureQuoteNumberIndexPromise;
+}
+
+function parseQuoteCounter(quoteNumber: string, year: number): number | null {
+  const prefix = getQuotePrefix(year);
+  if (!quoteNumber.startsWith(prefix)) {
+    return null;
+  }
+
+  const rawCounter = quoteNumber.slice(prefix.length);
+  if (!/^\d+$/.test(rawCounter)) {
+    return null;
+  }
+
+  const counter = Number.parseInt(rawCounter, 10);
+  return Number.isFinite(counter) && counter > 0 ? counter : null;
+}
+
+async function getMaxExistingQuoteCounter(userId: string, year: number): Promise<number> {
+  if (!isValidObjectId(userId)) {
+    return 0;
+  }
+
+  const userObjectId = new mongoose.Types.ObjectId(userId);
+  const prefix = getQuotePrefix(year);
+
+  const rows = await Quote.aggregate<{ counter: number }>([
+    {
+      $match: {
+        user: userObjectId,
+        quoteNumber: { $regex: `^${prefix}\\d+$` },
+      },
+    },
+    {
+      $addFields: {
+        counter: {
+          $toInt: {
+            $arrayElemAt: [{ $split: ['$quoteNumber', prefix] }, 1],
+          },
+        },
+      },
+    },
+    { $sort: { counter: -1 } },
+    { $limit: 1 },
+    { $project: { _id: 0, counter: 1 } },
+  ]);
+
+  return rows[0]?.counter ?? 0;
+}
+
+async function ensureQuoteSequenceSeeded(userId: string, year: number): Promise<void> {
+  const existing = await QuoteSequence.findOne({ user: userId, year }).select('_id').lean();
+  if (existing) {
+    return;
+  }
+
+  const maxExistingCounter = await getMaxExistingQuoteCounter(userId, year);
+
+  try {
+    await QuoteSequence.create({ user: userId, year, lastCounter: maxExistingCounter });
+  } catch (error) {
+    if (!isDuplicateKeyError(error)) {
+      throw error;
+    }
+  }
+}
+
+async function allocateNextQuoteNumber(userId: string): Promise<string> {
+  const year = getCurrentQuoteYear();
+
+  await ensureQuoteSequenceSeeded(userId, year);
+
+  const sequence = await QuoteSequence.findOneAndUpdate(
+    { user: userId, year },
+    {
+      $inc: { lastCounter: 1 },
+      $setOnInsert: { user: userId, year },
+    },
+    { new: true, upsert: true }
+  )
+    .select('lastCounter')
+    .lean();
+
+  const nextCounter = (sequence as QuoteSequenceRecord | null)?.lastCounter;
+  if (!nextCounter || nextCounter < 1) {
+    throw new Error('Could not allocate next quote number.');
+  }
+
+  return formatQuoteNumber(year, nextCounter);
 }
 
 export const getLastQuoteNumber = async (userId: string): Promise<string | null> => {
   await ConnectDb();
 
-  const year = new Date().getFullYear();
-  const prefix = `DEV-${year}-`;
+  const year = getCurrentQuoteYear();
 
-  const lastQuote = await Quote.findOne({
-    user: userId,
-    quoteNumber: { $regex: `^${prefix}` },
-  })
-    .sort({ createdAt: -1 })
-    .select('quoteNumber')
-    .lean();
+  const [lastQuote, sequence, maxExistingCounter] = await Promise.all([
+    Quote.findOne({
+      user: userId,
+      quoteNumber: { $regex: `^${getQuotePrefix(year)}\\d+$` },
+    })
+      .sort({ createdAt: -1 })
+      .select('quoteNumber')
+      .lean(),
+    QuoteSequence.findOne({ user: userId, year }).select('lastCounter').lean(),
+    getMaxExistingQuoteCounter(userId, year),
+  ]);
 
-  return (lastQuote as LastQuoteNumberRecord | null)?.quoteNumber ?? null;
+  const lastFromQuotes = parseQuoteCounter((lastQuote as LastQuoteNumberRecord | null)?.quoteNumber ?? '', year) ?? 0;
+  const lastFromSequence = (sequence as QuoteSequenceRecord | null)?.lastCounter ?? 0;
+  const lastCounter = Math.max(lastFromQuotes, lastFromSequence, maxExistingCounter);
+
+  return lastCounter > 0 ? formatQuoteNumber(year, lastCounter) : null;
 };
 
 export const listQuotes = async (
@@ -218,6 +384,7 @@ async function getClientSnapshot(userId: string, clientId: string): Promise<Clie
 
 export const createQuote = async (userId: string, payload: CreateQuoteDTO): Promise<CreateQuoteResult> => {
   await ConnectDb();
+  await ensureTenantScopedQuoteNumberIndex();
 
   const clientSnapshot = await getClientSnapshot(userId, payload.clientId);
   if (!clientSnapshot) {
@@ -230,28 +397,38 @@ export const createQuote = async (userId: string, payload: CreateQuoteDTO): Prom
   }));
 
   const totals = calcQuoteTotals(payload.lineItems);
-  const lastQuoteNumber = await getLastQuoteNumber(userId);
-  const quoteNumber = nextQuoteNumber(lastQuoteNumber);
 
-  const created = await Quote.create({
-    user: userId,
-    quoteNumber,
-    date: payload.date ?? new Date(),
-    status: 'draft',
-    clientId: payload.clientId,
-    clientSnapshot,
-    lineItems,
-    ...totals,
-    notes: payload.notes ?? null,
-    paymentTerms: payload.paymentTerms ?? null,
-    validityDays: payload.validityDays ?? 30,
-    statusHistory: [{ to: 'draft', changedAt: new Date() }],
-  });
+  for (let attempt = 0; attempt < MAX_QUOTE_NUMBER_RETRIES; attempt += 1) {
+    const quoteNumber = await allocateNextQuoteNumber(userId);
 
-  return {
-    kind: 'ok',
-    quote: created.toObject() as QuoteRecord,
-  };
+    try {
+      const created = await Quote.create({
+        user: userId,
+        quoteNumber,
+        date: payload.date ?? new Date(),
+        status: 'draft',
+        clientId: payload.clientId,
+        clientSnapshot,
+        lineItems,
+        ...totals,
+        notes: payload.notes ?? null,
+        paymentTerms: payload.paymentTerms ?? null,
+        validityDays: payload.validityDays ?? 30,
+        statusHistory: [{ to: 'draft', changedAt: new Date() }],
+      });
+
+      return {
+        kind: 'ok',
+        quote: created.toObject() as QuoteRecord,
+      };
+    } catch (error) {
+      if (!isDuplicateKeyError(error)) {
+        throw error;
+      }
+    }
+  }
+
+  throw new Error('Could not allocate a unique quote number. Please retry.');
 };
 
 export const updateQuoteById = async (
@@ -359,6 +536,7 @@ export const updateQuoteStatusById = async (
 
 export const duplicateQuoteById = async (userId: string, quoteId: string): Promise<DuplicateQuoteResult> => {
   await ConnectDb();
+  await ensureTenantScopedQuoteNumberIndex();
 
   if (!isValidObjectId(quoteId)) {
     return { kind: 'not-found' };
@@ -388,29 +566,38 @@ export const duplicateQuoteById = async (userId: string, quoteId: string): Promi
     }))
   );
 
-  const lastQuoteNumber = await getLastQuoteNumber(userId);
-  const quoteNumber = nextQuoteNumber(lastQuoteNumber);
+  for (let attempt = 0; attempt < MAX_QUOTE_NUMBER_RETRIES; attempt += 1) {
+    const quoteNumber = await allocateNextQuoteNumber(userId);
 
-  const created = await Quote.create({
-    user: userId,
-    quoteNumber,
-    date: new Date(),
-    status: 'draft',
-    clientId: (sourceQuote as QuoteRecord).clientId,
-    clientSnapshot: (sourceQuote as QuoteRecord).clientSnapshot,
-    lineItems,
-    ...totals,
-    notes: (sourceQuote as QuoteRecord).notes ?? null,
-    paymentTerms: (sourceQuote as QuoteRecord).paymentTerms ?? null,
-    validityDays: (sourceQuote as QuoteRecord).validityDays ?? 30,
-    statusHistory: [{ to: 'draft', changedAt: new Date() }],
-    convertedToInvoice: false,
-    invoiceId: null,
-  });
+    try {
+      const created = await Quote.create({
+        user: userId,
+        quoteNumber,
+        date: new Date(),
+        status: 'draft',
+        clientId: (sourceQuote as QuoteRecord).clientId,
+        clientSnapshot: (sourceQuote as QuoteRecord).clientSnapshot,
+        lineItems,
+        ...totals,
+        notes: (sourceQuote as QuoteRecord).notes ?? null,
+        paymentTerms: (sourceQuote as QuoteRecord).paymentTerms ?? null,
+        validityDays: (sourceQuote as QuoteRecord).validityDays ?? 30,
+        statusHistory: [{ to: 'draft', changedAt: new Date() }],
+        convertedToInvoice: false,
+        invoiceId: null,
+      });
 
-  return {
-    kind: 'ok',
-    quote: created.toObject() as QuoteRecord,
-    sourceQuoteId: quoteId,
-  };
+      return {
+        kind: 'ok',
+        quote: created.toObject() as QuoteRecord,
+        sourceQuoteId: quoteId,
+      };
+    } catch (error) {
+      if (!isDuplicateKeyError(error)) {
+        throw error;
+      }
+    }
+  }
+
+  throw new Error('Could not allocate a unique quote number. Please retry.');
 };
