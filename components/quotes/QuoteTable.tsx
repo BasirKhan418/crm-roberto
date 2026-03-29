@@ -135,17 +135,17 @@ export default function QuoteTable({ items, loading, labels, formatDate, onDelet
                         {labels.downloadPdf}
                       </Button>
 
-                      {quote.status === 'draft' ? (
-                        <Button type="button" size="sm" variant="default" className="h-9" onClick={() => onSend(quote)}>
-                          <SendIcon className="size-3.5" />
-                          {labels.send}
-                        </Button>
-                      ) : null}
-
                       <Button type="button" size="sm" variant="destructive" className="h-9" onClick={() => onDelete(quote)}>
                         <Trash2Icon className="size-3.5" />
                         {labels.delete}
                       </Button>
+
+                      {quote.status === 'draft' ? (
+                        <Button type="button" size="sm" variant="default" className="col-span-2 h-9" onClick={() => onSend(quote)}>
+                          <SendIcon className="size-3.5" />
+                          {labels.send}
+                        </Button>
+                      ) : null}
 
                       {!canEdit ? (
                         <Button type="button" size="sm" variant="outline" className="col-span-2 h-9" onClick={() => onDuplicate(quote)}>

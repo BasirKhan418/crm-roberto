@@ -4,10 +4,11 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 
-import { PencilIcon, PlusIcon, Trash2Icon, FileTextIcon, EyeIcon, SearchIcon } from 'lucide-react';
+import { PencilIcon, PlusIcon, Trash2Icon, FileTextIcon, EyeIcon, SearchIcon, SendIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import CrmShell from '@/components/crm-shell';
+import SendQuoteModal from '@/components/quotes/SendQuoteModal';
 import { useLocale } from '@/components/providers/locale-provider';
 import { PriceDisplay } from '@/components/ui/PriceDisplay';
 import { StatusBadge, type QuoteStatus } from '@/components/ui/StatusBadge';
@@ -130,6 +131,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       colStatus: 'Status',
       colActions: 'Actions',
       viewQuote: 'View',
+      sendQuote: 'Send',
     },
     fr: {
       loadFailed: 'Impossible de charger les details du client',
@@ -192,6 +194,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       colStatus: 'Statut',
       colActions: 'Actions',
       viewQuote: 'Voir',
+      sendQuote: 'Envoyer',
     },
   }[locale];
 
@@ -213,6 +216,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   const [isDeletingClient, setIsDeletingClient] = useState(false);
   const [isNoteUpdating, setIsNoteUpdating] = useState(false);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [sendTarget, setSendTarget] = useState<ClientQuote | null>(null);
 
   const [editForm, setEditForm] = useState({
     fullName: '',
@@ -438,6 +442,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   }, [quotes, quoteStatusFilter, quoteSearch]);
 
   return (
+    <>
     <CrmShell title={t.shellTitle}>
       {error ? <ErrorMessage message={error} /> : null}
 
@@ -708,12 +713,21 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                         </p>
                       </div>
 
-                      <Button variant="outline" size="sm" className="h-9 w-full" asChild>
-                        <Link href={`/quotes/${q._id}`}>
-                          <EyeIcon className="size-3.5" />
-                          {t.viewQuote}
-                        </Link>
-                      </Button>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button variant="outline" size="sm" className={`h-9 ${q.status !== 'draft' ? 'col-span-2' : ''}`} asChild>
+                          <Link href={`/quotes/${q._id}`}>
+                            <EyeIcon className="size-3.5" />
+                            {t.viewQuote}
+                          </Link>
+                        </Button>
+
+                        {q.status === 'draft' ? (
+                          <Button type="button" size="sm" className="h-9" onClick={() => setSendTarget(q)}>
+                            <SendIcon className="size-3.5" />
+                            {t.sendQuote}
+                          </Button>
+                        ) : null}
+                      </div>
                     </article>
                   ))}
                 </div>
@@ -747,12 +761,21 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                             <StatusBadge status={q.status} />
                           </td>
                           <td className="px-3 py-2 text-right">
-                            <Button variant="ghost" size="sm" asChild>
-                              <Link href={`/quotes/${q._id}`}>
-                                <EyeIcon className="size-3.5" />
-                                {t.viewQuote}
-                              </Link>
-                            </Button>
+                            <div className="inline-flex items-center gap-1.5">
+                              <Button variant="ghost" size="sm" asChild>
+                                <Link href={`/quotes/${q._id}`}>
+                                  <EyeIcon className="size-3.5" />
+                                  {t.viewQuote}
+                                </Link>
+                              </Button>
+
+                              {q.status === 'draft' ? (
+                                <Button type="button" variant="outline" size="sm" onClick={() => setSendTarget(q)}>
+                                  <SendIcon className="size-3.5" />
+                                  {t.sendQuote}
+                                </Button>
+                              ) : null}
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -766,5 +789,21 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         </div>
       )}
     </CrmShell>
+
+    {sendTarget ? (
+      <SendQuoteModal
+        open={Boolean(sendTarget)}
+        onOpenChange={(next) => (!next ? setSendTarget(null) : undefined)}
+        quoteId={sendTarget!._id}
+        quoteNumber={sendTarget!.quoteNumber}
+        clientEmail={client?.email}
+        locale={locale as 'en' | 'fr'}
+        onSent={() => {
+          setSendTarget(null);
+          void loadQuotes();
+        }}
+      />
+    ) : null}
+    </>
   );
 }
