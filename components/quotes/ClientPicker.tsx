@@ -7,7 +7,6 @@ import { Building2Icon, PlusIcon, SearchIcon, XIcon } from 'lucide-react';
 import AddClientModal from '@/components/modals/AddClientModal';
 import { useLocale } from '@/components/providers/locale-provider';
 import { useClients, type ClientOption } from '@/hooks/useClients';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
 interface ClientPickerProps {
@@ -61,6 +60,7 @@ export default function ClientPicker({ value, onChange, onClientSelected }: Clie
   const rootRef = useRef<HTMLDivElement | null>(null);
 
   const selectedClient = useMemo(() => clients.find((client) => client._id === value) || null, [clients, value]);
+  const inputValue = selectedClient ? (isOpen ? search : selectedClient.fullName) : search;
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -77,7 +77,6 @@ export default function ClientPicker({ value, onChange, onClientSelected }: Clie
 
   useEffect(() => {
     if (selectedClient) {
-      setSearch(selectedClient.fullName);
       onClientSelected(selectedClient);
     } else if (!value) {
       onClientSelected(null);
@@ -119,8 +118,13 @@ export default function ClientPicker({ value, onChange, onClientSelected }: Clie
       <div className="relative">
         <SearchIcon className="pointer-events-none absolute left-3 top-1/2 z-10 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
-          value={search}
-          onFocus={() => setIsOpen(true)}
+          value={inputValue}
+          onFocus={() => {
+            if (selectedClient) {
+              setSearch(selectedClient.fullName);
+            }
+            setIsOpen(true);
+          }}
           onChange={(event) => {
             setSearch(event.target.value);
             if (value) {
@@ -195,29 +199,29 @@ export default function ClientPicker({ value, onChange, onClientSelected }: Clie
           </div>
 
           <div className="space-y-1.5 rounded-lg border border-border/60 bg-background/90 px-3 py-2.5 text-sm">
-            <div className="grid grid-cols-[110px_1fr] gap-3">
+            <div className="grid grid-cols-[96px_minmax(0,1fr)] gap-2.5 sm:grid-cols-[110px_minmax(0,1fr)] sm:gap-3">
               <p className="text-muted-foreground">{t.name}</p>
-              <p className="font-medium text-right wrap-break-word">{selectedClient.fullName || t.emptyField}</p>
+              <p className="min-w-0 text-right font-medium wrap-break-word break-all">{selectedClient.fullName || t.emptyField}</p>
             </div>
-            <div className="grid grid-cols-[110px_1fr] gap-3">
+            <div className="grid grid-cols-[96px_minmax(0,1fr)] gap-2.5 sm:grid-cols-[110px_minmax(0,1fr)] sm:gap-3">
               <p className="text-muted-foreground">{t.company}</p>
-              <p className="font-medium text-right wrap-break-word">{selectedClient.companyName || t.noCompany}</p>
+              <p className="min-w-0 text-right font-medium wrap-break-word break-all">{selectedClient.companyName || t.noCompany}</p>
             </div>
-            <div className="grid grid-cols-[110px_1fr] gap-3">
+            <div className="grid grid-cols-[96px_minmax(0,1fr)] gap-2.5 sm:grid-cols-[110px_minmax(0,1fr)] sm:gap-3">
               <p className="text-muted-foreground">{t.phone}</p>
-              <p className="font-medium text-right wrap-break-word">{selectedClient.phone || t.emptyField}</p>
+              <p className="min-w-0 text-right font-medium wrap-break-word break-all">{selectedClient.phone || t.emptyField}</p>
             </div>
-            <div className="grid grid-cols-[110px_1fr] gap-3">
+            <div className="grid grid-cols-[96px_minmax(0,1fr)] gap-2.5 sm:grid-cols-[110px_minmax(0,1fr)] sm:gap-3">
               <p className="text-muted-foreground">{t.email}</p>
-              <p className="font-medium text-right wrap-break-word">{selectedClient.email || t.emptyField}</p>
+              <p className="min-w-0 text-right font-medium wrap-break-word break-all">{selectedClient.email || t.emptyField}</p>
             </div>
-            <div className="grid grid-cols-[110px_1fr] gap-3">
+            <div className="grid grid-cols-[96px_minmax(0,1fr)] gap-2.5 sm:grid-cols-[110px_minmax(0,1fr)] sm:gap-3">
               <p className="text-muted-foreground">{t.address}</p>
-              <p className="font-medium text-right wrap-break-word">{selectedClient.address || t.emptyField}</p>
+              <p className="min-w-0 text-right font-medium wrap-break-word break-all">{selectedClient.address || t.emptyField}</p>
             </div>
-            <div className="grid grid-cols-[110px_1fr] gap-3">
+            <div className="grid grid-cols-[96px_minmax(0,1fr)] gap-2.5 sm:grid-cols-[110px_minmax(0,1fr)] sm:gap-3">
               <p className="text-muted-foreground">{t.vat}</p>
-              <p className="font-medium text-right wrap-break-word">{selectedClient.vatNumber || t.emptyField}</p>
+              <p className="min-w-0 text-right font-medium wrap-break-word break-all">{selectedClient.vatNumber || t.emptyField}</p>
             </div>
           </div>
         </div>
