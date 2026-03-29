@@ -198,9 +198,10 @@ export default function QuotesPage() {
 
   async function handleDownloadPdf(quote: QuoteListItem) {
     try {
-      const response = await fetch(`/api/quotes/${quote._id}/pdf?locale=${locale}`);
+      const response = await fetch(`/api/quotes/${quote._id}/pdf?locale=${locale}`, { credentials: 'include' });
       if (!response.ok) {
-        throw new Error(t.downloadFailed);
+        const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+        throw new Error(payload?.message || t.downloadFailed);
       }
 
       const blob = await response.blob();
@@ -208,10 +209,13 @@ export default function QuotesPage() {
       const anchor = document.createElement('a');
       anchor.href = url;
       anchor.download = `${quote.quoteNumber}.pdf`;
+      anchor.style.display = 'none';
+      document.body.append(anchor);
       anchor.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      toast.error(t.downloadFailed);
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t.downloadFailed);
     }
   }
 

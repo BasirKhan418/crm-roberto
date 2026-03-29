@@ -108,11 +108,19 @@ export default function QuoteForm({ mode, quote }: QuoteFormProps) {
   const [lineItems, setLineItems] = useState<QuoteLineItem[]>(quote?.lineItems ?? []);
   const [notes, setNotes] = useState(quote?.notes ?? '');
   const [paymentTerms, setPaymentTerms] = useState(quote?.paymentTerms ?? '');
-  const [validityDays, setValidityDays] = useState(quote?.validityDays ?? 30);
+  const [validityDaysInput, setValidityDaysInput] = useState(String(quote?.validityDays ?? 30));
   const [quoteNumber, setQuoteNumber] = useState(quote?.quoteNumber ?? '');
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [apiError, setApiError] = useState<string | null>(null);
+
+  function normalizeValidityDays(value: string): number {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) {
+      return 30;
+    }
+    return Math.min(365, Math.max(1, Math.round(parsed)));
+  }
 
   useEffect(() => {
     if (mode !== 'create') {
@@ -152,7 +160,7 @@ export default function QuoteForm({ mode, quote }: QuoteFormProps) {
     setLineItems(quote.lineItems);
     setNotes(quote.notes ?? '');
     setPaymentTerms(quote.paymentTerms ?? '');
-    setValidityDays(quote.validityDays ?? 30);
+    setValidityDaysInput(String(quote.validityDays ?? 30));
     setQuoteNumber(quote.quoteNumber);
   }, [quote]);
 
@@ -200,6 +208,7 @@ export default function QuoteForm({ mode, quote }: QuoteFormProps) {
     setSubmitting(true);
 
     try {
+      const validityDays = normalizeValidityDays(validityDaysInput);
       const payload = {
         clientId,
         date,
@@ -353,8 +362,9 @@ export default function QuoteForm({ mode, quote }: QuoteFormProps) {
                   type="number"
                   min={1}
                   max={365}
-                  value={validityDays}
-                  onChange={(event) => setValidityDays(Math.max(1, Number(event.target.value) || 30))}
+                  value={validityDaysInput}
+                  onChange={(event) => setValidityDaysInput(event.target.value)}
+                  onBlur={() => setValidityDaysInput(String(normalizeValidityDays(validityDaysInput)))}
                   className="w-24"
                 />
                 <span className="text-sm text-muted-foreground">{t.validityDaysUnit}</span>

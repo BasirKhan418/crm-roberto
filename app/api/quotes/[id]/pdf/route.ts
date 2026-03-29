@@ -33,48 +33,68 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const companyResult = await getCompanyProfileByUserId(me.user.id);
     const company = companyResult.success ? (companyResult.profile as Record<string, unknown>) : null;
 
-    const pdfDocument = React.createElement(QuotePdfTemplate, {
-        quote: {
-          quoteNumber: quote.quoteNumber,
-          date: quote.date,
-          status: quote.status,
-          clientSnapshot: {
-            fullName: quote.clientSnapshot.fullName,
-            companyName: quote.clientSnapshot.companyName ?? null,
-            address: quote.clientSnapshot.address ?? null,
-            email: quote.clientSnapshot.email ?? null,
-            phone: quote.clientSnapshot.phone ?? null,
-            vatNumber: quote.clientSnapshot.vatNumber ?? null,
-          },
-          lineItems: quote.lineItems.map((item) => ({
-            name: item.name,
-            quantity: item.quantity,
-            unitPriceExcludingTax: item.unitPriceExcludingTax,
-            vatRate: item.vatRate,
-            totalExcludingTax: item.totalExcludingTax,
-          })),
-          totalExcludingTax: quote.totalExcludingTax,
-          totalVat: quote.totalVat,
-          totalIncludingTax: quote.totalIncludingTax,
-          notes: quote.notes ?? null,
-          paymentTerms: quote.paymentTerms ?? null,
-          validityDays: quote.validityDays ?? 30,
-        },
-        company: company
+    const quoteData = {
+      quoteNumber: quote.quoteNumber,
+      date: quote.date,
+      status: quote.status,
+      clientSnapshot: {
+        fullName: quote.clientSnapshot.fullName,
+        companyName: quote.clientSnapshot.companyName ?? null,
+        address: quote.clientSnapshot.address ?? null,
+        email: quote.clientSnapshot.email ?? null,
+        phone: quote.clientSnapshot.phone ?? null,
+        vatNumber: quote.clientSnapshot.vatNumber ?? null,
+      },
+      lineItems: quote.lineItems.map((item) => ({
+        name: item.name,
+        quantity: item.quantity,
+        unitPriceExcludingTax: item.unitPriceExcludingTax,
+        vatRate: item.vatRate,
+        totalExcludingTax: item.totalExcludingTax,
+      })),
+      totalExcludingTax: quote.totalExcludingTax,
+      totalVat: quote.totalVat,
+      totalIncludingTax: quote.totalIncludingTax,
+      notes: quote.notes ?? null,
+      paymentTerms: quote.paymentTerms ?? null,
+      validityDays: quote.validityDays ?? 30,
+    };
+
+    const baseCompanyData = company
+      ? {
+          companyName: (company.companyName as string) || '',
+          ownerName: (company.ownerName as string) || '',
+          address: (company.address as string) || '',
+          phone: (company.phone as string) || '',
+          businessEmail: (company.businessEmail as string) || '',
+          vatNumber: (company.vatNumber as string) || '',
+          logoUrl: (company.logoUrl as string | null) ?? null,
+        }
+      : null;
+
+    const createPdfDocument = (logoUrlOverride?: string | null) =>
+      React.createElement(QuotePdfTemplate, {
+        quote: quoteData,
+        company: baseCompanyData
           ? {
-              companyName: (company.companyName as string) || '',
-              ownerName: (company.ownerName as string) || '',
-              address: (company.address as string) || '',
-              phone: (company.phone as string) || '',
-              businessEmail: (company.businessEmail as string) || '',
-              vatNumber: (company.vatNumber as string) || '',
-              logoUrl: (company.logoUrl as string | null) ?? null,
+              ...baseCompanyData,
+              logoUrl: logoUrlOverride ?? baseCompanyData.logoUrl,
             }
           : null,
         locale,
       }) as unknown as React.ReactElement<DocumentProps>;
 
-    const pdfBuffer = await renderToBuffer(pdfDocument);
+    let pdfBuffer: Buffer;
+    try {
+      pdfBuffer = await renderToBuffer(createPdfDocument());
+    } catch (error) {
+      // Some remote logo URLs can fail fetch/decoding in Node PDF rendering.
+      // Retry once without the logo so download still works.
+      if (!baseCompanyData?.logoUrl) {
+        throw error;
+      }
+      pdfBuffer = await renderToBuffer(createPdfDocument(''));
+    }
 
     return new NextResponse(new Uint8Array(pdfBuffer), {
       status: 200,
