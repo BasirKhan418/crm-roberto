@@ -141,7 +141,7 @@ export default function LineItemRow({ row, index, products, onChange, onDelete }
     : centsToEuros(computed.discountAmountExcludingTax);
   const unitPriceInputValue = isEditingUnitPrice
     ? unitPriceInputDraft
-    : centsToEuros(row.unitPriceExcludingTax);
+    : centsToEuros(getEffectiveBaseUnitPrice(row));
 
   function handleProductSelect(product: CatalogueItemOption) {
     onChange(index, {
@@ -184,15 +184,14 @@ export default function LineItemRow({ row, index, products, onChange, onDelete }
   }
 
   function handleUnitPriceChange(value: string) {
-    const negotiated = eurosToCents(value || 0);
-    const normalizedUnitPrice = Math.max(0, negotiated);
+    const normalizedBasePrice = Math.max(0, eurosToCents(value || 0));
+    const currentDiscount = Math.min(100, Math.max(0, Number(row.discountPercentage) || 0));
 
     onChange(index, {
-      // When unit price is edited manually, that edited value becomes the new baseline.
-      // Any subsequent discount should be calculated from this user-defined price.
-      baseUnitPriceExcludingTax: normalizedUnitPrice,
-      unitPriceExcludingTax: normalizedUnitPrice,
-      discountPercentage: 0,
+      // Keep the current discount when base price changes, and recompute negotiated unit price.
+      baseUnitPriceExcludingTax: normalizedBasePrice,
+      unitPriceExcludingTax: deriveUnitPriceFromDiscount(normalizedBasePrice, currentDiscount),
+      discountPercentage: currentDiscount,
     });
   }
 
