@@ -117,6 +117,12 @@ export function computeQuoteLine(input: QuoteLineComputationInput): QuoteLineCom
     }
   }
 
+  // Edited/manual unit price must remain the source of truth for discount math.
+  // If an older base slips through (e.g. from persisted data), lift base to current unit.
+  if (unitPriceExcludingTax > baseUnitPriceExcludingTax) {
+    baseUnitPriceExcludingTax = unitPriceExcludingTax;
+  }
+
   const effectiveUnitPrice = unitPriceExcludingTax;
   const normalizedDiscountPercentage = deriveDiscountPercentageFromUnitPrice(
     baseUnitPriceExcludingTax,

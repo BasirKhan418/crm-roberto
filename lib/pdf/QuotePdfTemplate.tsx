@@ -67,7 +67,8 @@ const translations = {
     quote: 'QUOTE',
     date: 'Date',
     status: 'Status',
-    clientInfo: 'Client Info',
+    issuerInfo: 'Issuer',
+    clientInfo: 'Client',
     name: 'Name',
     company: 'Company',
     phone: 'Phone',
@@ -86,19 +87,15 @@ const translations = {
     totalVat: 'VAT',
     totalIncl: 'Total incl. tax',
     notes: 'Notes / Conditions',
-    signatureTitle: 'BON POUR ACCORD / CLIENT SIGNATURE',
-    companyRep: 'Company representative',
-    clientLabel: 'Client - Read and approved',
-    dateLabel: 'Date :',
-    sigStamp: 'Signature & stamp',
-    sig: 'Signature',
-    tncText1: 'By signing this document, the client acknowledges having read and accepted the',
+    agreementTitle: 'GOOD FOR AGREEMENT',
+    clientNameLabel: 'Client name:',
+    dateLabel: 'Date:',
+    signatureLabel: 'Signature',
+    tncText1: 'By signing this quote, the client acknowledges having read and accepted the',
     tncLink: 'general terms and conditions (T&C)',
     tncText2: 'in force.',
-    footer: 'Quote valid for 30 days. Payment upon receipt of invoice.',
     footerValidity: 'Quote valid for',
     footerDays: 'days.',
-    footerPayment: 'Payment:',
     vatPrefix: 'VAT:',
     statusDraft: 'DRAFT',
     statusSent: 'SENT',
@@ -109,7 +106,8 @@ const translations = {
     quote: 'DEVIS',
     date: 'Date',
     status: 'Statut',
-    clientInfo: 'Informations client',
+    issuerInfo: 'Emetteur',
+    clientInfo: 'Client',
     name: 'Nom',
     company: 'Société',
     phone: 'Téléphone',
@@ -128,19 +126,15 @@ const translations = {
     totalVat: 'TVA',
     totalIncl: 'Total TTC',
     notes: 'Notes / Conditions',
-    signatureTitle: 'BON POUR ACCORD / SIGNATURE CLIENT',
-    companyRep: 'Représentant de la société',
-    clientLabel: 'Client - Lu et approuvé',
+    agreementTitle: 'BON POUR ACCORD',
+    clientNameLabel: 'Nom du client :',
     dateLabel: 'Date :',
-    sigStamp: 'Signature & cachet',
-    sig: 'Signature',
-    tncText1: 'En signant ce document, le client reconnaît avoir pris connaissance et accepté les',
+    signatureLabel: 'Signature',
+    tncText1: 'En signant ce devis, le client reconnaît accepter les',
     tncLink: 'conditions générales de vente (CGV)',
     tncText2: 'en vigueur.',
-    footer: 'Devis valable 30 jours. Règlement à réception de la facture.',
     footerValidity: 'Devis valable',
     footerDays: 'jours.',
-    footerPayment: 'Règlement :',
     vatPrefix: 'TVA :',
     statusDraft: 'BROUILLON',
     statusSent: 'ENVOYE',
@@ -155,21 +149,16 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#0f172a',
     paddingTop: 32,
-    paddingBottom: 48,
+    paddingBottom: 36,
     paddingHorizontal: 40,
     backgroundColor: '#ffffff',
   },
-  topSection: {
-    marginBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
-    paddingBottom: 10,
-  },
-  companyHeader: {
+  topHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     gap: 16,
+    marginBottom: 12,
   },
   logo: {
     width: 68,
@@ -191,23 +180,13 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
     fontSize: 9,
   },
-  companyDetails: {
-    flex: 1,
-    alignItems: 'flex-end',
-    gap: 2,
-  },
-  companyName: {
-    fontSize: 16,
-    fontWeight: 700,
-    marginBottom: 2,
-  },
-  identitySection: {
-    marginBottom: 12,
+  quoteIdentityCard: {
+    width: '48%',
     borderWidth: 1,
     borderColor: '#e2e8f0',
     borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
     backgroundColor: '#f8fafc',
   },
   quoteTitle: {
@@ -220,15 +199,25 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 700,
     color: '#0b1f5d',
-    marginBottom: 4,
+    marginBottom: 6,
   },
-  identityRow: {
+  quoteMetaRow: {
     flexDirection: 'row',
     gap: 16,
   },
-  identityCol: {
+  quoteMetaCol: {
     flex: 1,
     gap: 2,
+  },
+  partySection: {
+    marginBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+    paddingBottom: 10,
+  },
+  partyRow: {
+    flexDirection: 'row',
+    gap: 12,
   },
   label: {
     fontSize: 8,
@@ -254,7 +243,8 @@ const styles = StyleSheet.create({
     color: '#334155',
     marginBottom: 6,
   },
-  clientBox: {
+  partyBox: {
+    flex: 1,
     borderWidth: 1,
     borderColor: '#e2e8f0',
     borderRadius: 8,
@@ -370,14 +360,14 @@ const styles = StyleSheet.create({
   notesText: {
     lineHeight: 1.4,
   },
-  signatureSection: {
+  agreementSection: {
     marginTop: 12,
-    marginBottom: 8,
+    marginBottom: 0,
     borderTopWidth: 1,
     borderTopColor: '#e2e8f0',
     paddingTop: 10,
   },
-  signatureTitle: {
+  agreementTitle: {
     fontSize: 9,
     fontWeight: 700,
     letterSpacing: 0.8,
@@ -385,57 +375,48 @@ const styles = StyleSheet.create({
     color: '#334155',
     marginBottom: 8,
   },
-  signatureRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  signatureCol: {
-    flex: 1,
+  agreementBox: {
+    width: '55%',
+    alignSelf: 'center',
     borderWidth: 1,
     borderColor: '#cbd5e1',
     borderRadius: 6,
     paddingHorizontal: 10,
     paddingTop: 8,
     paddingBottom: 8,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#ffffff',
   },
-  signatureColLabel: {
-    fontSize: 7.5,
+  agreementLabel: {
+    fontSize: 8,
     color: '#64748b',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginBottom: 5,
+    marginBottom: 0,
   },
-  signatureDateRow: {
+  agreementInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 4,
     marginBottom: 6,
-    gap: 5,
   },
-  signatureDateLabel: {
-    fontSize: 8.5,
-    color: '#475569',
-  },
-  signatureDateLine: {
+  agreementInlineLine: {
     flex: 1,
     borderBottomWidth: 1,
-    borderBottomColor: '#94a3b8',
+    borderBottomColor: '#cbd5e1',
     borderStyle: 'dashed',
-    height: 10,
+    height: 8,
   },
   signatureBox: {
     borderWidth: 1,
     borderColor: '#cbd5e1',
     borderRadius: 4,
     borderStyle: 'dashed',
-    height: 38,
-    justifyContent: 'flex-end',
-    alignItems: 'flex-end',
-    paddingHorizontal: 5,
-    paddingBottom: 3,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingBottom: 0,
   },
   signatureBoxHint: {
-    fontSize: 7,
+    fontSize: 8,
     color: '#94a3b8',
     fontStyle: 'italic',
   },
@@ -443,27 +424,25 @@ const styles = StyleSheet.create({
     marginTop: 8,
     flexDirection: 'row',
     flexWrap: 'wrap',
+    justifyContent: 'center',
     alignItems: 'center',
     gap: 3,
   },
   tncText: {
-    fontSize: 7.5,
-    color: '#64748b',
+    fontSize: 8,
+    color: '#dc2626',
   },
   tncLink: {
-    fontSize: 7.5,
-    color: '#3b82f6',
+    fontSize: 8,
+    color: '#dc2626',
     textDecoration: 'underline',
   },
   footer: {
-    position: 'absolute',
-    bottom: 20,
-    left: 40,
-    right: 40,
+    marginTop: 10,
     borderTopWidth: 1,
     borderTopColor: '#e2e8f0',
     paddingTop: 6,
-    fontSize: 7.5,
+    fontSize: 8,
     color: '#64748b',
     textAlign: 'center',
   },
@@ -508,67 +487,83 @@ export function QuotePdfTemplate({ quote, company, locale = 'en' }: QuotePdfTemp
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        <View style={styles.topSection}>
-          <View style={styles.companyHeader}>
-            {company?.logoUrl ? (
-              <Image style={styles.logo} src={company.logoUrl} />
-            ) : (
-              <View style={styles.logoPlaceholder}>
-                <Text>NO LOGO</Text>
+        <View style={styles.topHeader}>
+          {company?.logoUrl ? (
+            <Image style={styles.logo} src={company.logoUrl} />
+          ) : (
+            <View style={styles.logoPlaceholder}>
+              <Text>NO LOGO</Text>
+            </View>
+          )}
+
+          <View style={styles.quoteIdentityCard}>
+            <Text style={styles.quoteTitle}>{t.quote}</Text>
+            <Text style={styles.quoteNumber}>{quote.quoteNumber}</Text>
+            <View style={styles.quoteMetaRow}>
+              <View style={styles.quoteMetaCol}>
+                <Text style={styles.label}>{t.date}</Text>
+                <Text style={styles.value}>{formatDate(quote.date)}</Text>
               </View>
-            )}
-
-            <View style={styles.companyDetails}>
-              <Text style={styles.companyName}>{notEmpty(company?.companyName)}</Text>
-              <Text>{notEmpty(company?.address)}</Text>
-              <Text>{notEmpty(company?.phone)}</Text>
-              <Text>{notEmpty(company?.businessEmail)}</Text>
-              <Text>{`${t.vatPrefix} ${notEmpty(company?.vatNumber)}`}</Text>
+              <View style={styles.quoteMetaCol}>
+                <Text style={styles.label}>{t.status}</Text>
+                <Text style={styles.value}>{formatStatus(quote.status, t)}</Text>
+              </View>
             </View>
           </View>
         </View>
 
-        <View style={styles.identitySection}>
-          <Text style={styles.quoteTitle}>{t.quote}</Text>
-          <Text style={styles.quoteNumber}>{quote.quoteNumber}</Text>
-          <View style={styles.identityRow}>
-            <View style={styles.identityCol}>
-              <Text style={styles.label}>{t.date}</Text>
-              <Text style={styles.value}>{formatDate(quote.date)}</Text>
+        <View style={styles.partySection} wrap={false}>
+          <View style={styles.partyRow}>
+            <View style={styles.partyBox}>
+              <Text style={styles.sectionTitle}>{t.issuerInfo}</Text>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoKey}>{t.company}</Text>
+                <Text style={styles.infoValue}>{notEmpty(company?.companyName)}</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoKey}>{t.address}</Text>
+                <Text style={styles.infoValue}>{notEmpty(company?.address)}</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoKey}>{t.phone}</Text>
+                <Text style={styles.infoValue}>{notEmpty(company?.phone)}</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoKey}>{t.email}</Text>
+                <Text style={styles.infoValue}>{notEmpty(company?.businessEmail)}</Text>
+              </View>
+              <View style={[styles.infoRow, styles.infoRowLast]}>
+                <Text style={styles.infoKey}>{t.vat}</Text>
+                <Text style={styles.infoValue}>{notEmpty(company?.vatNumber)}</Text>
+              </View>
             </View>
-            <View style={styles.identityCol}>
-              <Text style={styles.label}>{t.status}</Text>
-              <Text style={styles.value}>{formatStatus(quote.status, t)}</Text>
-            </View>
-          </View>
-        </View>
 
-        <View style={styles.section} wrap={false}>
-          <Text style={styles.sectionTitle}>{t.clientInfo}</Text>
-          <View style={styles.clientBox}>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoKey}>{t.name}</Text>
-              <Text style={styles.infoValue}>{notEmpty(quote.clientSnapshot.fullName)}</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoKey}>{t.company}</Text>
-              <Text style={styles.infoValue}>{notEmpty(quote.clientSnapshot.companyName)}</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoKey}>{t.phone}</Text>
-              <Text style={styles.infoValue}>{notEmpty(quote.clientSnapshot.phone)}</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoKey}>{t.email}</Text>
-              <Text style={styles.infoValue}>{notEmpty(quote.clientSnapshot.email)}</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoKey}>{t.address}</Text>
-              <Text style={styles.infoValue}>{notEmpty(quote.clientSnapshot.address)}</Text>
-            </View>
-            <View style={[styles.infoRow, styles.infoRowLast]}>
-              <Text style={styles.infoKey}>{t.vat}</Text>
-              <Text style={styles.infoValue}>{notEmpty(quote.clientSnapshot.vatNumber)}</Text>
+            <View style={styles.partyBox}>
+              <Text style={styles.sectionTitle}>{t.clientInfo}</Text>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoKey}>{t.name}</Text>
+                <Text style={styles.infoValue}>{notEmpty(quote.clientSnapshot.fullName)}</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoKey}>{t.company}</Text>
+                <Text style={styles.infoValue}>{notEmpty(quote.clientSnapshot.companyName)}</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoKey}>{t.phone}</Text>
+                <Text style={styles.infoValue}>{notEmpty(quote.clientSnapshot.phone)}</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoKey}>{t.email}</Text>
+                <Text style={styles.infoValue}>{notEmpty(quote.clientSnapshot.email)}</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoKey}>{t.address}</Text>
+                <Text style={styles.infoValue}>{notEmpty(quote.clientSnapshot.address)}</Text>
+              </View>
+              <View style={[styles.infoRow, styles.infoRowLast]}>
+                <Text style={styles.infoKey}>{t.vat}</Text>
+                <Text style={styles.infoValue}>{notEmpty(quote.clientSnapshot.vatNumber)}</Text>
+              </View>
             </View>
           </View>
         </View>
@@ -644,32 +639,21 @@ export function QuotePdfTemplate({ quote, company, locale = 'en' }: QuotePdfTemp
           </View>
         ) : null}
 
-        {/* Signature area */}
-        <View style={styles.signatureSection} wrap={false}>
-          <Text style={styles.signatureTitle}>{t.signatureTitle}</Text>
-          <View style={styles.signatureRow}>
-            {/* Company signature */}
-            <View style={styles.signatureCol}>
-              <Text style={styles.signatureColLabel}>{t.companyRep}</Text>
-              <View style={styles.signatureDateRow}>
-                <Text style={styles.signatureDateLabel}>{t.dateLabel}</Text>
-                <View style={styles.signatureDateLine} />
-              </View>
-              <View style={styles.signatureBox}>
-                <Text style={styles.signatureBoxHint}>{t.sigStamp}</Text>
-              </View>
+        <View style={styles.agreementSection} wrap={false}>
+          <Text style={styles.agreementTitle}>{t.agreementTitle}</Text>
+          <View style={styles.agreementBox}>
+            <View style={styles.agreementInputRow}>
+              <Text style={styles.agreementLabel}>{t.clientNameLabel}</Text>
+              <View style={styles.agreementInlineLine} />
             </View>
 
-            {/* Client signature */}
-            <View style={styles.signatureCol}>
-              <Text style={styles.signatureColLabel}>{t.clientLabel}</Text>
-              <View style={styles.signatureDateRow}>
-                <Text style={styles.signatureDateLabel}>{t.dateLabel}</Text>
-                <View style={styles.signatureDateLine} />
-              </View>
-              <View style={styles.signatureBox}>
-                <Text style={styles.signatureBoxHint}>{t.sig}</Text>
-              </View>
+            <View style={styles.agreementInputRow}>
+              <Text style={styles.agreementLabel}>{t.dateLabel}</Text>
+              <View style={styles.agreementInlineLine} />
+            </View>
+
+            <View style={styles.signatureBox}>
+              <Text style={styles.signatureBoxHint}>{t.signatureLabel}</Text>
             </View>
           </View>
 
@@ -680,14 +664,9 @@ export function QuotePdfTemplate({ quote, company, locale = 'en' }: QuotePdfTemp
           </View>
         </View>
 
-        <Text style={styles.footer} fixed>{
-          (() => {
-            const validity = quote.validityDays ?? 30;
-            const validityPart = `${t.footerValidity} ${validity} ${t.footerDays}`;
-            const paymentPart = quote.paymentTerms ? ` ${t.footerPayment} ${quote.paymentTerms}` : '';
-            return `${validityPart}${paymentPart}`;
-          })()
-        }</Text>
+        <Text style={styles.footer}>
+          {`${t.footerValidity} ${quote.validityDays ?? 30} ${t.footerDays}`}
+        </Text>
       </Page>
     </Document>
   );

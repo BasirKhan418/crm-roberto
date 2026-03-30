@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react';
 import { Trash2Icon } from 'lucide-react';
 
 import { centsToEuros, eurosToCents } from '@/lib/price';
-import { computeQuoteLine, deriveDiscountPercentageFromUnitPrice, deriveUnitPriceFromDiscount } from '@/lib/quote-calculations';
+import { computeQuoteLine, deriveUnitPriceFromDiscount } from '@/lib/quote-calculations';
 import { useLocale } from '@/components/providers/locale-provider';
 import { PriceDisplay } from '@/components/ui/PriceDisplay';
 import { Button } from '@/components/ui/button';
@@ -184,14 +184,15 @@ export default function LineItemRow({ row, index, products, onChange, onDelete }
   }
 
   function handleUnitPriceChange(value: string) {
-    const base = getEffectiveBaseUnitPrice(row);
     const negotiated = eurosToCents(value || 0);
-    const discount = deriveDiscountPercentageFromUnitPrice(base, negotiated);
+    const normalizedUnitPrice = Math.max(0, negotiated);
 
     onChange(index, {
-      baseUnitPriceExcludingTax: base,
-      unitPriceExcludingTax: negotiated,
-      discountPercentage: discount,
+      // When unit price is edited manually, that edited value becomes the new baseline.
+      // Any subsequent discount should be calculated from this user-defined price.
+      baseUnitPriceExcludingTax: normalizedUnitPrice,
+      unitPriceExcludingTax: normalizedUnitPrice,
+      discountPercentage: 0,
     });
   }
 
