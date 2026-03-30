@@ -391,6 +391,9 @@ const styles = StyleSheet.create({
     color: '#64748b',
     marginBottom: 0,
   },
+  agreementLabelClient: {
+    color: '#dc2626',
+  },
   agreementInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -435,7 +438,7 @@ const styles = StyleSheet.create({
   tncLink: {
     fontSize: 8,
     color: '#dc2626',
-    textDecoration: 'underline',
+    textDecoration: 'none',
   },
   footer: {
     marginTop: 10,
@@ -643,7 +646,7 @@ export function QuotePdfTemplate({ quote, company, locale = 'en' }: QuotePdfTemp
           <Text style={styles.agreementTitle}>{t.agreementTitle}</Text>
           <View style={styles.agreementBox}>
             <View style={styles.agreementInputRow}>
-              <Text style={styles.agreementLabel}>{t.clientNameLabel}</Text>
+              <Text style={[styles.agreementLabel, styles.agreementLabelClient]}>{t.clientNameLabel}</Text>
               <View style={styles.agreementInlineLine} />
             </View>
 
