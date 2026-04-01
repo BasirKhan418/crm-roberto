@@ -3,6 +3,7 @@ import { renderToBuffer } from '@react-pdf/renderer';
 import React from 'react';
 import type { DocumentProps } from '@react-pdf/renderer';
 
+import QuoteSignature from '@/db/models/QuoteSignature';
 import { getCompanyProfileByUserId } from '@/db/repository/cprofile';
 import { getQuoteById } from '@/db/repository/quote';
 import { computeQuoteLine } from '@/lib/quote-calculations';
@@ -33,6 +34,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     const companyResult = await getCompanyProfileByUserId(me.user.id);
     const company = companyResult.success ? (companyResult.profile as Record<string, unknown>) : null;
+
+    const latestSignature = quote.signedStatus === 'signed'
+      ? await QuoteSignature.findOne({ quoteId: quote._id, userId: me.user.id, isUsed: true })
+          .sort({ signedAt: -1, createdAt: -1 })
+          .select({ signatureDataUrl: 1, signedAt: 1 })
+          .lean()
+      : null;
 
     // CRITICAL: Always recompute from base data to guarantee consistency.
     // Never trust stored totals — they may be stale or calculated incorrectly.
@@ -99,6 +107,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       totalExcludingTax: derivedTotals.totalExcludingTax,
       totalVat: derivedTotals.totalVat,
       totalIncludingTax: derivedTotals.totalIncludingTax,
+      signedStatus: quote.signedStatus ?? 'not_signed',
+      signedAt: quote.signedAt ?? (latestSignature?.signedAt as Date | undefined) ?? null,
+      signatureDataUrl: (latestSignature?.signatureDataUrl as string | undefined) ?? null,
       notes: quote.notes ?? null,
       paymentTerms: quote.paymentTerms ?? null,
       validityDays: quote.validityDays ?? 30,

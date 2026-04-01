@@ -51,6 +51,9 @@ interface QuoteData {
   totalExcludingTax: number;
   totalVat: number;
   totalIncludingTax: number;
+  signedStatus?: 'not_signed' | 'signed';
+  signedAt?: string | Date | null;
+  signatureDataUrl?: string | null;
   notes?: string | null;
   paymentTerms?: string | null;
   validityDays?: number;
@@ -407,6 +410,17 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
     height: 8,
   },
+  agreementInlineValue: {
+    flex: 1,
+    borderBottomWidth: 1,
+    borderBottomColor: '#cbd5e1',
+    borderStyle: 'dashed',
+    minHeight: 10,
+    fontSize: 9,
+    color: '#0f172a',
+    textAlign: 'left',
+    paddingTop: 1,
+  },
   signatureBox: {
     borderWidth: 1,
     borderColor: '#cbd5e1',
@@ -417,6 +431,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 8,
     paddingBottom: 0,
+  },
+  signatureImage: {
+    width: '92%',
+    height: 30,
+    objectFit: 'contain',
   },
   signatureBoxHint: {
     fontSize: 8,
@@ -487,6 +506,11 @@ function notEmpty(value?: string | null): string {
 
 export function QuotePdfTemplate({ quote, company, locale = 'en' }: QuotePdfTemplateProps) {
   const t = translations[locale];
+  const isSigned = quote.signedStatus === 'signed';
+  const signedClientName = isSigned ? notEmpty(quote.clientSnapshot.fullName) : '';
+  const signedDate = isSigned && quote.signedAt ? formatDate(quote.signedAt) : '';
+  const signatureDataUrl = isSigned ? quote.signatureDataUrl ?? null : null;
+
   return (
     <Document>
       <Page size="A4" style={styles.page}>
@@ -647,16 +671,28 @@ export function QuotePdfTemplate({ quote, company, locale = 'en' }: QuotePdfTemp
           <View style={styles.agreementBox}>
             <View style={styles.agreementInputRow}>
               <Text style={[styles.agreementLabel, styles.agreementLabelClient]}>{t.clientNameLabel}</Text>
-              <View style={styles.agreementInlineLine} />
+              {signedClientName ? (
+                <Text style={styles.agreementInlineValue}>{signedClientName}</Text>
+              ) : (
+                <View style={styles.agreementInlineLine} />
+              )}
             </View>
 
             <View style={styles.agreementInputRow}>
               <Text style={styles.agreementLabel}>{t.dateLabel}</Text>
-              <View style={styles.agreementInlineLine} />
+              {signedDate ? (
+                <Text style={styles.agreementInlineValue}>{signedDate}</Text>
+              ) : (
+                <View style={styles.agreementInlineLine} />
+              )}
             </View>
 
             <View style={styles.signatureBox}>
-              <Text style={styles.signatureBoxHint}>{t.signatureLabel}</Text>
+              {signatureDataUrl ? (
+                <Image style={styles.signatureImage} src={signatureDataUrl} />
+              ) : (
+                <Text style={styles.signatureBoxHint}>{t.signatureLabel}</Text>
+              )}
             </View>
           </View>
 
