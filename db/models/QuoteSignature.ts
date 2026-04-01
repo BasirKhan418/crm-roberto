@@ -1,7 +1,5 @@
 import mongoose, { type InferSchemaType, type Model } from "mongoose";
 
-export interface QuoteSignatureDocument extends InferSchemaType<typeof QuoteSignatureSchema> {}
-
 const QuoteSignatureSchema = new mongoose.Schema(
   {
     quoteId: {
@@ -55,6 +53,8 @@ const QuoteSignatureSchema = new mongoose.Schema(
 
 QuoteSignatureSchema.index({ token: 1 }, { unique: true, name: "unique_quote_signature_token" });
 QuoteSignatureSchema.index({ quoteId: 1, userId: 1, createdAt: -1 });
+
+export type QuoteSignatureDocument = InferSchemaType<typeof QuoteSignatureSchema>;
 
 const QuoteSignatureModel =
   (mongoose.models.QuoteSignature as Model<QuoteSignatureDocument>) ||

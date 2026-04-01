@@ -37,7 +37,7 @@ const StripeConnectSchema = new mongoose.Schema(
 StripeConnectSchema.index({ userId: 1 }, { unique: true, name: "unique_stripe_connect_user" });
 StripeConnectSchema.index({ stripeAccountId: 1 }, { unique: true, name: "unique_stripe_account_id" });
 
-export interface StripeConnectDocument extends InferSchemaType<typeof StripeConnectSchema> {}
+export type StripeConnectDocument = InferSchemaType<typeof StripeConnectSchema>;
 
 const StripeConnectModel =
   (mongoose.models.StripeConnect as Model<StripeConnectDocument>) ||

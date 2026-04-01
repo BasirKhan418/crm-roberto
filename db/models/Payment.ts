@@ -69,7 +69,7 @@ PaymentSchema.index({ invoiceId: 1 }, { name: "payment_invoice_lookup" });
 PaymentSchema.index({ stripePaymentId: 1 }, { unique: true, name: "unique_stripe_payment_id" });
 PaymentSchema.index({ userId: 1, createdAt: -1 });
 
-export interface PaymentDocument extends InferSchemaType<typeof PaymentSchema> {}
+export type PaymentDocument = InferSchemaType<typeof PaymentSchema>;
 
 const PaymentModel =
   (mongoose.models.Payment as Model<PaymentDocument>) ||

@@ -207,7 +207,7 @@ InvoiceSchema.index({ userId: 1, createdAt: -1 });
 InvoiceSchema.index({ userId: 1, status: 1 });
 InvoiceSchema.index({ userId: 1, quoteId: 1 });
 
-export interface InvoiceDocument extends InferSchemaType<typeof InvoiceSchema> {}
+export type InvoiceDocument = InferSchemaType<typeof InvoiceSchema>;
 
 const InvoiceModel =
   (mongoose.models.Invoice as Model<InvoiceDocument>) ||

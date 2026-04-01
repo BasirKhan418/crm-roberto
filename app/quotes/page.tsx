@@ -392,6 +392,7 @@ export default function QuotesPage() {
           clientEmail={sendTarget.clientSnapshot.email}
           clientName={sendTarget.clientSnapshot.fullName}
           companyName={undefined}
+          quoteStatus={sendTarget.status}
           locale={locale as 'en' | 'fr'}
           onSent={() => {
             setSendTarget(null);

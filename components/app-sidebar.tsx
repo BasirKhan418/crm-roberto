@@ -28,7 +28,7 @@ const navItems = [
   { key: "quotes", url: "/quotes", icon: <ReceiptTextIcon /> },
   { key: "invoices", url: "/invoices", icon: <FileTextIcon /> },
   { key: "notes", url: "/notes", icon: <NotebookPenIcon /> },
-  { key: "companyProfile", url: "/settings", icon: <Building2Icon /> },
+  { key: "companyProfile", url: "/profile", icon: <Building2Icon /> },
 ] as const
 
 const sidebarMessages = {

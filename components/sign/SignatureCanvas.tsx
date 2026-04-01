@@ -19,8 +19,8 @@ export default function SignatureCanvas({ onSignatureChange }: SignatureCanvasPr
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const isDrawingRef = useRef(false);
   const pointerIdRef = useRef<number | null>(null);
+  const canvasHeightRef = useRef(isMobileViewport() ? 160 : 200);
   const [hasStroke, setHasStroke] = useState(false);
-  const [canvasHeight, setCanvasHeight] = useState(200);
 
   const emitSignature = useCallback(() => {
     const canvas = canvasRef.current;
@@ -47,7 +47,7 @@ export default function SignatureCanvas({ onSignatureChange }: SignatureCanvasPr
     const rect = wrapper.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
     const displayWidth = Math.max(Math.floor(rect.width), 1);
-    const displayHeight = canvasHeight;
+    const displayHeight = canvasHeightRef.current;
 
     const snapshot = hasStroke ? canvas.toDataURL('image/png') : null;
 
@@ -75,14 +75,16 @@ export default function SignatureCanvas({ onSignatureChange }: SignatureCanvasPr
       };
       image.src = snapshot;
     }
-  }, [canvasHeight, hasStroke]);
+  }, [hasStroke]);
 
   useEffect(() => {
-    setCanvasHeight(isMobileViewport() ? 160 : 200);
-
     const media = window.matchMedia('(max-width: 640px)');
+    canvasHeightRef.current = media.matches ? 160 : 200;
+    resizeCanvas();
+
     const listener = (event: MediaQueryListEvent) => {
-      setCanvasHeight(event.matches ? 160 : 200);
+      canvasHeightRef.current = event.matches ? 160 : 200;
+      resizeCanvas();
     };
 
     if (typeof media.addEventListener === 'function') {
@@ -92,7 +94,7 @@ export default function SignatureCanvas({ onSignatureChange }: SignatureCanvasPr
 
     media.addListener(listener);
     return () => media.removeListener(listener);
-  }, []);
+  }, [resizeCanvas]);
 
   useEffect(() => {
     resizeCanvas();
