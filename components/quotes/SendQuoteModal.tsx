@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 
-import { Loader2Icon, SendIcon } from 'lucide-react';
+import { CheckIcon, CopyIcon, Loader2Icon, SendIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
@@ -18,6 +18,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 type Locale = 'en' | 'fr';
+type QuoteStatus = 'draft' | 'sent' | 'accepted' | 'refused';
 
 interface SendQuoteModalProps {
   open: boolean;
@@ -27,6 +28,7 @@ interface SendQuoteModalProps {
   clientEmail: string | null | undefined;
   clientName: string | null | undefined;
   companyName: string | null | undefined;
+  quoteStatus: QuoteStatus;
   locale: Locale;
   onSent?: () => void;
 }
@@ -40,9 +42,14 @@ const translations = {
     subjectLabel: 'Subject',
     messageLabel: 'Message',
     cancel: 'Cancel',
+    sendForSigning: 'Send for signing',
+    resendSigningLink: 'Resend signing link',
     send: 'Send to client',
     sending: 'Sending...',
     success: 'Quote sent successfully',
+    emailSentWithLink: 'Email sent. Signing link ready to share:',
+    copyLink: 'Copy link',
+    copied: 'Copied',
     error: 'Failed to send quote',
     emailRequired: 'Client email is required',
     defaultSubject: (quoteNumber: string) => `Your quote ${quoteNumber}`,
@@ -60,9 +67,14 @@ const translations = {
     subjectLabel: 'Objet',
     messageLabel: 'Message',
     cancel: 'Annuler',
+    sendForSigning: 'Envoyer pour signature',
+    resendSigningLink: 'Renvoyer le lien de signature',
     send: 'Envoyer au client',
     sending: 'Envoi en cours...',
     success: 'Devis envoyé avec succès',
+    emailSentWithLink: 'E-mail envoye. Lien de signature pret a partager :',
+    copyLink: 'Copier le lien',
+    copied: 'Copie',
     error: "Impossible d'envoyer le devis",
     emailRequired: "L'e-mail du client est requis",
     defaultSubject: (quoteNumber: string) => `Votre devis ${quoteNumber}`,
@@ -82,6 +94,7 @@ export default function SendQuoteModal({
   clientEmail,
   clientName,
   companyName,
+  quoteStatus,
   locale,
   onSent,
 }: SendQuoteModalProps) {
@@ -91,6 +104,8 @@ export default function SendQuoteModal({
   const [subject, setSubject] = useState(t.defaultSubject(quoteNumber));
   const [message, setMessage] = useState(t.defaultMessage(quoteNumber, clientName, companyName));
   const [sending, setSending] = useState(false);
+  const [signUrl, setSignUrl] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
 
   const handleOpenChange = (nextOpen: boolean) => {
@@ -98,6 +113,8 @@ export default function SendQuoteModal({
       setEmail(clientEmail || '');
       setSubject(t.defaultSubject(quoteNumber));
       setMessage(t.defaultMessage(quoteNumber, clientName, companyName));
+      setSignUrl(null);
+      setCopied(false);
     }
     onOpenChange(nextOpen);
   };
@@ -122,14 +139,15 @@ export default function SendQuoteModal({
         }),
       });
 
-      const payload = (await response.json()) as { success?: boolean; message?: string };
+      const payload = (await response.json()) as { success?: boolean; message?: string; signUrl?: string };
 
       if (!response.ok || !payload.success) {
         throw new Error(payload.message || t.error);
       }
 
       toast.success(t.success);
-      onOpenChange(false);
+      setSignUrl(payload.signUrl ?? null);
+      setCopied(false);
       onSent?.();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t.error);
@@ -137,6 +155,17 @@ export default function SendQuoteModal({
       setSending(false);
     }
   }
+
+  async function handleCopyLink() {
+    if (!signUrl) {
+      return;
+    }
+
+    await navigator.clipboard.writeText(signUrl);
+    setCopied(true);
+  }
+
+  const isResend = quoteStatus === 'sent' || Boolean(signUrl);
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -183,6 +212,17 @@ export default function SendQuoteModal({
               disabled={sending}
             />
           </div>
+
+          {signUrl ? (
+            <div className="rounded-md border border-border bg-muted/30 p-3 text-sm">
+              <p className="mb-2 text-muted-foreground">{t.emailSentWithLink}</p>
+              <p className="break-all text-foreground">{signUrl}</p>
+              <Button type="button" variant="outline" size="sm" className="mt-3" onClick={handleCopyLink}>
+                {copied ? <CheckIcon className="size-3.5" /> : <CopyIcon className="size-3.5" />}
+                {copied ? t.copied : t.copyLink}
+              </Button>
+            </div>
+          ) : null}
         </div>
 
         <DialogFooter className="gap-2 sm:gap-0">
@@ -198,7 +238,7 @@ export default function SendQuoteModal({
             ) : (
               <>
                 <SendIcon className="size-4" />
-                {t.send}
+                {isResend ? t.resendSigningLink : t.sendForSigning}
               </>
             )}
           </Button>

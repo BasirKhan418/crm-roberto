@@ -124,6 +124,8 @@ export default function QuoteDetailPage() {
       duplicate: 'Duplicate',
       download: 'Download PDF',
       sendToClient: 'Send to client',
+      sendForSigning: 'Send for signing',
+      resendSigningLink: 'Resend signing link',
       delete: 'Delete',
       quote: 'Quote',
       date: 'Date',
@@ -179,6 +181,8 @@ export default function QuoteDetailPage() {
       duplicate: 'Dupliquer',
       download: 'Telecharger PDF',
       sendToClient: 'Envoyer au client',
+      sendForSigning: 'Envoyer pour signature',
+      resendSigningLink: 'Renvoyer le lien de signature',
       delete: 'Supprimer',
       quote: 'Devis',
       date: 'Date',
@@ -488,10 +492,10 @@ export default function QuoteDetailPage() {
             />
 
             <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:items-center">
-              {quote.status === 'draft' ? (
+              {(quote.status === 'draft' || quote.status === 'sent') ? (
                 <Button type="button" variant="default" size="sm" className={actionButtonClass} onClick={() => setSendOpen(true)}>
                   <SendIcon className="size-3.5" />
-                  {t.sendToClient}
+                  {quote.status === 'sent' ? t.resendSigningLink : t.sendForSigning}
                 </Button>
               ) : null}
               <Button
@@ -723,6 +727,7 @@ export default function QuoteDetailPage() {
           clientEmail={quote.clientSnapshot.email}
           clientName={quote.clientSnapshot.fullName}
           companyName={undefined}
+          quoteStatus={quote.status}
           locale={locale as 'en' | 'fr'}
           onSent={loadData}
         />

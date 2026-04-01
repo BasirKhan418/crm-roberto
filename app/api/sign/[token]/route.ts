@@ -40,7 +40,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
   }
 
   const companyProfile = await CompanyProfile.findOne({ user: quote.user })
-    .select({ companyName: 1, ownerName: 1, logoUrl: 1 })
+    .select({ companyName: 1, ownerName: 1, logoUrl: 1, address: 1, phone: 1, businessEmail: 1, vatNumber: 1 })
     .lean();
 
   const companyName =
@@ -61,6 +61,10 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     company: {
       companyName,
       logoUrl,
+      address: (companyProfile?.address as string | undefined) || null,
+      phone: (companyProfile?.phone as string | undefined) || null,
+      email: (companyProfile?.businessEmail as string | undefined) || null,
+      vatNumber: (companyProfile?.vatNumber as string | undefined) || null,
     },
     quoteNumber: quote.quoteNumber,
     date: quote.date,
