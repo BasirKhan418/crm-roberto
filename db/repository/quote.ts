@@ -7,6 +7,7 @@ import { computeQuoteLine, computeQuoteTotalsFromComputedLines } from '@/lib/quo
 import type { CreateQuoteDTO, UpdateQuoteDTO, UpdateQuoteStatusDTO } from '@/validators/quote.schema';
 
 export type QuoteStatus = 'draft' | 'sent' | 'accepted' | 'refused';
+export type QuoteSignedStatus = 'not_signed' | 'signed';
 
 interface LastQuoteNumberRecord {
   quoteNumber: string;
@@ -56,6 +57,10 @@ interface QuoteRecord {
   quoteNumber: string;
   date: Date;
   status: QuoteStatus;
+  signedStatus?: QuoteSignedStatus;
+  signatureToken?: string | null;
+  signatureTokenExpiry?: Date | null;
+  signedAt?: Date | null;
   clientId: string;
   clientSnapshot: ClientSnapshotRecord;
   lineItems: Array<{

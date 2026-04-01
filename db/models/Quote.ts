@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 export type QuoteStatus = "draft" | "sent" | "accepted" | "refused";
+export type QuoteSignedStatus = "not_signed" | "signed";
 
 const LineItemSchema = new mongoose.Schema(
   {
@@ -141,6 +142,16 @@ const QuoteSchema = new mongoose.Schema(
       default: "draft",
     },
 
+    signedStatus: {
+      type: String,
+      required: true,
+      enum: {
+        values: ["not_signed", "signed"],
+        message: "Signed status must be not_signed or signed",
+      },
+      default: "not_signed",
+    },
+
     statusHistory: {
       type: [StatusHistorySchema],
       default: [],
@@ -225,6 +236,22 @@ const QuoteSchema = new mongoose.Schema(
       min: [1, "Validity must be at least 1 day"],
     },
 
+    signatureToken: {
+      type: String,
+      default: null,
+      index: true,
+    },
+
+    signatureTokenExpiry: {
+      type: Date,
+      default: null,
+    },
+
+    signedAt: {
+      type: Date,
+      default: null,
+    },
+
     convertedToInvoice: {
       type: Boolean,
       default: false,
@@ -247,7 +274,7 @@ const QuoteSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// ── Indexes ───────────────────────────────────────────────────────────────────
+
 
 // Speed up list page: all quotes for this user, newest first
 QuoteSchema.index({ user: 1, createdAt: -1 });
