@@ -19,6 +19,7 @@ import {
 import { Building2Icon, FileTextIcon, LanguagesIcon, LayoutDashboard, LayoutDashboardIcon, LogOutIcon, NotebookPenIcon, PackageSearchIcon, ReceiptTextIcon, TruckIcon, UsersIcon } from "lucide-react"
 import { useLocale } from "@/components/providers/locale-provider"
 import { useAuthMe } from "@/hooks/useAuthMe"
+import { useSignedQuotesCount } from "@/hooks/useSignedQuotesCount"
 
 const navItems = [
   { key: "dashboard", url: "/dashboard", icon: <LayoutDashboardIcon /> },
@@ -75,6 +76,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { user } = useAuthMe()
   const { locale, toggleLocale } = useLocale()
   const t = sidebarMessages[locale]
+  const signedCount = useSignedQuotesCount()
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>
@@ -111,6 +113,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   <Link href={item.url}>
                     {item.icon}
                     <span>{t.nav[item.key]}</span>
+                    {item.key === "quotes" && signedCount > 0 ? (
+                      <span className="ml-auto flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold" style={{ backgroundColor: 'var(--color-text-success)', color: '#fff' }}>
+                        {signedCount > 99 ? '99+' : signedCount}
+                      </span>
+                    ) : null}
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

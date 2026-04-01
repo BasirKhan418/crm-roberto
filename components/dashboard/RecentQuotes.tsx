@@ -56,28 +56,28 @@ export default function RecentQuotes({ refreshKey = 0 }: RecentQuotesProps) {
   const { locale } = useLocale();
   const t = {
     en: {
-      title: 'Recent quotes',
+      title: 'Recent Quotes',
       quoteNumber: 'Quote #',
       client: 'Client',
       date: 'Date',
-      amount: 'Amount',
+      amount: 'Amount (incl. tax)',
       status: 'Status',
       empty: 'No quotes yet. Create your first quote to see it here.',
       loadError: 'Could not load recent quotes.',
       openQuote: 'Open quote',
-      viewAll: 'View all quotes',
+      viewAll: 'View all →',
     },
     fr: {
-      title: 'Devis recents',
+      title: 'Devis Récents',
       quoteNumber: 'Devis #',
       client: 'Client',
       date: 'Date',
-      amount: 'Montant',
+      amount: 'Montant (TTC)',
       status: 'Statut',
-      empty: 'Aucun devis pour le moment. Creez votre premier devis.',
-      loadError: 'Impossible de charger les devis recents.',
+      empty: 'Aucun devis pour le moment. Créez votre premier devis.',
+      loadError: 'Impossible de charger les devis récents.',
       openQuote: 'Ouvrir le devis',
-      viewAll: 'Voir tous les devis',
+      viewAll: 'Voir tout →',
     },
   }[locale];
 
@@ -127,13 +127,13 @@ export default function RecentQuotes({ refreshKey = 0 }: RecentQuotesProps) {
   const showError = Boolean(error) && items.length === 0;
 
   return (
-    <Card className="gap-0 overflow-hidden border-border/80">
-      <CardHeader className="border-b bg-linear-to-r from-muted/40 to-background">
+    <Card className="gap-0 overflow-hidden">
+      <CardHeader className="border-b bg-slate-50 px-5 py-3.5 dark:bg-slate-900/40">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <CardTitle className="text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+          <CardTitle className="text-[11px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
             {t.title}
           </CardTitle>
-          <Link href="/quotes" className="text-xs font-medium text-(--color-text-info) hover:underline">
+          <Link href="/quotes" className="text-xs font-semibold text-indigo-700 hover:text-indigo-800 hover:underline dark:text-indigo-400">
             {t.viewAll}
           </Link>
         </div>

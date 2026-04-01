@@ -68,6 +68,7 @@ export default function QuotesPage() {
       downloadPdf: 'PDF',
       lockEdit: 'Accepted and refused quotes cannot be edited',
       send: 'Send',
+      history: 'History',
       deleteTitle: 'Delete quote?',
       deleteDescription: 'Are you sure you want to delete this quote?',
       cancel: 'Cancel',
@@ -114,6 +115,7 @@ export default function QuotesPage() {
       downloadPdf: 'PDF',
       lockEdit: 'Les devis acceptes et refuses ne peuvent pas etre modifies',
       send: 'Envoyer',
+      history: 'Historique',
       deleteTitle: 'Supprimer le devis ?',
       deleteDescription: 'Voulez-vous vraiment supprimer ce devis ?',
       cancel: 'Annuler',
@@ -335,7 +337,9 @@ export default function QuotesPage() {
                 downloadPdf: t.downloadPdf,
                 lockEdit: t.lockEdit,
                 send: t.send,
+                history: t.history,
               }}
+              locale={locale as 'en' | 'fr'}
               onDuplicate={handleDuplicateQuote}
               onSend={setSendTarget}
               duplicatingId={duplicatingId}

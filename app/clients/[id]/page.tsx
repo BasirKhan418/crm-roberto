@@ -458,8 +458,15 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_1.2fr]">
           <Card>
             <CardHeader className="border-b">
-              <CardTitle className="text-xl">{client.fullName}</CardTitle>
-              <p className="text-sm text-muted-foreground">{t.profileSubtitle}</p>
+              <div className="flex items-center gap-3">
+                <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-base font-bold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+                  {client.fullName.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <CardTitle className="text-xl">{client.fullName}</CardTitle>
+                  <p className="text-sm text-muted-foreground">{t.profileSubtitle}</p>
+                </div>
+              </div>
             </CardHeader>
             <CardContent className="space-y-2 pt-4 text-sm">
               <p><span className="text-muted-foreground">{t.email}:</span> {client.email || '-'}</p>
@@ -608,7 +615,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                 <EmptyState message={t.timelineEmpty} />
               ) : (
                 timeline.map((note, index) => (
-                  <div key={note._id} className={`rounded-lg border border-border/70 p-3 ${index === timeline.length - 1 ? '' : ''}`}>
+                  <div key={note._id} className="rounded-lg border border-l-4 border-border/70 border-l-emerald-400 p-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <h3 className="text-sm font-semibold">{note.title}</h3>
                       <div className="flex items-center gap-2">

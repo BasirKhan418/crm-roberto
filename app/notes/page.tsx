@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { PencilIcon, PlusIcon, SearchIcon, Trash2Icon } from 'lucide-react';
+import { PencilIcon, PlusIcon, SearchIcon, Trash2Icon, CheckCircle2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import CrmShell from '@/components/crm-shell';
@@ -166,6 +166,7 @@ export default function NotesPage() {
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
+  const [markingFollowUpId, setMarkingFollowUpId] = useState<string | null>(null);
 
   const [clients, setClients] = useState<LinkedEntity[]>([]);
   const [suppliers, setSuppliers] = useState<LinkedEntity[]>([]);
@@ -332,6 +333,25 @@ export default function NotesPage() {
       toast.error(err instanceof Error ? err.message : t.deleteFailed);
     } finally {
       setDeletingNoteId(null);
+    }
+  }
+
+  async function markFollowUpDone(noteId: string) {
+    setMarkingFollowUpId(noteId);
+    try {
+      const response = await fetch(`/api/notes/${noteId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ followUpDate: null }),
+      });
+      const data = (await response.json()) as { success: boolean; message?: string };
+      if (!response.ok || !data.success) throw new Error(data.message);
+      setNotes((prev) => prev.map((n) => n._id === noteId ? { ...n, followUpDate: null } : n));
+      toast.success(locale === 'fr' ? 'Suivi marqué comme terminé' : 'Follow-up marked as done');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to clear follow-up');
+    } finally {
+      setMarkingFollowUpId(null);
     }
   }
 
@@ -614,12 +634,17 @@ export default function NotesPage() {
           {error ? <ErrorMessage message={error} /> : null}
 
           {loading ? (
-            Array.from({ length: 5 }).map((_, idx) => <Skeleton key={idx} className="h-28 w-full" />)
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {Array.from({ length: 5 }).map((_, idx) => <Skeleton key={idx} className="h-28 w-full" />)}
+            </div>
           ) : notes.length === 0 ? (
             <EmptyState message={t.empty} />
           ) : (
-            notes.map((note) => (
-              <div key={note._id} className="rounded-xl border border-border/70 p-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {notes.map((note) => (
+              <div key={note._id} className={`rounded-xl border-2 p-4 ${
+                note.linkedType === 'client' ? 'border-emerald-400' : 'border-amber-400'
+              }`}>
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <h3 className="text-base font-semibold">{note.title}</h3>
                   <div className="flex items-center gap-2">
@@ -656,13 +681,31 @@ export default function NotesPage() {
                     {note.linkedType === 'client' ? 'Client' : 'Supplier'} · {note.linkedId?.fullName}
                   </Link>
                   {note.followUpDate ? (
-                    <span className="rounded-full bg-amber-100 px-2 py-1 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
-                      {t.followUp}: {new Date(note.followUpDate).toLocaleDateString('en-US')}
-                    </span>
+                    <>
+                      <span className="rounded-full bg-amber-100 px-2 py-1 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                        {t.followUp}: {new Date(note.followUpDate).toLocaleDateString('en-US')}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={markingFollowUpId === note._id}
+                        onClick={() => markFollowUpDone(note._id)}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 dark:hover:bg-emerald-950/50"
+                      >
+                        {markingFollowUpId === note._id ? (
+                          <Loader2 className="size-3 animate-spin" />
+                        ) : (
+                          <CheckCircle2 className="size-3" strokeWidth={2.5} />
+                        )}
+                        {markingFollowUpId === note._id
+                          ? (locale === 'fr' ? 'Enregistrement...' : 'Saving...')
+                          : (locale === 'fr' ? 'Suivi terminé' : 'Mark done')}
+                      </button>
+                    </>
                   ) : null}
                 </div>
               </div>
-            ))
+            ))}
+            </div>
           )}
 
           <div className="mt-4 flex items-center justify-between">

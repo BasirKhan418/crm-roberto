@@ -94,36 +94,14 @@ async function hydrateFollowUps(userId: string, rows: DashboardFollowUpItem[]): 
   });
 }
 
-function getStartOfWeek(referenceDate: Date): Date {
-  const start = new Date(referenceDate);
-  const dayOffset = (start.getDay() + 6) % 7;
-  start.setDate(start.getDate() - dayOffset);
-  start.setHours(0, 0, 0, 0);
-  return start;
-}
-
-function getStartOfToday(referenceDate: Date): Date {
-  const today = new Date(referenceDate);
-  today.setHours(0, 0, 0, 0);
-  return today;
-}
-
-function getStartOfMonth(referenceDate: Date): Date {
-  return new Date(referenceDate.getFullYear(), referenceDate.getMonth(), 1, 0, 0, 0, 0);
-}
-
 export const getDashboardStats = async (userId: string): Promise<DashboardStats> => {
   await ConnectDb();
-
-  const now = new Date();
-  const weekStart = getStartOfWeek(now);
-  const monthStart = getStartOfMonth(now);
 
   const [totalClients, totalSuppliers, notesThisWeek, quotesThisMonth, acceptedTotals] = await Promise.all([
     Client.countDocuments({ user: userId }),
     Supplier.countDocuments({ user: userId }),
-    Note.countDocuments({ user: userId, createdAt: { $gte: weekStart, $lte: now } }),
-    Quote.countDocuments({ user: userId, date: { $gte: monthStart, $lte: now } }),
+    Note.countDocuments({ user: userId }),
+    Quote.countDocuments({ user: userId }),
     Quote.aggregate<{ total: number }>([
       {
         $match: {
@@ -166,13 +144,12 @@ export const getDashboardActivity = async (userId: string): Promise<DashboardAct
 export const getDashboardFollowUps = async (userId: string): Promise<DashboardFollowUpItem[]> => {
   await ConnectDb();
 
-  const todayStart = getStartOfToday(new Date());
-
   const rows = await Note.find({
     user: userId,
-    followUpDate: { $ne: null, $gte: todayStart },
+    followUpDate: { $ne: null },
   })
     .sort({ followUpDate: 1 })
+    .limit(20)
     .select('_id title followUpDate linkedType linkedId')
     .lean();
 

@@ -2,8 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-
-import { Plus } from 'lucide-react';
+import { UserPlus, Building2, PenLine, FileText } from 'lucide-react';
 
 import AddClientModal from '@/components/modals/AddClientModal';
 import AddNoteModal from '@/components/modals/AddNoteModal';
@@ -21,56 +20,53 @@ export default function QuickAddButtons({ onSuccess }: QuickAddButtonsProps) {
   const [open, setOpen] = useState<OpenModal>(null);
   const router = useRouter();
   const { locale } = useLocale();
-  const quickButtonClass = 'h-10 justify-start font-medium sm:justify-center';
   const t = {
-    en: { client: 'Client', supplier: 'Supplier', note: 'Note', quote: 'Quote' },
-    fr: { client: 'Client', supplier: 'Fournisseur', note: 'Note', quote: 'Devis' },
+    en: { client: 'Add Client', supplier: 'Add Supplier', note: 'Add Note', quote: 'New Quote' },
+    fr: { client: 'Ajouter Client', supplier: 'Ajouter Fournisseur', note: 'Ajouter Note', quote: 'Nouveau Devis' },
   }[locale];
 
   return (
     <>
-      <div className="w-full rounded-xl border border-border/80 bg-background/95 p-2 shadow-xs backdrop-blur-sm sm:w-auto">
-        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className={`${quickButtonClass} shadow-sm `}
-            onClick={() => setOpen('client')}
-          >
-          <Plus />
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-9 gap-1.5 border-indigo-300 bg-white text-indigo-700 shadow-sm hover:border-indigo-400 hover:bg-indigo-50 dark:border-indigo-700 dark:bg-transparent dark:text-indigo-300 dark:hover:bg-indigo-950/40"
+          onClick={() => setOpen('client')}
+        >
+          <UserPlus className="size-3.5" strokeWidth={2} />
           {t.client}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className={`${quickButtonClass} shadow-sm `}
-            onClick={() => setOpen('supplier')}
-          >
-            <Plus />
-            {t.supplier}
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className={`${quickButtonClass} border-sky-200 bg-sky-200 text-sky-900 hover:bg-sky-100/70 dark:border-sky-800/70 dark:bg-sky-950/20 dark:text-sky-200 text-black`}
-            onClick={() => setOpen('note')}
-          >
-            <Plus />
-            {t.note}
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            className={`${quickButtonClass} bg-slate-900 text-white hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200`}
-            onClick={() => router.push('/quotes/new')}
-          >
-            <Plus />
-            {t.quote}
-          </Button>
-        </div>
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-9 gap-1.5 border-amber-300 bg-white text-amber-700 shadow-sm hover:border-amber-400 hover:bg-amber-50 dark:border-amber-700 dark:bg-transparent dark:text-amber-300 dark:hover:bg-amber-950/40"
+          onClick={() => setOpen('supplier')}
+        >
+          <Building2 className="size-3.5" strokeWidth={2} />
+          {t.supplier}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-9 gap-1.5 border-teal-300 bg-white text-teal-700 shadow-sm hover:border-teal-400 hover:bg-teal-50 dark:border-teal-700 dark:bg-transparent dark:text-teal-300 dark:hover:bg-teal-950/40"
+          onClick={() => setOpen('note')}
+        >
+          <PenLine className="size-3.5" strokeWidth={2} />
+          {t.note}
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          className="h-9 gap-1.5 bg-slate-800 text-white shadow-sm hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600"
+          onClick={() => router.push('/quotes/new')}
+        >
+          <FileText className="size-3.5" strokeWidth={2} />
+          {t.quote}
+        </Button>
       </div>
 
       {open === 'client' ? <AddClientModal onClose={() => setOpen(null)} onSuccess={onSuccess} /> : null}

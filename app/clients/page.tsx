@@ -3,20 +3,18 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { PlusIcon, SearchIcon } from 'lucide-react';
+import { Building2, Mail, MapPin, Phone, PlusIcon, SearchIcon, Users } from 'lucide-react';
 import { toast } from 'sonner';
 
 import CrmShell from '@/components/crm-shell';
 import { useLocale } from '@/components/providers/locale-provider';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import EmptyState from '@/components/ui/EmptyState';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 interface Client {
   _id: string;
@@ -36,7 +34,33 @@ interface Pagination {
   totalPages: number;
 }
 
-const initialPagination: Pagination = { page: 1, limit: 10, total: 0, totalPages: 0 };
+const initialPagination: Pagination = { page: 1, limit: 12, total: 0, totalPages: 0 };
+
+function getInitials(name: string): string {
+  return name
+    .split(' ')
+    .slice(0, 2)
+    .map((w) => w[0] ?? '')
+    .join('')
+    .toUpperCase();
+}
+
+const AVATAR_COLORS = [
+  'bg-indigo-600',
+  'bg-violet-600',
+  'bg-teal-600',
+  'bg-sky-600',
+  'bg-emerald-600',
+  'bg-rose-600',
+  'bg-amber-600',
+  'bg-cyan-600',
+];
+
+function avatarColor(id: string): string {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
+  return AVATAR_COLORS[hash % AVATAR_COLORS.length] ?? 'bg-indigo-600';
+}
 
 export default function ClientsPage() {
   const { locale } = useLocale();
@@ -71,7 +95,9 @@ export default function ClientsPage() {
       previous: 'Previous',
       next: 'Next',
       open: 'Open',
-      noData: '-',
+      noData: '—',
+      totalClients: 'Total clients',
+      viewProfile: 'View profile →',
     },
     fr: {
       fetchFailed: 'Impossible de recuperer les clients',
@@ -103,7 +129,9 @@ export default function ClientsPage() {
       previous: 'Precedent',
       next: 'Suivant',
       open: 'Ouvrir',
-      noData: '-',
+      noData: '—',
+      totalClients: 'Total clients',
+      viewProfile: 'Voir le profil →',
     },
   }[locale];
 
@@ -132,16 +160,13 @@ export default function ClientsPage() {
     params.set('limit', String(pagination.limit));
     params.set('sortBy', 'createdAt');
     params.set('sortOrder', 'desc');
-    if (search) {
-      params.set('search', search);
-    }
+    if (search) params.set('search', search);
     return params.toString();
   }, [pagination.page, pagination.limit, search]);
 
   const loadClients = useCallback(async () => {
     setLoading(true);
     setError(null);
-
     try {
       const response = await fetch(`/api/clients?${query}`, { cache: 'no-store' });
       const data = (await response.json()) as {
@@ -150,16 +175,11 @@ export default function ClientsPage() {
         data?: Client[];
         pagination?: Pagination;
       };
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.message || t.fetchFailed);
-      }
-
+      if (!response.ok || !data.success) throw new Error(data.message || t.fetchFailed);
       setClients(data.data ?? []);
       setPagination((prev) => data.pagination ?? prev);
     } catch (err) {
-      const message = err instanceof Error ? err.message : t.fetchFailed;
-      setError(message);
+      setError(err instanceof Error ? err.message : t.fetchFailed);
       setClients([]);
       setPagination((prev) => ({ ...prev, total: 0, totalPages: 0 }));
     } finally {
@@ -167,18 +187,11 @@ export default function ClientsPage() {
     }
   }, [query, t.fetchFailed]);
 
-  useEffect(() => {
-    loadClients();
-  }, [loadClients]);
+  useEffect(() => { loadClients(); }, [loadClients]);
 
   async function handleCreateClient() {
-    if (!form.fullName.trim()) {
-      toast.error(t.nameRequired);
-      return;
-    }
-
+    if (!form.fullName.trim()) { toast.error(t.nameRequired); return; }
     setIsSubmitting(true);
-
     try {
       const response = await fetch('/api/clients', {
         method: 'POST',
@@ -192,12 +205,8 @@ export default function ClientsPage() {
           vatNumber: form.vatNumber || undefined,
         }),
       });
-
       const data = (await response.json()) as { success: boolean; message?: string };
-      if (!response.ok || !data.success) {
-        throw new Error(data.message || t.createFailed);
-      }
-
+      if (!response.ok || !data.success) throw new Error(data.message || t.createFailed);
       toast.success(t.created);
       setIsAddOpen(false);
       setForm({ fullName: '', email: '', phone: '', address: '', companyName: '', vatNumber: '' });
@@ -212,25 +221,26 @@ export default function ClientsPage() {
 
   return (
     <CrmShell title={t.shellTitle}>
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      {/* Page header */}
+      <div className="flex flex-col gap-3 border-b border-border/60 pb-5 md:flex-row md:items-end md:justify-between">
         <div>
-          <h1 className="font-heading text-2xl font-semibold tracking-tight">{t.heading}</h1>
-          <p className="text-sm text-muted-foreground">{t.subtitle}</p>
+          <h1 className="font-heading text-2xl font-bold tracking-tight">{t.heading}</h1>
+          <p className="mt-0.5 text-sm text-muted-foreground">{t.subtitle}</p>
         </div>
 
         <Sheet open={isAddOpen} onOpenChange={setIsAddOpen}>
           <SheetTrigger asChild>
-            <Button className='lg:h-10 md:h-10 h-10'>
+            <Button className="h-10">
               <PlusIcon />
               {t.addClient}
             </Button>
           </SheetTrigger>
-          <SheetContent side="right" className="w-full sm:max-w-lg">
+          <SheetContent side="right" className="w-full p-0 sm:max-w-lg">
             <SheetHeader>
               <SheetTitle>{t.addTitle}</SheetTitle>
               <SheetDescription>{t.addDesc}</SheetDescription>
             </SheetHeader>
-            <div className="space-y-3 px-4">
+            <div className="max-h-[calc(100svh-10rem)] space-y-3 overflow-y-auto px-4 pb-4 sm:px-6">
               <div className="space-y-1.5">
                 <Label htmlFor="client-full-name">{t.name}</Label>
                 <Input id="client-full-name" value={form.fullName} onChange={(e) => setForm((p) => ({ ...p, fullName: e.target.value }))} />
@@ -259,9 +269,7 @@ export default function ClientsPage() {
               </div>
             </div>
             <SheetFooter>
-              <Button variant="outline" onClick={() => setIsAddOpen(false)}>
-                {t.cancel}
-              </Button>
+              <Button variant="outline" onClick={() => setIsAddOpen(false)}>{t.cancel}</Button>
               <Button onClick={handleCreateClient} disabled={isSubmitting}>
                 {isSubmitting ? t.saving : t.saveClient}
               </Button>
@@ -270,127 +278,149 @@ export default function ClientsPage() {
         </Sheet>
       </div>
 
-      <Card>
-        <CardHeader className="border-b">
-          <CardTitle className="text-base">{t.directory}</CardTitle>
-          <div className="relative mt-3 max-w-md">
-            <SearchIcon className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
-            <Input
-              className="pl-8"
-              placeholder={t.search}
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  setPagination((prev) => ({ ...prev, page: 1 }));
-                  setSearch(searchInput.trim());
-                }
-              }}
-            />
+      {/* Stat bar */}
+      {!loading && !error ? (
+        <div className="flex items-center gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 dark:border-primary/30 dark:bg-primary/10">
+          <div className="flex size-9 items-center justify-center rounded-full bg-primary">
+            <Users className="size-4 text-white" strokeWidth={2} />
           </div>
-        </CardHeader>
-        <CardContent className="pt-4">
-          {error ? <ErrorMessage message={error} /> : null}
+          <div>
+            <p className="text-xs font-medium text-primary/70 dark:text-primary/60">{t.totalClients}</p>
+            <p className="text-xl font-bold text-primary dark:text-primary/80">{pagination.total}</p>
+          </div>
+        </div>
+      ) : null}
 
-          {loading ? (
-            <div className="space-y-2">
-              {Array.from({ length: 6 }).map((_, idx) => (
-                <Skeleton key={idx} className="h-10 w-full" />
-              ))}
-            </div>
-          ) : clients.length === 0 ? (
-            <EmptyState message={t.empty} />
-          ) : (
-            <>
-              <div className="space-y-3 md:hidden">
-                {clients.map((client) => (
-                  <article key={client._id} className="space-y-2.5 rounded-xl border border-border/70 bg-card/80 p-3.5 shadow-sm">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <Link href={`/clients/${client._id}`} className="block text-sm font-semibold text-(--color-text-info) hover:underline wrap-break-word">
-                          {client.fullName}
-                        </Link>
-                        <p className="mt-0.5 text-xs text-muted-foreground">{client.companyName || t.noData}</p>
-                      </div>
-                      <Button type="button" size="sm" variant="outline" asChild>
-                        <Link href={`/clients/${client._id}`}>{t.open}</Link>
-                      </Button>
-                    </div>
+      {/* Search */}
+      <div className="relative max-w-md">
+        <SearchIcon className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
+        <Input
+          className="pl-8"
+          placeholder={t.search}
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              setPagination((prev) => ({ ...prev, page: 1 }));
+              setSearch(searchInput.trim());
+            }
+          }}
+        />
+      </div>
 
-                    <div className="grid grid-cols-2 gap-2 rounded-lg border border-border/60 bg-background px-2.5 py-2 text-xs">
-                      <div>
-                        <p className="text-muted-foreground">{t.email}</p>
-                        <p className="truncate font-medium">{client.email || t.noData}</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground">{t.phone}</p>
-                        <p className="truncate font-medium">{client.phone || t.noData}</p>
-                      </div>
-                      <div className="col-span-2">
-                        <p className="text-muted-foreground">{t.createdCol}</p>
-                        <p className="font-medium">{new Date(client.createdAt).toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-US')}</p>
-                      </div>
-                    </div>
-                  </article>
-                ))}
-              </div>
+      {/* Error */}
+      {error ? <ErrorMessage message={error} /> : null}
 
-              <div className="hidden md:block">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t.name}</TableHead>
-                      <TableHead>{t.email}</TableHead>
-                      <TableHead>{t.phone}</TableHead>
-                      <TableHead>{t.company}</TableHead>
-                      <TableHead>{t.createdCol}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {clients.map((client) => (
-                      <TableRow key={client._id}>
-                        <TableCell className="font-medium">
-                          <Link href={`/clients/${client._id}`} className="hover:underline">
-                            {client.fullName}
-                          </Link>
-                        </TableCell>
-                        <TableCell>{client.email || t.noData}</TableCell>
-                        <TableCell>{client.phone || t.noData}</TableCell>
-                        <TableCell>{client.companyName || t.noData}</TableCell>
-                        <TableCell>{new Date(client.createdAt).toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-US')}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-
-              <div className="mt-4 flex items-center justify-between">
-                <p className="text-xs text-muted-foreground">
-                  {t.page} {pagination.page} {t.of} {Math.max(pagination.totalPages, 1)} - {pagination.total} {t.total}
-                </p>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={pagination.page <= 1}
-                    onClick={() => setPagination((prev) => ({ ...prev, page: prev.page - 1 }))}
-                  >
-                    {t.previous}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={pagination.totalPages === 0 || pagination.page >= pagination.totalPages}
-                    onClick={() => setPagination((prev) => ({ ...prev, page: prev.page + 1 }))}
-                  >
-                    {t.next}
-                  </Button>
+      {/* Grid */}
+      {loading ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, idx) => (
+            <div key={idx} className="rounded-2xl border border-border/70 p-5 space-y-3">
+              <div className="flex items-center gap-3">
+                <Skeleton className="size-11 rounded-full shrink-0" />
+                <div className="space-y-1.5 flex-1">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-3 w-24" />
                 </div>
               </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
+              <Skeleton className="h-3 w-40" />
+              <Skeleton className="h-3 w-32" />
+            </div>
+          ))}
+        </div>
+      ) : clients.length === 0 ? (
+        <EmptyState message={t.empty} />
+      ) : (
+        <>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {clients.map((client) => (
+              <Link
+                key={client._id}
+                href={`/clients/${client._id}`}
+                className="group relative flex flex-col gap-4 rounded-2xl border border-border/70 bg-card p-5 shadow-sm transition-all hover:border-primary/40 hover:shadow-md dark:hover:border-primary/50"
+              >
+                {/* Avatar + name */}
+                <div className="flex items-start gap-3">
+                  <div className={`flex size-11 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white ${avatarColor(client._id)}`}>
+                    {getInitials(client.fullName)}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-semibold text-foreground group-hover:text-primary dark:group-hover:text-primary/80">
+                      {client.fullName}
+                    </p>
+                    {client.companyName ? (
+                      <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-muted-foreground">
+                        <Building2 className="size-3 shrink-0" strokeWidth={1.75} />
+                        {client.companyName}
+                      </p>
+                    ) : (
+                      <p className="mt-0.5 text-xs text-muted-foreground/50">{t.noData}</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Contact details */}
+                <div className="space-y-1.5 text-xs text-muted-foreground">
+                  {client.email ? (
+                    <p className="flex items-center gap-2 truncate">
+                      <Mail className="size-3.5 shrink-0 text-primary/50" strokeWidth={1.75} />
+                      {client.email}
+                    </p>
+                  ) : null}
+                  {client.phone ? (
+                    <p className="flex items-center gap-2 truncate">
+                      <Phone className="size-3.5 shrink-0 text-primary/50" strokeWidth={1.75} />
+                      {client.phone}
+                    </p>
+                  ) : null}
+                  {client.address ? (
+                    <p className="flex items-center gap-2 truncate">
+                      <MapPin className="size-3.5 shrink-0 text-primary/50" strokeWidth={1.75} />
+                      {client.address}
+                    </p>
+                  ) : null}
+                </div>
+
+                {/* Footer */}
+                <div className="flex items-center justify-between border-t border-border/50 pt-3">
+                  <p className="text-[11px] text-muted-foreground/60">
+                    {new Date(client.createdAt).toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </p>
+                  <span className="text-[11px] font-medium text-primary/70 opacity-0 transition-opacity group-hover:opacity-100 dark:text-primary/60">
+                    {t.viewProfile}
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
+
+          {/* Pagination */}
+          <div className="flex items-center justify-between border-t border-border/60 pt-4">
+            <p className="text-xs text-muted-foreground">
+              {t.page} {pagination.page} {t.of} {Math.max(pagination.totalPages, 1)} — {pagination.total} {t.total}
+            </p>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={pagination.page <= 1}
+                onClick={() => setPagination((prev) => ({ ...prev, page: prev.page - 1 }))}
+              >
+                {t.previous}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={pagination.totalPages === 0 || pagination.page >= pagination.totalPages}
+                onClick={() => setPagination((prev) => ({ ...prev, page: prev.page + 1 }))}
+              >
+                {t.next}
+              </Button>
+            </div>
+          </div>
+        </>
+      )}
     </CrmShell>
   );
 }
+

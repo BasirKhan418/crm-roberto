@@ -28,7 +28,7 @@ export const updateNoteSchema = z
     description: z.preprocess(emptyToUndefined, z.string().trim().min(1, 'Description is required').optional()),
     linkedType: z.enum(['client', 'supplier']).optional(),
     linkedId: objectIdSchema.optional(),
-    followUpDate: requiredFollowUpDateSchema,
+    followUpDate: z.union([z.null(), followUpDateValueSchema]).optional(),
   })
   .refine(
     (data) => {

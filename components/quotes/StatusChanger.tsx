@@ -2,19 +2,19 @@
 
 import { useMemo, useState } from 'react';
 
-import { Loader2Icon } from 'lucide-react';
+import { ChevronDownIcon, Loader2Icon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { type QuoteStatus } from '@/components/ui/StatusBadge';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 
 const NEXT_STATUSES: Record<QuoteStatus, QuoteStatus[]> = {
   draft: ['sent'],
-  sent: ['accepted', 'refused', 'draft'],
-  accepted: ['draft'],
-  refused: ['draft'],
+  sent: ['accepted', 'refused'],
+  accepted: [],
+  refused: [],
 };
 
 interface StatusChangerProps {
@@ -25,23 +25,14 @@ interface StatusChangerProps {
   onStatusCommitted?: () => void;
   containerClassName?: string;
   selectClassName?: string;
+  /** @deprecated No longer used — Apply button has been removed */
   buttonClassName?: string;
 }
 
 function statusLabel(status: QuoteStatus, locale: 'en' | 'fr') {
   const labels = {
-    en: {
-      draft: 'Draft',
-      sent: 'Sent',
-      accepted: 'Accepted',
-      refused: 'Refused',
-    },
-    fr: {
-      draft: 'Brouillon',
-      sent: 'Envoye',
-      accepted: 'Accepte',
-      refused: 'Refuse',
-    },
+    en: { draft: 'Draft', sent: 'Sent', accepted: 'Accepted', refused: 'Refused' },
+    fr: { draft: 'Brouillon', sent: 'Envoye', accepted: 'Accepte', refused: 'Refuse' },
   } as const;
 
   return labels[locale][status];
@@ -55,38 +46,30 @@ export default function StatusChanger({
   onStatusCommitted,
   containerClassName,
   selectClassName,
-  buttonClassName,
 }: StatusChangerProps) {
   const t = {
     en: {
-      placeholder: 'Change status',
-      apply: 'Apply',
+      placeholder: 'Change status…',
       failed: 'Could not change status. Please try again.',
       success: 'Status updated',
     },
     fr: {
-      placeholder: 'Changer le statut',
-      apply: 'Appliquer',
+      placeholder: 'Changer le statut…',
       failed: 'Impossible de changer le statut. Veuillez reessayer.',
       success: 'Statut mis a jour',
     },
   }[locale];
 
-  const [selected, setSelected] = useState<QuoteStatus | ''>('');
   const [changing, setChanging] = useState(false);
 
   const nextOptions = useMemo(() => NEXT_STATUSES[status] ?? [], [status]);
 
-  async function submitChange() {
-    if (!selected) {
-      return;
-    }
-
-    const nextStatus = selected;
+  async function handleValueChange(value: string) {
+    const nextStatus = value as QuoteStatus;
     const previousStatus = status;
     setChanging(true);
 
-    // Optimistic UI update — parent re-syncs with server after request.
+    // Optimistic update
     onStatusChanged(nextStatus);
 
     try {
@@ -103,7 +86,6 @@ export default function StatusChanger({
 
       onStatusChanged((payload.data?.status as QuoteStatus | undefined) ?? nextStatus);
       onStatusCommitted?.();
-      setSelected('');
       toast.success(t.success);
     } catch (error) {
       onStatusChanged(previousStatus);
@@ -118,30 +100,30 @@ export default function StatusChanger({
   }
 
   return (
-    <div className={cn('flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center', containerClassName)}>
-      <Select value={selected} onValueChange={(value) => setSelected(value as QuoteStatus)}>
-        <SelectTrigger className={cn('h-10 w-full sm:h-8 sm:w-44', selectClassName)}>
-          <SelectValue placeholder={t.placeholder} />
-        </SelectTrigger>
-        <SelectContent>
+    <div className={cn('flex w-full sm:w-auto', containerClassName)}>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={changing}
+            className={cn('h-10 w-full gap-1.5 sm:h-8 sm:w-auto', selectClassName)}
+          >
+            {changing ? <Loader2Icon className="size-3.5 animate-spin" /> : null}
+            {t.placeholder}
+            <ChevronDownIcon className="size-3.5 opacity-60" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start">
           {nextOptions.map((nextStatus) => (
-            <SelectItem key={nextStatus} value={nextStatus}>
+            <DropdownMenuItem key={nextStatus} onSelect={() => handleValueChange(nextStatus)}>
               {statusLabel(nextStatus, locale)}
-            </SelectItem>
+            </DropdownMenuItem>
           ))}
-        </SelectContent>
-      </Select>
-
-      <Button
-        type="button"
-        size="sm"
-        className={cn('h-10 w-full sm:h-8 sm:w-auto', buttonClassName)}
-        onClick={submitChange}
-        disabled={!selected || changing}
-      >
-        {changing ? <Loader2Icon className="size-3.5 animate-spin" /> : null}
-        {t.apply}
-      </Button>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }
+

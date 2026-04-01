@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { CalendarClock, Users, Package, Clock, CalendarCheck, Calendar, CheckCircle2, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 
 import EmptyState from '@/components/ui/EmptyState';
 import ErrorMessage from '@/components/ui/ErrorMessage';
@@ -14,38 +15,54 @@ interface FollowUpsListProps {
   followUps?: FollowUpItem[];
   loading?: boolean;
   error?: string | null;
+  onMarkDone?: () => void;
 }
 
 function getStartOfDay(date: Date): number {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
 }
 
-function formatFollowUpDate(dateStr?: string): string {
-  if (!dateStr) {
-    return '--';
-  }
+type Urgency = 'overdue-critical' | 'overdue-recent' | 'overdue-mild' | 'today' | 'tomorrow' | 'upcoming';
 
+function getUrgency(dateStr?: string, referenceNow?: number): Urgency {
+  if (!dateStr) return 'upcoming';
   const date = new Date(dateStr);
   const dateTime = date.getTime();
+  if (!Number.isFinite(dateTime)) return 'upcoming';
 
-  if (!Number.isFinite(dateTime)) {
-    return '--';
-  }
-
-  const today = new Date();
-  const todayStart = getStartOfDay(today);
-  const tomorrowStart = getStartOfDay(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1));
+  const now = referenceNow ?? Date.now();
+  const todayStart = getStartOfDay(new Date(now));
+  const tomorrowStart = todayStart + 86400000;
   const targetStart = getStartOfDay(date);
 
-  if (targetStart === todayStart) {
-    return 'Today';
+  if (targetStart < todayStart) {
+    const daysOverdue = Math.round((todayStart - targetStart) / 86400000);
+    if (daysOverdue > 30) return 'overdue-critical';
+    if (daysOverdue > 7) return 'overdue-recent';
+    return 'overdue-mild';
   }
+  if (targetStart === todayStart) return 'today';
+  if (targetStart === tomorrowStart) return 'tomorrow';
+  return 'upcoming';
+}
 
-  if (targetStart === tomorrowStart) {
-    return 'Tomorrow';
-  }
+function getDaysOverdue(dateStr: string, referenceNow: number): number {
+  const targetStart = getStartOfDay(new Date(dateStr));
+  const todayStart = getStartOfDay(new Date(referenceNow));
+  return Math.round((todayStart - targetStart) / 86400000);
+}
 
-  return date.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
+function getDaysUntil(dateStr: string, referenceNow: number): number {
+  const targetStart = getStartOfDay(new Date(dateStr));
+  const todayStart = getStartOfDay(new Date(referenceNow));
+  return Math.round((targetStart - todayStart) / 86400000);
+}
+
+function formatShortDate(dateStr?: string): string {
+  if (!dateStr) return '--';
+  const d = new Date(dateStr);
+  if (!Number.isFinite(d.getTime())) return '--';
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' });
 }
 
 function buildLinkedPath(item: FollowUpItem): string {
@@ -54,73 +71,350 @@ function buildLinkedPath(item: FollowUpItem): string {
   return linkedId ? `/${linkedType}/${linkedId}` : `/${linkedType}`;
 }
 
-export default function FollowUpsList({ followUps = [], loading = false, error = null }: FollowUpsListProps) {
+type UrgencyConfig = {
+  iconBg: string;
+  iconColor: string;
+  Icon: React.ElementType;
+  rowBg: string;
+  dateLine: string;
+  statusBg: string;
+  statusText: string;
+};
+
+const URGENCY_STYLE: Record<Urgency, UrgencyConfig> = {
+  'overdue-critical': {
+    iconBg: 'bg-red-100 dark:bg-red-900/40',
+    iconColor: 'text-red-700 dark:text-red-400',
+    Icon: Clock,
+    rowBg: '',
+    dateLine: 'text-red-700 dark:text-red-400',
+    statusBg: 'bg-red-700',
+    statusText: 'text-white',
+  },
+  'overdue-recent': {
+    iconBg: 'bg-orange-100 dark:bg-orange-900/40',
+    iconColor: 'text-orange-600 dark:text-orange-400',
+    Icon: Clock,
+    rowBg: '',
+    dateLine: 'text-orange-600 dark:text-orange-400',
+    statusBg: 'bg-orange-500',
+    statusText: 'text-white',
+  },
+  'overdue-mild': {
+    iconBg: 'bg-amber-100 dark:bg-amber-900/40',
+    iconColor: 'text-amber-600 dark:text-amber-400',
+    Icon: Clock,
+    rowBg: '',
+    dateLine: 'text-amber-600 dark:text-amber-400',
+    statusBg: 'bg-amber-500',
+    statusText: 'text-white',
+  },
+  today: {
+    iconBg: 'bg-emerald-100 dark:bg-emerald-900/40',
+    iconColor: 'text-emerald-600 dark:text-emerald-400',
+    Icon: CalendarCheck,
+    rowBg: 'bg-emerald-50/50 dark:bg-emerald-950/10',
+    dateLine: 'text-emerald-600 dark:text-emerald-400',
+    statusBg: 'bg-emerald-600',
+    statusText: 'text-white',
+  },
+  tomorrow: {
+    iconBg: 'bg-violet-100 dark:bg-violet-900/40',
+    iconColor: 'text-violet-600 dark:text-violet-400',
+    Icon: CalendarClock,
+    rowBg: '',
+    dateLine: 'text-violet-600 dark:text-violet-400',
+    statusBg: 'bg-violet-600',
+    statusText: 'text-white',
+  },
+  upcoming: {
+    iconBg: 'bg-slate-100 dark:bg-slate-800',
+    iconColor: 'text-slate-500 dark:text-slate-400',
+    Icon: Calendar,
+    rowBg: '',
+    dateLine: 'text-slate-500 dark:text-slate-400',
+    statusBg: 'bg-slate-500 dark:bg-slate-600',
+    statusText: 'text-white',
+  },
+};
+
+function getStatusLabel(urgency: Urgency, item: FollowUpItem, referenceNow: number): { main: string; sub: string } {
+  const dateStr = item.followUpDate ?? '';
+
+  if (urgency === 'overdue-critical' || urgency === 'overdue-recent' || urgency === 'overdue-mild') {
+    const days = getDaysOverdue(dateStr, referenceNow);
+    const weeks = Math.floor(days / 7);
+    const months = Math.floor(days / 30);
+    const sub = formatShortDate(dateStr);
+    if (months >= 1) return { main: `${months}mo overdue`, sub };
+    if (weeks >= 1) return { main: `${weeks}w overdue`, sub };
+    return { main: `${days}d overdue`, sub };
+  }
+
+  if (urgency === 'today') return { main: 'Due today', sub: formatShortDate(dateStr) };
+  if (urgency === 'tomorrow') return { main: 'Tomorrow', sub: formatShortDate(dateStr) };
+
+  const days = getDaysUntil(dateStr, referenceNow);
+  const weeks = Math.floor(days / 7);
+  if (weeks >= 1) return { main: `In ${weeks}w`, sub: formatShortDate(dateStr) };
+  return { main: `In ${days}d`, sub: formatShortDate(dateStr) };
+}
+
+function SectionDivider({ label, count, color }: { label: string; count: number; color: string }) {
+  return (
+    <div className={`flex items-center gap-2 px-5 py-2 ${color}`}>
+      <span className="text-[10px] font-bold uppercase tracking-widest">{label}</span>
+      <span className="rounded-full bg-current/15 px-1.5 py-0.5 text-[10px] font-bold">{count}</span>
+    </div>
+  );
+}
+
+export default function FollowUpsList({ followUps = [], loading = false, error = null, onMarkDone }: FollowUpsListProps) {
   const { locale } = useLocale();
   const t = {
     en: {
-      title: 'Upcoming follow-ups',
-      empty: 'No upcoming follow-ups. Add a follow-up date to any note.',
+      title: 'Follow-Ups',
+      overdue: 'Overdue',
+      scheduled: 'Scheduled',
+      empty: 'No follow-ups scheduled. Add a follow-up date to any note.',
     },
     fr: {
-      title: 'Suivis a venir',
-      empty: 'Aucun suivi a venir. Ajoutez une date de suivi a une note.',
+      title: 'Suivis',
+      overdue: 'En retard',
+      scheduled: 'Programmés',
+      empty: 'Aucun suivi programmé. Ajoutez une date de suivi à une note.',
     },
   }[locale];
+
+  const PAGE_SIZE = 5;
   const [referenceNow] = useState<number>(() => Date.now());
-  const items = (Array.isArray(followUps) ? followUps : [])
+  const [doneIds, setDoneIds] = useState<Set<string>>(() => new Set());
+  const [markingIds, setMarkingIds] = useState<Set<string>>(() => new Set());
+  const [page, setPage] = useState(1);
+
+  async function markDone(id: string) {
+    setDoneIds((prev) => new Set(prev).add(id));
+    setMarkingIds((prev) => new Set(prev).add(id));
+    try {
+      const res = await fetch(`/api/notes/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ followUpDate: null }),
+      });
+      if (!res.ok) throw new Error('Failed');
+      onMarkDone?.();
+    } catch {
+      // Revert optimistic removal on failure
+      setDoneIds((prev) => { const next = new Set(prev); next.delete(id); return next; });
+    } finally {
+      setMarkingIds((prev) => { const next = new Set(prev); next.delete(id); return next; });
+    }
+  }
+
+  const allItems = (Array.isArray(followUps) ? followUps : []).filter((item) => {
+    const dateTime = item.followUpDate ? new Date(item.followUpDate).getTime() : Number.NaN;
+    return Number.isFinite(dateTime) && !doneIds.has(item._id ?? '');
+  });
+
+  // Split into overdue (sorted: most recent overdue first — most actionable) and upcoming (soonest first)
+  const overdueItems = allItems
     .filter((item) => {
-      const dateTime = item.followUpDate ? new Date(item.followUpDate).getTime() : Number.NaN;
-      return Number.isFinite(dateTime) && dateTime >= referenceNow;
+      const u = getUrgency(item.followUpDate, referenceNow);
+      return u === 'overdue-critical' || u === 'overdue-recent' || u === 'overdue-mild';
+    })
+    .sort((a, b) => new Date(b.followUpDate ?? 0).getTime() - new Date(a.followUpDate ?? 0).getTime());
+
+  const scheduledItems = allItems
+    .filter((item) => {
+      const u = getUrgency(item.followUpDate, referenceNow);
+      return u === 'today' || u === 'tomorrow' || u === 'upcoming';
     })
     .sort((a, b) => new Date(a.followUpDate ?? 0).getTime() - new Date(b.followUpDate ?? 0).getTime());
-  const showError = Boolean(error) && items.length === 0;
+
+  // Combined ordered list for pagination: overdue first, then scheduled
+  const combinedItems = [...overdueItems, ...scheduledItems];
+  const totalPages = Math.max(1, Math.ceil(combinedItems.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pagedItems = combinedItems.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const pagedOverdue = pagedItems.filter((item) => {
+    const u = getUrgency(item.followUpDate, referenceNow);
+    return u === 'overdue-critical' || u === 'overdue-recent' || u === 'overdue-mild';
+  });
+  const pagedScheduled = pagedItems.filter((item) => {
+    const u = getUrgency(item.followUpDate, referenceNow);
+    return u === 'today' || u === 'tomorrow' || u === 'upcoming';
+  });
+
+  const showError = Boolean(error) && allItems.length === 0;
+
+  function FollowUpRow({ item }: { item: FollowUpItem }) {
+    const urgency = getUrgency(item.followUpDate, referenceNow);
+    const cfg = URGENCY_STYLE[urgency];
+    const { main, sub } = getStatusLabel(urgency, item, referenceNow);
+    const id = item._id ?? '';
+    const isMarking = markingIds.has(id);
+
+    return (
+      <div className={`group flex items-start gap-3.5 px-5 py-3 transition-colors hover:bg-muted/30 ${cfg.rowBg}`}>
+        <div className={`mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full ${cfg.iconBg}`}>
+          <cfg.Icon className={`size-4 ${cfg.iconColor}`} strokeWidth={1.75} />
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium text-foreground">
+            {item.title ?? 'Untitled follow-up'}
+          </p>
+          <Link
+            href={buildLinkedPath(item)}
+            className={`mt-1 inline-flex max-w-40 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium transition-colors ${
+              item.linkedType === 'client'
+                ? 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200 dark:bg-indigo-900/40 dark:text-indigo-300'
+                : 'bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/40 dark:text-amber-300'
+            }`}
+          >
+            {item.linkedType === 'client' ? (
+              <Users className="size-2.5 shrink-0" strokeWidth={2} />
+            ) : (
+              <Package className="size-2.5 shrink-0" strokeWidth={2} />
+            )}
+            <span className="truncate">{item.linkedId?.fullName ?? 'Unknown'}</span>
+          </Link>
+        </div>
+
+        <div className="flex shrink-0 items-start gap-2">
+          <button
+            type="button"
+            title="Mark as done"
+            disabled={isMarking || !id}
+            onClick={() => { if (id) markDone(id); }}
+            className="mt-0.5 flex size-7 items-center justify-center rounded-full border border-transparent text-muted-foreground/40 opacity-0 transition-all hover:border-emerald-400 hover:bg-emerald-50 hover:text-emerald-600 group-hover:opacity-100 disabled:cursor-not-allowed dark:hover:bg-emerald-950/30 dark:hover:text-emerald-400"
+          >
+            {isMarking ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <CheckCircle2 className="size-3.5" strokeWidth={2} />
+            )}
+          </button>
+          <div className="text-right">
+            <span className={`inline-block rounded-full px-2.5 py-1 text-[11px] font-semibold ${cfg.statusBg} ${cfg.statusText}`}>
+              {main}
+            </span>
+            <p className={`mt-0.5 text-[10px] ${cfg.dateLine}`}>{sub}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <Card className="h-full gap-0">
-      <CardHeader className="border-b">
-        <CardTitle className="text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">
-          {t.title}
-        </CardTitle>
+    <Card className="flex h-full flex-col gap-0 overflow-hidden">
+      <CardHeader className="border-b bg-slate-50 px-5 py-3.5 dark:bg-slate-900/40">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-[11px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+            {t.title}
+          </CardTitle>
+          {!loading && allItems.length > 0 ? (
+            <div className="flex items-center gap-2">
+              {overdueItems.length > 0 ? (
+                <span className="rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-bold text-white">
+                  {overdueItems.length} overdue
+                </span>
+              ) : null}
+              {scheduledItems.length > 0 ? (
+                <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-bold text-white">
+                  {scheduledItems.length} upcoming
+                </span>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
       </CardHeader>
 
-      <CardContent className="space-y-2 px-4 pt-4">
-        {showError ? <ErrorMessage message={error ?? undefined} /> : null}
+      <CardContent className="flex flex-1 flex-col overflow-hidden px-0 pt-0">
+        <div className="flex-1 divide-y divide-border/50 overflow-y-auto">
+          {showError ? (
+            <div className="px-5 py-4">
+              <ErrorMessage message={error ?? undefined} />
+            </div>
+          ) : null}
 
-        {loading && !showError
-          ? [1, 2, 3].map((index) => <Skeleton key={index} className="h-5 w-full" />)
-          : null}
-
-        {!loading && !showError
-          ? items.map((item, index) => {
-              const isLast = index === items.length - 1;
-
-              return (
-                <div
-                  key={item._id ?? `${item.followUpDate ?? 'follow-up'}-${index}`}
-                  className={`flex items-start gap-3 py-2 ${isLast ? '' : 'border-b border-border/70'}`}
-                >
-                  <span className="min-w-16 pt-0.5 text-xs font-semibold text-sky-600 dark:text-sky-400">
-                    {formatFollowUpDate(item.followUpDate)}
-                  </span>
-
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm text-foreground">{item.title ?? 'Untitled follow-up'}</p>
-                    <Link
-                      href={buildLinkedPath(item)}
-                      className="mt-1 inline-flex max-w-full items-center rounded-full bg-sky-100 px-2 py-0.5 text-xs text-sky-700 hover:bg-sky-200 dark:bg-sky-900/40 dark:text-sky-300 dark:hover:bg-sky-900/60"
-                    >
-                      <span className="truncate">
-                        {item.linkedType === 'client' ? 'Client' : 'Supplier'} - {item.linkedId?.fullName ?? 'Unknown'}
-                      </span>
-                    </Link>
+          {loading && !showError
+            ? [1, 2, 3, 4].map((index) => (
+                <div key={index} className="flex items-start gap-3 px-5 py-3">
+                  <Skeleton className="mt-0.5 size-8 shrink-0 rounded-full" />
+                  <div className="flex-1 space-y-1.5">
+                    <Skeleton className="h-3.5 w-40" />
+                    <Skeleton className="h-3 w-24" />
+                  </div>
+                  <div className="space-y-1">
+                    <Skeleton className="h-5 w-20 rounded-full" />
+                    <Skeleton className="h-3 w-14" />
                   </div>
                 </div>
-              );
-            })
-          : null}
+              ))
+            : null}
 
-        {!loading && !showError && items.length === 0 ? (
-          <EmptyState message={t.empty} />
+          {!loading && !showError && allItems.length > 0 ? (
+            <>
+              {pagedOverdue.length > 0 ? (
+                <>
+                  <SectionDivider
+                    label={t.overdue}
+                    count={overdueItems.length}
+                    color="bg-red-50 text-red-600 dark:bg-red-950/20 dark:text-red-400"
+                  />
+                  {pagedOverdue.map((item, index) => (
+                    <FollowUpRow key={item._id ?? `overdue-${index}`} item={item} />
+                  ))}
+                </>
+              ) : null}
+
+              {pagedScheduled.length > 0 ? (
+                <>
+                  <SectionDivider
+                    label={t.scheduled}
+                    count={scheduledItems.length}
+                    color="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400"
+                  />
+                  {pagedScheduled.map((item, index) => (
+                    <FollowUpRow key={item._id ?? `scheduled-${index}`} item={item} />
+                  ))}
+                </>
+              ) : null}
+            </>
+          ) : null}
+
+          {!loading && !showError && allItems.length === 0 ? (
+            <div className="px-5 py-4">
+              <EmptyState message={t.empty} />
+            </div>
+          ) : null}
+        </div>
+
+        {!loading && !showError && totalPages > 1 ? (
+          <div className="flex shrink-0 items-center justify-between border-t border-border/50 px-5 py-3">
+            <span className="text-[11px] text-muted-foreground">
+              {safePage} / {totalPages}
+            </span>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                disabled={safePage <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                className="flex size-7 items-center justify-center rounded-md border border-border/60 text-muted-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <ChevronLeft className="size-3.5" />
+              </button>
+              <button
+                type="button"
+                disabled={safePage >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                className="flex size-7 items-center justify-center rounded-md border border-border/60 text-muted-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <ChevronRight className="size-3.5" />
+              </button>
+            </div>
+          </div>
         ) : null}
       </CardContent>
     </Card>

@@ -2,8 +2,9 @@
 
 import Link from 'next/link';
 
-import { CopyIcon, DownloadIcon, EyeIcon, PencilIcon, SendIcon, Trash2Icon } from 'lucide-react';
+import { BellRingIcon, CopyIcon, DownloadIcon, EyeIcon, PencilIcon, SendIcon, Trash2Icon } from 'lucide-react';
 
+import QuoteHistoryDialog from '@/components/quotes/QuoteHistoryDialog';
 import { PriceDisplay } from '@/components/ui/PriceDisplay';
 import { StatusBadge, type QuoteStatus } from '@/components/ui/StatusBadge';
 import { Button } from '@/components/ui/button';
@@ -41,7 +42,9 @@ interface QuoteTableProps {
     downloadPdf: string;
     lockEdit: string;
     send: string;
+    history: string;
   };
+  locale: 'en' | 'fr';
   formatDate: (value: string) => string;
   onDelete: (quote: QuoteListItem) => void;
   onDownload: (quote: QuoteListItem) => Promise<void>;
@@ -50,7 +53,7 @@ interface QuoteTableProps {
   duplicatingId?: string | null;
 }
 
-export default function QuoteTable({ items, loading, labels, formatDate, onDelete, onDownload, onDuplicate, onSend, duplicatingId }: QuoteTableProps) {
+export default function QuoteTable({ items, loading, labels, locale, formatDate, onDelete, onDownload, onDuplicate, onSend, duplicatingId }: QuoteTableProps) {
   return (
     <>
       <div className="space-y-3 md:hidden">
@@ -71,9 +74,16 @@ export default function QuoteTable({ items, loading, labels, formatDate, onDelet
             ))
           : items.map((quote) => {
               const canEdit = quote.status === 'draft' || quote.status === 'sent';
+              const isAccepted = quote.status === 'accepted';
 
               return (
-                <article key={quote._id} className="space-y-3 rounded-xl border border-border/70 bg-card/80 p-3.5 shadow-sm">
+                <article key={quote._id} className={`space-y-3 rounded-xl border p-3.5 shadow-sm ${isAccepted ? 'border-(--color-text-success)/40 bg-(--color-background-success)/30' : 'border-border/70 bg-card/80'}`}>
+                  {isAccepted ? (
+                    <div className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold" style={{ backgroundColor: 'var(--color-background-success)', color: 'var(--color-text-success)' }}>
+                      <BellRingIcon className="size-3.5 shrink-0" />
+                      Action required — Quote signed by client
+                    </div>
+                  ) : null}
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <Link href={`/quotes/${quote._id}`} className="block text-sm font-semibold text-(--color-text-info) hover:underline wrap-break-word">
@@ -154,6 +164,16 @@ export default function QuoteTable({ items, loading, labels, formatDate, onDelet
                           {labels.duplicate}
                         </Button>
                       ) : null}
+
+                      <div className="col-span-2">
+                        <QuoteHistoryDialog
+                          quoteId={quote._id}
+                          quoteNumber={quote.quoteNumber}
+                          currentStatus={quote.status}
+                          locale={locale}
+                          label={labels.history}
+                        />
+                      </div>
                     </div>
                   </div>
                 </article>
@@ -187,9 +207,10 @@ export default function QuoteTable({ items, loading, labels, formatDate, onDelet
                 ))
               : items.map((quote) => {
                   const canEdit = quote.status === 'draft' || quote.status === 'sent';
+                  const isAccepted = quote.status === 'accepted';
 
                   return (
-                    <TableRow key={quote._id}>
+                    <TableRow key={quote._id} className={isAccepted ? 'bg-(--color-background-success)/40 hover:bg-(--color-background-success)/60' : ''}>
                       <TableCell className="font-medium">
                         <Link href={`/quotes/${quote._id}`} className="text-(--color-text-info) hover:underline">
                           {quote.quoteNumber}
@@ -205,7 +226,15 @@ export default function QuoteTable({ items, loading, labels, formatDate, onDelet
                         <PriceDisplay cents={quote.totalIncludingTax} />
                       </TableCell>
                       <TableCell>
-                        <StatusBadge status={quote.status} />
+                        <div className="flex flex-col items-start gap-1">
+                          <StatusBadge status={quote.status} />
+                          {isAccepted ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold" style={{ color: 'var(--color-text-success)' }}>
+                              <BellRingIcon className="size-3" />
+                              Action required
+                            </span>
+                          ) : null}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap items-center gap-1.5">
@@ -261,6 +290,14 @@ export default function QuoteTable({ items, loading, labels, formatDate, onDelet
                               {labels.send}
                             </Button>
                           ) : null}
+
+                          <QuoteHistoryDialog
+                            quoteId={quote._id}
+                            quoteNumber={quote.quoteNumber}
+                            currentStatus={quote.status}
+                            locale={locale}
+                            label={labels.history}
+                          />
                         </div>
                       </TableCell>
                     </TableRow>

@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 
 import CrmShell from '@/components/crm-shell';
 import { useLocale } from '@/components/providers/locale-provider';
+import QuoteHistoryBar from '@/components/quotes/QuoteHistoryBar';
 import SendQuoteModal from '@/components/quotes/SendQuoteModal';
 import StatusChanger from '@/components/quotes/StatusChanger';
 import { computeQuoteLine } from '@/lib/quote-calculations';
@@ -687,23 +688,11 @@ export default function QuoteDetailPage() {
               </section>
             ) : null}
 
-            <section className="rounded-xl border border-border/70 bg-card p-4">
-              <h2 className="mb-2 font-heading text-sm font-semibold uppercase tracking-wide text-muted-foreground">{t.history}</h2>
-              {history.length === 0 ? (
-                <p className="text-sm text-muted-foreground">{t.historyEmpty}</p>
-              ) : (
-                <div className="flex flex-wrap items-center gap-2 text-sm">
-                  {history.map((item, index) => (
-                    <div key={`${item.to}-${item.changedAt}-${index}`} className="inline-flex items-center gap-2">
-                      <span className="rounded-md border border-border/70 bg-secondary/30 px-2 py-1 text-xs font-medium">
-                        {statusLabel(item.to, locale as Locale)} · {formatDate(item.changedAt, locale as Locale)}
-                      </span>
-                      {index < history.length - 1 ? <span className="text-muted-foreground">→</span> : null}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
+            <QuoteHistoryBar
+              history={history}
+              currentStatus={quote.status}
+              locale={locale as 'en' | 'fr'}
+            />
           </article>
         </section>
       ) : null}

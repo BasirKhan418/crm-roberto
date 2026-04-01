@@ -36,7 +36,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const company = companyResult.success ? (companyResult.profile as Record<string, unknown>) : null;
 
     const latestSignature = quote.signedStatus === 'signed'
-      ? await QuoteSignature.findOne({ quoteId: quote._id, userId: me.user.id, isUsed: true })
+      ? await QuoteSignature.findOne({ quoteId: quote._id, isUsed: true })
           .sort({ signedAt: -1, createdAt: -1 })
           .select({ signatureDataUrl: 1, signedAt: 1 })
           .lean()
