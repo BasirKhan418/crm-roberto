@@ -35,6 +35,7 @@ interface QuoteDetail {
   quoteNumber: string;
   date: string;
   status: QuoteStatus;
+  signatureToken?: string | null;
   clientSnapshot: {
     fullName: string;
     companyName?: string | null;
@@ -71,6 +72,14 @@ interface QuoteDetail {
     to: QuoteStatus;
     changedAt: string;
   }>;
+}
+
+function buildSignUrlFromToken(token?: string | null): string | null {
+  if (!token || typeof window === 'undefined') {
+    return null;
+  }
+
+  return `${window.location.origin}/sign/${token}`;
 }
 
 interface CompanyProfile {
@@ -728,6 +737,7 @@ export default function QuoteDetailPage() {
           clientName={quote.clientSnapshot.fullName}
           companyName={undefined}
           quoteStatus={quote.status}
+          initialSignUrl={buildSignUrlFromToken(quote.signatureToken)}
           locale={locale as 'en' | 'fr'}
           onSent={loadData}
         />

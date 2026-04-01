@@ -29,6 +29,7 @@ interface SendQuoteModalProps {
   clientName: string | null | undefined;
   companyName: string | null | undefined;
   quoteStatus: QuoteStatus;
+  initialSignUrl?: string | null;
   locale: Locale;
   onSent?: () => void;
 }
@@ -95,6 +96,7 @@ export default function SendQuoteModal({
   clientName,
   companyName,
   quoteStatus,
+  initialSignUrl,
   locale,
   onSent,
 }: SendQuoteModalProps) {
@@ -104,7 +106,7 @@ export default function SendQuoteModal({
   const [subject, setSubject] = useState(t.defaultSubject(quoteNumber));
   const [message, setMessage] = useState(t.defaultMessage(quoteNumber, clientName, companyName));
   const [sending, setSending] = useState(false);
-  const [signUrl, setSignUrl] = useState<string | null>(null);
+  const [signUrl, setSignUrl] = useState<string | null>(initialSignUrl ?? null);
   const [copied, setCopied] = useState(false);
 
 
@@ -113,7 +115,7 @@ export default function SendQuoteModal({
       setEmail(clientEmail || '');
       setSubject(t.defaultSubject(quoteNumber));
       setMessage(t.defaultMessage(quoteNumber, clientName, companyName));
-      setSignUrl(null);
+      setSignUrl(initialSignUrl ?? null);
       setCopied(false);
     }
     onOpenChange(nextOpen);

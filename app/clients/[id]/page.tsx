@@ -800,6 +800,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         clientName={client?.fullName}
         companyName={undefined}
         locale={locale as 'en' | 'fr'}
+        quoteStatus={sendTarget.status}
         onSent={() => {
           setSendTarget(null);
           void loadQuotes();
