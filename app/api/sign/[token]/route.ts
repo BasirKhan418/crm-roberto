@@ -53,6 +53,10 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: "expired", companyName }, { status: 410 });
   }
 
+  if (quote.status === "draft") {
+    return NextResponse.json({ error: "link_no_longer_valid", companyName }, { status: 410 });
+  }
+
   if (quote.signedStatus === "signed") {
     return NextResponse.json({ error: "already_signed" }, { status: 409 });
   }
@@ -100,6 +104,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   if (isTokenExpired(quote.signatureTokenExpiry)) {
     return NextResponse.json({ error: "expired" }, { status: 410 });
+  }
+
+  if (quote.status === "draft") {
+    return NextResponse.json({ error: "link_no_longer_valid" }, { status: 410 });
   }
 
   if (quote.signedStatus === "signed") {

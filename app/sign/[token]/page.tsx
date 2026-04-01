@@ -46,7 +46,7 @@ interface SignQuotePayload {
   notes?: string | null;
 }
 
-type SignError = 'not_found' | 'expired' | 'already_signed' | 'unknown';
+type SignError = 'not_found' | 'expired' | 'already_signed' | 'link_no_longer_valid' | 'unknown';
 
 export default function SignPage() {
   const params = useParams<{ token: string }>();
@@ -84,6 +84,12 @@ export default function SignPage() {
           if (response.status === 404 || code === 'not_found') {
             throw new Error('not_found');
           }
+          if (code === 'link_no_longer_valid') {
+            if (payload?.companyName) {
+              setErrorCompanyName(payload.companyName);
+            }
+            throw new Error('link_no_longer_valid');
+          }
           if (response.status === 410 || code === 'expired') {
             if (payload?.companyName) {
               setErrorCompanyName(payload.companyName);
@@ -108,7 +114,7 @@ export default function SignPage() {
         }
 
         const code = loadError instanceof Error ? loadError.message : 'unknown';
-        if (code === 'not_found' || code === 'expired' || code === 'already_signed') {
+        if (code === 'not_found' || code === 'expired' || code === 'already_signed' || code === 'link_no_longer_valid') {
           setError(code);
         } else {
           setError('unknown');
@@ -173,7 +179,8 @@ export default function SignPage() {
       if (response.status === 404) {
         setError('not_found');
       } else if (response.status === 410) {
-        setError('expired');
+        const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+        setError(payload?.error === 'link_no_longer_valid' ? 'link_no_longer_valid' : 'expired');
       } else if (response.status === 409) {
         setError('already_signed');
       } else {
@@ -194,6 +201,8 @@ export default function SignPage() {
         ? 'This link is invalid or has been removed.'
         : error === 'expired'
           ? `This signing link has expired. Please contact ${errorCompanyName} for a new link.`
+          : error === 'link_no_longer_valid'
+            ? 'This link is no longer valid. Please request a new signing link.'
           : error === 'already_signed'
             ? 'This quote has already been signed. Thank you!'
             : 'Something went wrong while loading this quote.';
