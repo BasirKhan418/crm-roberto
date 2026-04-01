@@ -49,12 +49,12 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     "Our Company";
   const logoUrl = (companyProfile?.logoUrl as string | null | undefined) ?? null;
 
-  if (isTokenExpired(quote.signatureTokenExpiry)) {
-    return NextResponse.json({ error: "expired", companyName }, { status: 410 });
-  }
-
   if (quote.status === "draft") {
     return NextResponse.json({ error: "link_no_longer_valid", companyName }, { status: 410 });
+  }
+
+  if (isTokenExpired(quote.signatureTokenExpiry)) {
+    return NextResponse.json({ error: "expired", companyName }, { status: 410 });
   }
 
   if (quote.signedStatus === "signed") {
@@ -102,12 +102,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
-  if (isTokenExpired(quote.signatureTokenExpiry)) {
-    return NextResponse.json({ error: "expired" }, { status: 410 });
-  }
-
   if (quote.status === "draft") {
     return NextResponse.json({ error: "link_no_longer_valid" }, { status: 410 });
+  }
+
+  if (isTokenExpired(quote.signatureTokenExpiry)) {
+    return NextResponse.json({ error: "expired" }, { status: 410 });
   }
 
   if (quote.signedStatus === "signed") {
