@@ -1,4 +1,5 @@
 import ConnectEmailClient from "@/emails/connectEmailClient";
+import { getQuoteEmailTemplate } from "@/emails/quoteEmailTemplate";
 
 interface BaseSendParams {
   to: string;
@@ -10,12 +11,47 @@ interface BaseSendParams {
 interface SendSignLinkParams extends BaseSendParams {
   quoteNumber: string;
   signUrl: string;
+  quoteDate: Date | string;
+  totalIncludingTax: number;
+  validityDays: number;
+  locale?: "en" | "fr";
+  company?: {
+    companyName?: string;
+    ownerName?: string;
+    address?: string;
+    phone?: string;
+    email?: string;
+    vatNumber?: string;
+    logoUrl?: string | null;
+  } | null;
+  clientCompanyName?: string | null;
 }
 
 interface SendInvoiceParams extends BaseSendParams {
   invoiceNumber: string;
   paymentUrl: string;
   amount: string;
+}
+
+interface SendQuoteEmailParams extends BaseSendParams {
+  quoteNumber: string;
+  quoteDate: Date | string;
+  totalIncludingTax: number;
+  validityDays: number;
+  signUrl?: string | null;
+  subject?: string;
+  messageBody?: string;
+  locale?: "en" | "fr";
+  company?: {
+    companyName?: string;
+    ownerName?: string;
+    address?: string;
+    phone?: string;
+    email?: string;
+    vatNumber?: string;
+    logoUrl?: string | null;
+  } | null;
+  clientCompanyName?: string | null;
 }
 
 interface SendPaymentReceiptParams extends BaseSendParams {
@@ -200,35 +236,146 @@ export async function sendSignLink({
   quoteNumber,
   signUrl,
   companyName,
+  quoteDate,
+  totalIncludingTax,
+  validityDays,
+  locale = "en",
+  company = null,
+  clientCompanyName = null,
   pdfBuffer,
 }: SendSignLinkParams) {
-  const subject = `Quote ${quoteNumber} - Please review and sign`;
+  const subject =
+    locale === "fr"
+      ? `Devis ${quoteNumber} - Merci de verifier et signer`
+      : `Quote ${quoteNumber} - Please review and sign`;
+
+  const formattedDate = new Intl.DateTimeFormat(locale === "fr" ? "fr-FR" : "en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(new Date(quoteDate));
+
+  const formattedTotal = new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "en-US", {
+    style: "currency",
+    currency: "EUR",
+  }).format(totalIncludingTax / 100);
+
   const messageBody =
-    "Please review and sign the attached quote using the secure link below.";
+    locale === "fr"
+      ? `Bonjour,\n\nVeuillez verifier et signer le devis ci-joint en utilisant ce lien securise :\n${signUrl}\n\nCe lien expire dans 30 jours.\n\nSi le bouton ne fonctionne pas, utilisez ce lien pour continuer :\n${signUrl}`
+      : `Hello,\n\nPlease review and sign the attached quote using this secure link:\n${signUrl}\n\nThis link expires in 30 days.\n\nIf this button does not work, use this link to continue:\n${signUrl}`;
 
   const html = buildDocumentEmailTemplate({
     subject,
-    companyName,
+    companyName: company?.companyName || companyName || "CRM",
     clientName,
-    documentLabel: "Quote",
+    documentLabel: locale === "fr" ? "Devis" : "Quote",
     documentNumber: quoteNumber,
     details: [
-      { label: "Action", value: "Signature required" },
-      { label: "Link validity", value: "30 days" },
+      { label: locale === "fr" ? "Date" : "Date", value: formattedDate },
+      { label: locale === "fr" ? "Montant" : "Amount", value: formattedTotal },
+      {
+        label: locale === "fr" ? "Validite" : "Validity",
+        value: locale === "fr" ? `${validityDays} jours` : `${validityDays} days`,
+      },
     ],
-    messageBody,
-    ctaLabel: "Review and Sign Quote",
+    messageBody:
+      locale === "fr"
+        ? `Veuillez verifier et signer le devis ci-joint en utilisant ce lien securise :\n${signUrl}\n\nSi le bouton ne fonctionne pas, utilisez ce lien pour continuer :\n${signUrl}`
+        : `Please review and sign the attached quote using this secure link:\n${signUrl}\n\nIf this button does not work, use this link to continue:\n${signUrl}`,
+    ctaLabel: locale === "fr" ? "Verifier et signer le devis" : "Review and Sign Quote",
     ctaUrl: signUrl,
-    ctaNote: "This secure link expires in 30 days.",
+    ctaNote: locale === "fr" ? "Ce lien expire dans 30 jours." : "This link expires in 30 days.",
   });
 
-  const text = `Hello ${clientName},\n\nPlease review and sign quote ${quoteNumber}: ${signUrl}\n\nThis link expires in 30 days.`;
+  const text = messageBody;
 
   return sendDocumentEmail({
     to,
     subject,
     html,
     text,
+    companyName,
+    attachmentFilename: `${quoteNumber}.pdf`,
+    pdfBuffer,
+  });
+}
+
+export async function sendQuoteEmail({
+  to,
+  clientName,
+  quoteNumber,
+  quoteDate,
+  totalIncludingTax,
+  validityDays,
+  signUrl = null,
+  subject,
+  messageBody,
+  locale = "en",
+  companyName,
+  company = null,
+  clientCompanyName = null,
+  pdfBuffer,
+}: SendQuoteEmailParams) {
+  const resolvedSubject = subject?.trim()
+    ? subject.trim()
+    : (
+    locale === "fr"
+      ? `Votre devis a verifier et signer`
+      : `Your quote review and sign`
+    );
+
+  const resolvedMessageBody = messageBody?.trim()
+    ? messageBody.trim()
+    : (
+    locale === "fr"
+      ? `Bonjour,\n\nVeuillez trouver ci-joint votre devis ${quoteNumber}.\n\nN'hesitez pas a revenir vers nous pour toute question.\n\nBien cordialement,`
+      : `Hello,\n\nPlease find attached your quote ${quoteNumber}.\n\nFeel free to contact us if you have any questions.\n\nBest regards,`
+    );
+
+  const formattedDate = new Intl.DateTimeFormat(locale === "fr" ? "fr-FR" : "en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(new Date(quoteDate));
+
+  const formattedTotal = new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "en-US", {
+    style: "currency",
+    currency: "EUR",
+  }).format(totalIncludingTax / 100);
+
+  const html = getQuoteEmailTemplate({
+    messageBody: resolvedMessageBody,
+    subject: resolvedSubject,
+    company: {
+      companyName: company?.companyName || companyName || "CRM",
+      ownerName: company?.ownerName || "",
+      address: company?.address || "",
+      phone: company?.phone || "",
+      email: company?.email || "",
+      vatNumber: company?.vatNumber || "",
+      logoUrl: company?.logoUrl ?? null,
+    },
+    client: {
+      fullName: clientName,
+      companyName: clientCompanyName,
+      email: to,
+    },
+    quote: {
+      quoteNumber,
+      date: formattedDate,
+      totalIncludingTax: formattedTotal,
+      validityDays,
+    },
+    locale,
+    signLinkUrl: signUrl,
+  });
+
+  return sendDocumentEmail({
+    to,
+    subject: resolvedSubject,
+    html,
+    text: resolvedMessageBody,
     companyName,
     attachmentFilename: `${quoteNumber}.pdf`,
     pdfBuffer,

@@ -22,6 +22,7 @@ interface QuoteEmailData {
     validityDays: number;
   };
   locale: 'en' | 'fr';
+  signLinkUrl?: string | null;
 }
 
 const t = {
@@ -82,6 +83,7 @@ export function getQuoteEmailTemplate(data: QuoteEmailData): string {
   const clientCompany = client.companyName ? escapeHtml(client.companyName) : '';
 
   const htmlBody = escapeHtml(data.messageBody).replace(/\n/g, '<br>');
+  const signLinkUrl = data.signLinkUrl ? escapeHtml(data.signLinkUrl) : null;
 
   const logoBlock = logoUrl
     ? `<img src="${escapeHtml(logoUrl)}" alt="${companyName}" style="max-width:160px;max-height:56px;height:auto;">`
@@ -180,6 +182,13 @@ export function getQuoteEmailTemplate(data: QuoteEmailData): string {
           <div style="font-size:14px;line-height:1.75;color:#374151;">
             ${htmlBody}
           </div>
+          ${signLinkUrl
+            ? `<p style="margin:16px 0 10px;">
+                 <a href="${signLinkUrl}" style="display:inline-block;background:#000;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none;font-size:14px;font-weight:600;">Review and Sign Quote</a>
+               </p>
+               <p style="margin:0 0 6px;font-size:12px;color:#6b7280;">If this button does not work, use this link to continue:</p>
+               <p style="margin:0 0 10px;font-size:13px;word-break:break-all;"><a href="${signLinkUrl}" style="color:#1a2e44;text-decoration:underline;">${signLinkUrl}</a></p>`
+            : ''}
         </td>
       </tr>
 

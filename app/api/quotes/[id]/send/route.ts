@@ -6,7 +6,7 @@ import Quote from '@/db/models/Quote';
 import { getCompanyProfileByUserId } from '@/db/repository/cprofile';
 import { getQuoteById, updateQuoteStatusById } from '@/db/repository/quote';
 import { createActivityLog } from '@/db/repository/activity';
-import { sendSignLink } from '@/lib/email';
+import { sendQuoteEmail } from '@/lib/email';
 import { computeQuoteLine } from '@/lib/quote-calculations';
 import { QuotePdfTemplate } from '@/lib/pdf/QuotePdfTemplate';
 import { buildSignUrl, generateSignToken, generateTokenExpiry } from '@/lib/tokens';
@@ -26,8 +26,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     const body = await request.json();
-    const { email, locale: rawLocale } = body as {
+    const { email, subject, message, locale: rawLocale } = body as {
       email?: string;
+      subject?: string;
+      message?: string;
       locale?: string;
     };
 
@@ -187,12 +189,28 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, message: 'Quote not found' }, { status: 404 });
     }
 
-    await sendSignLink({
+    await sendQuoteEmail({
       to: recipientEmail,
       clientName: quote.clientSnapshot.fullName,
       quoteNumber: quote.quoteNumber,
+      quoteDate: quote.date,
+      totalIncludingTax: derivedTotals.totalIncludingTax,
+      validityDays: quote.validityDays ?? 30,
       signUrl,
+      subject,
+      messageBody: message,
+      locale,
       companyName: baseCompanyData?.companyName || baseCompanyData?.ownerName || 'CRM',
+      company: {
+        companyName: baseCompanyData?.companyName,
+        ownerName: baseCompanyData?.ownerName,
+        address: baseCompanyData?.address,
+        phone: baseCompanyData?.phone,
+        email: baseCompanyData?.businessEmail,
+        vatNumber: baseCompanyData?.vatNumber,
+        logoUrl: baseCompanyData?.logoUrl,
+      },
+      clientCompanyName: quote.clientSnapshot.companyName ?? null,
       pdfBuffer,
     });
 
@@ -219,6 +237,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       entityId: quote._id,
       metadata: {
         sentTo: recipientEmail,
+        quoteEmailSent: true,
         signLinkGenerated: true,
         signatureTokenExpiry: signatureTokenExpiry.toISOString(),
       },
