@@ -2,13 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { renderToBuffer } from '@react-pdf/renderer';
 import React from 'react';
 import type { DocumentProps } from '@react-pdf/renderer';
-import ConnectEmailClient from '@/emails/connectEmailClient';
-import { getQuoteEmailTemplate } from '@/emails/quoteEmailTemplate';
+import Quote from '@/db/models/Quote';
 import { getCompanyProfileByUserId } from '@/db/repository/cprofile';
 import { getQuoteById, updateQuoteStatusById } from '@/db/repository/quote';
 import { createActivityLog } from '@/db/repository/activity';
+import { sendSignLink } from '@/lib/email';
 import { computeQuoteLine } from '@/lib/quote-calculations';
 import { QuotePdfTemplate } from '@/lib/pdf/QuotePdfTemplate';
+import { buildSignUrl, generateSignToken, generateTokenExpiry } from '@/lib/tokens';
 import getMe from '@/utils/middlewares/useMe';
 
 export const runtime = 'nodejs';
@@ -25,10 +26,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     const body = await request.json();
-    const { email, subject, message, locale: rawLocale } = body as {
+    const { email, locale: rawLocale } = body as {
       email?: string;
-      subject?: string;
-      message?: string;
       locale?: string;
     };
 
@@ -156,76 +155,30 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       pdfBuffer = await renderToBuffer(createPdfDocument(''));
     }
 
- 
-    const emailTransporter = await ConnectEmailClient();
-    if (!emailTransporter) {
-      return NextResponse.json({ success: false, message: 'Failed to connect to email service' }, { status: 500 });
-    }
+    const signatureToken = generateSignToken();
+    const signatureTokenExpiry = generateTokenExpiry(30);
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
+    const signUrl = buildSignUrl(signatureToken, baseUrl);
 
-    const emailSubject = subject?.trim() || (locale === 'fr'
-      ? `Votre devis ${quote.quoteNumber}`
-      : `Your quote ${quote.quoteNumber}`);
-
-    const emailMessage = message?.trim() || (locale === 'fr'
-      ? `Bonjour,\n\nVeuillez trouver ci-joint votre devis ${quote.quoteNumber}.\n\nN'hésitez pas à revenir vers nous pour toute question.\n\nBien cordialement,`
-      : `Hello,\n\nPlease find attached your quote ${quote.quoteNumber}.\n\nFeel free to contact us if you have any questions.\n\nBest regards,`);
-
-    const formatCurrency = (value: number) =>
-      new Intl.NumberFormat(locale === 'fr' ? 'fr-FR' : 'en-US', {
-        style: 'currency',
-        currency: 'EUR',
-      }).format(value);
-
-    const formatDate = (d: Date | string) =>
-      new Intl.DateTimeFormat(locale === 'fr' ? 'fr-FR' : 'en-GB', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-      }).format(new Date(d));
-
-    const emailHtml = getQuoteEmailTemplate({
-      messageBody: emailMessage,
-      subject: emailSubject,
-      company: baseCompanyData
-        ? {
-            companyName: baseCompanyData.companyName,
-            ownerName: baseCompanyData.ownerName,
-            address: baseCompanyData.address,
-            phone: baseCompanyData.phone,
-            email: baseCompanyData.businessEmail,
-            vatNumber: baseCompanyData.vatNumber,
-            logoUrl: baseCompanyData.logoUrl,
-          }
-        : null,
-      client: {
-        fullName: quote.clientSnapshot.fullName,
-        companyName: quote.clientSnapshot.companyName ?? null,
-        email: quote.clientSnapshot.email ?? null,
-      },
-      quote: {
-        quoteNumber: quote.quoteNumber,
-        date: formatDate(quote.date),
-        totalIncludingTax: formatCurrency(derivedTotals.totalIncludingTax),
-        validityDays: quote.validityDays ?? 30,
-      },
-      locale,
-    });
-
-    const senderName = baseCompanyData?.companyName || baseCompanyData?.ownerName || 'CRM';
-
-    await emailTransporter.sendMail({
-      from: `"${senderName}" <${process.env.EMAIL_USER_V2 || process.env.EMAIL_USER}>`,
-      to: email.trim(),
-      subject: emailSubject,
-      html: emailHtml,
-      text: emailMessage,
-      attachments: [
-        {
-          filename: `${quote.quoteNumber}.pdf`,
-          content: pdfBuffer,
-          contentType: 'application/pdf',
+    await Quote.updateOne(
+      { _id: id, user: me.user.id },
+      {
+        $set: {
+          signatureToken,
+          signatureTokenExpiry,
+          signedStatus: 'not_signed',
+          signedAt: null,
         },
-      ],
+      }
+    );
+
+    await sendSignLink({
+      to: email.trim(),
+      clientName: quote.clientSnapshot.fullName,
+      quoteNumber: quote.quoteNumber,
+      signUrl,
+      companyName: baseCompanyData?.companyName || baseCompanyData?.ownerName || 'CRM',
+      pdfBuffer,
     });
 
 
@@ -249,7 +202,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       entityType: 'quote',
       entityName: quote.quoteNumber,
       entityId: quote._id,
-      metadata: { sentTo: email.trim() },
+      metadata: {
+        sentTo: email.trim(),
+        signLinkGenerated: true,
+        signatureTokenExpiry: signatureTokenExpiry.toISOString(),
+      },
     });
 
     return NextResponse.json({ success: true, message: 'Quote sent successfully' });
