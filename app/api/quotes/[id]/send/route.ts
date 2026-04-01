@@ -31,22 +31,33 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       locale?: string;
     };
 
-    if (!email || typeof email !== 'string' || !email.trim()) {
-      return NextResponse.json({ success: false, message: 'Client email is required' }, { status: 400 });
-    }
-
-    // Basic email format validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email.trim())) {
-      return NextResponse.json({ success: false, message: 'Invalid email address' }, { status: 400 });
-    }
-
     const locale: 'en' | 'fr' = rawLocale === 'fr' ? 'fr' : 'en';
     const { id } = await params;
 
     const quote = await getQuoteById(me.user.id, id);
     if (!quote) {
       return NextResponse.json({ success: false, message: 'Quote not found' }, { status: 404 });
+    }
+
+    if (!['draft', 'sent'].includes(quote.status) || quote.signedStatus === 'signed') {
+      return NextResponse.json(
+        { success: false, message: 'Cannot send a signed or refused quote' },
+        { status: 403 }
+      );
+    }
+
+    const recipientEmail = typeof email === 'string' && email.trim()
+      ? email.trim()
+      : quote.clientSnapshot.email?.trim() ?? '';
+
+    if (!recipientEmail) {
+      return NextResponse.json({ success: false, message: 'Client email is required' }, { status: 400 });
+    }
+
+    // Basic email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(recipientEmail)) {
+      return NextResponse.json({ success: false, message: 'Invalid email address' }, { status: 400 });
     }
 
     const companyResult = await getCompanyProfileByUserId(me.user.id);
@@ -160,7 +171,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
     const signUrl = buildSignUrl(signatureToken, baseUrl);
 
-    await Quote.updateOne(
+    const tokenUpdateResult = await Quote.updateOne(
       { _id: id, user: me.user.id },
       {
         $set: {
@@ -172,8 +183,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
     );
 
+    if (tokenUpdateResult.matchedCount === 0) {
+      return NextResponse.json({ success: false, message: 'Quote not found' }, { status: 404 });
+    }
+
     await sendSignLink({
-      to: email.trim(),
+      to: recipientEmail,
       clientName: quote.clientSnapshot.fullName,
       quoteNumber: quote.quoteNumber,
       signUrl,
@@ -203,13 +218,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       entityName: quote.quoteNumber,
       entityId: quote._id,
       metadata: {
-        sentTo: email.trim(),
+        sentTo: recipientEmail,
         signLinkGenerated: true,
         signatureTokenExpiry: signatureTokenExpiry.toISOString(),
       },
     });
 
-    return NextResponse.json({ success: true, message: 'Quote sent successfully' });
+    return NextResponse.json({ success: true, message: 'Quote sent for signing', signUrl });
   } catch (error) {
     console.error('Error sending quote:', error);
     return NextResponse.json(
