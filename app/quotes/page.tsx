@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 
@@ -30,7 +30,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-export default function QuotesPage() {
+function QuotesPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { locale } = useLocale();
@@ -430,5 +430,13 @@ export default function QuotesPage() {
         />
       ) : null}
     </CrmShell>
+  );
+}
+
+export default function QuotesPage() {
+  return (
+    <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Loading...</div>}>
+      <QuotesPageContent />
+    </Suspense>
   );
 }
