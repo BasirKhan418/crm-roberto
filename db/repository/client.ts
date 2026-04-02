@@ -12,13 +12,33 @@ export type ClientLastQuoteStatus = 'draft' | 'sent' | 'accepted' | 'refused' | 
 
 export interface ClientRecord {
   _id: string;
+  clientType?: 'company' | 'individual';
   fullName: string;
   email?: string | null;
   phone?: string | null;
   address?: string | null;
+  addressDetails?: {
+    street?: string | null;
+    postalCode?: string | null;
+    city?: string | null;
+    country?: string | null;
+  } | null;
   companyName?: string | null;
   vatNumber?: string | null;
+  rcsNumber?: string | null;
+  businessAuthorizationNumber?: string | null;
+  matriculeNumber?: string | null;
+  title?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  bankName?: string | null;
+  iban?: string | null;
+  responsibleEmail?: string | null;
   billingEmail?: string | null;
+  companyPhone?: string | null;
+  privatePhone?: string | null;
+  mobilePhone?: string | null;
+  additionalDescription?: string | null;
   billingAddress?: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -53,11 +73,81 @@ function isValidObjectId(value: string): boolean {
   return mongoose.Types.ObjectId.isValid(value);
 }
 
+function formatAddress(details?: {
+  street?: string | null;
+  postalCode?: string | null;
+  city?: string | null;
+  country?: string | null;
+} | null): string | null {
+  if (!details) {
+    return null;
+  }
+
+  const line1 = (details.street ?? '').trim();
+  const line2 = [details.postalCode, details.city].map((part) => (part ?? '').trim()).filter(Boolean).join(' ');
+  const country = (details.country ?? '').trim();
+  const combined = [line1, line2, country].filter(Boolean).join(', ');
+  return combined || null;
+}
+
+function normalizeClientPayload(
+  payload: Partial<CreateClientDTO & UpdateClientDTO>,
+  mode: 'create' | 'update'
+) {
+  const next: Record<string, unknown> = { ...payload };
+  const clientType = payload.clientType ?? 'company';
+  if (mode === 'create' || 'clientType' in payload) {
+    next.clientType = clientType;
+  }
+
+  const hasCompanyName = 'companyName' in payload;
+  const hasFirstName = 'firstName' in payload;
+  const hasLastName = 'lastName' in payload;
+
+  const companyName = hasCompanyName ? ((payload.companyName ?? '').trim() || null) : null;
+  const firstName = hasFirstName ? ((payload.firstName ?? '').trim() || null) : null;
+  const lastName = hasLastName ? ((payload.lastName ?? '').trim() || null) : null;
+
+  if (hasCompanyName) next.companyName = companyName;
+  if (hasFirstName) next.firstName = firstName;
+  if (hasLastName) next.lastName = lastName;
+
+  if (mode === 'create' || 'fullName' in payload || hasCompanyName || hasFirstName || hasLastName) {
+    const computedFullName = clientType === 'company'
+      ? companyName
+      : [firstName, lastName].filter(Boolean).join(' ').trim() || null;
+    next.fullName = (payload.fullName?.trim() || computedFullName || 'Client');
+  }
+
+  if (mode === 'create' || 'addressDetails' in payload || 'address' in payload) {
+    const addressDetails = payload.addressDetails ?? null;
+    next.addressDetails = addressDetails;
+    next.address = payload.address ?? formatAddress(addressDetails);
+  }
+
+  if (mode === 'create' || 'responsibleEmail' in payload || 'email' in payload) {
+    const responsibleEmail = payload.responsibleEmail ?? payload.email ?? null;
+    next.responsibleEmail = responsibleEmail;
+    next.email = responsibleEmail;
+  }
+
+  if (mode === 'create' || 'companyPhone' in payload || 'privatePhone' in payload || 'mobilePhone' in payload || 'phone' in payload) {
+    const phoneByType = clientType === 'company'
+      ? payload.companyPhone ?? payload.mobilePhone ?? payload.phone ?? null
+      : payload.privatePhone ?? payload.mobilePhone ?? payload.phone ?? null;
+    next.phone = phoneByType;
+  }
+
+  return next;
+}
+
 export const createClient = async (userId: string, payload: CreateClientDTO): Promise<ClientRecord> => {
   await ConnectDb();
 
+  const normalizedPayload = normalizeClientPayload(payload, 'create');
+
   const created = await Client.create({
-    ...payload,
+    ...normalizedPayload,
     user: userId,
   });
 
@@ -77,6 +167,10 @@ export const listClients = async (userId: string, options: ListQueryOptions): Pr
       { address: { $regex: options.search, $options: 'i' } },
       { companyName: { $regex: options.search, $options: 'i' } },
       { vatNumber: { $regex: options.search, $options: 'i' } },
+      { firstName: { $regex: options.search, $options: 'i' } },
+      { lastName: { $regex: options.search, $options: 'i' } },
+      { rcsNumber: { $regex: options.search, $options: 'i' } },
+      { matriculeNumber: { $regex: options.search, $options: 'i' } },
     ];
   }
 
@@ -158,7 +252,9 @@ export const updateClientById = async (
     Object.entries(payload).filter(([, v]) => v !== undefined)
   );
 
-  const updated = await Client.findOneAndUpdate({ _id: clientId, user: userId }, { $set: cleanPayload }, {
+  const normalizedPayload = normalizeClientPayload(cleanPayload, 'update');
+
+  const updated = await Client.findOneAndUpdate({ _id: clientId, user: userId }, { $set: normalizedPayload }, {
     new: true,
     runValidators: false,
   }).lean();

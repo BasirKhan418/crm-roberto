@@ -4,12 +4,33 @@ import { useCallback, useEffect, useState } from 'react';
 
 export interface ClientOption {
   _id: string;
+  clientType?: 'company' | 'individual';
   fullName: string;
+  title?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
   email?: string | null;
   phone?: string | null;
   address?: string | null;
+  addressDetails?: {
+    street?: string | null;
+    postalCode?: string | null;
+    city?: string | null;
+    country?: string | null;
+  } | null;
   companyName?: string | null;
   vatNumber?: string | null;
+  rcsNumber?: string | null;
+  businessAuthorizationNumber?: string | null;
+  matriculeNumber?: string | null;
+  bankName?: string | null;
+  iban?: string | null;
+  responsibleEmail?: string | null;
+  billingEmail?: string | null;
+  companyPhone?: string | null;
+  privatePhone?: string | null;
+  mobilePhone?: string | null;
+  additionalDescription?: string | null;
 }
 
 interface ClientsApiResponse {

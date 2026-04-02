@@ -4,23 +4,22 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Building2, Mail, MapPin, Phone, PlusIcon, SearchIcon, Users } from 'lucide-react';
-import { toast } from 'sonner';
 
+import AddClientModal from '@/components/modals/AddClientModal';
 import CrmShell from '@/components/crm-shell';
 import { useLocale } from '@/components/providers/locale-provider';
 import { Button } from '@/components/ui/button';
 import EmptyState from '@/components/ui/EmptyState';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { PriceDisplay } from '@/components/ui/PriceDisplay';
-import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import type { QuoteStatus } from '@/components/ui/StatusBadge';
 
 interface Client {
   _id: string;
+  clientType?: 'company' | 'individual';
   fullName: string;
   email?: string | null;
   phone?: string | null;
@@ -73,24 +72,10 @@ export default function ClientsPage() {
   const t = {
     en: {
       fetchFailed: 'Failed to fetch clients',
-      nameRequired: 'Client name is required',
-      createFailed: 'Failed to create client',
-      created: 'Client created',
       shellTitle: 'Clients',
       heading: 'Clients',
       subtitle: 'Manage clients and keep contextual timeline notes.',
       addClient: 'Add Client',
-      addTitle: 'Add new client',
-      addDesc: 'Create a client and it will appear immediately in your list.',
-      name: 'Name',
-      email: 'Email',
-      phone: 'Phone',
-      address: 'Address',
-      company: 'Company',
-      vat: 'VAT/Tax ID',
-      cancel: 'Cancel',
-      saving: 'Saving...',
-      saveClient: 'Save client',
       directory: 'Client directory',
       search: 'Search by name, email, company...',
       empty: 'No clients yet. Add your first client to start building relationship history.',
@@ -107,24 +92,10 @@ export default function ClientsPage() {
     },
     fr: {
       fetchFailed: 'Impossible de recuperer les clients',
-      nameRequired: 'Le nom du client est requis',
-      createFailed: 'Impossible de creer le client',
-      created: 'Client cree',
       shellTitle: 'Clients',
       heading: 'Clients',
       subtitle: 'Gerez les clients et conservez un historique contextuel.',
       addClient: 'Ajouter un client',
-      addTitle: 'Ajouter un nouveau client',
-      addDesc: 'Creez un client et il apparaitra immediatement dans la liste.',
-      name: 'Nom',
-      email: 'E-mail',
-      phone: 'Telephone',
-      address: 'Adresse',
-      company: 'Entreprise',
-      vat: 'TVA/ID fiscal',
-      cancel: 'Annuler',
-      saving: 'Enregistrement...',
-      saveClient: 'Enregistrer le client',
       directory: 'Repertoire des clients',
       search: 'Rechercher par nom, e-mail, entreprise...',
       empty: 'Aucun client. Ajoutez votre premier client pour commencer.',
@@ -150,15 +121,6 @@ export default function ClientsPage() {
   const [search, setSearch] = useState('');
 
   const [isAddOpen, setIsAddOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [form, setForm] = useState({
-    fullName: '',
-    email: '',
-    phone: '',
-    address: '',
-    companyName: '',
-    vatNumber: '',
-  });
 
   const query = useMemo(() => {
     const params = new URLSearchParams();
@@ -195,36 +157,6 @@ export default function ClientsPage() {
 
   useEffect(() => { loadClients(); }, [loadClients]);
 
-  async function handleCreateClient() {
-    if (!form.fullName.trim()) { toast.error(t.nameRequired); return; }
-    setIsSubmitting(true);
-    try {
-      const response = await fetch('/api/clients', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fullName: form.fullName,
-          email: form.email || undefined,
-          phone: form.phone || undefined,
-          address: form.address || undefined,
-          companyName: form.companyName || undefined,
-          vatNumber: form.vatNumber || undefined,
-        }),
-      });
-      const data = (await response.json()) as { success: boolean; message?: string };
-      if (!response.ok || !data.success) throw new Error(data.message || t.createFailed);
-      toast.success(t.created);
-      setIsAddOpen(false);
-      setForm({ fullName: '', email: '', phone: '', address: '', companyName: '', vatNumber: '' });
-      setPagination((prev) => ({ ...prev, page: 1 }));
-      await loadClients();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : t.createFailed);
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
-
   return (
     <CrmShell title={t.shellTitle}>
       {/* Page header */}
@@ -234,54 +166,10 @@ export default function ClientsPage() {
           <p className="mt-0.5 text-sm text-muted-foreground">{t.subtitle}</p>
         </div>
 
-        <Sheet open={isAddOpen} onOpenChange={setIsAddOpen}>
-          <SheetTrigger asChild>
-            <Button className="h-10">
-              <PlusIcon />
-              {t.addClient}
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="right" className="w-full p-0 sm:max-w-lg">
-            <SheetHeader>
-              <SheetTitle>{t.addTitle}</SheetTitle>
-              <SheetDescription>{t.addDesc}</SheetDescription>
-            </SheetHeader>
-            <div className="max-h-[calc(100svh-10rem)] space-y-3 overflow-y-auto px-4 pb-4 sm:px-6">
-              <div className="space-y-1.5">
-                <Label htmlFor="client-full-name">{t.name}</Label>
-                <Input id="client-full-name" value={form.fullName} onChange={(e) => setForm((p) => ({ ...p, fullName: e.target.value }))} />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="client-email">{t.email}</Label>
-                <Input id="client-email" type="email" value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="client-phone">{t.phone}</Label>
-                <Input id="client-phone" value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="client-address">{t.address}</Label>
-                <Input id="client-address" value={form.address} onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))} />
-              </div>
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label htmlFor="client-company">{t.company}</Label>
-                  <Input id="client-company" value={form.companyName} onChange={(e) => setForm((p) => ({ ...p, companyName: e.target.value }))} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="client-vat">{t.vat}</Label>
-                  <Input id="client-vat" value={form.vatNumber} onChange={(e) => setForm((p) => ({ ...p, vatNumber: e.target.value }))} />
-                </div>
-              </div>
-            </div>
-            <SheetFooter>
-              <Button variant="outline" onClick={() => setIsAddOpen(false)}>{t.cancel}</Button>
-              <Button onClick={handleCreateClient} disabled={isSubmitting}>
-                {isSubmitting ? t.saving : t.saveClient}
-              </Button>
-            </SheetFooter>
-          </SheetContent>
-        </Sheet>
+        <Button className="h-10" onClick={() => setIsAddOpen(true)}>
+          <PlusIcon />
+          {t.addClient}
+        </Button>
       </div>
 
       {/* Stat bar */}
@@ -438,6 +326,16 @@ export default function ClientsPage() {
           </div>
         </>
       )}
+
+      {isAddOpen ? (
+        <AddClientModal
+          onClose={() => setIsAddOpen(false)}
+          onSuccess={async () => {
+            setPagination((prev) => ({ ...prev, page: 1 }));
+            await loadClients();
+          }}
+        />
+      ) : null}
     </CrmShell>
   );
 }

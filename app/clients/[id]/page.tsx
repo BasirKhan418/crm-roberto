@@ -28,6 +28,7 @@ import {
 import { toast } from 'sonner';
 
 import CrmShell from '@/components/crm-shell';
+import AddClientModal from '@/components/modals/AddClientModal';
 import SendQuoteModal from '@/components/quotes/SendQuoteModal';
 import QuoteStatusSummary from '@/components/quotes/QuoteStatusSummary';
 import { useLocale } from '@/components/providers/locale-provider';
@@ -49,27 +50,40 @@ import EmptyState from '@/components/ui/EmptyState';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 
 interface ClientRecord {
   _id: string;
+  clientType?: 'company' | 'individual';
   fullName: string;
+  title?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
   email?: string | null;
   phone?: string | null;
   address?: string | null;
+  addressDetails?: {
+    street?: string | null;
+    postalCode?: string | null;
+    city?: string | null;
+    country?: string | null;
+  } | null;
   companyName?: string | null;
   vatNumber?: string | null;
+  rcsNumber?: string | null;
+  businessAuthorizationNumber?: string | null;
+  matriculeNumber?: string | null;
+  bankName?: string | null;
+  iban?: string | null;
+  responsibleEmail?: string | null;
   billingEmail?: string | null;
+  companyPhone?: string | null;
+  privatePhone?: string | null;
+  mobilePhone?: string | null;
+  additionalDescription?: string | null;
   billingAddress?: string | null;
 }
 
@@ -196,6 +210,28 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       deleteClient: 'Delete client',
       editClient: 'Edit Client',
       editClientDesc: 'Update core profile fields.',
+      clientType: 'Client Type',
+      companyType: 'Company',
+      individualType: 'Individual',
+      titleLabel: 'Title',
+      firstName: 'First Name',
+      lastName: 'Last Name',
+      companyNameLabel: 'Company Name',
+      vatNumber: 'VAT Number',
+      rcsNumber: 'RCS Number',
+      businessAuthorizationNumber: 'Business Authorization Number',
+      matriculeNumber: 'Matricule Number',
+      street: 'Street',
+      postalCode: 'Postal Code',
+      city: 'City',
+      country: 'Country',
+      bankName: 'Bank Name',
+      iban: 'IBAN',
+      responsibleEmail: 'Responsible Email',
+      companyPhone: 'Company Phone',
+      privatePhone: 'Private Phone',
+      mobilePhone: 'Mobile Phone',
+      additionalDescription: 'Additional Description',
       name: 'Name',
       email: 'Email',
       phone: 'Phone',
@@ -298,6 +334,28 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       deleteClient: 'Supprimer le client',
       editClient: 'Modifier le client',
       editClientDesc: 'Mettez a jour les champs principaux du profil.',
+      clientType: 'Type de client',
+      companyType: 'Entreprise',
+      individualType: 'Particulier',
+      titleLabel: 'Civilite',
+      firstName: 'Prenom',
+      lastName: 'Nom',
+      companyNameLabel: 'Nom de l entreprise',
+      vatNumber: 'Numero TVA',
+      rcsNumber: 'Numero RCS',
+      businessAuthorizationNumber: 'Numero autorisation commerciale',
+      matriculeNumber: 'Matricule',
+      street: 'Rue',
+      postalCode: 'Code postal',
+      city: 'Ville',
+      country: 'Pays',
+      bankName: 'Nom de la banque',
+      iban: 'IBAN',
+      responsibleEmail: 'E-mail responsable',
+      companyPhone: 'Telephone entreprise',
+      privatePhone: 'Telephone prive',
+      mobilePhone: 'Telephone mobile',
+      additionalDescription: 'Description complementaire',
       name: 'Nom',
       email: 'E-mail',
       phone: 'Telephone',
@@ -399,17 +457,6 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   const [activeTab, setActiveTab] = useState('timeline');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [editForm, setEditForm] = useState({
-    fullName: '',
-    email: '',
-    phone: '',
-    address: '',
-    companyName: '',
-    vatNumber: '',
-    billingEmail: '',
-    billingAddress: '',
-  });
-
   const [noteForm, setNoteForm] = useState({ title: '', description: '', followUpDate: '' });
   const [editNoteForm, setEditNoteForm] = useState({ title: '', description: '', followUpDate: '' });
   const [interactionForm, setInteractionForm] = useState<{
@@ -441,16 +488,6 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       setTimeline(tl);
       setInteractions(ints);
       setAttachments(atts);
-      setEditForm({
-        fullName: c.fullName || '',
-        email: c.email || '',
-        phone: c.phone || '',
-        address: c.address || '',
-        companyName: c.companyName || '',
-        vatNumber: c.vatNumber || '',
-        billingEmail: c.billingEmail || '',
-        billingAddress: c.billingAddress || '',
-      });
     } catch (err) {
       setError(err instanceof Error ? err.message : t.loadFailed);
       setClient(null);
@@ -517,45 +554,6 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     () => new Intl.DateTimeFormat(locale === 'fr' ? 'fr-FR' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
     [locale],
   );
-
-
-  async function saveClient() {
-    if (!client) return;
-    setIsSaving(true);
-    try {
-      const res = await fetch(`/api/clients/${client._id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editForm),
-      });
-      const data = (await res.json()) as { success: boolean; message?: string; data?: ClientRecord };
-      if (!res.ok || !data.success) throw new Error(data.message || t.updateFailed);
-
-      // Immediately apply the returned updated client so billing shows without waiting for loadDetails
-      if (data.data) {
-        const c = data.data;
-        setClient(c);
-        setEditForm({
-          fullName: c.fullName || '',
-          email: c.email || '',
-          phone: c.phone || '',
-          address: c.address || '',
-          companyName: c.companyName || '',
-          vatNumber: c.vatNumber || '',
-          billingEmail: c.billingEmail || '',
-          billingAddress: c.billingAddress || '',
-        });
-      }
-
-      toast.success(t.updated);
-      setIsEditOpen(false);
-      await loadDetails();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : t.updateFailed);
-    } finally {
-      setIsSaving(false);
-    }
-  }
 
   async function removeClient() {
     if (!client) return;
@@ -815,11 +813,26 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-2 pt-4 text-sm">
-                    <InfoRow label={t.email} value={client.email} />
-                    <InfoRow label={t.phone} value={client.phone} />
+                    {client.clientType === 'individual' ? (
+                      <>
+                        <InfoRow label={t.titleLabel} value={client.title} />
+                        <InfoRow label={t.firstName} value={client.firstName} />
+                        <InfoRow label={t.lastName} value={client.lastName} />
+                        <InfoRow label={t.responsibleEmail} value={client.responsibleEmail || client.email} />
+                        <InfoRow label={t.privatePhone} value={client.privatePhone || client.phone} />
+                        <InfoRow label={t.mobilePhone} value={client.mobilePhone} />
+                      </>
+                    ) : (
+                      <>
+                        <InfoRow label={t.companyNameLabel} value={client.companyName} />
+                        <InfoRow label={t.vatNumber} value={client.vatNumber} />
+                        <InfoRow label={t.rcsNumber} value={client.rcsNumber} />
+                        <InfoRow label={t.responsibleEmail} value={client.responsibleEmail || client.email} />
+                        <InfoRow label={t.companyPhone} value={client.companyPhone || client.phone} />
+                        <InfoRow label={t.mobilePhone} value={client.mobilePhone} />
+                      </>
+                    )}
                     <InfoRow label={t.address} value={client.address} />
-                    <InfoRow label={t.company} value={client.companyName} />
-                    <InfoRow label={t.vatTax} value={client.vatNumber} />
                   </CardContent>
                 </Card>
 
@@ -1055,48 +1068,41 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         )}
       </CrmShell>
 
-      {/* ── Edit Client Sheet ────────────────────────────────────────────── */}
-      <Sheet open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-lg">
-          <SheetHeader>
-            <SheetTitle>{t.editClient}</SheetTitle>
-            <SheetDescription>{t.editClientDesc}</SheetDescription>
-          </SheetHeader>
-          <div className="space-y-3 px-4 pb-4">
-            <div className="space-y-1.5"><Label>{t.name}</Label><Input value={editForm.fullName} onChange={(e) => setEditForm((p) => ({ ...p, fullName: e.target.value }))} /></div>
-            <div className="space-y-1.5"><Label>{t.email}</Label><Input type="email" value={editForm.email} onChange={(e) => setEditForm((p) => ({ ...p, email: e.target.value }))} /></div>
-            <div className="space-y-1.5"><Label>{t.phone}</Label><Input value={editForm.phone} onChange={(e) => setEditForm((p) => ({ ...p, phone: e.target.value }))} /></div>
-            <div className="space-y-1.5"><Label>{t.address}</Label><Input value={editForm.address} onChange={(e) => setEditForm((p) => ({ ...p, address: e.target.value }))} /></div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5"><Label>{t.company}</Label><Input value={editForm.companyName} onChange={(e) => setEditForm((p) => ({ ...p, companyName: e.target.value }))} /></div>
-              <div className="space-y-1.5"><Label>{t.vatTax}</Label><Input value={editForm.vatNumber} onChange={(e) => setEditForm((p) => ({ ...p, vatNumber: e.target.value }))} /></div>
-            </div>
-            <div className="pt-2">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t.billing}</p>
-              <div className="space-y-3 rounded-lg border border-border/60 bg-secondary/20 p-3">
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <Label>{t.billingEmail}</Label>
-                    <button type="button" className="text-xs text-primary hover:underline" onClick={() => setEditForm((p) => ({ ...p, billingEmail: p.email }))}>{t.sameAsMain}</button>
-                  </div>
-                  <Input type="email" value={editForm.billingEmail} onChange={(e) => setEditForm((p) => ({ ...p, billingEmail: e.target.value }))} />
-                </div>
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <Label>{t.billingAddress}</Label>
-                    <button type="button" className="text-xs text-primary hover:underline" onClick={() => setEditForm((p) => ({ ...p, billingAddress: p.address }))}>{t.sameAsMain}</button>
-                  </div>
-                  <Input value={editForm.billingAddress} onChange={(e) => setEditForm((p) => ({ ...p, billingAddress: e.target.value }))} />
-                </div>
-              </div>
-            </div>
-          </div>
-          <SheetFooter>
-            <Button variant="outline" onClick={() => setIsEditOpen(false)}>{t.cancel}</Button>
-            <Button onClick={saveClient} disabled={isSaving}>{isSaving ? t.saving : t.saveChanges}</Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
+      {isEditOpen && client ? (
+        <AddClientModal
+          mode="edit"
+          clientId={client._id}
+          initialData={{
+            clientType: client.clientType,
+            title: client.title,
+            firstName: client.firstName,
+            lastName: client.lastName,
+            companyName: client.companyName,
+            vatNumber: client.vatNumber,
+            rcsNumber: client.rcsNumber,
+            businessAuthorizationNumber: client.businessAuthorizationNumber,
+            matriculeNumber: client.matriculeNumber,
+            bankName: client.bankName,
+            iban: client.iban,
+            responsibleEmail: client.responsibleEmail,
+            billingEmail: client.billingEmail,
+            companyPhone: client.companyPhone,
+            privatePhone: client.privatePhone,
+            mobilePhone: client.mobilePhone,
+            additionalDescription: client.additionalDescription,
+            billingAddress: client.billingAddress,
+            addressDetails: client.addressDetails,
+          }}
+          onClose={() => setIsEditOpen(false)}
+          onUpdated={(updatedClient) => {
+            setClient(updatedClient as ClientRecord);
+          }}
+          onSuccess={async () => {
+            setIsEditOpen(false);
+            await loadDetails();
+          }}
+        />
+      ) : null}
 
       {/* ── Add Note Sheet ───────────────────────────────────────────────── */}
       <Sheet open={isNoteOpen} onOpenChange={setIsNoteOpen}>

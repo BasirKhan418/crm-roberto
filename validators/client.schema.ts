@@ -17,25 +17,100 @@ const updatableOptionalEmail = z.preprocess(
   z.string().trim().toLowerCase().email('Invalid email address').nullable().optional()
 );
 
+export const clientTypeSchema = z.enum(['company', 'individual']);
+
+const addressCreateSchema = z
+  .object({
+    street: optionalText,
+    postalCode: optionalText,
+    city: optionalText,
+    country: optionalText,
+  })
+  .optional();
+
+const addressUpdateSchema = z
+  .object({
+    street: updatableOptionalText,
+    postalCode: updatableOptionalText,
+    city: updatableOptionalText,
+    country: updatableOptionalText,
+  })
+  .optional();
+
 export const createClientSchema = z.object({
-  fullName: z.string().trim().min(1, 'Client name is required'),
+  clientType: clientTypeSchema,
+  fullName: z.string().trim().min(1, 'Client name is required').optional(),
   email: optionalEmail,
   phone: optionalText,
   address: optionalText,
   companyName: optionalText,
   vatNumber: optionalText,
+  rcsNumber: optionalText,
+  businessAuthorizationNumber: optionalText,
+  matriculeNumber: optionalText,
+  title: optionalText,
+  firstName: optionalText,
+  lastName: optionalText,
+  addressDetails: addressCreateSchema,
+  bankName: optionalText,
+  iban: optionalText,
+  responsibleEmail: optionalEmail,
   billingEmail: optionalEmail,
+  companyPhone: optionalText,
+  privatePhone: optionalText,
+  mobilePhone: optionalText,
+  additionalDescription: optionalText,
   billingAddress: optionalText,
+}).superRefine((value, ctx) => {
+  if (value.clientType === 'company' && !value.companyName) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['companyName'],
+      message: 'Company name is required for company clients',
+    });
+  }
+
+  if (value.clientType === 'individual') {
+    if (!value.firstName) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['firstName'],
+        message: 'First name is required for individual clients',
+      });
+    }
+    if (!value.lastName) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['lastName'],
+        message: 'Last name is required for individual clients',
+      });
+    }
+  }
 });
 
 export const updateClientSchema = z.object({
+  clientType: clientTypeSchema.optional(),
   fullName: z.string().trim().min(1, 'Client name is required').optional(),
   email: updatableOptionalEmail,
   phone: updatableOptionalText,
   address: updatableOptionalText,
   companyName: updatableOptionalText,
   vatNumber: updatableOptionalText,
+  rcsNumber: updatableOptionalText,
+  businessAuthorizationNumber: updatableOptionalText,
+  matriculeNumber: updatableOptionalText,
+  title: updatableOptionalText,
+  firstName: updatableOptionalText,
+  lastName: updatableOptionalText,
+  addressDetails: addressUpdateSchema,
+  bankName: updatableOptionalText,
+  iban: updatableOptionalText,
+  responsibleEmail: updatableOptionalEmail,
   billingEmail: updatableOptionalEmail,
+  companyPhone: updatableOptionalText,
+  privatePhone: updatableOptionalText,
+  mobilePhone: updatableOptionalText,
+  additionalDescription: updatableOptionalText,
   billingAddress: updatableOptionalText,
 });
 
