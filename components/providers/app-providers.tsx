@@ -2,6 +2,7 @@
 
 import * as React from "react"
 
+import { KeyboardViewportManager } from "@/components/providers/keyboard-viewport-manager"
 import { LocaleProvider } from "@/components/providers/locale-provider"
 import { ThemeProvider } from "@/components/providers/theme-provider"
 
@@ -14,7 +15,10 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
       disableTransitionOnChange
       enableColorScheme={false}
     >
-      <LocaleProvider>{children}</LocaleProvider>
+      <LocaleProvider>
+        <KeyboardViewportManager />
+        {children}
+      </LocaleProvider>
     </ThemeProvider>
   )
 }

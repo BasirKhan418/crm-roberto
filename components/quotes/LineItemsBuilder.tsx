@@ -107,12 +107,12 @@ export default function LineItemsBuilder({ lineItems, onChange }: LineItemsBuild
 
   return (
     <section className="space-y-3">
-      <div className="hidden items-center gap-2 rounded-md border border-dashed border-border/70 bg-secondary/30 px-2 py-1.5 text-xs font-semibold uppercase text-muted-foreground md:grid md:grid-cols-[2fr_0.9fr_1.1fr_0.7fr_1.2fr_0.7fr_1fr_1fr_auto]">
+      <div className="hidden items-center gap-2 rounded-md border border-dashed border-border/70 bg-secondary/30 px-2 py-1.5 text-xs font-semibold uppercase text-muted-foreground md:grid md:grid-cols-[2fr_0.7fr_1.2fr_0.9fr_1.1fr_0.7fr_1fr_1fr_auto]">
         <span>{t.product}</span>
-        <span className="text-right">{t.discount}</span>
-        <span className="text-right">{t.discountAmount}</span>
         <span>{t.qty}</span>
         <span className="text-right">{t.unitPrice}</span>
+        <span className="text-right">{t.discount}</span>
+        <span className="text-right">{t.discountAmount}</span>
         <span className="text-right">{t.vat}</span>
         <span className="text-right">{t.totalExclTax}</span>
         <span className="text-right">{t.totalInclTax}</span>
@@ -144,9 +144,9 @@ export default function LineItemsBuilder({ lineItems, onChange }: LineItemsBuild
         </div>
       )}
 
-      <div className="sticky bottom-2 z-10 rounded-xl border border-border/70 bg-background/95 p-2 shadow-sm backdrop-blur md:static md:border-0 md:bg-transparent md:p-0 md:shadow-none">
-        <Button type="button" variant="outline" className="h-11 w-full gap-1.5 md:h-10 md:w-auto" onClick={addRow}>
-          <PlusIcon className="size-4" />
+      <div className="sticky bottom-2 z-10 rounded-xl border-2 border-dashed border-primary/30 bg-background/95 p-2 shadow-sm backdrop-blur md:static md:border md:border-border/70 md:bg-transparent md:p-0 md:shadow-none">
+        <Button type="button" variant="outline" className="h-12 w-full gap-2 border-primary/30 text-base font-semibold text-primary hover:bg-primary/5 md:h-10 md:w-auto md:text-sm md:font-medium" onClick={addRow}>
+          <PlusIcon className="size-5 md:size-4" />
           {t.addLine}
         </Button>
       </div>

@@ -1,10 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-import { ArrowLeftIcon, CalendarDaysIcon, FileTextIcon, NotebookTextIcon, UserRoundIcon } from 'lucide-react';
+import { AlertTriangleIcon, ArrowLeftIcon, CalendarDaysIcon, FileTextIcon, NotebookTextIcon, UserRoundIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import ClientPicker from '@/components/quotes/ClientPicker';
@@ -13,6 +12,14 @@ import type { QuoteLineItem } from '@/components/quotes/LineItemRow';
 import QuoteTotals from '@/components/quotes/QuoteTotals';
 import { useLocale } from '@/components/providers/locale-provider';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -69,6 +76,15 @@ export default function QuoteForm({ mode, quote }: QuoteFormProps) {
       saveChangesSuccess: 'Quote updated',
       sendUnavailable: 'Quote saved as draft, but sending is not available yet.',
       sendFailed: 'Quote saved, but could not change status to sent.',
+      unsavedTitle: 'Unsaved changes',
+      unsavedDescription: 'You have unsaved changes that will be lost if you leave this page.',
+      unsavedSaveDraft: 'Save as draft & leave',
+      unsavedStay: 'Stay on page',
+      unsavedLeave: 'Leave without saving',
+      step1: 'Step 1',
+      step2: 'Step 2',
+      step3: 'Review',
+      step4: 'Details',
     },
     fr: {
       builder: 'Generateur de devis',
@@ -100,6 +116,15 @@ export default function QuoteForm({ mode, quote }: QuoteFormProps) {
       saveChangesSuccess: 'Devis mis a jour',
       sendUnavailable: 'Devis enregistre en brouillon, mais l envoi n est pas disponible.',
       sendFailed: 'Devis enregistre, mais impossible de passer le statut a envoye.',
+      unsavedTitle: 'Modifications non enregistrees',
+      unsavedDescription: 'Vous avez des modifications non enregistrees qui seront perdues si vous quittez.',
+      unsavedSaveDraft: 'Enregistrer en brouillon et quitter',
+      unsavedStay: 'Rester sur la page',
+      unsavedLeave: 'Quitter sans enregistrer',
+      step1: 'Etape 1',
+      step2: 'Etape 2',
+      step3: 'Recapitulatif',
+      step4: 'Details',
     },
   }[locale];
 
@@ -113,6 +138,18 @@ export default function QuoteForm({ mode, quote }: QuoteFormProps) {
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [apiError, setApiError] = useState<string | null>(null);
+  const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
+  const [pendingNavUrl, setPendingNavUrl] = useState('/quotes');
+
+  const savedRef = useRef(false);
+  const isDirtyRef = useRef(false);
+  const initialStateRef = useRef({
+    clientId: quote?.clientId ?? '',
+    lineItems: JSON.stringify(quote?.lineItems ?? []),
+    notes: quote?.notes ?? '',
+    paymentTerms: quote?.paymentTerms ?? '',
+    validityDaysInput: String(quote?.validityDays ?? 30),
+  });
 
   function normalizeValidityDays(value: string): number {
     const parsed = Number(value);
@@ -162,6 +199,14 @@ export default function QuoteForm({ mode, quote }: QuoteFormProps) {
     setPaymentTerms(quote.paymentTerms ?? '');
     setValidityDaysInput(String(quote.validityDays ?? 30));
     setQuoteNumber(quote.quoteNumber);
+    // Reset the dirty baseline when quote data loads
+    initialStateRef.current = {
+      clientId: quote.clientId,
+      lineItems: JSON.stringify(quote.lineItems),
+      notes: quote.notes ?? '',
+      paymentTerms: quote.paymentTerms ?? '',
+      validityDaysInput: String(quote.validityDays ?? 30),
+    };
   }, [quote]);
 
   const title = useMemo(() => {
@@ -171,6 +216,59 @@ export default function QuoteForm({ mode, quote }: QuoteFormProps) {
 
     return t.newQuote;
   }, [mode, quoteNumber, t.editPrefix, t.newQuote]);
+
+  const isDirty = useMemo(() => {
+    const init = initialStateRef.current;
+    if (clientId !== init.clientId) return true;
+    if (notes !== init.notes) return true;
+    if (paymentTerms !== init.paymentTerms) return true;
+    if (validityDaysInput !== init.validityDaysInput) return true;
+    if (JSON.stringify(lineItems) !== init.lineItems) return true;
+    return false;
+  }, [clientId, lineItems, notes, paymentTerms, validityDaysInput]);
+
+  // Keep isDirtyRef in sync so event listeners always read latest value
+  useEffect(() => {
+    isDirtyRef.current = isDirty;
+  }, [isDirty]);
+
+  // Block browser tab close / refresh when there are unsaved changes
+  useEffect(() => {
+    function handleBeforeUnload(e: BeforeUnloadEvent) {
+      if (!isDirtyRef.current || savedRef.current) return;
+      e.preventDefault();
+      e.returnValue = '';
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, []);
+
+  // Intercept the browser back button
+  useEffect(() => {
+    window.history.pushState({ __quoteGuard: true }, '');
+
+    function handlePopState() {
+      if (isDirtyRef.current && !savedRef.current) {
+        // Re-push the guard entry so the URL stays the same
+        window.history.pushState({ __quoteGuard: true }, '');
+        setPendingNavUrl('/quotes');
+        setLeaveDialogOpen(true);
+      }
+    }
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  function requestNavigate(url: string) {
+    if (isDirty) {
+      setPendingNavUrl(url);
+      setLeaveDialogOpen(true);
+    } else {
+      savedRef.current = true;
+      router.push(url);
+    }
+  }
 
   function validate() {
     const nextErrors: Record<string, string> = {};
@@ -242,6 +340,8 @@ export default function QuoteForm({ mode, quote }: QuoteFormProps) {
 
       if (sendAfterSave && quoteId) {
         toast.success(t.saveDraftSuccess);
+        savedRef.current = true;
+        setLeaveDialogOpen(false);
         router.push(`/quotes/${quoteId}?send=1`);
         return;
       }
@@ -249,6 +349,8 @@ export default function QuoteForm({ mode, quote }: QuoteFormProps) {
       const successMessage = mode === 'edit' ? t.saveChangesSuccess : t.saveDraftSuccess;
 
       toast.success(successMessage);
+      savedRef.current = true;
+      setLeaveDialogOpen(false);
       router.push('/quotes');
     } catch (saveError) {
       setApiError(saveError instanceof Error ? saveError.message : t.saveFailed);
@@ -258,15 +360,13 @@ export default function QuoteForm({ mode, quote }: QuoteFormProps) {
   }
 
   return (
-    <section className="space-y-5 pb-28 xl:pb-6">
+    <section className="space-y-4 pb-24 lg:pb-6">
       <header className="rounded-xl border border-border/70 bg-linear-to-b from-background to-secondary/30 p-4 sm:p-5">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="space-y-1">
-            <Button type="button" variant="ghost" size="sm" className="mb-1 h-7 px-0 text-muted-foreground hover:text-foreground" asChild>
-              <Link href="/quotes">
-                <ArrowLeftIcon className="size-3.5" />
-                {t.backToQuotes}
-              </Link>
+            <Button type="button" variant="ghost" size="sm" className="mb-1 h-7 px-0 text-muted-foreground hover:text-foreground" onClick={() => requestNavigate('/quotes')}>
+              <ArrowLeftIcon className="size-3.5" />
+              {t.backToQuotes}
             </Button>
             <h1 className="font-heading text-2xl font-semibold tracking-tight sm:text-3xl">{title}</h1>
           </div>
@@ -297,12 +397,14 @@ export default function QuoteForm({ mode, quote }: QuoteFormProps) {
 
       {apiError ? <ErrorMessage message={apiError} /> : null}
 
-      <div className="grid gap-4 xl:grid-cols-[1.5fr_1fr]">
+      <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr]">
         <div className="space-y-4">
           <section className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
             <h2 className="mb-3 inline-flex items-center gap-2 font-heading text-base font-semibold">
+              <span className="flex size-6 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">{clientId ? '✓' : '1'}</span>
               <UserRoundIcon className="size-4 text-muted-foreground" />
               {t.client}
+              <span className="text-xs font-normal text-muted-foreground">— {t.step1}</span>
             </h2>
             <ClientPicker value={clientId} onChange={setClientId} onClientSelected={() => undefined} />
             {errors.clientId ? <p className="mt-2 text-xs text-destructive">{errors.clientId}</p> : null}
@@ -310,46 +412,80 @@ export default function QuoteForm({ mode, quote }: QuoteFormProps) {
 
           <section className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
             <h2 className="mb-3 inline-flex items-center gap-2 font-heading text-base font-semibold">
+              <span className="flex size-6 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">{lineItems.length > 0 ? '✓' : '2'}</span>
               <FileTextIcon className="size-4 text-muted-foreground" />
               {t.lineItems}
+              <span className="text-xs font-normal text-muted-foreground">— {t.step2}</span>
             </h2>
             <LineItemsBuilder lineItems={lineItems} onChange={setLineItems} />
             {errors.lineItems ? <p className="mt-2 text-xs text-destructive">{errors.lineItems}</p> : null}
           </section>
         </div>
 
-        <aside className="space-y-4 xl:sticky xl:top-20 xl:self-start">
-          <QuoteTotals lineItems={lineItems} />
+        <aside className="space-y-4 lg:sticky lg:top-20 lg:self-start">
+          
+          <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border/70 bg-background/95 px-3 -mb-0 pt-2.5 pb-[env(safe-area-inset-bottom,0px)] shadow-[0_-8px_24px_-16px_rgba(0,0,0,0.45)] backdrop-blur lg:static lg:rounded-xl lg:border lg:bg-background/95 lg:p-4 lg:shadow-sm">
+            <div className="flex flex-col gap-2 sm:flex-row sm:justify-end lg:flex-col lg:items-stretch">
+              {mode === 'edit' ? (
+                <Button type="button" className="h-11 w-full" disabled={submitting} onClick={() => saveQuote(false)}>
+                  {submitting ? t.saving : t.saveChanges}
+                </Button>
+              ) : (
+                <>
+                  <Button type="button" className="h-11 w-full" disabled={submitting} onClick={() => saveQuote(true)}>
+                    {submitting ? t.saving : t.saveAndSend}
+                  </Button>
+                  <Button type="button" variant="outline" className="h-11 w-full" disabled={submitting} onClick={() => saveQuote(false)}>
+                    {submitting ? t.saving : t.saveDraft}
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <h2 className="mb-3 inline-flex items-center gap-2 font-heading text-base font-semibold">
+              <span className="flex size-6 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">3</span>
+              {t.step3}
+            </h2>
+            <QuoteTotals lineItems={lineItems} />
+          </div>
 
           <section className="rounded-xl border border-border/70 bg-card p-4 shadow-sm space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="quote-payment-terms">
-                {t.paymentTerms}
-              </Label>
-              <Input
-                id="quote-payment-terms"
-                value={paymentTerms}
-                onChange={(event) => setPaymentTerms(event.target.value)}
-                placeholder={t.paymentTermsPlaceholder}
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="quote-validity-days">
-                {t.validityDays}
-              </Label>
-              <div className="flex items-center gap-2">
+            <h2 className="inline-flex items-center gap-2 font-heading text-base font-semibold">
+              <span className="flex size-6 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">4</span>
+              {t.step4}
+            </h2>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="quote-payment-terms">
+                  {t.paymentTerms}
+                </Label>
                 <Input
-                  id="quote-validity-days"
-                  type="number"
-                  min={1}
-                  max={365}
-                  value={validityDaysInput}
-                  onChange={(event) => setValidityDaysInput(event.target.value)}
-                  onBlur={() => setValidityDaysInput(String(normalizeValidityDays(validityDaysInput)))}
-                  className="w-24"
+                  id="quote-payment-terms"
+                  value={paymentTerms}
+                  onChange={(event) => setPaymentTerms(event.target.value)}
+                  placeholder={t.paymentTermsPlaceholder}
                 />
-                <span className="text-sm text-muted-foreground">{t.validityDaysUnit}</span>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="quote-validity-days">
+                  {t.validityDays}
+                </Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="quote-validity-days"
+                    type="number"
+                    min={1}
+                    max={365}
+                    value={validityDaysInput}
+                    onChange={(event) => setValidityDaysInput(event.target.value)}
+                    onBlur={() => setValidityDaysInput(String(normalizeValidityDays(validityDaysInput)))}
+                    className="w-full"
+                  />
+                  <span className="text-sm text-muted-foreground">{t.validityDaysUnit}</span>
+                </div>
               </div>
             </div>
 
@@ -367,27 +503,53 @@ export default function QuoteForm({ mode, quote }: QuoteFormProps) {
               />
             </div>
           </section>
-
-          <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border/70 bg-background/95 px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_-16px_rgba(0,0,0,0.45)] backdrop-blur xl:static xl:rounded-xl xl:border xl:bg-background/95 xl:p-3 xl:shadow-sm">
-            <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-              {mode === 'edit' ? (
-                <Button type="button" className="h-11 sm:min-w-44" disabled={submitting} onClick={() => saveQuote(false)}>
-                  {submitting ? t.saving : t.saveChanges}
-                </Button>
-              ) : (
-                <>
-                  <Button type="button" variant="outline" className="h-11 sm:min-w-36" disabled={submitting} onClick={() => saveQuote(false)}>
-                    {submitting ? t.saving : t.saveDraft}
-                  </Button>
-                  <Button type="button" className="h-11 sm:min-w-36" disabled={submitting} onClick={() => saveQuote(true)}>
-                    {submitting ? t.saving : t.saveAndSend}
-                  </Button>
-                </>
-              )}
-            </div>
-          </div>
         </aside>
       </div>
+
+      <Dialog open={leaveDialogOpen} onOpenChange={setLeaveDialogOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangleIcon className="size-5 text-amber-500" />
+              {t.unsavedTitle}
+            </DialogTitle>
+            <DialogDescription>{t.unsavedDescription}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex flex-col gap-2">
+            <Button
+              type="button"
+              className="w-full"
+              disabled={submitting}
+              onClick={() => {
+                setLeaveDialogOpen(false);
+                saveQuote(false);
+              }}
+            >
+              {submitting ? t.saving : t.unsavedSaveDraft}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={() => setLeaveDialogOpen(false)}
+            >
+              {t.unsavedStay}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full text-destructive hover:text-destructive"
+              onClick={() => {
+                savedRef.current = true;
+                setLeaveDialogOpen(false);
+                router.push(pendingNavUrl);
+              }}
+            >
+              {t.unsavedLeave}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

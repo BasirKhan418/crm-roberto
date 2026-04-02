@@ -399,7 +399,6 @@ export default function QuotesPage() {
           quoteStatus={sendTarget.status}
           locale={locale as 'en' | 'fr'}
           onSent={() => {
-            setSendTarget(null);
             refetch();
           }}
         />

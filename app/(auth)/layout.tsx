@@ -39,7 +39,7 @@ export default function AuthLayout({
   const t = authLayoutMessages[locale];
 
   return (
-    <div className="min-h-screen w-full bg-[#f8fafc] flex flex-col">
+    <div className="flex w-full flex-col bg-[#f8fafc]" style={{ minHeight: 'var(--app-viewport-height)' }}>
       {/* Mobile top bar */}
       <header className="lg:hidden flex items-center justify-between px-5 py-4 bg-white border-b border-zinc-100">
         <div className="flex items-center gap-2.5">
@@ -51,7 +51,7 @@ export default function AuthLayout({
         <LanguageThemeToggle />
       </header>
 
-      <div className="flex flex-1 items-stretch lg:overflow-hidden">
+      <div className="flex flex-1 items-stretch min-h-0 lg:overflow-hidden">
         {/* Left panel */}
         <aside className="hidden lg:flex w-[420px] xl:w-[480px] shrink-0 flex-col bg-[#020b18] text-white relative overflow-hidden">
           {/* World map background */}
@@ -107,13 +107,13 @@ export default function AuthLayout({
         </aside>
 
         {/* Right — form area */}
-        <main className="flex-1 flex flex-col min-h-0 bg-white lg:bg-[#f8fafc] relative">
+        <main className="relative flex min-h-0 flex-1 flex-col bg-white lg:bg-[#f8fafc]">
           <div className="hidden lg:block absolute top-5 right-6 z-20">
             <LanguageThemeToggle />
           </div>
 
-          <div className="flex-1 overflow-y-auto">
-            <div className="min-h-full flex flex-col justify-center px-5 py-10 sm:px-10 md:px-16 lg:px-20 xl:px-24">
+          <div className="flex-1 overflow-y-auto scroll-pb-[calc(5rem+var(--app-keyboard-inset-height))]">
+            <div className="min-h-full flex flex-col justify-center px-5 py-10 pb-[calc(2.5rem+var(--app-keyboard-inset-height))] sm:px-10 md:px-16 lg:px-20 xl:px-24">
               <AnimatePresence mode="wait" initial={false}>
                 <motion.div
                   key={pathname}
@@ -129,7 +129,7 @@ export default function AuthLayout({
             </div>
           </div>
 
-          <footer className="px-5 sm:px-10 md:px-16 lg:px-20 xl:px-24 py-5 border-t border-zinc-100 bg-white flex flex-wrap items-center justify-between gap-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-zinc-400">
+          <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-zinc-100 bg-white px-5 py-5 pb-[calc(1.25rem+var(--app-safe-area-bottom))] text-[10px] font-semibold uppercase tracking-[0.15em] text-zinc-400 sm:px-10 md:px-16 lg:px-20 xl:px-24">
             <span>© 2026 CRM Roberto</span>
             <div className="flex gap-5">
               <Link href="#" className="hover:text-zinc-600 transition-colors">{t.privacy}</Link>

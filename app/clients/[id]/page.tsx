@@ -809,7 +809,6 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         locale={locale as 'en' | 'fr'}
         quoteStatus={sendTarget.status}
         onSent={() => {
-          setSendTarget(null);
           void loadQuotes();
         }}
       />

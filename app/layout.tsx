@@ -100,9 +100,9 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${poppins.variable} ${roboto.variable} h-full antialiased`}
+      className={`${poppins.variable} ${roboto.variable} h-full min-h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">
+      <body className="flex min-h-dvh flex-col overflow-x-hidden">
         <AppProviders>
           {children}
           <Toaster position="top-right" richColors />

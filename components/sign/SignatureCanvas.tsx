@@ -6,12 +6,20 @@ interface SignatureCanvasProps {
   onSignatureChange: (dataUrl: string | null) => void;
 }
 
-function isMobileViewport(): boolean {
+function getCanvasHeight(): number {
   if (typeof window === 'undefined') {
-    return false;
+    return 220;
   }
 
-  return window.matchMedia('(max-width: 640px)').matches;
+  return window.matchMedia('(max-width: 640px)').matches ? 180 : 220;
+}
+
+function applyCtxStyles(ctx: CanvasRenderingContext2D, dpr: number) {
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = 'rgb(17, 24, 39)';
+  ctx.lineWidth = 2;
 }
 
 export default function SignatureCanvas({ onSignatureChange }: SignatureCanvasProps) {
@@ -19,23 +27,30 @@ export default function SignatureCanvas({ onSignatureChange }: SignatureCanvasPr
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const isDrawingRef = useRef(false);
   const pointerIdRef = useRef<number | null>(null);
-  const canvasHeightRef = useRef(isMobileViewport() ? 160 : 200);
+  const canvasHeightRef = useRef(getCanvasHeight());
+  const hasStrokeRef = useRef(false);
+  const onSignatureChangeRef = useRef(onSignatureChange);
   const [hasStroke, setHasStroke] = useState(false);
+
+  // Keep callback ref in sync so closures never go stale
+  useEffect(() => {
+    onSignatureChangeRef.current = onSignatureChange;
+  }, [onSignatureChange]);
+
+  // Sync the ref whenever React state changes (for resize snapshot logic)
+  useEffect(() => {
+    hasStrokeRef.current = hasStroke;
+  }, [hasStroke]);
 
   const emitSignature = useCallback(() => {
     const canvas = canvasRef.current;
-    if (!canvas) {
-      onSignatureChange(null);
+    if (!canvas || !hasStrokeRef.current) {
+      onSignatureChangeRef.current(null);
       return;
     }
 
-    if (!hasStroke) {
-      onSignatureChange(null);
-      return;
-    }
-
-    onSignatureChange(canvas.toDataURL('image/png'));
-  }, [hasStroke, onSignatureChange]);
+    onSignatureChangeRef.current(canvas.toDataURL('image/png'));
+  }, []);
 
   const resizeCanvas = useCallback(() => {
     const wrapper = wrapperRef.current;
@@ -49,7 +64,8 @@ export default function SignatureCanvas({ onSignatureChange }: SignatureCanvasPr
     const displayWidth = Math.max(Math.floor(rect.width), 1);
     const displayHeight = canvasHeightRef.current;
 
-    const snapshot = hasStroke ? canvas.toDataURL('image/png') : null;
+    // Snapshot existing drawing before resizing (resize clears the canvas)
+    const snapshot = hasStrokeRef.current ? canvas.toDataURL('image/png') : null;
 
     canvas.style.width = `${displayWidth}px`;
     canvas.style.height = `${displayHeight}px`;
@@ -61,29 +77,28 @@ export default function SignatureCanvas({ onSignatureChange }: SignatureCanvasPr
       return;
     }
 
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.strokeStyle = 'rgb(17, 24, 39)';
-    ctx.lineWidth = 2;
+    applyCtxStyles(ctx, dpr);
     ctx.clearRect(0, 0, displayWidth, displayHeight);
 
     if (snapshot) {
       const image = new Image();
       image.onload = () => {
         ctx.drawImage(image, 0, 0, displayWidth, displayHeight);
+        // Re-apply styles after drawImage so subsequent strokes render correctly
+        applyCtxStyles(ctx, dpr);
       };
       image.src = snapshot;
     }
-  }, [hasStroke]);
+  }, []);
 
+  // Respond to viewport breakpoint changes
   useEffect(() => {
     const media = window.matchMedia('(max-width: 640px)');
-    canvasHeightRef.current = media.matches ? 160 : 200;
+    canvasHeightRef.current = media.matches ? 180 : 220;
     resizeCanvas();
 
     const listener = (event: MediaQueryListEvent) => {
-      canvasHeightRef.current = event.matches ? 160 : 200;
+      canvasHeightRef.current = event.matches ? 180 : 220;
       resizeCanvas();
     };
 
@@ -96,6 +111,7 @@ export default function SignatureCanvas({ onSignatureChange }: SignatureCanvasPr
     return () => media.removeListener(listener);
   }, [resizeCanvas]);
 
+  // Respond to container size changes
   useEffect(() => {
     resizeCanvas();
 
@@ -116,9 +132,10 @@ export default function SignatureCanvas({ onSignatureChange }: SignatureCanvasPr
     }
 
     const rect = canvas.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
-    return { x, y };
+    return {
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top,
+    };
   }, []);
 
   const handlePointerDown = useCallback((event: React.PointerEvent<HTMLCanvasElement>) => {
@@ -154,10 +171,11 @@ export default function SignatureCanvas({ onSignatureChange }: SignatureCanvasPr
     ctx.lineTo(x, y);
     ctx.stroke();
 
-    if (!hasStroke) {
+    if (!hasStrokeRef.current) {
+      hasStrokeRef.current = true;
       setHasStroke(true);
     }
-  }, [getCoordinates, hasStroke]);
+  }, [getCoordinates]);
 
   const finishDrawing = useCallback((event: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
@@ -183,25 +201,24 @@ export default function SignatureCanvas({ onSignatureChange }: SignatureCanvasPr
       return;
     }
 
+    const dpr = window.devicePixelRatio || 1;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    applyCtxStyles(ctx, dpr);
+    hasStrokeRef.current = false;
     setHasStroke(false);
-    onSignatureChange(null);
-  }, [onSignatureChange]);
+    onSignatureChangeRef.current(null);
+  }, []);
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       <div
         ref={wrapperRef}
-        className="relative overflow-hidden rounded-md border"
-        style={{
-          border: '1.5px dashed var(--color-border-secondary)',
-          background: 'var(--color-background-secondary)',
-          touchAction: 'none',
-        }}
+        className="relative overflow-hidden rounded-2xl border border-slate-200 bg-slate-50"
+        style={{ touchAction: 'none' }}
       >
         {!hasStroke ? (
-          <span className="pointer-events-none absolute left-3 top-3 text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
-            Sign here
+          <span className="pointer-events-none absolute left-4 top-4 text-xs font-medium text-slate-400">
+            Draw your signature here
           </span>
         ) : null}
 
@@ -220,10 +237,9 @@ export default function SignatureCanvas({ onSignatureChange }: SignatureCanvasPr
       <button
         type="button"
         onClick={clearSignature}
-        className="inline-flex items-center rounded-md border border-border bg-transparent px-3 py-1.5 text-xs"
-        style={{ color: 'var(--color-text-secondary)' }}
+        className="inline-flex min-h-10 items-center rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
       >
-        Clear signature
+        Clear and start again
       </button>
     </div>
   );

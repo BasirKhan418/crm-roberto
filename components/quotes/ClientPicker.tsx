@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { createPortal } from 'react-dom';
 
 import { Building2Icon, PlusIcon, SearchIcon, XIcon } from 'lucide-react';
 
@@ -56,8 +57,83 @@ export default function ClientPicker({ value, onChange, onClientSelected }: Clie
   const [search, setSearch] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [dropdownStyle, setDropdownStyle] = useState<CSSProperties | null>(null);
 
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const dropdownAnchorRef = useRef<HTMLDivElement | null>(null);
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
+  const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasAdjustedOpenRef = useRef(false);
+
+  function updateDropdownPosition() {
+    const anchor = dropdownAnchorRef.current;
+    if (!anchor) {
+      return;
+    }
+
+    const rect = anchor.getBoundingClientRect();
+    const viewport = window.visualViewport;
+    const viewportHeight = viewport?.height ?? window.innerHeight;
+    const viewportWidth = viewport?.width ?? window.innerWidth;
+    const viewportOffsetTop = viewport?.offsetTop ?? 0;
+    const viewportOffsetLeft = viewport?.offsetLeft ?? 0;
+    const horizontalPadding = 8;
+    const verticalPadding = 8;
+    const gap = 8;
+    const availableBelow = Math.max(
+      0,
+      viewportOffsetTop + viewportHeight - rect.bottom - gap - verticalPadding
+    );
+    const left = Math.max(
+      viewportOffsetLeft + horizontalPadding,
+      Math.min(rect.left, viewportOffsetLeft + viewportWidth - rect.width - horizontalPadding)
+    );
+
+    setDropdownStyle({
+      position: 'fixed',
+      top: rect.bottom + gap,
+      left,
+      width: rect.width,
+      maxHeight: Math.max(96, Math.min(260, availableBelow)),
+    });
+  }
+
+  // Nudge the page only when there is not enough visible room below the input
+  // for the dropdown. The global keyboard manager already handles the main
+  // focus scroll, so this correction needs to stay small.
+  function scrollAnchorIntoView() {
+    const anchor = dropdownAnchorRef.current;
+    if (!anchor) return;
+
+    const vp = window.visualViewport;
+    const vpHeight = vp?.height ?? window.innerHeight;
+    const vpOffsetTop = vp?.offsetTop ?? 0;
+    const rect = anchor.getBoundingClientRect();
+
+    const desiredDropdownSpace = Math.min(220, Math.max(160, vpHeight * 0.38));
+    const currentSpaceBelow = vpOffsetTop + vpHeight - rect.bottom - 16;
+    const missingSpace = desiredDropdownSpace - currentSpaceBelow;
+
+    if (missingSpace > 24) {
+      window.scrollBy({
+        top: Math.min(missingSpace, 180),
+        behavior: 'smooth',
+      });
+    }
+  }
+
+  function openDropdown({ adjustViewport = false }: { adjustViewport?: boolean } = {}) {
+    setIsOpen(true);
+    if (!adjustViewport || hasAdjustedOpenRef.current) {
+      return;
+    }
+
+    hasAdjustedOpenRef.current = true;
+    if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
+    scrollTimerRef.current = setTimeout(() => {
+      scrollAnchorIntoView();
+    }, 380);
+  }
 
   const selectedClient = useMemo(() => clients.find((client) => client._id === value) || null, [clients, value]);
   const inputValue = selectedClient ? (isOpen ? search : selectedClient.fullName) : search;
@@ -76,6 +152,48 @@ export default function ClientPicker({ value, onChange, onClientSelected }: Clie
   }, [clients, search]);
 
   useEffect(() => {
+    return () => {
+      if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!isOpen) {
+      setDropdownStyle(null);
+      return;
+    }
+
+    updateDropdownPosition();
+
+    let recheckTimer: ReturnType<typeof setTimeout> | null = null;
+    const handleUpdate = () => updateDropdownPosition();
+    const viewport = window.visualViewport;
+
+    recheckTimer = setTimeout(handleUpdate, 420);
+
+    window.addEventListener('resize', handleUpdate);
+    document.addEventListener('scroll', handleUpdate, true);
+    viewport?.addEventListener('resize', handleUpdate);
+    viewport?.addEventListener('scroll', handleUpdate);
+
+    return () => {
+      if (recheckTimer) {
+        clearTimeout(recheckTimer);
+      }
+      window.removeEventListener('resize', handleUpdate);
+      document.removeEventListener('scroll', handleUpdate, true);
+      viewport?.removeEventListener('resize', handleUpdate);
+      viewport?.removeEventListener('scroll', handleUpdate);
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      hasAdjustedOpenRef.current = false;
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
     if (selectedClient) {
       onClientSelected(selectedClient);
     } else if (!value) {
@@ -84,18 +202,19 @@ export default function ClientPicker({ value, onChange, onClientSelected }: Clie
   }, [selectedClient, value, onClientSelected]);
 
   useEffect(() => {
-    function handleOutside(event: MouseEvent) {
+    function handleOutside(event: PointerEvent) {
       if (!rootRef.current) {
         return;
       }
 
-      if (!rootRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (!rootRef.current.contains(target) && !dropdownRef.current?.contains(target)) {
         setIsOpen(false);
       }
     }
 
-    document.addEventListener('mousedown', handleOutside);
-    return () => document.removeEventListener('mousedown', handleOutside);
+    document.addEventListener('pointerdown', handleOutside);
+    return () => document.removeEventListener('pointerdown', handleOutside);
   }, []);
 
   function handleSelect(client: ClientOption) {
@@ -103,6 +222,11 @@ export default function ClientPicker({ value, onChange, onClientSelected }: Clie
     onClientSelected(client);
     setSearch(client.fullName);
     setIsOpen(false);
+
+    const activeElement = document.activeElement;
+    if (activeElement instanceof HTMLElement) {
+      activeElement.blur();
+    }
   }
 
   async function handleClientCreated(createdClient: ClientOption) {
@@ -115,7 +239,7 @@ export default function ClientPicker({ value, onChange, onClientSelected }: Clie
 
   return (
     <div ref={rootRef} className="space-y-2">
-      <div className="relative">
+      <div ref={dropdownAnchorRef} className="relative">
         <SearchIcon className="pointer-events-none absolute left-3 top-1/2 z-10 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           value={inputValue}
@@ -123,59 +247,73 @@ export default function ClientPicker({ value, onChange, onClientSelected }: Clie
             if (selectedClient) {
               setSearch(selectedClient.fullName);
             }
-            setIsOpen(true);
+            openDropdown({ adjustViewport: true });
           }}
           onChange={(event) => {
             setSearch(event.target.value);
             if (value) {
               onChange('');
             }
-            setIsOpen(true);
+            openDropdown();
           }}
           placeholder={t.searchPlaceholder}
           className="pl-9"
         />
 
-        {isOpen ? (
-          <div className="absolute z-30 mt-2 w-full rounded-lg border border-border bg-background p-1.5 shadow-lg">
-            <div className="max-h-72 overflow-auto">
-              {loading ? (
-                <p className="px-2 py-2 text-xs text-muted-foreground">{t.loading}</p>
-              ) : filtered.length === 0 ? (
-                <p className="px-2 py-2 text-xs text-muted-foreground">{t.noClients}</p>
-              ) : (
-                filtered.slice(0, 8).map((client) => (
-                  <button
-                    key={client._id}
-                    type="button"
-                    className="w-full rounded-md border border-transparent px-2 py-2 text-left transition-colors hover:border-border hover:bg-muted/70"
-                    onClick={() => handleSelect(client)}
-                  >
-                    <p className="text-sm font-medium text-foreground">{client.fullName}</p>
-                    <p className="text-xs text-muted-foreground">{client.companyName || t.noCompany}</p>
-                  </button>
-                ))
-              )}
-            </div>
-
-            <button
-              type="button"
-              className="mt-1 inline-flex w-full items-center gap-1 rounded-md border border-dashed border-border px-2 py-1.5 text-sm text-(--color-text-info) hover:bg-muted"
-              onClick={() => {
-                setShowAddModal(true);
-                setIsOpen(false);
-              }}
-            >
-              <PlusIcon className="size-3.5" />
-              {t.newClient}
-            </button>
-          </div>
-        ) : null}
       </div>
+
+      {isOpen && dropdownStyle
+        ? createPortal(
+            <div
+              ref={dropdownRef}
+              className="z-70 flex flex-col overflow-hidden rounded-lg border border-border bg-background p-1.5 shadow-lg"
+              style={dropdownStyle}
+            >
+              <div className="min-h-0 overflow-auto overscroll-contain">
+                {loading ? (
+                  <p className="px-2 py-2 text-xs text-muted-foreground">{t.loading}</p>
+                ) : filtered.length === 0 ? (
+                  <p className="px-2 py-2 text-xs text-muted-foreground">{t.noClients}</p>
+                ) : (
+                  filtered.slice(0, 8).map((client) => (
+                    <button
+                      key={client._id}
+                      type="button"
+                      className="w-full rounded-md border border-transparent px-2 py-2 text-left transition-colors hover:border-border hover:bg-muted/70"
+                      onMouseDown={(event) => {
+                        event.preventDefault();
+                      }}
+                      onClick={() => handleSelect(client)}
+                    >
+                      <p className="text-sm font-medium text-foreground">{client.fullName}</p>
+                      <p className="text-xs text-muted-foreground">{client.companyName || t.noCompany}</p>
+                    </button>
+                  ))
+                )}
+              </div>
+
+              <button
+                type="button"
+                className="mt-1 inline-flex w-full items-center gap-1 rounded-md border border-dashed border-border px-2 py-1.5 text-sm text-(--color-text-info) hover:bg-muted"
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                }}
+                onClick={() => {
+                  setShowAddModal(true);
+                  setIsOpen(false);
+                }}
+              >
+                <PlusIcon className="size-3.5" />
+                {t.newClient}
+              </button>
+            </div>,
+            document.body
+          )
+        : null}
 
       {selectedClient ? (
         <div className="rounded-xl border border-border/70 bg-muted/30 p-3 sm:p-4">
-          <div className="mb-3 flex items-start justify-between gap-3">
+          <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="space-y-0.5">
               <h3 className="text-base font-semibold tracking-tight">{t.clientInfo}</h3>
               <p className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -199,29 +337,29 @@ export default function ClientPicker({ value, onChange, onClientSelected }: Clie
           </div>
 
           <div className="space-y-1.5 rounded-lg border border-border/60 bg-background/90 px-3 py-2.5 text-sm">
-            <div className="grid grid-cols-[96px_minmax(0,1fr)] gap-2.5 sm:grid-cols-[110px_minmax(0,1fr)] sm:gap-3">
+            <div className="grid grid-cols-1 gap-1 sm:grid-cols-[110px_minmax(0,1fr)] sm:gap-3">
               <p className="text-muted-foreground">{t.name}</p>
-              <p className="min-w-0 text-right font-medium wrap-break-word break-all">{selectedClient.fullName || t.emptyField}</p>
+              <p className="min-w-0 font-medium wrap-break-word break-all sm:text-right">{selectedClient.fullName || t.emptyField}</p>
             </div>
-            <div className="grid grid-cols-[96px_minmax(0,1fr)] gap-2.5 sm:grid-cols-[110px_minmax(0,1fr)] sm:gap-3">
+            <div className="grid grid-cols-1 gap-1 sm:grid-cols-[110px_minmax(0,1fr)] sm:gap-3">
               <p className="text-muted-foreground">{t.company}</p>
-              <p className="min-w-0 text-right font-medium wrap-break-word break-all">{selectedClient.companyName || t.noCompany}</p>
+              <p className="min-w-0 font-medium wrap-break-word break-all sm:text-right">{selectedClient.companyName || t.noCompany}</p>
             </div>
-            <div className="grid grid-cols-[96px_minmax(0,1fr)] gap-2.5 sm:grid-cols-[110px_minmax(0,1fr)] sm:gap-3">
+            <div className="grid grid-cols-1 gap-1 sm:grid-cols-[110px_minmax(0,1fr)] sm:gap-3">
               <p className="text-muted-foreground">{t.phone}</p>
-              <p className="min-w-0 text-right font-medium wrap-break-word break-all">{selectedClient.phone || t.emptyField}</p>
+              <p className="min-w-0 font-medium wrap-break-word break-all sm:text-right">{selectedClient.phone || t.emptyField}</p>
             </div>
-            <div className="grid grid-cols-[96px_minmax(0,1fr)] gap-2.5 sm:grid-cols-[110px_minmax(0,1fr)] sm:gap-3">
+            <div className="grid grid-cols-1 gap-1 sm:grid-cols-[110px_minmax(0,1fr)] sm:gap-3">
               <p className="text-muted-foreground">{t.email}</p>
-              <p className="min-w-0 text-right font-medium wrap-break-word break-all">{selectedClient.email || t.emptyField}</p>
+              <p className="min-w-0 font-medium wrap-break-word break-all sm:text-right">{selectedClient.email || t.emptyField}</p>
             </div>
-            <div className="grid grid-cols-[96px_minmax(0,1fr)] gap-2.5 sm:grid-cols-[110px_minmax(0,1fr)] sm:gap-3">
+            <div className="grid grid-cols-1 gap-1 sm:grid-cols-[110px_minmax(0,1fr)] sm:gap-3">
               <p className="text-muted-foreground">{t.address}</p>
-              <p className="min-w-0 text-right font-medium wrap-break-word break-all">{selectedClient.address || t.emptyField}</p>
+              <p className="min-w-0 font-medium wrap-break-word break-all sm:text-right">{selectedClient.address || t.emptyField}</p>
             </div>
-            <div className="grid grid-cols-[96px_minmax(0,1fr)] gap-2.5 sm:grid-cols-[110px_minmax(0,1fr)] sm:gap-3">
+            <div className="grid grid-cols-1 gap-1 sm:grid-cols-[110px_minmax(0,1fr)] sm:gap-3">
               <p className="text-muted-foreground">{t.vat}</p>
-              <p className="min-w-0 text-right font-medium wrap-break-word break-all">{selectedClient.vatNumber || t.emptyField}</p>
+              <p className="min-w-0 font-medium wrap-break-word break-all sm:text-right">{selectedClient.vatNumber || t.emptyField}</p>
             </div>
           </div>
         </div>

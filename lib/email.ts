@@ -321,16 +321,16 @@ export async function sendQuoteEmail({
     ? subject.trim()
     : (
     locale === "fr"
-      ? `Votre devis a verifier et signer`
-      : `Your quote review and sign`
+      ? `Devis ${quoteNumber} - Merci de verifier et signer`
+      : `Quote ${quoteNumber} - Please review and sign`
     );
 
   const resolvedMessageBody = messageBody?.trim()
     ? messageBody.trim()
     : (
     locale === "fr"
-      ? `Bonjour,\n\nVeuillez trouver ci-joint votre devis ${quoteNumber}.\n\nN'hesitez pas a revenir vers nous pour toute question.\n\nBien cordialement,`
-      : `Hello,\n\nPlease find attached your quote ${quoteNumber}.\n\nFeel free to contact us if you have any questions.\n\nBest regards,`
+      ? `Bonjour,\n\nVeuillez trouver ci-joint votre devis ${quoteNumber}.\n\nLorsque vous etes pret, utilisez le bouton securise de cet e-mail pour consulter le devis et signer en ligne.\n\nN'hesitez pas a revenir vers nous pour toute question avant signature.\n\nBien cordialement,`
+      : `Hello,\n\nPlease find attached your quote ${quoteNumber}.\n\nWhen you are ready, use the secure button in this email to review the quote and sign online.\n\nFeel free to contact us if you have any questions before signing.\n\nBest regards,`
     );
 
   const formattedDate = new Intl.DateTimeFormat(locale === "fr" ? "fr-FR" : "en-GB", {
@@ -371,11 +371,23 @@ export async function sendQuoteEmail({
     signLinkUrl: signUrl,
   });
 
+  const text = [
+    resolvedMessageBody,
+    '',
+    locale === 'fr' ? `Reference du devis : ${quoteNumber}` : `Quote reference: ${quoteNumber}`,
+    locale === 'fr' ? `Date : ${formattedDate}` : `Date: ${formattedDate}`,
+    locale === 'fr' ? `Montant TTC : ${formattedTotal}` : `Total incl. tax: ${formattedTotal}`,
+    locale === 'fr' ? `Validite : ${validityDays} jours` : `Validity: ${validityDays} days`,
+    signUrl ? '' : '',
+    signUrl ? (locale === 'fr' ? `Lien securise pour signer : ${signUrl}` : `Secure signing link: ${signUrl}`) : '',
+    signUrl ? (locale === 'fr' ? 'Ce lien expire dans 30 jours.' : 'This link expires in 30 days.') : '',
+  ].filter(Boolean).join('\n');
+
   return sendDocumentEmail({
     to,
     subject: resolvedSubject,
     html,
-    text: resolvedMessageBody,
+    text,
     companyName,
     attachmentFilename: `${quoteNumber}.pdf`,
     pdfBuffer,

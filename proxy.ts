@@ -9,6 +9,7 @@ interface TokenPayload {
   isEmailVerified?: boolean;
 }
 
+const bypassRoutePrefixes = ['/sign'];
 const protectedRoutePrefixes = ['/dashboard', '/clients', '/suppliers', '/notes', '/follow-up-tracking', '/profile', '/products', '/quotes'];
 const publicRoutes = ['/', '/login', '/signup', '/forgot-password'];
 
@@ -29,6 +30,10 @@ async function verifyToken(token: string): Promise<TokenPayload | null> {
 export default async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get('token')?.value;
+
+  if (bypassRoutePrefixes.some((route) => matchesRoutePrefix(pathname, route))) {
+    return NextResponse.next();
+  }
 
   if (protectedRoutePrefixes.some((route) => matchesRoutePrefix(pathname, route))) {
     const payload = token ? await verifyToken(token) : null;
@@ -67,5 +72,5 @@ export default async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml).*)'],
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|sign(?:/|$)).*)'],
 };

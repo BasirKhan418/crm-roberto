@@ -124,17 +124,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             ))}
           </SidebarMenu>
         </SidebarGroup>
-        <SidebarGroup className="pt-0">
-          <SidebarGroupLabel>{t.preferences}</SidebarGroupLabel>
-          <SidebarMenu className="px-2">
-            <SidebarMenuItem>
-              <SidebarMenuButton onClick={toggleLocale} className="h-10">
-                <LanguagesIcon />
-                <span>{t.language}: {locale === "en" ? "FR" : "EN"}</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarGroup>
+       
         <SidebarGroup className="mt-auto pt-0">
           <SidebarGroupLabel>{t.session}</SidebarGroupLabel>
           <SidebarMenu className="px-2 pb-2">

@@ -24,21 +24,9 @@ async function findQuoteByToken(token: string) {
   return Quote.findOne({ signatureToken: token });
 }
 
-export async function GET(_request: NextRequest, { params }: RouteParams) {
-  await ConnectDb();
+type QuoteDocument = NonNullable<Awaited<ReturnType<typeof findQuoteByToken>>>;
 
-  const { token } = await params;
-  const quote = await findQuoteByToken(token);
-
-  if (!quote) {
-    const alreadyUsed = await QuoteSignature.exists({ token, isUsed: true });
-    if (alreadyUsed) {
-      return NextResponse.json({ error: "already_signed" }, { status: 409 });
-    }
-
-    return NextResponse.json({ error: "not_found" }, { status: 404 });
-  }
-
+async function buildQuotePayload(quote: QuoteDocument) {
   const companyProfile = await CompanyProfile.findOne({ user: quote.user })
     .select({ companyName: 1, ownerName: 1, logoUrl: 1, address: 1, phone: 1, businessEmail: 1, vatNumber: 1 })
     .lean();
@@ -49,19 +37,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     "Our Company";
   const logoUrl = (companyProfile?.logoUrl as string | null | undefined) ?? null;
 
-  if (quote.status === "draft") {
-    return NextResponse.json({ error: "link_no_longer_valid", companyName }, { status: 410 });
-  }
-
-  if (isTokenExpired(quote.signatureTokenExpiry)) {
-    return NextResponse.json({ error: "expired", companyName }, { status: 410 });
-  }
-
-  if (quote.signedStatus === "signed") {
-    return NextResponse.json({ error: "already_signed" }, { status: 409 });
-  }
-
-  return NextResponse.json({
+  return {
     company: {
       companyName,
       logoUrl,
@@ -78,7 +54,80 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     totalVat: quote.totalVat,
     totalIncludingTax: quote.totalIncludingTax,
     notes: quote.notes,
-  });
+  };
+}
+
+async function buildAlreadySignedPayload(quote: QuoteDocument, fallbackSignedAt?: Date | string | null) {
+  const payload = await buildQuotePayload(quote);
+  const signedAtValue =
+    quote.signedAt instanceof Date
+      ? quote.signedAt
+      : quote.signedAt
+        ? new Date(quote.signedAt)
+        : fallbackSignedAt instanceof Date
+          ? fallbackSignedAt
+          : fallbackSignedAt
+            ? new Date(fallbackSignedAt)
+            : null;
+
+  return {
+    ...payload,
+    state: "already_signed" as const,
+    signedAt: signedAtValue?.toISOString() ?? null,
+  };
+}
+
+async function buildAlreadySignedPayloadByToken(token: string) {
+  const existingSignature = await QuoteSignature.findOne({ token, isUsed: true })
+    .select({ quoteId: 1, signedAt: 1 })
+    .lean();
+
+  if (!existingSignature) {
+    return null;
+  }
+
+  const signedQuote = await Quote.findById(existingSignature.quoteId);
+  if (!signedQuote) {
+    return {
+      error: "already_signed" as const,
+      signedAt: existingSignature.signedAt?.toISOString() ?? null,
+    };
+  }
+
+  return buildAlreadySignedPayload(signedQuote, existingSignature.signedAt);
+}
+
+export async function GET(_request: NextRequest, { params }: RouteParams) {
+  await ConnectDb();
+
+  const { token } = await params;
+  const quote = await findQuoteByToken(token);
+
+  if (!quote) {
+    const alreadySignedPayload = await buildAlreadySignedPayloadByToken(token);
+    if (alreadySignedPayload) {
+      return NextResponse.json(alreadySignedPayload);
+    }
+
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
+  const payload = await buildQuotePayload(quote);
+  const companyName = payload.company.companyName;
+
+  if (quote.status === "draft") {
+    return NextResponse.json({ error: "link_no_longer_valid", companyName }, { status: 410 });
+  }
+
+  if (isTokenExpired(quote.signatureTokenExpiry)) {
+    return NextResponse.json({ error: "expired", companyName }, { status: 410 });
+  }
+
+  if (quote.signedStatus === "signed") {
+    return NextResponse.json(await buildAlreadySignedPayload(quote));
+  }
+
+  return NextResponse.json(payload);
 }
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
@@ -94,9 +143,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   const quote = await findQuoteByToken(token);
   if (!quote) {
-    const alreadyUsed = await QuoteSignature.exists({ token, isUsed: true });
-    if (alreadyUsed) {
-      return NextResponse.json({ error: "already_signed" }, { status: 409 });
+    const alreadySignedPayload = await buildAlreadySignedPayloadByToken(token);
+    if (alreadySignedPayload) {
+      return NextResponse.json(alreadySignedPayload, { status: 409 });
     }
 
     return NextResponse.json({ error: "not_found" }, { status: 404 });
@@ -111,7 +160,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   }
 
   if (quote.signedStatus === "signed") {
-    return NextResponse.json({ error: "already_signed" }, { status: 409 });
+    return NextResponse.json(await buildAlreadySignedPayload(quote), { status: 409 });
   }
 
   const signedAt = new Date();
@@ -140,6 +189,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       throw error;
     }
 
+    const alreadySignedPayload = await buildAlreadySignedPayloadByToken(token);
+    if (alreadySignedPayload) {
+      return NextResponse.json(alreadySignedPayload, { status: 409 });
+    }
+
     return NextResponse.json({ error: "already_signed" }, { status: 409 });
   }
 
@@ -156,5 +210,5 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   });
   await quote.save();
 
-  return NextResponse.json({ message: "Quote signed successfully" });
+  return NextResponse.json({ message: "Quote signed successfully", signedAt: signedAt.toISOString() });
 }

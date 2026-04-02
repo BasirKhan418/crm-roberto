@@ -266,7 +266,7 @@ export default function IdentitySetupPage() {
   }
 
   return (
-    <div className="h-screen bg-[#f8fafc] flex overflow-hidden">
+    <div className="flex flex-col bg-[#f8fafc] lg:flex-row lg:overflow-hidden" style={{ minHeight: 'var(--app-viewport-height)', height: 'var(--app-viewport-height)' }}>
       <aside className="hidden lg:flex w-105 xl:w-120 shrink-0 flex-col bg-[#020b18] text-white relative overflow-hidden">
         <WorldMapBg
           className="absolute inset-0 w-full h-full object-cover pointer-events-none"
@@ -330,7 +330,7 @@ export default function IdentitySetupPage() {
         </div>
       </aside>
 
-      <main className="flex-1 overflow-y-auto bg-[#f8fafc] flex flex-col">
+      <main className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-[#f8fafc] scroll-pb-[calc(5rem+var(--app-keyboard-inset-height))]">
         <div className="flex justify-end px-5 sm:px-8 pt-3 pb-1">
           <LanguageThemeToggle />
         </div>
@@ -343,7 +343,7 @@ export default function IdentitySetupPage() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -16 }}
           transition={{ duration: 0.5, ease: [0.19, 1, 0.22, 1] }}
-          className="max-w-2xl mx-auto w-full px-5 sm:px-8 pt-4 pb-4"
+          className="max-w-2xl mx-auto w-full px-5 pt-4 pb-[calc(1rem+var(--app-keyboard-inset-height))] sm:px-8"
         >
             <div className="mb-4">
               <h1 className="font-heading text-2xl font-semibold text-[#001e3c] tracking-tight mb-1">

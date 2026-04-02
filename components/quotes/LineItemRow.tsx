@@ -1,12 +1,13 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { Trash2Icon } from 'lucide-react';
 
 import { centsToEuros, eurosToCents } from '@/lib/price';
 import { computeQuoteLine, deriveUnitPriceFromDiscount } from '@/lib/quote-calculations';
 import { useLocale } from '@/components/providers/locale-provider';
+import { useAdaptiveDropdownPosition } from '@/hooks/use-adaptive-dropdown-position';
 import { PriceDisplay } from '@/components/ui/PriceDisplay';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -108,6 +109,12 @@ export default function LineItemRow({ row, index, products, onChange, onDelete }
 
   const [search, setSearch] = useState('');
   const [isOpen, setIsOpen] = useState(false);
+  const productFieldRef = useRef<HTMLDivElement | null>(null);
+  const dropdown = useAdaptiveDropdownPosition(productFieldRef, {
+    open: isOpen,
+    preferredMaxHeight: 240,
+    gap: 4,
+  });
 
   const [isEditingDiscount, setIsEditingDiscount] = useState(false);
   const [discountInputDraft, setDiscountInputDraft] = useState('0');
@@ -142,6 +149,21 @@ export default function LineItemRow({ row, index, products, onChange, onDelete }
   const unitPriceInputValue = isEditingUnitPrice
     ? unitPriceInputDraft
     : centsToEuros(getEffectiveBaseUnitPrice(row));
+
+  useEffect(() => {
+    function handleOutside(event: PointerEvent) {
+      if (!productFieldRef.current) {
+        return;
+      }
+
+      if (!productFieldRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+
+    document.addEventListener('pointerdown', handleOutside);
+    return () => document.removeEventListener('pointerdown', handleOutside);
+  }, []);
 
   function handleProductSelect(product: CatalogueItemOption) {
     onChange(index, {
@@ -197,8 +219,8 @@ export default function LineItemRow({ row, index, products, onChange, onDelete }
 
   return (
     <div className="rounded-xl border border-border/70 bg-linear-to-b from-background to-secondary/25 p-3 md:p-3.5">
-      <div className="grid items-center gap-2 sm:grid-cols-2 md:grid-cols-[2fr_0.9fr_1.1fr_0.7fr_1.2fr_0.7fr_1fr_1fr_auto]">
-        <div className="relative sm:col-span-2 md:col-span-1">
+      <div className="grid grid-cols-2 items-center gap-x-2 gap-y-1.5 md:grid-cols-[2fr_0.7fr_1.2fr_0.9fr_1.1fr_0.7fr_1fr_1fr_auto] md:gap-2">
+        <div ref={productFieldRef} className="relative col-span-2 md:col-span-1">
           <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground md:hidden">{t.product}</p>
           <div className="relative">
             {row.productImageUrl ? (
@@ -221,39 +243,77 @@ export default function LineItemRow({ row, index, products, onChange, onDelete }
                 setIsOpen(true);
               }}
               placeholder={t.searchPlaceholder}
-              className={row.productImageUrl ? 'pl-9' : ''}
+              className={`${row.productImageUrl ? 'pl-9' : ''} ${row.productId ? 'border-emerald-500/50 ring-1 ring-emerald-500/20' : ''}`}
             />
           </div>
           {isOpen ? (
-            <div className="absolute z-20 mt-1 max-h-52 w-full overflow-auto rounded-md border border-border bg-background p-1 shadow-lg">
-              {filtered.length === 0 ? (
-                <p className="px-2 py-1 text-xs text-muted-foreground">{t.noMatches}</p>
-              ) : (
-                filtered.slice(0, 8).map((product) => (
-                  <button
-                    key={product._id}
-                    type="button"
-                    className="w-full rounded px-2 py-1 text-left text-sm hover:bg-muted"
-                    onClick={() => handleProductSelect(product)}
-                  >
-                    <span className="inline-flex items-center gap-2">
-                      {product.attachmentUrl && isImageAttachment(product.attachmentUrl, product.attachmentMimeType) ? (
-                        <img
-                          src={product.attachmentUrl}
-                          alt={product.name}
-                          className="h-6 w-6 rounded object-cover"
-                          onError={(event) => {
-                            event.currentTarget.style.display = 'none';
-                          }}
-                        />
-                      ) : null}
-                      <span className="font-medium">{product.name}</span>
-                    </span>
-                  </button>
-                ))
-              )}
+            <div
+              className="absolute inset-x-0 z-50 flex flex-col overflow-hidden rounded-md border border-border bg-background p-1 shadow-lg"
+              style={dropdown.style}
+            >
+              <div className="min-h-0 flex-1 overflow-auto overscroll-contain">
+                {filtered.length === 0 ? (
+                  <p className="px-2 py-1 text-xs text-muted-foreground">{t.noMatches}</p>
+                ) : (
+                  filtered.slice(0, 8).map((product) => (
+                    <button
+                      key={product._id}
+                      type="button"
+                      className="w-full rounded px-2 py-1 text-left text-sm hover:bg-muted"
+                      onMouseDown={(event) => {
+                        event.preventDefault();
+                      }}
+                      onClick={() => handleProductSelect(product)}
+                    >
+                      <span className="inline-flex items-center gap-2">
+                        {product.attachmentUrl && isImageAttachment(product.attachmentUrl, product.attachmentMimeType) ? (
+                          <img
+                            src={product.attachmentUrl}
+                            alt={product.name}
+                            className="h-6 w-6 rounded object-cover"
+                            onError={(event) => {
+                              event.currentTarget.style.display = 'none';
+                            }}
+                          />
+                        ) : null}
+                        <span className="font-medium">{product.name}</span>
+                      </span>
+                    </button>
+                  ))
+                )}
+              </div>
             </div>
           ) : null}
+        </div>
+
+        <div>
+          <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground md:hidden">{t.qty}</p>
+          <Input
+            type="number"
+            min={1}
+            value={row.quantity}
+            onChange={(event) => onChange(index, { quantity: Math.max(1, Number(event.target.value) || 1) })}
+          />
+        </div>
+
+        <div>
+          <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground md:hidden">{t.unitPrice}</p>
+          <Input
+            type="number"
+            min={0}
+            step="0.01"
+            className="text-right"
+            value={unitPriceInputValue}
+            onFocus={() => {
+              setIsEditingUnitPrice(true);
+              setUnitPriceInputDraft(unitPriceInputValue);
+            }}
+            onChange={(event) => setUnitPriceInputDraft(event.target.value)}
+            onBlur={() => {
+              setIsEditingUnitPrice(false);
+              handleUnitPriceChange(unitPriceInputDraft);
+            }}
+          />
         </div>
 
         <div>
@@ -298,36 +358,6 @@ export default function LineItemRow({ row, index, products, onChange, onDelete }
         </div>
 
         <div>
-          <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground md:hidden">{t.qty}</p>
-          <Input
-            type="number"
-            min={1}
-            value={row.quantity}
-            onChange={(event) => onChange(index, { quantity: Math.max(1, Number(event.target.value) || 1) })}
-          />
-        </div>
-
-        <div>
-          <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground md:hidden">{t.unitPrice}</p>
-          <Input
-            type="number"
-            min={0}
-            step="0.01"
-            className="text-right"
-            value={unitPriceInputValue}
-            onFocus={() => {
-              setIsEditingUnitPrice(true);
-              setUnitPriceInputDraft(unitPriceInputValue);
-            }}
-            onChange={(event) => setUnitPriceInputDraft(event.target.value)}
-            onBlur={() => {
-              setIsEditingUnitPrice(false);
-              handleUnitPriceChange(unitPriceInputDraft);
-            }}
-          />
-        </div>
-
-        <div>
           <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground md:hidden">{t.vatRate}</p>
           <Input
             type="number"
@@ -358,7 +388,7 @@ export default function LineItemRow({ row, index, products, onChange, onDelete }
           type="button"
           variant="ghost"
           size="icon"
-          className="h-9 w-full shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive sm:col-span-2 md:col-span-1 md:w-9"
+          className="col-span-2 h-9 w-full shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive md:col-span-1 md:w-9"
           onClick={() => onDelete(index)}
         >
           <Trash2Icon className="size-4" />

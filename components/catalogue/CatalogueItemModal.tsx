@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, type ChangeEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { Loader2, PaperclipIcon, UploadIcon, X } from 'lucide-react';
 
 import { createCatalogueItemSchema, updateCatalogueItemSchema } from '@/validators/catalogue.schema';
@@ -186,6 +186,7 @@ export default function CatalogueItemModal({ open, mode, item, onClose, onSaved 
   const [saving, setSaving] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
   const [errors, setErrors] = useState<FieldErrors>({});
+  const modalBodyRef = useRef<HTMLDivElement | null>(null);
 
   const unitPriceExcludingTax = useMemo(() => {
     const parsed = Number(priceInput);
@@ -231,6 +232,51 @@ export default function CatalogueItemModal({ open, mode, item, onClose, onSaved 
     setApiError(null);
     setErrors({});
   }, [open, mode, item]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    function scrollFieldIntoView(target: EventTarget | null) {
+      const container = modalBodyRef.current;
+      if (!(target instanceof HTMLElement) || !container || !container.contains(target)) {
+        return;
+      }
+
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+          const targetRect = target.getBoundingClientRect();
+          const desiredBottom = viewportHeight - 88;
+
+          if (targetRect.bottom > desiredBottom || targetRect.top < 16) {
+            target.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' });
+          }
+        });
+      });
+    }
+
+    function handleFocusIn(event: FocusEvent) {
+      scrollFieldIntoView(event.target);
+    }
+
+    function handleViewportChange() {
+      scrollFieldIntoView(document.activeElement);
+    }
+
+    const viewport = window.visualViewport;
+
+    document.addEventListener('focusin', handleFocusIn);
+    viewport?.addEventListener('resize', handleViewportChange);
+    viewport?.addEventListener('scroll', handleViewportChange);
+
+    return () => {
+      document.removeEventListener('focusin', handleFocusIn);
+      viewport?.removeEventListener('resize', handleViewportChange);
+      viewport?.removeEventListener('scroll', handleViewportChange);
+    };
+  }, [open]);
 
   const title = useMemo(() => {
     if (mode === 'edit' && item?.name) {
@@ -410,12 +456,12 @@ export default function CatalogueItemModal({ open, mode, item, onClose, onSaved 
 
   return (
     <Dialog open={open} onOpenChange={(next) => (!next ? onClose() : undefined)}>
-      <DialogContent className="w-[calc(100vw-1rem)] max-w-[42rem] max-h-[90vh] overflow-y-auto p-4 sm:p-6">
+      <DialogContent className="flex w-[calc(100vw-1rem)] max-w-2xl max-h-[calc(100dvh-1rem-var(--app-safe-area-top)-var(--app-safe-area-bottom))] flex-col gap-2.5 overflow-hidden p-3.5 [&_input[data-slot=input]]:focus-visible:ring-2 [&_input[data-slot=input]]:focus-visible:ring-inset [&_select]:focus-visible:ring-2 [&_select]:focus-visible:ring-inset [&_textarea]:focus-visible:ring-2 [&_textarea]:focus-visible:ring-inset sm:max-h-[calc(100dvh-2rem-var(--app-safe-area-top)-var(--app-safe-area-bottom))] sm:p-5">
         <Button
           type="button"
           variant="ghost"
           size="icon-sm"
-          className="absolute top-4 right-4"
+          className="absolute top-3 right-3"
           aria-label={t.close}
           onClick={onClose}
           disabled={saving}
@@ -423,18 +469,19 @@ export default function CatalogueItemModal({ open, mode, item, onClose, onSaved 
           <X className="size-4" />
         </Button>
 
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{mode === 'add' ? t.subtitleAdd : t.subtitleEdit}</DialogDescription>
+        <DialogHeader className="gap-1 px-1">
+          <DialogTitle className="pr-8 text-base sm:text-lg">{title}</DialogTitle>
+          <DialogDescription className="text-xs sm:text-sm">{mode === 'add' ? t.subtitleAdd : t.subtitleEdit}</DialogDescription>
         </DialogHeader>
 
         {apiError ? <ErrorMessage message={apiError} /> : null}
 
-        <div className="space-y-4 pt-1">
+        <div ref={modalBodyRef} className="min-h-0 flex-1 space-y-2.5 overflow-y-auto px-1 pt-0.5 text-sm">
           <div className="space-y-1.5">
-            <Label htmlFor="catalogue-name">{t.name}</Label>
+            <Label htmlFor="catalogue-name" className="text-xs">{t.name}</Label>
             <Input
               id="catalogue-name"
+              className="text-sm md:text-sm"
               value={name}
               onChange={(e) => setName(e.target.value)}
               aria-invalid={Boolean(errors.name)}
@@ -443,12 +490,13 @@ export default function CatalogueItemModal({ open, mode, item, onClose, onSaved 
           </div>
 
           <div className="space-y-1.5">
-            <Label>{t.type}</Label>
+            <Label className="text-xs">{t.type}</Label>
             <div className={`grid grid-cols-2 rounded-lg border p-1.5 ${errors.type ? 'border-destructive' : 'border-border'}`}>
               <Button
                 type="button"
                 variant="ghost"
-                className={`h-8 ${
+                size="sm"
+                className={`${
                   type === 'product'
                     ? 'bg-(--color-background-info) text-(--color-text-info) hover:bg-(--color-background-info) hover:text-(--color-text-info)'
                     : 'text-foreground/75 hover:bg-muted/60 hover:text-foreground'
@@ -460,7 +508,8 @@ export default function CatalogueItemModal({ open, mode, item, onClose, onSaved 
               <Button
                 type="button"
                 variant="ghost"
-                className={`h-8 ${
+                size="sm"
+                className={`${
                   type === 'service'
                     ? 'bg-[#EEEDFE] text-[#2E245F] hover:bg-[#EEEDFE] hover:text-[#2E245F]'
                     : 'text-foreground/75 hover:bg-muted/60 hover:text-foreground'
@@ -473,18 +522,18 @@ export default function CatalogueItemModal({ open, mode, item, onClose, onSaved 
             {errors.type ? <p className="text-xs text-destructive">{errors.type}</p> : null}
           </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="catalogue-price">{t.priceExcludingTax}</Label>
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
+            <div className="min-w-0 space-y-1.5">
+              <Label htmlFor="catalogue-price" className="text-xs">{t.priceExcludingTax}</Label>
               <div className="relative">
-                <span className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-sm text-muted-foreground">€</span>
+                <span className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-xs text-muted-foreground">€</span>
                 <Input
                   id="catalogue-price"
                   type="number"
                   min={0}
                   step="0.01"
                   inputMode="decimal"
-                  className="no-number-spinner pl-7"
+                  className="no-number-spinner pl-6.5 text-sm md:text-sm"
                   value={priceInput}
                   onChange={(e) => setPriceInput(e.target.value)}
                   aria-invalid={Boolean(errors.priceInput)}
@@ -493,11 +542,11 @@ export default function CatalogueItemModal({ open, mode, item, onClose, onSaved 
               {errors.priceInput ? <p className="text-xs text-destructive">{errors.priceInput}</p> : null}
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="catalogue-vat-select">{t.vatRate}</Label>
+            <div className="min-w-0 space-y-1.5">
+              <Label htmlFor="catalogue-vat-select" className="text-xs">{t.vatRate}</Label>
               <select
                 id="catalogue-vat-select"
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                className="flex h-8 w-full rounded-md border border-input bg-transparent px-2.5 py-1 text-sm leading-none shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                 value={vatMode === 'custom' ? 'other' : vatRate}
                 onChange={(event) => {
                   const next = event.target.value;
@@ -528,7 +577,7 @@ export default function CatalogueItemModal({ open, mode, item, onClose, onSaved 
                     min={0}
                     max={100}
                     step="0.1"
-                    className="no-number-spinner pr-7"
+                    className="no-number-spinner pr-6.5 text-sm md:text-sm"
                     value={vatRate}
                     onChange={(e) => setVatRate(e.target.value)}
                     placeholder={t.vatCustom}
@@ -540,32 +589,32 @@ export default function CatalogueItemModal({ open, mode, item, onClose, onSaved 
               {errors.vatRate ? <p className="text-xs text-destructive">{errors.vatRate}</p> : null}
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="catalogue-price-ttc">{t.priceIncludingTax}</Label>
+            <div className="min-w-0 space-y-1.5">
+              <Label htmlFor="catalogue-price-ttc" className="text-xs">{t.priceIncludingTax}</Label>
               <div className="relative">
-                <span className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-sm text-muted-foreground">€</span>
+                <span className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-xs text-muted-foreground">€</span>
                 <Input
                   id="catalogue-price-ttc"
                   value={unitPriceIncludingTax.toFixed(2)}
                   readOnly
-                  className="pl-7 bg-muted/30"
+                  className="pl-6.5 text-sm md:text-sm bg-muted/30"
                 />
               </div>
               {errors.priceIncludingTax ? <p className="text-xs text-destructive">{errors.priceIncludingTax}</p> : null}
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="catalogue-currency">{t.currency}</Label>
-              <Input id="catalogue-currency" value={currency} readOnly className="bg-muted/30" />
+            <div className="min-w-0 space-y-1.5">
+              <Label htmlFor="catalogue-currency" className="text-xs">{t.currency}</Label>
+              <Input id="catalogue-currency" value={currency} readOnly className="text-sm md:text-sm bg-muted/30" />
               {errors.currency ? <p className="text-xs text-destructive">{errors.currency}</p> : null}
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label>{t.attachment}</Label>
-            <div className="rounded-lg border border-border/70 bg-background px-3 py-2.5">
+            <Label className="text-xs">{t.attachment}</Label>
+            <div className="rounded-lg border border-border/70 bg-background px-3 py-2">
               {attachmentUrl ? (
-                <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-2.5">
                   <div className="flex min-w-0 items-center gap-2">
                     {isImageMimeType(attachmentMimeType) ? (
                       <img
@@ -579,14 +628,14 @@ export default function CatalogueItemModal({ open, mode, item, onClose, onSaved 
                     ) : (
                       <PaperclipIcon className="size-4 shrink-0 text-muted-foreground" />
                     )}
-                    <p className="truncate text-sm text-foreground/90">{attachmentName || attachmentUrl}</p>
+                    <p className="truncate text-xs text-foreground/90">{attachmentName || attachmentUrl}</p>
                   </div>
                   <div className="grid gap-2 sm:grid-cols-3">
                     <a
                       href={attachmentUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex h-9 items-center justify-center rounded-md border border-input px-3 text-sm hover:bg-muted/60"
+                      className="inline-flex h-8 items-center justify-center rounded-md border border-input px-2.5 text-xs hover:bg-muted/60"
                     >
                       {t.viewAttachment}
                     </a>
@@ -599,13 +648,13 @@ export default function CatalogueItemModal({ open, mode, item, onClose, onSaved 
                         onChange={handleAttachmentFileChange}
                         disabled={uploadingAttachment || saving}
                       />
-                      <span className="inline-flex h-9 w-full cursor-pointer items-center justify-center gap-1.5 rounded-md border border-input px-3 text-sm hover:bg-muted/60">
+                      <span className="inline-flex h-8 w-full cursor-pointer items-center justify-center gap-1.5 rounded-md border border-input px-2.5 text-xs hover:bg-muted/60">
                         {uploadingAttachment ? <Loader2 className="size-3.5 animate-spin" /> : <UploadIcon className="size-3.5" />}
                         {uploadingAttachment ? t.uploading : t.replaceAttachment}
                       </span>
                     </label>
 
-                    <Button type="button" variant="outline" size="sm" className="h-9" onClick={removeAttachment} disabled={saving || uploadingAttachment}>
+                    <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={removeAttachment} disabled={saving || uploadingAttachment}>
                       {t.removeAttachment}
                     </Button>
                   </div>
@@ -621,7 +670,7 @@ export default function CatalogueItemModal({ open, mode, item, onClose, onSaved 
                       onChange={handleAttachmentFileChange}
                       disabled={uploadingAttachment || saving}
                     />
-                    <span className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-md border border-input px-3 text-sm hover:bg-muted/60">
+                    <span className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-input px-2.5 text-xs hover:bg-muted/60">
                       {uploadingAttachment ? <Loader2 className="size-3.5 animate-spin" /> : <UploadIcon className="size-3.5" />}
                       {uploadingAttachment ? t.uploading : t.uploadAttachment}
                     </span>
@@ -633,10 +682,10 @@ export default function CatalogueItemModal({ open, mode, item, onClose, onSaved 
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="catalogue-description">{t.description}</Label>
+            <Label htmlFor="catalogue-description" className="text-xs">{t.description}</Label>
             <textarea
               id="catalogue-description"
-              className="min-h-24 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive"
+              className="min-h-20 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive sm:text-sm"
               placeholder={t.descriptionPlaceholder}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -645,11 +694,11 @@ export default function CatalogueItemModal({ open, mode, item, onClose, onSaved 
           </div>
         </div>
 
-        <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end">
-          <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={onClose} disabled={saving}>
+        <DialogFooter className="border-t border-border/70 bg-popover px-1 pt-2.5 flex-col gap-2 sm:flex-row sm:justify-end">
+          <Button type="button" variant="outline" size="sm" className="w-full sm:w-auto" onClick={onClose} disabled={saving}>
             {t.cancel}
           </Button>
-          <Button type="button" className="w-full sm:w-auto" onClick={handleSubmit} disabled={saving}>
+          <Button type="button" size="sm" className="w-full sm:w-auto" onClick={handleSubmit} disabled={saving}>
             {saving ? t.saving : mode === 'add' ? t.saveAdd : t.saveEdit}
           </Button>
         </DialogFooter>

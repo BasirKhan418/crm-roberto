@@ -24,8 +24,8 @@ export default function CrmShell({ title, children }: CrmShellProps) {
       <AppSidebar variant="inset" />
       <SidebarInset>
         <SiteHeader title={title} />
-        <main className="flex flex-1 flex-col">
-          <div className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 lg:px-6 lg:py-6">{children}</div>
+        <main className="flex min-h-0 flex-1 flex-col">
+          <div className="@container/main flex min-h-0 flex-1 flex-col gap-4 px-4 py-4 pb-[calc(1rem+var(--app-safe-area-bottom)+var(--app-keyboard-inset-height))] scroll-pb-[calc(5rem+var(--app-keyboard-inset-height))] lg:px-6 lg:py-6">{children}</div>
         </main>
       </SidebarInset>
     </SidebarProvider>
