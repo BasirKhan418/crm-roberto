@@ -159,6 +159,7 @@ export default function ClientPicker({ value, onChange, onClientSelected }: Clie
 
   useLayoutEffect(() => {
     if (!isOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDropdownStyle(null);
       return;
     }

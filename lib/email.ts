@@ -241,7 +241,6 @@ export async function sendSignLink({
   validityDays,
   locale = "en",
   company = null,
-  clientCompanyName = null,
   pdfBuffer,
 }: SendSignLinkParams) {
   const subject =

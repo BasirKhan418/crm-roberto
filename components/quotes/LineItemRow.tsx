@@ -224,6 +224,7 @@ export default function LineItemRow({ row, index, products, onChange, onDelete }
           <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground md:hidden">{t.product}</p>
           <div className="relative">
             {row.productImageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={row.productImageUrl}
                 alt={row.name || 'Product'}
@@ -267,6 +268,7 @@ export default function LineItemRow({ row, index, products, onChange, onDelete }
                     >
                       <span className="inline-flex items-center gap-2">
                         {product.attachmentUrl && isImageAttachment(product.attachmentUrl, product.attachmentMimeType) ? (
+                          // eslint-disable-next-line @next/next/no-img-element
                           <img
                             src={product.attachmentUrl}
                             alt={product.name}

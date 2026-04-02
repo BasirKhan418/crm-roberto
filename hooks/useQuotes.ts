@@ -84,7 +84,7 @@ export function useQuotes(
     } finally {
       setLoading(false);
     }
-  }, [query]);
+  }, [query, page, limit]);
 
   useEffect(() => {
     fetchQuotes();

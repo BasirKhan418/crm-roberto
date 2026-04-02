@@ -516,6 +516,7 @@ export function QuotePdfTemplate({ quote, company, locale = 'en' }: QuotePdfTemp
       <Page size="A4" style={styles.page}>
         <View style={styles.topHeader}>
           {company?.logoUrl ? (
+            // eslint-disable-next-line jsx-a11y/alt-text
             <Image style={styles.logo} src={company.logoUrl} />
           ) : (
             <View style={styles.logoPlaceholder}>
@@ -689,6 +690,7 @@ export function QuotePdfTemplate({ quote, company, locale = 'en' }: QuotePdfTemp
 
             <View style={styles.signatureBox}>
               {signatureDataUrl ? (
+                // eslint-disable-next-line jsx-a11y/alt-text
                 <Image style={styles.signatureImage} src={signatureDataUrl} />
               ) : (
                 <Text style={styles.signatureBoxHint}>{t.signatureLabel}</Text>

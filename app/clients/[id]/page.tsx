@@ -616,7 +616,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
               {timeline.length === 0 ? (
                 <EmptyState message={t.timelineEmpty} />
               ) : (
-                timeline.map((note, index) => (
+                timeline.map((note) => (
                   <div key={note._id} className="rounded-lg border border-l-4 border-border/70 border-l-emerald-400 p-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <h3 className="text-sm font-semibold">{note.title}</h3>

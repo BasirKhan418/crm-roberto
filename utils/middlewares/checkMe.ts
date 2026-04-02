@@ -15,7 +15,7 @@ const checkMe = async (fch:boolean) => {
               }
               return { message: "User data fetched successfully", success: true, user: { id: decoded.sub, name: decoded.name, email: decoded.email, isOnboardingComplete: decoded.isOnboardingComplete, isEmailVerified: decoded.isEmailVerified } };
           }
-          catch(error){
+          catch{
               return { message: "Invalid token", success: false };
           }
   

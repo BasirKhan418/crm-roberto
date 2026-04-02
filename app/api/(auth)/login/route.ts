@@ -1,5 +1,4 @@
 import { NextResponse,NextRequest } from "next/server";
-import argon2 from "argon2";
 import { loginSchema } from "@/validators/auth.schema";
 import { loginUser } from "@/db/repository/auth";
 import { buildValidationError } from "@/utils/api/validation";
@@ -8,7 +7,6 @@ import { cookies } from "next/headers";
 export async function POST(request: NextRequest) {
     try{
         const cookieStore = await cookies();
-        const pepper = process.env.PASSWORD_PEPPER;
         const {email, password } = await request.json();
         //validate input
         const validation = loginSchema.safeParse({ email, password });

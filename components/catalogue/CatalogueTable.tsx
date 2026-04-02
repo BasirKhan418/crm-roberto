@@ -150,6 +150,7 @@ export default function CatalogueTable({
                 <div className="mb-3 flex items-start justify-between gap-2">
                   <div className="flex min-w-0 items-start gap-2">
                     {item.attachmentUrl && isImageAttachment(item.attachmentUrl, item.attachmentMimeType) ? (
+                      // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={item.attachmentUrl}
                         alt={item.attachmentName || item.name}
@@ -235,6 +236,7 @@ export default function CatalogueTable({
                     <TableCell className="font-medium" title={item.name}>
                       <div className="flex min-w-0 items-center gap-2">
                         {item.attachmentUrl && isImageAttachment(item.attachmentUrl, item.attachmentMimeType) ? (
+                          // eslint-disable-next-line @next/next/no-img-element
                           <img
                             src={item.attachmentUrl}
                             alt={item.attachmentName || item.name}

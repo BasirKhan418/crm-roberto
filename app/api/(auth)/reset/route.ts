@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json(updateResult, { status: updateResult.success ? 200 : 400 });
 
         }
-        catch(error){
+        catch{
             return NextResponse.json({ message: "Invalid or expired session,Please request a new one", success: false },{ status: 400 });
         }
         

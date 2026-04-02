@@ -617,6 +617,7 @@ export default function CatalogueItemModal({ open, mode, item, onClose, onSaved 
                 <div className="flex flex-col gap-2.5">
                   <div className="flex min-w-0 items-center gap-2">
                     {isImageMimeType(attachmentMimeType) ? (
+                      // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={attachmentUrl}
                         alt={attachmentName || 'Attachment preview'}

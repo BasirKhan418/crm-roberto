@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
             }
             return NextResponse.json({ message: "User data fetched successfully", success: true, user: { id: decoded.sub, name: decoded.name, email: decoded.email } });
         }
-        catch(error){
+        catch{
             return NextResponse.json({ message: "Invalid token", success: false }, { status: 401 });
         }
 

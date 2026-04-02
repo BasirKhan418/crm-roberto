@@ -562,6 +562,7 @@ export default function QuoteDetailPage() {
               <section className="rounded-xl border border-border/70 bg-card p-4">
                 <h2 className="mb-2 font-heading text-base font-semibold">{t.companyInfo}</h2>
                 {company?.logoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img src={company.logoUrl} alt={company.companyName || 'Company logo'} className="mb-3 h-14 w-14 rounded-md border border-border/70 object-contain" />
                 ) : null}
                 <dl className="space-y-1.5 text-sm">
@@ -612,6 +613,7 @@ export default function QuoteDetailPage() {
                         <td className="px-3 py-2 font-medium">
                           <span className="inline-flex items-center gap-2">
                             {item.productImageUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
                               <img
                                 src={item.productImageUrl}
                                 alt={item.name}
