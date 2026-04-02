@@ -39,9 +39,10 @@ export interface QuoteFormData {
 interface QuoteFormProps {
   mode: 'create' | 'edit';
   quote?: QuoteFormData;
+  defaultClientId?: string;
 }
 
-export default function QuoteForm({ mode, quote }: QuoteFormProps) {
+export default function QuoteForm({ mode, quote, defaultClientId }: QuoteFormProps) {
   const router = useRouter();
   const { locale } = useLocale();
 
@@ -128,7 +129,7 @@ export default function QuoteForm({ mode, quote }: QuoteFormProps) {
     },
   }[locale];
 
-  const [clientId, setClientId] = useState(quote?.clientId ?? '');
+  const [clientId, setClientId] = useState(quote?.clientId ?? defaultClientId ?? '');
   const [date, setDate] = useState(quote?.date ? quote.date.slice(0, 10) : new Date().toISOString().slice(0, 10));
   const [lineItems, setLineItems] = useState<QuoteLineItem[]>(quote?.lineItems ?? []);
   const [notes, setNotes] = useState(quote?.notes ?? '');
@@ -144,7 +145,7 @@ export default function QuoteForm({ mode, quote }: QuoteFormProps) {
   const savedRef = useRef(false);
   const isDirtyRef = useRef(false);
   const initialStateRef = useRef({
-    clientId: quote?.clientId ?? '',
+    clientId: quote?.clientId ?? defaultClientId ?? '',
     lineItems: JSON.stringify(quote?.lineItems ?? []),
     notes: quote?.notes ?? '',
     paymentTerms: quote?.paymentTerms ?? '',

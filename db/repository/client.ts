@@ -3,9 +3,12 @@ import mongoose from 'mongoose';
 import ConnectDb from '@/db/connectDb';
 import Client from '@/db/models/Client';
 import Note from '@/db/models/Note';
+import Quote from '@/db/models/Quote';
 import type { CreateClientDTO, UpdateClientDTO } from '@/validators/client.schema';
 import type { ListQueryOptions, PaginationMeta } from '@/utils/api/query';
 import { buildPagination } from '@/utils/api/query';
+
+export type ClientLastQuoteStatus = 'draft' | 'sent' | 'accepted' | 'refused' | 'rejected';
 
 export interface ClientRecord {
   _id: string;
@@ -15,8 +18,14 @@ export interface ClientRecord {
   address?: string | null;
   companyName?: string | null;
   vatNumber?: string | null;
+  billingEmail?: string | null;
+  billingAddress?: string | null;
   createdAt: Date;
   updatedAt: Date;
+  // enriched fields (only present on list results)
+  lastQuoteStatus?: ClientLastQuoteStatus | null;
+  lastQuoteDate?: Date | null;
+  totalRevenue?: number;
 }
 
 export interface TimelineNoteRecord {
@@ -83,8 +92,42 @@ export const listClients = async (userId: string, options: ListQueryOptions): Pr
     Client.countDocuments(query),
   ]);
 
+  const clientIds = (items as { _id: mongoose.Types.ObjectId }[]).map((c) => c._id);
+
+  // Aggregate last quote status + total revenue per client in a single query
+  const quoteAgg = await Quote.aggregate<{
+    _id: mongoose.Types.ObjectId;
+    lastStatus: string;
+    lastDate: Date;
+    totalRevenue: number;
+  }>([
+    { $match: { user: new mongoose.Types.ObjectId(userId as string), clientId: { $in: clientIds } } },
+    { $sort: { date: -1 } },
+    {
+      $group: {
+        _id: '$clientId',
+        lastStatus: { $first: '$status' },
+        lastDate: { $first: '$date' },
+        totalRevenue: { $sum: '$totalIncludingTax' },
+      },
+    },
+  ]);
+
+  const quoteMap = new Map(quoteAgg.map((r) => [r._id.toString(), r]));
+
+  const enriched: ClientRecord[] = (items as ClientRecord[]).map((c) => {
+    const key = (c._id as unknown as mongoose.Types.ObjectId).toString();
+    const q = quoteMap.get(key);
+    return {
+      ...c,
+      lastQuoteStatus: (q?.lastStatus ?? null) as ClientLastQuoteStatus | null,
+      lastQuoteDate: q?.lastDate ?? null,
+      totalRevenue: q?.totalRevenue ?? 0,
+    };
+  });
+
   return {
-    items: items as ClientRecord[],
+    items: enriched,
     pagination: buildPagination(options.page, options.limit, total),
   };
 };
@@ -111,9 +154,13 @@ export const updateClientById = async (
     return null;
   }
 
-  const updated = await Client.findOneAndUpdate({ _id: clientId, user: userId }, payload, {
+  const cleanPayload = Object.fromEntries(
+    Object.entries(payload).filter(([, v]) => v !== undefined)
+  );
+
+  const updated = await Client.findOneAndUpdate({ _id: clientId, user: userId }, { $set: cleanPayload }, {
     new: true,
-    runValidators: true,
+    runValidators: false,
   }).lean();
 
   return (updated as ClientRecord | null) || null;

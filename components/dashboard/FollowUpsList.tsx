@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { CalendarClock, Users, Package, Clock, CalendarCheck, Calendar, CheckCircle2, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -248,14 +249,22 @@ export default function FollowUpsList({ followUps = [], loading = false, error =
   const showError = Boolean(error) && allItems.length === 0;
 
   function FollowUpRow({ item }: { item: FollowUpItem }) {
+    const router = useRouter();
     const urgency = getUrgency(item.followUpDate, referenceNow);
     const cfg = URGENCY_STYLE[urgency];
     const { main, sub } = getStatusLabel(urgency, item, referenceNow);
     const id = item._id ?? '';
     const isMarking = markingIds.has(id);
+    const linkedPath = buildLinkedPath(item);
 
     return (
-      <div className={`group flex items-start gap-3.5 px-5 py-3 transition-colors hover:bg-muted/30 ${cfg.rowBg}`}>
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => router.push(linkedPath)}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') router.push(linkedPath); }}
+        className={`group flex cursor-pointer items-start gap-3.5 px-5 py-3 transition-colors hover:bg-muted/30 ${cfg.rowBg}`}
+      >
         <div className={`mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full ${cfg.iconBg}`}>
           <cfg.Icon className={`size-4 ${cfg.iconColor}`} strokeWidth={1.75} />
         </div>
@@ -286,7 +295,7 @@ export default function FollowUpsList({ followUps = [], loading = false, error =
             type="button"
             title="Mark as done"
             disabled={isMarking || !id}
-            onClick={() => { if (id) markDone(id); }}
+            onClick={(e) => { e.stopPropagation(); if (id) markDone(id); }}
             className="mt-0.5 flex size-7 items-center justify-center rounded-full border border-transparent text-muted-foreground/40 opacity-0 transition-all hover:border-emerald-400 hover:bg-emerald-50 hover:text-emerald-600 group-hover:opacity-100 disabled:cursor-not-allowed dark:hover:bg-emerald-950/30 dark:hover:text-emerald-400"
           >
             {isMarking ? (

@@ -6,13 +6,20 @@ import Link from 'next/link';
 import { CopyIcon, DownloadIcon, EllipsisVerticalIcon, EyeIcon, HistoryIcon, PencilIcon, SendIcon, Trash2Icon } from 'lucide-react';
 
 import QuoteHistoryDialog from '@/components/quotes/QuoteHistoryDialog';
-import QuoteStatusSummary from '@/components/quotes/QuoteStatusSummary';
 import { PriceDisplay } from '@/components/ui/PriceDisplay';
+import { StatusBadge, type QuoteStatus } from '@/components/ui/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import type { QuoteStatus } from '@/components/ui/StatusBadge';
+
+const STATUS_ACCENT: Record<QuoteStatus, string> = {
+  draft: 'var(--color-text-secondary)',
+  sent: 'var(--color-text-info)',
+  accepted: 'var(--color-text-success)',
+  refused: 'var(--color-text-danger)',
+  rejected: '#c2410c',
+};
 
 export interface QuoteListItem {
   _id: string;
@@ -60,17 +67,6 @@ interface QuoteTableProps {
 export default function QuoteTable({ items, loading, labels, locale, formatDate, onDelete, onDownload, onDuplicate, onSend, duplicatingId }: QuoteTableProps) {
   const [historyTarget, setHistoryTarget] = useState<QuoteListItem | null>(null);
   const priceLocale = locale === 'fr' ? 'fr-FR' : 'en-GB';
-  const uiText = locale === 'fr'
-    ? {
-        issuedOn: 'Cree le',
-        amountLabel: 'Montant',
-        moreActions: 'Plus d\'actions',
-      }
-    : {
-        issuedOn: 'Issued on',
-        amountLabel: 'Amount',
-        moreActions: 'More actions',
-      };
 
   function renderPrimaryAction(quote: QuoteListItem, className?: string) {
     if (quote.status === 'draft') {
@@ -94,11 +90,12 @@ export default function QuoteTable({ items, loading, labels, locale, formatDate,
 
   function renderSecondaryActions(quote: QuoteListItem, align: 'start' | 'end' = 'end') {
     const canEdit = quote.status === 'draft' || quote.status === 'sent' || quote.status === 'rejected';
+    const moreActionsLabel = locale === 'fr' ? 'Plus d\'actions' : 'More actions';
 
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button type="button" size="icon" variant="outline" className="size-9 shrink-0" aria-label={`${uiText.moreActions} ${quote.quoteNumber}`}>
+          <Button type="button" size="icon" variant="outline" className="size-8 shrink-0" aria-label={`${moreActionsLabel} ${quote.quoteNumber}`}>
             <EllipsisVerticalIcon className="size-4" />
           </Button>
         </DropdownMenuTrigger>
@@ -151,123 +148,145 @@ export default function QuoteTable({ items, loading, labels, locale, formatDate,
 
   return (
     <>
-      <div className="space-y-3 md:hidden">
+      {/* ── Mobile cards ─────────────────────────────────────── */}
+      <div className="space-y-2 md:hidden">
         {loading
           ? Array.from({ length: 5 }).map((_, idx) => (
-              <div key={`quote-mobile-skeleton-${idx}`} className="space-y-3 rounded-xl border border-border/70 p-3">
-                <div className="flex items-start justify-between gap-3">
+              <div key={`quote-mobile-skeleton-${idx}`} className="rounded-xl border border-border/70 p-4">
+                <div className="flex items-center justify-between gap-3">
                   <div className="space-y-2">
-                    <Skeleton className="h-4 w-32" />
-                    <Skeleton className="h-4 w-40" />
-                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-4 w-36" />
+                    <Skeleton className="h-3 w-24" />
                   </div>
-                  <div className="space-y-2 rounded-xl border border-border/60 px-3 py-2">
-                    <Skeleton className="h-3 w-16" />
-                    <Skeleton className="h-5 w-20" />
-                  </div>
+                  <Skeleton className="h-5 w-16 rounded-full" />
                 </div>
-                <Skeleton className="h-14 w-full rounded-xl" />
-                <div className="flex gap-2">
-                  <Skeleton className="h-9 flex-1" />
-                  <Skeleton className="h-9 w-9" />
+                <div className="mt-3 flex items-center justify-between gap-2">
+                  <Skeleton className="h-6 w-28" />
+                  <div className="flex gap-2">
+                    <Skeleton className="h-8 w-16" />
+                    <Skeleton className="h-8 w-8" />
+                  </div>
                 </div>
               </div>
             ))
-          : items.map((quote) => {
-              const isAccepted = quote.status === 'accepted';
-
-              return (
-                <article key={quote._id} className={`space-y-3 rounded-xl border p-3.5 shadow-sm ${isAccepted ? 'border-(--color-text-success)/35 bg-(--color-background-success)/20' : 'border-border/70 bg-card/80'}`}>
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <Link href={`/quotes/${quote._id}`} className="block text-base font-semibold text-(--color-text-info) hover:underline wrap-break-word">
-                        {quote.quoteNumber}
-                      </Link>
-                      <Link href={`/clients/${quote.clientId}`} className="mt-1 block text-sm font-medium text-foreground hover:text-(--color-text-info) hover:underline wrap-break-word">
-                        {quote.clientSnapshot.fullName}
-                      </Link>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {uiText.issuedOn} {formatDate(quote.date)}
-                      </p>
-                    </div>
-                    <div className="min-w-[7.5rem] rounded-xl border border-border/60 bg-background px-3 py-2 text-right">
-                      <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{uiText.amountLabel}</p>
-                      <PriceDisplay cents={quote.totalIncludingTax} locale={priceLocale} className="mt-1 text-base font-semibold text-foreground" />
-                    </div>
+          : items.map((quote) => (
+              <article
+                key={quote._id}
+                className="rounded-xl border border-border/70 bg-card shadow-sm"
+                style={{ borderLeftWidth: '3px', borderLeftColor: STATUS_ACCENT[quote.status] }}
+              >
+                {/* Top: client + status */}
+                <div className="flex items-start justify-between gap-3 px-4 pt-3.5">
+                  <div className="min-w-0">
+                    <Link
+                      href={`/clients/${quote.clientId}`}
+                      className="block truncate text-sm font-semibold text-foreground hover:underline"
+                    >
+                      {quote.clientSnapshot.fullName}
+                    </Link>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      {quote.quoteNumber} · {formatDate(quote.date)}
+                    </p>
                   </div>
+                  <StatusBadge status={quote.status} className="mt-0.5 shrink-0" />
+                </div>
 
-                  <div className="rounded-xl border border-border/60 bg-background/80 px-3 py-2.5">
-                    <QuoteStatusSummary status={quote.status} statusChangedAt={quote.statusChangedAt} locale={locale} showActionRequired />
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    {renderPrimaryAction(quote, 'h-9 flex-1')}
+                {/* Bottom: amount + actions */}
+                <div className="flex items-center justify-between gap-3 px-4 pb-3.5 pt-2.5">
+                  <PriceDisplay
+                    cents={quote.totalIncludingTax}
+                    locale={priceLocale}
+                    className="text-base font-bold tabular-nums text-foreground"
+                  />
+                  <div className="flex items-center gap-1.5">
+                    {renderPrimaryAction(quote, 'h-8 px-3 text-xs')}
                     {renderSecondaryActions(quote)}
                   </div>
-                </article>
-              );
-            })}
+                </div>
+              </article>
+            ))}
       </div>
 
-      <div className="hidden overflow-hidden rounded-xl border border-border/70 bg-white md:block">
+      {/* ── Desktop table ─────────────────────────────────────── */}
+      <div className="hidden overflow-hidden rounded-xl border border-border/70 bg-white md:block dark:bg-card">
         <Table>
           <TableHeader>
-            <TableRow>
-              <TableHead>{labels.quoteNumber}</TableHead>
-              <TableHead>{labels.status}</TableHead>
-              <TableHead>{labels.totalIncludingTax}</TableHead>
-              <TableHead>{labels.actions}</TableHead>
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="h-10 pl-5 text-[11px] font-bold uppercase tracking-wider">{labels.client}</TableHead>
+              <TableHead className="h-10 text-[11px] font-bold uppercase tracking-wider">{labels.date}</TableHead>
+              <TableHead className="h-10 text-[11px] font-bold uppercase tracking-wider">{labels.totalIncludingTax}</TableHead>
+              <TableHead className="h-10 text-[11px] font-bold uppercase tracking-wider">{labels.status}</TableHead>
+              <TableHead className="h-10 pr-4 text-right text-[11px] font-bold uppercase tracking-wider">{labels.actions}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading
               ? Array.from({ length: 6 }).map((_, idx) => (
                   <TableRow key={`quote-skeleton-${idx}`}>
-                    <TableCell>
-                      <div className="space-y-2">
-                        <Skeleton className="h-4 w-24" />
+                    <TableCell className="py-3 pl-5">
+                      <div className="space-y-1.5">
                         <Skeleton className="h-4 w-32" />
                         <Skeleton className="h-3 w-20" />
                       </div>
                     </TableCell>
-                    <TableCell><Skeleton className="h-10 w-28 rounded-xl" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-24" /></TableCell>
-                    <TableCell><Skeleton className="ml-auto h-9 w-40" /></TableCell>
+                    <TableCell className="py-3"><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell className="py-3"><Skeleton className="h-5 w-24" /></TableCell>
+                    <TableCell className="py-3"><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
+                    <TableCell className="py-3 pr-4"><Skeleton className="ml-auto h-8 w-32" /></TableCell>
                   </TableRow>
                 ))
-              : items.map((quote) => {
-                  const isAccepted = quote.status === 'accepted';
+              : items.map((quote) => (
+                  <TableRow
+                    key={quote._id}
+                    className="group border-b border-border/50 transition-colors last:border-0 hover:bg-muted/30"
+                  >
+                    {/* Client + quote# */}
+                    <TableCell
+                      className="py-3 pl-5 align-middle"
+                      style={{ borderLeft: `3px solid ${STATUS_ACCENT[quote.status]}` }}
+                    >
+                      <Link
+                        href={`/clients/${quote.clientId}`}
+                        className="block text-sm font-semibold text-foreground hover:text-(--color-text-info) hover:underline"
+                      >
+                        {quote.clientSnapshot.fullName}
+                      </Link>
+                      <Link
+                        href={`/quotes/${quote._id}`}
+                        className="mt-0.5 block text-[11px] text-muted-foreground hover:text-(--color-text-info) hover:underline"
+                      >
+                        {quote.quoteNumber}
+                      </Link>
+                    </TableCell>
 
-                  return (
-                    <TableRow key={quote._id} className={isAccepted ? 'bg-(--color-background-success)/40 hover:bg-(--color-background-success)/60' : ''}>
-                      <TableCell className="py-4 align-top">
-                        <div className="space-y-1">
-                          <Link href={`/quotes/${quote._id}`} className="block font-semibold text-(--color-text-info) hover:underline">
-                            {quote.quoteNumber}
-                          </Link>
-                          <Link href={`/clients/${quote.clientId}`} className="block text-sm text-foreground hover:text-(--color-text-info) hover:underline">
-                            {quote.clientSnapshot.fullName}
-                          </Link>
-                          <p className="text-xs text-muted-foreground">
-                            {uiText.issuedOn} {formatDate(quote.date)}
-                          </p>
-                        </div>
-                      </TableCell>
-                      <TableCell className="py-4 align-top">
-                        <QuoteStatusSummary status={quote.status} statusChangedAt={quote.statusChangedAt} locale={locale} showActionRequired />
-                      </TableCell>
-                      <TableCell className="py-4 align-top">
-                        <PriceDisplay cents={quote.totalIncludingTax} locale={priceLocale} className="text-sm font-semibold text-foreground" />
-                      </TableCell>
-                      <TableCell className="py-4 align-top">
-                        <div className="flex items-center justify-end gap-2">
-                          {renderPrimaryAction(quote, 'h-9 min-w-28')}
-                          {renderSecondaryActions(quote, 'end')}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                    {/* Date */}
+                    <TableCell className="py-3 align-middle text-sm text-muted-foreground">
+                      {formatDate(quote.date)}
+                    </TableCell>
+
+                    {/* Amount */}
+                    <TableCell className="py-3 align-middle">
+                      <PriceDisplay
+                        cents={quote.totalIncludingTax}
+                        locale={priceLocale}
+                        className="text-sm font-bold tabular-nums text-foreground"
+                      />
+                    </TableCell>
+
+                    {/* Status badge only — no extra date text */}
+                    <TableCell className="py-3 align-middle">
+                      <StatusBadge status={quote.status} />
+                    </TableCell>
+
+                    {/* Actions: primary + dropdown */}
+                    <TableCell className="py-3 pr-4 align-middle">
+                      <div className="flex items-center justify-end gap-1.5">
+                        {renderPrimaryAction(quote, 'h-8 px-3 text-xs')}
+                        {renderSecondaryActions(quote, 'end')}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
           </TableBody>
         </Table>
       </div>
@@ -282,9 +301,7 @@ export default function QuoteTable({ items, loading, labels, locale, formatDate,
           open={Boolean(historyTarget)}
           hideTrigger
           onOpenChange={(next) => {
-            if (!next) {
-              setHistoryTarget(null);
-            }
+            if (!next) setHistoryTarget(null);
           }}
         />
       ) : null}

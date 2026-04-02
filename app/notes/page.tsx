@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { PencilIcon, PlusIcon, SearchIcon, Trash2Icon, CheckCircle2, Loader2 } from 'lucide-react';
+import { AlertTriangleIcon, CheckCircle2, ClockIcon, Loader2, PencilIcon, PlusIcon, SearchIcon, Trash2Icon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import CrmShell from '@/components/crm-shell';
@@ -167,6 +167,18 @@ export default function NotesPage() {
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
   const [markingFollowUpId, setMarkingFollowUpId] = useState<string | null>(null);
+
+  const dateFormatter = useMemo(
+    () => new Intl.DateTimeFormat(locale === 'fr' ? 'fr-FR' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+    [locale],
+  );
+
+  const today = useMemo(() => new Date(), []);
+
+  const overdueNotes = useMemo(
+    () => notes.filter((n) => n.followUpDate && new Date(n.followUpDate) < today),
+    [notes, today],
+  );
 
   const [clients, setClients] = useState<LinkedEntity[]>([]);
   const [suppliers, setSuppliers] = useState<LinkedEntity[]>([]);
@@ -600,6 +612,24 @@ export default function NotesPage() {
         </AlertDialog>
       </div>
 
+      {overdueNotes.length > 0 ? (
+        <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50/70 px-4 py-3 dark:border-red-900/40 dark:bg-red-950/20">
+          <AlertTriangleIcon className="mt-0.5 size-4 shrink-0 text-red-500" />
+          <div>
+            <p className="text-sm font-semibold text-red-700 dark:text-red-400">
+              {overdueNotes.length}{' '}
+              {locale === 'fr'
+                ? `suivi(s) en retard`
+                : `overdue follow-up${overdueNotes.length > 1 ? 's' : ''}`}
+            </p>
+            <p className="mt-0.5 text-xs text-red-600/80 dark:text-red-400/70">
+              {overdueNotes.slice(0, 3).map((n) => n.title).join(' · ')}
+              {overdueNotes.length > 3 ? ` +${overdueNotes.length - 3}` : ''}
+            </p>
+          </div>
+        </div>
+      ) : null}
+
       <Card>
         <CardHeader className="border-b">
           <CardTitle className="text-base">{t.allNotes}</CardTitle>
@@ -642,13 +672,14 @@ export default function NotesPage() {
           ) : (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {notes.map((note) => (
-              <div key={note._id} className={`rounded-xl border-2 p-4 ${
-                note.linkedType === 'client' ? 'border-emerald-400' : 'border-amber-400'
-              }`}>
+              <div key={note._id} className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
                 <div className="flex flex-wrap items-start justify-between gap-2">
-                  <h3 className="text-base font-semibold">{note.title}</h3>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">{new Date(note.createdAt).toLocaleString('en-US')}</span>
+                  <div className="flex min-w-0 flex-1 items-start gap-2.5">
+                    <span className={`mt-1.5 size-2 shrink-0 rounded-full ${note.linkedType === 'client' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                    <h3 className="text-sm font-semibold leading-snug">{note.title}</h3>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <span className="text-xs text-muted-foreground">{dateFormatter.format(new Date(note.createdAt))}</span>
                     <Button
                       type="button"
                       variant="ghost"
@@ -672,18 +703,25 @@ export default function NotesPage() {
                     </Button>
                   </div>
                 </div>
-                <p className="mt-1 line-clamp-3 text-sm text-muted-foreground">{note.description}</p>
+                <p className="mt-2 line-clamp-3 text-sm text-muted-foreground">{note.description}</p>
                 <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
                   <Link
-                    className="rounded-full bg-sky-100 px-2 py-1 text-sky-700 hover:bg-sky-200 dark:bg-sky-900/40 dark:text-sky-300"
+                    className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground hover:bg-muted/80"
                     href={`/${note.linkedType === 'client' ? 'clients' : 'suppliers'}/${note.linkedId?._id}`}
                   >
-                    {note.linkedType === 'client' ? 'Client' : 'Supplier'} · {note.linkedId?.fullName}
+                    {note.linkedType === 'client' ? t.client : t.supplier} · {note.linkedId?.fullName}
                   </Link>
                   {note.followUpDate ? (
                     <>
-                      <span className="rounded-full bg-amber-100 px-2 py-1 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
-                        {t.followUp}: {new Date(note.followUpDate).toLocaleDateString('en-US')}
+                      <span className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium ${
+                        new Date(note.followUpDate) < today
+                          ? 'bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-400'
+                          : 'bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400'
+                      }`}>
+                        {new Date(note.followUpDate) < today
+                          ? <AlertTriangleIcon className="size-3" />
+                          : <ClockIcon className="size-3" />}
+                        {t.followUp}: {dateFormatter.format(new Date(note.followUpDate))}
                       </span>
                       <button
                         type="button"

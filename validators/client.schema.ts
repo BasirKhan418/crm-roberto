@@ -24,6 +24,8 @@ export const createClientSchema = z.object({
   address: optionalText,
   companyName: optionalText,
   vatNumber: optionalText,
+  billingEmail: optionalEmail,
+  billingAddress: optionalText,
 });
 
 export const updateClientSchema = z.object({
@@ -33,6 +35,8 @@ export const updateClientSchema = z.object({
   address: updatableOptionalText,
   companyName: updatableOptionalText,
   vatNumber: updatableOptionalText,
+  billingEmail: updatableOptionalEmail,
+  billingAddress: updatableOptionalText,
 });
 
 export type CreateClientDTO = z.infer<typeof createClientSchema>;

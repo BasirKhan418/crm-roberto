@@ -1,10 +1,30 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 
-import { PencilIcon, PlusIcon, Trash2Icon, FileTextIcon, EyeIcon, SearchIcon, SendIcon } from 'lucide-react';
+import {
+  AlertTriangleIcon,
+  CalendarClockIcon,
+  ClipboardListIcon,
+  ClockIcon,
+  EyeIcon,
+  FilePlusIcon,
+  FileTextIcon,
+  MailIcon,
+  MessageSquareIcon,
+  PencilIcon,
+  PhoneCallIcon,
+  PlusIcon,
+  ReceiptIcon,
+  SendIcon,
+  StickyNoteIcon,
+  Trash2Icon,
+  TrendingUpIcon,
+  UploadCloudIcon,
+  VideoIcon,
+} from 'lucide-react';
 import { toast } from 'sonner';
 
 import CrmShell from '@/components/crm-shell';
@@ -29,8 +49,17 @@ import EmptyState from '@/components/ui/EmptyState';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
 
 interface ClientRecord {
   _id: string;
@@ -40,6 +69,8 @@ interface ClientRecord {
   address?: string | null;
   companyName?: string | null;
   vatNumber?: string | null;
+  billingEmail?: string | null;
+  billingAddress?: string | null;
 }
 
 interface NoteItem {
@@ -59,117 +90,224 @@ interface ClientQuote {
   totalIncludingTax: number;
 }
 
+type InteractionType = 'call' | 'meeting' | 'email' | 'discussion';
+
+interface InteractionItem {
+  _id: string;
+  type: InteractionType;
+  title: string;
+  notes?: string | null;
+  date: string;
+  followUpDate?: string | null;
+  createdAt: string;
+}
+
+interface AttachmentItem {
+  _id: string;
+  fileName: string;
+  fileUrl: string;
+  fileType?: string | null;
+  fileSize?: number | null;
+  createdAt: string;
+}
+
 interface DetailResponse {
   success: boolean;
   message?: string;
   data?: {
     client: ClientRecord;
     timeline: NoteItem[];
+    interactions: InteractionItem[];
+    attachments: AttachmentItem[];
   };
 }
+
+
+const INTERACTION_ICONS: Record<InteractionType, React.ReactNode> = {
+  call: <PhoneCallIcon className="size-3.5" />,
+  meeting: <VideoIcon className="size-3.5" />,
+  email: <MailIcon className="size-3.5" />,
+  discussion: <MessageSquareIcon className="size-3.5" />,
+};
+
+const INTERACTION_COLORS: Record<InteractionType, string> = {
+  call: 'border-l-violet-400 bg-violet-50/60 dark:bg-violet-950/20',
+  meeting: 'border-l-sky-400 bg-sky-50/60 dark:bg-sky-950/20',
+  email: 'border-l-amber-400 bg-amber-50/60 dark:bg-amber-950/20',
+  discussion: 'border-l-teal-400 bg-teal-50/60 dark:bg-teal-950/20',
+};
+
+const INTERACTION_DOT_COLORS: Record<InteractionType, string> = {
+  call: 'bg-violet-400',
+  meeting: 'bg-sky-400',
+  email: 'bg-amber-400',
+  discussion: 'bg-teal-400',
+};
+
+function formatFileSize(bytes: number | null | undefined): string {
+  if (!bytes) return '';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function isImageType(fileType: string | null | undefined): boolean {
+  return Boolean(fileType && fileType.startsWith('image/'));
+}
+
 
 export default function ClientDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const { locale } = useLocale();
+
   const t = {
     en: {
+      shellTitle: 'Client',
+      notFound: 'Client not found.',
       loadFailed: 'Failed to load client details',
       updateFailed: 'Failed to update client',
       updated: 'Client updated',
       deleteFailed: 'Failed to delete client',
       deleted: 'Client deleted',
       noteValidation: 'Title and description are required',
-      noteDateRequired: 'Follow-up date is required',
       noteAddFailed: 'Failed to add note',
       noteAdded: 'Note added',
       noteUpdateFailed: 'Failed to update note',
       noteUpdated: 'Note updated',
-      shellTitle: 'Client detail',
-      notFound: 'Client not found.',
-      profileSubtitle: 'Client profile and contact details.',
+      profile: 'Profile',
+      billing: 'Billing',
+      timeline: 'Timeline',
+      notes: 'Notes & Tasks',
+      interactions: 'Interactions',
+      attachments: 'Attachments',
+      createQuote: 'Create Quote',
+      createInvoice: 'Create Invoice',
+      addNote: 'Add Note',
+      addInteraction: 'Log Interaction',
+      uploadFile: 'Upload File',
+      edit: 'Edit',
+      delete: 'Delete',
+      cancel: 'Cancel',
+      saving: 'Saving...',
+      saveChanges: 'Save changes',
+      deleteTitle: 'Delete client?',
+      deleteDesc: 'This permanently deletes the client and all linked notes.',
+      deleting: 'Deleting...',
+      deleteClient: 'Delete client',
+      editClient: 'Edit Client',
+      editClientDesc: 'Update core profile fields.',
+      name: 'Name',
       email: 'Email',
       phone: 'Phone',
       address: 'Address',
       company: 'Company',
-      vat: 'VAT',
-      edit: 'Edit',
-      editClient: 'Edit client',
-      editClientDesc: 'Update core profile fields.',
-      name: 'Name',
-      vatTax: 'VAT/Tax ID',
-      cancel: 'Cancel',
-      saving: 'Saving...',
-      saveChanges: 'Save changes',
-      delete: 'Delete',
-      deleteTitle: 'Delete client?',
-      deleteDesc: 'This will permanently delete this client and linked notes.',
-      deleting: 'Deleting...',
-      deleteClient: 'Delete client',
-      addNote: 'Add note',
-      addNoteTitle: 'Add note',
+      vatTax: 'VAT / Tax ID',
+      billingEmail: 'Billing Email',
+      billingAddress: 'Billing Address',
+      sameAsMain: 'Same as main',
+      addNoteTitle: 'Add Note / Task',
       addNoteDesc: 'This note is automatically linked to this client.',
       title: 'Title',
       description: 'Description',
       followUpDate: 'Follow-up date',
       saveNote: 'Save note',
-      editNote: 'Edit note',
+      editNote: 'Edit Note',
       editNoteDesc: 'Update this client note.',
-      timeline: 'Interaction timeline',
-      timelineDesc: 'Newest notes first so context is always visible.',
-      timelineEmpty: 'No notes yet. Add your first note from this profile.',
-      followUp: 'Follow-up',
-      quotesTitle: 'Related quotes',
-      quotesDesc: 'All quotes linked to this client.',
-      quotesEmpty: 'No quotes found for this client.',
-      quotesSearch: 'Search by quote number...',
-      quotesAll: 'All',
-      quotesDraft: 'Draft',
-      quotesSent: 'Sent',
-      quotesAccepted: 'Accepted',
-      quotesRefused: 'Refused',
-      colQuoteNo: 'Quote #',
-      colDate: 'Date',
-      colTotal: 'Total TTC',
-      colStatus: 'Status',
-      colActions: 'Actions',
-      viewQuote: 'View',
-      sendQuote: 'Send',
+      noTimeline: 'No activity yet. Create a quote, add a note, or log an interaction.',
+      noNotes: 'No notes yet. Add a note to track tasks and follow-ups.',
+      noInteractions: 'No interactions yet. Log a call, meeting, email or discussion.',
+      noAttachments: 'No attachments yet. Upload contracts, PDFs, or other files.',
+      pendingTasks: 'Pending & Upcoming Tasks',
+      overdue: 'Overdue',
+      upcoming: 'Upcoming',
+      totalRevenue: 'Revenue (accepted)',
+      totalQuotes: 'Quotes',
+      notesLabel: 'Notes',
+      interactionType: 'Type',
+      interactionTitle: 'Title',
+      interactionNotes: 'Notes (optional)',
+      interactionDate: 'Date',
+      interactionFollowUp: 'Follow-up date (optional)',
+      addInteractionTitle: 'Log Interaction',
+      addInteractionDesc: 'Record a call, meeting, email or discussion with this client.',
+      saveInteraction: 'Save interaction',
+      deleteInteraction: 'Delete',
+      deleteInteractionTitle: 'Delete interaction?',
+      deleteInteractionDesc: 'This will permanently remove this interaction.',
+      interactionDeleteFailed: 'Failed to delete interaction',
+      interactionDeleted: 'Interaction deleted',
+      interactionAddFailed: 'Failed to log interaction',
+      interactionAdded: 'Interaction logged',
+      call: 'Call',
+      meeting: 'Meeting',
+      emailType: 'Email',
+      discussion: 'Discussion',
+      dropHere: 'Drop files here or click to browse',
+      uploading: 'Uploading...',
+      attachmentDeleteTitle: 'Delete file?',
+      attachmentDeleteDesc: 'This will permanently remove this file.',
+      attachmentDeleted: 'File deleted',
+      attachmentDeleteFailed: 'Failed to delete file',
+      attachmentUploadFailed: 'Failed to upload file',
+      attachmentUploaded: 'File uploaded',
+      download: 'Download',
+      open: 'Open',
+      view: 'View',
+      send: 'Send',
+      followUpLabel: 'Follow-up',
+      quotesTab: 'Quotes',
+      allNotes: 'All Notes',
+      allInteractions: 'All Interactions',
+      interactionTitleRequired: 'Title is required',
+      noQuotes: 'No quotes yet for this client.',
+      noBillingDetails: 'No billing details set.',
+      addBillingNow: 'Add now',
     },
     fr: {
+      shellTitle: 'Client',
+      notFound: 'Client introuvable.',
       loadFailed: 'Impossible de charger les details du client',
       updateFailed: 'Impossible de mettre a jour le client',
       updated: 'Client mis a jour',
       deleteFailed: 'Impossible de supprimer le client',
       deleted: 'Client supprime',
       noteValidation: 'Le titre et la description sont requis',
-      noteDateRequired: 'La date de suivi est requise',
       noteAddFailed: 'Impossible d\'ajouter la note',
       noteAdded: 'Note ajoutee',
       noteUpdateFailed: 'Impossible de mettre a jour la note',
       noteUpdated: 'Note mise a jour',
-      shellTitle: 'Detail client',
-      notFound: 'Client introuvable.',
-      profileSubtitle: 'Profil client et coordonnees.',
-      email: 'E-mail',
-      phone: 'Telephone',
-      address: 'Adresse',
-      company: 'Entreprise',
-      vat: 'TVA',
+      profile: 'Profil',
+      billing: 'Facturation',
+      timeline: 'Chronologie',
+      notes: 'Notes & Taches',
+      interactions: 'Interactions',
+      attachments: 'Pieces jointes',
+      createQuote: 'Creer un devis',
+      createInvoice: 'Creer une facture',
+      addNote: 'Ajouter une note',
+      addInteraction: 'Enregistrer interaction',
+      uploadFile: 'Telecharger fichier',
       edit: 'Modifier',
-      editClient: 'Modifier le client',
-      editClientDesc: 'Mettez a jour les champs principaux du profil.',
-      name: 'Nom',
-      vatTax: 'TVA/ID fiscal',
+      delete: 'Supprimer',
       cancel: 'Annuler',
       saving: 'Enregistrement...',
-      saveChanges: 'Enregistrer les modifications',
-      delete: 'Supprimer',
+      saveChanges: 'Enregistrer',
       deleteTitle: 'Supprimer le client ?',
       deleteDesc: 'Cette action supprimera definitivement ce client et ses notes liees.',
       deleting: 'Suppression...',
       deleteClient: 'Supprimer le client',
-      addNote: 'Ajouter une note',
-      addNoteTitle: 'Ajouter une note',
+      editClient: 'Modifier le client',
+      editClientDesc: 'Mettez a jour les champs principaux du profil.',
+      name: 'Nom',
+      email: 'E-mail',
+      phone: 'Telephone',
+      address: 'Adresse',
+      company: 'Entreprise',
+      vatTax: 'TVA / ID fiscal',
+      billingEmail: 'E-mail de facturation',
+      billingAddress: 'Adresse de facturation',
+      sameAsMain: 'Identique au principal',
+      addNoteTitle: 'Ajouter une note / tache',
       addNoteDesc: 'Cette note est automatiquement liee a ce client.',
       title: 'Titre',
       description: 'Description',
@@ -177,48 +315,89 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       saveNote: 'Enregistrer la note',
       editNote: 'Modifier la note',
       editNoteDesc: 'Mettez a jour cette note client.',
-      timeline: 'Chronologie des interactions',
-      timelineDesc: 'Les notes les plus recentes en premier pour garder le contexte visible.',
-      timelineEmpty: 'Aucune note. Ajoutez votre premiere note depuis ce profil.',
-      followUp: 'Suivi',
-      quotesTitle: 'Devis associes',
-      quotesDesc: 'Tous les devis lies a ce client.',
-      quotesEmpty: 'Aucun devis trouve pour ce client.',
-      quotesSearch: 'Rechercher par numero de devis...',
-      quotesAll: 'Tous',
-      quotesDraft: 'Brouillon',
-      quotesSent: 'Envoye',
-      quotesAccepted: 'Accepte',
-      quotesRefused: 'Refuse',
-      colQuoteNo: 'Devis N',
-      colDate: 'Date',
-      colTotal: 'Total TTC',
-      colStatus: 'Statut',
-      colActions: 'Actions',
-      viewQuote: 'Voir',
-      sendQuote: 'Envoyer',
+      noTimeline: 'Aucune activite. Creez un devis, ajoutez une note ou enregistrez une interaction.',
+      noNotes: 'Aucune note. Ajoutez une note pour suivre les taches et relances.',
+      noInteractions: 'Aucune interaction. Enregistrez un appel, une reunion, un e-mail ou une discussion.',
+      noAttachments: 'Aucune piece jointe. Deposez des contrats, PDF ou autres fichiers.',
+      pendingTasks: 'Taches en attente et a venir',
+      overdue: 'En retard',
+      upcoming: 'A venir',
+      totalRevenue: 'Revenu (accepte)',
+      totalQuotes: 'Devis',
+      notesLabel: 'Notes',
+      interactionType: 'Type',
+      interactionTitle: 'Titre',
+      interactionNotes: 'Notes (optionnel)',
+      interactionDate: 'Date',
+      interactionFollowUp: 'Date de suivi (optionnel)',
+      addInteractionTitle: 'Enregistrer une interaction',
+      addInteractionDesc: 'Enregistrez un appel, une reunion, un e-mail ou une discussion.',
+      saveInteraction: 'Enregistrer',
+      deleteInteraction: 'Supprimer',
+      deleteInteractionTitle: 'Supprimer l\'interaction ?',
+      deleteInteractionDesc: 'Cette action supprimera definitivement cette interaction.',
+      interactionDeleteFailed: 'Impossible de supprimer l\'interaction',
+      interactionDeleted: 'Interaction supprimee',
+      interactionAddFailed: 'Impossible d\'enregistrer l\'interaction',
+      interactionAdded: 'Interaction enregistree',
+      call: 'Appel',
+      meeting: 'Reunion',
+      emailType: 'E-mail',
+      discussion: 'Discussion',
+      dropHere: 'Deposez les fichiers ici ou cliquez pour parcourir',
+      uploading: 'Telechargement...',
+      attachmentDeleteTitle: 'Supprimer le fichier ?',
+      attachmentDeleteDesc: 'Cette action supprimera definitivement ce fichier.',
+      attachmentDeleted: 'Fichier supprime',
+      attachmentDeleteFailed: 'Impossible de supprimer le fichier',
+      attachmentUploadFailed: 'Impossible de telecharger le fichier',
+      attachmentUploaded: 'Fichier telecharge',
+      download: 'Telecharger',
+      open: 'Ouvrir',
+      view: 'Voir',
+      send: 'Envoyer',
+      followUpLabel: 'Suivi',
+      quotesTab: 'Devis',
+      allNotes: 'Toutes les notes',
+      allInteractions: 'Toutes les interactions',
+      interactionTitleRequired: 'Le titre est requis',
+      noQuotes: 'Aucun devis pour ce client.',
+      noBillingDetails: 'Aucun detail de facturation.',
+      addBillingNow: 'Ajouter',
     },
   }[locale];
+
 
   const [clientId, setClientId] = useState('');
   const [client, setClient] = useState<ClientRecord | null>(null);
   const [timeline, setTimeline] = useState<NoteItem[]>([]);
   const [quotes, setQuotes] = useState<ClientQuote[]>([]);
-  const [quotesLoading, setQuotesLoading] = useState(false);
-  const [quoteSearch, setQuoteSearch] = useState('');
-  const [quoteStatusFilter, setQuoteStatusFilter] = useState<QuoteStatus | 'all'>('all');
+  const [interactions, setInteractions] = useState<InteractionItem[]>([]);
+  const [attachments, setAttachments] = useState<AttachmentItem[]>([]);
+
   const [loading, setLoading] = useState(true);
+  const [quotesLoading, setQuotesLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isNoteOpen, setIsNoteOpen] = useState(false);
   const [isNoteEditOpen, setIsNoteEditOpen] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [isInteractionOpen, setIsInteractionOpen] = useState(false);
+
   const [isSaving, setIsSaving] = useState(false);
   const [isDeletingClient, setIsDeletingClient] = useState(false);
   const [isNoteUpdating, setIsNoteUpdating] = useState(false);
-  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [isAddingInteraction, setIsAddingInteraction] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+
+  const [deletingInteractionId, setDeletingInteractionId] = useState<string | null>(null);
+  const [deletingAttachmentId, setDeletingAttachmentId] = useState<string | null>(null);
   const [sendTarget, setSendTarget] = useState<ClientQuote | null>(null);
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [activeTab, setActiveTab] = useState('timeline');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [editForm, setEditForm] = useState({
     fullName: '',
@@ -227,51 +406,58 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     address: '',
     companyName: '',
     vatNumber: '',
+    billingEmail: '',
+    billingAddress: '',
   });
 
   const [noteForm, setNoteForm] = useState({ title: '', description: '', followUpDate: '' });
   const [editNoteForm, setEditNoteForm] = useState({ title: '', description: '', followUpDate: '' });
+  const [interactionForm, setInteractionForm] = useState<{
+    type: InteractionType;
+    title: string;
+    notes: string;
+    date: string;
+    followUpDate: string;
+  }>({ type: 'call', title: '', notes: '', date: new Date().toISOString().slice(0, 10), followUpDate: '' });
+
+  // ─── Data loading ─────────────────────────────────────────────────────────────
 
   useEffect(() => {
     params.then((resolved) => setClientId(resolved.id));
   }, [params]);
 
-  const endpoint = useMemo(() => (clientId ? `/api/clients/${clientId}` : ''), [clientId]);
-
   const loadDetails = useCallback(async () => {
-    if (!endpoint) {
-      return;
-    }
-
+    if (!clientId) return;
     setLoading(true);
     setError(null);
-
     try {
-      const response = await fetch(endpoint, { cache: 'no-store' });
+      const response = await fetch(`/api/clients/${clientId}`, { cache: 'no-store' });
       const data = (await response.json()) as DetailResponse;
-
       if (!response.ok || !data.success || !data.data) {
         throw new Error(data.message || t.loadFailed);
       }
-
-      setClient(data.data.client);
-      setTimeline(data.data.timeline);
+      const { client: c, timeline: tl, interactions: ints, attachments: atts } = data.data;
+      setClient(c);
+      setTimeline(tl);
+      setInteractions(ints);
+      setAttachments(atts);
       setEditForm({
-        fullName: data.data.client.fullName || '',
-        email: data.data.client.email || '',
-        phone: data.data.client.phone || '',
-        address: data.data.client.address || '',
-        companyName: data.data.client.companyName || '',
-        vatNumber: data.data.client.vatNumber || '',
+        fullName: c.fullName || '',
+        email: c.email || '',
+        phone: c.phone || '',
+        address: c.address || '',
+        companyName: c.companyName || '',
+        vatNumber: c.vatNumber || '',
+        billingEmail: c.billingEmail || '',
+        billingAddress: c.billingAddress || '',
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : t.loadFailed);
       setClient(null);
-      setTimeline([]);
     } finally {
       setLoading(false);
     }
-  }, [endpoint, t.loadFailed]);
+  }, [clientId, t.loadFailed]);
 
   const loadQuotes = useCallback(async () => {
     if (!clientId) return;
@@ -287,30 +473,78 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     }
   }, [clientId]);
 
-  useEffect(() => {
-    loadDetails();
-  }, [loadDetails]);
+  const refreshAttachments = useCallback(async () => {
+    if (!clientId) return;
+    try {
+      const res = await fetch(`/api/clients/${clientId}/attachments`, { cache: 'no-store' });
+      const data = (await res.json()) as { success: boolean; data?: AttachmentItem[] };
+      if (data.success) setAttachments(data.data ?? []);
+    } catch { /* silent background refresh */ }
+  }, [clientId]);
 
-  useEffect(() => {
-    loadQuotes();
-  }, [loadQuotes]);
+  useEffect(() => { loadDetails(); }, [loadDetails]);
+  useEffect(() => { loadQuotes(); }, [loadQuotes]);
+
+
+  const totalRevenue = useMemo(
+    () => quotes.reduce((sum, q) => (q.status === 'accepted' ? sum + q.totalIncludingTax : sum), 0),
+    [quotes],
+  );
+
+  const today = useMemo(() => new Date(), []);
+
+  const pendingNotes = useMemo(
+    () => timeline.filter((n) => n.followUpDate).sort((a, b) => new Date(a.followUpDate!).getTime() - new Date(b.followUpDate!).getTime()),
+    [timeline],
+  );
+
+  const overdueNotes = useMemo(() => pendingNotes.filter((n) => new Date(n.followUpDate!) < today), [pendingNotes, today]);
+  const upcomingNotes = useMemo(() => pendingNotes.filter((n) => new Date(n.followUpDate!) >= today), [pendingNotes, today]);
+
+  type TimelineEvent =
+    | { kind: 'note'; date: Date; item: NoteItem }
+    | { kind: 'quote'; date: Date; item: ClientQuote }
+    | { kind: 'interaction'; date: Date; item: InteractionItem };
+
+  const unifiedTimeline = useMemo<TimelineEvent[]>(() => {
+    const noteEvents: TimelineEvent[] = timeline.map((n) => ({ kind: 'note', date: new Date(n.createdAt), item: n }));
+    const quoteEvents: TimelineEvent[] = quotes.map((q) => ({ kind: 'quote', date: new Date(q.statusChangedAt ?? q.date), item: q }));
+    const interactionEvents: TimelineEvent[] = interactions.map((i) => ({ kind: 'interaction', date: new Date(i.date), item: i }));
+    return [...noteEvents, ...quoteEvents, ...interactionEvents].sort((a, b) => b.date.getTime() - a.date.getTime());
+  }, [timeline, quotes, interactions]);
+
+  const dateFormatter = useMemo(
+    () => new Intl.DateTimeFormat(locale === 'fr' ? 'fr-FR' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+    [locale],
+  );
+
 
   async function saveClient() {
-    if (!client) {
-      return;
-    }
-
+    if (!client) return;
     setIsSaving(true);
     try {
-      const response = await fetch(`/api/clients/${client._id}`, {
+      const res = await fetch(`/api/clients/${client._id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editForm),
       });
+      const data = (await res.json()) as { success: boolean; message?: string; data?: ClientRecord };
+      if (!res.ok || !data.success) throw new Error(data.message || t.updateFailed);
 
-      const data = (await response.json()) as { success: boolean; message?: string };
-      if (!response.ok || !data.success) {
-        throw new Error(data.message || t.updateFailed);
+      // Immediately apply the returned updated client so billing shows without waiting for loadDetails
+      if (data.data) {
+        const c = data.data;
+        setClient(c);
+        setEditForm({
+          fullName: c.fullName || '',
+          email: c.email || '',
+          phone: c.phone || '',
+          address: c.address || '',
+          companyName: c.companyName || '',
+          vatNumber: c.vatNumber || '',
+          billingEmail: c.billingEmail || '',
+          billingAddress: c.billingAddress || '',
+        });
       }
 
       toast.success(t.updated);
@@ -324,17 +558,12 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   }
 
   async function removeClient() {
-    if (!client) {
-      return;
-    }
-
+    if (!client) return;
     setIsDeletingClient(true);
     try {
-      const response = await fetch(`/api/clients/${client._id}`, { method: 'DELETE' });
-      const data = (await response.json()) as { success: boolean; message?: string };
-      if (!response.ok || !data.success) {
-        throw new Error(data.message || t.deleteFailed);
-      }
+      const res = await fetch(`/api/clients/${client._id}`, { method: 'DELETE' });
+      const data = (await res.json()) as { success: boolean; message?: string };
+      if (!res.ok || !data.success) throw new Error(data.message || t.deleteFailed);
       toast.success(t.deleted);
       router.push('/clients');
     } catch (err) {
@@ -346,34 +575,17 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   }
 
   async function addNote() {
-    if (!client) {
-      return;
-    }
-    if (!noteForm.title.trim() || !noteForm.description.trim()) {
-      toast.error(t.noteValidation);
-      return;
-    }
-    if (!noteForm.followUpDate) {
-      toast.error(t.noteDateRequired);
-      return;
-    }
-
+    if (!client) return;
+    if (!noteForm.title.trim() || !noteForm.description.trim()) { toast.error(t.noteValidation); return; }
     setIsSaving(true);
     try {
-      const response = await fetch(`/api/clients/${client._id}/notes`, {
+      const res = await fetch(`/api/clients/${client._id}/notes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: noteForm.title,
-          description: noteForm.description,
-          followUpDate: noteForm.followUpDate,
-        }),
+        body: JSON.stringify({ title: noteForm.title, description: noteForm.description, followUpDate: noteForm.followUpDate || null }),
       });
-      const data = (await response.json()) as { success: boolean; message?: string };
-      if (!response.ok || !data.success) {
-        throw new Error(data.message || t.noteAddFailed);
-      }
-
+      const data = (await res.json()) as { success: boolean; message?: string };
+      if (!res.ok || !data.success) throw new Error(data.message || t.noteAddFailed);
       toast.success(t.noteAdded);
       setIsNoteOpen(false);
       setNoteForm({ title: '', description: '', followUpDate: '' });
@@ -387,43 +599,22 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
 
   function openNoteEdit(note: NoteItem) {
     setEditingNoteId(note._id);
-    setEditNoteForm({
-      title: note.title,
-      description: note.description,
-      followUpDate: note.followUpDate ? String(note.followUpDate).slice(0, 10) : '',
-    });
+    setEditNoteForm({ title: note.title, description: note.description, followUpDate: note.followUpDate ? String(note.followUpDate).slice(0, 10) : '' });
     setIsNoteEditOpen(true);
   }
 
   async function updateNote() {
-    if (!editingNoteId) {
-      return;
-    }
-    if (!editNoteForm.title.trim() || !editNoteForm.description.trim()) {
-      toast.error(t.noteValidation);
-      return;
-    }
-    if (!editNoteForm.followUpDate) {
-      toast.error(t.noteDateRequired);
-      return;
-    }
-
+    if (!editingNoteId) return;
+    if (!editNoteForm.title.trim() || !editNoteForm.description.trim()) { toast.error(t.noteValidation); return; }
     setIsNoteUpdating(true);
     try {
-      const response = await fetch(`/api/notes/${editingNoteId}`, {
+      const res = await fetch(`/api/notes/${editingNoteId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: editNoteForm.title,
-          description: editNoteForm.description,
-          followUpDate: editNoteForm.followUpDate,
-        }),
+        body: JSON.stringify({ title: editNoteForm.title, description: editNoteForm.description, followUpDate: editNoteForm.followUpDate || null }),
       });
-      const data = (await response.json()) as { success: boolean; message?: string };
-      if (!response.ok || !data.success) {
-        throw new Error(data.message || t.noteUpdateFailed);
-      }
-
+      const data = (await res.json()) as { success: boolean; message?: string };
+      if (!res.ok || !data.success) throw new Error(data.message || t.noteUpdateFailed);
       toast.success(t.noteUpdated);
       setIsNoteEditOpen(false);
       setEditingNoteId(null);
@@ -435,386 +626,863 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     }
   }
 
-  const filteredQuotes = useMemo(() => {
-    return quotes.filter((q) => {
-      const matchesStatus = quoteStatusFilter === 'all' || q.status === quoteStatusFilter;
-      const matchesSearch = quoteSearch.trim() === '' || q.quoteNumber.toLowerCase().includes(quoteSearch.toLowerCase());
-      return matchesStatus && matchesSearch;
-    });
-  }, [quotes, quoteStatusFilter, quoteSearch]);
+  async function addInteraction() {
+    if (!client) return;
+    if (!interactionForm.title.trim()) { toast.error(t.interactionTitleRequired); return; }
+    setIsAddingInteraction(true);
+    try {
+      const res = await fetch(`/api/clients/${client._id}/interactions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: interactionForm.type, title: interactionForm.title, notes: interactionForm.notes || null, date: interactionForm.date, followUpDate: interactionForm.followUpDate || null }),
+      });
+      const data = (await res.json()) as { success: boolean; message?: string };
+      if (!res.ok || !data.success) throw new Error(data.message || t.interactionAddFailed);
+      toast.success(t.interactionAdded);
+      setIsInteractionOpen(false);
+      setInteractionForm({ type: 'call', title: '', notes: '', date: new Date().toISOString().slice(0, 10), followUpDate: '' });
+      await loadDetails();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t.interactionAddFailed);
+    } finally {
+      setIsAddingInteraction(false);
+    }
+  }
+
+  async function confirmDeleteInteraction() {
+    if (!deletingInteractionId) return;
+    try {
+      const res = await fetch(`/api/clients/${clientId}/interactions/${deletingInteractionId}`, { method: 'DELETE' });
+      const data = (await res.json()) as { success: boolean; message?: string };
+      if (!res.ok || !data.success) throw new Error(data.message || t.interactionDeleteFailed);
+      toast.success(t.interactionDeleted);
+      await loadDetails();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t.interactionDeleteFailed);
+    } finally {
+      setDeletingInteractionId(null);
+    }
+  }
+
+  async function confirmDeleteAttachment() {
+    if (!deletingAttachmentId) return;
+    try {
+      const res = await fetch(`/api/clients/${clientId}/attachments/${deletingAttachmentId}`, { method: 'DELETE' });
+      const data = (await res.json()) as { success: boolean; message?: string };
+      if (!res.ok || !data.success) throw new Error(data.message || t.attachmentDeleteFailed);
+      toast.success(t.attachmentDeleted);
+      await loadDetails();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t.attachmentDeleteFailed);
+    } finally {
+      setDeletingAttachmentId(null);
+    }
+  }
+
+  async function uploadFile(file: File) {
+    setIsUploading(true);
+    try {
+      const presignRes = await fetch('/api/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileName: file.name, fileType: file.type, folder: `clients/${clientId}` }),
+      });
+      const presignData = (await presignRes.json()) as { success: boolean; uploadUrl?: string; fileUrl?: string; key?: string; message?: string };
+      if (!presignRes.ok || !presignData.success || !presignData.uploadUrl || !presignData.fileUrl) throw new Error(presignData.message || t.attachmentUploadFailed);
+
+      const uploadRes = await fetch(presignData.uploadUrl, { method: 'PUT', body: file, headers: { 'Content-Type': file.type } });
+      if (!uploadRes.ok) throw new Error(t.attachmentUploadFailed);
+
+      const saveRes = await fetch(`/api/clients/${clientId}/attachments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileName: file.name, fileUrl: presignData.fileUrl, fileType: file.type, fileSize: file.size, s3Key: presignData.key }),
+      });
+      const saveData = (await saveRes.json()) as { success: boolean; message?: string };
+      if (!saveRes.ok || !saveData.success) throw new Error(saveData.message || t.attachmentUploadFailed);
+
+      toast.success(t.attachmentUploaded);
+      setActiveTab('attachments');
+      await refreshAttachments();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t.attachmentUploadFailed);
+    } finally {
+      setIsUploading(false);
+    }
+  }
+
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) void uploadFile(file);
+    e.target.value = '';
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) void uploadFile(file);
+  }
+
+  // ─── Render ──────────────────────────────────────────────────────────────────
 
   return (
     <>
-    <CrmShell title={t.shellTitle}>
-      {error ? <ErrorMessage message={error} /> : null}
+      <CrmShell title={t.shellTitle}>
+        {error ? <ErrorMessage message={error} /> : null}
 
-      {loading ? (
-        <div className="space-y-3">
-          <Skeleton className="h-32 w-full" />
-          <Skeleton className="h-56 w-full" />
-        </div>
-      ) : !client ? (
-        <EmptyState message={t.notFound} />
-      ) : (
-        <div className="space-y-4">
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_1.2fr]">
-          <Card>
-            <CardHeader className="border-b">
-              <div className="flex items-center gap-3">
-                <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-base font-bold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+        {loading ? (
+          <div className="space-y-4">
+            <Skeleton className="h-14 w-full" />
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-[320px_1fr]">
+              <div className="space-y-4">
+                <Skeleton className="h-64 w-full" />
+                <Skeleton className="h-32 w-full" />
+                <Skeleton className="h-24 w-full" />
+              </div>
+              <Skeleton className="h-125 w-full" />
+            </div>
+          </div>
+        ) : !client ? (
+          <EmptyState message={t.notFound} />
+        ) : (
+          <div className="space-y-4">
+
+            {/* ── Quick Action Bar ──────────────────────────────────────── */}
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 bg-card px-4 py-3 shadow-sm">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
                   {client.fullName.charAt(0).toUpperCase()}
                 </div>
-                <div>
-                  <CardTitle className="text-xl">{client.fullName}</CardTitle>
-                  <p className="text-sm text-muted-foreground">{t.profileSubtitle}</p>
+                <div className="min-w-0">
+                  <p className="truncate font-semibold">{client.fullName}</p>
+                  {client.companyName ? <p className="truncate text-xs text-muted-foreground">{client.companyName}</p> : null}
                 </div>
               </div>
-            </CardHeader>
-            <CardContent className="space-y-2 pt-4 text-sm">
-              <p><span className="text-muted-foreground">{t.email}:</span> {client.email || '-'}</p>
-              <p><span className="text-muted-foreground">{t.phone}:</span> {client.phone || '-'}</p>
-              <p><span className="text-muted-foreground">{t.address}:</span> {client.address || '-'}</p>
-              <p><span className="text-muted-foreground">{t.company}:</span> {client.companyName || '-'}</p>
-              <p><span className="text-muted-foreground">{t.vat}:</span> {client.vatNumber || '-'}</p>
-
-              <div className="flex flex-wrap gap-2 pt-3">
-                <Sheet open={isEditOpen} onOpenChange={setIsEditOpen}>
-                  <SheetTrigger asChild>
-                    <Button variant="outline" size="sm">
-                      <PencilIcon />
-                      {t.edit}
-                    </Button>
-                  </SheetTrigger>
-                  <SheetContent side="right" className="w-full sm:max-w-lg">
-                    <SheetHeader>
-                      <SheetTitle>{t.editClient}</SheetTitle>
-                      <SheetDescription>{t.editClientDesc}</SheetDescription>
-                    </SheetHeader>
-                    <div className="space-y-3 px-4">
-                      <div className="space-y-1.5"><Label>{t.name}</Label><Input value={editForm.fullName} onChange={(e) => setEditForm((p) => ({ ...p, fullName: e.target.value }))} /></div>
-                      <div className="space-y-1.5"><Label>{t.email}</Label><Input value={editForm.email} onChange={(e) => setEditForm((p) => ({ ...p, email: e.target.value }))} /></div>
-                      <div className="space-y-1.5"><Label>{t.phone}</Label><Input value={editForm.phone} onChange={(e) => setEditForm((p) => ({ ...p, phone: e.target.value }))} /></div>
-                      <div className="space-y-1.5"><Label>{t.address}</Label><Input value={editForm.address} onChange={(e) => setEditForm((p) => ({ ...p, address: e.target.value }))} /></div>
-                      <div className="space-y-1.5"><Label>{t.company}</Label><Input value={editForm.companyName} onChange={(e) => setEditForm((p) => ({ ...p, companyName: e.target.value }))} /></div>
-                      <div className="space-y-1.5"><Label>{t.vatTax}</Label><Input value={editForm.vatNumber} onChange={(e) => setEditForm((p) => ({ ...p, vatNumber: e.target.value }))} /></div>
-                    </div>
-                    <SheetFooter>
-                      <Button variant="outline" onClick={() => setIsEditOpen(false)}>{t.cancel}</Button>
-                      <Button onClick={saveClient} disabled={isSaving}>{isSaving ? t.saving : t.saveChanges}</Button>
-                    </SheetFooter>
-                  </SheetContent>
-                </Sheet>
-
-                <Button variant="destructive" size="sm" onClick={() => setIsDeleteConfirmOpen(true)}>
-                  <Trash2Icon />
-                  {t.delete}
+              <div className="flex flex-wrap items-center gap-2">
+                <Button size="sm" asChild>
+                  <Link href={`/quotes/new?clientId=${clientId}`}>
+                    <FilePlusIcon className="size-3.5" />{t.createQuote}
+                  </Link>
                 </Button>
-
-                <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>{t.deleteTitle}</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        {t.deleteDesc}
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel asChild>
-                        <Button variant="outline">{t.cancel}</Button>
-                      </AlertDialogCancel>
-                      <AlertDialogAction
-                        asChild
-                        onClick={(event) => {
-                          event.preventDefault();
-                          if (isDeletingClient) {
-                            return;
-                          }
-                          void removeClient();
-                        }}
-                      >
-                        <Button variant="destructive" disabled={isDeletingClient}>
-                          {isDeletingClient ? t.deleting : t.deleteClient}
-                        </Button>
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-
-                <Sheet open={isNoteOpen} onOpenChange={setIsNoteOpen}>
-                  <SheetTrigger asChild>
-                    <Button size="sm">
-                      <PlusIcon />
-                      {t.addNote}
-                    </Button>
-                  </SheetTrigger>
-                  <SheetContent side="right" className="w-full sm:max-w-lg">
-                    <SheetHeader>
-                      <SheetTitle>{t.addNoteTitle}</SheetTitle>
-                      <SheetDescription>{t.addNoteDesc}</SheetDescription>
-                    </SheetHeader>
-                    <div className="space-y-3 px-4">
-                      <div className="space-y-1.5"><Label>{t.title}</Label><Input value={noteForm.title} onChange={(e) => setNoteForm((p) => ({ ...p, title: e.target.value }))} /></div>
-                      <div className="space-y-1.5">
-                        <Label>{t.description}</Label>
-                        <textarea
-                          className="min-h-28 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-                          value={noteForm.description}
-                          onChange={(e) => setNoteForm((p) => ({ ...p, description: e.target.value }))}
-                        />
-                      </div>
-                      <div className="space-y-1.5"><Label>{t.followUpDate}</Label><Input type="date" value={noteForm.followUpDate} onChange={(e) => setNoteForm((p) => ({ ...p, followUpDate: e.target.value }))} /></div>
-                    </div>
-                    <SheetFooter>
-                      <Button variant="outline" onClick={() => setIsNoteOpen(false)}>{t.cancel}</Button>
-                      <Button onClick={addNote} disabled={isSaving}>{isSaving ? t.saving : t.saveNote}</Button>
-                    </SheetFooter>
-                  </SheetContent>
-                </Sheet>
-
-                <Sheet
-                  open={isNoteEditOpen}
-                  onOpenChange={(open) => {
-                    setIsNoteEditOpen(open);
-                    if (!open) {
-                      setEditingNoteId(null);
-                    }
-                  }}
-                >
-                  <SheetContent side="right" className="w-full sm:max-w-lg">
-                    <SheetHeader>
-                      <SheetTitle>{t.editNote}</SheetTitle>
-                      <SheetDescription>{t.editNoteDesc}</SheetDescription>
-                    </SheetHeader>
-                    <div className="space-y-3 px-4">
-                      <div className="space-y-1.5"><Label>{t.title}</Label><Input value={editNoteForm.title} onChange={(e) => setEditNoteForm((p) => ({ ...p, title: e.target.value }))} /></div>
-                      <div className="space-y-1.5">
-                        <Label>{t.description}</Label>
-                        <textarea
-                          className="min-h-28 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-                          value={editNoteForm.description}
-                          onChange={(e) => setEditNoteForm((p) => ({ ...p, description: e.target.value }))}
-                        />
-                      </div>
-                      <div className="space-y-1.5"><Label>{t.followUpDate}</Label><Input type="date" value={editNoteForm.followUpDate} onChange={(e) => setEditNoteForm((p) => ({ ...p, followUpDate: e.target.value }))} /></div>
-                    </div>
-                    <SheetFooter>
-                      <Button variant="outline" onClick={() => setIsNoteEditOpen(false)}>{t.cancel}</Button>
-                      <Button onClick={updateNote} disabled={isNoteUpdating}>{isNoteUpdating ? t.saving : t.saveChanges}</Button>
-                    </SheetFooter>
-                  </SheetContent>
-                </Sheet>
+                <Button size="sm" variant="outline" asChild>
+                  <Link href={`/invoices/new?clientId=${clientId}`}>
+                    <ReceiptIcon className="size-3.5" />{t.createInvoice}
+                  </Link>
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setIsNoteOpen(true)}>
+                  <StickyNoteIcon className="size-3.5" />{t.addNote}
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setIsInteractionOpen(true)}>
+                  <PhoneCallIcon className="size-3.5" />{t.addInteraction}
+                </Button>
               </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="border-b">
-              <CardTitle>{t.timeline}</CardTitle>
-              <p className="text-sm text-muted-foreground">{t.timelineDesc}</p>
-            </CardHeader>
-            <CardContent className="space-y-3 pt-4">
-              {timeline.length === 0 ? (
-                <EmptyState message={t.timelineEmpty} />
-              ) : (
-                timeline.map((note) => (
-                  <div key={note._id} className="rounded-lg border border-l-4 border-border/70 border-l-emerald-400 p-3">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <h3 className="text-sm font-semibold">{note.title}</h3>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground">{new Date(note.createdAt).toLocaleString('en-US')}</span>
-                        <Button type="button" variant="ghost" size="icon-sm" onClick={() => openNoteEdit(note)}>
-                          <PencilIcon />
-                        </Button>
-                      </div>
-                    </div>
-                    <p className="mt-1 text-sm text-muted-foreground">{note.description}</p>
-                    {note.followUpDate ? (
-                      <p className="mt-2 text-xs text-sky-600 dark:text-sky-400">{t.followUp}: {new Date(note.followUpDate).toLocaleDateString('en-US')}</p>
-                    ) : null}
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        <Card>
-          <CardHeader className="border-b">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <CardTitle className="inline-flex items-center gap-2">
-                  <FileTextIcon className="size-4 text-muted-foreground" />
-                  {t.quotesTitle}
-                </CardTitle>
-                <p className="mt-0.5 text-sm text-muted-foreground">{t.quotesDesc}</p>
-              </div>
-              <Button size="sm" asChild>
-                <Link href="/quotes/new">{t.viewQuote}</Link>
-              </Button>
             </div>
-          </CardHeader>
-          <CardContent className="pt-4 space-y-3">
-            {/* Filters */}
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div className="relative w-full sm:max-w-xs">
-                <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder={t.quotesSearch}
-                  value={quoteSearch}
-                  onChange={(e) => setQuoteSearch(e.target.value)}
-                  className="pl-8 text-sm"
-                />
+
+            {/* ── Overdue tasks alert ───────────────────────────────────── */}
+            {overdueNotes.length > 0 ? (
+              <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50/70 px-4 py-3 dark:border-red-900/40 dark:bg-red-950/20">
+                <AlertTriangleIcon className="mt-0.5 size-4 shrink-0 text-red-500" />
+                <p className="text-sm">
+                  <span className="font-semibold text-red-700 dark:text-red-400">{overdueNotes.length} {t.overdue}</span>
+                  <span className="ml-1 text-red-600/80 dark:text-red-400/70">
+                    — {overdueNotes.slice(0, 2).map((n) => n.title).join(', ')}
+                    {overdueNotes.length > 2 ? ` +${overdueNotes.length - 2}` : ''}
+                  </span>
+                </p>
               </div>
-              <div className="flex flex-wrap gap-1.5">
-                {(['all', 'draft', 'sent', 'accepted', 'refused'] as const).map((s) => (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => setQuoteStatusFilter(s)}
-                    className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
-                      quoteStatusFilter === s
-                        ? 'border-primary bg-primary text-primary-foreground'
-                        : 'border-border bg-background text-muted-foreground hover:bg-secondary'
+            ) : null}
+
+            {/* ── Content grid ─────────────────────────────────────────── */}
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-[300px_1fr]">
+
+              {/* ── Left sidebar ─────────────────────────────────────────── */}
+              <div className="space-y-4">
+
+                {/* Profile */}
+                <Card>
+                  <CardHeader className="border-b pb-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <CardTitle className="text-base">{t.profile}</CardTitle>
+                      <div className="flex gap-1.5">
+                        <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => setIsEditOpen(true)}>
+                          <PencilIcon className="size-3" />{t.edit}
+                        </Button>
+                        <Button variant="destructive" size="sm" className="h-7 px-2 text-xs" onClick={() => setIsDeleteConfirmOpen(true)}>
+                          <Trash2Icon className="size-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-2 pt-4 text-sm">
+                    <InfoRow label={t.email} value={client.email} />
+                    <InfoRow label={t.phone} value={client.phone} />
+                    <InfoRow label={t.address} value={client.address} />
+                    <InfoRow label={t.company} value={client.companyName} />
+                    <InfoRow label={t.vatTax} value={client.vatNumber} />
+                  </CardContent>
+                </Card>
+
+                {/* Billing */}
+                <Card>
+                  <CardHeader className="border-b pb-3">
+                    <CardTitle className="text-base">{t.billing}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2 pt-4 text-sm">
+                    <InfoRow label={t.billingEmail} value={client.billingEmail} />
+                    <InfoRow label={t.billingAddress} value={client.billingAddress} />
+                    {!client.billingEmail && !client.billingAddress ? (
+                      <p className="text-xs italic text-muted-foreground/60">
+                        {t.noBillingDetails}{' '}
+                        <button type="button" className="text-primary hover:underline" onClick={() => setIsEditOpen(true)}>{t.addBillingNow}</button>
+                      </p>
+                    ) : null}
+                  </CardContent>
+                </Card>
+
+                {/* Stats */}
+                <Card>
+                  <CardContent className="grid grid-cols-3 divide-x divide-border/50 pt-4">
+                    <StatTile
+                      icon={<FileTextIcon className="size-4 text-primary" />}
+                      label={t.totalQuotes}
+                      value={String(quotes.length)}
+                    />
+                    <StatTile
+                      icon={<TrendingUpIcon className="size-4 text-emerald-500" />}
+                      label={t.totalRevenue}
+                      value={<PriceDisplay cents={totalRevenue} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="text-sm font-bold" />}
+                    />
+                    <StatTile
+                      icon={<ClipboardListIcon className="size-4 text-amber-500" />}
+                      label={t.notesLabel}
+                      value={String(timeline.length)}
+                    />
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* ── Tabs ─────────────────────────────────────────────────── */}
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="min-w-0">
+                <div className="mb-4 overflow-x-auto">
+                  <TabsList variant="line" className="w-full justify-start gap-0 rounded-none border-b border-border/60 bg-transparent p-0 h-auto">
+                    <TabTriggerStyled value="timeline">{t.timeline}</TabTriggerStyled>
+                    <TabTriggerStyled value="notes" badge={pendingNotes.length > 0 ? pendingNotes.length : undefined}>{t.notes}</TabTriggerStyled>
+                    <TabTriggerStyled value="interactions" badge={interactions.length > 0 ? interactions.length : undefined}>{t.interactions}</TabTriggerStyled>
+                    <TabTriggerStyled value="quotes" badge={quotes.length > 0 ? quotes.length : undefined}>{t.quotesTab}</TabTriggerStyled>
+                    <TabTriggerStyled value="attachments" badge={attachments.length > 0 ? attachments.length : undefined}>{t.attachments}</TabTriggerStyled>
+                  </TabsList>
+                </div>
+
+                {/* TIMELINE */}
+                <TabsContent value="timeline">
+                  {unifiedTimeline.length === 0 ? (
+                    <EmptyState message={t.noTimeline} />
+                  ) : (
+                    <ol className="relative ml-2 space-y-0 border-l border-border/50">
+                      {unifiedTimeline.map((event) => {
+                        if (event.kind === 'note') {
+                          return (
+                            <TimelineNoteItem
+                              key={`note-${event.item._id}`}
+                              note={event.item}
+                              dateFormatter={dateFormatter}
+                              onEdit={() => openNoteEdit(event.item)}
+                              followUpLabel={t.followUpLabel}
+                            />
+                          );
+                        }
+                        if (event.kind === 'interaction') {
+                          return (
+                            <TimelineInteractionItem
+                              key={`int-${event.item._id}`}
+                              interaction={event.item}
+                              dateFormatter={dateFormatter}
+                              onDelete={() => setDeletingInteractionId(event.item._id)}
+                              typeLabels={{ call: t.call, meeting: t.meeting, email: t.emailType, discussion: t.discussion }}
+                            />
+                          );
+                        }
+                        return (
+                          <TimelineQuoteItem
+                            key={`quote-${event.item._id}`}
+                            quote={event.item}
+                            locale={locale as 'en' | 'fr'}
+                            dateFormatter={dateFormatter}
+                            onSend={() => setSendTarget(event.item)}
+                          />
+                        );
+                      })}
+                    </ol>
+                  )}
+                </TabsContent>
+
+                {/* NOTES & TASKS */}
+                <TabsContent value="notes" className="space-y-4">
+                  {pendingNotes.length > 0 ? (
+                    <Card className="border-amber-200/70 bg-amber-50/40 dark:border-amber-900/30 dark:bg-amber-950/10">
+                      <CardHeader className="border-b border-amber-200/50 pb-2.5 dark:border-amber-900/30">
+                        <div className="flex items-center gap-2">
+                          <CalendarClockIcon className="size-4 text-amber-600 dark:text-amber-400" />
+                          <CardTitle className="text-sm text-amber-800 dark:text-amber-300">{t.pendingTasks}</CardTitle>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-2 pt-3">
+                        {overdueNotes.map((note) => (
+                          <PendingTaskRow key={note._id} note={note} status="overdue" overdueLabel={t.overdue} upcomingLabel={t.upcoming} locale={locale} onEdit={() => openNoteEdit(note)} />
+                        ))}
+                        {upcomingNotes.map((note) => (
+                          <PendingTaskRow key={note._id} note={note} status="upcoming" overdueLabel={t.overdue} upcomingLabel={t.upcoming} locale={locale} onEdit={() => openNoteEdit(note)} />
+                        ))}
+                      </CardContent>
+                    </Card>
+                  ) : null}
+
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold text-muted-foreground">{t.allNotes}</p>
+                    <Button size="sm" variant="outline" onClick={() => setIsNoteOpen(true)}>
+                      <PlusIcon className="size-3.5" />{t.addNote}
+                    </Button>
+                  </div>
+                  {timeline.length === 0 ? (
+                    <EmptyState message={t.noNotes} />
+                  ) : (
+                    <div className="space-y-3">
+                      {[...timeline]
+                        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                        .map((note) => (
+                          <NoteCard key={note._id} note={note} dateFormatter={dateFormatter} onEdit={() => openNoteEdit(note)} followUpLabel={t.followUpLabel} />
+                        ))}
+                    </div>
+                  )}
+                </TabsContent>
+
+                {/* INTERACTIONS */}
+                <TabsContent value="interactions" className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold text-muted-foreground">{t.allInteractions}</p>
+                    <Button size="sm" variant="outline" onClick={() => setIsInteractionOpen(true)}>
+                      <PlusIcon className="size-3.5" />{t.addInteraction}
+                    </Button>
+                  </div>
+                  {interactions.length === 0 ? (
+                    <EmptyState message={t.noInteractions} />
+                  ) : (
+                    <div className="space-y-3">
+                      {[...interactions]
+                        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                        .map((interaction) => (
+                          <InteractionCard
+                            key={interaction._id}
+                            interaction={interaction}
+                            dateFormatter={dateFormatter}
+                            onDelete={() => setDeletingInteractionId(interaction._id)}
+                            typeLabels={{ call: t.call, meeting: t.meeting, email: t.emailType, discussion: t.discussion }}
+                          />
+                        ))}
+                    </div>
+                  )}
+                </TabsContent>
+
+                {/* QUOTES */}
+                <TabsContent value="quotes">
+                  {quotesLoading ? (
+                    <div className="space-y-3">{[1,2,3].map((i) => <Skeleton key={i} className="h-20 w-full" />)}</div>
+                  ) : quotes.length === 0 ? (
+                    <EmptyState message={t.noQuotes} />
+                  ) : (
+                    <div className="space-y-3">
+                      {[...quotes]
+                        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                        .map((q) => {
+                          const bg =
+                            q.status === 'accepted' ? 'bg-green-50/70 dark:bg-green-950/15' :
+                            q.status === 'refused' || q.status === 'rejected' ? 'bg-red-50/70 dark:bg-red-950/15' :
+                            q.status === 'sent' ? 'bg-blue-50/70 dark:bg-blue-950/15' :
+                            '';
+                          return (
+                            <article key={q._id} className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/70 p-4 shadow-sm ${bg}`}>
+                              <div>
+                                <p className="text-sm font-semibold">{q.quoteNumber}</p>
+                                <p className="text-xs text-muted-foreground">{dateFormatter.format(new Date(q.date))}</p>
+                              </div>
+                              <QuoteStatusSummary status={q.status} statusChangedAt={q.statusChangedAt} locale={locale as 'en' | 'fr'} />
+                              <PriceDisplay cents={q.totalIncludingTax} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="text-sm font-semibold" />
+                              <div className="flex items-center gap-2">
+                                <Button variant="outline" size="sm" asChild>
+                                  <Link href={`/quotes/${q._id}`}><EyeIcon className="size-3.5" />{t.view}</Link>
+                                </Button>
+                                {q.status === 'draft' ? (
+                                  <Button size="sm" onClick={() => setSendTarget(q)}><SendIcon className="size-3.5" />{t.send}</Button>
+                                ) : null}
+                              </div>
+                            </article>
+                          );
+                        })}
+                    </div>
+                  )}
+                </TabsContent>
+
+                {/* ATTACHMENTS */}
+                <TabsContent value="attachments" className="space-y-4">
+                  <div
+                    onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                    onDragLeave={() => setIsDragging(false)}
+                    onDrop={handleDrop}
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed px-6 py-8 transition-colors ${
+                      isDragging ? 'border-primary bg-primary/5' : 'border-border/60 hover:border-primary/50 hover:bg-secondary/40'
                     }`}
                   >
-                    {s === 'all' ? t.quotesAll : s === 'draft' ? t.quotesDraft : s === 'sent' ? t.quotesSent : s === 'accepted' ? t.quotesAccepted : t.quotesRefused}
+                    <UploadCloudIcon className={`size-8 ${isUploading ? 'animate-pulse text-primary' : 'text-muted-foreground/60'}`} />
+                    <p className="text-sm text-muted-foreground">{isUploading ? t.uploading : t.dropHere}</p>
+                    <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileSelect} disabled={isUploading} />
+                  </div>
+
+                  {attachments.length === 0 ? (
+                    <EmptyState message={t.noAttachments} />
+                  ) : (
+                    <div className="space-y-2">
+                      {attachments.map((att) => (
+                        <AttachmentRow key={att._id} attachment={att} dateFormatter={dateFormatter} onDelete={() => setDeletingAttachmentId(att._id)} downloadLabel={t.download} openLabel={t.open} />
+                      ))}
+                    </div>
+                  )}
+                </TabsContent>
+              </Tabs>
+            </div>
+          </div>
+        )}
+      </CrmShell>
+
+      {/* ── Edit Client Sheet ────────────────────────────────────────────── */}
+      <Sheet open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-lg">
+          <SheetHeader>
+            <SheetTitle>{t.editClient}</SheetTitle>
+            <SheetDescription>{t.editClientDesc}</SheetDescription>
+          </SheetHeader>
+          <div className="space-y-3 px-4 pb-4">
+            <div className="space-y-1.5"><Label>{t.name}</Label><Input value={editForm.fullName} onChange={(e) => setEditForm((p) => ({ ...p, fullName: e.target.value }))} /></div>
+            <div className="space-y-1.5"><Label>{t.email}</Label><Input type="email" value={editForm.email} onChange={(e) => setEditForm((p) => ({ ...p, email: e.target.value }))} /></div>
+            <div className="space-y-1.5"><Label>{t.phone}</Label><Input value={editForm.phone} onChange={(e) => setEditForm((p) => ({ ...p, phone: e.target.value }))} /></div>
+            <div className="space-y-1.5"><Label>{t.address}</Label><Input value={editForm.address} onChange={(e) => setEditForm((p) => ({ ...p, address: e.target.value }))} /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5"><Label>{t.company}</Label><Input value={editForm.companyName} onChange={(e) => setEditForm((p) => ({ ...p, companyName: e.target.value }))} /></div>
+              <div className="space-y-1.5"><Label>{t.vatTax}</Label><Input value={editForm.vatNumber} onChange={(e) => setEditForm((p) => ({ ...p, vatNumber: e.target.value }))} /></div>
+            </div>
+            <div className="pt-2">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t.billing}</p>
+              <div className="space-y-3 rounded-lg border border-border/60 bg-secondary/20 p-3">
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label>{t.billingEmail}</Label>
+                    <button type="button" className="text-xs text-primary hover:underline" onClick={() => setEditForm((p) => ({ ...p, billingEmail: p.email }))}>{t.sameAsMain}</button>
+                  </div>
+                  <Input type="email" value={editForm.billingEmail} onChange={(e) => setEditForm((p) => ({ ...p, billingEmail: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label>{t.billingAddress}</Label>
+                    <button type="button" className="text-xs text-primary hover:underline" onClick={() => setEditForm((p) => ({ ...p, billingAddress: p.address }))}>{t.sameAsMain}</button>
+                  </div>
+                  <Input value={editForm.billingAddress} onChange={(e) => setEditForm((p) => ({ ...p, billingAddress: e.target.value }))} />
+                </div>
+              </div>
+            </div>
+          </div>
+          <SheetFooter>
+            <Button variant="outline" onClick={() => setIsEditOpen(false)}>{t.cancel}</Button>
+            <Button onClick={saveClient} disabled={isSaving}>{isSaving ? t.saving : t.saveChanges}</Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+
+      {/* ── Add Note Sheet ───────────────────────────────────────────────── */}
+      <Sheet open={isNoteOpen} onOpenChange={setIsNoteOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-lg">
+          <SheetHeader>
+            <SheetTitle>{t.addNoteTitle}</SheetTitle>
+            <SheetDescription>{t.addNoteDesc}</SheetDescription>
+          </SheetHeader>
+          <div className="space-y-3 px-4 pb-4">
+            <div className="space-y-1.5"><Label>{t.title}</Label><Input value={noteForm.title} onChange={(e) => setNoteForm((p) => ({ ...p, title: e.target.value }))} /></div>
+            <div className="space-y-1.5">
+              <Label>{t.description}</Label>
+              <textarea className="min-h-28 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50" value={noteForm.description} onChange={(e) => setNoteForm((p) => ({ ...p, description: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5"><Label>{t.followUpDate}</Label><Input type="date" value={noteForm.followUpDate} onChange={(e) => setNoteForm((p) => ({ ...p, followUpDate: e.target.value }))} /></div>
+          </div>
+          <SheetFooter>
+            <Button variant="outline" onClick={() => setIsNoteOpen(false)}>{t.cancel}</Button>
+            <Button onClick={addNote} disabled={isSaving}>{isSaving ? t.saving : t.saveNote}</Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+
+      {/* ── Edit Note Sheet ──────────────────────────────────────────────── */}
+      <Sheet open={isNoteEditOpen} onOpenChange={(open) => { setIsNoteEditOpen(open); if (!open) setEditingNoteId(null); }}>
+        <SheetContent side="right" className="w-full sm:max-w-lg">
+          <SheetHeader>
+            <SheetTitle>{t.editNote}</SheetTitle>
+            <SheetDescription>{t.editNoteDesc}</SheetDescription>
+          </SheetHeader>
+          <div className="space-y-3 px-4 pb-4">
+            <div className="space-y-1.5"><Label>{t.title}</Label><Input value={editNoteForm.title} onChange={(e) => setEditNoteForm((p) => ({ ...p, title: e.target.value }))} /></div>
+            <div className="space-y-1.5">
+              <Label>{t.description}</Label>
+              <textarea className="min-h-28 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50" value={editNoteForm.description} onChange={(e) => setEditNoteForm((p) => ({ ...p, description: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5"><Label>{t.followUpDate}</Label><Input type="date" value={editNoteForm.followUpDate} onChange={(e) => setEditNoteForm((p) => ({ ...p, followUpDate: e.target.value }))} /></div>
+          </div>
+          <SheetFooter>
+            <Button variant="outline" onClick={() => setIsNoteEditOpen(false)}>{t.cancel}</Button>
+            <Button onClick={updateNote} disabled={isNoteUpdating}>{isNoteUpdating ? t.saving : t.saveChanges}</Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+
+      {/* ── Add Interaction Sheet ────────────────────────────────────────── */}
+      <Sheet open={isInteractionOpen} onOpenChange={setIsInteractionOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-lg">
+          <SheetHeader>
+            <SheetTitle>{t.addInteractionTitle}</SheetTitle>
+            <SheetDescription>{t.addInteractionDesc}</SheetDescription>
+          </SheetHeader>
+          <div className="space-y-3 px-4 pb-4">
+            <div className="space-y-1.5">
+              <Label>{t.interactionType}</Label>
+              <div className="grid grid-cols-4 gap-1.5">
+                {(['call', 'meeting', 'email', 'discussion'] as InteractionType[]).map((type) => (
+                  <button key={type} type="button" onClick={() => setInteractionForm((p) => ({ ...p, type }))}
+                    className={`flex flex-col items-center gap-1.5 rounded-lg border py-2.5 text-xs font-medium transition-colors ${interactionForm.type === type ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-secondary'}`}>
+                    <span className="flex items-center justify-center [&_svg]:size-4">{INTERACTION_ICONS[type]}</span>
+                    <span>{type === 'email' ? t.emailType : type === 'call' ? t.call : type === 'meeting' ? t.meeting : t.discussion}</span>
                   </button>
                 ))}
               </div>
             </div>
+            <div className="space-y-1.5"><Label>{t.interactionTitle}</Label><Input value={interactionForm.title} onChange={(e) => setInteractionForm((p) => ({ ...p, title: e.target.value }))} /></div>
+            <div className="space-y-1.5">
+              <Label>{t.interactionNotes}</Label>
+              <textarea className="min-h-20 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50" value={interactionForm.notes} onChange={(e) => setInteractionForm((p) => ({ ...p, notes: e.target.value }))} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5"><Label>{t.interactionDate}</Label><Input type="date" value={interactionForm.date} onChange={(e) => setInteractionForm((p) => ({ ...p, date: e.target.value }))} /></div>
+              <div className="space-y-1.5"><Label>{t.interactionFollowUp}</Label><Input type="date" value={interactionForm.followUpDate} onChange={(e) => setInteractionForm((p) => ({ ...p, followUpDate: e.target.value }))} /></div>
+            </div>
+          </div>
+          <SheetFooter>
+            <Button variant="outline" onClick={() => setIsInteractionOpen(false)}>{t.cancel}</Button>
+            <Button onClick={addInteraction} disabled={isAddingInteraction}>{isAddingInteraction ? t.saving : t.saveInteraction}</Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
 
-            {/* Table */}
-            {quotesLoading ? (
-              <div className="space-y-3">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="space-y-2 rounded-xl border border-border/70 p-3">
-                    <div className="h-4 w-32 animate-pulse rounded bg-muted" />
-                    <div className="h-4 w-24 animate-pulse rounded bg-muted" />
-                    <div className="h-8 w-full animate-pulse rounded bg-muted" />
-                  </div>
-                ))}
-              </div>
-            ) : filteredQuotes.length === 0 ? (
-              <EmptyState message={t.quotesEmpty} />
-            ) : (
-              <>
-                <div className="space-y-3 md:hidden">
-                  {filteredQuotes.map((q) => (
-                    <article key={q._id} className="space-y-2.5 rounded-xl border border-border/70 bg-card/80 p-3.5 shadow-sm">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-semibold text-(--color-text-info)">{q.quoteNumber}</p>
-                          <p className="mt-0.5 text-xs text-muted-foreground">
-                            {new Intl.DateTimeFormat(locale === 'fr' ? 'fr-FR' : 'en-GB', {
-                              day: '2-digit',
-                              month: 'short',
-                              year: 'numeric',
-                            }).format(new Date(q.date))}
-                          </p>
-                        </div>
-                        <QuoteStatusSummary status={q.status} statusChangedAt={q.statusChangedAt} locale={locale as 'en' | 'fr'} className="items-end text-right" />
-                      </div>
+      {/* ── Delete Client ────────────────────────────────────────────────── */}
+      <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t.deleteTitle}</AlertDialogTitle>
+            <AlertDialogDescription>{t.deleteDesc}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel asChild><Button variant="outline">{t.cancel}</Button></AlertDialogCancel>
+            <AlertDialogAction asChild onClick={(e) => { e.preventDefault(); if (!isDeletingClient) void removeClient(); }}>
+              <Button variant="destructive" disabled={isDeletingClient}>{isDeletingClient ? t.deleting : t.deleteClient}</Button>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
-                      <div className="rounded-lg border border-border/60 bg-background px-2.5 py-2 text-xs">
-                        <p className="text-muted-foreground">{t.colTotal}</p>
-                        <p className="mt-0.5 text-sm font-semibold">
-                          <PriceDisplay cents={q.totalIncludingTax} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} />
-                        </p>
-                      </div>
+      {/* ── Delete Interaction ───────────────────────────────────────────── */}
+      <AlertDialog open={Boolean(deletingInteractionId)} onOpenChange={(open) => { if (!open) setDeletingInteractionId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t.deleteInteractionTitle}</AlertDialogTitle>
+            <AlertDialogDescription>{t.deleteInteractionDesc}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel asChild><Button variant="outline">{t.cancel}</Button></AlertDialogCancel>
+            <AlertDialogAction asChild onClick={(e) => { e.preventDefault(); void confirmDeleteInteraction(); }}>
+              <Button variant="destructive">{t.deleteInteraction}</Button>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
-                      <div className="grid grid-cols-2 gap-2">
-                        <Button variant="outline" size="sm" className={`h-9 ${q.status !== 'draft' ? 'col-span-2' : ''}`} asChild>
-                          <Link href={`/quotes/${q._id}`}>
-                            <EyeIcon className="size-3.5" />
-                            {t.viewQuote}
-                          </Link>
-                        </Button>
+      {/* ── Delete Attachment ────────────────────────────────────────────── */}
+      <AlertDialog open={Boolean(deletingAttachmentId)} onOpenChange={(open) => { if (!open) setDeletingAttachmentId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t.attachmentDeleteTitle}</AlertDialogTitle>
+            <AlertDialogDescription>{t.attachmentDeleteDesc}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel asChild><Button variant="outline">{t.cancel}</Button></AlertDialogCancel>
+            <AlertDialogAction asChild onClick={(e) => { e.preventDefault(); void confirmDeleteAttachment(); }}>
+              <Button variant="destructive">{t.delete}</Button>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
-                        {q.status === 'draft' ? (
-                          <Button type="button" size="sm" className="h-9" onClick={() => setSendTarget(q)}>
-                            <SendIcon className="size-3.5" />
-                            {t.sendQuote}
-                          </Button>
-                        ) : null}
-                      </div>
-                    </article>
-                  ))}
-                </div>
-
-                <div className="hidden overflow-x-auto rounded-lg border border-border/70 md:block">
-                  <table className="min-w-full text-sm">
-                    <thead className="bg-secondary/40 text-muted-foreground">
-                      <tr>
-                        <th className="px-3 py-2 text-left font-medium">{t.colQuoteNo}</th>
-                        <th className="px-3 py-2 text-left font-medium">{t.colDate}</th>
-                        <th className="px-3 py-2 text-right font-medium">{t.colTotal}</th>
-                        <th className="px-3 py-2 text-left font-medium">{t.colStatus}</th>
-                        <th className="px-3 py-2 text-right font-medium">{t.colActions}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredQuotes.map((q, index) => (
-                        <tr key={q._id} className={`border-t border-border/60 ${index % 2 === 1 ? 'bg-secondary/10' : 'bg-background'}`}>
-                          <td className="px-3 py-2 font-semibold">{q.quoteNumber}</td>
-                          <td className="px-3 py-2 whitespace-nowrap text-muted-foreground">
-                            {new Intl.DateTimeFormat(locale === 'fr' ? 'fr-FR' : 'en-GB', {
-                              day: '2-digit',
-                              month: 'short',
-                              year: 'numeric',
-                            }).format(new Date(q.date))}
-                          </td>
-                          <td className="px-3 py-2 text-right font-medium">
-                            <PriceDisplay cents={q.totalIncludingTax} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} />
-                          </td>
-                          <td className="px-3 py-2">
-                            <QuoteStatusSummary status={q.status} statusChangedAt={q.statusChangedAt} locale={locale as 'en' | 'fr'} />
-                          </td>
-                          <td className="px-3 py-2 text-right">
-                            <div className="inline-flex items-center gap-1.5">
-                              <Button variant="ghost" size="sm" asChild>
-                                <Link href={`/quotes/${q._id}`}>
-                                  <EyeIcon className="size-3.5" />
-                                  {t.viewQuote}
-                                </Link>
-                              </Button>
-
-                              {q.status === 'draft' ? (
-                                <Button type="button" variant="outline" size="sm" onClick={() => setSendTarget(q)}>
-                                  <SendIcon className="size-3.5" />
-                                  {t.sendQuote}
-                                </Button>
-                              ) : null}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
-        </div>
-      )}
-    </CrmShell>
-
-    {sendTarget ? (
-      <SendQuoteModal
-        open={Boolean(sendTarget)}
-        onOpenChange={(next) => (!next ? setSendTarget(null) : undefined)}
-        quoteId={sendTarget!._id}
-        quoteNumber={sendTarget!.quoteNumber}
-        clientEmail={client?.email}
-        clientName={client?.fullName}
-        companyName={undefined}
-        locale={locale as 'en' | 'fr'}
-        quoteStatus={sendTarget.status}
-        onSent={() => {
-          void loadQuotes();
-        }}
-      />
-    ) : null}
+      {/* ── Send Quote Modal ─────────────────────────────────────────────── */}
+      {sendTarget ? (
+        <SendQuoteModal
+          open={Boolean(sendTarget)}
+          onOpenChange={(next) => (!next ? setSendTarget(null) : undefined)}
+          quoteId={sendTarget._id}
+          quoteNumber={sendTarget.quoteNumber}
+          clientEmail={client?.email}
+          clientName={client?.fullName}
+          companyName={client?.companyName}
+          quoteStatus={sendTarget.status}
+          locale={locale as 'en' | 'fr'}
+          onSent={() => { setSendTarget(null); void loadQuotes(); }}
+        />
+      ) : null}
     </>
+  );
+}
+
+
+function TabTriggerStyled({ value, children, badge }: { value: string; children: React.ReactNode; badge?: number }) {
+  return (
+    <TabsTrigger value={value} className="h-auto flex-none gap-1.5 rounded-none border-0 px-3 pb-2.5 pt-1 text-sm font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none dark:data-[state=active]:bg-transparent dark:data-[state=active]:border-0">
+      {children}
+      {badge != null ? (
+        <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">{badge}</span>
+      ) : null}
+    </TabsTrigger>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value?: string | null }) {
+  return (
+    <div className="flex items-start gap-2">
+      <span className="w-28 shrink-0 text-xs text-muted-foreground">{label}</span>
+      <span className="min-w-0 flex-1 wrap-break-word text-sm">{value || <span className="text-muted-foreground/40">—</span>}</span>
+    </div>
+  );
+}
+
+function StatTile({ icon, label, value }: { icon: React.ReactNode; label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex flex-col items-center gap-1 px-2 py-3 text-center">
+      {icon}
+      <p className="text-[10px] text-muted-foreground">{label}</p>
+      <div className="text-sm font-bold">{value}</div>
+    </div>
+  );
+}
+
+function TimelineNoteItem({ note, dateFormatter, onEdit, followUpLabel }: {
+  note: NoteItem; dateFormatter: Intl.DateTimeFormat; onEdit: () => void; followUpLabel: string;
+}) {
+  return (
+    <li className="mb-6 ml-4">
+      <span className="absolute -left-1.5 mt-1.5 size-3 rounded-full border border-border bg-emerald-400" />
+      <div className="rounded-lg border border-l-4 border-border/70 border-l-emerald-400 bg-emerald-50/60 p-4 dark:bg-emerald-950/20">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5">
+            <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">Note</span>
+            <h3 className="text-sm font-semibold">{note.title}</h3>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">{dateFormatter.format(new Date(note.createdAt))}</span>
+            <Button type="button" variant="ghost" size="icon-sm" onClick={onEdit}><PencilIcon className="size-3.5" /></Button>
+          </div>
+        </div>
+        <p className="mt-1 text-sm text-muted-foreground">{note.description}</p>
+        {note.followUpDate ? (
+          <p className="mt-2 flex items-center gap-1 text-xs text-sky-600 dark:text-sky-400">
+            <ClockIcon className="size-3" />{followUpLabel}: {dateFormatter.format(new Date(note.followUpDate))}
+          </p>
+        ) : null}
+      </div>
+    </li>
+  );
+}
+
+function TimelineInteractionItem({ interaction, dateFormatter, onDelete, typeLabels }: {
+  interaction: InteractionItem; dateFormatter: Intl.DateTimeFormat; onDelete: () => void;
+  typeLabels: Record<InteractionType, string>;
+}) {
+  const colorClass = INTERACTION_COLORS[interaction.type];
+  const dotClass = INTERACTION_DOT_COLORS[interaction.type];
+  return (
+    <li className="mb-6 ml-4">
+      <span className={`absolute -left-1.5 mt-1.5 size-3 rounded-full border border-border ${dotClass}`} />
+      <div className={`rounded-lg border border-l-4 border-border/70 p-4 ${colorClass}`}>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5">
+            <span className="inline-flex items-center gap-1 rounded bg-background/60 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{INTERACTION_ICONS[interaction.type]} {typeLabels[interaction.type]}</span>
+            <h3 className="text-sm font-semibold">{interaction.title}</h3>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">{dateFormatter.format(new Date(interaction.date))}</span>
+            <Button type="button" variant="ghost" size="icon-sm" onClick={onDelete}><Trash2Icon className="size-3.5" /></Button>
+          </div>
+        </div>
+        {interaction.notes ? <p className="mt-1 text-sm text-muted-foreground">{interaction.notes}</p> : null}
+        {interaction.followUpDate ? (
+          <p className="mt-2 flex items-center gap-1 text-xs text-sky-600 dark:text-sky-400">
+            <ClockIcon className="size-3" />Follow-up: {dateFormatter.format(new Date(interaction.followUpDate))}
+          </p>
+        ) : null}
+      </div>
+    </li>
+  );
+}
+
+function TimelineQuoteItem({ quote, locale, dateFormatter, onSend }: {
+  quote: ClientQuote; locale: 'en' | 'fr'; dateFormatter: Intl.DateTimeFormat;
+  onSend: () => void;
+}) {
+  const accentColor =
+    quote.status === 'accepted' ? 'border-l-green-500' :
+    quote.status === 'refused' || quote.status === 'rejected' ? 'border-l-red-400' :
+    quote.status === 'sent' ? 'border-l-blue-400' : 'border-l-border';
+  const bgColor =
+    quote.status === 'accepted' ? 'bg-green-50/80 dark:bg-green-950/20' :
+    quote.status === 'refused' || quote.status === 'rejected' ? 'bg-red-50/80 dark:bg-red-950/20' :
+    quote.status === 'sent' ? 'bg-blue-50/80 dark:bg-blue-950/20' : 'bg-zinc-50/80 dark:bg-zinc-900/20';
+  const dotColor =
+    quote.status === 'accepted' ? 'bg-green-500' :
+    quote.status === 'refused' || quote.status === 'rejected' ? 'bg-red-400' :
+    quote.status === 'sent' ? 'bg-blue-400' : 'bg-muted-foreground/40';
+  return (
+    <li className="mb-6 ml-4">
+      <span className={`absolute -left-1.5 mt-1.5 size-3 rounded-full border border-border ${dotColor}`} />
+      <div className={`rounded-lg border border-l-4 border-border/70 p-4 ${accentColor} ${bgColor}`}>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="rounded bg-secondary px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Quote</span>
+            <span className="text-sm font-semibold">{quote.quoteNumber}</span>
+            <QuoteStatusSummary status={quote.status} statusChangedAt={quote.statusChangedAt} locale={locale} />
+          </div>
+          <div className="flex items-center gap-2">
+            <PriceDisplay cents={quote.totalIncludingTax} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="text-xs font-semibold" />
+            <Button variant="ghost" size="icon-sm" asChild>
+              <Link href={`/quotes/${quote._id}`}><EyeIcon className="size-3.5" /></Link>
+            </Button>
+            {quote.status === 'draft' ? (
+              <Button variant="ghost" size="icon-sm" onClick={onSend}><SendIcon className="size-3.5" /></Button>
+            ) : null}
+          </div>
+        </div>
+        <p className="mt-1 text-xs text-muted-foreground">{dateFormatter.format(new Date(quote.date))}</p>
+      </div>
+    </li>
+  );
+}
+
+function NoteCard({ note, dateFormatter, onEdit, followUpLabel }: {
+  note: NoteItem; dateFormatter: Intl.DateTimeFormat; onEdit: () => void; followUpLabel: string;
+}) {
+  const isOverdue = note.followUpDate && new Date(note.followUpDate) < new Date();
+  return (
+    <div className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold">{note.title}</p>
+          <p className="mt-0.5 text-sm text-muted-foreground">{note.description}</p>
+        </div>
+        <Button variant="ghost" size="icon-sm" onClick={onEdit}><PencilIcon className="size-3.5" /></Button>
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <span className="text-[11px] text-muted-foreground">{dateFormatter.format(new Date(note.createdAt))}</span>
+        {note.followUpDate ? (
+          <span className={`flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium ${isOverdue ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' : 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300'}`}>
+            {isOverdue ? <AlertTriangleIcon className="size-3" /> : <ClockIcon className="size-3" />}
+            {followUpLabel}: {dateFormatter.format(new Date(note.followUpDate))}
+          </span>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function PendingTaskRow({ note, status, overdueLabel, upcomingLabel, locale, onEdit }: {
+  note: NoteItem; status: 'overdue' | 'upcoming'; overdueLabel: string; upcomingLabel: string; locale: string; onEdit: () => void;
+}) {
+  const dateStr = note.followUpDate
+    ? new Intl.DateTimeFormat(locale === 'fr' ? 'fr-FR' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(note.followUpDate))
+    : '';
+  return (
+    <div className={`flex items-start justify-between gap-3 rounded-lg border p-3 ${status === 'overdue' ? 'border-red-200/60 bg-red-50/40 dark:border-red-900/30 dark:bg-red-950/10' : 'border-sky-200/60 bg-sky-50/40 dark:border-sky-900/30 dark:bg-sky-950/10'}`}>
+      <div className="flex items-center gap-2">
+        {status === 'overdue' ? <AlertTriangleIcon className="mt-0.5 size-3.5 shrink-0 text-red-500" /> : <ClockIcon className="mt-0.5 size-3.5 shrink-0 text-sky-500" />}
+        <div>
+          <p className="text-sm font-medium">{note.title}</p>
+          <p className="flex items-center gap-1 text-[11px] text-muted-foreground">
+            <span className={`font-semibold ${status === 'overdue' ? 'text-red-600 dark:text-red-400' : 'text-sky-600 dark:text-sky-400'}`}>{status === 'overdue' ? overdueLabel : upcomingLabel}</span>
+            · {dateStr}
+          </p>
+        </div>
+      </div>
+      <Button variant="ghost" size="icon-sm" onClick={onEdit}><PencilIcon className="size-3.5" /></Button>
+    </div>
+  );
+}
+
+function InteractionCard({ interaction, dateFormatter, onDelete, typeLabels }: {
+  interaction: InteractionItem; dateFormatter: Intl.DateTimeFormat; onDelete: () => void;
+  typeLabels: Record<InteractionType, string>;
+}) {
+  const colorClass = INTERACTION_COLORS[interaction.type];
+  return (
+    <div className={`rounded-xl border border-l-4 border-border/70 p-4 shadow-sm ${colorClass}`}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-1.5">
+          <span className="inline-flex items-center gap-1 rounded bg-background/60 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{INTERACTION_ICONS[interaction.type]} {typeLabels[interaction.type]}</span>
+          <p className="text-sm font-semibold">{interaction.title}</p>
+        </div>
+        <Button variant="ghost" size="icon-sm" onClick={onDelete}><Trash2Icon className="size-3.5 text-muted-foreground" /></Button>
+      </div>
+      {interaction.notes ? <p className="mt-1 text-sm text-muted-foreground">{interaction.notes}</p> : null}
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <span className="text-[11px] text-muted-foreground">{dateFormatter.format(new Date(interaction.date))}</span>
+        {interaction.followUpDate ? (
+          <span className="flex items-center gap-1 rounded-md bg-sky-100 px-1.5 py-0.5 text-[11px] font-medium text-sky-700 dark:bg-sky-900/30 dark:text-sky-300">
+            <ClockIcon className="size-3" />Follow-up: {dateFormatter.format(new Date(interaction.followUpDate))}
+          </span>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function AttachmentRow({ attachment, dateFormatter, onDelete, downloadLabel, openLabel }: {
+  attachment: AttachmentItem; dateFormatter: Intl.DateTimeFormat; onDelete: () => void; downloadLabel: string; openLabel: string;
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-border/70 bg-card px-4 py-3 shadow-sm">
+      <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-secondary text-muted-foreground">
+        {isImageType(attachment.fileType) ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={attachment.fileUrl} alt={attachment.fileName} className="size-9 rounded-lg object-cover" />
+        ) : (
+          <FileTextIcon className="size-4" />
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium">{attachment.fileName}</p>
+        <p className="text-[11px] text-muted-foreground">
+          {dateFormatter.format(new Date(attachment.createdAt))}
+          {attachment.fileSize ? ` · ${formatFileSize(attachment.fileSize)}` : ''}
+        </p>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <Button variant="outline" size="sm" className="h-7 px-2 text-xs" asChild>
+          <a href={attachment.fileUrl} target="_blank" rel="noopener noreferrer">{openLabel}</a>
+        </Button>
+        <Button variant="outline" size="sm" className="h-7 px-2 text-xs" asChild>
+          <a href={attachment.fileUrl} target="_blank" rel="noopener noreferrer" download={attachment.fileName}>{downloadLabel}</a>
+        </Button>
+        <Button variant="ghost" size="icon-sm" onClick={onDelete}><Trash2Icon className="size-3.5 text-muted-foreground" /></Button>
+      </div>
+    </div>
   );
 }

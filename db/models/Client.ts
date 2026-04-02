@@ -45,6 +45,19 @@ const ClientSchema = new mongoose.Schema(
       trim: true,
       default: null,
     },
+
+    billingEmail: {
+      type: String,
+      lowercase: true,
+      trim: true,
+      default: null,
+    },
+
+    billingAddress: {
+      type: String,
+      trim: true,
+      default: null,
+    },
   },
   { timestamps: true }
 );

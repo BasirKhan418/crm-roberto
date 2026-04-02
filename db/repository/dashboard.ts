@@ -19,6 +19,7 @@ export interface DashboardActivityItem {
   action: string;
   entityType: string;
   entityName: string;
+  entityId?: string | null;
   createdAt: Date;
 }
 
@@ -135,7 +136,7 @@ export const getDashboardActivity = async (userId: string): Promise<DashboardAct
   const rows = await ActivityLog.find({ user: userId })
     .sort({ createdAt: -1 })
     .limit(10)
-    .select('_id action entityType entityName createdAt')
+    .select('_id action entityType entityName entityId createdAt')
     .lean();
 
   return rows as DashboardActivityItem[];

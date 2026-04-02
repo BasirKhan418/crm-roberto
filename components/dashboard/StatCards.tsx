@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Users, Package, StickyNote, FileText, TrendingUp } from 'lucide-react';
 
@@ -102,6 +103,7 @@ export default function StatCards() {
       iconBg: 'bg-primary/8 dark:bg-primary/15',
       iconColor: 'text-primary dark:text-primary/80',
       numColor: 'text-primary dark:text-primary/80',
+      href: '/clients',
     },
     {
       label: t.totalSuppliers,
@@ -113,6 +115,7 @@ export default function StatCards() {
       iconBg: 'bg-primary/8 dark:bg-primary/15',
       iconColor: 'text-primary dark:text-primary/80',
       numColor: 'text-primary dark:text-primary/80',
+      href: '/suppliers',
     },
     {
       label: t.totalNotes,
@@ -124,6 +127,7 @@ export default function StatCards() {
       iconBg: 'bg-primary/8 dark:bg-primary/15',
       iconColor: 'text-primary dark:text-primary/80',
       numColor: 'text-primary dark:text-primary/80',
+      href: '/notes',
     },
     {
       label: t.totalQuotes,
@@ -135,6 +139,7 @@ export default function StatCards() {
       iconBg: 'bg-primary/8 dark:bg-primary/15',
       iconColor: 'text-primary dark:text-primary/80',
       numColor: 'text-primary dark:text-primary/80',
+      href: '/quotes',
     },
     {
       label: t.acceptedValue,
@@ -146,6 +151,7 @@ export default function StatCards() {
       iconBg: 'bg-primary/8 dark:bg-primary/15',
       iconColor: 'text-primary dark:text-primary/80',
       numColor: 'text-primary dark:text-primary/80',
+      href: '/quotes?status=accepted',
     },
   ] as const;
 
@@ -158,9 +164,10 @@ export default function StatCards() {
       ) : null}
 
       {CARDS.map((card) => (
-        <div
+        <Link
           key={card.label}
-          className={`rounded-xl bg-card px-5 py-4 shadow-sm ${card.border}`}
+          href={card.href}
+          className={`rounded-xl bg-card px-5 py-4 shadow-sm transition-shadow hover:shadow-md cursor-pointer ${card.border}`}
         >
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
@@ -186,7 +193,7 @@ export default function StatCards() {
               <card.Icon className={`size-5 ${card.iconColor}`} strokeWidth={1.75} />
             </div>
           </div>
-        </div>
+        </Link>
       ))}
     </section>
   );

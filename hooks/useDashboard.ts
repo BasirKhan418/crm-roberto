@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
-export type ActivityEntityType = 'client' | 'supplier' | 'note';
+export type ActivityEntityType = 'client' | 'supplier' | 'note' | 'quote';
 
 export interface ActivityItem {
   _id?: string;
   action?: string;
   entityType?: ActivityEntityType | string;
   entityName?: string;
+  entityId?: string | null;
   createdAt?: string;
 }
 

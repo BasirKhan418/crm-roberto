@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
 import { Users, Package, StickyNote, FileText, Activity, ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -9,6 +10,23 @@ import ErrorMessage from '@/components/ui/ErrorMessage';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { ActivityItem } from '@/hooks/useDashboard';
 import { useLocale } from '@/components/providers/locale-provider';
+
+const ENTITY_TO_PATH: Record<string, string> = {
+  client: 'clients',
+  supplier: 'suppliers',
+  quote: 'quotes',
+};
+
+function buildActivityPath(item: ActivityItem): string | null {
+  const isDeleted = item.action?.endsWith('_deleted');
+  if (isDeleted) return null;
+  const entityType = item.entityType;
+  if (!entityType) return null;
+  if (entityType === 'note') return '/notes';
+  const basePath = ENTITY_TO_PATH[entityType];
+  if (!basePath) return null;
+  return item.entityId ? `/${basePath}/${item.entityId}` : `/${basePath}`;
+}
 
 const ENTITY_CONFIG = {
   client: {
@@ -179,12 +197,12 @@ export default function ActivityFeed({ activity = [], loading = false, error = n
                 ? (ACTION_HEADLINE[locale as 'en' | 'fr'][item.action] ?? item.action)
                 : 'Activity';
               const isDeleted = item.action?.endsWith('_deleted');
+              const path = buildActivityPath(item);
+              const key = item._id ?? `${item.createdAt ?? 'activity'}-${index}`;
+              const rowClasses = `flex items-start gap-3.5 px-5 py-3.5 transition-colors hover:bg-muted/30${path ? ' cursor-pointer' : ''}`;
 
-              return (
-                <div
-                  key={item._id ?? `${item.createdAt ?? 'activity'}-${index}`}
-                  className="flex items-start gap-3.5 px-5 py-3.5 transition-colors hover:bg-muted/30"
-                >
+              const rowInner = (
+                <>
                   <div className={`mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full ${entityCfg.iconBg}`}>
                     <entityCfg.Icon className={`size-4 ${entityCfg.iconText}`} strokeWidth={1.75} />
                   </div>
@@ -211,6 +229,16 @@ export default function ActivityFeed({ activity = [], loading = false, error = n
                       {relativeTime(item.createdAt)}
                     </span>
                   </div>
+                </>
+              );
+
+              return path ? (
+                <Link key={key} href={path} className={rowClasses}>
+                  {rowInner}
+                </Link>
+              ) : (
+                <div key={key} className={rowClasses}>
+                  {rowInner}
                 </div>
               );
             })}

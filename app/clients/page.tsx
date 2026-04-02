@@ -13,8 +13,11 @@ import EmptyState from '@/components/ui/EmptyState';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PriceDisplay } from '@/components/ui/PriceDisplay';
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
+import { StatusBadge } from '@/components/ui/StatusBadge';
+import type { QuoteStatus } from '@/components/ui/StatusBadge';
 
 interface Client {
   _id: string;
@@ -25,6 +28,9 @@ interface Client {
   companyName?: string | null;
   vatNumber?: string | null;
   createdAt: string;
+  lastQuoteStatus?: QuoteStatus | null;
+  lastQuoteDate?: string | null;
+  totalRevenue?: number;
 }
 
 interface Pagination {
@@ -380,6 +386,18 @@ export default function ClientsPage() {
                     </p>
                   ) : null}
                 </div>
+
+                {/* Quote status + revenue badge row */}
+                {client.lastQuoteStatus ? (
+                  <div className="flex items-center justify-between gap-2">
+                    <StatusBadge status={client.lastQuoteStatus} />
+                    {client.totalRevenue ? (
+                      <span className="text-[11px] font-medium text-muted-foreground">
+                        <PriceDisplay cents={client.totalRevenue} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} />
+                      </span>
+                    ) : null}
+                  </div>
+                ) : null}
 
                 {/* Footer */}
                 <div className="flex items-center justify-between border-t border-border/50 pt-3">

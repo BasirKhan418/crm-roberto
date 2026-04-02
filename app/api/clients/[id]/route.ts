@@ -7,6 +7,8 @@ import {
   listClientTimelineNotes,
   updateClientById,
 } from '@/db/repository/client';
+import { listClientInteractions } from '@/db/repository/interaction';
+import { listClientAttachments } from '@/db/repository/attachment';
 import { parseListQuery } from '@/utils/api/query';
 import { buildValidationError } from '@/utils/api/validation';
 import getMe from '@/utils/middlewares/useMe';
@@ -37,17 +39,23 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       maxLimit: 100,
     });
 
-    const timeline = await listClientTimelineNotes(me.user.id, id, {
-      page: timelineOptions.page,
-      limit: timelineOptions.limit,
-      search: timelineOptions.search,
-    });
+    const [timeline, interactions, attachments] = await Promise.all([
+      listClientTimelineNotes(me.user.id, id, {
+        page: timelineOptions.page,
+        limit: timelineOptions.limit,
+        search: timelineOptions.search,
+      }),
+      listClientInteractions(me.user.id, id),
+      listClientAttachments(me.user.id, id),
+    ]);
 
     return NextResponse.json({
       success: true,
       data: {
         client,
         timeline: timeline.notes,
+        interactions,
+        attachments,
       },
       pagination: timeline.pagination,
     });
