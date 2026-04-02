@@ -7,7 +7,7 @@ import {
   View,
 } from '@react-pdf/renderer';
 
-type QuoteStatus = 'draft' | 'sent' | 'accepted' | 'refused';
+type QuoteStatus = 'draft' | 'sent' | 'accepted' | 'refused' | 'rejected';
 
 interface CompanyData {
   companyName?: string;
@@ -104,6 +104,7 @@ const translations = {
     statusSent: 'SENT',
     statusAccepted: 'ACCEPTED',
     statusRefused: 'REFUSED',
+    statusRejected: 'REJECTED',
   },
   fr: {
     quote: 'DEVIS',
@@ -143,6 +144,7 @@ const translations = {
     statusSent: 'ENVOYE',
     statusAccepted: 'ACCEPTE',
     statusRefused: 'REFUSE',
+    statusRejected: 'REFUSE (CLIENT)',
   },
 } as const;
 
@@ -496,6 +498,7 @@ function formatStatus(status: QuoteStatus, t: (typeof translations)[keyof typeof
     sent: t.statusSent,
     accepted: t.statusAccepted,
     refused: t.statusRefused,
+    rejected: t.statusRejected,
   };
   return map[status];
 }
