@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 import { CopyIcon, DownloadIcon, EllipsisVerticalIcon, EyeIcon, HistoryIcon, PencilIcon, SendIcon, Trash2Icon } from 'lucide-react';
 
@@ -19,6 +20,14 @@ const STATUS_ACCENT: Record<QuoteStatus, string> = {
   accepted: 'var(--color-text-success)',
   refused: 'var(--color-text-danger)',
   rejected: '#c2410c',
+};
+
+const STATUS_ROW_BG: Record<QuoteStatus, string> = {
+  draft: 'rgba(100, 116, 139, 0.04)',
+  sent: 'rgba(14, 165, 233, 0.04)',
+  accepted: 'rgba(34, 197, 94, 0.045)',
+  refused: 'rgba(239, 68, 68, 0.04)',
+  rejected: 'rgba(239, 68, 68, 0.05)',
 };
 
 export interface QuoteListItem {
@@ -65,19 +74,11 @@ interface QuoteTableProps {
 }
 
 export default function QuoteTable({ items, loading, labels, locale, formatDate, onDelete, onDownload, onDuplicate, onSend, duplicatingId }: QuoteTableProps) {
+  const router = useRouter();
   const [historyTarget, setHistoryTarget] = useState<QuoteListItem | null>(null);
   const priceLocale = locale === 'fr' ? 'fr-FR' : 'en-GB';
 
   function renderPrimaryAction(quote: QuoteListItem, className?: string) {
-    if (quote.status === 'draft') {
-      return (
-        <Button type="button" size="sm" className={className} onClick={() => onSend(quote)}>
-          <SendIcon className="size-3.5" />
-          {labels.send}
-        </Button>
-      );
-    }
-
     return (
       <Button type="button" size="sm" className={className} asChild>
         <Link href={`/quotes/${quote._id}`}>
@@ -101,11 +102,9 @@ export default function QuoteTable({ items, loading, labels, locale, formatDate,
         </DropdownMenuTrigger>
         <DropdownMenuContent align={align} className="w-52">
           {quote.status === 'draft' ? (
-            <DropdownMenuItem asChild>
-              <Link href={`/quotes/${quote._id}`}>
-                <EyeIcon className="size-4" />
-                {labels.view}
-              </Link>
+            <DropdownMenuItem onSelect={() => onSend(quote)}>
+              <SendIcon className="size-4" />
+              {labels.send}
             </DropdownMenuItem>
           ) : null}
 
@@ -172,33 +171,35 @@ export default function QuoteTable({ items, loading, labels, locale, formatDate,
           : items.map((quote) => (
               <article
                 key={quote._id}
-                className="rounded-xl border border-border/70 bg-card shadow-sm"
-                style={{ borderLeftWidth: '3px', borderLeftColor: STATUS_ACCENT[quote.status] }}
+                className="cursor-pointer rounded-xl border border-border/60 bg-card shadow-xs"
+                style={{ borderLeftWidth: '3px', borderLeftColor: STATUS_ACCENT[quote.status], backgroundColor: STATUS_ROW_BG[quote.status] }}
+                onClick={() => router.push(`/quotes/${quote._id}`)}
               >
                 {/* Top: client + status */}
-                <div className="flex items-start justify-between gap-3 px-4 pt-3.5">
+                <div className="flex items-start justify-between gap-3 px-4 pt-4.5">
                   <div className="min-w-0">
                     <Link
                       href={`/clients/${quote.clientId}`}
                       className="block truncate text-sm font-semibold text-foreground hover:underline"
+                      onClick={(event) => event.stopPropagation()}
                     >
                       {quote.clientSnapshot.fullName}
                     </Link>
-                    <p className="mt-0.5 text-[11px] text-muted-foreground">
-                      {quote.quoteNumber} · {formatDate(quote.date)}
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      {formatDate(quote.date)}
                     </p>
                   </div>
                   <StatusBadge status={quote.status} className="mt-0.5 shrink-0" />
                 </div>
 
                 {/* Bottom: amount + actions */}
-                <div className="flex items-center justify-between gap-3 px-4 pb-3.5 pt-2.5">
+                <div className="flex items-center justify-between gap-3 px-4 pb-4.5 pt-3">
                   <PriceDisplay
                     cents={quote.totalIncludingTax}
                     locale={priceLocale}
-                    className="text-base font-bold tabular-nums text-foreground"
+                    className="text-base font-semibold tabular-nums text-foreground"
                   />
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5" onClick={(event) => event.stopPropagation()}>
                     {renderPrimaryAction(quote, 'h-8 px-3 text-xs')}
                     {renderSecondaryActions(quote)}
                   </div>
@@ -212,75 +213,72 @@ export default function QuoteTable({ items, loading, labels, locale, formatDate,
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
-              <TableHead className="h-10 pl-5 text-[11px] font-bold uppercase tracking-wider">{labels.client}</TableHead>
-              <TableHead className="h-10 text-[11px] font-bold uppercase tracking-wider">{labels.date}</TableHead>
-              <TableHead className="h-10 text-[11px] font-bold uppercase tracking-wider">{labels.totalIncludingTax}</TableHead>
-              <TableHead className="h-10 text-[11px] font-bold uppercase tracking-wider">{labels.status}</TableHead>
-              <TableHead className="h-10 pr-4 text-right text-[11px] font-bold uppercase tracking-wider">{labels.actions}</TableHead>
+              <TableHead className="h-11 pl-5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.client}</TableHead>
+              <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.date}</TableHead>
+              <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.totalIncludingTax}</TableHead>
+              <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.status}</TableHead>
+              <TableHead className="h-11 pr-4 text-right text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.actions}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading
               ? Array.from({ length: 6 }).map((_, idx) => (
                   <TableRow key={`quote-skeleton-${idx}`}>
-                    <TableCell className="py-3 pl-5">
+                    <TableCell className="py-4 pl-5">
                       <div className="space-y-1.5">
                         <Skeleton className="h-4 w-32" />
                         <Skeleton className="h-3 w-20" />
                       </div>
                     </TableCell>
-                    <TableCell className="py-3"><Skeleton className="h-4 w-24" /></TableCell>
-                    <TableCell className="py-3"><Skeleton className="h-5 w-24" /></TableCell>
-                    <TableCell className="py-3"><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
-                    <TableCell className="py-3 pr-4"><Skeleton className="ml-auto h-8 w-32" /></TableCell>
+                    <TableCell className="py-4"><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell className="py-4"><Skeleton className="h-5 w-24" /></TableCell>
+                    <TableCell className="py-4"><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
+                    <TableCell className="py-4 pr-4"><Skeleton className="ml-auto h-8 w-32" /></TableCell>
                   </TableRow>
                 ))
               : items.map((quote) => (
                   <TableRow
                     key={quote._id}
-                    className="group border-b border-border/50 transition-colors last:border-0 hover:bg-muted/30"
+                    className="group cursor-pointer border-b border-border/45 transition-colors last:border-0 hover:bg-muted/20"
+                    style={{ backgroundColor: STATUS_ROW_BG[quote.status] }}
+                    onClick={() => router.push(`/quotes/${quote._id}`)}
                   >
-                    {/* Client + quote# */}
+                    {/* Client */}
                     <TableCell
-                      className="py-3 pl-5 align-middle"
+                      className="py-4 pl-5 align-middle"
                       style={{ borderLeft: `3px solid ${STATUS_ACCENT[quote.status]}` }}
                     >
                       <Link
                         href={`/clients/${quote.clientId}`}
                         className="block text-sm font-semibold text-foreground hover:text-(--color-text-info) hover:underline"
+                        onClick={(event) => event.stopPropagation()}
                       >
                         {quote.clientSnapshot.fullName}
-                      </Link>
-                      <Link
-                        href={`/quotes/${quote._id}`}
-                        className="mt-0.5 block text-[11px] text-muted-foreground hover:text-(--color-text-info) hover:underline"
-                      >
-                        {quote.quoteNumber}
                       </Link>
                     </TableCell>
 
                     {/* Date */}
-                    <TableCell className="py-3 align-middle text-sm text-muted-foreground">
+                    <TableCell className="py-4 align-middle text-sm text-muted-foreground">
                       {formatDate(quote.date)}
                     </TableCell>
 
                     {/* Amount */}
-                    <TableCell className="py-3 align-middle">
+                    <TableCell className="py-4 align-middle">
                       <PriceDisplay
                         cents={quote.totalIncludingTax}
                         locale={priceLocale}
-                        className="text-sm font-bold tabular-nums text-foreground"
+                        className="text-[15px] font-semibold tabular-nums text-foreground"
                       />
                     </TableCell>
 
                     {/* Status badge only — no extra date text */}
-                    <TableCell className="py-3 align-middle">
+                    <TableCell className="py-4 align-middle">
                       <StatusBadge status={quote.status} />
                     </TableCell>
 
                     {/* Actions: primary + dropdown */}
-                    <TableCell className="py-3 pr-4 align-middle">
-                      <div className="flex items-center justify-end gap-1.5">
+                    <TableCell className="py-4 pr-4 align-middle">
+                      <div className="flex items-center justify-end gap-1.5" onClick={(event) => event.stopPropagation()}>
                         {renderPrimaryAction(quote, 'h-8 px-3 text-xs')}
                         {renderSecondaryActions(quote, 'end')}
                       </div>

@@ -21,9 +21,11 @@ export async function GET(request: NextRequest) {
     const limitParam = Number(request.nextUrl.searchParams.get('limit') ?? '10');
 
     const status: QuoteStatus | undefined =
-      statusParam === 'draft' || statusParam === 'sent' || statusParam === 'accepted' || statusParam === 'refused'
+      statusParam === 'draft' || statusParam === 'sent' || statusParam === 'accepted' || statusParam === 'rejected'
         ? statusParam
-        : undefined;
+        : statusParam === 'refused'
+          ? 'rejected'
+          : undefined;
 
     const sort: 'date' | 'amount' = sortParam === 'amount' ? 'amount' : 'date';
     const page = Number.isFinite(pageParam) ? Math.max(1, pageParam) : 1;

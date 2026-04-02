@@ -52,7 +52,7 @@ export default function QuotesPage() {
       tabDraft: 'Draft',
       tabSent: 'Sent',
       tabAccepted: 'Accepted',
-      tabRefused: 'Refused',
+      tabRejected: 'Rejected',
       empty: 'No quotes yet - create your first quote',
       quoteNumber: 'Quote',
       client: 'Client',
@@ -66,7 +66,7 @@ export default function QuotesPage() {
       duplicate: 'Duplicate',
       delete: 'Delete',
       downloadPdf: 'PDF',
-      lockEdit: 'Accepted and refused quotes cannot be edited',
+      lockEdit: 'Accepted and rejected quotes cannot be edited',
       send: 'Send',
       history: 'History',
       deleteTitle: 'Delete quote?',
@@ -99,7 +99,7 @@ export default function QuotesPage() {
       tabDraft: 'Brouillon',
       tabSent: 'Envoye',
       tabAccepted: 'Accepte',
-      tabRefused: 'Refuse',
+      tabRejected: 'Refuse',
       empty: 'Aucun devis - creez votre premier devis',
       quoteNumber: 'Devis',
       client: 'Client',
@@ -113,7 +113,7 @@ export default function QuotesPage() {
       duplicate: 'Dupliquer',
       delete: 'Supprimer',
       downloadPdf: 'PDF',
-      lockEdit: 'Les devis acceptes et refuses ne peuvent pas etre modifies',
+      lockEdit: 'Les devis acceptes et refuses (client) ne peuvent pas etre modifies',
       send: 'Envoyer',
       history: 'Historique',
       deleteTitle: 'Supprimer le devis ?',
@@ -253,7 +253,7 @@ export default function QuotesPage() {
   }
 
   const currentFilterLabel =
-    status === 'all' ? t.tabAll : status === 'draft' ? t.tabDraft : status === 'sent' ? t.tabSent : status === 'accepted' ? t.tabAccepted : t.tabRefused;
+    status === 'all' ? t.tabAll : status === 'draft' ? t.tabDraft : status === 'sent' ? t.tabSent : status === 'accepted' ? t.tabAccepted : t.tabRejected;
 
   return (
     <CrmShell title={t.shellTitle}>
@@ -304,7 +304,7 @@ export default function QuotesPage() {
                 <TabsTrigger value="draft" className="rounded-md border border-border/80 px-3 py-1 text-sm text-foreground/80 hover:bg-muted/60 hover:text-foreground data-active:border-transparent data-active:bg-primary data-active:text-primary-foreground">{t.tabDraft}</TabsTrigger>
                 <TabsTrigger value="sent" className="rounded-md border border-border/80 px-3 py-1 text-sm text-foreground/80 hover:bg-muted/60 hover:text-foreground data-active:border-transparent data-active:bg-primary data-active:text-primary-foreground">{t.tabSent}</TabsTrigger>
                 <TabsTrigger value="accepted" className="rounded-md border border-border/80 px-3 py-1 text-sm text-foreground/80 hover:bg-muted/60 hover:text-foreground data-active:border-transparent data-active:bg-primary data-active:text-primary-foreground">{t.tabAccepted}</TabsTrigger>
-                <TabsTrigger value="refused" className="rounded-md border border-border/80 px-3 py-1 text-sm text-foreground/80 hover:bg-muted/60 hover:text-foreground data-active:border-transparent data-active:bg-primary data-active:text-primary-foreground">{t.tabRefused}</TabsTrigger>
+                <TabsTrigger value="rejected" className="rounded-md border border-border/80 px-3 py-1 text-sm text-foreground/80 hover:bg-muted/60 hover:text-foreground data-active:border-transparent data-active:bg-primary data-active:text-primary-foreground">{t.tabRejected}</TabsTrigger>
               </TabsList>
             </div>
           </Tabs>

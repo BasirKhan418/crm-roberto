@@ -262,7 +262,7 @@ export default function QuoteDetailPage() {
   const [duplicating, setDuplicating] = useState(false);
 
   const canEdit = quote ? quote.status === 'draft' || quote.status === 'sent' || quote.status === 'rejected' : false;
-  const actionButtonClass = 'h-10 w-full justify-start sm:h-8 sm:w-auto sm:justify-center text-center';
+  const actionButtonClass = 'h-10 w-full justify-start sm:h-9 sm:w-auto sm:justify-center text-center';
 
   const loadData = useCallback(async () => {
     if (!params?.id) {
@@ -457,8 +457,8 @@ export default function QuoteDetailPage() {
       {!loading && error ? <ErrorMessage message={error} /> : null}
 
       {!loading && !error && quote ? (
-        <section className="space-y-4 print:space-y-3">
-          <div className="flex flex-col gap-2 rounded-xl border border-border/70 bg-card px-3 py-3 print:hidden sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-2 sm:py-2">
+        <section className="space-y-5 print:space-y-3">
+          <div className="flex flex-col gap-2.5 rounded-xl border border-border/60 bg-card/80 px-3.5 py-3 print:hidden sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-2.5 sm:py-2.5">
             <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
               <Button type="button" variant="outline" size="sm" className={actionButtonClass} asChild>
                 <Link href="/quotes">
@@ -537,16 +537,16 @@ export default function QuoteDetailPage() {
             </div>
           </div>
 
-          <article className="rounded-2xl border border-border/70 bg-white p-4 shadow-sm print:rounded-none print:border-0 print:p-0 print:shadow-none sm:p-6">
-            <header className="mb-4 rounded-xl border border-border/70 bg-linear-to-b from-background to-secondary/20 p-4 sm:p-5">
+          <article className="rounded-2xl border border-border/60 bg-white p-4 shadow-sm print:rounded-none print:border-0 print:p-0 print:shadow-none sm:p-6">
+            <header className="mb-5 rounded-xl border border-border/60 bg-linear-to-b from-background to-secondary/15 p-4 sm:p-5">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t.quote}</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{t.quote}</p>
                   <h1 className="font-heading text-3xl font-semibold tracking-tight">{quote.quoteNumber}</h1>
                 </div>
                 <StatusBadge status={quote.status} className="px-3 py-1 text-xs" />
               </div>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 <div>
                   <p className="text-xs text-muted-foreground">{t.date}</p>
                   <p className="font-medium">{formatDate(quote.date, locale as Locale)}</p>
