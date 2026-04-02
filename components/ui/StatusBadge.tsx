@@ -39,7 +39,7 @@ export function StatusBadge({ status, className }: StatusBadgeProps) {
   if (status === "accepted") {
     return (
       <span className={cn("inline-flex items-center gap-1 rounded-[10px] px-2.25 py-0.75 text-[11px] font-semibold ring-1 ring-inset", className)}
-        style={{ backgroundColor: style.backgroundColor, color: style.color, ringColor: style.color }}>
+        style={{ backgroundColor: style.backgroundColor, color: style.color, boxShadow: `inset 0 0 0 1px ${style.color}` }}>
         <span className="relative flex size-1.5">
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75" style={{ backgroundColor: style.color }} />
           <span className="relative inline-flex size-1.5 rounded-full" style={{ backgroundColor: style.color }} />
