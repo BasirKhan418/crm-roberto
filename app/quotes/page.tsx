@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 import { PlusIcon, SearchIcon } from 'lucide-react';
 import { toast } from 'sonner';
@@ -11,6 +11,7 @@ import QuoteTable, { type QuoteListItem } from '@/components/quotes/QuoteTable';
 import SendQuoteModal from '@/components/quotes/SendQuoteModal';
 import CrmShell from '@/components/crm-shell';
 import { useQuotes, type QuoteStatusFilter } from '@/hooks/useQuotes';
+import { useRejectedQuotesCount } from '@/hooks/useRejectedQuotesCount';
 import { useLocale } from '@/components/providers/locale-provider';
 import {
   AlertDialog,
@@ -31,6 +32,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function QuotesPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { locale } = useLocale();
   const t = {
     en: {
@@ -142,6 +144,23 @@ export default function QuotesPage() {
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
 
   const { quotes, pagination, loading, error, refetch } = useQuotes(status, searchDebounced, sort, page, limit);
+  const rejectedCount = useRejectedQuotesCount(pagination.total + quotes.length + Number(loading));
+
+  useEffect(() => {
+    const rawStatus = searchParams.get('status')?.toLowerCase();
+    if (!rawStatus) {
+      return;
+    }
+
+    const normalizedStatus: QuoteStatusFilter =
+      rawStatus === 'draft' || rawStatus === 'sent' || rawStatus === 'accepted' || rawStatus === 'rejected'
+        ? rawStatus
+        : rawStatus === 'refused' || rawStatus === 'refuse'
+          ? 'rejected'
+          : 'all';
+
+    setStatus(normalizedStatus);
+  }, [searchParams]);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -304,7 +323,14 @@ export default function QuotesPage() {
                 <TabsTrigger value="draft" className="rounded-md border border-border/80 px-3 py-1 text-sm text-foreground/80 hover:bg-muted/60 hover:text-foreground data-active:border-transparent data-active:bg-primary data-active:text-primary-foreground">{t.tabDraft}</TabsTrigger>
                 <TabsTrigger value="sent" className="rounded-md border border-border/80 px-3 py-1 text-sm text-foreground/80 hover:bg-muted/60 hover:text-foreground data-active:border-transparent data-active:bg-primary data-active:text-primary-foreground">{t.tabSent}</TabsTrigger>
                 <TabsTrigger value="accepted" className="rounded-md border border-border/80 px-3 py-1 text-sm text-foreground/80 hover:bg-muted/60 hover:text-foreground data-active:border-transparent data-active:bg-primary data-active:text-primary-foreground">{t.tabAccepted}</TabsTrigger>
-                <TabsTrigger value="rejected" className="rounded-md border border-border/80 px-3 py-1 text-sm text-foreground/80 hover:bg-muted/60 hover:text-foreground data-active:border-transparent data-active:bg-primary data-active:text-primary-foreground">{t.tabRejected}</TabsTrigger>
+                <TabsTrigger value="rejected" className="rounded-md border border-border/80 px-3 py-1 text-sm text-foreground/80 hover:bg-muted/60 hover:text-foreground data-active:border-transparent data-active:bg-primary data-active:text-primary-foreground">
+                  <span>{t.tabRejected}</span>
+                  {rejectedCount > 0 ? (
+                    <span className="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-[10px] font-semibold leading-none text-white">
+                      {rejectedCount > 99 ? '99+' : rejectedCount}
+                    </span>
+                  ) : null}
+                </TabsTrigger>
               </TabsList>
             </div>
           </Tabs>

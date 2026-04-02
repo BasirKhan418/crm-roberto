@@ -19,7 +19,7 @@ interface QuoteApiResponse {
     notes?: string | null;
     paymentTerms?: string | null;
     validityDays?: number;
-    status: 'draft' | 'sent' | 'accepted' | 'refused';
+    status: 'draft' | 'sent' | 'accepted' | 'refused' | 'rejected';
     lineItems: Array<{
       productId?: string | null;
       productImageUrl?: string | null;

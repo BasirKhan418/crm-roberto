@@ -33,7 +33,7 @@ export interface QuoteFormData {
   notes?: string | null;
   paymentTerms?: string | null;
   validityDays?: number;
-  status: 'draft' | 'sent' | 'accepted' | 'refused';
+  status: 'draft' | 'sent' | 'accepted' | 'refused' | 'rejected';
 }
 
 interface QuoteFormProps {
@@ -66,6 +66,7 @@ export default function QuoteForm({ mode, quote, defaultClientId }: QuoteFormPro
       saving: 'Saving...',
       saveDraft: 'Save as Draft',
       saveAndSend: 'Save and Send',
+      saveAndResend: 'Save & Resend',
       saveChanges: 'Save changes',
       clientRequired: 'Client is required',
       dateRequired: 'Date is required',
@@ -106,6 +107,7 @@ export default function QuoteForm({ mode, quote, defaultClientId }: QuoteFormPro
       saving: 'Enregistrement...',
       saveDraft: 'Enregistrer en brouillon',
       saveAndSend: 'Enregistrer et envoyer',
+      saveAndResend: 'Enregistrer et renvoyer',
       saveChanges: 'Enregistrer les modifications',
       clientRequired: 'Le client est requis',
       dateRequired: 'La date est requise',
@@ -217,6 +219,10 @@ export default function QuoteForm({ mode, quote, defaultClientId }: QuoteFormPro
 
     return t.newQuote;
   }, [mode, quoteNumber, t.editPrefix, t.newQuote]);
+
+  const showResendAction =
+    mode === 'edit' &&
+    (quote?.status === 'rejected' || quote?.status === 'sent');
 
   const isDirty = useMemo(() => {
     const init = initialStateRef.current;
@@ -340,7 +346,7 @@ export default function QuoteForm({ mode, quote, defaultClientId }: QuoteFormPro
       const quoteId = result.data?._id || quote?._id;
 
       if (sendAfterSave && quoteId) {
-        toast.success(t.saveDraftSuccess);
+        toast.success(t.saveAndSendSuccess);
         savedRef.current = true;
         setLeaveDialogOpen(false);
         router.push(`/quotes/${quoteId}?send=1`);
@@ -425,12 +431,19 @@ export default function QuoteForm({ mode, quote, defaultClientId }: QuoteFormPro
 
         <aside className="space-y-4 lg:sticky lg:top-20 lg:self-start">
           
-          <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border/70 bg-background/95 px-3 -mb-0 pt-2.5 pb-[env(safe-area-inset-bottom,0px)] shadow-[0_-8px_24px_-16px_rgba(0,0,0,0.45)] backdrop-blur lg:static lg:rounded-xl lg:border lg:bg-background/95 lg:p-4 lg:shadow-sm">
+          <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border/70 bg-background/95 px-3 mb-0 pt-2.5 pb-[env(safe-area-inset-bottom,0px)] shadow-[0_-8px_24px_-16px_rgba(0,0,0,0.45)] backdrop-blur lg:static lg:rounded-xl lg:border lg:bg-background/95 lg:p-4 lg:shadow-sm">
             <div className="flex flex-col gap-2 sm:flex-row sm:justify-end lg:flex-col lg:items-stretch">
               {mode === 'edit' ? (
-                <Button type="button" className="h-11 w-full" disabled={submitting} onClick={() => saveQuote(false)}>
-                  {submitting ? t.saving : t.saveChanges}
-                </Button>
+                <>
+                  {showResendAction ? (
+                    <Button type="button" className="h-11 w-full" disabled={submitting} onClick={() => saveQuote(true)}>
+                      {submitting ? t.saving : t.saveAndResend}
+                    </Button>
+                  ) : null}
+                  <Button type="button" variant={showResendAction ? 'outline' : 'default'} className="h-11 w-full" disabled={submitting} onClick={() => saveQuote(false)}>
+                    {submitting ? t.saving : t.saveChanges}
+                  </Button>
+                </>
               ) : (
                 <>
                   <Button type="button" className="h-11 w-full" disabled={submitting} onClick={() => saveQuote(true)}>

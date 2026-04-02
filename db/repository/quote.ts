@@ -376,7 +376,10 @@ export const listQuotes = async (
   }
 
   if (options.status) {
-    query.status = options.status;
+    query.status =
+      options.status === 'rejected'
+        ? { $in: ['rejected', 'refused'] }
+        : options.status;
   }
 
   if (options.search) {
@@ -401,12 +404,15 @@ export const listQuotes = async (
     .select('_id quoteNumber date status signedAt updatedAt clientId clientSnapshot.fullName clientSnapshot.email totalIncludingTax statusHistory.to statusHistory.changedAt')
     .lean();
 
-  const items = (quotes as QuoteListQueryRecord[]).map((quote) => ({
+  const items = (quotes as QuoteListQueryRecord[]).map((quote) => {
+    const normalizedStatus = quote.status === 'refused' ? 'rejected' : quote.status;
+
+    return {
     _id: String(quote._id),
     quoteNumber: quote.quoteNumber,
     date: quote.date,
-    status: quote.status,
-    statusChangedAt: getLatestStatusChangedAt(quote.status, quote.statusHistory, {
+    status: normalizedStatus,
+    statusChangedAt: getLatestStatusChangedAt(normalizedStatus, quote.statusHistory, {
       signedAt: quote.signedAt,
       updatedAt: quote.updatedAt,
       date: quote.date,
@@ -417,7 +423,8 @@ export const listQuotes = async (
       fullName: quote.clientSnapshot.fullName,
       email: quote.clientSnapshot.email ?? null,
     },
-  }));
+  };
+  });
 
   return {
     items,

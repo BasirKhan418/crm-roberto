@@ -139,6 +139,7 @@ export default function QuoteDetailPage() {
       sendToClient: 'Send to client',
       sendForSigning: 'Send for signing',
       resendSigningLink: 'Resend signing link',
+      editAndResend: 'Edit & Resend Quote',
       delete: 'Delete',
       quote: 'Quote',
       date: 'Date',
@@ -174,6 +175,7 @@ export default function QuoteDetailPage() {
       historyEmpty: 'No status transitions yet.',
       lockEdit: 'Accepted and refused quotes cannot be edited',
       rejectionBannerTitle: 'This quote was rejected by the client',
+      rejectionAlertTop: 'Quote rejected by client',
       rejectionBannerBody: 'The client has rejected this quote. Review the comment below, update the quote, and resend it.',
       rejectionComment: 'Client rejection comment',
       deleteTitle: 'Delete quote?',
@@ -199,6 +201,7 @@ export default function QuoteDetailPage() {
       sendToClient: 'Envoyer au client',
       sendForSigning: 'Envoyer pour signature',
       resendSigningLink: 'Renvoyer le lien de signature',
+      editAndResend: 'Modifier et renvoyer le devis',
       delete: 'Supprimer',
       quote: 'Devis',
       date: 'Date',
@@ -234,6 +237,7 @@ export default function QuoteDetailPage() {
       historyEmpty: 'Aucune transition de statut pour le moment.',
       lockEdit: 'Les devis acceptes et refuses ne peuvent pas etre modifies',
       rejectionBannerTitle: 'Ce devis a ete refuse par le client',
+      rejectionAlertTop: 'Devis refuse par le client',
       rejectionBannerBody: 'Le client a refuse ce devis. Consultez le commentaire ci-dessous, mettez le devis a jour et renvoyez-le.',
       rejectionComment: 'Commentaire de refus du client',
       deleteTitle: 'Supprimer le devis ?',
@@ -458,6 +462,29 @@ export default function QuoteDetailPage() {
 
       {!loading && !error && quote ? (
         <section className="space-y-5 print:space-y-3">
+          {quote.status === 'rejected' ? (
+            <section className="overflow-hidden rounded-xl border border-red-300 bg-red-50 print:hidden">
+              <div className="border-b border-red-200 px-4 py-3 sm:px-5">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-red-700">{t.rejectionAlertTop}</p>
+                <p className="mt-1 text-sm leading-6 text-red-900">{t.rejectionBannerBody}</p>
+              </div>
+              <div className="grid gap-3 px-4 py-3 sm:grid-cols-[1fr_auto] sm:items-end sm:px-5">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-red-700">{t.rejectionComment}</p>
+                  <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-red-950">
+                    {quote.rejectionComment || t.noData}
+                  </p>
+                </div>
+                <Button type="button" className="h-9 w-full sm:w-auto" asChild>
+                  <Link href={`/quotes/${quote._id}/edit`}>
+                    <PencilIcon className="size-3.5" />
+                    {t.editAndResend}
+                  </Link>
+                </Button>
+              </div>
+            </section>
+          ) : null}
+
           <div className="flex flex-col gap-2.5 rounded-xl border border-border/60 bg-card/80 px-3.5 py-3 print:hidden sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-2.5 sm:py-2.5">
             <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
               <Button type="button" variant="outline" size="sm" className={actionButtonClass} asChild>
@@ -472,6 +499,7 @@ export default function QuoteDetailPage() {
                 variant="outline"
                 size="sm"
                 className={actionButtonClass}
+                hidden={quote.status === 'rejected'}
                 disabled={!canEdit}
                 asChild={canEdit}
                 title={!canEdit ? t.lockEdit : t.edit}
@@ -696,21 +724,6 @@ export default function QuoteDetailPage() {
               <section className="mb-4 rounded-xl border border-border/70 bg-card p-4">
                 <h2 className="mb-2 font-heading text-base font-semibold">{t.notes}</h2>
                 <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">{quote.notes}</p>
-              </section>
-            ) : null}
-
-            {quote.status === 'rejected' ? (
-              <section className="mb-4 overflow-hidden rounded-xl border border-orange-200 bg-orange-50">
-                <div className="border-b border-orange-200 px-4 py-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-orange-700">{t.rejectionBannerTitle}</p>
-                  <p className="mt-1 text-xs leading-5 text-orange-800 sm:text-sm sm:leading-6">{t.rejectionBannerBody}</p>
-                </div>
-                {quote.rejectionComment ? (
-                  <div className="px-4 py-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-orange-600">{t.rejectionComment}</p>
-                    <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-orange-900">{quote.rejectionComment}</p>
-                  </div>
-                ) : null}
               </section>
             ) : null}
 

@@ -41,9 +41,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, message: 'Quote not found' }, { status: 404 });
     }
 
-    if (!['draft', 'sent'].includes(quote.status) || quote.signedStatus === 'signed') {
+    if (!['draft', 'sent', 'rejected'].includes(quote.status) || quote.signedStatus === 'signed') {
       return NextResponse.json(
-        { success: false, message: 'Cannot send a signed or refused quote' },
+        { success: false, message: 'Cannot send a signed quote from its current status' },
         { status: 403 }
       );
     }
@@ -215,7 +215,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     });
 
 
-    if (quote.status === 'draft') {
+    if (quote.status === 'draft' || quote.status === 'rejected') {
+      const statusFrom = quote.status;
       const statusResult = await updateQuoteStatusById(me.user.id, id, { to: 'sent' });
 
       if (statusResult.kind === 'ok') {
@@ -224,7 +225,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           entityType: 'quote',
           entityName: quote.quoteNumber,
           entityId: quote._id,
-          metadata: { from: 'draft', to: 'sent' },
+          metadata: { from: statusFrom, to: 'sent' },
         });
       }
     }

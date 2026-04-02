@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     const status: QuoteStatus | undefined =
       statusParam === 'draft' || statusParam === 'sent' || statusParam === 'accepted' || statusParam === 'rejected'
         ? statusParam
-        : statusParam === 'refused'
+        : statusParam === 'refused' || statusParam === 'refuse'
           ? 'rejected'
           : undefined;
 
