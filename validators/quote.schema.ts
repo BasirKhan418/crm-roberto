@@ -89,7 +89,7 @@ export const updateQuoteSchema = z
     { message: 'At least one field must be provided for update' }
   );
 
-const quoteStatusSchema = z.enum(['draft', 'sent', 'accepted', 'refused']);
+const quoteStatusSchema = z.enum(['draft', 'sent', 'accepted', 'refused', 'rejected']);
 
 export const updateQuoteStatusSchema = z
   .object({

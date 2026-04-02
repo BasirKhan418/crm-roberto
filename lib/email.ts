@@ -435,6 +435,59 @@ export async function sendInvoice({
   });
 }
 
+export async function sendQuoteRejectionNotification({
+  to,
+  adminName,
+  companyName,
+  quoteNumber,
+  clientName,
+  rejectionComment,
+  quoteDetailUrl,
+}: {
+  to: string;
+  adminName: string;
+  companyName: string;
+  quoteNumber: string;
+  clientName: string;
+  rejectionComment: string | null;
+  quoteDetailUrl: string;
+}) {
+  const subject = `Quote ${quoteNumber} has been rejected by ${clientName}`;
+
+  const commentLine = rejectionComment
+    ? `The client left the following comment:\n\n"${rejectionComment}"`
+    : "The client did not leave a comment.";
+
+  const messageBody = `${clientName} has rejected quote ${quoteNumber}.\n\n${commentLine}\n\nYou can review the quote and resend an updated version using the button below.`;
+
+  const html = buildDocumentEmailTemplate({
+    subject,
+    companyName,
+    clientName: adminName,
+    documentLabel: "Quote",
+    documentNumber: quoteNumber,
+    details: [
+      { label: "Client", value: clientName },
+      { label: "Action", value: "Rejected" },
+      ...(rejectionComment ? [{ label: "Comment", value: rejectionComment }] : []),
+    ],
+    messageBody,
+    ctaLabel: "View quote",
+    ctaUrl: quoteDetailUrl,
+  });
+
+  const text = messageBody;
+
+  return sendDocumentEmail({
+    to,
+    subject,
+    html,
+    text,
+    companyName,
+    attachmentFilename: `${quoteNumber}.pdf`,
+  });
+}
+
 export async function sendPaymentReceipt({
   to,
   clientName,

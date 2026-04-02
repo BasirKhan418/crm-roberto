@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-export type QuoteStatus = "draft" | "sent" | "accepted" | "refused";
+export type QuoteStatus = "draft" | "sent" | "accepted" | "refused" | "rejected";
 export type QuoteSignedStatus = "not_signed" | "signed";
 
 const LineItemSchema = new mongoose.Schema(
@@ -104,8 +104,8 @@ const ClientSnapshotSchema = new mongoose.Schema(
 
 const StatusHistorySchema = new mongoose.Schema(
   {
-    from:      { type: String, enum: ["draft", "sent", "accepted", "refused"] },
-    to:        { type: String, enum: ["draft", "sent", "accepted", "refused"], required: true },
+    from:      { type: String, enum: ["draft", "sent", "accepted", "refused", "rejected"] },
+    to:        { type: String, enum: ["draft", "sent", "accepted", "refused", "rejected"], required: true },
     changedAt: { type: Date, default: () => new Date() },
   },
   { _id: false }
@@ -136,8 +136,8 @@ const QuoteSchema = new mongoose.Schema(
       type: String,
       required: true,
       enum: {
-        values: ["draft", "sent", "accepted", "refused"],
-        message: "Status must be draft, sent, accepted, or refused",
+        values: ["draft", "sent", "accepted", "refused", "rejected"],
+        message: "Status must be draft, sent, accepted, refused, or rejected",
       },
       default: "draft",
     },
@@ -212,6 +212,14 @@ const QuoteSchema = new mongoose.Schema(
     },
 
     // ── Optional fields ───────────────────────────────────────────────────────
+
+    // Optional comment left by the client when they reject the quote
+    rejectionComment: {
+      type: String,
+      trim: true,
+      default: null,
+      maxlength: [1000, "Rejection comment cannot exceed 1000 characters"],
+    },
 
     // Free text shown at bottom of quote
     notes: {

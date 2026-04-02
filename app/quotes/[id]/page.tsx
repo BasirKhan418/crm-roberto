@@ -68,6 +68,7 @@ interface QuoteDetail {
   notes?: string | null;
   paymentTerms?: string | null;
   validityDays?: number;
+  rejectionComment?: string | null;
   statusHistory?: Array<{
     from?: QuoteStatus;
     to: QuoteStatus;
@@ -108,12 +109,14 @@ function statusLabel(status: QuoteStatus, locale: Locale): string {
       sent: 'Sent',
       accepted: 'Accepted',
       refused: 'Refused',
+      rejected: 'Rejected',
     },
     fr: {
       draft: 'Brouillon',
       sent: 'Envoye',
       accepted: 'Accepte',
       refused: 'Refuse',
+      rejected: 'Refuse (client)',
     },
   } as const;
 
@@ -170,6 +173,9 @@ export default function QuoteDetailPage() {
       history: 'Status history',
       historyEmpty: 'No status transitions yet.',
       lockEdit: 'Accepted and refused quotes cannot be edited',
+      rejectionBannerTitle: 'This quote was rejected by the client',
+      rejectionBannerBody: 'The client has rejected this quote. Review the comment below, update the quote, and resend it.',
+      rejectionComment: 'Client rejection comment',
       deleteTitle: 'Delete quote?',
       deleteDescription: 'Are you sure you want to delete this quote? This action cannot be undone.',
       cancel: 'Cancel',
@@ -227,6 +233,9 @@ export default function QuoteDetailPage() {
       history: 'Historique des statuts',
       historyEmpty: 'Aucune transition de statut pour le moment.',
       lockEdit: 'Les devis acceptes et refuses ne peuvent pas etre modifies',
+      rejectionBannerTitle: 'Ce devis a ete refuse par le client',
+      rejectionBannerBody: 'Le client a refuse ce devis. Consultez le commentaire ci-dessous, mettez le devis a jour et renvoyez-le.',
+      rejectionComment: 'Commentaire de refus du client',
       deleteTitle: 'Supprimer le devis ?',
       deleteDescription: 'Voulez-vous vraiment supprimer ce devis ? Cette action est irreversible.',
       cancel: 'Annuler',
@@ -252,7 +261,7 @@ export default function QuoteDetailPage() {
   const [sendOpen, setSendOpen] = useState(false);
   const [duplicating, setDuplicating] = useState(false);
 
-  const canEdit = quote ? quote.status === 'draft' || quote.status === 'sent' : false;
+  const canEdit = quote ? quote.status === 'draft' || quote.status === 'sent' || quote.status === 'rejected' : false;
   const actionButtonClass = 'h-10 w-full justify-start sm:h-8 sm:w-auto sm:justify-center text-center';
 
   const loadData = useCallback(async () => {
@@ -685,6 +694,21 @@ export default function QuoteDetailPage() {
               <section className="mb-4 rounded-xl border border-border/70 bg-card p-4">
                 <h2 className="mb-2 font-heading text-base font-semibold">{t.notes}</h2>
                 <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">{quote.notes}</p>
+              </section>
+            ) : null}
+
+            {quote.status === 'rejected' ? (
+              <section className="mb-4 overflow-hidden rounded-xl border border-orange-200 bg-orange-50">
+                <div className="border-b border-orange-200 px-4 py-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-orange-700">{t.rejectionBannerTitle}</p>
+                  <p className="mt-1 text-xs leading-5 text-orange-800 sm:text-sm sm:leading-6">{t.rejectionBannerBody}</p>
+                </div>
+                {quote.rejectionComment ? (
+                  <div className="px-4 py-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-orange-600">{t.rejectionComment}</p>
+                    <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-orange-900">{quote.rejectionComment}</p>
+                  </div>
+                ) : null}
               </section>
             ) : null}
 

@@ -4,14 +4,15 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
+import QuoteStatusSummary from '@/components/quotes/QuoteStatusSummary';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import EmptyState from '@/components/ui/EmptyState';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import { PriceDisplay } from '@/components/ui/PriceDisplay';
 import { Skeleton } from '@/components/ui/skeleton';
-import { StatusBadge, type QuoteStatus } from '@/components/ui/StatusBadge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useLocale } from '@/components/providers/locale-provider';
+import type { QuoteStatus } from '@/components/ui/StatusBadge';
 
 interface RecentQuotesProps {
   refreshKey?: number;
@@ -23,6 +24,7 @@ interface RecentQuoteItem {
   date: string;
   totalIncludingTax: number;
   status: QuoteStatus;
+  statusChangedAt?: string | null;
   clientSnapshot: {
     fullName: string;
   };
@@ -164,7 +166,7 @@ export default function RecentQuotes({ refreshKey = 0 }: RecentQuotesProps) {
                 >
                   <div className="flex items-center justify-between gap-2">
                     <p className="font-semibold text-(--color-text-info)">{quote.quoteNumber}</p>
-                    <StatusBadge status={quote.status} />
+                    <QuoteStatusSummary status={quote.status} statusChangedAt={quote.statusChangedAt} locale={locale} className="items-end text-right" />
                   </div>
                   <p className="mt-1 truncate text-sm text-muted-foreground">{quote.clientSnapshot.fullName}</p>
                   <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
@@ -229,7 +231,7 @@ export default function RecentQuotes({ refreshKey = 0 }: RecentQuotesProps) {
                         <PriceDisplay cents={quote.totalIncludingTax} locale={priceLocale} />
                       </TableCell>
                       <TableCell>
-                        <StatusBadge status={quote.status} />
+                        <QuoteStatusSummary status={quote.status} statusChangedAt={quote.statusChangedAt} locale={locale} />
                       </TableCell>
                     </TableRow>
                   ))}

@@ -22,6 +22,7 @@ const LABELS = {
     sent: 'Sent',
     accepted: 'Accepted',
     refused: 'Refused',
+    rejected: 'Rejected',
     history: 'Quote history',
   },
   fr: {
@@ -29,6 +30,7 @@ const LABELS = {
     sent: 'Envoye',
     accepted: 'Accepte',
     refused: 'Refuse',
+    rejected: 'Refuse (client)',
     history: 'Historique du devis',
   },
 } as const;
@@ -54,8 +56,13 @@ function formatDate(value: string, locale: 'en' | 'fr'): string {
 export default function QuoteHistoryBar({ history, currentStatus, locale }: QuoteHistoryBarProps) {
   const labels = LABELS[locale];
   const isRefused = currentStatus === 'refused';
+  const isRejected = currentStatus === 'rejected';
 
-  const steps: QuoteStatus[] = isRefused ? ['draft', 'sent', 'refused'] : STEPS;
+  const steps: QuoteStatus[] = isRefused
+    ? ['draft', 'sent', 'refused']
+    : isRejected
+      ? ['draft', 'sent', 'rejected']
+      : STEPS;
 
   function getState(stepStatus: QuoteStatus): StepState {
     if (stepStatus === currentStatus) return 'active';
@@ -71,13 +78,13 @@ export default function QuoteHistoryBar({ history, currentStatus, locale }: Quot
       line: 'bg-(--color-text-info)/40',
     },
     active: {
-      circle: isRefused && currentStatus === 'refused'
+      circle: (isRefused && currentStatus === 'refused') || isRejected
         ? 'bg-(--color-background-danger) text-(--color-text-danger) border-2 border-(--color-text-danger)/40'
         : 'bg-(--color-background-success) text-(--color-text-success) border-2 border-(--color-text-success)/40',
-      label: isRefused && currentStatus === 'refused'
+      label: (isRefused && currentStatus === 'refused') || isRejected
         ? 'text-(--color-text-danger) font-bold'
         : 'text-(--color-text-success) font-bold',
-      line: isRefused ? 'bg-(--color-text-danger)/30' : 'bg-(--color-text-success)/30',
+      line: (isRefused || isRejected) ? 'bg-(--color-text-danger)/30' : 'bg-(--color-text-success)/30',
     },
     pending: {
       circle: 'bg-muted border-2 border-border text-muted-foreground',
@@ -112,7 +119,7 @@ export default function QuoteHistoryBar({ history, currentStatus, locale }: Quot
               >
                 {state === 'completed' ? (
                   <CheckIcon className="size-4" />
-                ) : state === 'active' && stepStatus === 'refused' ? (
+                ) : state === 'active' && (stepStatus === 'refused' || stepStatus === 'rejected') ? (
                   <XIcon className="size-4" />
                 ) : state === 'active' && stepStatus === 'accepted' ? (
                   <CheckIcon className="size-4" />

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useEffect, useState, type ReactElement } from 'react';
 
 import { HistoryIcon, Loader2Icon } from 'lucide-react';
 
@@ -21,6 +21,10 @@ interface QuoteHistoryDialogProps {
   currentStatus: QuoteStatus;
   locale: 'en' | 'fr';
   label: string;
+  open?: boolean;
+  onOpenChange?: (next: boolean) => void;
+  hideTrigger?: boolean;
+  trigger?: ReactElement;
 }
 
 const MESSAGES = {
@@ -28,14 +32,16 @@ const MESSAGES = {
   fr: { title: 'Historique du devis', loading: 'Chargement…', error: 'Impossible de charger l\'historique.' },
 } as const;
 
-export default function QuoteHistoryDialog({ quoteId, quoteNumber, currentStatus, locale, label }: QuoteHistoryDialogProps) {
+export default function QuoteHistoryDialog({ quoteId, quoteNumber, currentStatus, locale, label, open, onOpenChange, hideTrigger = false, trigger }: QuoteHistoryDialogProps) {
   const t = MESSAGES[locale];
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState<HistoryEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function loadHistory() {
+  const dialogOpen = open ?? internalOpen;
+
+  const loadHistory = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -48,26 +54,41 @@ export default function QuoteHistoryDialog({ quoteId, quoteNumber, currentStatus
     } finally {
       setLoading(false);
     }
-  }
+  }, [quoteId, t.error]);
+
+  useEffect(() => {
+    if (!dialogOpen) {
+      return;
+    }
+
+    void loadHistory();
+  }, [dialogOpen, loadHistory]);
 
   function handleOpenChange(next: boolean) {
-    setOpen(next);
-    if (next) {
-      void loadHistory();
-    } else {
+    if (open === undefined) {
+      setInternalOpen(next);
+    }
+
+    onOpenChange?.(next);
+
+    if (!next) {
       setHistory(null);
       setError(null);
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        <Button type="button" size="sm" variant="outline">
-          <HistoryIcon className="size-3.5" />
-          {label}
-        </Button>
-      </DialogTrigger>
+    <Dialog open={dialogOpen} onOpenChange={handleOpenChange}>
+      {hideTrigger ? null : (
+        <DialogTrigger asChild>
+          {trigger ?? (
+            <Button type="button" size="sm" variant="outline">
+              <HistoryIcon className="size-3.5" />
+              {label}
+            </Button>
+          )}
+        </DialogTrigger>
+      )}
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">

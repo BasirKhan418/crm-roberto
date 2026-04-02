@@ -18,7 +18,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 type Locale = 'en' | 'fr';
-type QuoteStatus = 'draft' | 'sent' | 'accepted' | 'refused';
+type QuoteStatus = 'draft' | 'sent' | 'accepted' | 'refused' | 'rejected';
 
 interface SendQuoteModalProps {
   open: boolean;

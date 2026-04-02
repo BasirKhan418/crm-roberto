@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils"
 
-export type QuoteStatus = "draft" | "sent" | "accepted" | "refused"
+export type QuoteStatus = "draft" | "sent" | "accepted" | "refused" | "rejected"
 
 const STATUS_STYLES: Record<
   QuoteStatus,
@@ -25,6 +25,11 @@ const STATUS_STYLES: Record<
     backgroundColor: "var(--color-background-danger)",
     color: "var(--color-text-danger)",
     label: "Refused",
+  },
+  rejected: {
+    backgroundColor: "#fff7ed",
+    color: "#c2410c",
+    label: "Rejected",
   },
 }
 

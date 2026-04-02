@@ -9,9 +9,10 @@ import { toast } from 'sonner';
 
 import CrmShell from '@/components/crm-shell';
 import SendQuoteModal from '@/components/quotes/SendQuoteModal';
+import QuoteStatusSummary from '@/components/quotes/QuoteStatusSummary';
 import { useLocale } from '@/components/providers/locale-provider';
 import { PriceDisplay } from '@/components/ui/PriceDisplay';
-import { StatusBadge, type QuoteStatus } from '@/components/ui/StatusBadge';
+import type { QuoteStatus } from '@/components/ui/StatusBadge';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -54,6 +55,7 @@ interface ClientQuote {
   quoteNumber: string;
   date: string;
   status: QuoteStatus;
+  statusChangedAt?: string | null;
   totalIncludingTax: number;
 }
 
@@ -710,7 +712,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                             }).format(new Date(q.date))}
                           </p>
                         </div>
-                        <StatusBadge status={q.status} />
+                        <QuoteStatusSummary status={q.status} statusChangedAt={q.statusChangedAt} locale={locale as 'en' | 'fr'} className="items-end text-right" />
                       </div>
 
                       <div className="rounded-lg border border-border/60 bg-background px-2.5 py-2 text-xs">
@@ -765,7 +767,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                             <PriceDisplay cents={q.totalIncludingTax} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} />
                           </td>
                           <td className="px-3 py-2">
-                            <StatusBadge status={q.status} />
+                            <QuoteStatusSummary status={q.status} statusChangedAt={q.statusChangedAt} locale={locale as 'en' | 'fr'} />
                           </td>
                           <td className="px-3 py-2 text-right">
                             <div className="inline-flex items-center gap-1.5">

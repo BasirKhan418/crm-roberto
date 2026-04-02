@@ -15,6 +15,7 @@ const NEXT_STATUSES: Record<QuoteStatus, QuoteStatus[]> = {
   sent: ['accepted', 'refused'],
   accepted: [],
   refused: [],
+  rejected: ['sent'],
 };
 
 interface StatusChangerProps {
@@ -31,8 +32,8 @@ interface StatusChangerProps {
 
 function statusLabel(status: QuoteStatus, locale: 'en' | 'fr') {
   const labels = {
-    en: { draft: 'Draft', sent: 'Sent', accepted: 'Accepted', refused: 'Refused' },
-    fr: { draft: 'Brouillon', sent: 'Envoye', accepted: 'Accepte', refused: 'Refuse' },
+    en: { draft: 'Draft', sent: 'Sent', accepted: 'Accepted', refused: 'Refused', rejected: 'Rejected' },
+    fr: { draft: 'Brouillon', sent: 'Envoye', accepted: 'Accepte', refused: 'Refuse', rejected: 'Refuse (client)' },
   } as const;
 
   return labels[locale][status];

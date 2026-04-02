@@ -102,6 +102,10 @@ export default function SignPage() {
   const [signedAt, setSignedAt] = useState<string | null>(null);
   const [isSigning, setIsSigning] = useState(false);
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
+  const [isRejecting, setIsRejecting] = useState(false);
+  const [rejected, setRejected] = useState(false);
+  const [rejectionComment, setRejectionComment] = useState('');
+  const [showRejectDialog, setShowRejectDialog] = useState(false);
 
   useEffect(() => {
     if (!token) {
@@ -275,6 +279,28 @@ export default function SignPage() {
     }
   };
 
+  const handleReject = async () => {
+    if (!token) return;
+    setIsRejecting(true);
+    try {
+      const response = await fetch(`/api/sign/${token}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ comment: rejectionComment.trim() || null }),
+      });
+      if (response.ok || response.status === 409) {
+        setShowRejectDialog(false);
+        setRejected(true);
+      } else {
+        toast.error('Unable to submit your rejection. Please try again.');
+      }
+    } catch {
+      toast.error('A network error occurred. Please try again.');
+    } finally {
+      setIsRejecting(false);
+    }
+  };
+
   const renderError = () => {
     if (!error) {
       return null;
@@ -381,6 +407,24 @@ export default function SignPage() {
           renderAlreadySigned()
         ) : error ? (
           renderError()
+        ) : rejected ? (
+          <section className="overflow-hidden rounded-2xl border border-orange-200 bg-white shadow-xl shadow-slate-950/5 sm:rounded-3xl">
+            <div className="border-b border-orange-100 bg-orange-50 px-4 py-4 sm:px-6 sm:py-5 md:px-8 md:py-6">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-orange-700 sm:text-xs">Rejection submitted</p>
+              <h1 className="mt-2 text-2xl font-semibold tracking-tight text-orange-950 sm:mt-3 sm:text-3xl md:text-4xl">Quote rejected</h1>
+              <p className="mt-2 text-xs leading-5 text-orange-900/80 sm:mt-3 sm:text-sm sm:leading-6 md:text-base">
+                Thank you, {quote?.clientSnapshot.fullName || 'Client'}. {companyName} has been notified and will be in touch with an updated quote.
+              </p>
+            </div>
+            <div className="px-4 py-4 sm:px-6 sm:py-6 md:px-8 md:py-8">
+              {rejectionComment.trim() ? (
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:rounded-3xl sm:p-5">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 sm:text-xs">Your comment</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-700 sm:mt-3">{rejectionComment.trim()}</p>
+                </div>
+              ) : null}
+            </div>
+          </section>
         ) : signed ? (
          
           <section className="overflow-hidden rounded-2xl border border-emerald-200 bg-white shadow-xl shadow-slate-950/5 sm:rounded-3xl">
@@ -574,10 +618,70 @@ export default function SignPage() {
                           ? 'Sign and complete quote'
                           : 'Add your signature to continue'}
                     </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowRejectDialog(true)}
+                      disabled={isSigning}
+                      className="mt-2 h-10 w-full rounded-xl border border-white/20 px-4 text-[12px] font-medium text-slate-300 transition hover:border-white/40 hover:text-white active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:mt-3 sm:h-11 sm:rounded-2xl sm:text-sm"
+                    >
+                      I want to reject this quote
+                    </button>
                   </div>
                 </section>
               </div>
             </section>
+
+            {/* Rejection dialog */}
+            {showRejectDialog ? (
+              <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 sm:items-center sm:p-6" onClick={() => setShowRejectDialog(false)}>
+                <div
+                  className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl sm:rounded-3xl"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="border-b border-slate-200 px-5 py-4 sm:px-6 sm:py-5">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-orange-600 sm:text-xs">Reject quote</p>
+                    <h2 className="mt-1 text-base font-semibold text-slate-950 sm:mt-2 sm:text-lg">Are you sure you want to reject this quote?</h2>
+                    <p className="mt-1 text-xs leading-5 text-slate-600 sm:mt-2 sm:text-sm sm:leading-6">
+                      {companyName} will be notified and can send you an updated version. You can optionally explain what you would like changed.
+                    </p>
+                  </div>
+                  <div className="px-5 py-4 sm:px-6 sm:py-5">
+                    <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 sm:text-xs" htmlFor="rejection-comment">
+                      Comment (optional)
+                    </label>
+                    <textarea
+                      id="rejection-comment"
+                      rows={4}
+                      maxLength={1000}
+                      value={rejectionComment}
+                      onChange={(e) => setRejectionComment(e.target.value)}
+                      placeholder="e.g. The price is too high, please revise line item 2..."
+                      className="mt-2 w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-950 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none sm:rounded-2xl sm:px-4 sm:py-3"
+                    />
+                    <p className="mt-1 text-right text-[10px] text-slate-400 sm:text-xs">{rejectionComment.length}/1000</p>
+                  </div>
+                  <div className="flex gap-2 border-t border-slate-200 px-5 py-4 sm:gap-3 sm:px-6 sm:py-5">
+                    <button
+                      type="button"
+                      onClick={() => setShowRejectDialog(false)}
+                      disabled={isRejecting}
+                      className="h-10 flex-1 rounded-xl border border-slate-200 px-4 text-[13px] font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 sm:h-11 sm:rounded-2xl sm:text-sm"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleReject}
+                      disabled={isRejecting}
+                      className="h-10 flex-1 rounded-xl bg-orange-600 px-4 text-[13px] font-semibold text-white transition hover:bg-orange-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 sm:h-11 sm:rounded-2xl sm:text-sm"
+                    >
+                      {isRejecting ? 'Submitting...' : 'Reject quote'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
 
             <div className="grid gap-3 sm:gap-4 lg:grid-cols-[1fr_minmax(0,0.67fr)]">
               <DisclosureSection

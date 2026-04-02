@@ -6,7 +6,7 @@ import mongoose from 'mongoose';
 import { computeQuoteLine, computeQuoteTotalsFromComputedLines } from '@/lib/quote-calculations';
 import type { CreateQuoteDTO, UpdateQuoteDTO, UpdateQuoteStatusDTO } from '@/validators/quote.schema';
 
-export type QuoteStatus = 'draft' | 'sent' | 'accepted' | 'refused';
+export type QuoteStatus = 'draft' | 'sent' | 'accepted' | 'refused' | 'rejected';
 export type QuoteSignedStatus = 'not_signed' | 'signed';
 
 interface LastQuoteNumberRecord {
@@ -22,6 +22,7 @@ export interface QuoteListItemRecord {
   quoteNumber: string;
   date: Date;
   status: QuoteStatus;
+  statusChangedAt: Date | null;
   totalIncludingTax: number;
   clientId: string;
   clientSnapshot: {
@@ -41,6 +42,27 @@ export interface QuoteListResult {
 interface QuoteDeleteRecord {
   _id: string;
   quoteNumber: string;
+}
+
+interface QuoteStatusHistoryRecord {
+  to: QuoteStatus;
+  changedAt?: Date | string | null;
+}
+
+interface QuoteListQueryRecord {
+  _id: mongoose.Types.ObjectId | string;
+  quoteNumber: string;
+  date: Date;
+  status: QuoteStatus;
+  signedAt?: Date | null;
+  updatedAt?: Date | null;
+  totalIncludingTax: number;
+  clientId: mongoose.Types.ObjectId | string;
+  clientSnapshot: {
+    fullName: string;
+    email?: string | null;
+  };
+  statusHistory?: QuoteStatusHistoryRecord[];
 }
 
 interface ClientSnapshotRecord {
@@ -111,13 +133,14 @@ type DuplicateQuoteResult =
   | { kind: 'ok'; quote: QuoteRecord; sourceQuoteId: string }
   | { kind: 'not-found' };
 
-const EDITABLE_STATUSES: QuoteStatus[] = ['draft', 'sent'];
+const EDITABLE_STATUSES: QuoteStatus[] = ['draft', 'sent', 'rejected'];
 
 const ALLOWED_STATUS_TRANSITIONS: Record<QuoteStatus, QuoteStatus[]> = {
   draft: ['sent'],
-  sent: ['accepted', 'refused', 'draft'],
+  sent: ['accepted', 'refused', 'draft', 'rejected'],
   accepted: ['draft'],
   refused: ['draft'],
+  rejected: ['sent'],
 };
 
 const MAX_QUOTE_NUMBER_RETRIES = 200;
@@ -146,6 +169,37 @@ function isDuplicateKeyError(error: unknown): boolean {
   }
 
   return (error as { code?: number }).code === 11000;
+}
+
+function normalizeDate(value: Date | string | null | undefined): Date | null {
+  if (!value) {
+    return null;
+  }
+
+  const normalized = value instanceof Date ? value : new Date(value);
+  return Number.isFinite(normalized.getTime()) ? normalized : null;
+}
+
+function getLatestStatusChangedAt(
+  status: QuoteStatus,
+  history?: QuoteStatusHistoryRecord[] | null,
+  fallbacks?: { signedAt?: Date | string | null; updatedAt?: Date | string | null; date?: Date | string | null }
+): Date | null {
+  const matchedEntry = [...(history ?? [])].reverse().find((entry) => entry.to === status);
+  const historyDate = normalizeDate(matchedEntry?.changedAt);
+
+  if (historyDate) {
+    return historyDate;
+  }
+
+  if (status === 'accepted') {
+    const signedAt = normalizeDate(fallbacks?.signedAt);
+    if (signedAt) {
+      return signedAt;
+    }
+  }
+
+  return normalizeDate(fallbacks?.updatedAt) ?? normalizeDate(fallbacks?.date);
 }
 
 async function ensureTenantScopedQuoteNumberIndex(): Promise<void> {
@@ -344,11 +398,29 @@ export const listQuotes = async (
     .sort({ [sortField]: -1 })
     .skip(skip)
     .limit(limit)
-    .select('_id quoteNumber date status clientId clientSnapshot.fullName clientSnapshot.email totalIncludingTax')
+    .select('_id quoteNumber date status signedAt updatedAt clientId clientSnapshot.fullName clientSnapshot.email totalIncludingTax statusHistory.to statusHistory.changedAt')
     .lean();
 
+  const items = (quotes as QuoteListQueryRecord[]).map((quote) => ({
+    _id: String(quote._id),
+    quoteNumber: quote.quoteNumber,
+    date: quote.date,
+    status: quote.status,
+    statusChangedAt: getLatestStatusChangedAt(quote.status, quote.statusHistory, {
+      signedAt: quote.signedAt,
+      updatedAt: quote.updatedAt,
+      date: quote.date,
+    }),
+    totalIncludingTax: quote.totalIncludingTax,
+    clientId: String(quote.clientId),
+    clientSnapshot: {
+      fullName: quote.clientSnapshot.fullName,
+      email: quote.clientSnapshot.email ?? null,
+    },
+  }));
+
   return {
-    items: quotes as QuoteListItemRecord[],
+    items,
     total,
     page,
     limit,

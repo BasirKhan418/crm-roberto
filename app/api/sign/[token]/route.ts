@@ -4,6 +4,8 @@ import ConnectDb from "@/db/connectDb";
 import CompanyProfile from "@/db/models/CompanyProfile";
 import Quote from "@/db/models/Quote";
 import QuoteSignature from "@/db/models/QuoteSignature";
+import User from "@/db/models/User";
+import { sendQuoteRejectionNotification } from "@/lib/email";
 import { isTokenExpired } from "@/lib/tokens";
 
 interface RouteParams {
@@ -211,4 +213,80 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   await quote.save();
 
   return NextResponse.json({ message: "Quote signed successfully", signedAt: signedAt.toISOString() });
+}
+
+export async function PATCH(request: NextRequest, { params }: RouteParams) {
+  await ConnectDb();
+
+  const { token } = await params;
+  const body = (await request.json()) as { comment?: string };
+  const comment = typeof body.comment === "string" ? body.comment.trim().slice(0, 1000) : null;
+
+  const quote = await findQuoteByToken(token);
+  if (!quote) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
+  if (quote.status === "draft") {
+    return NextResponse.json({ error: "link_no_longer_valid" }, { status: 410 });
+  }
+
+  if (isTokenExpired(quote.signatureTokenExpiry)) {
+    return NextResponse.json({ error: "expired" }, { status: 410 });
+  }
+
+  if (quote.signedStatus === "signed") {
+    return NextResponse.json({ error: "already_signed" }, { status: 409 });
+  }
+
+  if (quote.status === "rejected") {
+    return NextResponse.json({ error: "already_rejected" }, { status: 409 });
+  }
+
+  const previousStatus = quote.status;
+  quote.status = "rejected";
+  quote.rejectionComment = comment ?? null;
+  quote.signatureToken = null;
+  quote.signatureTokenExpiry = null;
+  quote.statusHistory.push({
+    from: previousStatus,
+    to: "rejected",
+    changedAt: new Date(),
+  });
+  await quote.save();
+
+  // Notify the admin asynchronously — do not block the client response
+  (async () => {
+    try {
+      const adminUser = await User.findById(quote.user).select("email name").lean();
+      const adminEmail = (adminUser as { email?: string } | null)?.email;
+      const adminName = (adminUser as { name?: string } | null)?.name ?? "Admin";
+      if (!adminEmail) return;
+
+      const companyProfile = await CompanyProfile.findOne({ user: quote.user })
+        .select("companyName ownerName")
+        .lean();
+      const companyName =
+        (companyProfile?.companyName as string | undefined) ||
+        (companyProfile?.ownerName as string | undefined) ||
+        "Your Company";
+
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || "";
+      const quoteDetailUrl = appUrl ? `${appUrl}/quotes/${String(quote._id)}` : "";
+
+      await sendQuoteRejectionNotification({
+        to: adminEmail,
+        adminName,
+        companyName,
+        quoteNumber: quote.quoteNumber,
+        clientName: quote.clientSnapshot?.fullName ?? "Client",
+        rejectionComment: comment,
+        quoteDetailUrl,
+      });
+    } catch {
+      // email failure must not affect the client response
+    }
+  })();
+
+  return NextResponse.json({ message: "Quote rejected" });
 }
