@@ -1,8 +1,9 @@
 'use client';
 
 import { useCallback, useState } from 'react';
+import Image from 'next/image';
 
-import { Loader2Icon, MailIcon, X } from 'lucide-react';
+import { AlertTriangleIcon, Loader2Icon, MailIcon, PlugZapIcon, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { resolveTranslatedError } from '@/lib/i18n/messages';
@@ -46,6 +47,11 @@ const translations = {
     emailRequired: 'Client email is required',
     success: 'Invoice sent successfully',
     error: 'Failed to send invoice',
+    stripeErrorTitle: 'Stripe is not connected',
+    stripeErrorDescription: 'Please connect Stripe to send invoices and accept online payments.',
+    connectStripe: 'Connect Stripe',
+    connectTodo: 'Connect Stripe action is not implemented yet.',
+    wireDisconnected: 'Wire disconnected illustration placeholder',
     defaultSubject: (invoiceNumber: string) => `Invoice ${invoiceNumber} - Payment details`,
     defaultMessage: (invoiceNumber: string, clientName?: string | null, senderCompany?: string | null) => {
       const greeting = clientName ? `Dear ${clientName},` : 'Hello,';
@@ -66,6 +72,11 @@ const translations = {
     emailRequired: 'L e-mail du client est requis',
     success: 'Facture envoyee avec succes',
     error: 'Impossible d envoyer la facture',
+    stripeErrorTitle: 'Stripe n est pas connecte',
+    stripeErrorDescription: 'Veuillez connecter Stripe pour envoyer des factures et accepter les paiements en ligne.',
+    connectStripe: 'Connecter Stripe',
+    connectTodo: 'L action de connexion Stripe n est pas encore implementee.',
+    wireDisconnected: 'Emplacement illustration cable deconnecte',
     defaultSubject: (invoiceNumber: string) => `Facture ${invoiceNumber} - Details de paiement`,
     defaultMessage: (invoiceNumber: string, clientName?: string | null, senderCompany?: string | null) => {
       const greeting = clientName ? `Bonjour ${clientName},` : 'Bonjour,';
@@ -98,15 +109,27 @@ export default function SendInvoiceModal({
   const [subject, setSubject] = useState(getInitialSubject);
   const [message, setMessage] = useState(getInitialMessage);
   const [sending, setSending] = useState(false);
+  const [showStripeError, setShowStripeError] = useState(false);
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (nextOpen) {
       setEmail(clientEmail || '');
       setSubject(getInitialSubject());
       setMessage(getInitialMessage());
+      setShowStripeError(false);
     }
     onOpenChange(nextOpen);
   };
+
+  function isStripeNotConnectedError(message: string): boolean {
+    const normalized = message.toLowerCase();
+    return normalized.includes('stripe') && normalized.includes('connect');
+  }
+
+  function handleConnectStripeClick() {
+    console.log('[SendInvoiceModal] Connect Stripe clicked from Stripe error modal state.');
+    toast.info(t.connectTodo);
+  }
 
   async function handleSend() {
     const trimmedEmail = email.trim();
@@ -130,7 +153,12 @@ export default function SendInvoiceModal({
 
       const payload = (await response.json()) as { success?: boolean; message?: string };
       if (!response.ok || !payload.success) {
-        throw new Error(payload.message || t.error);
+        const resolvedMessage = payload.message || t.error;
+        if (isStripeNotConnectedError(resolvedMessage)) {
+          setShowStripeError(true);
+          return;
+        }
+        throw new Error(resolvedMessage);
       }
 
       toast.success(t.success);
@@ -158,65 +186,104 @@ export default function SendInvoiceModal({
           <X className="size-4" />
         </Button>
 
-        <DialogHeader className="gap-1 pr-8">
-          <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
-            <MailIcon className="size-4" />
-            {t.title}
-          </DialogTitle>
-          <DialogDescription className="text-xs sm:text-sm">{t.description}</DialogDescription>
-        </DialogHeader>
+        {showStripeError ? (
+          <>
+            <DialogHeader className="gap-1 pr-8">
+              <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+                <AlertTriangleIcon className="size-4 text-amber-600" />
+                {t.stripeErrorTitle}
+              </DialogTitle>
+              <DialogDescription className="text-xs sm:text-sm">{t.stripeErrorDescription}</DialogDescription>
+            </DialogHeader>
 
-        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1 text-sm">
-          <div className="grid gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="send-invoice-email" className="text-xs">{t.emailLabel}</Label>
-              <Input
-                id="send-invoice-email"
-                type="email"
-                className="h-9 text-sm"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder={t.emailPlaceholder}
-                disabled={sending}
-              />
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1 text-sm">
+              <div className="flex min-h-40 items-center justify-center rounded-xl border border-dashed border-amber-300 bg-amber-50/60 p-3 sm:p-4">
+                <div className="relative aspect-3/2 w-full max-w-[320px]">
+                  <Image
+                    src="/stripe.png"
+                    alt={t.wireDisconnected}
+                    fill
+                    sizes="(max-width: 640px) 70vw, 320px"
+                    className="object-contain"
+                    quality={100}
+                    priority
+                  />
+                </div>
+              </div>
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="send-invoice-subject" className="text-xs">{t.subjectLabel}</Label>
-              <Input
-                id="send-invoice-subject"
-                type="text"
-                className="h-9 text-sm"
-                value={subject}
-                onChange={(event) => setSubject(event.target.value)}
-                disabled={sending}
-              />
+            <DialogFooter className="border-t pt-3">
+              <Button type="button" variant="outline" className="h-10 text-sm sm:h-9" onClick={() => onOpenChange(false)}>
+                {t.cancel}
+              </Button>
+              <Button type="button" className="h-10 text-sm sm:h-9" onClick={handleConnectStripeClick}>
+                {t.connectStripe}
+              </Button>
+            </DialogFooter>
+          </>
+        ) : (
+          <>
+            <DialogHeader className="gap-1 pr-8">
+              <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+                <MailIcon className="size-4" />
+                {t.title}
+              </DialogTitle>
+              <DialogDescription className="text-xs sm:text-sm">{t.description}</DialogDescription>
+            </DialogHeader>
+
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1 text-sm">
+              <div className="grid gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="send-invoice-email" className="text-xs">{t.emailLabel}</Label>
+                  <Input
+                    id="send-invoice-email"
+                    type="email"
+                    className="h-9 text-sm"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    placeholder={t.emailPlaceholder}
+                    disabled={sending}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="send-invoice-subject" className="text-xs">{t.subjectLabel}</Label>
+                  <Input
+                    id="send-invoice-subject"
+                    type="text"
+                    className="h-9 text-sm"
+                    value={subject}
+                    onChange={(event) => setSubject(event.target.value)}
+                    disabled={sending}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="send-invoice-message" className="text-xs">{t.messageLabel}</Label>
+                <textarea
+                  id="send-invoice-message"
+                  className="flex min-h-28 w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring focus-visible:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-50"
+                  value={message}
+                  onChange={(event) => setMessage(event.target.value)}
+                  disabled={sending}
+                />
+              </div>
+
+              <p className="text-xs text-muted-foreground">{invoiceNumber}</p>
             </div>
-          </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="send-invoice-message" className="text-xs">{t.messageLabel}</Label>
-            <textarea
-              id="send-invoice-message"
-              className="flex min-h-28 w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring focus-visible:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-50"
-              value={message}
-              onChange={(event) => setMessage(event.target.value)}
-              disabled={sending}
-            />
-          </div>
-
-          <p className="text-xs text-muted-foreground">{invoiceNumber}</p>
-        </div>
-
-        <DialogFooter className="border-t pt-3">
-          <Button type="button" variant="outline" className="h-10 text-sm sm:h-9" onClick={() => onOpenChange(false)} disabled={sending}>
-            {t.cancel}
-          </Button>
-          <Button type="button" className="h-10 text-sm sm:h-9" onClick={handleSend} disabled={sending}>
-            {sending ? <Loader2Icon className="size-4 animate-spin" /> : null}
-            {sending ? t.sending : t.send}
-          </Button>
-        </DialogFooter>
+            <DialogFooter className="border-t pt-3">
+              <Button type="button" variant="outline" className="h-10 text-sm sm:h-9" onClick={() => onOpenChange(false)} disabled={sending}>
+                {t.cancel}
+              </Button>
+              <Button type="button" className="h-10 text-sm sm:h-9" onClick={handleSend} disabled={sending}>
+                {sending ? <Loader2Icon className="size-4 animate-spin" /> : null}
+                {sending ? t.sending : t.send}
+              </Button>
+            </DialogFooter>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );

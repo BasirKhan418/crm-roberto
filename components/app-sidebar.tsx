@@ -19,6 +19,7 @@ import {
 import { Building2Icon, FileTextIcon, LayoutDashboard, LayoutDashboardIcon, LogOutIcon, NotebookPenIcon, PackageSearchIcon, ReceiptTextIcon, TruckIcon, UsersIcon } from "lucide-react"
 import { useLocale } from "@/components/providers/locale-provider"
 import { useAuthMe } from "@/hooks/useAuthMe"
+import { useInvoicesActionCount } from "@/hooks/useInvoicesActionCount"
 import { useQuotesActionCount } from "@/hooks/useQuotesActionCount"
 
 const navItems = [
@@ -81,6 +82,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { locale } = useLocale()
   const t = sidebarMessages[locale]
   const { rejectedCount, acceptedCount } = useQuotesActionCount()
+  const { paidCount, overdueCount, depositPaidCount } = useInvoicesActionCount()
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>
@@ -135,6 +137,37 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                             title={`${acceptedCount} accepted`}
                           >
                             {acceptedCount > 99 ? '99+' : acceptedCount}
+                          </span>
+                        ) : null}
+                      </span>
+                    ) : null}
+                    {item.key === "invoices" && (paidCount > 0 || overdueCount > 0 || depositPaidCount > 0) ? (
+                      <span className="ml-auto flex items-center gap-1">
+                        {overdueCount > 0 ? (
+                          <span
+                            className="flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white"
+                            style={{ backgroundColor: 'var(--color-text-danger)' }}
+                            title={`${overdueCount} overdue`}
+                          >
+                            {overdueCount > 99 ? '99+' : overdueCount}
+                          </span>
+                        ) : null}
+                        {depositPaidCount > 0 ? (
+                          <span
+                            className="flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white"
+                            style={{ backgroundColor: 'var(--color-text-warning)' }}
+                            title={`${depositPaidCount} deposit paid`}
+                          >
+                            {depositPaidCount > 99 ? '99+' : depositPaidCount}
+                          </span>
+                        ) : null}
+                        {paidCount > 0 ? (
+                          <span
+                            className="flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white"
+                            style={{ backgroundColor: 'var(--color-text-success)' }}
+                            title={`${paidCount} paid`}
+                          >
+                            {paidCount > 99 ? '99+' : paidCount}
                           </span>
                         ) : null}
                       </span>
