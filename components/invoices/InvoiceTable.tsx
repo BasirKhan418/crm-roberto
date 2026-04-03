@@ -80,6 +80,7 @@ export default function InvoiceTable({
 
   function renderActions(invoice: InvoiceListItem, align: 'start' | 'end' = 'end') {
     const moreActionsLabel = locale === 'fr' ? 'Plus d actions' : 'More actions';
+    const canDelete = invoice.status !== 'paid';
 
     return (
       <DropdownMenu>
@@ -111,11 +112,13 @@ export default function InvoiceTable({
             <DownloadIcon className="size-4" />
             {labels.downloadPdf}
           </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem variant="destructive" onSelect={() => onDelete(invoice)}>
-            <Trash2Icon className="size-4" />
-            {labels.delete}
-          </DropdownMenuItem>
+          {canDelete ? <DropdownMenuSeparator /> : null}
+          {canDelete ? (
+            <DropdownMenuItem variant="destructive" onSelect={() => onDelete(invoice)}>
+              <Trash2Icon className="size-4" />
+              {labels.delete}
+            </DropdownMenuItem>
+          ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
     );
