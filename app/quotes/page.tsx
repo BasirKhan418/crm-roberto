@@ -74,6 +74,8 @@ function QuotesPageContent() {
       send: 'Send',
       sendForSignature: 'Send for signature',
       history: 'History',
+      convertToInvoice: 'Convert to invoice',
+      invoiced: 'Invoiced',
       deleteTitle: 'Delete quote?',
       deleteDescription: 'Are you sure you want to delete this quote?',
       cancel: 'Cancel',
@@ -128,6 +130,8 @@ function QuotesPageContent() {
       send: 'Envoyer',
       sendForSignature: 'Envoyer pour signature',
       history: 'Historique',
+      convertToInvoice: 'Convertir en facture',
+      invoiced: 'Facture creee',
       deleteTitle: 'Supprimer le devis ?',
       deleteDescription: 'Voulez-vous vraiment supprimer ce devis ?',
       cancel: 'Annuler',
@@ -285,6 +289,10 @@ function QuotesPageContent() {
     }
   }
 
+  function handleConvertFromList(quote: QuoteListItem) {
+    router.push(`/quotes/${quote._id}?convert=1`);
+  }
+
   const currentFilterLabel =
     status === 'all' ? t.tabAll : status === 'draft' ? t.tabDraft : status === 'sent' ? t.tabSent : status === 'accepted' ? t.tabAccepted : t.tabRejected;
 
@@ -436,10 +444,13 @@ function QuotesPageContent() {
                 send: t.send,
                 sendForSignature: t.sendForSignature,
                 history: t.history,
+                convertToInvoice: t.convertToInvoice,
+                invoiced: t.invoiced,
               }}
               locale={locale as 'en' | 'fr'}
               onDuplicate={handleDuplicateQuote}
               onSend={setSendTarget}
+              onConvert={handleConvertFromList}
               duplicatingId={duplicatingId}
             />
 

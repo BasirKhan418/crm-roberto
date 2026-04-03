@@ -263,7 +263,16 @@ export async function POST(request: NextRequest) {
         metadata: { action: 'converted_to_invoice', invoiceNumber },
       });
 
-      return NextResponse.json(invoice, { status: 201 });
+      return NextResponse.json(
+        {
+          success: true,
+          data: {
+            _id: String(invoice._id),
+            invoiceNumber: invoice.invoiceNumber,
+          },
+        },
+        { status: 201 }
+      );
     }
 
     const parsed = standaloneInvoiceSchema.safeParse(body);
@@ -345,7 +354,16 @@ export async function POST(request: NextRequest) {
       notes: parsed.data.notes ?? null,
     });
 
-    return NextResponse.json(invoice, { status: 201 });
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          _id: String(invoice._id),
+          invoiceNumber: invoice.invoiceNumber,
+        },
+      },
+      { status: 201 }
+    );
   } catch (error) {
     return NextResponse.json({ message: `Error creating invoice: ${String(error)}` }, { status: 500 });
   }

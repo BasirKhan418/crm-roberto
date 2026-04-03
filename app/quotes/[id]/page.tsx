@@ -4,10 +4,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 
-import { CopyIcon, DownloadIcon, PencilIcon, SendIcon, Trash2Icon } from 'lucide-react';
+import { CopyIcon, DownloadIcon, FileTextIcon, PencilIcon, SendIcon, Trash2Icon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import CrmShell from '@/components/crm-shell';
+import ConvertToInvoiceModal from '@/components/quotes/ConvertToInvoiceModal';
 import { useLocale } from '@/components/providers/locale-provider';
 import QuoteHistoryBar from '@/components/quotes/QuoteHistoryBar';
 import SendQuoteModal from '@/components/quotes/SendQuoteModal';
@@ -37,6 +38,9 @@ interface QuoteDetail {
   quoteNumber: string;
   date: string;
   status: QuoteStatus;
+  signedStatus?: 'not_signed' | 'signed';
+  convertedToInvoice?: boolean;
+  invoiceId?: string | null;
   signatureToken?: string | null;
   clientSnapshot: {
     fullName: string;
@@ -120,6 +124,9 @@ export default function QuoteDetailPage() {
       back: 'Back to quotes',
       edit: 'Edit',
       duplicate: 'Duplicate',
+      convertToInvoice: 'Convert to invoice',
+      convertingToInvoice: 'Converting...',
+      convertedToInvoiceLabel: 'Converted to invoice',
       download: 'Download PDF',
       sendToClient: 'Send to client',
       sendForSigning: 'Send for signing',
@@ -190,6 +197,9 @@ export default function QuoteDetailPage() {
       back: 'Retour aux devis',
       edit: 'Modifier',
       duplicate: 'Dupliquer',
+      convertToInvoice: 'Convertir en facture',
+      convertingToInvoice: 'Conversion...',
+      convertedToInvoiceLabel: 'Converti en facture',
       download: 'Telecharger PDF',
       sendToClient: 'Envoyer au client',
       sendForSigning: 'Envoyer pour signature',
@@ -263,12 +273,23 @@ export default function QuoteDetailPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
+  const [convertOpen, setConvertOpen] = useState(false);
+  const [convertingToInvoice, setConvertingToInvoice] = useState(false);
+  const [convertedInvoiceNumber, setConvertedInvoiceNumber] = useState<string | null>(null);
   const [duplicating, setDuplicating] = useState(false);
   const [replyMessage, setReplyMessage] = useState('');
   const [sendingReply, setSendingReply] = useState(false);
   const [replySent, setReplySent] = useState(false);
 
   const canEdit = quote ? quote.status === 'draft' || quote.status === 'sent' || quote.status === 'rejected' : false;
+  const canConvertToInvoice = Boolean(
+    quote &&
+      quote.status === 'accepted' &&
+      quote.signedStatus === 'signed' &&
+      !quote.convertedToInvoice &&
+      !quote.invoiceId
+  );
+  const hasConvertedInvoice = Boolean(quote?.convertedToInvoice && quote?.invoiceId);
   const actionButtonClass = 'h-10 w-full justify-start sm:h-9 sm:w-auto sm:justify-center text-center';
 
   const loadData = useCallback(async () => {
@@ -290,12 +311,26 @@ export default function QuoteDetailPage() {
         throw new Error(quotePayload.message || t.notFound);
       }
 
+      let nextConvertedInvoiceNumber: string | null = null;
+      const convertedInvoiceId = quotePayload.data.invoiceId;
+      if (typeof convertedInvoiceId === 'string' && convertedInvoiceId) {
+        const invoiceRes = await fetch(`/api/invoices/${convertedInvoiceId}`, { cache: 'no-store' });
+        const invoicePayload = (await invoiceRes.json().catch(() => null)) as
+          | { success?: boolean; data?: { invoiceNumber?: string } }
+          | null;
+
+        if (invoiceRes.ok && invoicePayload?.success && invoicePayload.data?.invoiceNumber) {
+          nextConvertedInvoiceNumber = invoicePayload.data.invoiceNumber;
+        }
+      }
+
       const companyPayload = (await companyRes.json()) as {
         success?: boolean;
         profile?: CompanyProfile;
       };
 
       setQuote(quotePayload.data);
+      setConvertedInvoiceNumber(nextConvertedInvoiceNumber);
       setCompany(companyRes.ok && companyPayload.success ? companyPayload.profile ?? null : null);
     } catch (fetchError) {
       setError(fetchError instanceof Error ? fetchError.message : t.loadFailed);
@@ -316,6 +351,13 @@ export default function QuoteDetailPage() {
       window.history.replaceState(null, '', `/quotes/${params?.id}`);
     }
   }, [loading, quote, searchParams, params?.id]);
+
+  useEffect(() => {
+    if (!loading && quote && searchParams.get('convert') === '1' && canConvertToInvoice) {
+      setConvertOpen(true);
+      window.history.replaceState(null, '', `/quotes/${params?.id}`);
+    }
+  }, [loading, quote, searchParams, params?.id, canConvertToInvoice]);
 
   async function downloadPdf() {
     if (!quote?._id) {
@@ -392,6 +434,19 @@ export default function QuoteDetailPage() {
       toast.error(resolveTranslatedError(locale, duplicateError, t.duplicateFailed));
     } finally {
       setDuplicating(false);
+    }
+  }
+
+  async function handleConverted(invoiceId: string) {
+    if (convertingToInvoice) {
+      return;
+    }
+
+    setConvertingToInvoice(true);
+    try {
+      router.push(`/invoices/${invoiceId}`);
+    } finally {
+      setConvertingToInvoice(false);
     }
   }
 
@@ -603,6 +658,33 @@ export default function QuoteDetailPage() {
                   <CopyIcon className="size-3.5" />
                   {t.duplicate}
                 </Button>
+              </div>
+            ) : null}
+
+            {canConvertToInvoice ? (
+              <div className="w-full sm:w-auto">
+                <Button
+                  type="button"
+                  variant="default"
+                  size="sm"
+                  className={`${actionButtonClass} bg-black text-white hover:bg-black/90 dark:bg-black dark:text-white dark:hover:bg-black/90`}
+                  disabled={convertingToInvoice}
+                  onClick={() => setConvertOpen(true)}
+                >
+                  <FileTextIcon className="size-3.5" />
+                  {convertingToInvoice ? t.convertingToInvoice : t.convertToInvoice}
+                </Button>
+              </div>
+            ) : null}
+
+            {hasConvertedInvoice && quote?.invoiceId ? (
+              <div className="w-full sm:w-auto">
+                <Link
+                  href={`/invoices/${quote.invoiceId}`}
+                  className="inline-flex h-10 w-full items-center justify-start rounded-md border border-emerald-200 bg-emerald-50 px-3 text-sm font-medium text-emerald-800 hover:bg-emerald-100 sm:h-9 sm:w-auto sm:justify-center"
+                >
+                  {t.convertedToInvoiceLabel} {convertedInvoiceNumber ? convertedInvoiceNumber : ''}
+                </Link>
               </div>
             ) : null}
 
@@ -847,6 +929,18 @@ export default function QuoteDetailPage() {
           initialSignUrl={buildSignUrlFromToken(quote.signatureToken)}
           locale={locale as 'en' | 'fr'}
           onSent={loadData}
+        />
+      ) : null}
+
+      {quote && canConvertToInvoice ? (
+        <ConvertToInvoiceModal
+          open={convertOpen}
+          onOpenChange={setConvertOpen}
+          quoteId={quote._id}
+          quoteNumber={quote.quoteNumber}
+          initialNotes={quote.notes ?? null}
+          locale={locale as 'en' | 'fr'}
+          onConverted={handleConverted}
         />
       ) : null}
     </CrmShell>

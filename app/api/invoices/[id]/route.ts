@@ -164,12 +164,16 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
 
     await Invoice.deleteOne({ _id: invoice._id, userId: me.user.id });
 
-    if (invoice.quoteId) {
-      await Quote.updateOne(
-        { _id: invoice.quoteId, user: me.user.id },
-        { $set: { convertedToInvoice: false, invoiceId: null } }
-      );
-    }
+    await Quote.updateMany(
+      {
+        user: me.user.id,
+        $or: [
+          ...(invoice.quoteId ? [{ _id: invoice.quoteId }] : []),
+          { invoiceId: invoice._id },
+        ],
+      },
+      { $set: { convertedToInvoice: false, invoiceId: null, invoicepdfUrl: null } }
+    );
 
     return NextResponse.json({ success: true, message: 'Invoice deleted' });
   } catch (error) {

@@ -29,6 +29,9 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       data: {
         ...quote,
         clientId: String(quote.clientId),
+        invoiceId: quote.invoiceId ? String(quote.invoiceId) : null,
+        convertedToInvoice: Boolean(quote.convertedToInvoice),
+        signedStatus: quote.signedStatus ?? 'not_signed',
         lineItems: quote.lineItems.map((line) => ({
           ...line,
           productId: line.productId ? String(line.productId) : null,

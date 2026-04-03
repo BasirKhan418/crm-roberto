@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-import { CopyIcon, DownloadIcon, EllipsisVerticalIcon, EyeIcon, HistoryIcon, PencilIcon, SendIcon, Trash2Icon } from 'lucide-react';
+import { CopyIcon, DownloadIcon, EllipsisVerticalIcon, EyeIcon, FileTextIcon, HistoryIcon, PencilIcon, SendIcon, Trash2Icon } from 'lucide-react';
 
 import QuoteHistoryDialog from '@/components/quotes/QuoteHistoryDialog';
 import { PriceDisplay } from '@/components/ui/PriceDisplay';
@@ -48,6 +48,9 @@ export interface QuoteListItem {
   date: string;
   totalIncludingTax: number;
   status: QuoteStatus;
+  signedStatus?: 'not_signed' | 'signed';
+  convertedToInvoice?: boolean;
+  invoiceId?: string | null;
   statusChangedAt?: string | null;
   subject?: string | null;
 }
@@ -73,6 +76,8 @@ interface QuoteTableProps {
     send: string;
     sendForSignature: string;
     history: string;
+    convertToInvoice: string;
+    invoiced: string;
   };
   locale: 'en' | 'fr';
   formatDate: (value: string) => string;
@@ -80,10 +85,11 @@ interface QuoteTableProps {
   onDownload: (quote: QuoteListItem) => Promise<void>;
   onDuplicate: (quote: QuoteListItem) => Promise<void>;
   onSend: (quote: QuoteListItem) => void;
+  onConvert: (quote: QuoteListItem) => void;
   duplicatingId?: string | null;
 }
 
-export default function QuoteTable({ items, loading, labels, locale, formatDate, onDelete, onDownload, onDuplicate, onSend, duplicatingId }: QuoteTableProps) {
+export default function QuoteTable({ items, loading, labels, locale, formatDate, onDelete, onDownload, onDuplicate, onSend, onConvert, duplicatingId }: QuoteTableProps) {
   const router = useRouter();
   const [historyTarget, setHistoryTarget] = useState<QuoteListItem | null>(null);
   const priceLocale = locale === 'fr' ? 'fr-FR' : 'en-GB';
@@ -118,7 +124,14 @@ export default function QuoteTable({ items, loading, labels, locale, formatDate,
 
   function renderSecondaryActions(quote: QuoteListItem, align: 'start' | 'end' = 'end') {
     const canEdit = quote.status === 'draft' || quote.status === 'sent' || quote.status === 'rejected';
+    const canConvert =
+      quote.status === 'accepted' &&
+      quote.signedStatus === 'signed' &&
+      !quote.convertedToInvoice &&
+      !quote.invoiceId;
     const moreActionsLabel = locale === 'fr' ? 'Plus d\'actions' : 'More actions';
+
+    const isInvoiced = Boolean(quote.convertedToInvoice && quote.invoiceId);
 
     return (
       <DropdownMenu>
@@ -148,6 +161,22 @@ export default function QuoteTable({ items, loading, labels, locale, formatDate,
             <DropdownMenuItem disabled={duplicatingId === quote._id} onSelect={() => void onDuplicate(quote)}>
               <CopyIcon className="size-4" />
               {labels.duplicate}
+            </DropdownMenuItem>
+          ) : null}
+
+          {canConvert ? (
+            <DropdownMenuItem onSelect={() => onConvert(quote)}>
+              <FileTextIcon className="size-4" />
+              {labels.convertToInvoice}
+            </DropdownMenuItem>
+          ) : null}
+
+          {isInvoiced && quote.invoiceId ? (
+            <DropdownMenuItem asChild>
+              <Link href={`/invoices/${quote.invoiceId}`}>
+                <FileTextIcon className="size-4" />
+                {labels.invoiced}
+              </Link>
             </DropdownMenuItem>
           ) : null}
 
@@ -195,11 +224,17 @@ export default function QuoteTable({ items, loading, labels, locale, formatDate,
                 </div>
               </div>
             ))
-          : items.map((quote) => (
+          : items.map((quote) => {
+              const isInvoiced = Boolean(quote.convertedToInvoice && quote.invoiceId);
+              return (
               <article
                 key={quote._id}
                 className="cursor-pointer rounded-xl border border-border/60 bg-card shadow-xs"
-                style={{ borderLeftWidth: '3px', borderLeftColor: STATUS_ACCENT[quote.status], backgroundColor: STATUS_ROW_BG[quote.status] }}
+                style={{
+                  borderLeftWidth: '3px',
+                  borderLeftColor: STATUS_ACCENT[quote.status],
+                  backgroundColor: isInvoiced ? 'rgba(16, 185, 129, 0.08)' : STATUS_ROW_BG[quote.status],
+                }}
                 onClick={() => router.push(`/quotes/${quote._id}`)}
               >
            
@@ -220,6 +255,12 @@ export default function QuoteTable({ items, loading, labels, locale, formatDate,
                     </p>
                   </div>
                   <div className="flex flex-col items-end gap-1.5 shrink-0">
+                    {isInvoiced ? (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold leading-none text-emerald-700">
+                        <FileTextIcon className="size-3" />
+                        {labels.invoiced}
+                      </span>
+                    ) : null}
                     {isNewQuote(quote) ? (
                       <span className="inline-flex items-center gap-1 rounded-full bg-orange-500 px-2 py-0.5 text-[10px] font-bold leading-none text-white">
                         <span className="relative flex size-1.5">
@@ -246,7 +287,8 @@ export default function QuoteTable({ items, loading, labels, locale, formatDate,
                   </div>
                 </div>
               </article>
-            ))}
+            );
+            })}
       </div>
 
       <div className="hidden overflow-hidden rounded-xl border border-border/70 bg-white md:block dark:bg-card">
@@ -278,11 +320,13 @@ export default function QuoteTable({ items, loading, labels, locale, formatDate,
                     <TableCell className="py-4 pr-4"><Skeleton className="ml-auto h-8 w-32" /></TableCell>
                   </TableRow>
                 ))
-              : items.map((quote) => (
+              : items.map((quote) => {
+                  const isInvoiced = Boolean(quote.convertedToInvoice && quote.invoiceId);
+                  return (
                   <TableRow
                     key={quote._id}
                     className="group cursor-pointer border-b border-border/45 transition-colors last:border-0 hover:bg-muted/20"
-                    style={{ backgroundColor: STATUS_ROW_BG[quote.status] }}
+                    style={{ backgroundColor: isInvoiced ? 'rgba(16, 185, 129, 0.06)' : STATUS_ROW_BG[quote.status] }}
                     onClick={() => router.push(`/quotes/${quote._id}`)}
                   >
                     {/* Client */}
@@ -302,11 +346,27 @@ export default function QuoteTable({ items, loading, labels, locale, formatDate,
                     {/* Subject */}
                     <TableCell className="py-4 align-middle">
                       {quote.subject ? (
-                        <span className="inline-block max-w-35 truncate rounded-full border border-border/60 bg-muted/50 px-2 py-0.5 text-xs font-medium text-foreground/80">
-                          {quote.subject}
-                        </span>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="inline-block max-w-35 truncate rounded-full border border-border/60 bg-muted/50 px-2 py-0.5 text-xs font-medium text-foreground/80">
+                            {quote.subject}
+                          </span>
+                          {isInvoiced ? (
+                            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold leading-none text-emerald-700">
+                              <FileTextIcon className="size-3" />
+                              {labels.invoiced}
+                            </span>
+                          ) : null}
+                        </div>
                       ) : (
-                        <span className="text-xs text-muted-foreground/40">—</span>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="text-xs text-muted-foreground/40">—</span>
+                          {isInvoiced ? (
+                            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold leading-none text-emerald-700">
+                              <FileTextIcon className="size-3" />
+                              {labels.invoiced}
+                            </span>
+                          ) : null}
+                        </div>
                       )}
                     </TableCell>
 
@@ -348,7 +408,8 @@ export default function QuoteTable({ items, loading, labels, locale, formatDate,
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                );
+                })}
           </TableBody>
         </Table>
       </div>

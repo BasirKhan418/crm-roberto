@@ -22,6 +22,9 @@ export interface QuoteListItemRecord {
   quoteNumber: string;
   date: Date;
   status: QuoteStatus;
+  signedStatus?: QuoteSignedStatus;
+  convertedToInvoice?: boolean;
+  invoiceId?: string | null;
   statusChangedAt: Date | null;
   totalIncludingTax: number;
   clientId: string;
@@ -55,6 +58,9 @@ interface QuoteListQueryRecord {
   quoteNumber: string;
   date: Date;
   status: QuoteStatus;
+  signedStatus?: QuoteSignedStatus;
+  convertedToInvoice?: boolean;
+  invoiceId?: mongoose.Types.ObjectId | string | null;
   signedAt?: Date | null;
   updatedAt?: Date | null;
   totalIncludingTax: number;
@@ -81,6 +87,8 @@ interface QuoteRecord {
   date: Date;
   status: QuoteStatus;
   signedStatus?: QuoteSignedStatus;
+  convertedToInvoice?: boolean;
+  invoiceId?: string | null;
   signatureToken?: string | null;
   signatureTokenExpiry?: Date | null;
   signedAt?: Date | null;
@@ -403,7 +411,7 @@ export const listQuotes = async (
     .sort(sortOptions)
     .skip(skip)
     .limit(limit)
-    .select('_id quoteNumber date status signedAt updatedAt clientId clientSnapshot.fullName clientSnapshot.email totalIncludingTax statusHistory.to statusHistory.changedAt subject')
+    .select('_id quoteNumber date status signedStatus convertedToInvoice invoiceId signedAt updatedAt clientId clientSnapshot.fullName clientSnapshot.email totalIncludingTax statusHistory.to statusHistory.changedAt subject')
     .lean();
 
   const items = (quotes as (QuoteListQueryRecord & { subject?: string | null })[]).map((quote) => {
@@ -414,6 +422,9 @@ export const listQuotes = async (
     quoteNumber: quote.quoteNumber,
     date: quote.date,
     status: normalizedStatus,
+    signedStatus: quote.signedStatus ?? 'not_signed',
+    convertedToInvoice: Boolean(quote.convertedToInvoice),
+    invoiceId: quote.invoiceId ? String(quote.invoiceId) : null,
     statusChangedAt: getLatestStatusChangedAt(normalizedStatus, quote.statusHistory, {
       signedAt: quote.signedAt,
       updatedAt: quote.updatedAt,
