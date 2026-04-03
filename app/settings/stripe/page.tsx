@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
 import { CheckCircle2Icon, CircleDashedIcon, CreditCardIcon, Loader2Icon, Link2OffIcon, PlugZapIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -23,7 +22,6 @@ type StripeConnectStatus = {
 
 export default function StripeSettingsPage() {
   const { locale } = useLocale();
-  const searchParams = useSearchParams();
   const [status, setStatus] = useState<StripeConnectStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [disconnecting, setDisconnecting] = useState(false);
@@ -136,7 +134,7 @@ export default function StripeSettingsPage() {
   }, [locale, t.loadFailed]);
 
   useEffect(() => {
-    const statusParam = searchParams.get('status');
+    const statusParam = new URLSearchParams(window.location.search).get('status');
     if (!statusParam) {
       return;
     }
@@ -173,7 +171,6 @@ export default function StripeSettingsPage() {
       toast.error(t.statusConnectError);
     }
   }, [
-    searchParams,
     t.statusComplete,
     t.statusConnectError,
     t.statusConnectNotEnabled,
