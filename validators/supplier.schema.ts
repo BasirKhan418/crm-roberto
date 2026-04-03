@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { createI18nKey as i18nKey } from '@/lib/i18n/messages';
+
 const emptyToUndefined = (val: unknown) =>
   typeof val === 'string' && val.trim() === '' ? undefined : val;
 
@@ -8,17 +10,20 @@ const emptyToNull = (val: unknown) =>
 
 const optionalText = z.preprocess(emptyToUndefined, z.string().trim().min(1).optional());
 
-const optionalEmail = z.preprocess(emptyToUndefined, z.string().trim().toLowerCase().email('Invalid email address').optional());
+const optionalEmail = z.preprocess(
+  emptyToUndefined,
+  z.string().trim().toLowerCase().email(i18nKey('validation.invalidEmailAddress')).optional()
+);
 
 const updatableOptionalText = z.preprocess(emptyToNull, z.string().trim().min(1).nullable().optional());
 
 const updatableOptionalEmail = z.preprocess(
   emptyToNull,
-  z.string().trim().toLowerCase().email('Invalid email address').nullable().optional()
+  z.string().trim().toLowerCase().email(i18nKey('validation.invalidEmailAddress')).nullable().optional()
 );
 
 export const createSupplierSchema = z.object({
-  fullName: z.string().trim().min(1, 'Supplier name is required'),
+  fullName: z.string().trim().min(1, i18nKey('validation.supplierNameRequired')),
   email: optionalEmail,
   phone: optionalText,
   address: optionalText,
@@ -27,7 +32,7 @@ export const createSupplierSchema = z.object({
 });
 
 export const updateSupplierSchema = z.object({
-  fullName: z.string().trim().min(1, 'Supplier name is required').optional(),
+  fullName: z.string().trim().min(1, i18nKey('validation.supplierNameRequired')).optional(),
   email: updatableOptionalEmail,
   phone: updatableOptionalText,
   address: updatableOptionalText,

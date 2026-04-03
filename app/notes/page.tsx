@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 
 import CrmShell from '@/components/crm-shell';
 import { useLocale } from '@/components/providers/locale-provider';
+import { resolveTranslatedError, translate } from '@/lib/i18n/messages';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -317,7 +318,7 @@ export default function NotesPage() {
       setPagination((prev) => ({ ...prev, page: 1 }));
       await loadNotes();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : t.createFailed);
+      toast.error(resolveTranslatedError(locale, err, t.createFailed));
     } finally {
       setIsSaving(false);
     }
@@ -342,7 +343,7 @@ export default function NotesPage() {
       setDeleteTargetId(null);
       await loadNotes();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : t.deleteFailed);
+      toast.error(resolveTranslatedError(locale, err, t.deleteFailed));
     } finally {
       setDeletingNoteId(null);
     }
@@ -359,9 +360,9 @@ export default function NotesPage() {
       const data = (await response.json()) as { success: boolean; message?: string };
       if (!response.ok || !data.success) throw new Error(data.message);
       setNotes((prev) => prev.map((n) => n._id === noteId ? { ...n, followUpDate: null } : n));
-      toast.success(locale === 'fr' ? 'Suivi marqué comme terminé' : 'Follow-up marked as done');
+      toast.success(translate(locale, 'notes.followUpDone'));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to clear follow-up');
+      toast.error(resolveTranslatedError(locale, err, translate(locale, 'notes.clearFollowUpFailed')));
     } finally {
       setMarkingFollowUpId(null);
     }
@@ -416,7 +417,7 @@ export default function NotesPage() {
       setEditingNoteId(null);
       await loadNotes();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : t.updateFailed);
+      toast.error(resolveTranslatedError(locale, err, t.updateFailed));
     } finally {
       setIsUpdating(false);
     }

@@ -16,6 +16,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
+import { useLocale } from "@/components/providers/locale-provider"
 import { MoreHorizontalIcon, FolderIcon, ShareIcon, Trash2Icon } from "lucide-react"
 
 export function NavDocuments({
@@ -28,10 +29,27 @@ export function NavDocuments({
   }[]
 }) {
   const { isMobile } = useSidebar()
+  const { locale } = useLocale()
+  const t = {
+    en: {
+      documents: "Documents",
+      more: "More",
+      open: "Open",
+      share: "Share",
+      delete: "Delete",
+    },
+    fr: {
+      documents: "Documents",
+      more: "Plus",
+      open: "Ouvrir",
+      share: "Partager",
+      delete: "Supprimer",
+    },
+  }[locale]
 
   return (
     <SidebarGroup className="group-data-[collapsible=icon]:hidden">
-      <SidebarGroupLabel>Documents</SidebarGroupLabel>
+      <SidebarGroupLabel>{t.documents}</SidebarGroupLabel>
       <SidebarMenu>
         {items.map((item) => (
           <SidebarMenuItem key={item.name}>
@@ -49,7 +67,7 @@ export function NavDocuments({
                 >
                   <MoreHorizontalIcon
                   />
-                  <span className="sr-only">More</span>
+                  <span className="sr-only">{t.more}</span>
                 </SidebarMenuAction>
               </DropdownMenuTrigger>
               <DropdownMenuContent
@@ -60,18 +78,18 @@ export function NavDocuments({
                 <DropdownMenuItem>
                   <FolderIcon
                   />
-                  <span>Open</span>
+                  <span>{t.open}</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem>
                   <ShareIcon
                   />
-                  <span>Share</span>
+                  <span>{t.share}</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem variant="destructive">
                   <Trash2Icon
                   />
-                  <span>Delete</span>
+                  <span>{t.delete}</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -80,7 +98,7 @@ export function NavDocuments({
         <SidebarMenuItem>
           <SidebarMenuButton className="text-sidebar-foreground/70">
             <MoreHorizontalIcon className="text-sidebar-foreground/70" />
-            <span>More</span>
+            <span>{t.more}</span>
           </SidebarMenuButton>
         </SidebarMenuItem>
       </SidebarMenu>

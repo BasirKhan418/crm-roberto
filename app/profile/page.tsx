@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 
 import CrmShell from '@/components/crm-shell';
 import { useLocale } from '@/components/providers/locale-provider';
+import { resolveTranslatedError, translate } from '@/lib/i18n/messages';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -265,7 +266,7 @@ export default function ProfilePage() {
       setLogoUrl(updateData.logoUrl ?? presignData.fileUrl ?? null);
       toast.success(t.logoUploaded);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : t.logoUploadFailed);
+      toast.error(resolveTranslatedError(locale, err, t.logoUploadFailed));
     } finally {
       setLogoUploading(false);
     }
@@ -280,7 +281,7 @@ export default function ProfilePage() {
       setLogoUrl(null);
       toast.success(t.logoDeleted);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : t.logoDeleteFailed);
+      toast.error(resolveTranslatedError(locale, err, t.logoDeleteFailed));
     } finally {
       setLogoDeleting(false);
       setShowDeleteLogoDialog(false);
@@ -305,7 +306,7 @@ export default function ProfilePage() {
       setExists(true);
       toast.success(t.saved);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : t.saveFailed);
+      toast.error(resolveTranslatedError(locale, err, t.saveFailed));
     } finally {
       setSaving(false);
     }
@@ -339,7 +340,7 @@ export default function ProfilePage() {
       toast.success(t.passwordUpdated);
       setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : t.passwordUpdateFailed);
+      toast.error(resolveTranslatedError(locale, err, t.passwordUpdateFailed));
     } finally {
       setPasswordSaving(false);
     }
@@ -380,7 +381,7 @@ export default function ProfilePage() {
                 {logoUrl ? (
                   <Image
                     src={logoUrl}
-                    alt="Company logo"
+                    alt={translate(locale, 'common.companyLogo')}
                     fill
                     className="object-contain p-1"
                     unoptimized

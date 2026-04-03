@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { useLocale } from '@/components/providers/locale-provider';
+
 interface SignatureCanvasProps {
   onSignatureChange: (dataUrl: string | null) => void;
 }
@@ -23,6 +25,20 @@ function applyCtxStyles(ctx: CanvasRenderingContext2D, dpr: number) {
 }
 
 export default function SignatureCanvas({ onSignatureChange }: SignatureCanvasProps) {
+  const { locale } = useLocale();
+  const t = {
+    en: {
+      placeholder: 'Draw your signature here',
+      ariaLabel: 'Signature canvas',
+      clear: 'Clear and start again',
+    },
+    fr: {
+      placeholder: 'Dessinez votre signature ici',
+      ariaLabel: 'Zone de signature',
+      clear: 'Effacer et recommencer',
+    },
+  }[locale];
+
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const isDrawingRef = useRef(false);
@@ -217,9 +233,7 @@ export default function SignatureCanvas({ onSignatureChange }: SignatureCanvasPr
         style={{ touchAction: 'none' }}
       >
         {!hasStroke ? (
-          <span className="pointer-events-none absolute left-4 top-4 text-xs font-medium text-slate-400">
-            Draw your signature here
-          </span>
+          <span className="pointer-events-none absolute left-4 top-4 text-xs font-medium text-slate-400">{t.placeholder}</span>
         ) : null}
 
         <canvas
@@ -230,7 +244,7 @@ export default function SignatureCanvas({ onSignatureChange }: SignatureCanvasPr
           onPointerUp={finishDrawing}
           onPointerLeave={finishDrawing}
           onPointerCancel={finishDrawing}
-          aria-label="Signature canvas"
+          aria-label={t.ariaLabel}
         />
       </div>
 
@@ -239,7 +253,7 @@ export default function SignatureCanvas({ onSignatureChange }: SignatureCanvasPr
         onClick={clearSignature}
         className="inline-flex min-h-10 items-center rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
       >
-        Clear and start again
+        {t.clear}
       </button>
     </div>
   );

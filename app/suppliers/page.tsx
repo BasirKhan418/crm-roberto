@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 
 import CrmShell from '@/components/crm-shell';
 import { useLocale } from '@/components/providers/locale-provider';
+import { resolveTranslatedError } from '@/lib/i18n/messages';
 import { Button } from '@/components/ui/button';
 import EmptyState from '@/components/ui/EmptyState';
 import ErrorMessage from '@/components/ui/ErrorMessage';
@@ -232,7 +233,7 @@ export default function SuppliersPage() {
       setPagination((prev) => ({ ...prev, page: 1 }));
       await loadSuppliers();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : t.createFailed);
+      toast.error(resolveTranslatedError(locale, err, t.createFailed));
     } finally {
       setIsSubmitting(false);
     }

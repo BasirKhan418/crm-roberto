@@ -9,6 +9,13 @@ import EmptyState from '@/components/ui/EmptyState';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { ActivityItem } from '@/hooks/useDashboard';
+import {
+  formatActivityRelativeTime,
+  formatExactTimestamp,
+  getActivityBadgeLabel,
+  getActivityHeadline,
+  translate,
+} from '@/lib/i18n/messages';
 import { useLocale } from '@/components/providers/locale-provider';
 
 const ENTITY_TO_PATH: Record<string, string> = {
@@ -62,58 +69,23 @@ const DEFAULT_ENTITY = {
   labelColor: 'text-slate-600 dark:text-slate-400',
 };
 
-type ActionBadge = { label: string; labelFr: string; badgeClass: string };
+type ActionBadge = { badgeClass: string };
 
 const ACTION_BADGE: Record<string, ActionBadge> = {
-  client_created: { label: 'Created', labelFr: 'Créé', badgeClass: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' },
-  client_updated: { label: 'Updated', labelFr: 'Modifié', badgeClass: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300' },
-  client_deleted: { label: 'Deleted', labelFr: 'Supprimé', badgeClass: 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300' },
-  supplier_created: { label: 'Created', labelFr: 'Créé', badgeClass: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' },
-  supplier_updated: { label: 'Updated', labelFr: 'Modifié', badgeClass: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300' },
-  supplier_deleted: { label: 'Deleted', labelFr: 'Supprimé', badgeClass: 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300' },
-  note_created: { label: 'Created', labelFr: 'Créée', badgeClass: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' },
-  note_updated: { label: 'Updated', labelFr: 'Modifiée', badgeClass: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300' },
-  note_deleted: { label: 'Deleted', labelFr: 'Supprimée', badgeClass: 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300' },
-  quote_created: { label: 'Created', labelFr: 'Créé', badgeClass: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' },
-  quote_duplicated: { label: 'Duplicated', labelFr: 'Dupliqué', badgeClass: 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300' },
-  quote_updated: { label: 'Updated', labelFr: 'Modifié', badgeClass: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300' },
-  quote_deleted: { label: 'Deleted', labelFr: 'Supprimé', badgeClass: 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300' },
-  quote_status_changed: { label: 'Status Changed', labelFr: 'Statut modifié', badgeClass: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
-};
-
-const ACTION_HEADLINE: Record<'en' | 'fr', Record<string, string>> = {
-  en: {
-    client_created: 'Client added',
-    client_updated: 'Client updated',
-    client_deleted: 'Client removed',
-    supplier_created: 'Supplier added',
-    supplier_updated: 'Supplier updated',
-    supplier_deleted: 'Supplier removed',
-    note_created: 'Note created',
-    note_updated: 'Note updated',
-    note_deleted: 'Note deleted',
-    quote_created: 'Quote created',
-    quote_duplicated: 'Quote duplicated',
-    quote_updated: 'Quote updated',
-    quote_deleted: 'Quote deleted',
-    quote_status_changed: 'Quote status changed',
-  },
-  fr: {
-    client_created: 'Client ajouté',
-    client_updated: 'Client mis à jour',
-    client_deleted: 'Client supprimé',
-    supplier_created: 'Fournisseur ajouté',
-    supplier_updated: 'Fournisseur mis à jour',
-    supplier_deleted: 'Fournisseur supprimé',
-    note_created: 'Note créée',
-    note_updated: 'Note mise à jour',
-    note_deleted: 'Note supprimée',
-    quote_created: 'Devis créé',
-    quote_duplicated: 'Devis dupliqué',
-    quote_updated: 'Devis mis à jour',
-    quote_deleted: 'Devis supprimé',
-    quote_status_changed: 'Statut du devis modifié',
-  },
+  client_created: { badgeClass: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' },
+  client_updated: { badgeClass: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300' },
+  client_deleted: { badgeClass: 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300' },
+  supplier_created: { badgeClass: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' },
+  supplier_updated: { badgeClass: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300' },
+  supplier_deleted: { badgeClass: 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300' },
+  note_created: { badgeClass: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' },
+  note_updated: { badgeClass: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300' },
+  note_deleted: { badgeClass: 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300' },
+  quote_created: { badgeClass: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' },
+  quote_duplicated: { badgeClass: 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300' },
+  quote_updated: { badgeClass: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300' },
+  quote_deleted: { badgeClass: 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300' },
+  quote_status_changed: { badgeClass: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
 };
 
 interface ActivityFeedProps {
@@ -122,38 +94,12 @@ interface ActivityFeedProps {
   error?: string | null;
 }
 
-function relativeTime(dateString?: string): string {
-  if (!dateString) return '--';
-  const timestamp = new Date(dateString).getTime();
-  if (!Number.isFinite(timestamp)) return '--';
-  const diffMs = Date.now() - timestamp;
-  const mins = Math.floor(diffMs / 60000);
-  if (mins < 1) return 'Just now';
-  if (mins < 60) return `${mins}m ago`;
-  if (mins < 1440) return `${Math.floor(mins / 60)}h ago`;
-  if (mins < 2880) return 'Yesterday';
-  return new Date(timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
-
-function exactTimestamp(dateString?: string): string {
-  if (!dateString) return '';
-  const d = new Date(dateString);
-  if (!Number.isFinite(d.getTime())) return '';
-  return d.toLocaleString('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
 export default function ActivityFeed({ activity = [], loading = false, error = null }: ActivityFeedProps) {
   const { locale } = useLocale();
   const t = {
-    en: { title: 'Recent Activity', empty: 'No activity yet. Add your first client to get started.' },
-    fr: { title: 'Activité Récente', empty: 'Aucune activité pour le moment. Ajoutez votre premier client pour commencer.' },
-  }[locale];
+    title: translate(locale, 'activity.title'),
+    empty: translate(locale, 'activity.empty'),
+  };
   const items = Array.isArray(activity) ? activity : [];
   const PAGE_SIZE = 5;
   const [page, setPage] = useState(1);
@@ -194,8 +140,8 @@ export default function ActivityFeed({ activity = [], loading = false, error = n
               const entityCfg = ENTITY_CONFIG[item.entityType as keyof typeof ENTITY_CONFIG] ?? DEFAULT_ENTITY;
               const badge = item.action ? ACTION_BADGE[item.action] : null;
               const headline = item.action
-                ? (ACTION_HEADLINE[locale as 'en' | 'fr'][item.action] ?? item.action)
-                : 'Activity';
+                ? getActivityHeadline(locale, item.action)
+                : translate(locale, 'activity.fallbackHeadline');
               const isDeleted = item.action?.endsWith('_deleted');
               const path = buildActivityPath(item);
               const key = item._id ?? `${item.createdAt ?? 'activity'}-${index}`;
@@ -219,14 +165,14 @@ export default function ActivityFeed({ activity = [], loading = false, error = n
                   <div className="flex shrink-0 flex-col items-end gap-1">
                     {badge ? (
                       <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${badge.badgeClass}`}>
-                        {locale === 'fr' ? badge.labelFr : badge.label}
+                        {item.action ? getActivityBadgeLabel(locale, item.action) : null}
                       </span>
                     ) : null}
                     <span
                       className="text-[11px] text-muted-foreground"
-                      title={exactTimestamp(item.createdAt)}
+                      title={formatExactTimestamp(locale, item.createdAt)}
                     >
-                      {relativeTime(item.createdAt)}
+                      {formatActivityRelativeTime(locale, item.createdAt)}
                     </span>
                   </div>
                 </>

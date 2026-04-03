@@ -156,7 +156,6 @@ export default function ClientsPage() {
   }, [query, t.fetchFailed]);
 
   useEffect(() => { loadClients(); }, [loadClients]);
-
   return (
     <CrmShell title={t.shellTitle}>
       {/* Page header */}

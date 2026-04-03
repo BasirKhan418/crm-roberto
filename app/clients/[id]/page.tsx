@@ -32,6 +32,7 @@ import AddClientModal from '@/components/modals/AddClientModal';
 import SendQuoteModal from '@/components/quotes/SendQuoteModal';
 import QuoteStatusSummary from '@/components/quotes/QuoteStatusSummary';
 import { useLocale } from '@/components/providers/locale-provider';
+import { resolveTranslatedError } from '@/lib/i18n/messages';
 import { PriceDisplay } from '@/components/ui/PriceDisplay';
 import type { QuoteStatus } from '@/components/ui/StatusBadge';
 import {
@@ -298,6 +299,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       noQuotes: 'No quotes yet for this client.',
       noBillingDetails: 'No billing details set.',
       addBillingNow: 'Add now',
+      noteBadge: 'Note',
+      quoteBadge: 'Quote',
     },
     fr: {
       shellTitle: 'Client',
@@ -422,6 +425,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       noQuotes: 'Aucun devis pour ce client.',
       noBillingDetails: 'Aucun detail de facturation.',
       addBillingNow: 'Ajouter',
+      noteBadge: 'Note',
+      quoteBadge: 'Devis',
     },
   }[locale];
 
@@ -554,7 +559,6 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     () => new Intl.DateTimeFormat(locale === 'fr' ? 'fr-FR' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
     [locale],
   );
-
   async function removeClient() {
     if (!client) return;
     setIsDeletingClient(true);
@@ -565,7 +569,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       toast.success(t.deleted);
       router.push('/clients');
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : t.deleteFailed);
+      toast.error(resolveTranslatedError(locale, err, t.deleteFailed));
     } finally {
       setIsDeletingClient(false);
       setIsDeleteConfirmOpen(false);
@@ -589,7 +593,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       setNoteForm({ title: '', description: '', followUpDate: '' });
       await loadDetails();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : t.noteAddFailed);
+      toast.error(resolveTranslatedError(locale, err, t.noteAddFailed));
     } finally {
       setIsSaving(false);
     }
@@ -618,7 +622,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       setEditingNoteId(null);
       await loadDetails();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : t.noteUpdateFailed);
+      toast.error(resolveTranslatedError(locale, err, t.noteUpdateFailed));
     } finally {
       setIsNoteUpdating(false);
     }
@@ -641,7 +645,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       setInteractionForm({ type: 'call', title: '', notes: '', date: new Date().toISOString().slice(0, 10), followUpDate: '' });
       await loadDetails();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : t.interactionAddFailed);
+      toast.error(resolveTranslatedError(locale, err, t.interactionAddFailed));
     } finally {
       setIsAddingInteraction(false);
     }
@@ -656,7 +660,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       toast.success(t.interactionDeleted);
       await loadDetails();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : t.interactionDeleteFailed);
+      toast.error(resolveTranslatedError(locale, err, t.interactionDeleteFailed));
     } finally {
       setDeletingInteractionId(null);
     }
@@ -671,7 +675,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       toast.success(t.attachmentDeleted);
       await loadDetails();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : t.attachmentDeleteFailed);
+      toast.error(resolveTranslatedError(locale, err, t.attachmentDeleteFailed));
     } finally {
       setDeletingAttachmentId(null);
     }
@@ -703,7 +707,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       setActiveTab('attachments');
       await refreshAttachments();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : t.attachmentUploadFailed);
+      toast.error(resolveTranslatedError(locale, err, t.attachmentUploadFailed));
     } finally {
       setIsUploading(false);
     }
@@ -901,6 +905,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                               note={event.item}
                               dateFormatter={dateFormatter}
                               onEdit={() => openNoteEdit(event.item)}
+                              noteBadge={t.noteBadge}
                               followUpLabel={t.followUpLabel}
                             />
                           );
@@ -913,6 +918,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                               dateFormatter={dateFormatter}
                               onDelete={() => setDeletingInteractionId(event.item._id)}
                               typeLabels={{ call: t.call, meeting: t.meeting, email: t.emailType, discussion: t.discussion }}
+                              followUpLabel={t.followUpLabel}
                             />
                           );
                         }
@@ -923,6 +929,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                             locale={locale as 'en' | 'fr'}
                             dateFormatter={dateFormatter}
                             onSend={() => setSendTarget(event.item)}
+                            quoteBadge={t.quoteBadge}
                           />
                         );
                       })}
@@ -991,6 +998,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                             dateFormatter={dateFormatter}
                             onDelete={() => setDeletingInteractionId(interaction._id)}
                             typeLabels={{ call: t.call, meeting: t.meeting, email: t.emailType, discussion: t.discussion }}
+                            followUpLabel={t.followUpLabel}
                           />
                         ))}
                     </div>
@@ -1201,7 +1209,6 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* ── Delete Interaction ───────────────────────────────────────────── */}
       <AlertDialog open={Boolean(deletingInteractionId)} onOpenChange={(open) => { if (!open) setDeletingInteractionId(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -1217,7 +1224,6 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* ── Delete Attachment ────────────────────────────────────────────── */}
       <AlertDialog open={Boolean(deletingAttachmentId)} onOpenChange={(open) => { if (!open) setDeletingAttachmentId(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -1233,7 +1239,6 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* ── Send Quote Modal ─────────────────────────────────────────────── */}
       {sendTarget ? (
         <SendQuoteModal
           open={Boolean(sendTarget)}
@@ -1283,8 +1288,8 @@ function StatTile({ icon, label, value }: { icon: React.ReactNode; label: string
   );
 }
 
-function TimelineNoteItem({ note, dateFormatter, onEdit, followUpLabel }: {
-  note: NoteItem; dateFormatter: Intl.DateTimeFormat; onEdit: () => void; followUpLabel: string;
+function TimelineNoteItem({ note, dateFormatter, onEdit, noteBadge, followUpLabel }: {
+  note: NoteItem; dateFormatter: Intl.DateTimeFormat; onEdit: () => void; noteBadge: string; followUpLabel: string;
 }) {
   return (
     <li className="mb-6 ml-4">
@@ -1292,7 +1297,7 @@ function TimelineNoteItem({ note, dateFormatter, onEdit, followUpLabel }: {
       <div className="rounded-lg border border-l-4 border-border/70 border-l-emerald-400 bg-emerald-50/60 p-4 dark:bg-emerald-950/20">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-1.5">
-            <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">Note</span>
+            <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">{noteBadge}</span>
             <h3 className="text-sm font-semibold">{note.title}</h3>
           </div>
           <div className="flex items-center gap-2">
@@ -1311,9 +1316,10 @@ function TimelineNoteItem({ note, dateFormatter, onEdit, followUpLabel }: {
   );
 }
 
-function TimelineInteractionItem({ interaction, dateFormatter, onDelete, typeLabels }: {
+function TimelineInteractionItem({ interaction, dateFormatter, onDelete, typeLabels, followUpLabel }: {
   interaction: InteractionItem; dateFormatter: Intl.DateTimeFormat; onDelete: () => void;
   typeLabels: Record<InteractionType, string>;
+  followUpLabel: string;
 }) {
   const colorClass = INTERACTION_COLORS[interaction.type];
   const dotClass = INTERACTION_DOT_COLORS[interaction.type];
@@ -1334,7 +1340,7 @@ function TimelineInteractionItem({ interaction, dateFormatter, onDelete, typeLab
         {interaction.notes ? <p className="mt-1 text-sm text-muted-foreground">{interaction.notes}</p> : null}
         {interaction.followUpDate ? (
           <p className="mt-2 flex items-center gap-1 text-xs text-sky-600 dark:text-sky-400">
-            <ClockIcon className="size-3" />Follow-up: {dateFormatter.format(new Date(interaction.followUpDate))}
+            <ClockIcon className="size-3" />{followUpLabel}: {dateFormatter.format(new Date(interaction.followUpDate))}
           </p>
         ) : null}
       </div>
@@ -1342,9 +1348,9 @@ function TimelineInteractionItem({ interaction, dateFormatter, onDelete, typeLab
   );
 }
 
-function TimelineQuoteItem({ quote, locale, dateFormatter, onSend }: {
+function TimelineQuoteItem({ quote, locale, dateFormatter, onSend, quoteBadge }: {
   quote: ClientQuote; locale: 'en' | 'fr'; dateFormatter: Intl.DateTimeFormat;
-  onSend: () => void;
+  onSend: () => void; quoteBadge: string;
 }) {
   const accentColor =
     quote.status === 'accepted' ? 'border-l-green-500' :
@@ -1364,7 +1370,7 @@ function TimelineQuoteItem({ quote, locale, dateFormatter, onSend }: {
       <div className={`rounded-lg border border-l-4 border-border/70 p-4 ${accentColor} ${bgColor}`}>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="rounded bg-secondary px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Quote</span>
+            <span className="rounded bg-secondary px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{quoteBadge}</span>
             <span className="text-sm font-semibold">{quote.quoteNumber}</span>
             <QuoteStatusSummary status={quote.status} statusChangedAt={quote.statusChangedAt} locale={locale} />
           </div>
@@ -1433,9 +1439,10 @@ function PendingTaskRow({ note, status, overdueLabel, upcomingLabel, locale, onE
   );
 }
 
-function InteractionCard({ interaction, dateFormatter, onDelete, typeLabels }: {
+function InteractionCard({ interaction, dateFormatter, onDelete, typeLabels, followUpLabel }: {
   interaction: InteractionItem; dateFormatter: Intl.DateTimeFormat; onDelete: () => void;
   typeLabels: Record<InteractionType, string>;
+  followUpLabel: string;
 }) {
   const colorClass = INTERACTION_COLORS[interaction.type];
   return (
@@ -1452,7 +1459,7 @@ function InteractionCard({ interaction, dateFormatter, onDelete, typeLabels }: {
         <span className="text-[11px] text-muted-foreground">{dateFormatter.format(new Date(interaction.date))}</span>
         {interaction.followUpDate ? (
           <span className="flex items-center gap-1 rounded-md bg-sky-100 px-1.5 py-0.5 text-[11px] font-medium text-sky-700 dark:bg-sky-900/30 dark:text-sky-300">
-            <ClockIcon className="size-3" />Follow-up: {dateFormatter.format(new Date(interaction.followUpDate))}
+            <ClockIcon className="size-3" />{followUpLabel}: {dateFormatter.format(new Date(interaction.followUpDate))}
           </span>
         ) : null}
       </div>

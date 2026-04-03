@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { createI18nKey as i18nKey } from '@/lib/i18n/messages';
+
 const emptyToUndefined = (val: unknown) =>
   typeof val === 'string' && val.trim() === '' ? undefined : val;
 
@@ -8,13 +10,16 @@ const emptyToNull = (val: unknown) =>
 
 const optionalText = z.preprocess(emptyToUndefined, z.string().trim().min(1).optional());
 
-const optionalEmail = z.preprocess(emptyToUndefined, z.string().trim().toLowerCase().email('Invalid email address').optional());
+const optionalEmail = z.preprocess(
+  emptyToUndefined,
+  z.string().trim().toLowerCase().email(i18nKey('validation.invalidEmailAddress')).optional()
+);
 
 const updatableOptionalText = z.preprocess(emptyToNull, z.string().trim().min(1).nullable().optional());
 
 const updatableOptionalEmail = z.preprocess(
   emptyToNull,
-  z.string().trim().toLowerCase().email('Invalid email address').nullable().optional()
+  z.string().trim().toLowerCase().email(i18nKey('validation.invalidEmailAddress')).nullable().optional()
 );
 
 export const clientTypeSchema = z.enum(['company', 'individual']);
@@ -39,7 +44,7 @@ const addressUpdateSchema = z
 
 export const createClientSchema = z.object({
   clientType: clientTypeSchema,
-  fullName: z.string().trim().min(1, 'Client name is required').optional(),
+  fullName: z.string().trim().min(1, i18nKey('validation.clientNameRequired')).optional(),
   email: optionalEmail,
   phone: optionalText,
   address: optionalText,
@@ -66,7 +71,7 @@ export const createClientSchema = z.object({
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ['companyName'],
-      message: 'Company name is required for company clients',
+      message: i18nKey('validation.companyNameRequired'),
     });
   }
 
@@ -75,14 +80,14 @@ export const createClientSchema = z.object({
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['firstName'],
-        message: 'First name is required for individual clients',
+        message: i18nKey('validation.firstNameRequired'),
       });
     }
     if (!value.lastName) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['lastName'],
-        message: 'Last name is required for individual clients',
+        message: i18nKey('validation.lastNameRequired'),
       });
     }
   }
@@ -90,7 +95,7 @@ export const createClientSchema = z.object({
 
 export const updateClientSchema = z.object({
   clientType: clientTypeSchema.optional(),
-  fullName: z.string().trim().min(1, 'Client name is required').optional(),
+  fullName: z.string().trim().min(1, i18nKey('validation.clientNameRequired')).optional(),
   email: updatableOptionalEmail,
   phone: updatableOptionalText,
   address: updatableOptionalText,

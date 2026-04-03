@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useLocale } from '@/components/providers/locale-provider';
+import { resolveTranslatedError } from '@/lib/i18n/messages';
 
 type ClientType = 'company' | 'individual';
 
@@ -394,7 +395,7 @@ export default function AddClientModal({
       onSuccess?.();
       onClose();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : (isEditMode ? t.failedUpdate : t.failedCreate));
+      toast.error(resolveTranslatedError(locale, error, isEditMode ? t.failedUpdate : t.failedCreate));
     } finally {
       setLoading(false);
     }
@@ -407,13 +408,14 @@ export default function AddClientModal({
       onClose={onClose}
       panelClassName="max-w-3xl"
     >
-      <div className="space-y-4">
+      <div className="mx-auto w-full max-w-2xl space-y-4">
         <div className="space-y-1.5">
           <FieldLabel text={t.type} required />
-          <div className="grid grid-cols-2 gap-2">
+          <div className="mx-auto grid w-full max-w-sm grid-cols-1 gap-2 sm:max-w-none sm:grid-cols-2">
             <Button
               type="button"
               variant={form.clientType === 'company' ? 'default' : 'outline'}
+              className="w-full"
               onClick={() => setForm((p) => ({ ...p, clientType: 'company' }))}
             >
               {t.companyType}
@@ -421,6 +423,7 @@ export default function AddClientModal({
             <Button
               type="button"
               variant={form.clientType === 'individual' ? 'default' : 'outline'}
+              className="w-full"
               onClick={() => setForm((p) => ({ ...p, clientType: 'individual' }))}
             >
               {t.individualType}
@@ -503,9 +506,9 @@ export default function AddClientModal({
         ) : null}
       </div>
 
-      <div className="mt-4 flex justify-end gap-2">
-        <Button variant="outline" onClick={onClose}>{t.cancel}</Button>
-        <Button onClick={handleSave} disabled={loading}>{loading ? t.saving : isEditMode ? t.saveEdit : t.saveCreate}</Button>
+      <div className="mx-auto mt-5 flex w-full max-w-2xl flex-col-reverse items-stretch justify-center gap-2 sm:flex-row sm:justify-end">
+        <Button className="w-full sm:w-auto" variant="outline" onClick={onClose}>{t.cancel}</Button>
+        <Button className="w-full sm:w-auto" onClick={handleSave} disabled={loading}>{loading ? t.saving : isEditMode ? t.saveEdit : t.saveCreate}</Button>
       </div>
     </BaseAddModal>
   );

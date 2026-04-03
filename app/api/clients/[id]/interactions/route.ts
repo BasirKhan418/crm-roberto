@@ -3,7 +3,9 @@ import { z } from 'zod';
 
 import { createInteraction, listClientInteractions } from '@/db/repository/interaction';
 import { getClientById } from '@/db/repository/client';
+import { buildValidationError } from '@/utils/api/validation';
 import getMe from '@/utils/middlewares/useMe';
+import { createI18nKey as i18nKey } from '@/lib/i18n/messages';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -11,9 +13,9 @@ interface RouteParams {
 
 const createInteractionSchema = z.object({
   type: z.enum(['call', 'meeting', 'email', 'discussion']),
-  title: z.string().trim().min(1, 'Title is required'),
+  title: z.string().trim().min(1, i18nKey('validation.titleRequired')),
   notes: z.string().trim().optional().nullable(),
-  date: z.string().min(1, 'Date is required'),
+  date: z.string().min(1, i18nKey('validation.dateRequired')),
   followUpDate: z.string().optional().nullable(),
 });
 
@@ -60,10 +62,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const parsed = createInteractionSchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json(
-        { success: false, message: 'Validation error', errors: parsed.error.flatten().fieldErrors },
-        { status: 400 },
-      );
+      return NextResponse.json(buildValidationError(parsed.error, i18nKey('validation.validationError')), { status: 400 });
     }
 
     const interaction = await createInteraction(me.user.id, id, parsed.data);

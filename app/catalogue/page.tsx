@@ -14,6 +14,7 @@ import CatalogueTable, {
 import DeleteCatalogueDialog from '@/components/catalogue/DeleteCatalogueDialog';
 import CrmShell from '@/components/crm-shell';
 import { useLocale } from '@/components/providers/locale-provider';
+import { resolveTranslatedError } from '@/lib/i18n/messages';
 import { Button } from '@/components/ui/button';
 import EmptyState from '@/components/ui/EmptyState';
 import ErrorMessage from '@/components/ui/ErrorMessage';
@@ -277,7 +278,7 @@ export default function CataloguePage() {
         attachmentName: detail.attachmentName ?? detail.fileName ?? null,
       });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : t.loadItemFailed);
+      toast.error(resolveTranslatedError(locale, error, t.loadItemFailed));
     }
   }
 

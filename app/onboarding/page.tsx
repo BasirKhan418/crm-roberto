@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { WorldMapBg } from "@/components/ui/WorldMapBg"
+import { translate } from "@/lib/i18n/messages"
 import { cn } from "@/lib/utils"
 
 const ONBOARDING_DRAFT_KEY = "onboarding_company_profile_draft"
@@ -465,7 +466,7 @@ export default function IdentitySetupPage() {
             <div className="flex flex-col items-center gap-4 py-6 border-2 border-dashed border-zinc-200 rounded-2xl bg-white">
               <div className="h-24 w-24 rounded-2xl border border-zinc-200 bg-zinc-50 flex items-center justify-center overflow-hidden shadow-sm">
                 {logoUrl ? (
-                  <Image src={logoUrl} alt="Company logo" width={96} height={96} className="object-contain w-full h-full" />
+                  <Image src={logoUrl} alt={translate(locale, 'common.companyLogo')} width={96} height={96} className="object-contain w-full h-full" />
                 ) : (
                   <BuildingIcon className="h-10 w-10 text-zinc-300" />
                 )}

@@ -1,6 +1,8 @@
 import { z } from 'zod';
 
-const objectIdSchema = z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid id');
+import { createI18nKey as i18nKey } from '@/lib/i18n/messages';
+
+const objectIdSchema = z.string().regex(/^[0-9a-fA-F]{24}$/, i18nKey('validation.invalidId'));
 
 const emptyToUndefined = (val: unknown) =>
   typeof val === 'string' && val.trim() === '' ? undefined : val;
@@ -30,25 +32,25 @@ const lineItemSchema = z.object({
   productId: objectIdSchema.optional().nullable(),
   productImageUrl: z.preprocess(
     emptyToNull,
-    z.string().trim().url('Line item image must be a valid URL').nullable().optional()
+    z.string().trim().url(i18nKey('validation.lineItemImageUrlInvalid')).nullable().optional()
   ),
-  name: z.string().trim().min(1, 'Line item name is required'),
-  quantity: z.preprocess(toNumber, z.number().min(1, 'Quantity must be at least 1')),
+  name: z.string().trim().min(1, i18nKey('validation.lineItemNameRequired')),
+  quantity: z.preprocess(toNumber, z.number().min(1, i18nKey('validation.quantityMin'))),
   baseUnitPriceExcludingTax: z.preprocess(
     toNumber,
-    z.number().min(0, 'Base unit price excluding tax cannot be negative').optional()
+    z.number().min(0, i18nKey('validation.baseUnitPriceNonNegative')).optional()
   ),
   unitPriceExcludingTax: z.preprocess(
     toNumber,
-    z.number().min(0, 'Unit price excluding tax cannot be negative')
+    z.number().min(0, i18nKey('validation.unitPriceNonNegative'))
   ),
   discountPercentage: z.preprocess(
     toNumber,
-    z.number().min(0, 'Discount cannot be negative').max(100, 'Discount cannot exceed 100').optional()
+    z.number().min(0, i18nKey('validation.discountNonNegative')).max(100, i18nKey('validation.discountMax')).optional()
   ),
   vatRate: z.preprocess(
     toNumber,
-    z.number().min(0, 'VAT rate cannot be negative').max(100, 'VAT rate cannot exceed 100')
+    z.number().min(0, i18nKey('validation.vatRateNonNegative')).max(100, i18nKey('validation.vatRateMax'))
   ),
 }).transform((item) => ({
   ...item,
@@ -69,24 +71,24 @@ const dateFieldSchema = z.preprocess(emptyToUndefined, z.coerce.date().optional(
 export const createQuoteSchema = z.object({
   clientId: objectIdSchema,
   date: dateFieldSchema,
-  lineItems: z.array(lineItemSchema).min(1, 'At least one line item is required'),
-  notes: z.preprocess(emptyToNull, z.string().trim().max(2000, 'Notes cannot exceed 2000 characters').nullable().optional()),
-  paymentTerms: z.preprocess(emptyToNull, z.string().trim().max(500, 'Payment terms cannot exceed 500 characters').nullable().optional()),
-  validityDays: z.preprocess(toNumber, z.number().min(1, 'Validity must be at least 1 day').max(365).optional()),
+  lineItems: z.array(lineItemSchema).min(1, i18nKey('validation.lineItemsRequired')),
+  notes: z.preprocess(emptyToNull, z.string().trim().max(2000, i18nKey('validation.notesMax2000')).nullable().optional()),
+  paymentTerms: z.preprocess(emptyToNull, z.string().trim().max(500, i18nKey('validation.paymentTermsMax500')).nullable().optional()),
+  validityDays: z.preprocess(toNumber, z.number().min(1, i18nKey('validation.validityMin')).max(365).optional()),
 });
 
 export const updateQuoteSchema = z
   .object({
     clientId: objectIdSchema.optional(),
     date: dateFieldSchema,
-    lineItems: z.array(lineItemSchema).min(1, 'At least one line item is required').optional(),
-    notes: z.preprocess(emptyToNull, z.string().trim().max(2000, 'Notes cannot exceed 2000 characters').nullable().optional()),
-    paymentTerms: z.preprocess(emptyToNull, z.string().trim().max(500, 'Payment terms cannot exceed 500 characters').nullable().optional()),
-    validityDays: z.preprocess(toNumber, z.number().min(1, 'Validity must be at least 1 day').max(365).optional()),
+    lineItems: z.array(lineItemSchema).min(1, i18nKey('validation.lineItemsRequired')).optional(),
+    notes: z.preprocess(emptyToNull, z.string().trim().max(2000, i18nKey('validation.notesMax2000')).nullable().optional()),
+    paymentTerms: z.preprocess(emptyToNull, z.string().trim().max(500, i18nKey('validation.paymentTermsMax500')).nullable().optional()),
+    validityDays: z.preprocess(toNumber, z.number().min(1, i18nKey('validation.validityMin')).max(365).optional()),
   })
   .refine(
     (data) => Object.keys(data).length > 0,
-    { message: 'At least one field must be provided for update' }
+    { message: i18nKey('validation.updateAtLeastOneField') }
   );
 
 const quoteStatusSchema = z.enum(['draft', 'sent', 'accepted', 'refused', 'rejected']);
@@ -97,7 +99,7 @@ export const updateQuoteStatusSchema = z
     status: quoteStatusSchema.optional(),
   })
   .refine((data) => Boolean(data.to || data.status), {
-    message: 'Status is required',
+    message: i18nKey('validation.statusRequired'),
     path: ['to'],
   })
   .transform((data) => ({

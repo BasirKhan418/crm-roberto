@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useLocale } from '@/components/providers/locale-provider';
+import { resolveTranslatedError } from '@/lib/i18n/messages';
 
 interface LinkedEntity {
   _id: string;
@@ -168,7 +169,7 @@ export default function AddNoteModal({ onClose, onSuccess }: AddNoteModalProps) 
       onSuccess?.();
       onClose();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : t.failedCreate);
+      toast.error(resolveTranslatedError(locale, error, t.failedCreate));
     } finally {
       setLoading(false);
     }

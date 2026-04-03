@@ -1,22 +1,24 @@
 import { z } from 'zod';
 
+import { createI18nKey as i18nKey } from '@/lib/i18n/messages';
+
 const emptyToUndefined = (val: unknown) =>
   typeof val === 'string' && val.trim() === '' ? undefined : val;
 
-const objectIdSchema = z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid linkedId');
+const objectIdSchema = z.string().regex(/^[0-9a-fA-F]{24}$/, i18nKey('validation.invalidLinkedId'));
 
 const followUpDateValueSchema = z
   .string()
   .datetime({ offset: true })
-  .or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'followUpDate must be ISO date or yyyy-mm-dd'));
+  .or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/, i18nKey('validation.followUpDateFormat')));
 
 const requiredFollowUpDateSchema = z
   .preprocess(emptyToUndefined, followUpDateValueSchema.optional())
-  .refine((value) => typeof value === 'string', { message: 'Follow-up date is required' });
+  .refine((value) => typeof value === 'string', { message: i18nKey('validation.followUpDateRequired') });
 
 export const createNoteSchema = z.object({
-  title: z.string().trim().min(1, 'Title is required'),
-  description: z.string().trim().min(1, 'Description is required'),
+  title: z.string().trim().min(1, i18nKey('validation.titleRequired')),
+  description: z.string().trim().min(1, i18nKey('validation.descriptionRequired')),
   linkedType: z.enum(['client', 'supplier']),
   linkedId: objectIdSchema,
   followUpDate: requiredFollowUpDateSchema,
@@ -24,8 +26,8 @@ export const createNoteSchema = z.object({
 
 export const updateNoteSchema = z
   .object({
-    title: z.preprocess(emptyToUndefined, z.string().trim().min(1, 'Title is required').optional()),
-    description: z.preprocess(emptyToUndefined, z.string().trim().min(1, 'Description is required').optional()),
+    title: z.preprocess(emptyToUndefined, z.string().trim().min(1, i18nKey('validation.titleRequired')).optional()),
+    description: z.preprocess(emptyToUndefined, z.string().trim().min(1, i18nKey('validation.descriptionRequired')).optional()),
     linkedType: z.enum(['client', 'supplier']).optional(),
     linkedId: objectIdSchema.optional(),
     followUpDate: z.union([z.null(), followUpDateValueSchema]).optional(),
@@ -40,7 +42,7 @@ export const updateNoteSchema = z
       }
       return true;
     },
-    { message: 'linkedType and linkedId must be provided together when changing relation' }
+    { message: i18nKey('validation.linkedRelationPairRequired') }
   );
 
 export type CreateNoteDTO = z.infer<typeof createNoteSchema>;

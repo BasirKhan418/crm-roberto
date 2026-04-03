@@ -17,21 +17,22 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useLocale } from "@/components/providers/locale-provider"
+import { createI18nKey as i18nKey, resolveTranslatedText, translate } from "@/lib/i18n/messages"
 import { cn } from "@/lib/utils"
 import {toast} from "sonner"
 const emailSchema = z.object({
-  email: z.string().email("Please enter a valid business email address."),
+  email: z.string().email(i18nKey('validation.enterValidBusinessEmail')),
 })
 
 const otpSchema = z.object({
-  otp: z.string().length(6, "OTP must be exactly 6 digits"),
+  otp: z.string().length(6, i18nKey('validation.otpExact6')),
 })
 
 const resetPasswordSchema = z.object({
-  password: z.string().min(8, "Password must be at least 8 characters"),
-  confirmPassword: z.string().min(1, "Please confirm your password"),
+  password: z.string().min(8, i18nKey('validation.passwordMin8')),
+  confirmPassword: z.string().min(1, i18nKey('validation.confirmPasswordPrompt')),
 }).refine((data) => data.password === data.confirmPassword, {
-  message: "Passwords do not match",
+  message: i18nKey('validation.passwordsDoNotMatch'),
   path: ["confirmPassword"],
 })
 
@@ -127,10 +128,10 @@ export default function ForgotPasswordPage() {
       const result = await response.json()
       setIsLoading(false)
       if (!result.success) {
-        toast.error(result.message);
+        toast.error(resolveTranslatedText(locale, result.message, t.toastRequestError));
       } else {
         setUserEmail(data.email)
-        toast.success(result.message || t.toastEmailSent)
+        toast.success(resolveTranslatedText(locale, result.message, t.toastEmailSent))
         setStep("otp")
       }
 
@@ -154,11 +155,11 @@ export default function ForgotPasswordPage() {
       const result = await response.json()
       setIsLoading(false)
       if (!result.success) {
-        toast.error(result.message);
+        toast.error(resolveTranslatedText(locale, result.message, t.toastRequestError));
       }
         else {
           setToken(result.token)
-          toast.success(result.message || t.toastOtpVerified)
+          toast.success(resolveTranslatedText(locale, result.message, t.toastOtpVerified))
           setStep("reset")
         }
     }
@@ -181,10 +182,10 @@ export default function ForgotPasswordPage() {
       const result = await response.json()
       setIsLoading(false)
       if (!result.success) {
-        toast.error(result.message);
+        toast.error(resolveTranslatedText(locale, result.message, t.toastRequestError));
       }
         else {          
-          toast.success(result.message || t.toastPasswordReset)
+          toast.success(resolveTranslatedText(locale, result.message, t.toastPasswordReset))
           setStep("completed")
         }
     }
@@ -230,7 +231,7 @@ export default function ForgotPasswordPage() {
               {...emailForm.register("email")}
             />
             {emailForm.formState.errors.email && (
-              <p className="text-xs font-medium text-red-600">{emailForm.formState.errors.email.message}</p>
+              <p className="text-xs font-medium text-red-600">{resolveTranslatedText(locale, emailForm.formState.errors.email.message)}</p>
             )}
           </div>
           <Button
@@ -285,7 +286,7 @@ export default function ForgotPasswordPage() {
             </div>
             <input type="hidden" {...otpForm.register("otp")} />
             {otpForm.formState.errors.otp && (
-              <p className="text-xs font-medium text-red-600 text-center">{otpForm.formState.errors.otp.message}</p>
+              <p className="text-xs font-medium text-red-600 text-center">{resolveTranslatedText(locale, otpForm.formState.errors.otp.message)}</p>
             )}
           </div>
           <Button
@@ -327,13 +328,13 @@ export default function ForgotPasswordPage() {
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 transition-colors"
-                aria-label={showPassword ? "Hide password" : "Show password"}
+                aria-label={showPassword ? translate(locale, 'common.hidePassword') : translate(locale, 'common.showPassword')}
               >
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
             {resetForm.formState.errors.password && (
-              <p className="text-xs font-medium text-red-600">{resetForm.formState.errors.password.message}</p>
+              <p className="text-xs font-medium text-red-600">{resolveTranslatedText(locale, resetForm.formState.errors.password.message)}</p>
             )}
           </div>
 
@@ -353,7 +354,7 @@ export default function ForgotPasswordPage() {
               {...resetForm.register("confirmPassword")}
             />
             {resetForm.formState.errors.confirmPassword && (
-              <p className="text-xs font-medium text-red-600">{resetForm.formState.errors.confirmPassword.message}</p>
+              <p className="text-xs font-medium text-red-600">{resolveTranslatedText(locale, resetForm.formState.errors.confirmPassword.message)}</p>
             )}
           </div>
 

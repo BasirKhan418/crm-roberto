@@ -40,6 +40,8 @@ const sidebarMessages = {
     language: "Language",
     session: "Session",
     logout: "Logout",
+    userFallback: "User",
+    noEmail: "No email",
     nav: {
       dashboard: "Dashboard",
       clients: "Clients",
@@ -58,6 +60,8 @@ const sidebarMessages = {
     language: "Langue",
     session: "Session",
     logout: "Deconnexion",
+    userFallback: "Utilisateur",
+    noEmail: "Aucun e-mail",
     nav: {
       dashboard: "Tableau de bord",
       clients: "Clients",
@@ -142,8 +146,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarFooter>
         <NavUser
           user={{
-            name: user?.name ?? "User",
-            email: user?.email ?? "No email",
+            name: user?.name ?? t.userFallback,
+            email: user?.email ?? t.noEmail,
             avatar: "",
           }}
         />

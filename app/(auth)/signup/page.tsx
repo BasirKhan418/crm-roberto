@@ -17,22 +17,23 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useLocale } from "@/components/providers/locale-provider"
+import { createI18nKey as i18nKey, resolveTranslatedText, translate } from "@/lib/i18n/messages"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 const signupSchema = z.object({
-  fullName: z.string().min(2, "Full Name must be at least 2 characters"),
-  email: z.string().email("Invalid email format"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
-  confirmPassword: z.string().min(1, "Please confirm your password"),
+  fullName: z.string().min(2, i18nKey('validation.fullNameMin2')),
+  email: z.string().email(i18nKey('validation.invalidEmailFormat')),
+  password: z.string().min(8, i18nKey('validation.passwordMin8')),
+  confirmPassword: z.string().min(1, i18nKey('validation.confirmPasswordPrompt')),
 }).refine((data) => data.password === data.confirmPassword, {
-  message: "Passwords do not match",
+  message: i18nKey('validation.passwordsDoNotMatch'),
   path: ["confirmPassword"],
 })
 
 type SignupValues = z.infer<typeof signupSchema>
 
 const otpSchema = z.object({
-  otp: z.string().length(6, "OTP must be exactly 6 digits"),
+  otp: z.string().length(6, i18nKey('validation.otpExact6')),
 })
 
 const signupMessages = {
@@ -140,13 +141,13 @@ export default function SignupPage() {
       const result = await response.json()
       setIsLoading(false)
       if(result.success){
-        toast.success(result.message || t.toastSignupSuccess)
+        toast.success(resolveTranslatedText(locale, result.message, t.toastSignupSuccess))
         setSignupPayload(payload)
         setUserEmail(data.email)
         setShowOtp(true)
       }
       else{
-        toast.error(result.message || t.toastSignupFailed)
+        toast.error(resolveTranslatedText(locale, result.message, t.toastSignupFailed))
       }
 
     }
@@ -188,7 +189,7 @@ export default function SignupPage() {
       }
 
       setIsLoading(false)
-      toast.error(result.message || t.toastResendFailed)
+      toast.error(resolveTranslatedText(locale, result.message, t.toastResendFailed))
     } catch {
       setIsLoading(false)
       toast.error(t.toastResendFailed)
@@ -215,7 +216,7 @@ export default function SignupPage() {
         router.push("/onboarding")
       }
       else{
-        toast.error(result.message || t.toastOtpFailed)
+        toast.error(resolveTranslatedText(locale, result.message, t.toastOtpFailed))
       }
     }
     catch(error){
@@ -260,7 +261,7 @@ export default function SignupPage() {
               {...register("fullName")}
             />
             {errors.fullName && (
-              <p className="text-xs font-medium text-red-600">{errors.fullName.message}</p>
+              <p className="text-xs font-medium text-red-600">{resolveTranslatedText(locale, errors.fullName.message)}</p>
             )}
           </div>
 
@@ -281,7 +282,7 @@ export default function SignupPage() {
               {...register("email")}
             />
             {errors.email && (
-              <p className="text-xs font-medium text-red-600">{errors.email.message}</p>
+              <p className="text-xs font-medium text-red-600">{resolveTranslatedText(locale, errors.email.message)}</p>
             )}
           </div>
 
@@ -306,13 +307,13 @@ export default function SignupPage() {
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 transition-colors"
-                aria-label={showPassword ? "Hide password" : "Show password"}
+                aria-label={showPassword ? translate(locale, 'common.hidePassword') : translate(locale, 'common.showPassword')}
               >
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
             {errors.password && (
-              <p className="text-xs font-medium text-red-600">{errors.password.message}</p>
+              <p className="text-xs font-medium text-red-600">{resolveTranslatedText(locale, errors.password.message)}</p>
             )}
           </div>
 
@@ -337,13 +338,13 @@ export default function SignupPage() {
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 transition-colors"
-                aria-label={showPassword ? "Hide password" : "Show password"}
+                aria-label={showPassword ? translate(locale, 'common.hidePassword') : translate(locale, 'common.showPassword')}
               >
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
             {errors.confirmPassword && (
-              <p className="text-xs font-medium text-red-600">{errors.confirmPassword.message}</p>
+              <p className="text-xs font-medium text-red-600">{resolveTranslatedText(locale, errors.confirmPassword.message)}</p>
             )}
           </div>
 
@@ -405,7 +406,7 @@ export default function SignupPage() {
             </div>
             <input type="hidden" {...registerOtp("otp")} />
             {otpErrors.otp && (
-              <p className="text-xs font-medium text-red-600 text-center">{otpErrors.otp.message}</p>
+              <p className="text-xs font-medium text-red-600 text-center">{resolveTranslatedText(locale, otpErrors.otp.message)}</p>
             )}
           </div>
 

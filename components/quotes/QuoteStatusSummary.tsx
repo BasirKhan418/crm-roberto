@@ -3,6 +3,7 @@
 import { BellRingIcon } from 'lucide-react';
 
 import { StatusBadge, type QuoteStatus } from '@/components/ui/StatusBadge';
+import { getQuoteStatusDateLabel, translate } from '@/lib/i18n/messages';
 import { cn } from '@/lib/utils';
 
 interface QuoteStatusSummaryProps {
@@ -28,37 +29,13 @@ function formatStatusDate(value: string, locale: 'en' | 'fr'): string | null {
 }
 
 function getStatusDateLabel(status: QuoteStatus, formattedDate: string | null, locale: 'en' | 'fr'): string | null {
-  if (!formattedDate) {
-    return null;
-  }
-
-  const labels = {
-    en: {
-      draft: 'Created on',
-      sent: 'Sent on',
-      accepted: 'Accepted on',
-      refused: 'Refused on',
-      rejected: 'Rejected on',
-      fallback: 'Updated on',
-    },
-    fr: {
-      draft: 'Cree le',
-      sent: 'Envoye le',
-      accepted: 'Accepte le',
-      refused: 'Refuse le',
-      rejected: 'Refuse le',
-      fallback: 'Mis a jour le',
-    },
-  } as const;
-
-  const prefix = labels[locale][status] ?? labels[locale].fallback;
-  return `${prefix} ${formattedDate}`;
+  return getQuoteStatusDateLabel(locale, status, formattedDate);
 }
 
 export default function QuoteStatusSummary({ status, statusChangedAt, locale, showActionRequired = false, className, badgeClassName }: QuoteStatusSummaryProps) {
   const formattedStatusDate = statusChangedAt ? formatStatusDate(statusChangedAt, locale) : null;
   const statusDateLabel = getStatusDateLabel(status, formattedStatusDate, locale);
-  const actionRequiredLabel = locale === 'fr' ? 'Action requise' : 'Action required';
+  const actionRequiredLabel = translate(locale, 'statuses.actionRequired');
 
   return (
     <div className={cn('flex flex-col items-start gap-1', className)}>

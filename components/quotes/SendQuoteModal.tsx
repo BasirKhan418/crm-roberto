@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { Loader2Icon, SendIcon, X } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { resolveTranslatedError } from '@/lib/i18n/messages';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -164,7 +165,7 @@ export default function SendQuoteModal({
       setShowSuccessState(true);
       onSent?.();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : t.error);
+      toast.error(resolveTranslatedError(locale, error, t.error));
     } finally {
       setSending(false);
     }

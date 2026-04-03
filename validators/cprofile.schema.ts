@@ -1,22 +1,24 @@
 import { z } from "zod";
 
+import { createI18nKey as i18nKey } from '@/lib/i18n/messages';
+
 const objectIdSchema = z
   .string()
-  .regex(/^[0-9a-fA-F]{24}$/, "Invalid user ID");
+  .regex(/^[0-9a-fA-F]{24}$/, i18nKey('validation.invalidUserId'));
 
 const phoneSchema = z
   .string()
   .trim()
   .regex(
     /^(\+352[\s.-]?\d{3}[\s.-]?\d{3}[\s.-]?\d{0,3}|\+33[\s.-]?\d[\s.-]?\d{2}[\s.-]?\d{2}[\s.-]?\d{2}[\s.-]?\d{2}|0\d[\s.-]?\d{2}[\s.-]?\d{2}[\s.-]?\d{2}[\s.-]?\d{2}|\d{6,12})$/,
-    "Invalid phone number. Accepted formats: +352 XXX XXX (Luxembourg), +33 X XX XX XX XX (France), or local number"
+    i18nKey('validation.invalidPhone')
   );
 
 const emailSchema = z
   .string()
   .trim()
   .toLowerCase()
-  .email("Invalid business email");
+  .email(i18nKey('validation.invalidBusinessEmail'));
 
 
 export const createCompanyProfileSchema = z.object({
@@ -25,12 +27,12 @@ export const createCompanyProfileSchema = z.object({
   companyName: z
     .string()
     .trim()
-    .min(1, "Company name is required"),
+    .min(1, i18nKey('validation.companyNameRequired')),
 
   ownerName: z
     .string()
     .trim()
-    .min(1, "Owner name is required"),
+    .min(1, i18nKey('validation.ownerNameRequired')),
 
   phone: phoneSchema,
 
@@ -39,12 +41,12 @@ export const createCompanyProfileSchema = z.object({
   address: z
     .string()
     .trim()
-    .min(1, "Address is required"),
+    .min(1, i18nKey('validation.addressRequired')),
 
   vatNumber: z
     .string()
     .trim()
-    .min(1, "VAT number is required"),
+    .min(1, i18nKey('validation.vatNumberRequired')),
 });
 
 

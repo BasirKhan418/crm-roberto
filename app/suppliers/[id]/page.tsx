@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 
 import CrmShell from '@/components/crm-shell';
 import { useLocale } from '@/components/providers/locale-provider';
+import { resolveTranslatedError } from '@/lib/i18n/messages';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -248,7 +249,7 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
       setIsEditOpen(false);
       await loadDetails();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : t.updateFailed);
+      toast.error(resolveTranslatedError(locale, err, t.updateFailed));
     } finally {
       setIsSaving(false);
     }
@@ -269,7 +270,7 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
       toast.success(t.deleted);
       router.push('/suppliers');
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : t.deleteFailed);
+      toast.error(resolveTranslatedError(locale, err, t.deleteFailed));
     } finally {
       setIsDeletingSupplier(false);
       setIsDeleteConfirmOpen(false);
@@ -310,7 +311,7 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
       setNoteForm({ title: '', description: '', followUpDate: '' });
       await loadDetails();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : t.noteAddFailed);
+      toast.error(resolveTranslatedError(locale, err, t.noteAddFailed));
     } finally {
       setIsSaving(false);
     }
@@ -360,7 +361,7 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
       setEditingNoteId(null);
       await loadDetails();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : t.noteUpdateFailed);
+      toast.error(resolveTranslatedError(locale, err, t.noteUpdateFailed));
     } finally {
       setIsNoteUpdating(false);
     }
@@ -533,7 +534,7 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <h3 className="text-sm font-semibold">{note.title}</h3>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground">{new Date(note.createdAt).toLocaleString('en-US')}</span>
+                        <span className="text-xs text-muted-foreground">{new Date(note.createdAt).toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-GB')}</span>
                         <Button type="button" variant="ghost" size="icon-sm" onClick={() => openNoteEdit(note)}>
                           <PencilIcon />
                         </Button>
@@ -541,7 +542,7 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
                     </div>
                     <p className="mt-1 text-sm text-muted-foreground">{note.description}</p>
                     {note.followUpDate ? (
-                      <p className="mt-2 text-xs text-sky-600 dark:text-sky-400">{t.followUp}: {new Date(note.followUpDate).toLocaleDateString('en-US')}</p>
+                      <p className="mt-2 text-xs text-sky-600 dark:text-sky-400">{t.followUp}: {new Date(note.followUpDate).toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-GB')}</p>
                     ) : null}
                   </div>
                 ))

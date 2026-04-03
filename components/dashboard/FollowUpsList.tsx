@@ -59,11 +59,11 @@ function getDaysUntil(dateStr: string, referenceNow: number): number {
   return Math.round((targetStart - todayStart) / 86400000);
 }
 
-function formatShortDate(dateStr?: string): string {
+function formatShortDate(dateStr: string | undefined, locale: 'en' | 'fr'): string {
   if (!dateStr) return '--';
   const d = new Date(dateStr);
   if (!Number.isFinite(d.getTime())) return '--';
-  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' });
+  return d.toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-GB', { day: '2-digit', month: 'short', year: '2-digit' });
 }
 
 function buildLinkedPath(item: FollowUpItem): string {
@@ -139,26 +139,40 @@ const URGENCY_STYLE: Record<Urgency, UrgencyConfig> = {
   },
 };
 
-function getStatusLabel(urgency: Urgency, item: FollowUpItem, referenceNow: number): { main: string; sub: string } {
+function getStatusLabel(
+  urgency: Urgency,
+  item: FollowUpItem,
+  referenceNow: number,
+  locale: 'en' | 'fr',
+  labels: {
+    overdueMonths: (count: number) => string;
+    overdueWeeks: (count: number) => string;
+    overdueDays: (count: number) => string;
+    dueToday: string;
+    tomorrow: string;
+    inWeeks: (count: number) => string;
+    inDays: (count: number) => string;
+  },
+): { main: string; sub: string } {
   const dateStr = item.followUpDate ?? '';
 
   if (urgency === 'overdue-critical' || urgency === 'overdue-recent' || urgency === 'overdue-mild') {
     const days = getDaysOverdue(dateStr, referenceNow);
     const weeks = Math.floor(days / 7);
     const months = Math.floor(days / 30);
-    const sub = formatShortDate(dateStr);
-    if (months >= 1) return { main: `${months}mo overdue`, sub };
-    if (weeks >= 1) return { main: `${weeks}w overdue`, sub };
-    return { main: `${days}d overdue`, sub };
+    const sub = formatShortDate(dateStr, locale);
+    if (months >= 1) return { main: labels.overdueMonths(months), sub };
+    if (weeks >= 1) return { main: labels.overdueWeeks(weeks), sub };
+    return { main: labels.overdueDays(days), sub };
   }
 
-  if (urgency === 'today') return { main: 'Due today', sub: formatShortDate(dateStr) };
-  if (urgency === 'tomorrow') return { main: 'Tomorrow', sub: formatShortDate(dateStr) };
+  if (urgency === 'today') return { main: labels.dueToday, sub: formatShortDate(dateStr, locale) };
+  if (urgency === 'tomorrow') return { main: labels.tomorrow, sub: formatShortDate(dateStr, locale) };
 
   const days = getDaysUntil(dateStr, referenceNow);
   const weeks = Math.floor(days / 7);
-  if (weeks >= 1) return { main: `In ${weeks}w`, sub: formatShortDate(dateStr) };
-  return { main: `In ${days}d`, sub: formatShortDate(dateStr) };
+  if (weeks >= 1) return { main: labels.inWeeks(weeks), sub: formatShortDate(dateStr, locale) };
+  return { main: labels.inDays(days), sub: formatShortDate(dateStr, locale) };
 }
 
 function SectionDivider({ label, count, color }: { label: string; count: number; color: string }) {
@@ -178,12 +192,32 @@ export default function FollowUpsList({ followUps = [], loading = false, error =
       overdue: 'Overdue',
       scheduled: 'Scheduled',
       empty: 'No follow-ups scheduled. Add a follow-up date to any note.',
+      untitled: 'Untitled follow-up',
+      unknown: 'Unknown',
+      markAsDone: 'Mark as done',
+      overdueMonths: (count: number) => `${count}mo overdue`,
+      overdueWeeks: (count: number) => `${count}w overdue`,
+      overdueDays: (count: number) => `${count}d overdue`,
+      dueToday: 'Due today',
+      tomorrow: 'Tomorrow',
+      inWeeks: (count: number) => `In ${count}w`,
+      inDays: (count: number) => `In ${count}d`,
     },
     fr: {
       title: 'Suivis',
       overdue: 'En retard',
-      scheduled: 'Programmés',
-      empty: 'Aucun suivi programmé. Ajoutez une date de suivi à une note.',
+      scheduled: 'Programmes',
+      empty: 'Aucun suivi programme. Ajoutez une date de suivi a une note.',
+      untitled: 'Suivi sans titre',
+      unknown: 'Inconnu',
+      markAsDone: 'Marquer comme termine',
+      overdueMonths: (count: number) => `${count} mois de retard`,
+      overdueWeeks: (count: number) => `${count} sem de retard`,
+      overdueDays: (count: number) => `${count} j de retard`,
+      dueToday: 'Pour aujourd hui',
+      tomorrow: 'Demain',
+      inWeeks: (count: number) => `Dans ${count} sem`,
+      inDays: (count: number) => `Dans ${count} j`,
     },
   }[locale];
 
@@ -252,7 +286,7 @@ export default function FollowUpsList({ followUps = [], loading = false, error =
     const router = useRouter();
     const urgency = getUrgency(item.followUpDate, referenceNow);
     const cfg = URGENCY_STYLE[urgency];
-    const { main, sub } = getStatusLabel(urgency, item, referenceNow);
+    const { main, sub } = getStatusLabel(urgency, item, referenceNow, locale, t);
     const id = item._id ?? '';
     const isMarking = markingIds.has(id);
     const linkedPath = buildLinkedPath(item);
@@ -271,7 +305,7 @@ export default function FollowUpsList({ followUps = [], loading = false, error =
 
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium text-foreground">
-            {item.title ?? 'Untitled follow-up'}
+            {item.title ?? t.untitled}
           </p>
           <Link
             href={buildLinkedPath(item)}
@@ -286,14 +320,14 @@ export default function FollowUpsList({ followUps = [], loading = false, error =
             ) : (
               <Package className="size-2.5 shrink-0" strokeWidth={2} />
             )}
-            <span className="truncate">{item.linkedId?.fullName ?? 'Unknown'}</span>
+            <span className="truncate">{item.linkedId?.fullName ?? t.unknown}</span>
           </Link>
         </div>
 
         <div className="flex shrink-0 items-start gap-2">
           <button
             type="button"
-            title="Mark as done"
+            title={t.markAsDone}
             disabled={isMarking || !id}
             onClick={(e) => { e.stopPropagation(); if (id) markDone(id); }}
             className="mt-0.5 flex size-7 items-center justify-center rounded-full border border-transparent text-muted-foreground/40 opacity-0 transition-all hover:border-emerald-400 hover:bg-emerald-50 hover:text-emerald-600 group-hover:opacity-100 disabled:cursor-not-allowed dark:hover:bg-emerald-950/30 dark:hover:text-emerald-400"

@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation';
 import { Loader2Icon } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { useLocale } from '@/components/providers/locale-provider';
 import SignatureCanvas from '@/components/sign/SignatureCanvas';
 import { PriceDisplay } from '@/components/ui/PriceDisplay';
 
@@ -56,10 +57,12 @@ type SignError = 'not_found' | 'expired' | 'already_signed' | 'link_no_longer_va
 function DisclosureSection({
   title,
   description,
+  openLabel,
   children,
 }: {
   title: string;
   description: string;
+  openLabel: string;
   children: ReactNode;
 }) {
   return (
@@ -71,7 +74,7 @@ function DisclosureSection({
             <p className="mt-0.5 text-xs leading-5 text-slate-500 sm:mt-1 sm:text-sm sm:leading-6">{description}</p>
           </div>
           <span className="shrink-0 rounded-full border border-slate-200 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 sm:px-3 sm:py-1 sm:text-xs">
-            Open
+            {openLabel}
           </span>
         </div>
       </summary>
@@ -89,13 +92,222 @@ function DetailRow({ label, value }: { label: string; value: ReactNode }) {
   );
 }
 
+const signMessages = {
+  en: {
+    open: 'Open',
+    ourCompany: 'Our Company',
+    thisCompany: 'this company',
+    clientFallback: 'Client',
+    loadingQuoteDetails: 'Loading quote details...',
+    signatureRequired: 'Please provide your signature before submitting.',
+    rejectSubmitFailed: 'Unable to submit your rejection. Please try again.',
+    networkError: 'A network error occurred. Please try again.',
+    errorUnableToContinue: 'Unable to continue',
+    errorPageUnavailable: 'This signing page is not available',
+    errorNotFound: 'This signing link is invalid or has been removed.',
+    errorExpired: (companyName: string) => `This signing link has expired. Please contact ${companyName} for a new link.`,
+    errorLinkInvalid: 'This link is no longer valid. Please request a new signing link.',
+    errorUnknown: 'Something went wrong while loading this quote.',
+    alreadySignedBadge: 'Already signed',
+    alreadySignedTitle: 'This quote has already been signed',
+    alreadySignedBody: (signerName: string, companyName: string, signedAtText: string | null) =>
+      `No further action is needed, ${signerName}. ${companyName} already has this signed quote${signedAtText ? ` recorded on ${signedAtText}` : ''}.`,
+    recordedReference: 'Recorded reference',
+    quote: 'Quote',
+    date: 'Date',
+    totalInclTax: 'Total incl. tax',
+    alreadySignedFallback: (companyName: string) =>
+      `This signing link has already been completed. If you need a copy of the quote or confirmation details, contact ${companyName}.`,
+    whatHappensNext: 'What happens next',
+    alreadySignedNext1: (companyName: string) => `The quote remains marked as signed in ${companyName}'s system.`,
+    alreadySignedNext2: 'No additional signature is required from you on this page.',
+    alreadySignedNext3: 'You can close this page now and keep the original email for your records.',
+    needHelp: 'Need help?',
+    rejectionSubmittedBadge: 'Rejection submitted',
+    rejectionSubmittedTitle: 'Quote rejected',
+    rejectionSubmittedBody: (clientName: string, companyName: string) =>
+      `Thank you, ${clientName}. ${companyName} has been notified and will be in touch with an updated quote.`,
+    yourComment: 'Your comment',
+    signatureCompletedBadge: 'Signature completed',
+    signatureCompletedTitle: 'Quote signed successfully',
+    signatureCompletedBody: (clientName: string, signedAtText: string | null) =>
+      `Thank you, ${clientName}. Your signature has been recorded${signedAtText ? ` on ${signedAtText}` : ''} and this quote is now marked as signed.`,
+    signedNext1: (companyName: string) => `The quote is now marked as signed in ${companyName}'s system.`,
+    signedNext2: (companyName: string) => `${companyName} can continue with the next step on their side using the accepted quote.`,
+    signedNext3: 'You can close this page now. Keep the original email if you need to refer to the quote again.',
+    issuedBy: 'Issued by',
+    secureSigningPage: 'Secure signing page',
+    finalStep: 'Final step',
+    reviewAndSignTitle: (quoteNumber: string) => `Review and sign quote ${quoteNumber}`,
+    reviewAndSignDescription: 'Please check the essentials below, add your signature, and the quote will be recorded immediately.',
+    issuedOn: 'Issued on',
+    client: 'Client',
+    beforeYouSign: 'Before you sign',
+    beforeSignTitle1: 'Review the essentials',
+    beforeSignBody1: 'The total, quote reference, and optional full breakdown are available below.',
+    beforeSignTitle2: 'Add your signature',
+    beforeSignBody2: 'Use your finger or mouse to sign. You can clear and redraw before you submit.',
+    beforeSignTitle3: 'Get immediate confirmation',
+    beforeSignBody3: 'As soon as you submit, the quote is marked as signed and the process is complete.',
+    signThisQuote: 'Sign this quote',
+    completeAgreement: 'Complete the agreement',
+    drawSignatureHelp: 'Draw your signature below to confirm your agreement with this quote.',
+    quoteTotal: 'Quote total',
+    itemsCount: (count: number) => `${count} item${count === 1 ? '' : 's'}`,
+    signature: 'Signature',
+    signatureHelp: 'Use your finger or mouse to sign. You can clear and redraw before submitting.',
+    signatureConsent: 'By submitting your signature, you confirm that you agree with this quote.',
+    recordingSignature: 'Recording your signature...',
+    signAndComplete: 'Sign and complete quote',
+    addSignatureToContinue: 'Add your signature to continue',
+    rejectQuoteAction: 'I want to reject this quote',
+    rejectQuoteBadge: 'Reject quote',
+    rejectQuoteTitle: 'Are you sure you want to reject this quote?',
+    rejectQuoteDescription: (companyName: string) =>
+      `${companyName} will be notified and can send you an updated version. You can optionally explain what you would like changed.`,
+    rejectWarning: 'Once confirmed, this sign link is closed and cannot be used to sign this version later.',
+    rejectAcknowledgement: 'I understand this will reject the quote now and I will need a new revised quote to continue.',
+    commentOptional: 'Comment (optional)',
+    commentPlaceholder: 'e.g. The price is too high, please revise line item 2...',
+    cancel: 'Cancel',
+    submitting: 'Submitting...',
+    rejectQuoteConfirm: 'Reject quote',
+    reviewFullQuoteDetails: 'Review full quote details',
+    reviewFullQuoteDescription: 'Open this section if you want to inspect every line item before signing.',
+    quantity: 'Quantity',
+    qty: 'Qty',
+    unitExclTax: 'Unit excl. tax',
+    unitExcl: 'Unit excl.',
+    discount: 'Discount',
+    vat: 'VAT',
+    lineTotal: 'Line total',
+    description: 'Description',
+    none: 'None',
+    totalExclTax: 'Total excl. tax',
+    notes: 'Notes',
+    companyDetails: 'Company details',
+    companyDetailsDescription: 'Contact information for the company issuing this quote.',
+    clientDetails: 'Client details',
+    clientDetailsDescription: 'The information currently recorded for this quote.',
+    company: 'Company',
+    name: 'Name',
+    address: 'Address',
+    phone: 'Phone',
+    email: 'Email',
+  },
+  fr: {
+    open: 'Ouvrir',
+    ourCompany: 'Notre entreprise',
+    thisCompany: 'cette entreprise',
+    clientFallback: 'Client',
+    loadingQuoteDetails: 'Chargement des details du devis...',
+    signatureRequired: 'Veuillez ajouter votre signature avant de valider.',
+    rejectSubmitFailed: 'Impossible d envoyer votre refus. Veuillez reessayer.',
+    networkError: 'Une erreur reseau est survenue. Veuillez reessayer.',
+    errorUnableToContinue: 'Impossible de continuer',
+    errorPageUnavailable: 'Cette page de signature n est pas disponible',
+    errorNotFound: 'Ce lien de signature est invalide ou a ete supprime.',
+    errorExpired: (companyName: string) => `Ce lien de signature a expire. Veuillez contacter ${companyName} pour recevoir un nouveau lien.`,
+    errorLinkInvalid: 'Ce lien n est plus valide. Veuillez demander un nouveau lien de signature.',
+    errorUnknown: 'Une erreur est survenue lors du chargement de ce devis.',
+    alreadySignedBadge: 'Deja signe',
+    alreadySignedTitle: 'Ce devis a deja ete signe',
+    alreadySignedBody: (signerName: string, companyName: string, signedAtText: string | null) =>
+      `Aucune autre action n est necessaire, ${signerName}. ${companyName} dispose deja de ce devis signe${signedAtText ? ` enregistre le ${signedAtText}` : ''}.`,
+    recordedReference: 'Reference enregistree',
+    quote: 'Devis',
+    date: 'Date',
+    totalInclTax: 'Total TTC',
+    alreadySignedFallback: (companyName: string) =>
+      `Ce lien de signature a deja ete utilise. Si vous avez besoin d une copie du devis ou d une confirmation, contactez ${companyName}.`,
+    whatHappensNext: 'Prochaines etapes',
+    alreadySignedNext1: (companyName: string) => `Le devis reste marque comme signe dans le systeme de ${companyName}.`,
+    alreadySignedNext2: 'Aucune signature supplementaire n est requise de votre part sur cette page.',
+    alreadySignedNext3: 'Vous pouvez maintenant fermer cette page et conserver l e-mail d origine pour vos archives.',
+    needHelp: 'Besoin d aide ?',
+    rejectionSubmittedBadge: 'Refus envoye',
+    rejectionSubmittedTitle: 'Devis refuse',
+    rejectionSubmittedBody: (clientName: string, companyName: string) =>
+      `Merci, ${clientName}. ${companyName} a ete informe et reviendra vers vous avec un devis mis a jour.`,
+    yourComment: 'Votre commentaire',
+    signatureCompletedBadge: 'Signature terminee',
+    signatureCompletedTitle: 'Devis signe avec succes',
+    signatureCompletedBody: (clientName: string, signedAtText: string | null) =>
+      `Merci, ${clientName}. Votre signature a ete enregistree${signedAtText ? ` le ${signedAtText}` : ''} et ce devis est maintenant marque comme signe.`,
+    signedNext1: (companyName: string) => `Le devis est maintenant marque comme signe dans le systeme de ${companyName}.`,
+    signedNext2: (companyName: string) => `${companyName} peut maintenant poursuivre l etape suivante avec le devis accepte.`,
+    signedNext3: 'Vous pouvez fermer cette page maintenant. Conservez l e-mail d origine si vous devez consulter a nouveau le devis.',
+    issuedBy: 'Emis par',
+    secureSigningPage: 'Page de signature securisee',
+    finalStep: 'Derniere etape',
+    reviewAndSignTitle: (quoteNumber: string) => `Consultez et signez le devis ${quoteNumber}`,
+    reviewAndSignDescription: 'Veuillez verifier les informations essentielles ci-dessous, ajouter votre signature, puis le devis sera enregistre immediatement.',
+    issuedOn: 'Emis le',
+    client: 'Client',
+    beforeYouSign: 'Avant de signer',
+    beforeSignTitle1: 'Verifiez l essentiel',
+    beforeSignBody1: 'Le total, la reference du devis et le detail complet sont disponibles ci-dessous.',
+    beforeSignTitle2: 'Ajoutez votre signature',
+    beforeSignBody2: 'Utilisez votre doigt ou votre souris pour signer. Vous pouvez effacer et recommencer avant de valider.',
+    beforeSignTitle3: 'Recevez une confirmation immediate',
+    beforeSignBody3: 'Des que vous validez, le devis est marque comme signe et le processus est termine.',
+    signThisQuote: 'Signer ce devis',
+    completeAgreement: 'Finaliser l accord',
+    drawSignatureHelp: 'Dessinez votre signature ci-dessous pour confirmer votre accord avec ce devis.',
+    quoteTotal: 'Total du devis',
+    itemsCount: (count: number) => `${count} article${count === 1 ? '' : 's'}`,
+    signature: 'Signature',
+    signatureHelp: 'Utilisez votre doigt ou votre souris pour signer. Vous pouvez effacer et recommencer avant validation.',
+    signatureConsent: 'En envoyant votre signature, vous confirmez votre accord avec ce devis.',
+    recordingSignature: 'Enregistrement de votre signature...',
+    signAndComplete: 'Signer et finaliser le devis',
+    addSignatureToContinue: 'Ajoutez votre signature pour continuer',
+    rejectQuoteAction: 'Je souhaite refuser ce devis',
+    rejectQuoteBadge: 'Refuser le devis',
+    rejectQuoteTitle: 'Voulez-vous vraiment refuser ce devis ?',
+    rejectQuoteDescription: (companyName: string) =>
+      `${companyName} sera informe et pourra vous envoyer une version mise a jour. Vous pouvez expliquer en option ce que vous souhaitez modifier.`,
+    rejectWarning: 'Une fois confirme, ce lien de signature sera ferme et ne pourra plus etre utilise pour signer cette version.',
+    rejectAcknowledgement: 'Je comprends que cela va refuser le devis maintenant et qu un nouveau devis revise sera necessaire pour continuer.',
+    commentOptional: 'Commentaire (optionnel)',
+    commentPlaceholder: 'ex. Le prix est trop eleve, merci de revoir la ligne 2...',
+    cancel: 'Annuler',
+    submitting: 'Envoi en cours...',
+    rejectQuoteConfirm: 'Refuser le devis',
+    reviewFullQuoteDetails: 'Voir le detail complet du devis',
+    reviewFullQuoteDescription: 'Ouvrez cette section si vous souhaitez verifier chaque ligne avant de signer.',
+    quantity: 'Quantite',
+    qty: 'Qte',
+    unitExclTax: 'Unitaire HT',
+    unitExcl: 'Unitaire HT',
+    discount: 'Remise',
+    vat: 'TVA',
+    lineTotal: 'Total ligne',
+    description: 'Description',
+    none: 'Aucune',
+    totalExclTax: 'Total HT',
+    notes: 'Notes',
+    companyDetails: 'Details de l entreprise',
+    companyDetailsDescription: 'Coordonnees de l entreprise qui emet ce devis.',
+    clientDetails: 'Details du client',
+    clientDetailsDescription: 'Informations actuellement enregistrees pour ce devis.',
+    company: 'Entreprise',
+    name: 'Nom',
+    address: 'Adresse',
+    phone: 'Telephone',
+    email: 'E-mail',
+  },
+} as const;
+
 export default function SignPage() {
+  const { locale: appLocale } = useLocale();
   const params = useParams<{ token: string }>();
   const token = params?.token;
+  const t = signMessages[appLocale];
 
   const [quote, setQuote] = useState<SignQuotePayload | null>(null);
   const [error, setError] = useState<SignError | null>(null);
-  const [errorCompanyName, setErrorCompanyName] = useState<string>('this company');
+  const [errorCompanyName, setErrorCompanyName] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
   const [signed, setSigned] = useState(false);
   const [alreadySigned, setAlreadySigned] = useState(false);
@@ -121,6 +333,7 @@ export default function SignPage() {
       setIsLoading(true);
       setError(null);
       setAlreadySigned(false);
+      setErrorCompanyName('');
 
       try {
         const response = await fetch(`/api/sign/${token}`, { cache: 'no-store' });
@@ -188,8 +401,8 @@ export default function SignPage() {
     };
   }, [token]);
 
-  const companyName = quote?.company?.companyName || 'Our Company';
-  const locale = 'en-GB';
+  const companyName = quote?.company?.companyName || t.ourCompany;
+  const locale = appLocale === 'fr' ? 'fr-FR' : 'en-GB';
 
   const formattedDate = useMemo(() => {
     if (!quote?.date) {
@@ -201,7 +414,7 @@ export default function SignPage() {
       month: 'short',
       year: 'numeric',
     }).format(new Date(quote.date));
-  }, [quote?.date]);
+  }, [locale, quote?.date]);
 
   const formattedSignedAt = useMemo(() => {
     if (!signedAt) {
@@ -238,7 +451,7 @@ export default function SignPage() {
 
   const handleSign = async () => {
     if (!signatureDataUrl || !token) {
-      toast.error('Please provide your signature before submitting.');
+      toast.error(t.signatureRequired);
       return;
     }
 
@@ -263,6 +476,9 @@ export default function SignPage() {
       if (response.status === 404) {
         setError('not_found');
       } else if (response.status === 410) {
+        if (payload?.companyName) {
+          setErrorCompanyName(payload.companyName);
+        }
         setError(payload?.error === 'link_no_longer_valid' ? 'link_no_longer_valid' : 'expired');
       } else if (response.status === 409) {
         if (payload?.quoteNumber) {
@@ -293,10 +509,10 @@ export default function SignPage() {
         setShowRejectDialog(false);
         setRejected(true);
       } else {
-        toast.error('Unable to submit your rejection. Please try again.');
+        toast.error(t.rejectSubmitFailed);
       }
     } catch {
-      toast.error('A network error occurred. Please try again.');
+      toast.error(t.networkError);
     } finally {
       setIsRejecting(false);
     }
@@ -309,18 +525,18 @@ export default function SignPage() {
 
     const text =
       error === 'not_found'
-        ? 'This signing link is invalid or has been removed.'
+        ? t.errorNotFound
         : error === 'expired'
-          ? `This signing link has expired. Please contact ${errorCompanyName} for a new link.`
+          ? t.errorExpired(errorCompanyName || t.thisCompany)
           : error === 'link_no_longer_valid'
-            ? 'This link is no longer valid. Please request a new signing link.'
-            : 'Something went wrong while loading this quote.';
+            ? t.errorLinkInvalid
+            : t.errorUnknown;
 
     return (
       <section className="overflow-hidden rounded-2xl border border-rose-200 bg-white shadow-xl shadow-slate-950/5 sm:rounded-3xl">
         <div className="border-b border-rose-100 bg-rose-50 px-4 py-4 sm:px-6 sm:py-5 md:px-8 md:py-6">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-rose-700 sm:text-xs">Unable to continue</p>
-          <h1 className="mt-2 text-xl font-semibold tracking-tight text-slate-950 sm:mt-3 sm:text-2xl md:text-3xl">This signing page is not available</h1>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-rose-700 sm:text-xs">{t.errorUnableToContinue}</p>
+          <h1 className="mt-2 text-xl font-semibold tracking-tight text-slate-950 sm:mt-3 sm:text-2xl md:text-3xl">{t.errorPageUnavailable}</h1>
         </div>
         <div className="px-4 py-4 sm:px-6 sm:py-5 md:px-8 md:py-6">
           <p className="text-xs leading-5 text-slate-600 sm:text-sm sm:leading-6">{text}</p>
@@ -330,33 +546,33 @@ export default function SignPage() {
   };
 
   const renderAlreadySigned = () => {
-    const signerName = quote?.clientSnapshot.fullName || 'Client';
+    const signerName = quote?.clientSnapshot.fullName || t.clientFallback;
 
     return (
       <section className="overflow-hidden rounded-2xl border border-emerald-200 bg-white shadow-xl shadow-slate-950/5 sm:rounded-3xl">
         <div className="border-b border-emerald-100 bg-emerald-50 px-4 py-4 sm:px-6 sm:py-5 md:px-8 md:py-6">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-700 sm:text-xs">Already signed</p>
-          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-emerald-950 sm:mt-3 sm:text-3xl md:text-4xl">This quote has already been signed</h1>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-700 sm:text-xs">{t.alreadySignedBadge}</p>
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-emerald-950 sm:mt-3 sm:text-3xl md:text-4xl">{t.alreadySignedTitle}</h1>
           <p className="mt-2 text-xs leading-5 text-emerald-900/80 sm:mt-3 sm:text-sm sm:leading-6 md:text-base">
-            No further action is needed, {signerName}. {companyName} already has this signed quote{formattedSignedAt ? ` recorded on ${formattedSignedAt}` : ''}.
+            {t.alreadySignedBody(signerName, companyName, formattedSignedAt)}
           </p>
         </div>
 
         <div className="grid gap-4 px-4 py-4 sm:px-6 sm:py-6 md:px-8 md:py-8 lg:grid-cols-[1fr_minmax(0,0.82fr)]">
           <div className="min-w-0 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:rounded-3xl sm:p-5 md:p-6">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 sm:text-xs">Recorded reference</p>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 sm:text-xs">{t.recordedReference}</p>
             {quote ? (
               <div className="mt-3 grid grid-cols-1 gap-2.5 min-[400px]:grid-cols-3 sm:mt-4 sm:gap-3">
                 <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-3 sm:rounded-2xl sm:p-4">
-                  <p className="text-[10px] uppercase tracking-wide text-slate-500 sm:text-xs">Quote</p>
+                  <p className="text-[10px] uppercase tracking-wide text-slate-500 sm:text-xs">{t.quote}</p>
                   <p className="mt-1 truncate text-base font-semibold text-slate-950 sm:mt-2 sm:text-lg">{quote.quoteNumber}</p>
                 </div>
                 <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-3 sm:rounded-2xl sm:p-4">
-                  <p className="text-[10px] uppercase tracking-wide text-slate-500 sm:text-xs">Date</p>
+                  <p className="text-[10px] uppercase tracking-wide text-slate-500 sm:text-xs">{t.date}</p>
                   <p className="mt-1 text-base font-semibold text-slate-950 sm:mt-2 sm:text-lg">{formattedDate}</p>
                 </div>
                 <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-3 sm:rounded-2xl sm:p-4">
-                  <p className="text-[10px] uppercase tracking-wide text-slate-500 sm:text-xs">Total incl. tax</p>
+                  <p className="text-[10px] uppercase tracking-wide text-slate-500 sm:text-xs">{t.totalInclTax}</p>
                   <p className="mt-1 truncate text-base font-semibold text-slate-950 sm:mt-2 sm:text-lg">
                     <PriceDisplay cents={quote.totalIncludingTax} locale={locale} />
                   </p>
@@ -364,27 +580,27 @@ export default function SignPage() {
               </div>
             ) : (
               <p className="mt-3 text-xs leading-5 text-slate-600 sm:mt-4 sm:text-sm sm:leading-6">
-                This signing link has already been completed. If you need a copy of the quote or confirmation details, contact {companyName}.
+                {t.alreadySignedFallback(companyName)}
               </p>
             )}
           </div>
 
           <div className="min-w-0 space-y-3 sm:space-y-4">
             <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:rounded-3xl sm:p-5 md:p-6">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 sm:text-xs">What happens next</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 sm:text-xs">{t.whatHappensNext}</p>
               <div className="mt-3 space-y-2.5 text-xs leading-5 text-slate-600 sm:mt-4 sm:space-y-3 sm:text-sm sm:leading-6">
-                <p>The quote remains marked as signed in {companyName}&apos;s system.</p>
-                <p>No additional signature is required from you on this page.</p>
-                <p>You can close this page now and keep the original email for your records.</p>
+                <p>{t.alreadySignedNext1(companyName)}</p>
+                <p>{t.alreadySignedNext2}</p>
+                <p>{t.alreadySignedNext3}</p>
               </div>
             </div>
 
             {quote?.company?.email || quote?.company?.phone ? (
               <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:rounded-3xl sm:p-5 md:p-6">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 sm:text-xs">Need help?</p>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 sm:text-xs">{t.needHelp}</p>
                 <div className="mt-3 space-y-2 sm:mt-4 sm:space-y-3">
-                  {quote.company?.email ? <DetailRow label="Email" value={quote.company.email} /> : null}
-                  {quote.company?.phone ? <DetailRow label="Phone" value={quote.company.phone} /> : null}
+                  {quote.company?.email ? <DetailRow label={t.email} value={quote.company.email} /> : null}
+                  {quote.company?.phone ? <DetailRow label={t.phone} value={quote.company.phone} /> : null}
                 </div>
               </div>
             ) : null}
@@ -402,7 +618,7 @@ export default function SignPage() {
         {isLoading ? (
           <div className="flex min-h-[50dvh] flex-col items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-10 text-center shadow-xl shadow-slate-950/5 sm:rounded-3xl sm:px-6 sm:py-12">
             <Loader2Icon className="size-5 animate-spin text-slate-500 sm:size-6" />
-            <p className="text-xs text-slate-600 sm:text-sm">Loading quote details...</p>
+            <p className="text-xs text-slate-600 sm:text-sm">{t.loadingQuoteDetails}</p>
           </div>
         ) : isAlreadySignedState ? (
           renderAlreadySigned()
@@ -411,16 +627,16 @@ export default function SignPage() {
         ) : rejected ? (
           <section className="overflow-hidden rounded-2xl border border-orange-200 bg-white shadow-xl shadow-slate-950/5 sm:rounded-3xl">
             <div className="border-b border-orange-100 bg-orange-50 px-4 py-4 sm:px-6 sm:py-5 md:px-8 md:py-6">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-orange-700 sm:text-xs">Rejection submitted</p>
-              <h1 className="mt-2 text-2xl font-semibold tracking-tight text-orange-950 sm:mt-3 sm:text-3xl md:text-4xl">Quote rejected</h1>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-orange-700 sm:text-xs">{t.rejectionSubmittedBadge}</p>
+              <h1 className="mt-2 text-2xl font-semibold tracking-tight text-orange-950 sm:mt-3 sm:text-3xl md:text-4xl">{t.rejectionSubmittedTitle}</h1>
               <p className="mt-2 text-xs leading-5 text-orange-900/80 sm:mt-3 sm:text-sm sm:leading-6 md:text-base">
-                Thank you, {quote?.clientSnapshot.fullName || 'Client'}. {companyName} has been notified and will be in touch with an updated quote.
+                {t.rejectionSubmittedBody(quote?.clientSnapshot.fullName || t.clientFallback, companyName)}
               </p>
             </div>
             <div className="px-4 py-4 sm:px-6 sm:py-6 md:px-8 md:py-8">
               {rejectionComment.trim() ? (
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:rounded-3xl sm:p-5">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 sm:text-xs">Your comment</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 sm:text-xs">{t.yourComment}</p>
                   <p className="mt-2 text-sm leading-6 text-slate-700 sm:mt-3">{rejectionComment.trim()}</p>
                 </div>
               ) : null}
@@ -430,27 +646,27 @@ export default function SignPage() {
          
           <section className="overflow-hidden rounded-2xl border border-emerald-200 bg-white shadow-xl shadow-slate-950/5 sm:rounded-3xl">
             <div className="border-b border-emerald-100 bg-emerald-50 px-4 py-4 sm:px-6 sm:py-5 md:px-8 md:py-6">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-700 sm:text-xs">Signature completed</p>
-              <h1 className="mt-2 text-2xl font-semibold tracking-tight text-emerald-950 sm:mt-3 sm:text-3xl md:text-4xl">Quote signed successfully</h1>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-700 sm:text-xs">{t.signatureCompletedBadge}</p>
+              <h1 className="mt-2 text-2xl font-semibold tracking-tight text-emerald-950 sm:mt-3 sm:text-3xl md:text-4xl">{t.signatureCompletedTitle}</h1>
               <p className="mt-2 text-xs leading-5 text-emerald-900/80 sm:mt-3 sm:text-sm sm:leading-6 md:text-base">
-                Thank you, {quote?.clientSnapshot.fullName || 'Client'}. Your signature has been recorded{formattedSignedAt ? ` on ${formattedSignedAt}` : ''} and this quote is now marked as signed.
+                {t.signatureCompletedBody(quote?.clientSnapshot.fullName || t.clientFallback, formattedSignedAt)}
               </p>
             </div>
 
             <div className="grid gap-4 px-4 py-4 sm:px-6 sm:py-6 md:px-8 md:py-8 lg:grid-cols-[1fr_minmax(0,0.82fr)]">
               <div className="min-w-0 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:rounded-3xl sm:p-5 md:p-6">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 sm:text-xs">Recorded reference</p>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 sm:text-xs">{t.recordedReference}</p>
                 <div className="mt-3 grid grid-cols-1 gap-2.5 min-[400px]:grid-cols-3 sm:mt-4 sm:gap-3">
                   <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-3 sm:rounded-2xl sm:p-4">
-                    <p className="text-[10px] uppercase tracking-wide text-slate-500 sm:text-xs">Quote</p>
+                    <p className="text-[10px] uppercase tracking-wide text-slate-500 sm:text-xs">{t.quote}</p>
                     <p className="mt-1 truncate text-base font-semibold text-slate-950 sm:mt-2 sm:text-lg">{quote?.quoteNumber}</p>
                   </div>
                   <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-3 sm:rounded-2xl sm:p-4">
-                    <p className="text-[10px] uppercase tracking-wide text-slate-500 sm:text-xs">Date</p>
+                    <p className="text-[10px] uppercase tracking-wide text-slate-500 sm:text-xs">{t.date}</p>
                     <p className="mt-1 text-base font-semibold text-slate-950 sm:mt-2 sm:text-lg">{formattedDate}</p>
                   </div>
                   <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-3 sm:rounded-2xl sm:p-4">
-                    <p className="text-[10px] uppercase tracking-wide text-slate-500 sm:text-xs">Total incl. tax</p>
+                    <p className="text-[10px] uppercase tracking-wide text-slate-500 sm:text-xs">{t.totalInclTax}</p>
                     <p className="mt-1 truncate text-base font-semibold text-slate-950 sm:mt-2 sm:text-lg">
                       <PriceDisplay cents={quote?.totalIncludingTax ?? 0} locale={locale} />
                     </p>
@@ -460,20 +676,20 @@ export default function SignPage() {
 
               <div className="min-w-0 space-y-3 sm:space-y-4">
                 <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:rounded-3xl sm:p-5 md:p-6">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 sm:text-xs">What happens next</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 sm:text-xs">{t.whatHappensNext}</p>
                   <div className="mt-3 space-y-2.5 text-xs leading-5 text-slate-600 sm:mt-4 sm:space-y-3 sm:text-sm sm:leading-6">
-                    <p>The quote is now marked as signed in {companyName}&apos;s system.</p>
-                    <p>{companyName} can continue with the next step on their side using the accepted quote.</p>
-                    <p>You can close this page now. Keep the original email if you need to refer to the quote again.</p>
+                    <p>{t.signedNext1(companyName)}</p>
+                    <p>{t.signedNext2(companyName)}</p>
+                    <p>{t.signedNext3}</p>
                   </div>
                 </div>
 
                 {quote?.company?.email || quote?.company?.phone ? (
                   <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:rounded-3xl sm:p-5 md:p-6">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 sm:text-xs">Need help?</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 sm:text-xs">{t.needHelp}</p>
                     <div className="mt-3 space-y-2 sm:mt-4 sm:space-y-3">
-                      {quote.company?.email ? <DetailRow label="Email" value={quote.company.email} /> : null}
-                      {quote.company?.phone ? <DetailRow label="Phone" value={quote.company.phone} /> : null}
+                      {quote.company?.email ? <DetailRow label={t.email} value={quote.company.email} /> : null}
+                      {quote.company?.phone ? <DetailRow label={t.phone} value={quote.company.phone} /> : null}
                     </div>
                   </div>
                 ) : null}
@@ -497,12 +713,12 @@ export default function SignPage() {
                       />
                     ) : null}
                     <div className="min-w-0">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 sm:text-xs">Issued by</p>
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 sm:text-xs">{t.issuedBy}</p>
                       <p className="mt-0.5 truncate text-sm font-semibold text-slate-950 sm:mt-1 sm:text-base">{companyName}</p>
                     </div>
                   </div>
                   <div className="inline-flex shrink-0 self-start rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-600 sm:self-auto sm:px-3 sm:py-1 sm:text-xs">
-                    Secure signing page
+                    {t.secureSigningPage}
                   </div>
                 </div>
               </header>
@@ -512,14 +728,14 @@ export default function SignPage() {
                 <section className="min-w-0 space-y-4 sm:space-y-5">
                   <div className="space-y-3 sm:space-y-4">
                     <div className="inline-flex rounded-full bg-slate-950 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-white sm:px-3 sm:py-1 sm:text-xs">
-                      Final step
+                      {t.finalStep}
                     </div>
                     <div className="min-w-0">
                       <h1 className="wrap-break-word text-xl font-semibold tracking-tight text-slate-950 sm:text-2xl md:text-3xl lg:text-4xl">
-                        Review and sign quote {quote.quoteNumber}
+                        {t.reviewAndSignTitle(quote.quoteNumber)}
                       </h1>
                       <p className="mt-2 text-xs leading-5 text-slate-600 sm:mt-3 sm:text-sm sm:leading-6 md:text-base">
-                        Please check the essentials below, add your signature, and the quote will be recorded immediately.
+                        {t.reviewAndSignDescription}
                       </p>
                       <button
                         type="button"
@@ -530,7 +746,7 @@ export default function SignPage() {
                         disabled={isSigning}
                         className="mt-3 inline-flex h-9 items-center justify-center rounded-full border border-red-300 bg-red-50 px-3.5 text-xs font-semibold text-red-800 transition hover:border-red-400 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50 sm:mt-4 sm:h-10 sm:px-4 sm:text-sm"
                       >
-                        Reject this quote
+                          {t.rejectQuoteAction}
                       </button>
                     </div>
                   </div>
@@ -538,44 +754,44 @@ export default function SignPage() {
                   {/* Stats grid */}
                   <div className="grid grid-cols-1 gap-2.5 min-[400px]:grid-cols-3 sm:gap-3">
                     <div className="min-w-0 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:rounded-2xl sm:p-4">
-                      <p className="text-[10px] uppercase tracking-wide text-slate-500 sm:text-xs">Total incl. tax</p>
+                      <p className="text-[10px] uppercase tracking-wide text-slate-500 sm:text-xs">{t.totalInclTax}</p>
                       <p className="mt-1 truncate text-lg font-semibold text-slate-950 sm:mt-2 sm:text-xl">
                         <PriceDisplay cents={quote.totalIncludingTax} locale={locale} />
                       </p>
                     </div>
                     <div className="min-w-0 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:rounded-2xl sm:p-4">
-                      <p className="text-[10px] uppercase tracking-wide text-slate-500 sm:text-xs">Issued on</p>
+                      <p className="text-[10px] uppercase tracking-wide text-slate-500 sm:text-xs">{t.issuedOn}</p>
                       <p className="mt-1 truncate text-lg font-semibold text-slate-950 sm:mt-2 sm:text-xl">{formattedDate}</p>
                     </div>
                     <div className="min-w-0 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:rounded-2xl sm:p-4">
-                      <p className="text-[10px] uppercase tracking-wide text-slate-500 sm:text-xs">Client</p>
+                      <p className="text-[10px] uppercase tracking-wide text-slate-500 sm:text-xs">{t.client}</p>
                       <p className="mt-1 truncate text-lg font-semibold text-slate-950 sm:mt-2 sm:text-xl">{quote.clientSnapshot.companyName || quote.clientSnapshot.fullName}</p>
                     </div>
                   </div>
 
                   {/* Steps */}
                   <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3.5 sm:rounded-3xl sm:p-4 md:p-5">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 sm:text-xs">Before you sign</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 sm:text-xs">{t.beforeYouSign}</p>
                     <div className="mt-3 space-y-2.5 sm:mt-4 sm:space-y-3">
                       <div className="flex gap-2.5 rounded-xl border border-slate-200 bg-white p-3 sm:gap-3 sm:rounded-2xl sm:p-4">
                         <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-950 text-[10px] font-semibold text-white sm:h-8 sm:w-8 sm:text-xs">1</div>
                         <div className="min-w-0">
-                          <p className="text-[13px] font-semibold text-slate-950 sm:text-sm">Review the essentials</p>
-                          <p className="mt-0.5 text-xs leading-5 text-slate-600 sm:mt-1 sm:text-sm sm:leading-6">The total, quote reference, and optional full breakdown are available below.</p>
+                          <p className="text-[13px] font-semibold text-slate-950 sm:text-sm">{t.beforeSignTitle1}</p>
+                          <p className="mt-0.5 text-xs leading-5 text-slate-600 sm:mt-1 sm:text-sm sm:leading-6">{t.beforeSignBody1}</p>
                         </div>
                       </div>
                       <div className="flex gap-2.5 rounded-xl border border-slate-200 bg-white p-3 sm:gap-3 sm:rounded-2xl sm:p-4">
                         <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-950 text-[10px] font-semibold text-white sm:h-8 sm:w-8 sm:text-xs">2</div>
                         <div className="min-w-0">
-                          <p className="text-[13px] font-semibold text-slate-950 sm:text-sm">Add your signature</p>
-                          <p className="mt-0.5 text-xs leading-5 text-slate-600 sm:mt-1 sm:text-sm sm:leading-6">Use your finger or mouse to sign. You can clear and redraw before you submit.</p>
+                          <p className="text-[13px] font-semibold text-slate-950 sm:text-sm">{t.beforeSignTitle2}</p>
+                          <p className="mt-0.5 text-xs leading-5 text-slate-600 sm:mt-1 sm:text-sm sm:leading-6">{t.beforeSignBody2}</p>
                         </div>
                       </div>
                       <div className="flex gap-2.5 rounded-xl border border-slate-200 bg-white p-3 sm:gap-3 sm:rounded-2xl sm:p-4">
                         <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-950 text-[10px] font-semibold text-white sm:h-8 sm:w-8 sm:text-xs">3</div>
                         <div className="min-w-0">
-                          <p className="text-[13px] font-semibold text-slate-950 sm:text-sm">Get immediate confirmation</p>
-                          <p className="mt-0.5 text-xs leading-5 text-slate-600 sm:mt-1 sm:text-sm sm:leading-6">As soon as you submit, the quote is marked as signed and the process is complete.</p>
+                          <p className="text-[13px] font-semibold text-slate-950 sm:text-sm">{t.beforeSignTitle3}</p>
+                          <p className="mt-0.5 text-xs leading-5 text-slate-600 sm:mt-1 sm:text-sm sm:leading-6">{t.beforeSignBody3}</p>
                         </div>
                       </div>
                     </div>
@@ -584,30 +800,30 @@ export default function SignPage() {
 
                 <section className="min-w-0 lg:sticky lg:top-6">
                   <div className="overflow-hidden rounded-2xl bg-slate-950 p-4 text-white shadow-xl shadow-slate-950/15 sm:rounded-3xl sm:p-5 md:p-6">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-300 sm:text-xs">Sign this quote</p>
-                    <h2 className="mt-2 text-xl font-semibold tracking-tight sm:mt-3 sm:text-2xl">Complete the agreement</h2>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-300 sm:text-xs">{t.signThisQuote}</p>
+                    <h2 className="mt-2 text-xl font-semibold tracking-tight sm:mt-3 sm:text-2xl">{t.completeAgreement}</h2>
                     <p className="mt-2 text-xs leading-5 text-slate-300 sm:mt-3 sm:text-sm sm:leading-6">
-                      Draw your signature below to confirm your agreement with this quote.
+                      {t.drawSignatureHelp}
                     </p>
 
                     <div className="mt-4 overflow-hidden rounded-xl border border-white/10 bg-white/5 p-3 sm:mt-5 sm:rounded-2xl sm:p-4">
                       <div className="flex items-center justify-between gap-2 sm:gap-3">
                         <div className="min-w-0 flex-1">
-                          <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400 sm:text-xs">Quote total</p>
+                          <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400 sm:text-xs">{t.quoteTotal}</p>
                           <p className="mt-1 truncate text-xl font-semibold text-white sm:mt-2 sm:text-2xl">
                             <PriceDisplay cents={quote.totalIncludingTax} locale={locale} className="text-white" />
                           </p>
                         </div>
                         <div className="shrink-0 rounded-full border border-white/10 bg-white/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-200 sm:px-3 sm:py-1 sm:text-xs">
-                          {itemCount} items
+                          {t.itemsCount(itemCount)}
                         </div>
                       </div>
                     </div>
 
                     <div className="mt-4 overflow-hidden rounded-2xl bg-white p-3 text-slate-950 sm:mt-5 sm:rounded-3xl sm:p-4 md:p-5">
-                      <p className="text-[13px] font-semibold text-slate-950 sm:text-sm">Signature</p>
+                      <p className="text-[13px] font-semibold text-slate-950 sm:text-sm">{t.signature}</p>
                       <p className="mt-0.5 text-xs leading-5 text-slate-600 sm:mt-1 sm:text-sm sm:leading-6">
-                        Use your finger or mouse to sign. You can clear and redraw before submitting.
+                        {t.signatureHelp}
                       </p>
                       <div className="mt-3 sm:mt-4">
                         <SignatureCanvas onSignatureChange={setSignatureDataUrl} />
@@ -615,7 +831,7 @@ export default function SignPage() {
                     </div>
 
                     <p className="mt-3 text-[10px] leading-4 text-slate-400 sm:mt-4 sm:text-xs sm:leading-5">
-                      By submitting your signature, you confirm that you agree with this quote.
+                      {t.signatureConsent}
                     </p>
 
                     <button
@@ -625,10 +841,10 @@ export default function SignPage() {
                       className="mt-4 h-11 w-full rounded-xl bg-white px-4 text-[13px] font-semibold text-slate-950 transition active:scale-[0.98] hover:bg-slate-100 disabled:cursor-not-allowed disabled:bg-white/40 disabled:text-slate-500 sm:mt-5 sm:h-12 sm:rounded-2xl sm:text-sm"
                     >
                       {isSigning
-                        ? 'Recording your signature...'
+                        ? t.recordingSignature
                         : signatureDataUrl
-                          ? 'Verify & Sign quote'
-                          : 'Add signature to Verify & Sign'}
+                          ? t.signAndComplete
+                          : t.addSignatureToContinue}
                     </button>
 
                     <button
@@ -640,7 +856,7 @@ export default function SignPage() {
                       disabled={isSigning}
                       className="mt-3 h-11 w-full rounded-xl border border-red-300 bg-red-500/10 px-4 text-[12px] font-semibold text-red-100 transition hover:border-red-200 hover:bg-red-500/20 hover:text-white active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:mt-4 sm:h-11 sm:rounded-2xl sm:text-sm"
                     >
-                      Reject this quote
+                      {t.rejectQuoteAction}
                     </button>
                   </div>
                 </section>
@@ -656,21 +872,21 @@ export default function SignPage() {
                     onClick={(e) => e.stopPropagation()}
                   >
                     <div className="border-b border-slate-200 px-5 py-4 sm:px-6 sm:py-5">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-red-600 sm:text-xs">Reject quote</p>
-                      <h2 className="mt-1 text-base font-semibold text-slate-950 sm:mt-2 sm:text-lg">Are you absolutely sure you want to reject this quote?</h2>
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-red-600 sm:text-xs">{t.rejectQuoteBadge}</p>
+                      <h2 className="mt-1 text-base font-semibold text-slate-950 sm:mt-2 sm:text-lg">{t.rejectQuoteTitle}</h2>
                       <p className="mt-1 text-xs leading-5 text-slate-600 sm:mt-2 sm:text-sm sm:leading-6">
-                        This will immediately mark the quote as rejected. {companyName} will be notified and must issue an updated quote if you want to continue.
+                        {t.rejectQuoteDescription(companyName)}
                       </p>
                     </div>
 
                     <div className="max-h-[min(62dvh,520px)] space-y-3 overflow-y-auto px-5 py-4 sm:space-y-4 sm:px-6 sm:py-5">
                       <div className="rounded-xl border border-red-200 bg-red-50 px-3.5 py-3 text-xs leading-5 text-red-900 sm:rounded-2xl sm:px-4 sm:py-3.5 sm:text-sm">
-                        Once confirmed, this sign link is closed and cannot be used to sign this version later.
+                        {t.rejectWarning}
                       </div>
 
                       <div>
                         <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 sm:text-xs" htmlFor="rejection-comment">
-                          Comment (optional)
+                          {t.commentOptional}
                         </label>
                         <textarea
                           id="rejection-comment"
@@ -678,7 +894,7 @@ export default function SignPage() {
                           maxLength={1000}
                           value={rejectionComment}
                           onChange={(e) => setRejectionComment(e.target.value)}
-                          placeholder="e.g. The price is too high, please revise line item 2..."
+                          placeholder={t.commentPlaceholder}
                           className="mt-2 w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-950 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none sm:rounded-2xl sm:px-4 sm:py-3"
                         />
                         <p className="mt-1 text-right text-[10px] text-slate-400 sm:text-xs">{rejectionComment.length}/1000</p>
@@ -692,7 +908,7 @@ export default function SignPage() {
                           className="mt-0.5 h-4 w-4 rounded border-slate-300 text-red-600 focus:ring-red-500"
                         />
                         <span className="text-xs leading-5 text-slate-700 sm:text-sm sm:leading-6">
-                          I understand this will reject the quote now and I will need a new revised quote to continue.
+                          {t.rejectAcknowledgement}
                         </span>
                       </label>
                     </div>
@@ -707,7 +923,7 @@ export default function SignPage() {
                         disabled={isRejecting}
                         className="h-11 w-full rounded-xl border border-slate-200 px-4 text-[13px] font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 sm:h-11 sm:flex-1 sm:rounded-2xl sm:text-sm"
                       >
-                        Cancel
+                        {t.cancel}
                       </button>
                       <button
                         type="button"
@@ -715,7 +931,7 @@ export default function SignPage() {
                         disabled={isRejecting || !confirmRejectIntent}
                         className="h-11 w-full rounded-xl bg-red-600 px-4 text-[13px] font-semibold text-white transition hover:bg-red-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 sm:h-11 sm:flex-1 sm:rounded-2xl sm:text-sm"
                       >
-                        {isRejecting ? 'Submitting rejection...' : 'Yes, reject quote'}
+                        {isRejecting ? t.submitting : t.rejectQuoteConfirm}
                       </button>
                     </div>
                   </div>
@@ -725,8 +941,9 @@ export default function SignPage() {
 
             <div className="grid gap-3 sm:gap-4 lg:grid-cols-[1fr_minmax(0,0.67fr)]">
               <DisclosureSection
-                title="Review full quote details"
-                description="Open this section if you want to inspect every line item before signing."
+                title={t.reviewFullQuoteDetails}
+                description={t.reviewFullQuoteDescription}
+                openLabel={t.open}
               >
                 <div className="space-y-3 md:hidden">
                   {quote.lineItems.map((item, index) => {
@@ -737,17 +954,17 @@ export default function SignPage() {
                     const discountLabel =
                       discountPct > 0 || discountAmount > 0
                         ? `${discountPct.toFixed(2)}%${discountAmount > 0 ? ` (-${currencyFormatter.format(discountAmount / 100)})` : ''}`
-                        : 'None';
+                        : t.none;
 
                     return (
                       <article key={item._id ?? `${item.name}-${index}`} className="rounded-xl border border-slate-200 bg-slate-50 p-3 sm:rounded-2xl sm:p-4">
                         <p className="wrap-break-word text-[13px] font-semibold text-slate-950 sm:text-sm">{item.name}</p>
                         <div className="mt-2.5 space-y-1.5 sm:mt-3 sm:space-y-2">
-                          <DetailRow label="Quantity" value={item.quantity} />
-                          <DetailRow label="Unit excl. tax" value={<PriceDisplay cents={item.unitPriceExcludingTax} locale={locale} />} />
-                          <DetailRow label="Discount" value={discountLabel} />
-                          <DetailRow label="VAT" value={`${vatRate}%`} />
-                          <DetailRow label="Line total" value={<PriceDisplay cents={lineTotal} locale={locale} />} />
+                          <DetailRow label={t.quantity} value={item.quantity} />
+                          <DetailRow label={t.unitExclTax} value={<PriceDisplay cents={item.unitPriceExcludingTax} locale={locale} />} />
+                          <DetailRow label={t.discount} value={discountLabel} />
+                          <DetailRow label={t.vat} value={`${vatRate}%`} />
+                          <DetailRow label={t.lineTotal} value={<PriceDisplay cents={lineTotal} locale={locale} />} />
                         </div>
                       </article>
                     );
@@ -758,12 +975,12 @@ export default function SignPage() {
                   <table className="w-full border-collapse text-sm">
                     <thead>
                       <tr className="bg-slate-100 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
-                        <th className="rounded-l-xl px-4 py-3">Description</th>
-                        <th className="whitespace-nowrap px-4 py-3 text-right">Qty</th>
-                        <th className="whitespace-nowrap px-4 py-3 text-right">Unit excl.</th>
-                        <th className="whitespace-nowrap px-4 py-3 text-right">Discount</th>
-                        <th className="whitespace-nowrap px-4 py-3 text-right">VAT</th>
-                        <th className="whitespace-nowrap rounded-r-xl px-4 py-3 text-right">Line total</th>
+                        <th className="rounded-l-xl px-4 py-3">{t.description}</th>
+                        <th className="whitespace-nowrap px-4 py-3 text-right">{t.qty}</th>
+                        <th className="whitespace-nowrap px-4 py-3 text-right">{t.unitExcl}</th>
+                        <th className="whitespace-nowrap px-4 py-3 text-right">{t.discount}</th>
+                        <th className="whitespace-nowrap px-4 py-3 text-right">{t.vat}</th>
+                        <th className="whitespace-nowrap rounded-r-xl px-4 py-3 text-right">{t.lineTotal}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -783,7 +1000,7 @@ export default function SignPage() {
                             <td className="whitespace-nowrap px-4 py-3 text-right text-slate-700">
                               {discountPct > 0 || discountAmount > 0
                                 ? `${discountPct.toFixed(2)}%${discountAmount > 0 ? ` (-${currencyFormatter.format(discountAmount / 100)})` : ''}`
-                                : 'None'}
+                                : t.none}
                             </td>
                             <td className="whitespace-nowrap px-4 py-3 text-right text-slate-700">{vatRate}%</td>
                             <td className="whitespace-nowrap px-4 py-3 text-right font-semibold text-slate-950">
@@ -799,26 +1016,26 @@ export default function SignPage() {
                 {/* Totals summary */}
                 <div className="mt-4 grid gap-2.5 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:mt-5 sm:gap-3 sm:rounded-2xl sm:p-4 md:ml-auto md:max-w-sm">
                   <div className="flex items-center justify-between text-xs text-slate-600 sm:text-sm">
-                    <span>Total excl. tax</span>
+                    <span>{t.totalExclTax}</span>
                     <PriceDisplay cents={quote.totalExcludingTax} locale={locale} />
                   </div>
                   <div className="flex items-center justify-between text-xs text-slate-600 sm:text-sm">
-                    <span>Discount</span>
+                    <span>{t.discount}</span>
                     <span>- <PriceDisplay cents={totalDiscount} locale={locale} /></span>
                   </div>
                   <div className="flex items-center justify-between text-xs text-slate-600 sm:text-sm">
-                    <span>VAT</span>
+                    <span>{t.vat}</span>
                     <PriceDisplay cents={quote.totalVat} locale={locale} />
                   </div>
                   <div className="flex items-center justify-between border-t border-slate-300 pt-2.5 text-sm font-semibold text-slate-950 sm:pt-3 sm:text-base">
-                    <span>Total incl. tax</span>
+                    <span>{t.totalInclTax}</span>
                     <PriceDisplay cents={quote.totalIncludingTax} locale={locale} />
                   </div>
                 </div>
 
                 {quote.notes ? (
                   <div className="mt-4 rounded-xl border border-slate-200 bg-white p-3 sm:mt-5 sm:rounded-2xl sm:p-4 md:p-5">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 sm:text-xs">Notes</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 sm:text-xs">{t.notes}</p>
                     <p className="mt-2 whitespace-pre-wrap wrap-break-word text-xs leading-5 text-slate-600 sm:mt-3 sm:text-sm sm:leading-6">{quote.notes}</p>
                   </div>
                 ) : null}
@@ -826,28 +1043,30 @@ export default function SignPage() {
 
               <div className="min-w-0 space-y-3 sm:space-y-4">
                 <DisclosureSection
-                  title="Company details"
-                  description="Contact information for the company issuing this quote."
+                  title={t.companyDetails}
+                  description={t.companyDetailsDescription}
+                  openLabel={t.open}
                 >
                   <div className="space-y-1">
-                    <DetailRow label="Company" value={companyName} />
-                    {quote.company?.address ? <DetailRow label="Address" value={quote.company.address} /> : null}
-                    {quote.company?.phone ? <DetailRow label="Phone" value={quote.company.phone} /> : null}
-                    {quote.company?.email ? <DetailRow label="Email" value={quote.company.email} /> : null}
-                    {quote.company?.vatNumber ? <DetailRow label="VAT" value={quote.company.vatNumber} /> : null}
+                    <DetailRow label={t.company} value={companyName} />
+                    {quote.company?.address ? <DetailRow label={t.address} value={quote.company.address} /> : null}
+                    {quote.company?.phone ? <DetailRow label={t.phone} value={quote.company.phone} /> : null}
+                    {quote.company?.email ? <DetailRow label={t.email} value={quote.company.email} /> : null}
+                    {quote.company?.vatNumber ? <DetailRow label={t.vat} value={quote.company.vatNumber} /> : null}
                   </div>
                 </DisclosureSection>
 
                 <DisclosureSection
-                  title="Client details"
-                  description="The information currently recorded for this quote."
+                  title={t.clientDetails}
+                  description={t.clientDetailsDescription}
+                  openLabel={t.open}
                 >
                   <div className="space-y-1">
-                    <DetailRow label="Name" value={quote.clientSnapshot.fullName} />
-                    {quote.clientSnapshot.companyName ? <DetailRow label="Company" value={quote.clientSnapshot.companyName} /> : null}
-                    {quote.clientSnapshot.phone ? <DetailRow label="Phone" value={quote.clientSnapshot.phone} /> : null}
-                    {quote.clientSnapshot.email ? <DetailRow label="Email" value={quote.clientSnapshot.email} /> : null}
-                    {quote.clientSnapshot.address ? <DetailRow label="Address" value={quote.clientSnapshot.address} /> : null}
+                    <DetailRow label={t.name} value={quote.clientSnapshot.fullName} />
+                    {quote.clientSnapshot.companyName ? <DetailRow label={t.company} value={quote.clientSnapshot.companyName} /> : null}
+                    {quote.clientSnapshot.phone ? <DetailRow label={t.phone} value={quote.clientSnapshot.phone} /> : null}
+                    {quote.clientSnapshot.email ? <DetailRow label={t.email} value={quote.clientSnapshot.email} /> : null}
+                    {quote.clientSnapshot.address ? <DetailRow label={t.address} value={quote.clientSnapshot.address} /> : null}
                   </div>
                 </DisclosureSection>
               </div>

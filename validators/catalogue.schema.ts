@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { createI18nKey as i18nKey } from '@/lib/i18n/messages';
+
 const emptyToUndefined = (val: unknown) =>
   typeof val === 'string' && val.trim() === '' ? undefined : val;
 
@@ -26,40 +28,43 @@ const toNumber = (val: unknown) => {
 
 const createOptionalDescription = z.preprocess(
   emptyToUndefined,
-  z.string().trim().min(1).max(1000, 'Description cannot exceed 1000 characters').optional()
+  z.string().trim().min(1).max(1000, i18nKey('validation.descriptionMax1000')).optional()
 );
 
 const updateOptionalDescription = z.preprocess(
   emptyToNull,
-  z.string().trim().min(1).max(1000, 'Description cannot exceed 1000 characters').nullable().optional()
+  z.string().trim().min(1).max(1000, i18nKey('validation.descriptionMax1000')).nullable().optional()
 );
 
 const createOptionalString = z.preprocess(emptyToUndefined, z.string().trim().min(1).optional());
 const updateOptionalNullableString = z.preprocess(emptyToNull, z.string().trim().min(1).nullable().optional());
 
-const createOptionalUrl = z.preprocess(emptyToUndefined, z.string().trim().url('Attachment url must be a valid URL').optional());
+const createOptionalUrl = z.preprocess(
+  emptyToUndefined,
+  z.string().trim().url(i18nKey('validation.attachmentUrlInvalid')).optional()
+);
 const updateOptionalNullableUrl = z.preprocess(
   emptyToNull,
-  z.string().trim().url('Attachment url must be a valid URL').nullable().optional()
+  z.string().trim().url(i18nKey('validation.attachmentUrlInvalid')).nullable().optional()
 );
 
 const currencySchema = z.enum(['EUR']);
 
 export const createCatalogueItemSchema = z.object({
-  name: z.string().trim().min(1, 'Item name is required').max(200, 'Name cannot exceed 200 characters'),
+  name: z.string().trim().min(1, i18nKey('validation.itemNameRequired')).max(200, i18nKey('validation.nameMax200')),
   description: createOptionalDescription,
   priceExcludingTax: z.preprocess(
     toNumber,
-    z.number().min(0, 'Price excluding tax cannot be negative')
+    z.number().min(0, i18nKey('validation.priceExcludingTaxNonNegative'))
   ),
   priceIncludingTax: z.preprocess(
     toNumber,
-    z.number().min(0, 'Price including tax cannot be negative')
+    z.number().min(0, i18nKey('validation.priceIncludingTaxNonNegative'))
   ).optional(),
   vatRate: z
     .preprocess(
       toNumber,
-      z.number().min(0, 'VAT rate cannot be negative').max(100, 'VAT rate cannot exceed 100')
+      z.number().min(0, i18nKey('validation.vatRateNonNegative')).max(100, i18nKey('validation.vatRateMax'))
     )
     .default(17),
   currency: currencySchema.default('EUR'),
@@ -71,24 +76,24 @@ export const createCatalogueItemSchema = z.object({
 });
 
 export const updateCatalogueItemSchema = z.object({
-  name: z.string().trim().min(1, 'Item name is required').max(200, 'Name cannot exceed 200 characters').optional(),
+  name: z.string().trim().min(1, i18nKey('validation.itemNameRequired')).max(200, i18nKey('validation.nameMax200')).optional(),
   description: updateOptionalDescription,
   priceExcludingTax: z
     .preprocess(
       toNumber,
-      z.number().min(0, 'Price excluding tax cannot be negative')
+      z.number().min(0, i18nKey('validation.priceExcludingTaxNonNegative'))
     )
     .optional(),
   priceIncludingTax: z
     .preprocess(
       toNumber,
-      z.number().min(0, 'Price including tax cannot be negative')
+      z.number().min(0, i18nKey('validation.priceIncludingTaxNonNegative'))
     )
     .optional(),
   vatRate: z
     .preprocess(
       toNumber,
-      z.number().min(0, 'VAT rate cannot be negative').max(100, 'VAT rate cannot exceed 100')
+      z.number().min(0, i18nKey('validation.vatRateNonNegative')).max(100, i18nKey('validation.vatRateMax'))
     )
     .optional(),
   currency: currencySchema.optional(),

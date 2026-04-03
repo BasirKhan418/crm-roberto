@@ -3,6 +3,7 @@
 import { CheckIcon, XIcon } from 'lucide-react';
 
 import type { QuoteStatus } from '@/components/ui/StatusBadge';
+import { getQuoteStatusLabel } from '@/lib/i18n/messages';
 
 interface HistoryEntry {
   from?: QuoteStatus;
@@ -16,23 +17,9 @@ interface QuoteHistoryBarProps {
   locale: 'en' | 'fr';
 }
 
-const LABELS = {
-  en: {
-    draft: 'Draft',
-    sent: 'Sent',
-    accepted: 'Accepted',
-    refused: 'Refused',
-    rejected: 'Rejected',
-    history: 'Quote history',
-  },
-  fr: {
-    draft: 'Brouillon',
-    sent: 'Envoye',
-    accepted: 'Accepte',
-    refused: 'Refuse',
-    rejected: 'Refuse (client)',
-    history: 'Historique du devis',
-  },
+const HISTORY_LABELS = {
+  en: 'Quote history',
+  fr: 'Historique du devis',
 } as const;
 
 const STEPS: QuoteStatus[] = ['draft', 'sent', 'accepted'];
@@ -54,7 +41,6 @@ function formatDate(value: string, locale: 'en' | 'fr'): string {
 }
 
 export default function QuoteHistoryBar({ history, currentStatus, locale }: QuoteHistoryBarProps) {
-  const labels = LABELS[locale];
   const isRefused = currentStatus === 'refused';
   const isRejected = currentStatus === 'rejected';
 
@@ -96,7 +82,7 @@ export default function QuoteHistoryBar({ history, currentStatus, locale }: Quot
   return (
     <section className="rounded-xl border border-border/70 bg-card p-4">
       <h2 className="mb-4 font-heading text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-        {labels.history}
+        {HISTORY_LABELS[locale]}
       </h2>
 
       <div className="relative flex items-start justify-between gap-0">
@@ -130,7 +116,7 @@ export default function QuoteHistoryBar({ history, currentStatus, locale }: Quot
 
               {/* Label + date */}
               <div className="mt-2 flex flex-col items-center gap-0.5 text-center">
-                <span className={`text-xs ${colors.label}`}>{labels[stepStatus]}</span>
+                <span className={`text-xs ${colors.label}`}>{getQuoteStatusLabel(locale, stepStatus)}</span>
                 {date ? (
                   <span className="text-[10px] text-muted-foreground">{formatDate(date, locale)}</span>
                 ) : (

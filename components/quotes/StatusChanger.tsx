@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { type QuoteStatus } from '@/components/ui/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { getQuoteStatusLabel, resolveTranslatedError } from '@/lib/i18n/messages';
 import { cn } from '@/lib/utils';
 
 const NEXT_STATUSES: Record<QuoteStatus, QuoteStatus[]> = {
@@ -31,12 +32,7 @@ interface StatusChangerProps {
 }
 
 function statusLabel(status: QuoteStatus, locale: 'en' | 'fr') {
-  const labels = {
-    en: { draft: 'Draft', sent: 'Sent', accepted: 'Accepted', refused: 'Refused', rejected: 'Rejected' },
-    fr: { draft: 'Brouillon', sent: 'Envoye', accepted: 'Accepte', refused: 'Refuse', rejected: 'Refuse (client)' },
-  } as const;
-
-  return labels[locale][status];
+  return getQuoteStatusLabel(locale, status);
 }
 
 export default function StatusChanger({
@@ -90,7 +86,7 @@ export default function StatusChanger({
       toast.success(t.success);
     } catch (error) {
       onStatusChanged(previousStatus);
-      toast.error(error instanceof Error ? error.message : t.failed);
+      toast.error(resolveTranslatedError(locale, error, t.failed));
     } finally {
       setChanging(false);
     }

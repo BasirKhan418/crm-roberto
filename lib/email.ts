@@ -1,5 +1,6 @@
 import ConnectEmailClient from "@/emails/connectEmailClient";
 import { getQuoteEmailTemplate } from "@/emails/quoteEmailTemplate";
+import { getDocumentEmailLanguage, translate, type TranslationLocale } from '@/lib/i18n/messages';
 
 interface BaseSendParams {
   to: string;
@@ -31,6 +32,7 @@ interface SendInvoiceParams extends BaseSendParams {
   invoiceNumber: string;
   paymentUrl: string;
   amount: string;
+  locale?: TranslationLocale;
 }
 
 interface SendQuoteEmailParams extends BaseSendParams {
@@ -59,6 +61,7 @@ interface SendPaymentReceiptParams extends BaseSendParams {
   amount: string;
   paymentMethod: string;
   paidAt: Date | string;
+  locale?: TranslationLocale;
 }
 
 function escapeHtml(text: string): string {
@@ -78,6 +81,7 @@ function buildDocumentEmailTemplate({
   documentNumber,
   details,
   messageBody,
+  locale,
   ctaLabel,
   ctaUrl,
   ctaNote,
@@ -89,16 +93,18 @@ function buildDocumentEmailTemplate({
   documentNumber: string;
   details: Array<{ label: string; value: string }>;
   messageBody: string;
+  locale: TranslationLocale;
   ctaLabel?: string;
   ctaUrl?: string;
   ctaNote?: string;
 }): string {
   const safeSubject = escapeHtml(subject);
   const safeCompanyName = escapeHtml(companyName || "CRM");
-  const safeClientName = escapeHtml(clientName || "Client");
+  const safeGreeting = escapeHtml(translate(locale, 'email.greeting', { name: clientName || 'Client' }));
   const safeDocumentLabel = escapeHtml(documentLabel);
   const safeDocumentNumber = escapeHtml(documentNumber);
   const safeMessageBody = escapeHtml(messageBody).replace(/\n/g, "<br>");
+  const safePdfAttachedLabel = escapeHtml(translate(locale, 'email.pdfAttached'));
 
   const rows = details
     .map(
@@ -118,7 +124,7 @@ function buildDocumentEmailTemplate({
       : "";
 
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="${escapeHtml(getDocumentEmailLanguage(locale))}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -155,7 +161,7 @@ function buildDocumentEmailTemplate({
       </tr>
       <tr>
         <td class="cell" style="padding:28px;">
-          <p style="margin:0 0 18px;font-size:15px;font-weight:600;color:#1a2e44;">Hello ${safeClientName},</p>
+          <p style="margin:0 0 18px;font-size:15px;font-weight:600;color:#1a2e44;">${safeGreeting}</p>
           <div style="font-size:14px;line-height:1.75;color:#374151;">${safeMessageBody}</div>
           ${ctaBlock}
         </td>
@@ -164,7 +170,7 @@ function buildDocumentEmailTemplate({
         <td style="padding:0 28px 24px;">
           <table width="100%" style="background:#f6f7f9;border:1px solid #e2e5e9;">
             <tr>
-              <td style="padding:12px 14px;font-size:13px;color:#374151;">PDF attached for your records.</td>
+              <td style="padding:12px 14px;font-size:13px;color:#374151;">${safePdfAttachedLabel}</td>
             </tr>
           </table>
         </td>
@@ -244,9 +250,7 @@ export async function sendSignLink({
   pdfBuffer,
 }: SendSignLinkParams) {
   const subject =
-    locale === "fr"
-      ? `Devis ${quoteNumber} - Merci de verifier et signer`
-      : `Quote ${quoteNumber} - Please review and sign`;
+    translate(locale, 'email.sendSignLink.subject', { quoteNumber });
 
   const formattedDate = new Intl.DateTimeFormat(locale === "fr" ? "fr-FR" : "en-GB", {
     day: "2-digit",
@@ -259,32 +263,27 @@ export async function sendSignLink({
     currency: "EUR",
   }).format(totalIncludingTax / 100);
 
-  const messageBody =
-    locale === "fr"
-      ? `Bonjour,\n\nVeuillez verifier et signer le devis ci-joint en utilisant ce lien securise :\n${signUrl}\n\nCe lien expire dans 30 jours.\n\nSi le bouton ne fonctionne pas, utilisez ce lien pour continuer :\n${signUrl}`
-      : `Hello,\n\nPlease review and sign the attached quote using this secure link:\n${signUrl}\n\nThis link expires in 30 days.\n\nIf this button does not work, use this link to continue:\n${signUrl}`;
+  const messageBody = translate(locale, 'email.sendSignLink.messageBody', { signUrl });
 
   const html = buildDocumentEmailTemplate({
     subject,
     companyName: company?.companyName || companyName || "CRM",
     clientName,
-    documentLabel: locale === "fr" ? "Devis" : "Quote",
+    documentLabel: translate(locale, 'email.sendSignLink.documentLabel'),
     documentNumber: quoteNumber,
     details: [
-      { label: locale === "fr" ? "Date" : "Date", value: formattedDate },
-      { label: locale === "fr" ? "Montant" : "Amount", value: formattedTotal },
+      { label: 'Date', value: formattedDate },
+      { label: translate(locale, 'email.sendSignLink.amountLabel'), value: formattedTotal },
       {
-        label: locale === "fr" ? "Validite" : "Validity",
-        value: locale === "fr" ? `${validityDays} jours` : `${validityDays} days`,
+        label: translate(locale, 'email.sendSignLink.validityLabel'),
+        value: translate(locale, 'email.sendSignLink.validityValue', { count: validityDays }),
       },
     ],
-    messageBody:
-      locale === "fr"
-        ? `Veuillez verifier et signer le devis ci-joint en utilisant ce lien securise :\n${signUrl}\n\nSi le bouton ne fonctionne pas, utilisez ce lien pour continuer :\n${signUrl}`
-        : `Please review and sign the attached quote using this secure link:\n${signUrl}\n\nIf this button does not work, use this link to continue:\n${signUrl}`,
-    ctaLabel: locale === "fr" ? "Verifier et signer le devis" : "Review and Sign Quote",
+    messageBody,
+    locale,
+    ctaLabel: translate(locale, 'email.sendSignLink.ctaLabel'),
     ctaUrl: signUrl,
-    ctaNote: locale === "fr" ? "Ce lien expire dans 30 jours." : "This link expires in 30 days.",
+    ctaNote: translate(locale, 'email.sendSignLink.ctaNote'),
   });
 
   const text = messageBody;
@@ -318,19 +317,11 @@ export async function sendQuoteEmail({
 }: SendQuoteEmailParams) {
   const resolvedSubject = subject?.trim()
     ? subject.trim()
-    : (
-    locale === "fr"
-      ? `Devis ${quoteNumber} - Merci de verifier et signer`
-      : `Quote ${quoteNumber} - Please review and sign`
-    );
+    : translate(locale, 'email.sendQuote.subject', { quoteNumber });
 
   const resolvedMessageBody = messageBody?.trim()
     ? messageBody.trim()
-    : (
-    locale === "fr"
-      ? `Bonjour,\n\nVeuillez trouver ci-joint votre devis ${quoteNumber}.\n\nLorsque vous etes pret, utilisez le bouton securise de cet e-mail pour consulter le devis et signer en ligne.\n\nN'hesitez pas a revenir vers nous pour toute question avant signature.\n\nBien cordialement,`
-      : `Hello,\n\nPlease find attached your quote ${quoteNumber}.\n\nWhen you are ready, use the secure button in this email to review the quote and sign online.\n\nFeel free to contact us if you have any questions before signing.\n\nBest regards,`
-    );
+    : translate(locale, 'email.sendQuote.defaultBody', { quoteNumber });
 
   const formattedDate = new Intl.DateTimeFormat(locale === "fr" ? "fr-FR" : "en-GB", {
     day: "2-digit",
@@ -373,13 +364,13 @@ export async function sendQuoteEmail({
   const text = [
     resolvedMessageBody,
     '',
-    locale === 'fr' ? `Reference du devis : ${quoteNumber}` : `Quote reference: ${quoteNumber}`,
-    locale === 'fr' ? `Date : ${formattedDate}` : `Date: ${formattedDate}`,
-    locale === 'fr' ? `Montant TTC : ${formattedTotal}` : `Total incl. tax: ${formattedTotal}`,
-    locale === 'fr' ? `Validite : ${validityDays} jours` : `Validity: ${validityDays} days`,
+    translate(locale, 'email.sendQuote.reference', { quoteNumber }),
+    `Date: ${formattedDate}`,
+    translate(locale, 'email.sendQuote.totalInclTax', { amount: formattedTotal }),
+    translate(locale, 'email.sendQuote.validity', { count: validityDays }),
     signUrl ? '' : '',
-    signUrl ? (locale === 'fr' ? `Lien securise pour signer : ${signUrl}` : `Secure signing link: ${signUrl}`) : '',
-    signUrl ? (locale === 'fr' ? 'Ce lien expire dans 30 jours.' : 'This link expires in 30 days.') : '',
+    signUrl ? translate(locale, 'email.sendQuote.signingLink', { signUrl }) : '',
+    signUrl ? translate(locale, 'email.sendQuote.signingExpiry') : '',
   ].filter(Boolean).join('\n');
 
   return sendDocumentEmail({
@@ -401,27 +392,33 @@ export async function sendInvoice({
   amount,
   companyName,
   pdfBuffer,
+  locale = 'en',
 }: SendInvoiceParams) {
-  const subject = `Invoice ${invoiceNumber} - ${amount}`;
-  const messageBody =
-    "Please find your invoice attached. You can complete payment using the button below.";
+  const subject = translate(locale, 'email.sendInvoice.subject', { invoiceNumber, amount });
+  const messageBody = translate(locale, 'email.sendInvoice.messageBody');
 
   const html = buildDocumentEmailTemplate({
     subject,
     companyName,
     clientName,
-    documentLabel: "Invoice",
+    documentLabel: translate(locale, 'email.sendInvoice.documentLabel'),
     documentNumber: invoiceNumber,
     details: [
-      { label: "Amount due", value: amount },
-      { label: "Payment", value: "Online checkout" },
+      { label: translate(locale, 'email.sendInvoice.amountDue'), value: amount },
+      { label: translate(locale, 'email.sendInvoice.payment'), value: translate(locale, 'email.sendInvoice.onlineCheckout') },
     ],
     messageBody,
-    ctaLabel: "Pay now",
+    locale,
+    ctaLabel: translate(locale, 'email.sendInvoice.ctaLabel'),
     ctaUrl: paymentUrl,
   });
 
-  const text = `Hello ${clientName},\n\nYour invoice ${invoiceNumber} (${amount}) is attached.\nPay online: ${paymentUrl}`;
+  const text = translate(locale, 'email.sendInvoice.textBody', {
+    name: clientName,
+    invoiceNumber,
+    amount,
+    paymentUrl,
+  });
 
   return sendDocumentEmail({
     to,
@@ -442,6 +439,7 @@ export async function sendQuoteRejectionNotification({
   clientName,
   rejectionComment,
   quoteDetailUrl,
+  locale = 'en',
 }: {
   to: string;
   adminName: string;
@@ -450,28 +448,34 @@ export async function sendQuoteRejectionNotification({
   clientName: string;
   rejectionComment: string | null;
   quoteDetailUrl: string;
+  locale?: TranslationLocale;
 }) {
-  const subject = `Quote ${quoteNumber} has been rejected by ${clientName}`;
+  const subject = translate(locale, 'email.rejection.subject', { quoteNumber, clientName });
 
   const commentLine = rejectionComment
-    ? `The client left the following comment:\n\n"${rejectionComment}"`
-    : "The client did not leave a comment.";
+    ? translate(locale, 'email.rejection.commentLine', { comment: rejectionComment })
+    : translate(locale, 'email.rejection.noComment');
 
-  const messageBody = `${clientName} has rejected quote ${quoteNumber}.\n\n${commentLine}\n\nYou can review the quote and resend an updated version using the button below.`;
+  const messageBody = translate(locale, 'email.rejection.messageBody', {
+    clientName,
+    quoteNumber,
+    commentLine,
+  });
 
   const html = buildDocumentEmailTemplate({
     subject,
     companyName,
     clientName: adminName,
-    documentLabel: "Quote",
+    documentLabel: translate(locale, 'email.rejection.documentLabel'),
     documentNumber: quoteNumber,
     details: [
-      { label: "Client", value: clientName },
-      { label: "Action", value: "Rejected" },
-      ...(rejectionComment ? [{ label: "Comment", value: rejectionComment }] : []),
+      { label: translate(locale, 'email.rejection.clientLabel'), value: clientName },
+      { label: translate(locale, 'email.rejection.actionLabel'), value: translate(locale, 'email.rejection.actionRejected') },
+      ...(rejectionComment ? [{ label: translate(locale, 'email.rejection.commentLabel'), value: rejectionComment }] : []),
     ],
     messageBody,
-    ctaLabel: "View quote",
+    locale,
+    ctaLabel: translate(locale, 'email.rejection.ctaLabel'),
     ctaUrl: quoteDetailUrl,
   });
 
@@ -496,25 +500,33 @@ export async function sendPaymentReceipt({
   paidAt,
   companyName,
   pdfBuffer,
+  locale = 'en',
 }: SendPaymentReceiptParams) {
-  const subject = `Payment receipt - ${invoiceNumber}`;
-  const messageBody = "We confirm that your payment has been received successfully.";
+  const subject = translate(locale, 'email.paymentReceipt.subject', { invoiceNumber });
+  const messageBody = translate(locale, 'email.paymentReceipt.messageBody');
 
   const html = buildDocumentEmailTemplate({
     subject,
     companyName,
     clientName,
-    documentLabel: "Payment receipt",
+    documentLabel: translate(locale, 'email.paymentReceipt.documentLabel'),
     documentNumber: invoiceNumber,
     details: [
-      { label: "Amount paid", value: amount },
-      { label: "Method", value: paymentMethod },
-      { label: "Paid at", value: formatDate(paidAt) },
+      { label: translate(locale, 'email.paymentReceipt.amountPaid'), value: amount },
+      { label: translate(locale, 'email.paymentReceipt.method'), value: paymentMethod },
+      { label: translate(locale, 'email.paymentReceipt.paidAt'), value: formatDate(paidAt) },
     ],
     messageBody,
+    locale,
   });
 
-  const text = `Hello ${clientName},\n\nPayment received for invoice ${invoiceNumber}.\nAmount: ${amount}\nMethod: ${paymentMethod}\nPaid at: ${formatDate(paidAt)}`;
+  const text = translate(locale, 'email.paymentReceipt.textBody', {
+    name: clientName,
+    invoiceNumber,
+    amount,
+    paymentMethod,
+    paidAt: formatDate(paidAt),
+  });
 
   return sendDocumentEmail({
     to,

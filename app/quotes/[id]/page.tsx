@@ -12,6 +12,7 @@ import { useLocale } from '@/components/providers/locale-provider';
 import QuoteHistoryBar from '@/components/quotes/QuoteHistoryBar';
 import SendQuoteModal from '@/components/quotes/SendQuoteModal';
 import StatusChanger from '@/components/quotes/StatusChanger';
+import { getQuoteStatusLabel, resolveTranslatedError, translate } from '@/lib/i18n/messages';
 import { computeQuoteLine } from '@/lib/quote-calculations';
 import { PriceDisplay } from '@/components/ui/PriceDisplay';
 import { StatusBadge, type QuoteStatus } from '@/components/ui/StatusBadge';
@@ -103,24 +104,7 @@ function formatDate(value: string, locale: Locale): string {
 }
 
 function statusLabel(status: QuoteStatus, locale: Locale): string {
-  const labels = {
-    en: {
-      draft: 'Draft',
-      sent: 'Sent',
-      accepted: 'Accepted',
-      refused: 'Refused',
-      rejected: 'Rejected',
-    },
-    fr: {
-      draft: 'Brouillon',
-      sent: 'Envoye',
-      accepted: 'Accepte',
-      refused: 'Refuse',
-      rejected: 'Refuse (client)',
-    },
-  } as const;
-
-  return labels[locale][status];
+  return getQuoteStatusLabel(locale, status);
 }
 
 export default function QuoteDetailPage() {
@@ -337,7 +321,7 @@ export default function QuoteDetailPage() {
       anchor.remove();
       window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : t.downloadFailed);
+      toast.error(resolveTranslatedError(locale, error, t.downloadFailed));
     }
   }
 
@@ -358,7 +342,7 @@ export default function QuoteDetailPage() {
       toast.success(t.deleted);
       router.push('/quotes');
     } catch (deleteError) {
-      toast.error(deleteError instanceof Error ? deleteError.message : t.deleteFailed);
+      toast.error(resolveTranslatedError(locale, deleteError, t.deleteFailed));
     } finally {
       setDeleting(false);
       setDeleteOpen(false);
@@ -386,7 +370,7 @@ export default function QuoteDetailPage() {
       toast.success(t.duplicated);
       router.push(`/quotes/${payload.data._id}/edit`);
     } catch (duplicateError) {
-      toast.error(duplicateError instanceof Error ? duplicateError.message : t.duplicateFailed);
+      toast.error(resolveTranslatedError(locale, duplicateError, t.duplicateFailed));
     } finally {
       setDuplicating(false);
     }
@@ -591,7 +575,7 @@ export default function QuoteDetailPage() {
                 <h2 className="mb-2 font-heading text-base font-semibold">{t.companyInfo}</h2>
                 {company?.logoUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={company.logoUrl} alt={company.companyName || 'Company logo'} className="mb-3 h-14 w-14 rounded-md border border-border/70 object-contain" />
+                  <img src={company.logoUrl} alt={company.companyName || translate(locale, 'common.companyLogo')} className="mb-3 h-14 w-14 rounded-md border border-border/70 object-contain" />
                 ) : null}
                 <dl className="space-y-1.5 text-sm">
                   <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{t.owner}</dt><dd className="text-right font-medium">{company?.ownerName || t.noData}</dd></div>
@@ -605,8 +589,8 @@ export default function QuoteDetailPage() {
               <section className="rounded-xl border border-border/70 bg-card p-4">
                 <h2 className="mb-2 font-heading text-base font-semibold">{t.clientInfo}</h2>
                 <dl className="space-y-1.5 text-sm">
-                  <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Name</dt><dd className="text-right font-medium">{quote.clientSnapshot.fullName || t.noData}</dd></div>
-                  <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Company</dt><dd className="text-right font-medium">{quote.clientSnapshot.companyName || t.noData}</dd></div>
+                  <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{translate(locale, 'common.name')}</dt><dd className="text-right font-medium">{quote.clientSnapshot.fullName || t.noData}</dd></div>
+                  <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{translate(locale, 'common.company')}</dt><dd className="text-right font-medium">{quote.clientSnapshot.companyName || t.noData}</dd></div>
                   <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{t.phone}</dt><dd className="text-right font-medium">{quote.clientSnapshot.phone || t.noData}</dd></div>
                   <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{t.email}</dt><dd className="text-right font-medium">{quote.clientSnapshot.email || t.noData}</dd></div>
                   <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{t.address}</dt><dd className="text-right font-medium">{quote.clientSnapshot.address || t.noData}</dd></div>

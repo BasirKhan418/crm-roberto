@@ -1,6 +1,8 @@
 import { z } from 'zod';
 
-const objectIdSchema = z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid entityId').optional();
+import { createI18nKey as i18nKey } from '@/lib/i18n/messages';
+
+const objectIdSchema = z.string().regex(/^[0-9a-fA-F]{24}$/, i18nKey('validation.invalidEntityId')).optional();
 
 export const createActivitySchema = z.object({
   action: z.enum([
@@ -24,7 +26,7 @@ export const createActivitySchema = z.object({
     'quote_status_changed',
   ]),
   entityType: z.enum(['client', 'supplier', 'note', 'product', 'quote']),
-  entityName: z.string().trim().min(1, 'entityName is required'),
+  entityName: z.string().trim().min(1, i18nKey('validation.entityNameRequired')),
   entityId: objectIdSchema,
   metadata: z.record(z.string(), z.unknown()).nullable().optional(),
 });

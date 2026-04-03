@@ -1,5 +1,7 @@
 import { ZodError } from 'zod';
 
+import { createI18nKey } from '@/lib/i18n/messages';
+
 export interface ValidationIssue {
   field: string;
   message: string;
@@ -16,7 +18,7 @@ interface ValidationErrorPayload {
 
 export function buildValidationError(
   error: ZodError,
-  fallbackMessage = 'Invalid input'
+  fallbackMessage = createI18nKey('validation.invalidInput')
 ): ValidationErrorPayload {
   const errors = error.issues.map((issue) => {
     const path = issue.path.join('.');

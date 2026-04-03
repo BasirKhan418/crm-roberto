@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { Loader2, PaperclipIcon, UploadIcon, X } from 'lucide-react';
 
 import { createCatalogueItemSchema, updateCatalogueItemSchema } from '@/validators/catalogue.schema';
+import { resolveTranslatedText } from '@/lib/i18n/messages';
 import { centsToEuros, eurosToCents } from '@/lib/price';
 import { useLocale } from '@/components/providers/locale-provider';
 import { Button } from '@/components/ui/button';
@@ -486,7 +487,7 @@ export default function CatalogueItemModal({ open, mode, item, onClose, onSaved 
               onChange={(e) => setName(e.target.value)}
               aria-invalid={Boolean(errors.name)}
             />
-            {errors.name ? <p className="text-xs text-destructive">{errors.name}</p> : null}
+            {errors.name ? <p className="text-xs text-destructive">{resolveTranslatedText(locale, errors.name)}</p> : null}
           </div>
 
           <div className="space-y-1.5">
@@ -519,7 +520,7 @@ export default function CatalogueItemModal({ open, mode, item, onClose, onSaved 
                 {t.service}
               </Button>
             </div>
-            {errors.type ? <p className="text-xs text-destructive">{errors.type}</p> : null}
+            {errors.type ? <p className="text-xs text-destructive">{resolveTranslatedText(locale, errors.type)}</p> : null}
           </div>
 
           <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
@@ -539,7 +540,7 @@ export default function CatalogueItemModal({ open, mode, item, onClose, onSaved 
                   aria-invalid={Boolean(errors.priceInput)}
                 />
               </div>
-              {errors.priceInput ? <p className="text-xs text-destructive">{errors.priceInput}</p> : null}
+              {errors.priceInput ? <p className="text-xs text-destructive">{resolveTranslatedText(locale, errors.priceInput)}</p> : null}
             </div>
 
             <div className="min-w-0 space-y-1.5">
@@ -586,7 +587,7 @@ export default function CatalogueItemModal({ open, mode, item, onClose, onSaved 
                   <span className="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 text-[13px] text-muted-foreground">%</span>
                 </div>
               ) : null}
-              {errors.vatRate ? <p className="text-xs text-destructive">{errors.vatRate}</p> : null}
+              {errors.vatRate ? <p className="text-xs text-destructive">{resolveTranslatedText(locale, errors.vatRate)}</p> : null}
             </div>
 
             <div className="min-w-0 space-y-1.5">
@@ -600,13 +601,13 @@ export default function CatalogueItemModal({ open, mode, item, onClose, onSaved 
                   className="pl-6.5 text-sm md:text-sm bg-muted/30"
                 />
               </div>
-              {errors.priceIncludingTax ? <p className="text-xs text-destructive">{errors.priceIncludingTax}</p> : null}
+              {errors.priceIncludingTax ? <p className="text-xs text-destructive">{resolveTranslatedText(locale, errors.priceIncludingTax)}</p> : null}
             </div>
 
             <div className="min-w-0 space-y-1.5">
               <Label htmlFor="catalogue-currency" className="text-xs">{t.currency}</Label>
               <Input id="catalogue-currency" value={currency} readOnly className="text-sm md:text-sm bg-muted/30" />
-              {errors.currency ? <p className="text-xs text-destructive">{errors.currency}</p> : null}
+              {errors.currency ? <p className="text-xs text-destructive">{resolveTranslatedText(locale, errors.currency)}</p> : null}
             </div>
           </div>
 
@@ -679,7 +680,7 @@ export default function CatalogueItemModal({ open, mode, item, onClose, onSaved 
                 </div>
               )}
             </div>
-            {errors.attachment ? <p className="text-xs text-destructive">{errors.attachment}</p> : null}
+            {errors.attachment ? <p className="text-xs text-destructive">{resolveTranslatedText(locale, errors.attachment)}</p> : null}
           </div>
 
           <div className="space-y-1.5">
@@ -691,7 +692,7 @@ export default function CatalogueItemModal({ open, mode, item, onClose, onSaved 
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
-            {errors.description ? <p className="text-xs text-destructive">{errors.description}</p> : null}
+            {errors.description ? <p className="text-xs text-destructive">{resolveTranslatedText(locale, errors.description)}</p> : null}
           </div>
         </div>
 

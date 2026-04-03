@@ -18,11 +18,12 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useLocale } from "@/components/providers/locale-provider"
+import { createI18nKey as i18nKey, resolveTranslatedText, translate } from "@/lib/i18n/messages"
 import { cn } from "@/lib/utils"
 
 const loginSchema = z.object({
-  email: z.string().email("Please enter a valid business email address."),
-  password: z.string().min(1, "Password is required to access your account."),
+  email: z.string().email(i18nKey('validation.enterValidBusinessEmail')),
+  password: z.string().min(1, i18nKey('validation.passwordRequiredForAccountAccess')),
 })
 
 type LoginValues = z.infer<typeof loginSchema>
@@ -84,7 +85,7 @@ export default function LoginPage() {
       console.log("Login result:", result)
         setIsLoading(false)
         if(result.success){
-          toast.success(result.message || t.toastLoginSuccess)
+          toast.success(resolveTranslatedText(locale, result.message, t.toastLoginSuccess))
           if(result.isOnboardingComplete){
             router.push("/dashboard")
           }
@@ -94,7 +95,7 @@ export default function LoginPage() {
           }
         }
         else{
-          toast.error(result.message || t.toastLoginFailed)
+          toast.error(resolveTranslatedText(locale, result.message, t.toastLoginFailed))
         }
     }
     catch(error){
@@ -138,7 +139,7 @@ export default function LoginPage() {
             {...register("email")}
           />
           {errors.email && (
-            <p className="text-xs font-medium text-red-600">{errors.email.message}</p>
+            <p className="text-xs font-medium text-red-600">{resolveTranslatedText(locale, errors.email.message)}</p>
           )}
         </div>
 
@@ -171,13 +172,13 @@ export default function LoginPage() {
               type="button"
               onClick={() => setShowPassword(!showPassword)}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 transition-colors"
-              aria-label={showPassword ? "Hide password" : "Show password"}
+              aria-label={showPassword ? translate(locale, 'common.hidePassword') : translate(locale, 'common.showPassword')}
             >
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           </div>
           {errors.password && (
-            <p className="text-xs font-medium text-red-600">{errors.password.message}</p>
+            <p className="text-xs font-medium text-red-600">{resolveTranslatedText(locale, errors.password.message)}</p>
           )}
         </div>
 
