@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-import { DownloadIcon, EllipsisVerticalIcon, EyeIcon, SendIcon, Trash2Icon } from 'lucide-react';
+import { DownloadIcon, EllipsisVerticalIcon, EyeIcon, PencilIcon, SendIcon, Trash2Icon } from 'lucide-react';
 
 import type { InvoiceListItem } from '@/hooks/useInvoices';
 import { InvoiceStatusBadge } from '@/components/ui/InvoiceStatusBadge';
@@ -53,6 +53,7 @@ interface InvoiceTableProps {
     status: string;
     actions: string;
     view: string;
+    edit: string;
     send: string;
     downloadPdf: string;
     delete: string;
@@ -94,6 +95,14 @@ export default function InvoiceTable({
               {labels.view}
             </Link>
           </DropdownMenuItem>
+          {invoice.status === 'unpaid' ? (
+            <DropdownMenuItem asChild>
+              <Link href={`/invoices/${invoice._id}/edit`}>
+                <PencilIcon className="size-4" />
+                {labels.edit}
+              </Link>
+            </DropdownMenuItem>
+          ) : null}
           <DropdownMenuItem onSelect={() => onSend(invoice)}>
             <SendIcon className="size-4" />
             {labels.send}

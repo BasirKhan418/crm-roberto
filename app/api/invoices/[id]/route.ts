@@ -101,6 +101,19 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       payload.depositPercentage = parsed.data.depositPercentage;
     }
 
+    const existing = await Invoice.findOne({ _id: id, userId: me.user.id }).select('status').lean();
+
+    if (!existing) {
+      return NextResponse.json({ success: false, message: 'Invoice not found' }, { status: 404 });
+    }
+
+    if (existing.status !== 'unpaid') {
+      return NextResponse.json(
+        { success: false, message: 'Only unpaid invoices can be edited.' },
+        { status: 403 }
+      );
+    }
+
     const updated = await Invoice.findOneAndUpdate(
       { _id: id, userId: me.user.id },
       payload,

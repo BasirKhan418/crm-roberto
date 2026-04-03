@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 
-import { CheckCircle2Icon, DownloadIcon, ReceiptTextIcon, SendIcon } from 'lucide-react';
+import { CheckCircle2Icon, DownloadIcon, PencilIcon, ReceiptTextIcon, SendIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import CrmShell from '@/components/crm-shell';
@@ -115,6 +115,7 @@ export default function InvoiceDetailPage() {
     en: {
       shellTitle: 'Invoice Detail',
       back: 'Back to invoices',
+      edit: 'Edit',
       sendToClient: 'Send invoice',
       download: 'Download PDF',
       markPaid: 'Mark as paid manually',
@@ -171,6 +172,7 @@ export default function InvoiceDetailPage() {
     fr: {
       shellTitle: 'Detail de la facture',
       back: 'Retour aux factures',
+      edit: 'Modifier',
       sendToClient: 'Envoyer la facture',
       download: 'Telecharger PDF',
       markPaid: 'Marquer comme payee manuellement',
@@ -311,6 +313,7 @@ export default function InvoiceDetailPage() {
   const normalizedDepositPercentage = Math.max(0, Math.min(100, Math.round(invoice?.depositPercentage ?? 100)));
   const depositAmount = Math.round((invoice?.totalIncludingTax ?? 0) * (normalizedDepositPercentage / 100));
   const remainingAmount = Math.max(0, (invoice?.totalIncludingTax ?? 0) - depositAmount);
+  const canEdit = invoice?.status === 'unpaid';
 
   function paymentTypeLabel(type: PaymentHistoryItem['type']): string {
     if (type === 'deposit') {
@@ -403,6 +406,14 @@ export default function InvoiceDetailPage() {
             </Button>
 
             <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:items-center">
+              {canEdit ? (
+                <Button type="button" variant="outline" size="sm" className="h-10 w-full justify-start sm:h-9 sm:w-auto sm:justify-center" asChild>
+                  <Link href={`/invoices/${invoice._id}/edit`}>
+                    <PencilIcon className="size-3.5" />
+                    {t.edit}
+                  </Link>
+                </Button>
+              ) : null}
               <Button type="button" variant="default" size="sm" className="h-10 w-full justify-start sm:h-9 sm:w-auto sm:justify-center" onClick={() => setSendOpen(true)}>
                 <SendIcon className="size-3.5" />
                 {t.sendToClient}
