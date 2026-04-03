@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 
-import { Building2Icon, PlusIcon, SearchIcon, XIcon } from 'lucide-react';
+import { Building2Icon, ChevronDownIcon, PlusIcon, SearchIcon, XIcon } from 'lucide-react';
 
 import AddClientModal from '@/components/modals/AddClientModal';
 import { useLocale } from '@/components/providers/locale-provider';
@@ -58,6 +58,7 @@ export default function ClientPicker({ value, onChange, onClientSelected }: Clie
   const [isOpen, setIsOpen] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [dropdownStyle, setDropdownStyle] = useState<CSSProperties | null>(null);
+  const [isInfoExpanded, setIsInfoExpanded] = useState(false);
 
   const rootRef = useRef<HTMLDivElement | null>(null);
   const dropdownAnchorRef = useRef<HTMLDivElement | null>(null);
@@ -223,6 +224,7 @@ export default function ClientPicker({ value, onChange, onClientSelected }: Clie
     onClientSelected(client);
     setSearch(client.fullName);
     setIsOpen(false);
+    setIsInfoExpanded(false);
 
     const activeElement = document.activeElement;
     if (activeElement instanceof HTMLElement) {
@@ -313,56 +315,67 @@ export default function ClientPicker({ value, onChange, onClientSelected }: Clie
         : null}
 
       {selectedClient ? (
-        <div className="rounded-xl border border-border/70 bg-muted/30 p-3 sm:p-4">
-          <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div className="space-y-0.5">
-              <h3 className="text-base font-semibold tracking-tight">{t.clientInfo}</h3>
-              <p className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Building2Icon className="size-3.5" />
-                {selectedClient.fullName}
-              </p>
+        <div className="rounded-xl border border-border/70 bg-muted/30">
+          {/* Compact header — always visible */}
+          <div className="flex items-center justify-between gap-2 px-3 py-2.5">
+            <div className="flex min-w-0 items-center gap-2">
+              <Building2Icon className="size-3.5 shrink-0 text-muted-foreground" />
+              <span className="truncate text-sm font-medium">{selectedClient.fullName}</span>
             </div>
-            <button
-              type="button"
-              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-              onClick={() => {
-                onChange('');
-                onClientSelected(null);
-                setSearch('');
-                setIsOpen(true);
-              }}
-            >
-              <XIcon className="size-3" />
-              {t.change}
-            </button>
+            <div className="flex shrink-0 items-center gap-1">
+              <button
+                type="button"
+                className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => setIsInfoExpanded((v) => !v)}
+                aria-expanded={isInfoExpanded}
+              >
+                {t.clientInfo}
+                <ChevronDownIcon className={`size-3 transition-transform ${isInfoExpanded ? 'rotate-180' : ''}`} />
+              </button>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => {
+                  onChange('');
+                  onClientSelected(null);
+                  setSearch('');
+                  setIsInfoExpanded(false);
+                  setIsOpen(true);
+                }}
+              >
+                <XIcon className="size-3" />
+                {t.change}
+              </button>
+            </div>
           </div>
 
-          <div className="space-y-1.5 rounded-lg border border-border/60 bg-background/90 px-3 py-2.5 text-sm">
-            <div className="grid grid-cols-1 gap-1 sm:grid-cols-[110px_minmax(0,1fr)] sm:gap-3">
-              <p className="text-muted-foreground">{t.name}</p>
-              <p className="min-w-0 font-medium wrap-break-word break-all sm:text-right">{selectedClient.fullName || t.emptyField}</p>
+          {/* Collapsible details */}
+          {isInfoExpanded ? (
+            <div className="border-t border-border/60 px-3 py-2.5">
+              <div className="space-y-1.5 rounded-lg border border-border/60 bg-background/90 px-3 py-2.5 text-sm">
+                <div className="grid grid-cols-[90px_minmax(0,1fr)] gap-2">
+                  <p className="text-muted-foreground">{t.company}</p>
+                  <p className="min-w-0 font-medium break-all">{selectedClient.companyName || t.noCompany}</p>
+                </div>
+                <div className="grid grid-cols-[90px_minmax(0,1fr)] gap-2">
+                  <p className="text-muted-foreground">{t.phone}</p>
+                  <p className="min-w-0 font-medium break-all">{selectedClient.phone || t.emptyField}</p>
+                </div>
+                <div className="grid grid-cols-[90px_minmax(0,1fr)] gap-2">
+                  <p className="text-muted-foreground">{t.email}</p>
+                  <p className="min-w-0 font-medium break-all">{selectedClient.email || t.emptyField}</p>
+                </div>
+                <div className="grid grid-cols-[90px_minmax(0,1fr)] gap-2">
+                  <p className="text-muted-foreground">{t.address}</p>
+                  <p className="min-w-0 font-medium break-all">{selectedClient.address || t.emptyField}</p>
+                </div>
+                <div className="grid grid-cols-[90px_minmax(0,1fr)] gap-2">
+                  <p className="text-muted-foreground">{t.vat}</p>
+                  <p className="min-w-0 font-medium break-all">{selectedClient.vatNumber || t.emptyField}</p>
+                </div>
+              </div>
             </div>
-            <div className="grid grid-cols-1 gap-1 sm:grid-cols-[110px_minmax(0,1fr)] sm:gap-3">
-              <p className="text-muted-foreground">{t.company}</p>
-              <p className="min-w-0 font-medium wrap-break-word break-all sm:text-right">{selectedClient.companyName || t.noCompany}</p>
-            </div>
-            <div className="grid grid-cols-1 gap-1 sm:grid-cols-[110px_minmax(0,1fr)] sm:gap-3">
-              <p className="text-muted-foreground">{t.phone}</p>
-              <p className="min-w-0 font-medium wrap-break-word break-all sm:text-right">{selectedClient.phone || t.emptyField}</p>
-            </div>
-            <div className="grid grid-cols-1 gap-1 sm:grid-cols-[110px_minmax(0,1fr)] sm:gap-3">
-              <p className="text-muted-foreground">{t.email}</p>
-              <p className="min-w-0 font-medium wrap-break-word break-all sm:text-right">{selectedClient.email || t.emptyField}</p>
-            </div>
-            <div className="grid grid-cols-1 gap-1 sm:grid-cols-[110px_minmax(0,1fr)] sm:gap-3">
-              <p className="text-muted-foreground">{t.address}</p>
-              <p className="min-w-0 font-medium wrap-break-word break-all sm:text-right">{selectedClient.address || t.emptyField}</p>
-            </div>
-            <div className="grid grid-cols-1 gap-1 sm:grid-cols-[110px_minmax(0,1fr)] sm:gap-3">
-              <p className="text-muted-foreground">{t.vat}</p>
-              <p className="min-w-0 font-medium wrap-break-word break-all sm:text-right">{selectedClient.vatNumber || t.emptyField}</p>
-            </div>
-          </div>
+          ) : null}
         </div>
       ) : null}
 

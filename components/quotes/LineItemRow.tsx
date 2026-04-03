@@ -219,8 +219,9 @@ export default function LineItemRow({ row, index, products, onChange, onDelete }
 
   return (
     <div className="rounded-xl border border-border/70 bg-linear-to-b from-background to-secondary/25 p-3 md:p-3.5">
-      <div className="grid grid-cols-2 items-center gap-x-2 gap-y-1.5 md:grid-cols-[2fr_0.7fr_1.2fr_0.9fr_1.1fr_0.7fr_1fr_1fr_auto] md:gap-2">
-        <div ref={productFieldRef} className="relative col-span-2 md:col-span-1">
+      <div className="grid grid-cols-3 items-center gap-x-2 gap-y-2 md:grid-cols-[2fr_0.7fr_1.2fr_0.9fr_1.1fr_0.7fr_1fr_1fr_auto] md:gap-2">
+        {/* Product — full width on mobile */}
+        <div ref={productFieldRef} className="relative col-span-3 md:col-span-1">
           <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground md:hidden">{t.product}</p>
           <div className="relative">
             {row.productImageUrl ? (
@@ -390,7 +391,7 @@ export default function LineItemRow({ row, index, products, onChange, onDelete }
           type="button"
           variant="ghost"
           size="icon"
-          className="col-span-2 h-9 w-full shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive md:col-span-1 md:w-9"
+          className="col-span-3 h-9 w-full shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive md:col-span-1 md:w-9"
           onClick={() => onDelete(index)}
         >
           <Trash2Icon className="size-4" />

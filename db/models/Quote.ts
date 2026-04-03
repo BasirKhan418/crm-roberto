@@ -244,6 +244,14 @@ const QuoteSchema = new mongoose.Schema(
       min: [1, "Validity must be at least 1 day"],
     },
 
+    // Short subject label for quick identification (e.g. "Website", "Logo")
+    subject: {
+      type: String,
+      trim: true,
+      default: null,
+      maxlength: [200, "Subject cannot exceed 200 characters"],
+    },
+
     signatureToken: {
       type: String,
       default: null,

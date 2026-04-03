@@ -9,12 +9,12 @@ export default function InvoicesPage() {
     en: {
       title: 'Invoices',
       heading: 'Invoices',
-      description: 'Phase 3 invoice list page shell.',
+      description: 'Open the invoice workspace to prepare billing and track payment status.',
     },
     fr: {
       title: 'Factures',
       heading: 'Factures',
-      description: 'Coque de la page liste des factures pour la phase 3.',
+      description: 'Ouvrez l espace factures pour preparer la facturation et suivre les paiements.',
     },
   }[locale];
 

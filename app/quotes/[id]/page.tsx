@@ -116,6 +116,7 @@ export default function QuoteDetailPage() {
   const t = {
     en: {
       shellTitle: 'Quote Detail',
+      backToDashboard: 'Dashboard',
       back: 'Back to quotes',
       edit: 'Edit',
       duplicate: 'Duplicate',
@@ -178,6 +179,7 @@ export default function QuoteDetailPage() {
     },
     fr: {
       shellTitle: 'Detail du devis',
+      backToDashboard: 'Tableau de bord',
       back: 'Retour aux devis',
       edit: 'Modifier',
       duplicate: 'Dupliquer',
@@ -471,12 +473,7 @@ export default function QuoteDetailPage() {
 
           <div className="flex flex-col gap-2.5 rounded-xl border border-border/60 bg-card/80 px-3.5 py-3 print:hidden sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-2.5 sm:py-2.5">
             <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
-              <Button type="button" variant="outline" size="sm" className={actionButtonClass} asChild>
-                <Link href="/quotes">
-                  <ArrowLeftIcon className="size-3.5" />
-                  {t.back}
-                </Link>
-              </Button>
+             
 
               <Button
                 type="button"

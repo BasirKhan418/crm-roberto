@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ChangeEvent } from 'react';
 
 import { toast } from 'sonner';
 
@@ -13,6 +13,15 @@ import { useLocale } from '@/components/providers/locale-provider';
 import { resolveTranslatedError } from '@/lib/i18n/messages';
 
 type ClientType = 'company' | 'individual';
+
+const TITLE_PRESETS = ['Mr', 'Mrs'] as const;
+
+type TitlePreset = (typeof TITLE_PRESETS)[number];
+type TitleSelectValue = TitlePreset | 'Other';
+
+function isTitlePreset(value: string): value is TitlePreset {
+  return TITLE_PRESETS.includes(value as TitlePreset);
+}
 
 function FieldLabel({
   text,
@@ -152,6 +161,9 @@ export default function AddClientModal({
       companyType: 'Company',
       individualType: 'Individual',
       titleLabel: 'Title',
+      otherTitle: 'Other',
+      customTitle: 'Custom title',
+      customTitlePlaceholder: 'Enter custom title',
       firstName: 'First Name',
       lastName: 'Last Name',
       companyName: 'Company Name',
@@ -194,6 +206,9 @@ export default function AddClientModal({
       companyType: 'Entreprise',
       individualType: 'Particulier',
       titleLabel: 'Civilite',
+      otherTitle: 'Autre',
+      customTitle: 'Civilite personnalisee',
+      customTitlePlaceholder: 'Saisissez une civilite',
       firstName: 'Prenom',
       lastName: 'Nom',
       companyName: 'Nom de l entreprise',
@@ -221,6 +236,8 @@ export default function AddClientModal({
   }[locale];
 
   const [loading, setLoading] = useState(false);
+  const [titleSelection, setTitleSelection] = useState<TitleSelectValue>('Mr');
+  const [customTitle, setCustomTitle] = useState('');
   const [form, setForm] = useState({
     clientType: '' as '' | ClientType,
     title: 'Mr',
@@ -247,12 +264,22 @@ export default function AddClientModal({
 
   useEffect(() => {
     if (!isEditMode || !initialData) {
+      setTitleSelection('Mr');
+      setCustomTitle('');
       return;
     }
 
+    const initialTitle = initialData.title?.trim() || '';
+    const initialTitleSelection: TitleSelectValue = initialTitle
+      ? (isTitlePreset(initialTitle) ? initialTitle : 'Other')
+      : 'Mr';
+
+    setTitleSelection(initialTitleSelection);
+    setCustomTitle(initialTitleSelection === 'Other' ? initialTitle : '');
+
     setForm({
       clientType: (initialData.clientType as '' | ClientType | undefined) || '',
-      title: initialData.title || 'Mr',
+      title: initialTitleSelection === 'Other' ? initialTitle : initialTitle || 'Mr',
       firstName: initialData.firstName || '',
       lastName: initialData.lastName || '',
       companyName: initialData.companyName || '',
@@ -274,6 +301,23 @@ export default function AddClientModal({
       additionalDescription: initialData.additionalDescription || '',
     });
   }, [initialData, isEditMode]);
+
+  function handleTitleSelectionChange(value: TitleSelectValue) {
+    setTitleSelection(value);
+    setForm((prev) => ({
+      ...prev,
+      title: value === 'Other' ? customTitle : value,
+    }));
+  }
+
+  function handleCustomTitleChange(event: ChangeEvent<HTMLInputElement>) {
+    const value = event.target.value;
+    setCustomTitle(value);
+    setForm((prev) => ({
+      ...prev,
+      title: value,
+    }));
+  }
 
   async function handleSave() {
     if (!form.clientType) {
@@ -449,15 +493,25 @@ export default function AddClientModal({
           <>
             <div className="space-y-1.5">
               <FieldLabel text={t.titleLabel} />
-              <Select value={form.title} onValueChange={(value) => setForm((p) => ({ ...p, title: value }))}>
+              <Select value={titleSelection} onValueChange={(value) => handleTitleSelectionChange(value as TitleSelectValue)}>
                 <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Mr">Mr</SelectItem>
                   <SelectItem value="Mrs">Mrs</SelectItem>
-                  <SelectItem value="Other">Other</SelectItem>
+                  <SelectItem value="Other">{t.otherTitle}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+            {titleSelection === 'Other' ? (
+              <div className="space-y-1.5">
+                <FieldLabel text={t.customTitle} />
+                <Input
+                  value={customTitle}
+                  placeholder={t.customTitlePlaceholder}
+                  onChange={handleCustomTitleChange}
+                />
+              </div>
+            ) : null}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-1.5"><FieldLabel text={t.firstName} required /><Input value={form.firstName} onChange={(e) => setForm((p) => ({ ...p, firstName: e.target.value }))} /></div>
               <div className="space-y-1.5"><FieldLabel text={t.lastName} required /><Input value={form.lastName} onChange={(e) => setForm((p) => ({ ...p, lastName: e.target.value }))} /></div>

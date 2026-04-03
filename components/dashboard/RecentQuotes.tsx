@@ -3,8 +3,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { PlusIcon } from 'lucide-react';
 
 import QuoteStatusSummary from '@/components/quotes/QuoteStatusSummary';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import EmptyState from '@/components/ui/EmptyState';
 import ErrorMessage from '@/components/ui/ErrorMessage';
@@ -68,6 +70,7 @@ export default function RecentQuotes({ refreshKey = 0 }: RecentQuotesProps) {
       loadError: 'Could not load recent quotes.',
       openQuote: 'Open quote',
       viewAll: 'View all →',
+      createQuote: 'Create Quote',
     },
     fr: {
       title: 'Devis Récents',
@@ -80,6 +83,7 @@ export default function RecentQuotes({ refreshKey = 0 }: RecentQuotesProps) {
       loadError: 'Impossible de charger les devis récents.',
       openQuote: 'Ouvrir le devis',
       viewAll: 'Voir tout →',
+      createQuote: 'Creer un devis',
     },
   }[locale];
 
@@ -135,9 +139,17 @@ export default function RecentQuotes({ refreshKey = 0 }: RecentQuotesProps) {
           <CardTitle className="text-[11px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
             {t.title}
           </CardTitle>
-          <Link href="/quotes" className="text-xs font-semibold text-indigo-700 hover:text-indigo-800 hover:underline dark:text-indigo-400">
-            {t.viewAll}
-          </Link>
+          <div className="flex items-center gap-2">
+            <Button asChild type="button" variant="ghost" size="sm" className="h-7 rounded-full px-2.5 text-[11px] font-semibold">
+              <Link href="/quotes/new">
+                <PlusIcon className="size-3.5" strokeWidth={2.2} />
+                <span className="hidden sm:inline">{t.createQuote}</span>
+              </Link>
+            </Button>
+            <Link href="/quotes" className="text-xs font-semibold text-indigo-700 hover:text-indigo-800 hover:underline dark:text-indigo-400">
+              {t.viewAll}
+            </Link>
+          </div>
         </div>
       </CardHeader>
 

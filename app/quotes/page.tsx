@@ -11,7 +11,7 @@ import QuoteTable, { type QuoteListItem } from '@/components/quotes/QuoteTable';
 import SendQuoteModal from '@/components/quotes/SendQuoteModal';
 import CrmShell from '@/components/crm-shell';
 import { useQuotes, type QuoteStatusFilter } from '@/hooks/useQuotes';
-import { useRejectedQuotesCount } from '@/hooks/useRejectedQuotesCount';
+import { useQuotesActionCount } from '@/hooks/useQuotesActionCount';
 import { useLocale } from '@/components/providers/locale-provider';
 import {
   AlertDialog,
@@ -39,6 +39,7 @@ function QuotesPageContent() {
       shellTitle: 'Quotes',
       heading: 'Quotes',
       subtitle: 'Track quote lifecycle from draft to decision.',
+      backToDashboard: 'Dashboard',
       totalResults: 'total results',
       currentFilter: 'Current filter',
       deleteFailed: 'Failed to delete quote',
@@ -58,6 +59,7 @@ function QuotesPageContent() {
       empty: 'No quotes yet - create your first quote',
       quoteNumber: 'Quote',
       client: 'Client',
+      subject: 'Subject',
       date: 'Date',
       totalIncludingTax: 'Total incl. tax',
       status: 'Status',
@@ -81,11 +83,16 @@ function QuotesPageContent() {
       total: 'total',
       previous: 'Previous',
       next: 'Next',
+      actionRejected: (n: number) => `${n} quote${n === 1 ? '' : 's'} declined by client — follow up or revise`,
+      actionAccepted: (n: number) => `${n} quote${n === 1 ? '' : 's'} accepted — ready to invoice`,
+      seeRejected: 'See declined',
+      seeAccepted: 'See accepted',
     },
     fr: {
       shellTitle: 'Devis',
       heading: 'Devis',
       subtitle: 'Suivez le cycle des devis du brouillon a la decision.',
+      backToDashboard: 'Tableau de bord',
       totalResults: 'resultats au total',
       currentFilter: 'Filtre actuel',
       deleteFailed: 'Impossible de supprimer le devis',
@@ -105,6 +112,7 @@ function QuotesPageContent() {
       empty: 'Aucun devis - creez votre premier devis',
       quoteNumber: 'Devis',
       client: 'Client',
+      subject: 'Objet',
       date: 'Date',
       totalIncludingTax: 'Total TTC',
       status: 'Statut',
@@ -128,6 +136,10 @@ function QuotesPageContent() {
       total: 'au total',
       previous: 'Precedent',
       next: 'Suivant',
+      actionRejected: (n: number) => `${n} devis refuse${n === 1 ? '' : 's'} par le client — a relancer ou reviser`,
+      actionAccepted: (n: number) => `${n} devis accepte${n === 1 ? '' : 's'} — pret${n === 1 ? '' : 's'} a facturer`,
+      seeRejected: 'Voir refuses',
+      seeAccepted: 'Voir acceptes',
     },
   }[locale];
 
@@ -144,7 +156,7 @@ function QuotesPageContent() {
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
 
   const { quotes, pagination, loading, error, refetch } = useQuotes(status, searchDebounced, sort, page, limit);
-  const rejectedCount = useRejectedQuotesCount(pagination.total + quotes.length + Number(loading));
+  const { rejectedCount, acceptedCount } = useQuotesActionCount(pagination.total + quotes.length + Number(loading));
 
   useEffect(() => {
     const rawStatus = searchParams.get('status')?.toLowerCase();
@@ -317,16 +329,23 @@ function QuotesPageContent() {
           </div>
 
           <Tabs value={status} onValueChange={(value) => setStatus(value as QuoteStatusFilter)}>
-            <div className="overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              <TabsList className="inline-flex h-auto min-w-max items-center gap-1 rounded-lg border border-border/80 bg-transparent p-1">
-                <TabsTrigger value="all" className="rounded-md border border-transparent px-3 py-1 text-sm text-foreground/80 hover:bg-muted/60 hover:text-foreground data-active:border-transparent data-active:bg-primary data-active:text-primary-foreground">{t.tabAll}</TabsTrigger>
-                <TabsTrigger value="draft" className="rounded-md border border-border/80 px-3 py-1 text-sm text-foreground/80 hover:bg-muted/60 hover:text-foreground data-active:border-transparent data-active:bg-primary data-active:text-primary-foreground">{t.tabDraft}</TabsTrigger>
-                <TabsTrigger value="sent" className="rounded-md border border-border/80 px-3 py-1 text-sm text-foreground/80 hover:bg-muted/60 hover:text-foreground data-active:border-transparent data-active:bg-primary data-active:text-primary-foreground">{t.tabSent}</TabsTrigger>
-                <TabsTrigger value="accepted" className="rounded-md border border-border/80 px-3 py-1 text-sm text-foreground/80 hover:bg-muted/60 hover:text-foreground data-active:border-transparent data-active:bg-primary data-active:text-primary-foreground">{t.tabAccepted}</TabsTrigger>
-                <TabsTrigger value="rejected" className="rounded-md border border-border/80 px-3 py-1 text-sm text-foreground/80 hover:bg-muted/60 hover:text-foreground data-active:border-transparent data-active:bg-primary data-active:text-primary-foreground">
+            <div className="overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <TabsList className="inline-flex h-auto min-w-max items-center gap-1.5 rounded-xl border border-border/80 bg-muted/20 p-1.5 shadow-xs">
+                <TabsTrigger value="all" className="min-h-10 rounded-lg border border-transparent px-4 py-2 text-sm font-medium text-foreground/85 hover:bg-muted/70 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">{t.tabAll}</TabsTrigger>
+                <TabsTrigger value="draft" className="min-h-10 rounded-lg border border-border/80 px-4 py-2 text-sm font-medium text-foreground/85 hover:bg-muted/70 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">{t.tabDraft}</TabsTrigger>
+                <TabsTrigger value="sent" className="min-h-10 rounded-lg border border-border/80 px-4 py-2 text-sm font-medium text-foreground/85 hover:bg-muted/70 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">{t.tabSent}</TabsTrigger>
+                <TabsTrigger value="accepted" className="min-h-10 rounded-lg border border-border/80 px-4 py-2 text-sm font-medium text-foreground/85 hover:bg-muted/70 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
+                  <span>{t.tabAccepted}</span>
+                  {acceptedCount > 0 ? (
+                    <span className="ml-2 inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-green-600 px-1.5 text-[11px] font-semibold leading-none text-white shadow-sm">
+                      {acceptedCount > 99 ? '99+' : acceptedCount}
+                    </span>
+                  ) : null}
+                </TabsTrigger>
+                <TabsTrigger value="rejected" className="min-h-10 rounded-lg border border-border/80 px-4 py-2 text-sm font-medium text-foreground/85 hover:bg-muted/70 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
                   <span>{t.tabRejected}</span>
                   {rejectedCount > 0 ? (
-                    <span className="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-[10px] font-semibold leading-none text-white">
+                    <span className="ml-2 inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-orange-600 px-1.5 text-[11px] font-semibold leading-none text-white shadow-sm">
                       {rejectedCount > 99 ? '99+' : rejectedCount}
                     </span>
                   ) : null}
@@ -337,6 +356,44 @@ function QuotesPageContent() {
         </div>
 
         {error ? <ErrorMessage message={error} /> : null}
+
+        {/* ── Action-required banners (only when not already filtered) ──────── */}
+        {!loading && status === 'all' && (rejectedCount > 0 || acceptedCount > 0) ? (
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+            {rejectedCount > 0 ? (
+              <button
+                type="button"
+                onClick={() => setStatus('rejected')}
+                className="flex flex-1 items-center justify-between gap-3 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-left transition-colors hover:bg-orange-100 dark:border-orange-900/40 dark:bg-orange-950/30 dark:hover:bg-orange-950/50"
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className="relative flex size-2.5 shrink-0">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-orange-500 opacity-60" />
+                    <span className="relative inline-flex size-2.5 rounded-full bg-orange-500" />
+                  </span>
+                  <span className="text-sm font-medium text-orange-800 dark:text-orange-300">{t.actionRejected(rejectedCount)}</span>
+                </div>
+                <span className="shrink-0 text-xs font-semibold text-orange-700 underline underline-offset-2 dark:text-orange-400">{t.seeRejected} →</span>
+              </button>
+            ) : null}
+            {acceptedCount > 0 ? (
+              <button
+                type="button"
+                onClick={() => setStatus('accepted')}
+                className="flex flex-1 items-center justify-between gap-3 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-left transition-colors hover:bg-green-100 dark:border-green-900/40 dark:bg-green-950/30 dark:hover:bg-green-950/50"
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className="relative flex size-2.5 shrink-0">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-500 opacity-60" />
+                    <span className="relative inline-flex size-2.5 rounded-full bg-green-500" />
+                  </span>
+                  <span className="text-sm font-medium text-green-800 dark:text-green-300">{t.actionAccepted(acceptedCount)}</span>
+                </div>
+                <span className="shrink-0 text-xs font-semibold text-green-700 underline underline-offset-2 dark:text-green-400">{t.seeAccepted} →</span>
+              </button>
+            ) : null}
+          </div>
+        ) : null}
 
         {!loading && quotes.length === 0 ? (
           <EmptyState message={t.empty} actionLabel={t.newQuote} onAction={() => router.push('/quotes/new')} />
@@ -351,6 +408,7 @@ function QuotesPageContent() {
               labels={{
                 quoteNumber: t.quoteNumber,
                 client: t.client,
+                subject: t.subject,
                 date: t.date,
                 totalIncludingTax: t.totalIncludingTax,
                 status: t.status,

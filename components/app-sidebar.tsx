@@ -19,7 +19,7 @@ import {
 import { Building2Icon, FileTextIcon, LayoutDashboard, LayoutDashboardIcon, LogOutIcon, NotebookPenIcon, PackageSearchIcon, ReceiptTextIcon, TruckIcon, UsersIcon } from "lucide-react"
 import { useLocale } from "@/components/providers/locale-provider"
 import { useAuthMe } from "@/hooks/useAuthMe"
-import { useSignedQuotesCount } from "@/hooks/useSignedQuotesCount"
+import { useQuotesActionCount } from "@/hooks/useQuotesActionCount"
 
 const navItems = [
   { key: "dashboard", url: "/dashboard", icon: <LayoutDashboardIcon /> },
@@ -80,7 +80,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { user } = useAuthMe()
   const { locale } = useLocale()
   const t = sidebarMessages[locale]
-  const signedCount = useSignedQuotesCount()
+  const { rejectedCount, acceptedCount } = useQuotesActionCount()
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>
@@ -117,9 +117,26 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   <Link href={item.url}>
                     {item.icon}
                     <span>{t.nav[item.key]}</span>
-                    {item.key === "quotes" && signedCount > 0 ? (
-                      <span className="ml-auto flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold" style={{ backgroundColor: 'var(--color-text-success)', color: '#fff' }}>
-                        {signedCount > 99 ? '99+' : signedCount}
+                    {item.key === "quotes" && (rejectedCount > 0 || acceptedCount > 0) ? (
+                      <span className="ml-auto flex items-center gap-1">
+                        {rejectedCount > 0 ? (
+                          <span
+                            className="flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white"
+                            style={{ backgroundColor: '#ea580c' }}
+                            title={`${rejectedCount} declined`}
+                          >
+                            {rejectedCount > 99 ? '99+' : rejectedCount}
+                          </span>
+                        ) : null}
+                        {acceptedCount > 0 ? (
+                          <span
+                            className="flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white"
+                            style={{ backgroundColor: 'var(--color-text-success)' }}
+                            title={`${acceptedCount} accepted`}
+                          >
+                            {acceptedCount > 99 ? '99+' : acceptedCount}
+                          </span>
+                        ) : null}
                       </span>
                     ) : null}
                   </Link>

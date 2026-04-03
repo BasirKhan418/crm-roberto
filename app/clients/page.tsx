@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { Building2, Mail, MapPin, Phone, PlusIcon, SearchIcon, Users } from 'lucide-react';
+import { Building2, ChevronRight, Mail, MapPin, Phone, PlusIcon, SearchIcon, User, Users } from 'lucide-react';
 
 import AddClientModal from '@/components/modals/AddClientModal';
 import CrmShell from '@/components/crm-shell';
@@ -88,7 +88,10 @@ export default function ClientsPage() {
       open: 'Open',
       noData: '—',
       totalClients: 'Total clients',
-      viewProfile: 'View profile →',
+      viewProfile: 'View profile',
+      typeAll: 'All',
+      typeCompany: 'Company',
+      typeIndividual: 'Individual',
     },
     fr: {
       fetchFailed: 'Impossible de recuperer les clients',
@@ -108,7 +111,10 @@ export default function ClientsPage() {
       open: 'Ouvrir',
       noData: '—',
       totalClients: 'Total clients',
-      viewProfile: 'Voir le profil →',
+      viewProfile: 'Voir le profil',
+      typeAll: 'Tous',
+      typeCompany: 'Entreprise',
+      typeIndividual: 'Particulier',
     },
   }[locale];
 
@@ -119,6 +125,7 @@ export default function ClientsPage() {
 
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'company' | 'individual'>('all');
 
   const [isAddOpen, setIsAddOpen] = useState(false);
 
@@ -129,8 +136,9 @@ export default function ClientsPage() {
     params.set('sortBy', 'createdAt');
     params.set('sortOrder', 'desc');
     if (search) params.set('search', search);
+    if (typeFilter !== 'all') params.set('clientType', typeFilter);
     return params.toString();
-  }, [pagination.page, pagination.limit, search]);
+  }, [pagination.page, pagination.limit, search, typeFilter]);
 
   const loadClients = useCallback(async () => {
     setLoading(true);
@@ -173,32 +181,63 @@ export default function ClientsPage() {
 
       {/* Stat bar */}
       {!loading && !error ? (
-        <div className="flex items-center gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 dark:border-primary/30 dark:bg-primary/10">
-          <div className="flex size-9 items-center justify-center rounded-full bg-primary">
-            <Users className="size-4 text-white" strokeWidth={2} />
+        <div className="flex w-fit items-center gap-4 rounded-xl border border-primary/20 bg-primary/5 px-5 py-3.5 dark:border-primary/30 dark:bg-primary/10">
+          <div className="flex size-10 items-center justify-center rounded-full bg-primary shadow-sm">
+            <Users className="size-4 text-white" strokeWidth={2.5} />
           </div>
           <div>
-            <p className="text-xs font-medium text-primary/70 dark:text-primary/60">{t.totalClients}</p>
-            <p className="text-xl font-bold text-primary dark:text-primary/80">{pagination.total}</p>
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-primary/60 dark:text-primary/50">{t.totalClients}</p>
+            <p className="text-2xl font-bold leading-tight text-primary dark:text-primary/80">{pagination.total}</p>
           </div>
         </div>
       ) : null}
 
-      {/* Search */}
-      <div className="relative max-w-md">
-        <SearchIcon className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
-        <Input
-          className="pl-8"
-          placeholder={t.search}
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              setPagination((prev) => ({ ...prev, page: 1 }));
-              setSearch(searchInput.trim());
-            }
-          }}
-        />
+      {/* Search + filters row */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="relative flex-1 max-w-md">
+          <SearchIcon className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
+          <Input
+            className="pl-8"
+            placeholder={t.search}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                setPagination((prev) => ({ ...prev, page: 1 }));
+                setSearch(searchInput.trim());
+              }
+            }}
+          />
+        </div>
+        {/* Type filter pills */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-0.5">
+          {(['all', 'company', 'individual'] as const).map((type) => {
+            const active = typeFilter === type;
+            return (
+              <button
+                key={type}
+                type="button"
+                onClick={() => {
+                  setTypeFilter(type);
+                  setPagination((prev) => ({ ...prev, page: 1 }));
+                }}
+                className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-all ${
+                  active
+                    ? type === 'company'
+                      ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm'
+                      : type === 'individual'
+                      ? 'border-emerald-600 bg-emerald-600 text-white shadow-sm'
+                      : 'border-primary bg-primary text-primary-foreground shadow-sm'
+                    : 'border-border bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground'
+                }`}
+              >
+                {type === 'company' && <Building2 className="size-3" />}
+                {type === 'individual' && <User className="size-3" />}
+                {type === 'all' ? t.typeAll : type === 'company' ? t.typeCompany : t.typeIndividual}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Error */}
@@ -230,70 +269,88 @@ export default function ClientsPage() {
               <Link
                 key={client._id}
                 href={`/clients/${client._id}`}
-                className="group relative flex flex-col gap-4 rounded-2xl border border-border/70 bg-card p-5 shadow-sm transition-all hover:border-primary/40 hover:shadow-md dark:hover:border-primary/50"
+                className="group relative flex flex-col overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md dark:hover:border-primary/50"
               >
-                {/* Avatar + name */}
-                <div className="flex items-start gap-3">
-                  <div className={`flex size-11 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white ${avatarColor(client._id)}`}>
-                    {getInitials(client.fullName)}
+                {/* Colored top accent strip by client type */}
+                <div className={`h-1.5 w-full ${client.clientType === 'individual' ? 'bg-emerald-500' : 'bg-indigo-500'}`} />
+
+                <div className="flex flex-col gap-3 p-5">
+                  {/* Avatar + name + type badge */}
+                  <div className="flex items-start gap-3">
+                    <div className={`flex size-12 shrink-0 items-center justify-center text-sm font-bold text-white shadow-sm ${
+                      client.clientType === 'individual'
+                        ? 'rounded-full bg-emerald-500'
+                        : `rounded-xl ${avatarColor(client._id)}`
+                    }`}>
+                      {getInitials(client.fullName)}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="truncate text-sm font-bold text-foreground transition-colors group-hover:text-primary dark:group-hover:text-primary/80">
+                          {client.fullName}
+                        </p>
+                        <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                          client.clientType === 'individual'
+                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+                            : 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300'
+                        }`}>
+                          {client.clientType === 'individual'
+                            ? <><User className="size-2.5" />{t.typeIndividual}</>
+                            : <><Building2 className="size-2.5" />{t.typeCompany}</>}
+                        </span>
+                      </div>
+                      {client.companyName ? (
+                        <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-muted-foreground">
+                          <Building2 className="size-3 shrink-0" strokeWidth={1.75} />
+                          {client.companyName}
+                        </p>
+                      ) : null}
+                    </div>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-semibold text-foreground group-hover:text-primary dark:group-hover:text-primary/80">
-                      {client.fullName}
-                    </p>
-                    {client.companyName ? (
-                      <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-muted-foreground">
-                        <Building2 className="size-3 shrink-0" strokeWidth={1.75} />
-                        {client.companyName}
+
+                  {/* Contact details */}
+                  <div className="space-y-1.5 text-xs text-muted-foreground">
+                    {client.email ? (
+                      <p className="flex items-center gap-2 truncate">
+                        <Mail className="size-3.5 shrink-0 text-primary/50" strokeWidth={1.75} />
+                        {client.email}
                       </p>
-                    ) : (
-                      <p className="mt-0.5 text-xs text-muted-foreground/50">{t.noData}</p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Contact details */}
-                <div className="space-y-1.5 text-xs text-muted-foreground">
-                  {client.email ? (
-                    <p className="flex items-center gap-2 truncate">
-                      <Mail className="size-3.5 shrink-0 text-primary/50" strokeWidth={1.75} />
-                      {client.email}
-                    </p>
-                  ) : null}
-                  {client.phone ? (
-                    <p className="flex items-center gap-2 truncate">
-                      <Phone className="size-3.5 shrink-0 text-primary/50" strokeWidth={1.75} />
-                      {client.phone}
-                    </p>
-                  ) : null}
-                  {client.address ? (
-                    <p className="flex items-center gap-2 truncate">
-                      <MapPin className="size-3.5 shrink-0 text-primary/50" strokeWidth={1.75} />
-                      {client.address}
-                    </p>
-                  ) : null}
-                </div>
-
-                {/* Quote status + revenue badge row */}
-                {client.lastQuoteStatus ? (
-                  <div className="flex items-center justify-between gap-2">
-                    <StatusBadge status={client.lastQuoteStatus} />
-                    {client.totalRevenue ? (
-                      <span className="text-[11px] font-medium text-muted-foreground">
-                        <PriceDisplay cents={client.totalRevenue} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} />
-                      </span>
+                    ) : null}
+                    {client.phone ? (
+                      <p className="flex items-center gap-2 truncate">
+                        <Phone className="size-3.5 shrink-0 text-primary/50" strokeWidth={1.75} />
+                        {client.phone}
+                      </p>
+                    ) : null}
+                    {client.address ? (
+                      <p className="flex items-center gap-2 truncate">
+                        <MapPin className="size-3.5 shrink-0 text-primary/50" strokeWidth={1.75} />
+                        {client.address}
+                      </p>
                     ) : null}
                   </div>
-                ) : null}
 
-                {/* Footer */}
-                <div className="flex items-center justify-between border-t border-border/50 pt-3">
-                  <p className="text-[11px] text-muted-foreground/60">
-                    {new Date(client.createdAt).toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
-                  </p>
-                  <span className="text-[11px] font-medium text-primary/70 opacity-0 transition-opacity group-hover:opacity-100 dark:text-primary/60">
-                    {t.viewProfile}
-                  </span>
+                  {/* Quote status + revenue badge row */}
+                  {(client.lastQuoteStatus || (client.totalRevenue && client.totalRevenue > 0)) ? (
+                    <div className="flex items-center justify-between gap-2">
+                      {client.lastQuoteStatus ? <StatusBadge status={client.lastQuoteStatus} /> : <span />}
+                      {client.totalRevenue && client.totalRevenue > 0 ? (
+                        <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
+                          <PriceDisplay cents={client.totalRevenue} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} />
+                        </span>
+                      ) : null}
+                    </div>
+                  ) : null}
+
+                  {/* Footer */}
+                  <div className="flex items-center justify-between border-t border-border/50 pt-3">
+                    <p className="text-[11px] text-muted-foreground/60">
+                      {new Date(client.createdAt).toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </p>
+                    <span className="flex items-center gap-0.5 text-[11px] font-medium text-muted-foreground/50 transition-colors group-hover:text-primary/80 dark:group-hover:text-primary/70">
+                      {t.viewProfile} <ChevronRight className="size-3 shrink-0" />
+                    </span>
+                  </div>
                 </div>
               </Link>
             ))}

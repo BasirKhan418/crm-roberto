@@ -3,8 +3,10 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { CalendarClock, Users, Package, Clock, CalendarCheck, Calendar, CheckCircle2, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { CalendarClock, Users, Package, Clock, CalendarCheck, Calendar, CheckCircle2, Loader2, ChevronLeft, ChevronRight, PlusIcon } from 'lucide-react';
 
+import AddNoteModal from '@/components/modals/AddNoteModal';
+import { Button } from '@/components/ui/button';
 import EmptyState from '@/components/ui/EmptyState';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,6 +19,7 @@ interface FollowUpsListProps {
   loading?: boolean;
   error?: string | null;
   onMarkDone?: () => void;
+  onActionSuccess?: () => void;
 }
 
 function getStartOfDay(date: Date): number {
@@ -184,7 +187,7 @@ function SectionDivider({ label, count, color }: { label: string; count: number;
   );
 }
 
-export default function FollowUpsList({ followUps = [], loading = false, error = null, onMarkDone }: FollowUpsListProps) {
+export default function FollowUpsList({ followUps = [], loading = false, error = null, onMarkDone, onActionSuccess }: FollowUpsListProps) {
   const { locale } = useLocale();
   const t = {
     en: {
@@ -202,6 +205,7 @@ export default function FollowUpsList({ followUps = [], loading = false, error =
       tomorrow: 'Tomorrow',
       inWeeks: (count: number) => `In ${count}w`,
       inDays: (count: number) => `In ${count}d`,
+      addNote: 'Add Note',
     },
     fr: {
       title: 'Suivis',
@@ -218,6 +222,7 @@ export default function FollowUpsList({ followUps = [], loading = false, error =
       tomorrow: 'Demain',
       inWeeks: (count: number) => `Dans ${count} sem`,
       inDays: (count: number) => `Dans ${count} j`,
+      addNote: 'Ajouter une note',
     },
   }[locale];
 
@@ -226,6 +231,7 @@ export default function FollowUpsList({ followUps = [], loading = false, error =
   const [doneIds, setDoneIds] = useState<Set<string>>(() => new Set());
   const [markingIds, setMarkingIds] = useState<Set<string>>(() => new Set());
   const [page, setPage] = useState(1);
+  const [isAddNoteOpen, setIsAddNoteOpen] = useState(false);
 
   async function markDone(id: string) {
     setDoneIds((prev) => new Set(prev).add(id));
@@ -350,14 +356,26 @@ export default function FollowUpsList({ followUps = [], loading = false, error =
   }
 
   return (
-    <Card className="flex h-full flex-col gap-0 overflow-hidden">
+    <>
+      <Card className="flex h-full flex-col gap-0 overflow-hidden">
       <CardHeader className="border-b bg-slate-50 px-5 py-3.5 dark:bg-slate-900/40">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle className="text-[11px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
             {t.title}
           </CardTitle>
-          {!loading && allItems.length > 0 ? (
-            <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 rounded-full px-2.5 text-[11px] font-semibold"
+              onClick={() => setIsAddNoteOpen(true)}
+            >
+              <PlusIcon className="size-3.5" strokeWidth={2.2} />
+              <span className="hidden sm:inline">{t.addNote}</span>
+            </Button>
+            {!loading && allItems.length > 0 ? (
+              <>
               {overdueItems.length > 0 ? (
                 <span className="rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-bold text-white">
                   {overdueItems.length} overdue
@@ -368,8 +386,9 @@ export default function FollowUpsList({ followUps = [], loading = false, error =
                   {scheduledItems.length} upcoming
                 </span>
               ) : null}
-            </div>
-          ) : null}
+              </>
+            ) : null}
+          </div>
         </div>
       </CardHeader>
 
@@ -460,6 +479,8 @@ export default function FollowUpsList({ followUps = [], loading = false, error =
           </div>
         ) : null}
       </CardContent>
-    </Card>
+      </Card>
+      {isAddNoteOpen ? <AddNoteModal onClose={() => setIsAddNoteOpen(false)} onSuccess={onActionSuccess} /> : null}
+    </>
   );
 }

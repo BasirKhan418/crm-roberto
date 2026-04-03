@@ -25,6 +25,7 @@ export interface QuoteListItemRecord {
   statusChangedAt: Date | null;
   totalIncludingTax: number;
   clientId: string;
+  subject?: string | null;
   clientSnapshot: {
     fullName: string;
     email?: string | null;
@@ -389,7 +390,8 @@ export const listQuotes = async (
     ];
   }
 
-  const sortField = options.sort === 'amount' ? 'totalIncludingTax' : 'date';
+  const sortOptions: Record<string, number> =
+    options.sort === 'amount' ? { totalIncludingTax: -1 } : { createdAt: -1 };
   const page = Math.max(1, options.page ?? 1);
   const limit = Math.max(1, Math.min(options.limit ?? 10, 100));
 
@@ -398,13 +400,13 @@ export const listQuotes = async (
   const skip = (page - 1) * limit;
 
   const quotes = await Quote.find(query)
-    .sort({ [sortField]: -1 })
+    .sort(sortOptions)
     .skip(skip)
     .limit(limit)
-    .select('_id quoteNumber date status signedAt updatedAt clientId clientSnapshot.fullName clientSnapshot.email totalIncludingTax statusHistory.to statusHistory.changedAt')
+    .select('_id quoteNumber date status signedAt updatedAt clientId clientSnapshot.fullName clientSnapshot.email totalIncludingTax statusHistory.to statusHistory.changedAt subject')
     .lean();
 
-  const items = (quotes as QuoteListQueryRecord[]).map((quote) => {
+  const items = (quotes as (QuoteListQueryRecord & { subject?: string | null })[]).map((quote) => {
     const normalizedStatus = quote.status === 'refused' ? 'rejected' : quote.status;
 
     return {
@@ -419,6 +421,7 @@ export const listQuotes = async (
     }),
     totalIncludingTax: quote.totalIncludingTax,
     clientId: String(quote.clientId),
+    subject: (quote as { subject?: string | null }).subject ?? null,
     clientSnapshot: {
       fullName: quote.clientSnapshot.fullName,
       email: quote.clientSnapshot.email ?? null,
@@ -520,6 +523,7 @@ export const createQuote = async (userId: string, payload: CreateQuoteDTO): Prom
         notes: payload.notes ?? null,
         paymentTerms: payload.paymentTerms ?? null,
         validityDays: payload.validityDays ?? 30,
+        subject: payload.subject ?? null,
         statusHistory: [{ to: 'draft', changedAt: new Date() }],
       });
 
@@ -582,6 +586,10 @@ export const updateQuoteById = async (
 
   if (payload.validityDays !== undefined) {
     quote.validityDays = payload.validityDays;
+  }
+
+  if (payload.subject !== undefined) {
+    quote.subject = payload.subject;
   }
 
   if (payload.lineItems) {
@@ -703,6 +711,7 @@ export const duplicateQuoteById = async (userId: string, quoteId: string): Promi
         notes: (sourceQuote as QuoteRecord).notes ?? null,
         paymentTerms: (sourceQuote as QuoteRecord).paymentTerms ?? null,
         validityDays: (sourceQuote as QuoteRecord).validityDays ?? 30,
+        subject: (sourceQuote as QuoteRecord & { subject?: string | null }).subject ?? null,
         statusHistory: [{ to: 'draft', changedAt: new Date() }],
         convertedToInvoice: false,
         invoiceId: null,

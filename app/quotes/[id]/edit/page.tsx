@@ -16,6 +16,7 @@ interface QuoteApiResponse {
     quoteNumber: string;
     clientId: string;
     date: string;
+    subject?: string | null;
     notes?: string | null;
     paymentTerms?: string | null;
     validityDays?: number;
@@ -75,6 +76,7 @@ export default function EditQuotePage() {
             quoteNumber: payload.data.quoteNumber,
             clientId: payload.data.clientId,
             date: payload.data.date,
+            subject: payload.data.subject ?? null,
             status: payload.data.status,
             notes: payload.data.notes ?? '',
             paymentTerms: payload.data.paymentTerms ?? null,

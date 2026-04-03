@@ -1,18 +1,16 @@
 'use client';
 
-import type { CSSProperties } from 'react';
 import { useState } from 'react';
 
 import ActivityFeed from '@/components/dashboard/ActivityFeed';
 import FollowUpsList from '@/components/dashboard/FollowUpsList';
+import PriorityActionsPanel from '@/components/dashboard/PriorityActionsPanel';
 import QuickAddButtons from '@/components/dashboard/QuickAddButtons';
 import RecentQuotes from '@/components/dashboard/RecentQuotes';
 import StatCards from '@/components/dashboard/StatCards';
+import CrmShell from '@/components/crm-shell';
 import { useLocale } from '@/components/providers/locale-provider';
-import { AppSidebar } from '@/components/app-sidebar';
-import { SiteHeader } from '@/components/site-header';
 import ErrorMessage from '@/components/ui/ErrorMessage';
-import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { useDashboard } from '@/hooks/useDashboard';
 
 export default function DashboardPage() {
@@ -45,44 +43,42 @@ export default function DashboardPage() {
   }
 
   return (
-    <SidebarProvider
-      style={
-        {
-          '--sidebar-width': 'calc(var(--spacing) * 72)',
-          '--header-height': 'calc(var(--spacing) * 12)',
-        } as CSSProperties
-      }
-    >
-      <AppSidebar variant="inset" />
-      <SidebarInset>
-        <SiteHeader title={t.title} />
-        <main className="flex flex-1 flex-col">
-          <div className="@container/main flex flex-1 flex-col gap-6 px-4 py-5 lg:px-6 lg:py-6">
-            {/* Page header */}
-            <div className="flex flex-col gap-3 border-b border-border/60 pb-5 lg:flex-row lg:items-end lg:justify-between">
-              <div>
-                <h1 className="font-heading text-2xl font-bold tracking-tight text-foreground">{t.heading}</h1>
-                <p className="mt-0.5 text-sm text-muted-foreground">{t.subtitle}</p>
-              </div>
-              <QuickAddButtons onSuccess={handleQuickAddSuccess} />
-            </div>
+    <CrmShell title={t.title} contentClassName="gap-6 px-4 py-5 lg:px-6 lg:py-6">
+      {/* Page header */}
+      <div className="flex flex-col gap-3 border-b border-border/60 pb-5 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <h1 className="font-heading text-2xl font-bold tracking-tight text-foreground">{t.heading}</h1>
+          <p className="mt-0.5 text-sm text-muted-foreground">{t.subtitle}</p>
+        </div>
+        <QuickAddButtons onSuccess={handleQuickAddSuccess} />
+      </div>
 
-            {error ? <ErrorMessage message={error} /> : null}
+      {error ? <ErrorMessage message={error} /> : null}
 
-            {/* KPI Cards */}
-            <StatCards key={statsRefreshKey} />
+      <PriorityActionsPanel
+        followUps={followUps}
+        loading={loading}
+        error={followUpsError}
+        onActionSuccess={handleQuickAddSuccess}
+      />
 
-            {/* Activity + Follow-ups */}
-            <section className="grid grid-cols-1 gap-4 xl:grid-cols-[1.4fr_1fr]" aria-label={t.sectionAria}>
-              <ActivityFeed activity={activity} loading={loading} error={activityError} />
-              <FollowUpsList followUps={followUps} loading={loading} error={followUpsError} onMarkDone={refetch} />
-            </section>
+      {/* KPI Cards */}
+      <StatCards key={statsRefreshKey} />
 
-            {/* Recent Quotes */}
-            <RecentQuotes refreshKey={statsRefreshKey} />
-          </div>
-        </main>
-      </SidebarInset>
-    </SidebarProvider>
+      {/* Activity + Follow-ups */}
+      <section className="grid grid-cols-1 gap-4 xl:grid-cols-[1.4fr_1fr]" aria-label={t.sectionAria}>
+        <ActivityFeed activity={activity} loading={loading} error={activityError} onActionSuccess={handleQuickAddSuccess} />
+        <FollowUpsList
+          followUps={followUps}
+          loading={loading}
+          error={followUpsError}
+          onMarkDone={refetch}
+          onActionSuccess={handleQuickAddSuccess}
+        />
+      </section>
+
+      {/* Recent Quotes */}
+      <RecentQuotes refreshKey={statsRefreshKey} />
+    </CrmShell>
   );
 }

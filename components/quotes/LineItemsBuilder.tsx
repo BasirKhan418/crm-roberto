@@ -1,12 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { BoxesIcon, PlusIcon } from 'lucide-react';
+import { BoxesIcon, PackageIcon, PlusIcon, SearchIcon, WrenchIcon, XIcon } from 'lucide-react';
 
 import LineItemRow, { type CatalogueItemOption, type QuoteLineItem } from '@/components/quotes/LineItemRow';
 import { useLocale } from '@/components/providers/locale-provider';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 
 interface CatalogueApiResponse {
@@ -47,6 +48,11 @@ export default function LineItemsBuilder({ lineItems, onChange }: LineItemsBuild
       noItemsTitle: 'No items yet',
       noItemsSubtitle: 'Click Add a line to start building this quote.',
       addLine: 'Add a line',
+      pickerTitle: 'Add product / service',
+      pickerSearch: 'Search...',
+      pickerEmpty: 'No products found',
+      pickerAddBlank: 'Add custom line',
+      pickerClose: 'Close',
     },
     fr: {
       loadError: 'Impossible de charger les produits/services',
@@ -61,11 +67,18 @@ export default function LineItemsBuilder({ lineItems, onChange }: LineItemsBuild
       noItemsTitle: 'Aucune ligne',
       noItemsSubtitle: 'Cliquez sur Ajouter une ligne pour commencer ce devis.',
       addLine: 'Ajouter une ligne',
+      pickerTitle: 'Ajouter un produit / service',
+      pickerSearch: 'Rechercher...',
+      pickerEmpty: 'Aucun produit trouve',
+      pickerAddBlank: 'Ligne personnalisee',
+      pickerClose: 'Fermer',
     },
   }[locale];
 
   const [products, setProducts] = useState<CatalogueItemOption[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerSearch, setPickerSearch] = useState('');
 
   const loadProducts = useCallback(async () => {
     setError(null);
@@ -101,55 +114,167 @@ export default function LineItemsBuilder({ lineItems, onChange }: LineItemsBuild
     [lineItems, onChange]
   );
 
-  const addRow = useCallback(() => {
+  const addBlankRow = useCallback(() => {
     onChange([...lineItems, { ...EMPTY_ROW }]);
+    setPickerOpen(false);
+    setPickerSearch('');
   }, [lineItems, onChange]);
 
+  const addProductRow = useCallback(
+    (product: CatalogueItemOption) => {
+      const newRow: QuoteLineItem = {
+        productId: product._id,
+        productImageUrl:
+          product.attachmentUrl && /\.(png|jpe?g|webp|gif|svg)(\?.*)?$/i.test(product.attachmentUrl)
+            ? product.attachmentUrl
+            : null,
+        name: product.name,
+        quantity: 1,
+        baseUnitPriceExcludingTax: product.priceExcludingTax,
+        unitPriceExcludingTax: product.priceExcludingTax,
+        discountPercentage: 0,
+        vatRate: product.vatRate,
+      };
+      onChange([...lineItems, newRow]);
+      setPickerOpen(false);
+      setPickerSearch('');
+    },
+    [lineItems, onChange]
+  );
+
+  const filteredProducts = useMemo(() => {
+    const term = pickerSearch.trim().toLowerCase();
+    if (!term) return products;
+    return products.filter((p) => p.name.toLowerCase().includes(term));
+  }, [products, pickerSearch]);
+
   return (
-    <section className="space-y-3">
-      <div className="hidden items-center gap-2 rounded-md border border-dashed border-border/70 bg-secondary/30 px-2 py-1.5 text-xs font-semibold uppercase text-muted-foreground md:grid md:grid-cols-[2fr_0.7fr_1.2fr_0.9fr_1.1fr_0.7fr_1fr_1fr_auto]">
-        <span>{t.product}</span>
-        <span>{t.qty}</span>
-        <span className="text-right">{t.unitPrice}</span>
-        <span className="text-right">{t.discount}</span>
-        <span className="text-right">{t.discountAmount}</span>
-        <span className="text-right">{t.vat}</span>
-        <span className="text-right">{t.totalExclTax}</span>
-        <span className="text-right">{t.totalInclTax}</span>
-        <span />
-      </div>
+    <>
+      {/* ── Product picker modal ─────────────────────────────── */}
+      {pickerOpen ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+        >
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => { setPickerOpen(false); setPickerSearch(''); }}
+          />
+          {/* Panel — always centred, capped to available visual viewport */}
+          <div
+            className="relative z-10 flex w-full max-w-md flex-col rounded-2xl border border-border bg-background shadow-xl"
+            style={{ maxHeight: 'min(calc(var(--app-viewport-height, 100dvh) - 32px), 560px)' }}
+          >
+            {/* Header */}
+            <div className="flex shrink-0 items-center justify-between border-b border-border/70 px-4 py-3">
+              <h3 className="font-heading text-base font-semibold">{t.pickerTitle}</h3>
+              <button
+                type="button"
+                className="rounded-md p-1 text-muted-foreground hover:text-foreground"
+                onClick={() => { setPickerOpen(false); setPickerSearch(''); }}
+                aria-label={t.pickerClose}
+              >
+                <XIcon className="size-4" />
+              </button>
+            </div>
 
-      {error ? <ErrorMessage message={error} /> : null}
+            {/* Search — stays pinned below header, always visible */}
+            <div className="relative shrink-0 px-4 py-2.5">
+              <SearchIcon className="pointer-events-none absolute left-7 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                autoFocus
+                value={pickerSearch}
+                onChange={(e) => setPickerSearch(e.target.value)}
+                placeholder={t.pickerSearch}
+                className="pl-9"
+              />
+            </div>
 
-      {lineItems.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border/80 bg-linear-to-b from-background to-secondary/20 px-4 py-6 text-sm text-muted-foreground">
-          <div className="flex items-center gap-2 text-foreground/90">
-            <BoxesIcon className="size-4" />
-            <span className="font-medium">{t.noItemsTitle}</span>
+            {/* Product list — scrollable middle section */}
+            <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-2">
+              {error ? <ErrorMessage message={error} /> : null}
+              {filteredProducts.length === 0 && !error ? (
+                <p className="py-6 text-center text-sm text-muted-foreground">{t.pickerEmpty}</p>
+              ) : (
+                <div className="space-y-1">
+                  {filteredProducts.map((product) => (
+                    <button
+                      key={product._id}
+                      type="button"
+                      className="flex w-full items-center gap-3 rounded-lg border border-transparent px-3 py-2.5 text-left hover:border-border hover:bg-muted/60 active:bg-muted"
+                      onClick={() => addProductRow(product)}
+                    >
+                      <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-secondary text-muted-foreground">
+                        {product.type === 'product' ? <PackageIcon className="size-4" /> : <WrenchIcon className="size-4" />}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">{product.name}</p>
+                        <p className="text-xs text-muted-foreground">{product.type === 'product' ? 'Product' : 'Service'}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Footer: add blank — always visible, pinned above keyboard */}
+            <div className="shrink-0 border-t border-border/70 px-4 py-3">
+              <Button type="button" variant="outline" className="w-full" onClick={addBlankRow}>
+                <PlusIcon className="size-4" />
+                {t.pickerAddBlank}
+              </Button>
+            </div>
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">{t.noItemsSubtitle}</p>
         </div>
-      ) : (
-        <div className="space-y-2.5">
-          {lineItems.map((row, index) => (
-            <LineItemRow
-              key={`line-item-${index}`}
-              index={index}
-              row={row}
-              products={products}
-              onChange={updateRow}
-              onDelete={removeRow}
-            />
-          ))}
-        </div>
-      )}
+      ) : null}
 
-      <div className="sticky bottom-2 z-10 rounded-xl border-2 border-dashed border-primary/30 bg-background/95 p-2 shadow-sm backdrop-blur md:static md:border md:border-border/70 md:bg-transparent md:p-0 md:shadow-none">
-        <Button type="button" variant="outline" className="h-12 w-full gap-2 border-primary/30 text-base font-semibold text-primary hover:bg-primary/5 md:h-10 md:w-auto md:text-sm md:font-medium" onClick={addRow}>
-          <PlusIcon className="size-5 md:size-4" />
-          {t.addLine}
-        </Button>
-      </div>
-    </section>
+      <section className="space-y-3">
+        <div className="hidden items-center gap-2 rounded-md border border-dashed border-border/70 bg-secondary/30 px-2 py-1.5 text-xs font-semibold uppercase text-muted-foreground md:grid md:grid-cols-[2fr_0.7fr_1.2fr_0.9fr_1.1fr_0.7fr_1fr_1fr_auto]">
+          <span>{t.product}</span>
+          <span>{t.qty}</span>
+          <span className="text-right">{t.unitPrice}</span>
+          <span className="text-right">{t.discount}</span>
+          <span className="text-right">{t.discountAmount}</span>
+          <span className="text-right">{t.vat}</span>
+          <span className="text-right">{t.totalExclTax}</span>
+          <span className="text-right">{t.totalInclTax}</span>
+          <span />
+        </div>
+
+        {error && !pickerOpen ? <ErrorMessage message={error} /> : null}
+
+        {lineItems.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-border/80 bg-linear-to-b from-background to-secondary/20 px-4 py-6 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2 text-foreground/90">
+              <BoxesIcon className="size-4" />
+              <span className="font-medium">{t.noItemsTitle}</span>
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">{t.noItemsSubtitle}</p>
+          </div>
+        ) : (
+          <div className="space-y-2.5">
+            {lineItems.map((row, index) => (
+              <LineItemRow
+                key={`line-item-${index}`}
+                index={index}
+                row={row}
+                products={products}
+                onChange={updateRow}
+                onDelete={removeRow}
+              />
+            ))}
+          </div>
+        )}
+
+        <div className="pt-1 md:pt-0">
+          <Button type="button" variant="outline" className="h-10 w-full gap-2 border-primary/30 text-sm font-semibold text-primary hover:bg-primary/5 md:w-auto md:font-medium" onClick={() => setPickerOpen(true)}>
+            <PlusIcon className="size-4" />
+            {t.addLine}
+          </Button>
+        </div>
+      </section>
+    </>
   );
 }

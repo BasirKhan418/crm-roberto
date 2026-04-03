@@ -2,8 +2,10 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { Users, Package, StickyNote, FileText, Activity, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Users, Package, StickyNote, FileText, Activity, ChevronLeft, ChevronRight, PlusIcon } from 'lucide-react';
 
+import AddNoteModal from '@/components/modals/AddNoteModal';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import EmptyState from '@/components/ui/EmptyState';
 import ErrorMessage from '@/components/ui/ErrorMessage';
@@ -92,13 +94,16 @@ interface ActivityFeedProps {
   activity?: ActivityItem[];
   loading?: boolean;
   error?: string | null;
+  onActionSuccess?: () => void;
 }
 
-export default function ActivityFeed({ activity = [], loading = false, error = null }: ActivityFeedProps) {
+export default function ActivityFeed({ activity = [], loading = false, error = null, onActionSuccess }: ActivityFeedProps) {
   const { locale } = useLocale();
+  const [isAddNoteOpen, setIsAddNoteOpen] = useState(false);
   const t = {
     title: translate(locale, 'activity.title'),
     empty: translate(locale, 'activity.empty'),
+    addNote: locale === 'fr' ? 'Ajouter une note' : 'Add Note',
   };
   const items = Array.isArray(activity) ? activity : [];
   const PAGE_SIZE = 5;
@@ -109,11 +114,24 @@ export default function ActivityFeed({ activity = [], loading = false, error = n
   const showError = Boolean(error) && items.length === 0;
 
   return (
-    <Card className="flex h-full flex-col gap-0 overflow-hidden">
+    <>
+      <Card className="flex h-full flex-col gap-0 overflow-hidden">
       <CardHeader className="border-b bg-slate-50 px-5 py-3.5 dark:bg-slate-900/40">
-        <CardTitle className="text-[11px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
-          {t.title}
-        </CardTitle>
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="text-[11px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+            {t.title}
+          </CardTitle>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-7 rounded-full px-2.5 text-[11px] font-semibold"
+            onClick={() => setIsAddNoteOpen(true)}
+          >
+            <PlusIcon className="size-3.5" strokeWidth={2.2} />
+            <span className="hidden sm:inline">{t.addNote}</span>
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="flex flex-1 flex-col overflow-hidden px-0 pt-0">
         <div className="flex-1 divide-y divide-border/60 overflow-y-auto">
@@ -222,6 +240,8 @@ export default function ActivityFeed({ activity = [], loading = false, error = n
           </div>
         ) : null}
       </CardContent>
-    </Card>
+      </Card>
+      {isAddNoteOpen ? <AddNoteModal onClose={() => setIsAddNoteOpen(false)} onSuccess={onActionSuccess} /> : null}
+    </>
   );
 }

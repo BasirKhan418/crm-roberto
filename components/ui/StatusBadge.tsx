@@ -39,7 +39,7 @@ export function StatusBadge({ status, className }: StatusBadgeProps) {
   const style = STATUS_STYLES[status]
   const label = getQuoteStatusLabel(locale, status)
 
-  if (status === "accepted") {
+  if (status === "accepted" || status === "rejected" || status === "refused") {
     return (
       <span
         className={cn("inline-flex items-center gap-1 rounded-[10px] px-2.25 py-0.75 text-[11px] font-semibold ring-1 ring-inset", className)}

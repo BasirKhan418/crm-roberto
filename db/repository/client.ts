@@ -103,14 +103,17 @@ function normalizeClientPayload(
   const hasCompanyName = 'companyName' in payload;
   const hasFirstName = 'firstName' in payload;
   const hasLastName = 'lastName' in payload;
+  const hasTitle = 'title' in payload;
 
   const companyName = hasCompanyName ? ((payload.companyName ?? '').trim() || null) : null;
   const firstName = hasFirstName ? ((payload.firstName ?? '').trim() || null) : null;
   const lastName = hasLastName ? ((payload.lastName ?? '').trim() || null) : null;
+  const title = hasTitle ? ((payload.title ?? '').trim() || null) : null;
 
   if (hasCompanyName) next.companyName = companyName;
   if (hasFirstName) next.firstName = firstName;
   if (hasLastName) next.lastName = lastName;
+  if (hasTitle) next.title = title;
 
   if (mode === 'create' || 'fullName' in payload || hasCompanyName || hasFirstName || hasLastName) {
     const computedFullName = clientType === 'company'
@@ -154,10 +157,14 @@ export const createClient = async (userId: string, payload: CreateClientDTO): Pr
   return created.toObject() as ClientRecord;
 };
 
-export const listClients = async (userId: string, options: ListQueryOptions): Promise<ClientListResult> => {
+export const listClients = async (userId: string, options: ListQueryOptions, clientType?: 'company' | 'individual'): Promise<ClientListResult> => {
   await ConnectDb();
 
   const query: Record<string, unknown> = { user: userId };
+
+  if (clientType) {
+    query.clientType = clientType;
+  }
 
   if (options.search) {
     query.$or = [

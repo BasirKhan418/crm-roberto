@@ -21,7 +21,10 @@ export async function GET(request: NextRequest) {
       maxLimit: 100,
     });
 
-    const result = await listClients(me.user.id, options);
+    const clientTypeRaw = request.nextUrl.searchParams.get('clientType');
+    const clientType = (clientTypeRaw === 'company' || clientTypeRaw === 'individual') ? clientTypeRaw : undefined;
+
+    const result = await listClients(me.user.id, options, clientType);
 
     return NextResponse.json({
       success: true,

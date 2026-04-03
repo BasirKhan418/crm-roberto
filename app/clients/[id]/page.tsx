@@ -6,6 +6,7 @@ import Link from 'next/link';
 
 import {
   AlertTriangleIcon,
+  Building2Icon,
   CalendarClockIcon,
   ClipboardListIcon,
   ClockIcon,
@@ -23,6 +24,7 @@ import {
   Trash2Icon,
   TrendingUpIcon,
   UploadCloudIcon,
+  UserIcon,
   VideoIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -750,34 +752,57 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         ) : (
           <div className="space-y-4">
 
-            {/* ── Quick Action Bar ──────────────────────────────────────── */}
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 bg-card px-4 py-3 shadow-sm">
-              <div className="flex min-w-0 items-center gap-3">
-                <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
-                  {client.fullName.charAt(0).toUpperCase()}
+            {/* ── Hero / Quick Action Bar ───────────────────────────────── */}
+            <div className={`overflow-hidden rounded-xl border border-border/60 shadow-sm ${
+              client.clientType === 'individual'
+                ? 'bg-linear-to-br from-emerald-50 via-card to-card dark:from-emerald-950/25 dark:via-card dark:to-card'
+                : 'bg-linear-to-br from-indigo-50 via-card to-card dark:from-indigo-950/25 dark:via-card dark:to-card'
+            }`}>
+              <div className="flex flex-col gap-4 px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
+                {/* Identity */}
+                <div className="flex min-w-0 items-center gap-4">
+                  <div className={`flex size-14 shrink-0 items-center justify-center rounded-2xl text-xl font-bold text-white shadow-md ${client.clientType === 'individual' ? 'bg-emerald-500' : 'bg-indigo-500'}`}>
+                    {client.fullName.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h1 className="text-xl font-bold text-foreground">{client.fullName}</h1>
+                      {/* Client type badge */}
+                      <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                        client.clientType === 'individual'
+                          ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+                          : 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300'
+                      }`}>
+                        {client.clientType === 'individual'
+                          ? <><UserIcon className="size-2.5" />{t.individualType}</>
+                          : <><Building2Icon className="size-2.5" />{t.companyType}</>}
+                      </span>
+                    </div>
+                    {client.companyName ? <p className="text-sm text-muted-foreground">{client.companyName}</p> : null}
+                    {(client.responsibleEmail || client.email) ? (
+                      <p className="mt-0.5 text-xs text-muted-foreground/70">{client.responsibleEmail || client.email}</p>
+                    ) : null}
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <p className="truncate font-semibold">{client.fullName}</p>
-                  {client.companyName ? <p className="truncate text-xs text-muted-foreground">{client.companyName}</p> : null}
+                {/* Action buttons – horizontally scrollable on small screens */}
+                <div className="-mx-5 flex items-center gap-2 overflow-x-auto px-5 pb-1 sm:mx-0 sm:px-0 sm:pb-0">
+                  <Button size="sm" asChild className="shrink-0">
+                    <Link href={`/quotes/new?clientId=${clientId}`}>
+                      <FilePlusIcon className="size-3.5" />{t.createQuote}
+                    </Link>
+                  </Button>
+                  <Button size="sm" variant="outline" asChild className="shrink-0">
+                    <Link href={`/invoices/new?clientId=${clientId}`}>
+                      <ReceiptIcon className="size-3.5" />{t.createInvoice}
+                    </Link>
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setIsNoteOpen(true)} className="shrink-0">
+                    <StickyNoteIcon className="size-3.5" />{t.addNote}
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setIsInteractionOpen(true)} className="shrink-0">
+                    <PhoneCallIcon className="size-3.5" />{t.addInteraction}
+                  </Button>
                 </div>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Button size="sm" asChild>
-                  <Link href={`/quotes/new?clientId=${clientId}`}>
-                    <FilePlusIcon className="size-3.5" />{t.createQuote}
-                  </Link>
-                </Button>
-                <Button size="sm" variant="outline" asChild>
-                  <Link href={`/invoices/new?clientId=${clientId}`}>
-                    <ReceiptIcon className="size-3.5" />{t.createInvoice}
-                  </Link>
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => setIsNoteOpen(true)}>
-                  <StickyNoteIcon className="size-3.5" />{t.addNote}
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => setIsInteractionOpen(true)}>
-                  <PhoneCallIcon className="size-3.5" />{t.addInteraction}
-                </Button>
               </div>
             </div>
 
@@ -805,7 +830,18 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                 <Card>
                   <CardHeader className="border-b pb-3">
                     <div className="flex items-start justify-between gap-2">
-                      <CardTitle className="text-base">{t.profile}</CardTitle>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <CardTitle className="text-base">{t.profile}</CardTitle>
+                        <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                          client.clientType === 'individual'
+                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+                            : 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300'
+                        }`}>
+                          {client.clientType === 'individual'
+                            ? <><UserIcon className="size-2.5" />{t.individualType}</>
+                            : <><Building2Icon className="size-2.5" />{t.companyType}</>}
+                        </span>
+                      </div>
                       <div className="flex gap-1.5">
                         <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => setIsEditOpen(true)}>
                           <PencilIcon className="size-3" />{t.edit}
@@ -816,7 +852,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                       </div>
                     </div>
                   </CardHeader>
-                  <CardContent className="space-y-2 pt-4 text-sm">
+                  <CardContent className="pt-2 text-sm">
                     {client.clientType === 'individual' ? (
                       <>
                         <InfoRow label={t.titleLabel} value={client.title} />
@@ -845,7 +881,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                   <CardHeader className="border-b pb-3">
                     <CardTitle className="text-base">{t.billing}</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-2 pt-4 text-sm">
+                  <CardContent className="pt-2 text-sm">
                     <InfoRow label={t.billingEmail} value={client.billingEmail} />
                     <InfoRow label={t.billingAddress} value={client.billingAddress} />
                     {!client.billingEmail && !client.billingAddress ? (
@@ -858,25 +894,23 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                 </Card>
 
                 {/* Stats */}
-                <Card>
-                  <CardContent className="grid grid-cols-3 divide-x divide-border/50 pt-4">
-                    <StatTile
-                      icon={<FileTextIcon className="size-4 text-primary" />}
-                      label={t.totalQuotes}
-                      value={String(quotes.length)}
-                    />
-                    <StatTile
-                      icon={<TrendingUpIcon className="size-4 text-emerald-500" />}
-                      label={t.totalRevenue}
-                      value={<PriceDisplay cents={totalRevenue} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="text-sm font-bold" />}
-                    />
-                    <StatTile
-                      icon={<ClipboardListIcon className="size-4 text-amber-500" />}
-                      label={t.notesLabel}
-                      value={String(timeline.length)}
-                    />
-                  </CardContent>
-                </Card>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="flex flex-col items-center gap-1 rounded-xl border border-border/40 bg-primary/5 p-3 text-center dark:bg-primary/10">
+                    <FileTextIcon className="size-5 text-primary/70" />
+                    <p className="text-[11px] text-muted-foreground">{t.totalQuotes}</p>
+                    <p className="text-base font-bold">{quotes.length}</p>
+                  </div>
+                  <div className="flex flex-col items-center gap-1 rounded-xl border border-emerald-200/60 bg-emerald-50/60 p-3 text-center dark:border-emerald-900/30 dark:bg-emerald-950/20">
+                    <TrendingUpIcon className="size-5 text-emerald-500" />
+                    <p className="text-[11px] text-muted-foreground">{t.totalRevenue}</p>
+                    <PriceDisplay cents={totalRevenue} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="text-sm font-bold text-emerald-700 dark:text-emerald-400" />
+                  </div>
+                  <div className="flex flex-col items-center gap-1 rounded-xl border border-amber-200/60 bg-amber-50/60 p-3 text-center dark:border-amber-900/30 dark:bg-amber-950/20">
+                    <ClipboardListIcon className="size-5 text-amber-500" />
+                    <p className="text-[11px] text-muted-foreground">{t.notesLabel}</p>
+                    <p className="text-base font-bold">{timeline.length}</p>
+                  </div>
+                </div>
               </div>
 
               {/* ── Tabs ─────────────────────────────────────────────────── */}
@@ -1260,7 +1294,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
 
 function TabTriggerStyled({ value, children, badge }: { value: string; children: React.ReactNode; badge?: number }) {
   return (
-    <TabsTrigger value={value} className="h-auto flex-none gap-1.5 rounded-none border-0 px-3 pb-2.5 pt-1 text-sm font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none dark:data-[state=active]:bg-transparent dark:data-[state=active]:border-0">
+    <TabsTrigger value={value} className="h-auto flex-none gap-1.5 rounded-none border-0 px-3 pb-2.5 pt-1 text-sm font-medium transition-colors data-[state=inactive]:text-muted-foreground data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none dark:data-[state=active]:bg-transparent dark:data-[state=active]:border-0">
       {children}
       {badge != null ? (
         <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">{badge}</span>
@@ -1271,19 +1305,9 @@ function TabTriggerStyled({ value, children, badge }: { value: string; children:
 
 function InfoRow({ label, value }: { label: string; value?: string | null }) {
   return (
-    <div className="flex items-start gap-2">
-      <span className="w-28 shrink-0 text-xs text-muted-foreground">{label}</span>
-      <span className="min-w-0 flex-1 wrap-break-word text-sm">{value || <span className="text-muted-foreground/40">—</span>}</span>
-    </div>
-  );
-}
-
-function StatTile({ icon, label, value }: { icon: React.ReactNode; label: string; value: React.ReactNode }) {
-  return (
-    <div className="flex flex-col items-center gap-1 px-2 py-3 text-center">
-      {icon}
-      <p className="text-[10px] text-muted-foreground">{label}</p>
-      <div className="text-sm font-bold">{value}</div>
+    <div className="flex items-start gap-3 border-b border-border/30 py-1.5 last:border-0">
+      <span className="w-24 shrink-0 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/60">{label}</span>
+      <span className="min-w-0 flex-1 wrap-break-word text-sm">{value || <span className="text-muted-foreground/30">—</span>}</span>
     </div>
   );
 }

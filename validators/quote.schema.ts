@@ -71,6 +71,7 @@ const dateFieldSchema = z.preprocess(emptyToUndefined, z.coerce.date().optional(
 export const createQuoteSchema = z.object({
   clientId: objectIdSchema,
   date: dateFieldSchema,
+  subject: z.preprocess(emptyToNull, z.string().trim().max(200, 'Subject cannot exceed 200 characters').nullable().optional()),
   lineItems: z.array(lineItemSchema).min(1, i18nKey('validation.lineItemsRequired')),
   notes: z.preprocess(emptyToNull, z.string().trim().max(2000, i18nKey('validation.notesMax2000')).nullable().optional()),
   paymentTerms: z.preprocess(emptyToNull, z.string().trim().max(500, i18nKey('validation.paymentTermsMax500')).nullable().optional()),
@@ -81,6 +82,7 @@ export const updateQuoteSchema = z
   .object({
     clientId: objectIdSchema.optional(),
     date: dateFieldSchema,
+    subject: z.preprocess(emptyToNull, z.string().trim().max(200, 'Subject cannot exceed 200 characters').nullable().optional()),
     lineItems: z.array(lineItemSchema).min(1, i18nKey('validation.lineItemsRequired')).optional(),
     notes: z.preprocess(emptyToNull, z.string().trim().max(2000, i18nKey('validation.notesMax2000')).nullable().optional()),
     paymentTerms: z.preprocess(emptyToNull, z.string().trim().max(500, i18nKey('validation.paymentTermsMax500')).nullable().optional()),
