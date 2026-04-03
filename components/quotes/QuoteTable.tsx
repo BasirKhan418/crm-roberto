@@ -71,6 +71,7 @@ interface QuoteTableProps {
     downloadPdf: string;
     lockEdit: string;
     send: string;
+    sendForSignature: string;
     history: string;
   };
   locale: 'en' | 'fr';
@@ -88,6 +89,23 @@ export default function QuoteTable({ items, loading, labels, locale, formatDate,
   const priceLocale = locale === 'fr' ? 'fr-FR' : 'en-GB';
 
   function renderPrimaryAction(quote: QuoteListItem, className?: string) {
+    if (quote.status === 'draft') {
+      return (
+        <Button
+          type="button"
+          size="sm"
+          className={className}
+          onClick={(event) => {
+            event.stopPropagation();
+            onSend(quote);
+          }}
+        >
+          <SendIcon className="size-3.5" />
+          {labels.sendForSignature}
+        </Button>
+      );
+    }
+
     return (
       <Button type="button" size="sm" className={className} asChild>
         <Link href={`/quotes/${quote._id}`}>
@@ -113,7 +131,7 @@ export default function QuoteTable({ items, loading, labels, locale, formatDate,
           {quote.status === 'draft' ? (
             <DropdownMenuItem onSelect={() => onSend(quote)}>
               <SendIcon className="size-4" />
-              {labels.send}
+              {labels.sendForSignature}
             </DropdownMenuItem>
           ) : null}
 

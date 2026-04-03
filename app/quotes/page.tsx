@@ -72,6 +72,7 @@ function QuotesPageContent() {
       downloadPdf: 'PDF',
       lockEdit: 'Accepted and rejected quotes cannot be edited',
       send: 'Send',
+      sendForSignature: 'Send for signature',
       history: 'History',
       deleteTitle: 'Delete quote?',
       deleteDescription: 'Are you sure you want to delete this quote?',
@@ -125,6 +126,7 @@ function QuotesPageContent() {
       downloadPdf: 'PDF',
       lockEdit: 'Les devis acceptes et refuses (client) ne peuvent pas etre modifies',
       send: 'Envoyer',
+      sendForSignature: 'Envoyer pour signature',
       history: 'Historique',
       deleteTitle: 'Supprimer le devis ?',
       deleteDescription: 'Voulez-vous vraiment supprimer ce devis ?',
@@ -156,7 +158,7 @@ function QuotesPageContent() {
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
 
   const { quotes, pagination, loading, error, refetch } = useQuotes(status, searchDebounced, sort, page, limit);
-  const { rejectedCount, acceptedCount } = useQuotesActionCount(pagination.total + quotes.length + Number(loading));
+  const { allCount, draftCount, sentCount, rejectedCount, acceptedCount } = useQuotesActionCount(pagination.total + quotes.length + Number(loading));
 
   useEffect(() => {
     const rawStatus = searchParams.get('status')?.toLowerCase();
@@ -331,24 +333,35 @@ function QuotesPageContent() {
           <Tabs value={status} onValueChange={(value) => setStatus(value as QuoteStatusFilter)}>
             <div className="overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               <TabsList className="inline-flex h-auto min-w-max items-center gap-1 rounded-lg border border-border/80 bg-muted/10 p-1 shadow-xs">
-                <TabsTrigger value="all" className="min-h-6 rounded-md border border-transparent px-3 py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">{t.tabAll}</TabsTrigger>
-                <TabsTrigger value="draft" className="min-h-6 rounded-md border border-border/80 px-3 py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">{t.tabDraft}</TabsTrigger>
-                <TabsTrigger value="sent" className="min-h-6 rounded-md border border-border/80 px-3 py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">{t.tabSent}</TabsTrigger>
+                <TabsTrigger value="all" className="min-h-6 rounded-md border border-transparent px-3 py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
+                  <span>{t.tabAll}</span>
+                  <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-slate-600 px-1.5 text-[10px] font-semibold leading-none text-white shadow-sm">
+                    {allCount > 99 ? '99+' : allCount}
+                  </span>
+                </TabsTrigger>
+                <TabsTrigger value="draft" className="min-h-6 rounded-md border border-border/80 px-3 py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
+                  <span>{t.tabDraft}</span>
+                  <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-slate-500 px-1.5 text-[10px] font-semibold leading-none text-white shadow-sm">
+                    {draftCount > 99 ? '99+' : draftCount}
+                  </span>
+                </TabsTrigger>
+                <TabsTrigger value="sent" className="min-h-6 rounded-md border border-border/80 px-3 py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
+                  <span>{t.tabSent}</span>
+                  <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-sky-600 px-1.5 text-[10px] font-semibold leading-none text-white shadow-sm">
+                    {sentCount > 99 ? '99+' : sentCount}
+                  </span>
+                </TabsTrigger>
                 <TabsTrigger value="accepted" className="min-h-6 rounded-md border border-border/80 px-3 py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
                   <span>{t.tabAccepted}</span>
-                  {acceptedCount > 0 ? (
-                    <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-green-600 px-1.5 text-[10px] font-semibold leading-none text-white shadow-sm">
-                      {acceptedCount > 99 ? '99+' : acceptedCount}
-                    </span>
-                  ) : null}
+                  <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-green-600 px-1.5 text-[10px] font-semibold leading-none text-white shadow-sm">
+                    {acceptedCount > 99 ? '99+' : acceptedCount}
+                  </span>
                 </TabsTrigger>
                 <TabsTrigger value="rejected" className="min-h-6 rounded-md border border-border/80 px-3 py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
                   <span>{t.tabRejected}</span>
-                  {rejectedCount > 0 ? (
-                    <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-orange-600 px-1.5 text-[10px] font-semibold leading-none text-white shadow-sm">
-                      {rejectedCount > 99 ? '99+' : rejectedCount}
-                    </span>
-                  ) : null}
+                  <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-orange-600 px-1.5 text-[10px] font-semibold leading-none text-white shadow-sm">
+                    {rejectedCount > 99 ? '99+' : rejectedCount}
+                  </span>
                 </TabsTrigger>
               </TabsList>
             </div>
@@ -421,6 +434,7 @@ function QuotesPageContent() {
                 downloadPdf: t.downloadPdf,
                 lockEdit: t.lockEdit,
                 send: t.send,
+                sendForSignature: t.sendForSignature,
                 history: t.history,
               }}
               locale={locale as 'en' | 'fr'}
