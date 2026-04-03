@@ -100,12 +100,12 @@ const InvoiceSchema = new mongoose.Schema(
     quoteId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Quote",
-      required: true,
+      default: null,
       index: true,
     },
     quoteNumber: {
       type: String,
-      required: true,
+      default: null,
       trim: true,
     },
     date: {

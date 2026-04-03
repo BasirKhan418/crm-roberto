@@ -1,82 +1,457 @@
-import React from 'react';
-import { Document, Page, StyleSheet, Text, View } from '@react-pdf/renderer';
+import { Document, Image, Link, Page, StyleSheet, Text, View } from '@react-pdf/renderer';
+
+interface InvoiceCompanyData {
+  companyName?: string | null;
+  ownerName?: string | null;
+  address?: string | null;
+  phone?: string | null;
+  businessEmail?: string | null;
+  vatNumber?: string | null;
+  logoUrl?: string | null;
+}
+
+interface InvoiceLineItem {
+  name: string;
+  quantity: number;
+  baseUnitPriceExcludingTax: number;
+  discountPercentage: number;
+  discountAmountExcludingTax: number;
+  vatRate: number;
+  totalExcludingTax: number;
+}
+
+interface InvoicePaymentItem {
+  amount: number;
+  method: string;
+  type: 'deposit' | 'full' | 'remaining_balance';
+  paidAt?: string | Date | null;
+  createdAt?: string | Date | null;
+}
+
+interface InvoiceData {
+  invoiceNumber: string;
+  quoteNumber?: string | null;
+  date: string | Date;
+  dueDate?: string | Date | null;
+  clientSnapshot: {
+    fullName: string;
+    companyName?: string | null;
+    address?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    vatNumber?: string | null;
+  };
+  lineItems: InvoiceLineItem[];
+  totalExcludingTaxBeforeDiscount: number;
+  totalDiscountExcludingTax: number;
+  totalExcludingTax: number;
+  totalVat: number;
+  totalIncludingTax: number;
+  depositPercentage?: number;
+  notes?: string | null;
+  payments?: InvoicePaymentItem[];
+}
 
 interface InvoicePdfTemplateProps {
-  invoiceNumber: string;
-  quoteNumber: string;
-  clientName: string;
-  companyName: string;
-  date: Date | string;
-  dueDate?: Date | string | null;
-  amountIncludingTax: number;
+  invoice: InvoiceData;
+  company: InvoiceCompanyData | null;
+  paymentUrl?: string | null;
   locale?: 'en' | 'fr';
 }
 
+const translations = {
+  en: {
+    invoice: 'INVOICE',
+    date: 'Date',
+    dueDate: 'Due date',
+    dueInline: 'Due',
+    issuerInfo: 'Issuer',
+    clientInfo: 'Client',
+    name: 'Name',
+    company: 'Company',
+    phone: 'Phone',
+    email: 'Email',
+    address: 'Address',
+    vat: 'VAT',
+    lineItems: 'Services / Products',
+    colDesc: 'Description',
+    colQty: 'Qty',
+    colUnit: 'Unit excl.',
+    colDiscount: 'Discount',
+    colVat: 'VAT %',
+    colTotal: 'Total HT',
+    totalExcl: 'Total excl. tax',
+    totalDiscount: 'Discount',
+    totalNet: 'Total excl. tax (net)',
+    totalVat: 'VAT',
+    totalIncl: 'Total incl. tax',
+    paymentSummary: 'Payment summary',
+    depositDue: 'Deposit due',
+    remaining: 'Remaining',
+    paymentLink: 'Online payment link',
+    paymentHistory: 'Payment history',
+    paymentDate: 'Date',
+    paymentMethod: 'Method',
+    paymentType: 'Type',
+    paymentAmount: 'Amount',
+    paymentTypeDeposit: 'Deposit',
+    paymentTypeFull: 'Full',
+    paymentTypeRemaining: 'Remaining balance',
+    notes: 'Notes',
+    noLogo: 'NO LOGO',
+  },
+  fr: {
+    invoice: 'FACTURE',
+    date: 'Date',
+    dueDate: 'Echeance',
+    dueInline: 'Echeance',
+    issuerInfo: 'Emetteur',
+    clientInfo: 'Client',
+    name: 'Nom',
+    company: 'Societe',
+    phone: 'Telephone',
+    email: 'E-mail',
+    address: 'Adresse',
+    vat: 'TVA',
+    lineItems: 'Prestations / Produits',
+    colDesc: 'Description',
+    colQty: 'Qte',
+    colUnit: 'Unitaire HT',
+    colDiscount: 'Remise',
+    colVat: 'TVA %',
+    colTotal: 'Total HT',
+    totalExcl: 'Total HT',
+    totalDiscount: 'Remise',
+    totalNet: 'Total HT (net)',
+    totalVat: 'TVA',
+    totalIncl: 'Total TTC',
+    paymentSummary: 'Resume paiement',
+    depositDue: 'Acompte a payer',
+    remaining: 'Reste a payer',
+    paymentLink: 'Lien de paiement en ligne',
+    paymentHistory: 'Historique des paiements',
+    paymentDate: 'Date',
+    paymentMethod: 'Methode',
+    paymentType: 'Type',
+    paymentAmount: 'Montant',
+    paymentTypeDeposit: 'Acompte',
+    paymentTypeFull: 'Complet',
+    paymentTypeRemaining: 'Solde restant',
+    notes: 'Notes',
+    noLogo: 'SANS LOGO',
+  },
+} as const;
+
 const styles = StyleSheet.create({
   page: {
-    padding: 36,
-    fontSize: 11,
-    color: '#0f172a',
     fontFamily: 'Helvetica',
-  },
-  header: {
-    marginBottom: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#cbd5e1',
-    paddingBottom: 12,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 700,
-    marginBottom: 4,
-  },
-  subtitle: {
     fontSize: 10,
-    color: '#475569',
+    color: '#0f172a',
+    paddingTop: 30,
+    paddingBottom: 34,
+    paddingHorizontal: 38,
+    backgroundColor: '#ffffff',
   },
-  section: {
-    marginTop: 16,
+  topHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 16,
+    marginBottom: 12,
+  },
+  logo: {
+    width: 68,
+    height: 68,
+    objectFit: 'contain',
     borderWidth: 1,
     borderColor: '#e2e8f0',
-    padding: 12,
+    borderRadius: 6,
+    padding: 4,
   },
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  logoPlaceholder: {
+    width: 68,
+    height: 68,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+    color: '#94a3b8',
+    fontSize: 9,
+  },
+  identityCard: {
+    width: '50%',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    backgroundColor: '#f8fafc',
+  },
+  identityTitle: {
+    fontSize: 9,
+    letterSpacing: 1.5,
+    color: '#475569',
+    marginBottom: 2,
+  },
+  identityNumber: {
+    fontSize: 20,
+    fontWeight: 700,
+    color: '#0b1f5d',
     marginBottom: 6,
   },
+  identityMetaRow: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+  identityMetaCol: {
+    flex: 1,
+    gap: 2,
+  },
   label: {
-    color: '#475569',
+    fontSize: 8,
+    color: '#64748b',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
   },
   value: {
-    fontWeight: 600,
+    fontSize: 10,
+    color: '#0f172a',
   },
-  total: {
-    marginTop: 6,
-    borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
-    paddingTop: 10,
+  section: {
+    marginBottom: 10,
+  },
+  sectionTitle: {
+    fontSize: 9,
+    fontWeight: 700,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    color: '#334155',
+    marginBottom: 6,
+  },
+  partyRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  partyBox: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    backgroundColor: '#ffffff',
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+    paddingVertical: 3,
+    gap: 10,
+  },
+  infoRowLast: {
+    borderBottomWidth: 0,
+  },
+  infoKey: {
+    width: '32%',
+    color: '#64748b',
+    fontSize: 9,
+  },
+  infoValue: {
+    width: '68%',
+    textAlign: 'right',
+    color: '#0f172a',
+    fontSize: 10,
+  },
+  table: {
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  tableHeader: {
+    flexDirection: 'row',
+    backgroundColor: '#e2e8f0',
+    borderBottomWidth: 1,
+    borderBottomColor: '#cbd5e1',
+    minHeight: 22,
+    alignItems: 'center',
+  },
+  tableRow: {
+    flexDirection: 'row',
+    minHeight: 22,
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
+  rowAlt: {
+    backgroundColor: '#f8fafc',
+  },
+  rowLast: {
+    borderBottomWidth: 0,
+  },
+  cell: {
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    fontSize: 9,
+  },
+  colDesc: { width: '30%' },
+  colQty: { width: '8%' },
+  colUnit: { width: '14%' },
+  colDiscount: { width: '20%' },
+  colVat: { width: '8%' },
+  colTotal: { width: '20%' },
+  right: {
+    textAlign: 'right',
+  },
+  totalsSection: {
+    marginTop: 8,
+    alignSelf: 'flex-end',
+    width: '48%',
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  totalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+    backgroundColor: '#ffffff',
+  },
+  grandTotal: {
+    backgroundColor: '#eef2ff',
+    borderBottomWidth: 0,
   },
   totalLabel: {
-    fontSize: 12,
-    fontWeight: 700,
+    color: '#334155',
+    fontSize: 9,
   },
   totalValue: {
-    fontSize: 12,
+    color: '#0f172a',
+    fontSize: 10,
     fontWeight: 700,
+  },
+  paymentBox: {
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    backgroundColor: '#f8fafc',
+  },
+  paymentRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  paymentLink: {
+    marginTop: 5,
+    color: '#1d4ed8',
+    fontSize: 9,
+    textDecoration: 'underline',
+  },
+  paymentHistorySection: {
+    marginTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#dbe4ef',
+    paddingTop: 6,
+  },
+  paymentHistoryHeader: {
+    flexDirection: 'row',
+    backgroundColor: '#e9eef5',
+    borderWidth: 1,
+    borderColor: '#d3dde9',
+    borderBottomWidth: 0,
+  },
+  paymentHistoryRow: {
+    flexDirection: 'row',
+    borderWidth: 1,
+    borderColor: '#d3dde9',
+    borderTopWidth: 0,
+    backgroundColor: '#ffffff',
+  },
+  paymentCell: {
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    fontSize: 8,
+  },
+  payColDate: { width: '30%' },
+  payColMethod: { width: '30%' },
+  payColType: { width: '20%' },
+  payColAmount: { width: '20%' },
+  notesBox: {
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 8,
+    padding: 8,
+    lineHeight: 1.4,
+    fontSize: 9,
+    color: '#334155',
+  },
+  notesText: {
+    lineHeight: 1.4,
   },
 });
 
-function formatDate(value: Date | string | null | undefined, locale: 'en' | 'fr'): string {
-  if (!value) {
-    return '--';
+function notEmpty(value?: string | null): string {
+  return value && value.trim() ? value : '-';
+}
+
+function formatDate(dateValue: string | Date | null | undefined): string {
+  if (!dateValue) {
+    return '-';
   }
 
-  const date = new Date(value);
-  if (!Number.isFinite(date.getTime())) {
-    return '--';
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) {
+    return '-';
+  }
+
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = String(date.getFullYear());
+  return `${day}/${month}/${year}`;
+}
+
+function formatLongDate(dateValue: string | Date | null | undefined, locale: 'en' | 'fr'): string {
+  if (!dateValue) {
+    return '-';
+  }
+
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) {
+    return '-';
+  }
+
+  return date.toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-GB', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
+function formatPrice(cents: number): string {
+  const value = (cents || 0) / 100;
+  const [intPart, decPart] = value.toFixed(2).split('.');
+  const intFormatted = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  return `${intFormatted},${decPart} €`;
+}
+
+function formatDateTime(dateValue: string | Date | null | undefined, locale: 'en' | 'fr'): string {
+  if (!dateValue) {
+    return '-';
+  }
+
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) {
+    return '-';
   }
 
   return date.toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-GB', {
@@ -86,80 +461,209 @@ function formatDate(value: Date | string | null | undefined, locale: 'en' | 'fr'
   });
 }
 
-function formatAmount(cents: number, locale: 'en' | 'fr'): string {
-  return new Intl.NumberFormat(locale === 'fr' ? 'fr-FR' : 'en-GB', {
-    style: 'currency',
-    currency: 'EUR',
-  }).format(cents / 100);
+function paymentTypeLabel(type: InvoicePaymentItem['type'], localeText: (typeof translations)['en'] | (typeof translations)['fr']) {
+  if (type === 'deposit') {
+    return localeText.paymentTypeDeposit;
+  }
+  if (type === 'remaining_balance') {
+    return localeText.paymentTypeRemaining;
+  }
+  return localeText.paymentTypeFull;
 }
 
-export function InvoicePdfTemplate({
-  invoiceNumber,
-  quoteNumber,
-  clientName,
-  companyName,
-  date,
-  dueDate,
-  amountIncludingTax,
-  locale = 'en',
-}: InvoicePdfTemplateProps) {
-  const t = locale === 'fr'
-    ? {
-        title: 'Facture',
-        issuedBy: 'Emise par',
-        client: 'Client',
-        invoiceNumber: 'Numero facture',
-        quoteRef: 'Reference devis',
-        date: 'Date',
-        dueDate: 'Echeance',
-        total: 'Total TTC',
-      }
-    : {
-        title: 'Invoice',
-        issuedBy: 'Issued by',
-        client: 'Client',
-        invoiceNumber: 'Invoice number',
-        quoteRef: 'Quote reference',
-        date: 'Date',
-        dueDate: 'Due date',
-        total: 'Total incl. tax',
-      };
+export function InvoicePdfTemplate({ invoice, company, paymentUrl = null, locale = 'en' }: InvoicePdfTemplateProps) {
+  const t = translations[locale];
+  const depositPercentage = Math.max(0, Math.min(100, Math.round(invoice.depositPercentage ?? 100)));
+  const depositAmount = Math.round(invoice.totalIncludingTax * (depositPercentage / 100));
+  const remainingAmount = Math.max(0, invoice.totalIncludingTax - depositAmount);
+  const payments = invoice.payments ?? [];
 
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        <View style={styles.header}>
-          <Text style={styles.title}>{t.title}</Text>
-          <Text style={styles.subtitle}>{t.issuedBy}: {companyName || 'CRM'}</Text>
+        <View style={styles.topHeader}>
+          {company?.logoUrl ? (
+            // eslint-disable-next-line jsx-a11y/alt-text
+            <Image style={styles.logo} src={company.logoUrl} />
+          ) : (
+            <View style={styles.logoPlaceholder}>
+              <Text>{t.noLogo}</Text>
+            </View>
+          )}
+
+          <View style={styles.identityCard}>
+            <Text style={styles.identityTitle}>{t.invoice}</Text>
+            <Text style={styles.identityNumber}>{invoice.invoiceNumber}</Text>
+            <View style={styles.identityMetaRow}>
+              <View style={styles.identityMetaCol}>
+                <Text style={styles.label}>{t.date}</Text>
+                <Text style={styles.value}>{formatDate(invoice.date)}</Text>
+              </View>
+              <View style={styles.identityMetaCol}>
+                <Text style={styles.label}>{t.dueDate}</Text>
+                <Text style={styles.value}>{invoice.dueDate ? `${t.dueInline}: ${formatLongDate(invoice.dueDate, locale)}` : '-'}</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.section} wrap={false}>
+          <View style={styles.partyRow}>
+            <View style={styles.partyBox}>
+              <Text style={styles.sectionTitle}>{t.issuerInfo}</Text>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoKey}>{t.company}</Text>
+                <Text style={styles.infoValue}>{notEmpty(company?.companyName || company?.ownerName)}</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoKey}>{t.address}</Text>
+                <Text style={styles.infoValue}>{notEmpty(company?.address)}</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoKey}>{t.phone}</Text>
+                <Text style={styles.infoValue}>{notEmpty(company?.phone)}</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoKey}>{t.email}</Text>
+                <Text style={styles.infoValue}>{notEmpty(company?.businessEmail)}</Text>
+              </View>
+              <View style={[styles.infoRow, styles.infoRowLast]}>
+                <Text style={styles.infoKey}>{t.vat}</Text>
+                <Text style={styles.infoValue}>{notEmpty(company?.vatNumber)}</Text>
+              </View>
+            </View>
+
+            <View style={styles.partyBox}>
+              <Text style={styles.sectionTitle}>{t.clientInfo}</Text>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoKey}>{t.name}</Text>
+                <Text style={styles.infoValue}>{notEmpty(invoice.clientSnapshot.fullName)}</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoKey}>{t.company}</Text>
+                <Text style={styles.infoValue}>{notEmpty(invoice.clientSnapshot.companyName)}</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoKey}>{t.phone}</Text>
+                <Text style={styles.infoValue}>{notEmpty(invoice.clientSnapshot.phone)}</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoKey}>{t.email}</Text>
+                <Text style={styles.infoValue}>{notEmpty(invoice.clientSnapshot.email)}</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoKey}>{t.address}</Text>
+                <Text style={styles.infoValue}>{notEmpty(invoice.clientSnapshot.address)}</Text>
+              </View>
+              <View style={[styles.infoRow, styles.infoRowLast]}>
+                <Text style={styles.infoKey}>{t.vat}</Text>
+                <Text style={styles.infoValue}>{notEmpty(invoice.clientSnapshot.vatNumber)}</Text>
+              </View>
+            </View>
+          </View>
         </View>
 
         <View style={styles.section}>
-          <View style={styles.row}>
-            <Text style={styles.label}>{t.client}</Text>
-            <Text style={styles.value}>{clientName || '--'}</Text>
-          </View>
-          <View style={styles.row}>
-            <Text style={styles.label}>{t.invoiceNumber}</Text>
-            <Text style={styles.value}>{invoiceNumber}</Text>
-          </View>
-          <View style={styles.row}>
-            <Text style={styles.label}>{t.quoteRef}</Text>
-            <Text style={styles.value}>{quoteNumber}</Text>
-          </View>
-          <View style={styles.row}>
-            <Text style={styles.label}>{t.date}</Text>
-            <Text style={styles.value}>{formatDate(date, locale)}</Text>
-          </View>
-          <View style={styles.row}>
-            <Text style={styles.label}>{t.dueDate}</Text>
-            <Text style={styles.value}>{formatDate(dueDate, locale)}</Text>
-          </View>
+          <Text style={styles.sectionTitle}>{t.lineItems}</Text>
+          <View style={styles.table}>
+            <View style={styles.tableHeader} fixed>
+              <Text style={[styles.cell, styles.colDesc]}>{t.colDesc}</Text>
+              <Text style={[styles.cell, styles.colQty, styles.right]}>{t.colQty}</Text>
+              <Text style={[styles.cell, styles.colUnit, styles.right]}>{t.colUnit}</Text>
+              <Text style={[styles.cell, styles.colDiscount, styles.right]}>{t.colDiscount}</Text>
+              <Text style={[styles.cell, styles.colVat, styles.right]}>{t.colVat}</Text>
+              <Text style={[styles.cell, styles.colTotal, styles.right]}>{t.colTotal}</Text>
+            </View>
 
-          <View style={styles.total}>
-            <Text style={styles.totalLabel}>{t.total}</Text>
-            <Text style={styles.totalValue}>{formatAmount(amountIncludingTax, locale)}</Text>
+            {invoice.lineItems.map((item, index) => (
+              <View
+                key={`${item.name}-${index}`}
+                wrap={false}
+                style={[
+                  styles.tableRow,
+                  ...(index % 2 === 1 ? [styles.rowAlt] : []),
+                  ...(index === invoice.lineItems.length - 1 ? [styles.rowLast] : []),
+                ]}
+              >
+                <Text style={[styles.cell, styles.colDesc]}>{item.name}</Text>
+                <Text style={[styles.cell, styles.colQty, styles.right]}>{item.quantity}</Text>
+                <Text style={[styles.cell, styles.colUnit, styles.right]}>{formatPrice(item.baseUnitPriceExcludingTax)}</Text>
+                <Text style={[styles.cell, styles.colDiscount, styles.right]}>
+                  {item.discountAmountExcludingTax > 0
+                    ? `${item.discountPercentage.toFixed(2)}% (- ${formatPrice(item.discountAmountExcludingTax)})`
+                    : '-'}
+                </Text>
+                <Text style={[styles.cell, styles.colVat, styles.right]}>{item.vatRate}%</Text>
+                <Text style={[styles.cell, styles.colTotal, styles.right]}>{formatPrice(item.totalExcludingTax)}</Text>
+              </View>
+            ))}
           </View>
         </View>
+
+        <View style={styles.totalsSection} wrap={false}>
+          <View style={styles.totalRow}>
+            <Text style={styles.totalLabel}>{t.totalExcl}</Text>
+            <Text style={styles.totalValue}>{formatPrice(invoice.totalExcludingTaxBeforeDiscount)}</Text>
+          </View>
+          <View style={styles.totalRow}>
+            <Text style={styles.totalLabel}>{t.totalDiscount}</Text>
+            <Text style={styles.totalValue}>- {formatPrice(invoice.totalDiscountExcludingTax)}</Text>
+          </View>
+          <View style={styles.totalRow}>
+            <Text style={styles.totalLabel}>{t.totalNet}</Text>
+            <Text style={styles.totalValue}>{formatPrice(invoice.totalExcludingTax)}</Text>
+          </View>
+          <View style={styles.totalRow}>
+            <Text style={styles.totalLabel}>{t.totalVat}</Text>
+            <Text style={styles.totalValue}>{formatPrice(invoice.totalVat)}</Text>
+          </View>
+          <View style={[styles.totalRow, styles.grandTotal]}>
+            <Text style={styles.totalLabel}>{t.totalIncl}</Text>
+            <Text style={styles.totalValue}>{formatPrice(invoice.totalIncludingTax)}</Text>
+          </View>
+        </View>
+
+        <View style={styles.paymentBox} wrap={false}>
+          <Text style={styles.sectionTitle}>{t.paymentSummary}</Text>
+          <View style={styles.paymentRow}>
+            <Text style={styles.value}>{t.depositDue}</Text>
+            <Text style={styles.value}>{formatPrice(depositAmount)}</Text>
+          </View>
+          <View style={styles.paymentRow}>
+            <Text style={styles.value}>{t.remaining}</Text>
+            <Text style={styles.value}>{formatPrice(remainingAmount)}</Text>
+          </View>
+          {paymentUrl ? <Link src={paymentUrl} style={styles.paymentLink}>{t.paymentLink}</Link> : null}
+
+          {payments.length > 0 ? (
+            <View style={styles.paymentHistorySection}>
+              <Text style={styles.sectionTitle}>{t.paymentHistory}</Text>
+              <View style={styles.paymentHistoryHeader}>
+                <Text style={[styles.paymentCell, styles.payColDate]}>{t.paymentDate}</Text>
+                <Text style={[styles.paymentCell, styles.payColMethod]}>{t.paymentMethod}</Text>
+                <Text style={[styles.paymentCell, styles.payColType]}>{t.paymentType}</Text>
+                <Text style={[styles.paymentCell, styles.payColAmount, styles.right]}>{t.paymentAmount}</Text>
+              </View>
+              {payments.map((payment, index) => (
+                <View key={`${payment.method}-${payment.amount}-${index}`} style={styles.paymentHistoryRow}>
+                  <Text style={[styles.paymentCell, styles.payColDate]}>{formatDateTime(payment.paidAt ?? payment.createdAt, locale)}</Text>
+                  <Text style={[styles.paymentCell, styles.payColMethod]}>{payment.method || '-'}</Text>
+                  <Text style={[styles.paymentCell, styles.payColType]}>{paymentTypeLabel(payment.type, t)}</Text>
+                  <Text style={[styles.paymentCell, styles.payColAmount, styles.right]}>{formatPrice(payment.amount)}</Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
+        </View>
+
+        {invoice.notes ? (
+          <View style={styles.section} wrap={false}>
+            <Text style={styles.sectionTitle}>{t.notes}</Text>
+            <Text style={styles.notesBox}>
+              <Text style={styles.notesText}>{invoice.notes}</Text>
+            </Text>
+          </View>
+        ) : null}
       </Page>
     </Document>
   );

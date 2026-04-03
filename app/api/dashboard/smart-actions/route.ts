@@ -381,7 +381,9 @@ async function sendInvoiceReminder(userId: string, invoiceId: string, locale: Lo
   }
 
   const invoice = await Invoice.findOne({ _id: invoiceId, userId: toObjectId(userId) })
-    .select('_id invoiceNumber quoteNumber dueDate status totalIncludingTax stripePaymentLinkId clientSnapshot.fullName clientSnapshot.email')
+    .select(
+      '_id invoiceNumber quoteNumber date dueDate status lineItems totalExcludingTax totalVat totalIncludingTax depositPercentage notes stripePaymentLinkId stripeDepositLinkId clientSnapshot'
+    )
     .lean();
 
   if (!invoice) {
@@ -391,14 +393,33 @@ async function sendInvoiceReminder(userId: string, invoiceId: string, locale: Lo
   const invoiceDoc = invoice as {
     _id: mongoose.Types.ObjectId;
     invoiceNumber: string;
-    quoteNumber: string;
+    quoteNumber?: string | null;
+    date?: Date | null;
     dueDate?: Date | null;
     status: string;
+    lineItems: Array<{
+      name: string;
+      quantity: number;
+      baseUnitPriceExcludingTax: number;
+      discountPercentage: number;
+      discountAmountExcludingTax: number;
+      vatRate: number;
+      totalExcludingTax: number;
+    }>;
+    totalExcludingTax: number;
+    totalVat: number;
     totalIncludingTax: number;
+    depositPercentage?: number;
+    notes?: string | null;
     stripePaymentLinkId?: string | null;
+    stripeDepositLinkId?: string | null;
     clientSnapshot: {
       fullName: string;
+      companyName?: string | null;
+      phone?: string | null;
+      address?: string | null;
       email?: string | null;
+      vatNumber?: string | null;
     };
   };
 
@@ -412,7 +433,11 @@ async function sendInvoiceReminder(userId: string, invoiceId: string, locale: Lo
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-  const paymentUrl = invoiceDoc.stripePaymentLinkId
+  const depositPercentage = typeof invoiceDoc.depositPercentage === 'number' ? invoiceDoc.depositPercentage : 100;
+  const paymentUrl = depositPercentage < 100
+    ? invoiceDoc.stripeDepositLinkId
+    : invoiceDoc.stripePaymentLinkId;
+  const fallbackPaymentUrl = paymentUrl
     ? `${appUrl}/invoices`
     : `${appUrl}/invoices`;
 
@@ -422,17 +447,63 @@ async function sendInvoiceReminder(userId: string, invoiceId: string, locale: Lo
   }).format(invoiceDoc.totalIncludingTax / 100);
 
   const companyResult = await getCompanyProfileByUserId(userId);
-  const profile = companyResult.success ? (companyResult.profile as { companyName?: string | null; ownerName?: string | null }) : null;
+  const profile = companyResult.success
+    ? (companyResult.profile as {
+        companyName?: string | null;
+        ownerName?: string | null;
+        address?: string | null;
+        phone?: string | null;
+        businessEmail?: string | null;
+        vatNumber?: string | null;
+        logoUrl?: string | null;
+      })
+    : null;
   const companyName = profile?.companyName || profile?.ownerName || 'CRM';
 
+  const totalExcludingTaxBeforeDiscount = invoiceDoc.lineItems.reduce(
+    (sum, item) => sum + item.baseUnitPriceExcludingTax * item.quantity,
+    0
+  );
+  const totalDiscountExcludingTax = invoiceDoc.lineItems.reduce(
+    (sum, item) => sum + item.discountAmountExcludingTax,
+    0
+  );
+
   const invoicePdf = React.createElement(InvoicePdfTemplate, {
-    invoiceNumber: invoiceDoc.invoiceNumber,
-    quoteNumber: invoiceDoc.quoteNumber,
-    clientName: invoiceDoc.clientSnapshot.fullName,
-    companyName,
-    date: new Date(),
-    dueDate: invoiceDoc.dueDate ?? null,
-    amountIncludingTax: invoiceDoc.totalIncludingTax,
+    invoice: {
+      invoiceNumber: invoiceDoc.invoiceNumber,
+      quoteNumber: invoiceDoc.quoteNumber ?? null,
+      date: invoiceDoc.date ?? new Date(),
+      dueDate: invoiceDoc.dueDate ?? null,
+      clientSnapshot: {
+        fullName: invoiceDoc.clientSnapshot.fullName,
+        companyName: invoiceDoc.clientSnapshot.companyName ?? null,
+        address: invoiceDoc.clientSnapshot.address ?? null,
+        email: invoiceDoc.clientSnapshot.email ?? null,
+        phone: invoiceDoc.clientSnapshot.phone ?? null,
+        vatNumber: invoiceDoc.clientSnapshot.vatNumber ?? null,
+      },
+      lineItems: invoiceDoc.lineItems,
+      totalExcludingTaxBeforeDiscount,
+      totalDiscountExcludingTax,
+      totalExcludingTax: invoiceDoc.totalExcludingTax,
+      totalVat: invoiceDoc.totalVat,
+      totalIncludingTax: invoiceDoc.totalIncludingTax,
+      depositPercentage,
+      notes: invoiceDoc.notes ?? null,
+    },
+    company: profile
+      ? {
+          companyName: profile.companyName ?? profile.ownerName ?? 'CRM',
+          ownerName: profile.ownerName ?? null,
+          address: profile.address ?? null,
+          phone: profile.phone ?? null,
+          businessEmail: profile.businessEmail ?? null,
+          vatNumber: profile.vatNumber ?? null,
+          logoUrl: profile.logoUrl ?? null,
+        }
+      : null,
+    paymentUrl: fallbackPaymentUrl,
     locale,
   }) as unknown as React.ReactElement<DocumentProps>;
 
@@ -442,7 +513,7 @@ async function sendInvoiceReminder(userId: string, invoiceId: string, locale: Lo
     to: recipient,
     clientName: invoiceDoc.clientSnapshot.fullName,
     invoiceNumber: invoiceDoc.invoiceNumber,
-    paymentUrl,
+    paymentUrl: fallbackPaymentUrl,
     amount,
     companyName,
     pdfBuffer,

@@ -54,3 +54,15 @@ export function nextQuoteNumber(lastNumber: string | null): string {
   const counter = parseInt(lastNumber.slice(prefix.length), 10);
   return `${prefix}${String((Number.isFinite(counter) ? counter : 0) + 1).padStart(3, '0')}`;
 }
+
+export function nextInvoiceNumber(lastNumber: string | null, year?: number): string {
+  const y = year ?? new Date().getFullYear();
+  const prefix = `INV-${y}-`;
+
+  if (!lastNumber || !lastNumber.startsWith(prefix)) {
+    return `${prefix}001`;
+  }
+
+  const num = parseInt(lastNumber.split('-')[2], 10);
+  return `${prefix}${String((Number.isFinite(num) ? num : 0) + 1).padStart(3, '0')}`;
+}

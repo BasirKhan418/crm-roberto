@@ -33,6 +33,8 @@ interface SendInvoiceParams extends BaseSendParams {
   paymentUrl: string;
   amount: string;
   locale?: TranslationLocale;
+  subject?: string;
+  messageBody?: string;
 }
 
 interface SendQuoteEmailParams extends BaseSendParams {
@@ -393,12 +395,18 @@ export async function sendInvoice({
   companyName,
   pdfBuffer,
   locale = 'en',
+  subject,
+  messageBody,
 }: SendInvoiceParams) {
-  const subject = translate(locale, 'email.sendInvoice.subject', { invoiceNumber, amount });
-  const messageBody = translate(locale, 'email.sendInvoice.messageBody');
+  const resolvedSubject = subject?.trim()
+    ? subject.trim()
+    : translate(locale, 'email.sendInvoice.subject', { invoiceNumber, amount });
+  const resolvedMessageBody = messageBody?.trim()
+    ? messageBody.trim()
+    : translate(locale, 'email.sendInvoice.messageBody');
 
   const html = buildDocumentEmailTemplate({
-    subject,
+    subject: resolvedSubject,
     companyName,
     clientName,
     documentLabel: translate(locale, 'email.sendInvoice.documentLabel'),
@@ -407,22 +415,23 @@ export async function sendInvoice({
       { label: translate(locale, 'email.sendInvoice.amountDue'), value: amount },
       { label: translate(locale, 'email.sendInvoice.payment'), value: translate(locale, 'email.sendInvoice.onlineCheckout') },
     ],
-    messageBody,
+    messageBody: resolvedMessageBody,
     locale,
     ctaLabel: translate(locale, 'email.sendInvoice.ctaLabel'),
     ctaUrl: paymentUrl,
   });
 
-  const text = translate(locale, 'email.sendInvoice.textBody', {
-    name: clientName,
-    invoiceNumber,
-    amount,
-    paymentUrl,
-  });
+  const text = [
+    resolvedMessageBody,
+    '',
+    translate(locale, 'email.sendInvoice.documentLabel') + ` ${invoiceNumber}`,
+    `${translate(locale, 'email.sendInvoice.amountDue')}: ${amount}`,
+    `${translate(locale, 'email.sendInvoice.ctaLabel')}: ${paymentUrl}`,
+  ].join('\n');
 
   return sendDocumentEmail({
     to,
-    subject,
+    subject: resolvedSubject,
     html,
     text,
     companyName,
