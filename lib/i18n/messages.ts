@@ -192,6 +192,12 @@ const messages = {
         commentLabel: 'Comment',
         ctaLabel: 'View quote',
       },
+      rejectionReply: {
+        subject: 'Update on your quote {quoteNumber}',
+        documentLabel: 'Quote',
+        ctaLabel: 'View updated quote',
+        ctaNote: 'Use the secure link above to view the latest version of your quote once it is resent.',
+      },
       paymentReceipt: {
         subject: 'Payment receipt - {invoiceNumber}',
         documentLabel: 'Payment receipt',
@@ -392,6 +398,12 @@ const messages = {
         actionRejected: 'Refuse',
         commentLabel: 'Commentaire',
         ctaLabel: 'Voir le devis',
+      },
+      rejectionReply: {
+        subject: 'Mise a jour de votre devis {quoteNumber}',
+        documentLabel: 'Devis',
+        ctaLabel: 'Voir le devis mis a jour',
+        ctaNote: 'Utilisez le lien securise ci-dessus pour consulter la derniere version de votre devis une fois qu il sera renvoye.',
       },
       paymentReceipt: {
         subject: 'Recu de paiement - {invoiceNumber}',

@@ -491,6 +491,52 @@ export async function sendQuoteRejectionNotification({
   });
 }
 
+export async function sendRejectionReplyToClient({
+  to,
+  clientName,
+  companyName,
+  quoteNumber,
+  messageBody,
+  quoteAdminUrl,
+  locale = 'en',
+}: {
+  to: string;
+  clientName: string;
+  companyName: string;
+  quoteNumber: string;
+  messageBody: string;
+  quoteAdminUrl?: string;
+  locale?: TranslationLocale;
+}) {
+  const subject = translate(locale, 'email.rejectionReply.subject', { quoteNumber });
+
+  const html = buildDocumentEmailTemplate({
+    subject,
+    companyName,
+    clientName,
+    documentLabel: translate(locale, 'email.rejectionReply.documentLabel'),
+    documentNumber: quoteNumber,
+    details: [],
+    messageBody,
+    ...(quoteAdminUrl ? {
+      ctaLabel: translate(locale, 'email.rejectionReply.ctaLabel'),
+      ctaUrl: quoteAdminUrl,
+    } : {}),
+    locale,
+  });
+
+  const text = messageBody;
+
+  return sendDocumentEmail({
+    to,
+    subject,
+    html,
+    text,
+    companyName,
+    attachmentFilename: `${quoteNumber}.pdf`,
+  });
+}
+
 export async function sendPaymentReceipt({
   to,
   clientName,

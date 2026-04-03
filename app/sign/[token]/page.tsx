@@ -162,6 +162,7 @@ const signMessages = {
     addSignatureToContinue: 'Add your signature to continue',
     rejectQuoteAction: 'I want to reject this quote',
     rejectQuoteBadge: 'Reject quote',
+    contestLabel: 'Contest',
     rejectQuoteTitle: 'Are you sure you want to reject this quote?',
     rejectQuoteDescription: (companyName: string) =>
       `${companyName} will be notified and can send you an updated version. You can optionally explain what you would like changed.`,
@@ -264,6 +265,7 @@ const signMessages = {
     addSignatureToContinue: 'Ajoutez votre signature pour continuer',
     rejectQuoteAction: 'Je souhaite refuser ce devis',
     rejectQuoteBadge: 'Refuser le devis',
+    contestLabel: 'Contester',
     rejectQuoteTitle: 'Voulez-vous vraiment refuser ce devis ?',
     rejectQuoteDescription: (companyName: string) =>
       `${companyName} sera informe et pourra vous envoyer une version mise a jour. Vous pouvez expliquer en option ce que vous souhaitez modifier.`,
@@ -737,17 +739,6 @@ export default function SignPage() {
                       <p className="mt-2 text-xs leading-5 text-slate-600 sm:mt-3 sm:text-sm sm:leading-6 md:text-base">
                         {t.reviewAndSignDescription}
                       </p>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setConfirmRejectIntent(false);
-                          setShowRejectDialog(true);
-                        }}
-                        disabled={isSigning}
-                        className="mt-3 inline-flex h-9 items-center justify-center rounded-full border border-red-300 bg-red-50 px-3.5 text-xs font-semibold text-red-800 transition hover:border-red-400 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50 sm:mt-4 sm:h-10 sm:px-4 sm:text-sm"
-                      >
-                          {t.rejectQuoteAction}
-                      </button>
                     </div>
                   </div>
 
@@ -834,11 +825,12 @@ export default function SignPage() {
                       {t.signatureConsent}
                     </p>
 
+                    <div className="mt-4 flex flex-col gap-2.5 sm:mt-5 sm:flex-row">
                     <button
                       type="button"
                       onClick={handleSign}
                       disabled={isSigning || !signatureDataUrl}
-                      className="mt-4 h-11 w-full rounded-xl bg-white px-4 text-[13px] font-semibold text-slate-950 transition active:scale-[0.98] hover:bg-slate-100 disabled:cursor-not-allowed disabled:bg-white/40 disabled:text-slate-500 sm:mt-5 sm:h-12 sm:rounded-2xl sm:text-sm"
+                      className="h-11 w-full rounded-xl bg-white px-4 text-[13px] font-semibold text-slate-950 transition active:scale-[0.98] hover:bg-slate-100 disabled:cursor-not-allowed disabled:bg-white/40 disabled:text-slate-500 sm:h-12 sm:flex-1 sm:rounded-2xl sm:text-sm"
                     >
                       {isSigning
                         ? t.recordingSignature
@@ -854,10 +846,11 @@ export default function SignPage() {
                         setShowRejectDialog(true);
                       }}
                       disabled={isSigning}
-                      className="mt-3 h-11 w-full rounded-xl border border-red-300 bg-red-500/10 px-4 text-[12px] font-semibold text-red-100 transition hover:border-red-200 hover:bg-red-500/20 hover:text-white active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:mt-4 sm:h-11 sm:rounded-2xl sm:text-sm"
+                      className="h-11 w-full rounded-xl bg-red-600 px-4 text-[13px] font-semibold text-white transition hover:bg-red-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:h-11 sm:w-auto sm:rounded-2xl sm:px-5 sm:text-sm"
                     >
-                      {t.rejectQuoteAction}
+                      {t.contestLabel}
                     </button>
+                    </div>
                   </div>
                 </section>
               </div>

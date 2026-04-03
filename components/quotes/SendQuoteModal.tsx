@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 
-import { Loader2Icon, SendIcon, X } from 'lucide-react';
+import { CheckIcon, CopyIcon, Loader2Icon, SendIcon, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { resolveTranslatedError } from '@/lib/i18n/messages';
@@ -100,6 +100,31 @@ const translations = {
   },
 };
 
+function CopyLinkButton({ signUrl, copyLabel, copiedLabel }: { signUrl: string; copyLabel: string; copiedLabel: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(signUrl);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // fallback: select the input
+    }
+  }, [signUrl]);
+
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      className="shrink-0 rounded-md border border-input bg-muted px-2.5 py-1.5 text-xs font-medium text-foreground transition hover:bg-accent"
+    >
+      {copied ? <CheckIcon className="size-3.5" /> : <CopyIcon className="size-3.5" />}
+      <span className="sr-only">{copied ? copiedLabel : copyLabel}</span>
+    </button>
+  );
+}
+
 export default function SendQuoteModal({
   open,
   onOpenChange,
@@ -160,10 +185,10 @@ export default function SendQuoteModal({
         throw new Error(payload.message || t.error);
       }
 
-      toast.success(t.success);
       setSignUrl(payload.signUrl ?? null);
       setShowSuccessState(true);
       onSent?.();
+      toast.success(t.success);
     } catch (error) {
       toast.error(resolveTranslatedError(locale, error, t.error));
     } finally {
@@ -176,7 +201,7 @@ export default function SendQuoteModal({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="flex w-[calc(100vw-1rem)] max-w-md max-h-[calc(100dvh-1rem-var(--app-safe-area-top)-var(--app-safe-area-bottom))] flex-col gap-2.5 overflow-hidden p-3.5 pb-3.5 scroll-pb-24 [&_button[data-slot=button]]:focus-visible:ring-inset [&_input[data-slot=input]]:focus-visible:ring-inset [&_textarea]:focus-visible:ring-inset [&_textarea]:focus-visible:ring-offset-0 sm:max-h-[calc(100dvh-2rem-var(--app-safe-area-top)-var(--app-safe-area-bottom))] sm:p-4 sm:pb-4">
+      <DialogContent className="flex w-[calc(100vw-1rem)] max-w-md max-h-[calc(100dvh-1rem-var(--app-safe-area-top)-var(--app-safe-area-bottom))] flex-col gap-2.5 scroll-pb-24 p-3.5 pb-3.5 [&_button[data-slot=button]]:focus-visible:ring-inset [&_input[data-slot=input]]:focus-visible:ring-inset [&_textarea]:focus-visible:ring-inset [&_textarea]:focus-visible:ring-offset-0 sm:max-h-[calc(100dvh-2rem-var(--app-safe-area-top)-var(--app-safe-area-bottom))] sm:p-4 sm:pb-4">
         <Button
           type="button"
           variant="ghost"
@@ -206,6 +231,21 @@ export default function SendQuoteModal({
                 <p className="text-sm font-medium text-foreground">{t.successTitle}</p>
                 <p className="mt-1 text-xs text-muted-foreground sm:text-sm">{successDescription}</p>
               </div>
+
+              {signUrl ? (
+                <div className="rounded-lg border border-border bg-background p-3">
+                  <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">{t.emailSentWithLink}</p>
+                  <div className="flex min-w-0 items-center gap-2">
+                    <input
+                      readOnly
+                      value={signUrl}
+                      className="min-w-0 flex-1 truncate rounded-md border border-input bg-muted px-2.5 py-1.5 text-xs text-foreground focus:outline-none"
+                      onFocus={(e) => e.currentTarget.select()}
+                    />
+                    <CopyLinkButton signUrl={signUrl} copyLabel={t.copyLink} copiedLabel={t.copied} />
+                  </div>
+                </div>
+              ) : null}
 
               <div className="rounded-lg border border-border bg-background p-3">
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t.nextStepLabel}</p>

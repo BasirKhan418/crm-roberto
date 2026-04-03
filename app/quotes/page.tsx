@@ -329,23 +329,23 @@ function QuotesPageContent() {
           </div>
 
           <Tabs value={status} onValueChange={(value) => setStatus(value as QuoteStatusFilter)}>
-            <div className="overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              <TabsList className="inline-flex h-auto min-w-max items-center gap-1.5 rounded-xl border border-border/80 bg-muted/20 p-1.5 shadow-xs">
-                <TabsTrigger value="all" className="min-h-10 rounded-lg border border-transparent px-4 py-2 text-sm font-medium text-foreground/85 hover:bg-muted/70 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">{t.tabAll}</TabsTrigger>
-                <TabsTrigger value="draft" className="min-h-10 rounded-lg border border-border/80 px-4 py-2 text-sm font-medium text-foreground/85 hover:bg-muted/70 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">{t.tabDraft}</TabsTrigger>
-                <TabsTrigger value="sent" className="min-h-10 rounded-lg border border-border/80 px-4 py-2 text-sm font-medium text-foreground/85 hover:bg-muted/70 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">{t.tabSent}</TabsTrigger>
-                <TabsTrigger value="accepted" className="min-h-10 rounded-lg border border-border/80 px-4 py-2 text-sm font-medium text-foreground/85 hover:bg-muted/70 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
+            <div className="overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <TabsList className="inline-flex h-auto min-w-max items-center gap-1 rounded-lg border border-border/80 bg-muted/10 p-1 shadow-xs">
+                <TabsTrigger value="all" className="min-h-6 rounded-md border border-transparent px-3 py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">{t.tabAll}</TabsTrigger>
+                <TabsTrigger value="draft" className="min-h-6 rounded-md border border-border/80 px-3 py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">{t.tabDraft}</TabsTrigger>
+                <TabsTrigger value="sent" className="min-h-6 rounded-md border border-border/80 px-3 py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">{t.tabSent}</TabsTrigger>
+                <TabsTrigger value="accepted" className="min-h-6 rounded-md border border-border/80 px-3 py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
                   <span>{t.tabAccepted}</span>
                   {acceptedCount > 0 ? (
-                    <span className="ml-2 inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-green-600 px-1.5 text-[11px] font-semibold leading-none text-white shadow-sm">
+                    <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-green-600 px-1.5 text-[10px] font-semibold leading-none text-white shadow-sm">
                       {acceptedCount > 99 ? '99+' : acceptedCount}
                     </span>
                   ) : null}
                 </TabsTrigger>
-                <TabsTrigger value="rejected" className="min-h-10 rounded-lg border border-border/80 px-4 py-2 text-sm font-medium text-foreground/85 hover:bg-muted/70 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
+                <TabsTrigger value="rejected" className="min-h-6 rounded-md border border-border/80 px-3 py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
                   <span>{t.tabRejected}</span>
                   {rejectedCount > 0 ? (
-                    <span className="ml-2 inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-orange-600 px-1.5 text-[11px] font-semibold leading-none text-white shadow-sm">
+                    <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-orange-600 px-1.5 text-[10px] font-semibold leading-none text-white shadow-sm">
                       {rejectedCount > 99 ? '99+' : rejectedCount}
                     </span>
                   ) : null}

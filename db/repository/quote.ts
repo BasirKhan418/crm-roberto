@@ -390,7 +390,7 @@ export const listQuotes = async (
     ];
   }
 
-  const sortOptions: Record<string, number> =
+  const sortOptions: Record<string, 1 | -1> =
     options.sort === 'amount' ? { totalIncludingTax: -1 } : { createdAt: -1 };
   const page = Math.max(1, options.page ?? 1);
   const limit = Math.max(1, Math.min(options.limit ?? 10, 100));

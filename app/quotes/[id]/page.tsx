@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 
-import { ArrowLeftIcon, CopyIcon, DownloadIcon, PencilIcon, SendIcon, Trash2Icon } from 'lucide-react';
+import { CopyIcon, DownloadIcon, PencilIcon, SendIcon, Trash2Icon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import CrmShell from '@/components/crm-shell';
@@ -163,6 +163,13 @@ export default function QuoteDetailPage() {
       rejectionAlertTop: 'Quote rejected by client',
       rejectionBannerBody: 'The client has rejected this quote. Review the comment below, update the quote, and resend it.',
       rejectionComment: 'Client rejection comment',
+      replyToClient: 'Reply to client',
+      replyPlaceholder: 'Write your message here... (e.g. We have updated the quote to meet your requirements and will resend it shortly.)',
+      sendResponse: 'Send response',
+      sendingResponse: 'Sending...',
+      responseSent: 'Response sent to client',
+      replyRequired: 'Please write a reply message before sending.',
+      replyFailed: 'Failed to send response',
       deleteTitle: 'Delete quote?',
       deleteDescription: 'Are you sure you want to delete this quote? This action cannot be undone.',
       cancel: 'Cancel',
@@ -226,6 +233,13 @@ export default function QuoteDetailPage() {
       rejectionAlertTop: 'Devis refuse par le client',
       rejectionBannerBody: 'Le client a refuse ce devis. Consultez le commentaire ci-dessous, mettez le devis a jour et renvoyez-le.',
       rejectionComment: 'Commentaire de refus du client',
+      replyToClient: 'Repondre au client',
+      replyPlaceholder: 'Ecrivez votre message ici... (ex. : Nous avons mis a jour le devis pour repondre a vos demandes et allons vous le renvoyer tres prochainement.)',
+      sendResponse: 'Envoyer la reponse',
+      sendingResponse: 'Envoi en cours...',
+      responseSent: 'Reponse envoyee au client',
+      replyRequired: 'Veuillez rediger un message avant d envoyer.',
+      replyFailed: 'Impossible d envoyer la reponse',
       deleteTitle: 'Supprimer le devis ?',
       deleteDescription: 'Voulez-vous vraiment supprimer ce devis ? Cette action est irreversible.',
       cancel: 'Annuler',
@@ -250,6 +264,9 @@ export default function QuoteDetailPage() {
   const [deleting, setDeleting] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
   const [duplicating, setDuplicating] = useState(false);
+  const [replyMessage, setReplyMessage] = useState('');
+  const [sendingReply, setSendingReply] = useState(false);
+  const [replySent, setReplySent] = useState(false);
 
   const canEdit = quote ? quote.status === 'draft' || quote.status === 'sent' || quote.status === 'rejected' : false;
   const actionButtonClass = 'h-10 w-full justify-start sm:h-9 sm:w-auto sm:justify-center text-center';
@@ -378,6 +395,38 @@ export default function QuoteDetailPage() {
     }
   }
 
+  async function sendReplyToClient() {
+    if (!quote?._id) return;
+
+    const trimmed = replyMessage.trim();
+    if (!trimmed) {
+      toast.error(t.replyRequired);
+      return;
+    }
+
+    setSendingReply(true);
+    try {
+      const response = await fetch(`/api/quotes/${quote._id}/reject-reply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: trimmed, locale }),
+      });
+      const payload = (await response.json()) as { success?: boolean; message?: string };
+
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.message || t.replyFailed);
+      }
+
+      setReplySent(true);
+      setReplyMessage('');
+      toast.success(t.responseSent);
+    } catch (replyError) {
+      toast.error(resolveTranslatedError(locale, replyError, t.replyFailed));
+    } finally {
+      setSendingReply(false);
+    }
+  }
+
   function handleOptimisticStatusChange(newStatus: QuoteStatus) {
     setQuote((prev) => {
       if (!prev) {
@@ -454,19 +503,68 @@ export default function QuoteDetailPage() {
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-red-700">{t.rejectionAlertTop}</p>
                 <p className="mt-1 text-sm leading-6 text-red-900">{t.rejectionBannerBody}</p>
               </div>
-              <div className="grid gap-3 px-4 py-3 sm:grid-cols-[1fr_auto] sm:items-end sm:px-5">
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-red-700">{t.rejectionComment}</p>
-                  <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-red-950">
-                    {quote.rejectionComment || t.noData}
-                  </p>
-                </div>
-                <Button type="button" className="h-9 w-full sm:w-auto" asChild>
-                  <Link href={`/quotes/${quote._id}/edit`}>
-                    <PencilIcon className="size-3.5" />
-                    {t.editAndResend}
-                  </Link>
-                </Button>
+
+              {/* Rejection comment */}
+              <div className="border-b border-red-200 px-4 py-3 sm:px-5">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-red-700">{t.rejectionComment}</p>
+                <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-red-950">
+                  {quote.rejectionComment || t.noData}
+                </p>
+              </div>
+
+              {/* Admin reply section */}
+              <div className="px-4 py-3 sm:px-5">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-red-700">{t.replyToClient}</p>
+                {replySent ? (
+                  <p className="mt-2 text-sm font-medium text-emerald-700">{t.responseSent}</p>
+                ) : (
+                  <div className="mt-2 space-y-2">
+                    <textarea
+                      rows={4}
+                      maxLength={2000}
+                      value={replyMessage}
+                      onChange={(e) => setReplyMessage(e.target.value)}
+                      placeholder={t.replyPlaceholder}
+                      disabled={sendingReply}
+                      className="w-full resize-none rounded-lg border border-red-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-red-400 focus:outline-none focus:ring-1 focus:ring-red-400 disabled:opacity-50"
+                    />
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <p className="text-xs text-red-500/70">{replyMessage.length}/2000</p>
+                      <div className="flex flex-col gap-2 sm:flex-row">
+                        <Button type="button" variant="outline" size="sm" className="h-9 w-full sm:w-auto" asChild>
+                          <Link href={`/quotes/${quote._id}/edit`}>
+                            <PencilIcon className="size-3.5" />
+                            {t.editAndResend}
+                          </Link>
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="h-9 w-full sm:w-auto"
+                          onClick={sendReplyToClient}
+                          disabled={sendingReply || !replyMessage.trim()}
+                        >
+                          <SendIcon className="size-3.5" />
+                          {sendingReply ? t.sendingResponse : t.sendResponse}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {replySent ? (
+                  <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                    <Button type="button" variant="outline" size="sm" className="h-9 w-full sm:w-auto" onClick={() => { setReplySent(false); }}>
+                      <SendIcon className="size-3.5" />
+                      {t.sendResponse}
+                    </Button>
+                    <Button type="button" size="sm" className="h-9 w-full sm:w-auto" asChild>
+                      <Link href={`/quotes/${quote._id}/edit`}>
+                        <PencilIcon className="size-3.5" />
+                        {t.editAndResend}
+                      </Link>
+                    </Button>
+                  </div>
+                ) : null}
               </div>
             </section>
           ) : null}
