@@ -162,7 +162,7 @@ const signMessages = {
     addSignatureToContinue: 'Add your signature to continue',
     rejectQuoteAction: 'I want to reject this quote',
     rejectQuoteBadge: 'Reject quote',
-    contestLabel: 'Contest',
+    contestLabel: 'Reject',
     rejectQuoteTitle: 'Are you sure you want to reject this quote?',
     rejectQuoteDescription: (companyName: string) =>
       `${companyName} will be notified and can send you an updated version. You can optionally explain what you would like changed.`,
@@ -265,7 +265,7 @@ const signMessages = {
     addSignatureToContinue: 'Ajoutez votre signature pour continuer',
     rejectQuoteAction: 'Je souhaite refuser ce devis',
     rejectQuoteBadge: 'Refuser le devis',
-    contestLabel: 'Contester',
+    contestLabel: 'Refuser',
     rejectQuoteTitle: 'Voulez-vous vraiment refuser ce devis ?',
     rejectQuoteDescription: (companyName: string) =>
       `${companyName} sera informe et pourra vous envoyer une version mise a jour. Vous pouvez expliquer en option ce que vous souhaitez modifier.`,
@@ -305,7 +305,8 @@ export default function SignPage() {
   const { locale: appLocale } = useLocale();
   const params = useParams<{ token: string }>();
   const token = params?.token;
-  const t = signMessages[appLocale];
+  const localeKey = appLocale === 'fr' ? 'fr' : 'en';
+  const t = signMessages[localeKey];
 
   const [quote, setQuote] = useState<SignQuotePayload | null>(null);
   const [error, setError] = useState<SignError | null>(null);
@@ -830,7 +831,7 @@ export default function SignPage() {
                       type="button"
                       onClick={handleSign}
                       disabled={isSigning || !signatureDataUrl}
-                      className="h-11 w-full rounded-xl bg-white px-4 text-[13px] font-semibold text-slate-950 transition active:scale-[0.98] hover:bg-slate-100 disabled:cursor-not-allowed disabled:bg-white/40 disabled:text-slate-500 sm:h-12 sm:flex-1 sm:rounded-2xl sm:text-sm"
+                      className="h-11 w-full rounded-xl bg-white px-4 text-[13px] font-semibold text-slate-950 transition active:scale-[0.98] hover:bg-slate-100 disabled:cursor-not-allowed disabled:bg-white/40 disabled:text-white sm:h-12 sm:flex-1 sm:rounded-2xl sm:text-sm"
                     >
                       {isSigning
                         ? t.recordingSignature

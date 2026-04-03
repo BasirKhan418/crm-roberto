@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo } from "react"
 
 import { ArrowLeftIcon, LayoutDashboardIcon } from "lucide-react"
 
@@ -78,16 +78,13 @@ export function SiteHeader({ title = "Documents" }: { title?: string }) {
   const { locale } = useLocale()
   const t = headerMessages[locale]
   const isDashboard = pathname === "/dashboard"
-  const [currentRoute, setCurrentRoute] = useState(pathname)
-
-  useEffect(() => {
+  const currentRoute = useMemo(() => {
     if (typeof window === "undefined") {
-      setCurrentRoute(pathname)
-      return
+      return pathname
     }
 
     const query = window.location.search
-    setCurrentRoute(query ? `${pathname}${query}` : pathname)
+    return query ? `${pathname}${query}` : pathname
   }, [pathname])
 
   const backFallbackHref = useMemo(() => getBackFallbackHref(pathname), [pathname])
