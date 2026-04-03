@@ -31,6 +31,8 @@ interface SendQuoteModalProps {
   companyName: string | null | undefined;
   quoteStatus: QuoteStatus;
   initialSignUrl?: string | null;
+  initialSubject?: string | null;
+  initialMessage?: string | null;
   locale: Locale;
   onSent?: () => void;
 }
@@ -135,14 +137,26 @@ export default function SendQuoteModal({
   companyName,
   quoteStatus,
   initialSignUrl,
+  initialSubject,
+  initialMessage,
   locale,
   onSent,
 }: SendQuoteModalProps) {
   const t = translations[locale];
 
+  const getInitialSubject = useCallback(
+    () => initialSubject?.trim() || t.defaultSubject(quoteNumber),
+    [initialSubject, t, quoteNumber]
+  );
+
+  const getInitialMessage = useCallback(
+    () => initialMessage?.trim() || t.defaultMessage(quoteNumber, clientName, companyName),
+    [initialMessage, t, quoteNumber, clientName, companyName]
+  );
+
   const [email, setEmail] = useState(clientEmail || '');
-  const [subject, setSubject] = useState(t.defaultSubject(quoteNumber));
-  const [message, setMessage] = useState(t.defaultMessage(quoteNumber, clientName, companyName));
+  const [subject, setSubject] = useState(getInitialSubject);
+  const [message, setMessage] = useState(getInitialMessage);
   const [sending, setSending] = useState(false);
   const [signUrl, setSignUrl] = useState<string | null>(initialSignUrl ?? null);
   const [showSuccessState, setShowSuccessState] = useState(false);
@@ -151,8 +165,8 @@ export default function SendQuoteModal({
   const handleOpenChange = (nextOpen: boolean) => {
     if (nextOpen) {
       setEmail(clientEmail || '');
-      setSubject(t.defaultSubject(quoteNumber));
-      setMessage(t.defaultMessage(quoteNumber, clientName, companyName));
+      setSubject(getInitialSubject());
+      setMessage(getInitialMessage());
       setSignUrl(initialSignUrl ?? null);
       setShowSuccessState(false);
     }

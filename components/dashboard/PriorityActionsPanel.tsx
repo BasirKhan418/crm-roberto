@@ -2,12 +2,14 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
-import { AlertTriangleIcon, ArrowRightIcon, CalendarCheckIcon, CalendarClockIcon, Clock3Icon, FileTextIcon, NotebookPenIcon, PlusIcon, ReceiptTextIcon } from 'lucide-react';
+import { AlertTriangleIcon, ArrowRightIcon, CalendarCheckIcon, CalendarClockIcon, Clock3Icon, FileTextIcon, MailWarningIcon, ReceiptTextIcon, UserX2Icon } from 'lucide-react';
+import { toast } from 'sonner';
 
-import AddNoteModal from '@/components/modals/AddNoteModal';
+import SendQuoteModal from '@/components/quotes/SendQuoteModal';
 import { useLocale } from '@/components/providers/locale-provider';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import EmptyState from '@/components/ui/EmptyState';
 import ErrorMessage from '@/components/ui/ErrorMessage';
@@ -17,6 +19,56 @@ import type { FollowUpItem } from '@/hooks/useDashboard';
 const DAY_IN_MS = 86_400_000;
 
 type PriorityTone = 'overdue' | 'today' | 'tomorrow' | 'upcoming';
+type SmartActionTone = 'urgent' | 'medium' | 'neutral';
+
+interface FollowUpQuoteItem {
+  _id: string;
+  quoteNumber: string;
+  clientSnapshot: {
+    fullName: string;
+    email?: string | null;
+  };
+}
+
+interface SmartActionsData {
+  pendingQuoteFollowUps: {
+    count: number;
+    target: FollowUpQuoteItem | null;
+  };
+  acceptedNotInvoiced: {
+    count: number;
+    target: {
+      _id: string;
+      quoteNumber: string;
+      clientId: string;
+    } | null;
+  };
+  inactiveClients: {
+    count: number;
+    target: {
+      _id: string;
+      fullName: string;
+      email?: string | null;
+    } | null;
+  };
+  overdueInvoices: {
+    count: number;
+    target: {
+      _id: string;
+      invoiceNumber: string;
+      clientSnapshot: {
+        fullName: string;
+        email?: string | null;
+      };
+    } | null;
+  };
+}
+
+interface SmartActionsResponse {
+  success?: boolean;
+  message?: string;
+  data?: SmartActionsData;
+}
 
 interface PriorityActionsPanelProps {
   followUps?: FollowUpItem[];
@@ -143,63 +195,75 @@ function getPriorityItem(item: FollowUpItem, locale: 'en' | 'fr', labels: {
   };
 }
 
-function ActionTile({
+function getSmartToneClasses(tone: SmartActionTone): { row: string; icon: string; badge: string } {
+  if (tone === 'urgent') {
+    return {
+      row: 'border-red-200/80 bg-red-50/70 dark:border-red-900/50 dark:bg-red-950/20',
+      icon: 'bg-red-100 text-red-700 dark:bg-red-900/60 dark:text-red-200',
+      badge: 'bg-red-600 text-white',
+    };
+  }
+
+  if (tone === 'medium') {
+    return {
+      row: 'border-amber-200/80 bg-amber-50/70 dark:border-amber-900/50 dark:bg-amber-950/20',
+      icon: 'bg-amber-100 text-amber-700 dark:bg-amber-900/60 dark:text-amber-200',
+      badge: 'bg-amber-500 text-amber-950',
+    };
+  }
+
+  return {
+    row: 'border-sky-200/80 bg-sky-50/70 dark:border-sky-900/50 dark:bg-sky-950/20',
+    icon: 'bg-sky-100 text-sky-700 dark:bg-sky-900/60 dark:text-sky-200',
+    badge: 'bg-sky-600 text-white',
+  };
+}
+
+function SmartActionRow({
   title,
   description,
-  href,
-  onClick,
-  accentClass,
-  plusClass,
+  buttonLabel,
+  tone,
   Icon,
+  onClick,
+  disabled,
 }: {
   title: string;
   description: string;
-  href?: string;
-  onClick?: () => void;
-  accentClass: string;
-  plusClass: string;
+  buttonLabel: string;
+  tone: SmartActionTone;
   Icon: React.ElementType;
+  onClick: () => void;
+  disabled?: boolean;
 }) {
-  const content = (
-    <>
-      <div className="flex items-start justify-between gap-3">
-        <div className={`flex size-11 shrink-0 items-center justify-center rounded-2xl ${accentClass}`}>
-          <Icon className="size-5" strokeWidth={1.9} />
-        </div>
-        <div className={`flex size-9 shrink-0 items-center justify-center rounded-full ${plusClass}`}>
-          <PlusIcon className="size-4" strokeWidth={2.25} />
-        </div>
-      </div>
-      <div className="mt-4 space-y-1.5">
-        <p className="text-sm font-semibold text-foreground">{title}</p>
-        <p className="text-xs leading-5 text-muted-foreground">{description}</p>
-      </div>
-      <div className="mt-4 flex items-center gap-1 text-xs font-semibold text-foreground/70 transition-transform group-hover:translate-x-0.5">
-        <span>{title}</span>
-        <ArrowRightIcon className="size-3.5" strokeWidth={2} />
-      </div>
-    </>
-  );
-
-  if (href) {
-    return (
-      <Link
-        href={href}
-        className="group rounded-2xl border border-border/70 bg-card p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-border hover:shadow-md"
-      >
-        {content}
-      </Link>
-    );
-  }
+  const toneClass = getSmartToneClasses(tone);
 
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="group rounded-2xl border border-border/70 bg-card p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-border hover:shadow-md"
-    >
-      {content}
-    </button>
+    <div className={`rounded-2xl border p-3 transition-colors ${toneClass.row}`}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-start gap-3">
+          <div className={`mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl ${toneClass.icon}`}>
+            <Icon className="size-4.5" strokeWidth={1.9} />
+          </div>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-foreground">{title}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
+          </div>
+        </div>
+
+        <div className="flex shrink-0 items-center justify-end sm:pl-3">
+          <Button
+            type="button"
+            size="sm"
+            onClick={onClick}
+            disabled={disabled}
+            className={`h-8 rounded-full px-3 text-xs font-semibold ${toneClass.badge}`}
+          >
+            {buttonLabel}
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -210,7 +274,10 @@ export default function PriorityActionsPanel({
   onActionSuccess,
 }: PriorityActionsPanelProps) {
   const router = useRouter();
-  const [isAddNoteOpen, setIsAddNoteOpen] = useState(false);
+  const [isFollowUpModalOpen, setIsFollowUpModalOpen] = useState(false);
+  const [smartActionsData, setSmartActionsData] = useState<SmartActionsData | null>(null);
+  const [smartActionsLoading, setSmartActionsLoading] = useState(true);
+  const [actionLoadingKey, setActionLoadingKey] = useState<string | null>(null);
   const { locale } = useLocale();
 
   const t = {
@@ -228,6 +295,35 @@ export default function PriorityActionsPanel({
       createInvoiceDescription: 'Open the invoice workspace to prepare billing.',
       overdueBadge: (count: number) => `${count} overdue`,
       dueTodayBadge: (count: number) => `${count} today`,
+      smartActionsTitle: 'Smart Actions',
+      quotesNeedFollowUp: (count: number) => `${count} quotes need follow-up`,
+      noQuotesNeedFollowUp: 'No sent quotes need follow-up',
+      followUpDescription: 'Sent quotes older than 7 days and still waiting for client response.',
+      followUpAction: 'Follow up',
+      reviewQuotesAction: 'Review quotes',
+      acceptedNotInvoiced: (count: number) => `${count} accepted quotes not invoiced`,
+      noAcceptedNotInvoiced: 'No accepted quotes waiting for invoicing',
+      acceptedNotInvoicedDescription: 'Turn accepted work into invoices and keep cash flow moving.',
+      createInvoiceActionButton: 'Create invoice',
+      reviewAcceptedQuotesAction: 'Review quotes',
+      inactiveClients: (count: number) => `${count} inactive clients`,
+      noInactiveClients: 'No inactive clients right now',
+      inactiveClientsDescription: 'No quote, invoice, or note activity in the last 30 days.',
+      contactClientActionButton: 'Contact client',
+      reviewClientsAction: 'Review clients',
+      overdueInvoices: (count: number) => `${count} overdue invoices`,
+      noOverdueInvoices: 'No overdue invoices to remind',
+      overdueInvoicesDescription: 'Past due date and still not fully paid.',
+      sendReminderActionButton: 'Send reminder',
+      reviewInvoicesAction: 'Review invoices',
+      invoiceCreated: 'Invoice created from accepted quote',
+      invoiceReminderSent: 'Invoice reminder sent',
+      smartActionFailed: 'Smart action failed',
+      followUpSubject: (quoteNumber: string) => `Follow-up on quote ${quoteNumber}`,
+      followUpMessage: (quoteNumber: string, clientName?: string | null) => {
+        const greeting = clientName ? `Hi ${clientName},` : 'Hi,';
+        return `${greeting}\n\nI am following up on quote ${quoteNumber} shared last week. Please let us know if you have any questions or if you would like us to adjust anything before signing.\n\nBest regards,`;
+      },
       overdue: (count: number) => `${count}d overdue`,
       dueToday: 'Due today',
       tomorrow: 'Tomorrow',
@@ -247,12 +343,109 @@ export default function PriorityActionsPanel({
       createInvoiceDescription: 'Ouvrez l espace factures pour preparer la facturation.',
       overdueBadge: (count: number) => `${count} en retard`,
       dueTodayBadge: (count: number) => `${count} aujourd hui`,
+      smartActionsTitle: 'Actions intelligentes',
+      quotesNeedFollowUp: (count: number) => `${count} devis a relancer`,
+      noQuotesNeedFollowUp: 'Aucun devis envoye a relancer',
+      followUpDescription: 'Devis envoyes depuis plus de 7 jours sans reponse client.',
+      followUpAction: 'Relancer',
+      reviewQuotesAction: 'Voir devis',
+      acceptedNotInvoiced: (count: number) => `${count} devis acceptes non factures`,
+      noAcceptedNotInvoiced: 'Aucun devis accepte en attente de facturation',
+      acceptedNotInvoicedDescription: 'Transformez les devis acceptes en factures pour accelerer l encaissement.',
+      createInvoiceActionButton: 'Creer facture',
+      reviewAcceptedQuotesAction: 'Voir devis',
+      inactiveClients: (count: number) => `${count} clients inactifs`,
+      noInactiveClients: 'Aucun client inactif actuellement',
+      inactiveClientsDescription: 'Aucune activite devis, facture, ou note sur les 30 derniers jours.',
+      contactClientActionButton: 'Contacter client',
+      reviewClientsAction: 'Voir clients',
+      overdueInvoices: (count: number) => `${count} factures en retard`,
+      noOverdueInvoices: 'Aucune facture en retard',
+      overdueInvoicesDescription: 'Date d echeance depassee et facture non reglee.',
+      sendReminderActionButton: 'Envoyer rappel',
+      reviewInvoicesAction: 'Voir factures',
+      invoiceCreated: 'Facture creee depuis le devis accepte',
+      invoiceReminderSent: 'Rappel de facture envoye',
+      smartActionFailed: 'Echec de l action intelligente',
+      followUpSubject: (quoteNumber: string) => `Relance devis ${quoteNumber}`,
+      followUpMessage: (quoteNumber: string, clientName?: string | null) => {
+        const greeting = clientName ? `Bonjour ${clientName},` : 'Bonjour,';
+        return `${greeting}\n\nJe me permets de revenir vers vous concernant le devis ${quoteNumber} envoye la semaine derniere. Dites-nous si vous avez des questions ou si vous souhaitez un ajustement avant signature.\n\nBien cordialement,`;
+      },
       overdue: (count: number) => `${count} j de retard`,
       dueToday: 'Pour aujourd hui',
       tomorrow: 'Demain',
       inDays: (count: number) => `Dans ${count} j`,
     },
   }[locale];
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function loadSmartActions() {
+      setSmartActionsLoading(true);
+
+      try {
+        const response = await fetch('/api/dashboard/smart-actions', {
+          cache: 'no-store',
+          signal: controller.signal,
+        });
+
+        const payload = (await response.json()) as SmartActionsResponse;
+        if (!response.ok || !payload.success) {
+          throw new Error(payload.message || 'Failed to load smart actions');
+        }
+
+        setSmartActionsData(payload.data ?? null);
+      } catch {
+        if (!controller.signal.aborted) {
+          setSmartActionsData(null);
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setSmartActionsLoading(false);
+        }
+      }
+    }
+
+    loadSmartActions();
+
+    return () => controller.abort();
+  }, [onActionSuccess]);
+
+  async function runSmartAction(
+    actionKey: string,
+    payload: Record<string, unknown>,
+    successMessage: string,
+    fallbackError: string
+  ) {
+    setActionLoadingKey(actionKey);
+    try {
+      const response = await fetch('/api/dashboard/smart-actions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const body = (await response.json()) as { success?: boolean; message?: string };
+      if (!response.ok || !body.success) {
+        throw new Error(body.message || fallbackError);
+      }
+
+      toast.success(successMessage);
+      onActionSuccess?.();
+
+      const refresh = await fetch('/api/dashboard/smart-actions', { cache: 'no-store' });
+      const refreshPayload = (await refresh.json()) as SmartActionsResponse;
+      if (refresh.ok && refreshPayload.success) {
+        setSmartActionsData(refreshPayload.data ?? null);
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : fallbackError);
+    } finally {
+      setActionLoadingKey(null);
+    }
+  }
 
   const priorityItems = useMemo(() => {
     return (Array.isArray(followUps) ? followUps : [])
@@ -271,6 +464,93 @@ export default function PriorityActionsPanel({
   const overdueCount = priorityItems.filter((item) => item.tone === 'overdue').length;
   const todayCount = priorityItems.filter((item) => item.tone === 'today').length;
   const showError = Boolean(error) && priorityItems.length === 0;
+  const followUpTarget = smartActionsData?.pendingQuoteFollowUps.target ?? null;
+  const followUpCount = smartActionsData?.pendingQuoteFollowUps.count ?? 0;
+  const acceptedTarget = smartActionsData?.acceptedNotInvoiced.target ?? null;
+  const acceptedCount = smartActionsData?.acceptedNotInvoiced.count ?? 0;
+  const inactiveClientTarget = smartActionsData?.inactiveClients.target ?? null;
+  const inactiveCount = smartActionsData?.inactiveClients.count ?? 0;
+  const overdueInvoiceTarget = smartActionsData?.overdueInvoices.target ?? null;
+  const overdueInvoiceCount = smartActionsData?.overdueInvoices.count ?? 0;
+
+  const smartActions = [
+    {
+      key: 'follow-up-quotes',
+      tone: followUpCount > 0 ? ('urgent' as const) : ('neutral' as const),
+      title: followUpCount > 0 ? t.quotesNeedFollowUp(followUpCount) : t.noQuotesNeedFollowUp,
+      description: t.followUpDescription,
+      buttonLabel: followUpCount > 0 ? t.followUpAction : t.reviewQuotesAction,
+      Icon: MailWarningIcon,
+      onClick: () => {
+        if (followUpTarget?.clientSnapshot?.email) {
+          setIsFollowUpModalOpen(true);
+          return;
+        }
+        router.push('/quotes');
+      },
+      disabled: smartActionsLoading,
+    },
+    {
+      key: 'accepted-to-invoice',
+      tone: 'medium' as const,
+      title: acceptedCount > 0 ? t.acceptedNotInvoiced(acceptedCount) : t.noAcceptedNotInvoiced,
+      description: t.acceptedNotInvoicedDescription,
+      buttonLabel: acceptedCount > 0 ? t.createInvoiceActionButton : t.reviewAcceptedQuotesAction,
+      Icon: ReceiptTextIcon,
+      onClick: () => {
+        if (!acceptedTarget) {
+          router.push('/quotes?status=accepted');
+          return;
+        }
+
+        void runSmartAction(
+          'accepted-to-invoice',
+          { action: 'create-invoice-from-quote', quoteId: acceptedTarget._id },
+          t.invoiceCreated,
+          t.smartActionFailed
+        );
+      },
+      disabled: smartActionsLoading || actionLoadingKey === 'accepted-to-invoice',
+    },
+    {
+      key: 'inactive-clients',
+      tone: 'neutral' as const,
+      title: inactiveCount > 0 ? t.inactiveClients(inactiveCount) : t.noInactiveClients,
+      description: t.inactiveClientsDescription,
+      buttonLabel: inactiveCount > 0 ? t.contactClientActionButton : t.reviewClientsAction,
+      Icon: UserX2Icon,
+      onClick: () => {
+        if (!inactiveClientTarget) {
+          router.push('/clients');
+          return;
+        }
+        router.push(`/clients/${inactiveClientTarget._id}`);
+      },
+      disabled: smartActionsLoading,
+    },
+    {
+      key: 'overdue-invoices',
+      tone: overdueInvoiceCount > 0 ? ('urgent' as const) : ('neutral' as const),
+      title: overdueInvoiceCount > 0 ? t.overdueInvoices(overdueInvoiceCount) : t.noOverdueInvoices,
+      description: t.overdueInvoicesDescription,
+      buttonLabel: overdueInvoiceCount > 0 ? t.sendReminderActionButton : t.reviewInvoicesAction,
+      Icon: FileTextIcon,
+      onClick: () => {
+        if (!overdueInvoiceTarget) {
+          router.push('/invoices');
+          return;
+        }
+
+        void runSmartAction(
+          'overdue-invoices',
+          { action: 'send-invoice-reminder', invoiceId: overdueInvoiceTarget._id, locale },
+          t.invoiceReminderSent,
+          t.smartActionFailed
+        );
+      },
+      disabled: smartActionsLoading || actionLoadingKey === 'overdue-invoices',
+    },
+  ] as const;
 
   return (
     <section className="grid gap-4 xl:grid-cols-[1.45fr_1fr]">
@@ -374,34 +654,42 @@ export default function PriorityActionsPanel({
         </CardContent>
       </Card>
 
-      <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
-        <ActionTile
-          title={t.addNote}
-          description={t.addNoteDescription}
-          onClick={() => setIsAddNoteOpen(true)}
-          accentClass="bg-teal-50 text-teal-700 dark:bg-teal-950/30 dark:text-teal-300"
-          plusClass="bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300"
-          Icon={NotebookPenIcon}
-        />
-        <ActionTile
-          title={t.createQuote}
-          description={t.createQuoteDescription}
-          href="/quotes/new"
-          accentClass="bg-violet-50 text-violet-700 dark:bg-violet-950/30 dark:text-violet-300"
-          plusClass="bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300"
-          Icon={FileTextIcon}
-        />
-        <ActionTile
-          title={t.createInvoice}
-          description={t.createInvoiceDescription}
-          onClick={() => router.push('/invoices')}
-          accentClass="bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300"
-          plusClass="bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
-          Icon={ReceiptTextIcon}
-        />
-      </div>
+      <Card className="gap-0 overflow-hidden border border-foreground/10">
+        <CardHeader className="border-b bg-slate-50 px-5 py-4 dark:bg-slate-900/40">
+          <CardTitle className="text-lg font-semibold text-foreground">{t.smartActionsTitle}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 p-4">
+          {smartActions.map((action) => (
+            <SmartActionRow
+              key={action.key}
+              title={action.title}
+              description={action.description}
+              buttonLabel={action.buttonLabel}
+              tone={action.tone}
+              Icon={action.Icon}
+              onClick={action.onClick}
+              disabled={action.disabled}
+            />
+          ))}
+        </CardContent>
+      </Card>
 
-      {isAddNoteOpen ? <AddNoteModal onClose={() => setIsAddNoteOpen(false)} onSuccess={onActionSuccess} /> : null}
+      {isFollowUpModalOpen && followUpTarget ? (
+        <SendQuoteModal
+          open={isFollowUpModalOpen}
+          onOpenChange={setIsFollowUpModalOpen}
+          quoteId={followUpTarget._id}
+          quoteNumber={followUpTarget.quoteNumber}
+          clientEmail={followUpTarget.clientSnapshot.email}
+          clientName={followUpTarget.clientSnapshot.fullName}
+          companyName={null}
+          quoteStatus="sent"
+          locale={locale}
+          initialSubject={t.followUpSubject(followUpTarget.quoteNumber)}
+          initialMessage={t.followUpMessage(followUpTarget.quoteNumber, followUpTarget.clientSnapshot.fullName)}
+          onSent={onActionSuccess}
+        />
+      ) : null}
     </section>
   );
 }
