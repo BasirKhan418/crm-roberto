@@ -2,8 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-import { BuildingIcon, SaveIcon, Trash2Icon, UploadIcon } from 'lucide-react';
+import { ArrowUpRightIcon, BanknoteIcon, BuildingIcon, CreditCardIcon, SaveIcon, ShieldCheckIcon, Trash2Icon, UploadIcon } from 'lucide-react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { toast } from 'sonner';
 
 import CrmShell from '@/components/crm-shell';
@@ -94,6 +95,12 @@ export default function ProfilePage() {
       logoDeleteFailed: 'Failed to delete logo',
       logoTypeError: 'Invalid file type. Accepted: JPEG, PNG, WebP, SVG',
       logoSizeError: 'File too large. Maximum size is 2 MB',
+      stripeTitle: 'Stripe payments',
+      stripeSubtitle: 'Connect Stripe to receive online invoice payments directly to your bank account.',
+      stripeCta: 'Manage Stripe settings',
+      stripeFeatureSettlement: 'Direct settlement to your bank account',
+      stripeFeatureSecurity: 'Secure checkout hosted by Stripe',
+      stripeFeatureAutomation: 'Automatic invoice payment tracking',
     },
     fr: {
       loadFailed: 'Impossible de charger le profil',
@@ -139,6 +146,12 @@ export default function ProfilePage() {
       logoDeleteFailed: 'Impossible de supprimer le logo',
       logoTypeError: 'Type de fichier invalide. Accepte : JPEG, PNG, WebP, SVG',
       logoSizeError: 'Fichier trop volumineux. Taille maximale : 2 Mo',
+      stripeTitle: 'Paiements Stripe',
+      stripeSubtitle: 'Connectez Stripe pour recevoir les paiements de factures en ligne directement sur votre compte bancaire.',
+      stripeCta: 'Gerer les parametres Stripe',
+      stripeFeatureSettlement: 'Versement direct vers votre compte bancaire',
+      stripeFeatureSecurity: 'Paiement securise heberge par Stripe',
+      stripeFeatureAutomation: 'Suivi automatique des paiements de factures',
     },
   }[locale];
 
@@ -418,6 +431,51 @@ export default function ProfilePage() {
               </div>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      <Card id="stripe-payments" className="scroll-mt-20 overflow-hidden border-primary/20 bg-linear-to-br from-sky-50/70 via-background to-indigo-50/40 dark:from-sky-950/20 dark:to-indigo-950/20">
+        <CardHeader className="border-b">
+          <CardTitle>{t.stripeTitle}</CardTitle>
+          <p className="text-sm text-muted-foreground">{t.stripeSubtitle}</p>
+        </CardHeader>
+        <CardContent className="pt-4">
+          <div className="grid gap-4 rounded-2xl border border-sky-200/70 bg-white/80 p-4 shadow-sm backdrop-blur-sm dark:border-sky-900/60 dark:bg-slate-950/40 md:grid-cols-[1fr_auto] md:items-center">
+            <div className="space-y-3">
+              <div className="inline-flex items-center gap-2 rounded-full border border-sky-300/70 bg-sky-100/70 px-3 py-1 text-xs font-medium text-sky-800 dark:border-sky-800 dark:bg-sky-900/30 dark:text-sky-200">
+                <CreditCardIcon className="size-3.5" />
+                Stripe Connect
+              </div>
+
+              <div className="grid gap-2 sm:grid-cols-3">
+                <div className="rounded-xl border border-slate-200/80 bg-background/80 p-3 dark:border-slate-800">
+                  <div className="mb-1 inline-flex size-7 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+                    <BanknoteIcon className="size-4" />
+                  </div>
+                  <p className="text-xs text-muted-foreground">{t.stripeFeatureSettlement}</p>
+                </div>
+                <div className="rounded-xl border border-slate-200/80 bg-background/80 p-3 dark:border-slate-800">
+                  <div className="mb-1 inline-flex size-7 items-center justify-center rounded-lg bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">
+                    <ShieldCheckIcon className="size-4" />
+                  </div>
+                  <p className="text-xs text-muted-foreground">{t.stripeFeatureSecurity}</p>
+                </div>
+                <div className="rounded-xl border border-slate-200/80 bg-background/80 p-3 dark:border-slate-800">
+                  <div className="mb-1 inline-flex size-7 items-center justify-center rounded-lg bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300">
+                    <BuildingIcon className="size-4" />
+                  </div>
+                  <p className="text-xs text-muted-foreground">{t.stripeFeatureAutomation}</p>
+                </div>
+              </div>
+            </div>
+
+            <Button asChild className="h-11 min-w-52 rounded-xl px-5">
+              <Link href="/settings/stripe">
+                {t.stripeCta}
+                <ArrowUpRightIcon className="size-4" />
+              </Link>
+            </Button>
+          </div>
         </CardContent>
       </Card>
 

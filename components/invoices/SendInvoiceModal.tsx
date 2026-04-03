@@ -3,7 +3,7 @@
 import { useCallback, useState } from 'react';
 import Image from 'next/image';
 
-import { AlertTriangleIcon, Loader2Icon, MailIcon, PlugZapIcon, X } from 'lucide-react';
+import { AlertTriangleIcon, Loader2Icon, MailIcon, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { resolveTranslatedError } from '@/lib/i18n/messages';
@@ -50,7 +50,7 @@ const translations = {
     stripeErrorTitle: 'Stripe is not connected',
     stripeErrorDescription: 'Please connect Stripe to send invoices and accept online payments.',
     connectStripe: 'Connect Stripe',
-    connectTodo: 'Connect Stripe action is not implemented yet.',
+    connectRedirecting: 'Redirecting to Stripe onboarding...',
     wireDisconnected: 'Wire disconnected illustration placeholder',
     defaultSubject: (invoiceNumber: string) => `Invoice ${invoiceNumber} - Payment details`,
     defaultMessage: (invoiceNumber: string, clientName?: string | null, senderCompany?: string | null) => {
@@ -75,7 +75,7 @@ const translations = {
     stripeErrorTitle: 'Stripe n est pas connecte',
     stripeErrorDescription: 'Veuillez connecter Stripe pour envoyer des factures et accepter les paiements en ligne.',
     connectStripe: 'Connecter Stripe',
-    connectTodo: 'L action de connexion Stripe n est pas encore implementee.',
+    connectRedirecting: 'Redirection vers l onboarding Stripe...',
     wireDisconnected: 'Emplacement illustration cable deconnecte',
     defaultSubject: (invoiceNumber: string) => `Facture ${invoiceNumber} - Details de paiement`,
     defaultMessage: (invoiceNumber: string, clientName?: string | null, senderCompany?: string | null) => {
@@ -127,8 +127,8 @@ export default function SendInvoiceModal({
   }
 
   function handleConnectStripeClick() {
-    console.log('[SendInvoiceModal] Connect Stripe clicked from Stripe error modal state.');
-    toast.info(t.connectTodo);
+    toast.info(t.connectRedirecting);
+    window.location.assign('/api/stripe/connect');
   }
 
   async function handleSend() {
