@@ -25,10 +25,14 @@ const registerUser = async (name: string, email: string, password: string) => {
 const loginUser = async (email: string, password: string) => {
     try {
         await ConnectDb();
-        const user = await User.findOne({ email,isEmailVerified: true }).select("+password");
+        const user = await User.findOne({ email,isEmailVerified: true }).select("+password account_status");
         console.log("User found:", user);
         if (!user) {
             return { message: "User not found", success: false };
+        }
+
+        if (user.account_status === 'suspended') {
+            return { message: "Your account has been suspended. Please contact support.", success: false };
         }
 
         const pepper = process.env.PASSWORD_PEPPER;
@@ -56,6 +60,9 @@ const markEmailAsVerified = async (email: string) => {
             return { message: "User not found", success: false };
         }
         user.isEmailVerified = true;
+        if (user.account_status !== 'suspended') {
+            user.account_status = 'active';
+        }
         await user.save();
         return { message: "Email marked as verified", success: true };
     } catch (error) {

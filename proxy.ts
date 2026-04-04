@@ -7,10 +7,13 @@ interface TokenPayload {
   email: string;
   isOnboardingComplete?: boolean;
   isEmailVerified?: boolean;
+  kind?: string;
 }
 
 const bypassRoutePrefixes = ['/sign'];
 const protectedRoutePrefixes = ['/dashboard', '/clients', '/suppliers', '/notes', '/follow-up-tracking', '/profile', '/products', '/quotes'];
+const adminProtectedPrefixes = ['/admin'];
+const adminPublicRoutes = ['/admin/login'];
 const publicRoutes = ['/', '/login', '/signup', '/forgot-password'];
 
 function matchesRoutePrefix(pathname: string, route: string): boolean {
@@ -32,6 +35,27 @@ export default async function proxy(request: NextRequest) {
   const token = request.cookies.get('token')?.value;
 
   if (bypassRoutePrefixes.some((route) => matchesRoutePrefix(pathname, route))) {
+    return NextResponse.next();
+  }
+
+  // ── Admin routes (separate auth) ──────────────────────────────────────
+  if (adminProtectedPrefixes.some((route) => matchesRoutePrefix(pathname, route))) {
+    // Let the admin login page through
+    if (adminPublicRoutes.includes(pathname)) {
+      const adminPayload = request.cookies.get('admin-token')?.value
+        ? await verifyToken(request.cookies.get('admin-token')!.value)
+        : null;
+      if (adminPayload && adminPayload.kind === 'admin') {
+        return NextResponse.redirect(new URL('/admin', request.url));
+      }
+      return NextResponse.next();
+    }
+    // All other /admin/* pages require admin-token
+    const adminToken = request.cookies.get('admin-token')?.value;
+    const adminPayload = adminToken ? await verifyToken(adminToken) : null;
+    if (!adminPayload || adminPayload.kind !== 'admin') {
+      return NextResponse.redirect(new URL('/admin/login', request.url));
+    }
     return NextResponse.next();
   }
 

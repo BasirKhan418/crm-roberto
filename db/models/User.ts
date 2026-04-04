@@ -22,5 +22,10 @@ const UserSchema = new mongoose.Schema({
       type: Boolean,
       default: false,
     },
+    account_status: {
+      type: String,
+      enum: ['active', 'suspended'],
+      default: 'active',
+    },
 }, { timestamps: true })
 export default mongoose.models.User || mongoose.model('User', UserSchema);

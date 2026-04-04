@@ -15,7 +15,6 @@ export async function POST(request: NextRequest) {
         }
        
         const result = await loginUser(email, password);
-        //generate token and set cookie
         if(result.success){
             const token = jwt.sign({ sub: result.user._id, name: result.user.name, email: result.user.email, isOnboardingComplete: result.user.isOnboardingComplete, isEmailVerified: result.user.isEmailVerified }, process.env.JWT_SECRET || "", { expiresIn: '7d' });
             cookieStore.set("token", token, {
@@ -27,7 +26,6 @@ export async function POST(request: NextRequest) {
             });
             return NextResponse.json({ message: result.message, success: true, isOnboardingComplete: result.user.isOnboardingComplete });
         }
-        //in case of login failure, clear any existing token cookie
         cookieStore.delete("token");
         return NextResponse.json(result);
     }
