@@ -76,6 +76,8 @@ function QuotesPageContent() {
       history: 'History',
       convertToInvoice: 'Convert to invoice',
       invoiced: 'Invoiced',
+      markReviewed: 'Mark as reviewed',
+      markReviewing: 'Marking...',
       deleteTitle: 'Delete quote?',
       deleteDescription: 'Are you sure you want to delete this quote?',
       cancel: 'Cancel',
@@ -86,33 +88,35 @@ function QuotesPageContent() {
       total: 'total',
       previous: 'Previous',
       next: 'Next',
-      actionRejected: (n: number) => `${n} quote${n === 1 ? '' : 's'} declined by client — follow up or revise`,
+      actionRejected: (n: number) => `${n} quote${n === 1 ? '' : 's'} declined — follow up or revise`,
+      actionRejectedHint: 'Disappears when you mark each declined quote as “Reviewed”',
       actionAccepted: (n: number) => `${n} quote${n === 1 ? '' : 's'} accepted — ready to invoice`,
+      actionAcceptedHint: 'Disappears when you convert to invoice',
       seeRejected: 'See declined',
       seeAccepted: 'See accepted',
     },
     fr: {
       shellTitle: 'Devis',
       heading: 'Devis',
-      subtitle: 'Suivez le cycle des devis du brouillon a la decision.',
+      subtitle: 'Suivez le cycle des devis du brouillon à la décision.',
       backToDashboard: 'Tableau de bord',
-      totalResults: 'resultats au total',
+      totalResults: 'résultats au total',
       currentFilter: 'Filtre actuel',
       deleteFailed: 'Impossible de supprimer le devis',
-      deleted: 'Devis supprime',
-      duplicated: 'Devis duplique',
+      deleted: 'Devis supprimé',
+      duplicated: 'Devis dupliqué',
       duplicateFailed: 'Impossible de dupliquer le devis',
-      downloadFailed: 'Impossible de telecharger le PDF',
+      downloadFailed: 'Impossible de télécharger le PDF',
       newQuote: 'Nouveau devis',
-      search: 'Rechercher par numero de devis ou nom client...',
+      search: 'Rechercher par numéro de devis ou nom client...',
       sortDate: 'Date',
       sortAmount: 'Montant',
       tabAll: 'Tous',
       tabDraft: 'Brouillon',
-      tabSent: 'Envoye',
-      tabAccepted: 'Accepte',
-      tabRejected: 'Refuse',
-      empty: 'Aucun devis - creez votre premier devis',
+      tabSent: 'Envoyé',
+      tabAccepted: 'Accepté',
+      tabRejected: 'Refusé',
+      empty: 'Aucun devis - créez votre premier devis',
       quoteNumber: 'Devis',
       client: 'Client',
       subject: 'Objet',
@@ -126,26 +130,30 @@ function QuotesPageContent() {
       duplicate: 'Dupliquer',
       delete: 'Supprimer',
       downloadPdf: 'PDF',
-      lockEdit: 'Les devis acceptes et refuses (client) ne peuvent pas etre modifies',
+      lockEdit: 'Les devis acceptés et refusés (client) ne peuvent pas être modifiés',
       send: 'Envoyer',
       sendForSignature: 'Envoyer pour signature',
       history: 'Historique',
       convertToInvoice: 'Convertir en facture',
-      invoiced: 'Facture creee',
-      deleteTitle: 'Supprimer le devis ?',
-      deleteDescription: 'Voulez-vous vraiment supprimer ce devis ?',
+      invoiced: 'Facture créée',
+      markReviewed: 'Marquer comme traité',
+      markReviewing: 'Enregistrement...',
+      deleteTitle: 'Supprimer le devis ?',
+      deleteDescription: 'Voulez-vous vraiment supprimer ce devis ?',
       cancel: 'Annuler',
       deleting: 'Suppression...',
       deleteQuote: 'Supprimer le devis',
       page: 'Page',
       of: 'sur',
       total: 'au total',
-      previous: 'Precedent',
+      previous: 'Précédent',
       next: 'Suivant',
-      actionRejected: (n: number) => `${n} devis refuse${n === 1 ? '' : 's'} par le client — a relancer ou reviser`,
-      actionAccepted: (n: number) => `${n} devis accepte${n === 1 ? '' : 's'} — pret${n === 1 ? '' : 's'} a facturer`,
-      seeRejected: 'Voir refuses',
-      seeAccepted: 'Voir acceptes',
+      actionRejected: (n: number) => `${n} devis refusé${n === 1 ? '' : 's'} par le client — à relancer ou réviser`,
+      actionRejectedHint: 'Disparaît lorsque vous marquez chaque devis refusé comme « Traité »',
+      actionAccepted: (n: number) => `${n} devis accepté${n === 1 ? '' : 's'} — prêt${n === 1 ? '' : 's'} à facturer`,
+      actionAcceptedHint: 'Disparaît lorsque vous convertissez en facture',
+      seeRejected: 'Voir refusés',
+      seeAccepted: 'Voir acceptés',
     },
   }[locale];
 
@@ -162,7 +170,28 @@ function QuotesPageContent() {
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
 
   const { quotes, pagination, loading, error, refetch } = useQuotes(status, searchDebounced, sort, page, limit);
-  const { allCount, draftCount, sentCount, rejectedCount, acceptedCount } = useQuotesActionCount(pagination.total + quotes.length + Number(loading));
+  const {
+    allCount,
+    draftCount,
+    sentCount,
+    rejectedCount,
+    acceptedCount,
+    pendingInvoiceCount,
+    unacknowledgedRejectedCount,
+  } = useQuotesActionCount(pagination.total + quotes.length + Number(loading));
+
+  const [acknowledgingId, setAcknowledgingId] = useState<string | null>(null);
+
+  async function handleAcknowledgeRejection(quote: QuoteListItem) {
+    if (acknowledgingId) return;
+    setAcknowledgingId(quote._id);
+    try {
+      await fetch(`/api/quotes/${quote._id}/acknowledge`, { method: 'POST' });
+      await refetch();
+    } finally {
+      setAcknowledgingId(null);
+    }
+  }
 
   useEffect(() => {
     const rawStatus = searchParams.get('status')?.toLowerCase();
@@ -378,37 +407,41 @@ function QuotesPageContent() {
 
         {error ? <ErrorMessage message={error} /> : null}
 
-        {/* ── Action-required banners (only when not already filtered) ──────── */}
-        {!loading && status === 'all' && (rejectedCount > 0 || acceptedCount > 0) ? (
+        {!loading && (status === 'all' || status === 'rejected' || status === 'accepted') &&
+          (unacknowledgedRejectedCount > 0 || pendingInvoiceCount > 0) ? (
           <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-            {rejectedCount > 0 ? (
+            {unacknowledgedRejectedCount > 0 && status !== 'accepted' ? (
               <button
                 type="button"
                 onClick={() => setStatus('rejected')}
-                className="flex flex-1 items-center justify-between gap-3 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-left transition-colors hover:bg-orange-100 dark:border-orange-900/40 dark:bg-orange-950/30 dark:hover:bg-orange-950/50"
-              >
+                className="flex flex-1 basis-64 flex-col gap-1.5 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-left transition-colors hover:bg-orange-100 dark:border-orange-900/40 dark:bg-orange-950/30 dark:hover:bg-orange-950/50 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                 <div className="flex items-center gap-2.5">
                   <span className="relative flex size-2.5 shrink-0">
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-orange-500 opacity-60" />
                     <span className="relative inline-flex size-2.5 rounded-full bg-orange-500" />
                   </span>
-                  <span className="text-sm font-medium text-orange-800 dark:text-orange-300">{t.actionRejected(rejectedCount)}</span>
+                  <div>
+                    <span className="block text-sm font-semibold text-orange-800 dark:text-orange-300">{t.actionRejected(unacknowledgedRejectedCount)}</span>
+                    <span className="mt-0.5 block text-[11px] text-orange-600/80 dark:text-orange-400/70">{t.actionRejectedHint}</span>
+                  </div>
                 </div>
                 <span className="shrink-0 text-xs font-semibold text-orange-700 underline underline-offset-2 dark:text-orange-400">{t.seeRejected} →</span>
               </button>
             ) : null}
-            {acceptedCount > 0 ? (
+            {pendingInvoiceCount > 0 && status !== 'rejected' ? (
               <button
                 type="button"
                 onClick={() => setStatus('accepted')}
-                className="flex flex-1 items-center justify-between gap-3 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-left transition-colors hover:bg-green-100 dark:border-green-900/40 dark:bg-green-950/30 dark:hover:bg-green-950/50"
-              >
+                className="flex flex-1 basis-64 flex-col gap-1.5 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-left transition-colors hover:bg-green-100 dark:border-green-900/40 dark:bg-green-950/30 dark:hover:bg-green-950/50 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                 <div className="flex items-center gap-2.5">
                   <span className="relative flex size-2.5 shrink-0">
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-500 opacity-60" />
                     <span className="relative inline-flex size-2.5 rounded-full bg-green-500" />
                   </span>
-                  <span className="text-sm font-medium text-green-800 dark:text-green-300">{t.actionAccepted(acceptedCount)}</span>
+                  <div>
+                    <span className="block text-sm font-semibold text-green-800 dark:text-green-300">{t.actionAccepted(pendingInvoiceCount)}</span>
+                    <span className="mt-0.5 block text-[11px] text-green-600/80 dark:text-green-400/70">{t.actionAcceptedHint}</span>
+                  </div>
                 </div>
                 <span className="shrink-0 text-xs font-semibold text-green-700 underline underline-offset-2 dark:text-green-400">{t.seeAccepted} →</span>
               </button>
@@ -446,12 +479,16 @@ function QuotesPageContent() {
                 history: t.history,
                 convertToInvoice: t.convertToInvoice,
                 invoiced: t.invoiced,
+                markReviewed: t.markReviewed,
+                markReviewing: t.markReviewing,
               }}
               locale={locale as 'en' | 'fr'}
               onDuplicate={handleDuplicateQuote}
               onSend={setSendTarget}
               onConvert={handleConvertFromList}
+              onAcknowledge={handleAcknowledgeRejection}
               duplicatingId={duplicatingId}
+              acknowledgingId={acknowledgingId}
             />
 
             <div className="flex flex-col gap-2 rounded-lg border border-border/70 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">

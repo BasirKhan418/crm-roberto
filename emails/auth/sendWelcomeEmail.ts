@@ -35,20 +35,20 @@ const t = {
       `Hello ${name},\n\nYour CRM workspace is now ready.\n\nOpen your dashboard: ${url}/dashboard\n\nIf you need help, reply to this email.`,
   },
   fr: {
-    subject: 'Bienvenue — votre espace est pret',
+    subject: 'Bienvenue\u00a0\u2014 votre espace est pr\u00eat',
     heading: 'Bienvenue',
     greeting: (name: string) => `Bonjour ${name},`,
-    intro: 'Votre espace CRM est desormais pret. Voici ce que vous pouvez faire des maintenant :',
+    intro: 'Votre espace CRM est d\u00e9sormais pr\u00eat. Voici ce que vous pouvez faire d\u00e8s maintenant\u00a0:',
     features: [
-      ['Gerer vos clients', 'Centralisez profils, historique et notes en un seul endroit.'],
-      ['Suivre vos fournisseurs', 'Gardez les details de vos fournisseurs pour des operations fiables.'],
-      ['Fil d\'activite', 'Restez au courant de vos relances et ne manquez aucune etape.'],
-      ['Tableau de bord', 'Visualisez la progression et les priorites de votre activite.'],
+      ['G\u00e9rer vos clients', 'Centralisez profils, historique et notes en un seul endroit.'],
+      ['Suivre vos fournisseurs', 'Gardez les d\u00e9tails de vos fournisseurs pour des op\u00e9rations fiables.'],
+      ['Fil d\'activit\u00e9', 'Restez au courant de vos relances et ne manquez aucune \u00e9tape.'],
+      ['Tableau de bord', 'Visualisez la progression et les priorit\u00e9s de votre activit\u00e9.'],
     ] as [string, string][],
     cta: 'Ouvrir le tableau de bord',
-    help: 'Besoin d\'aide pour demarrer ? Repondez a cet e-mail, nous serons ravis de vous accompagner.',
+    help: 'Besoin d\'aide pour d\u00e9marrer\u00a0? R\u00e9pondez \u00e0 cet e-mail, nous serons ravis de vous accompagner.',
     plainText: (name: string, url: string) =>
-      `Bonjour ${name},\n\nVotre espace CRM est pret.\n\nOuvrir votre tableau de bord : ${url}/dashboard\n\nSi vous avez besoin d'aide, repondez a cet e-mail.`,
+      `Bonjour ${name},\n\nVotre espace CRM est pr\u00eat.\n\nOuvrir votre tableau de bord\u00a0: ${url}/dashboard\n\nSi vous avez besoin d'aide, r\u00e9pondez \u00e0 cet e-mail.`,
   },
 };
 

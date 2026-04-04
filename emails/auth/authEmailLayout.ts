@@ -16,7 +16,7 @@ interface AuthEmailLayoutOptions {
 
 const footerText: Record<Locale, string> = {
   en: 'This is an automated message. Please do not reply directly to this email.',
-  fr: 'Ceci est un message automatique. Merci de ne pas repondre directement a cet e-mail.',
+  fr: 'Ceci est un message automatique. Merci de ne pas r\u00e9pondre directement \u00e0 cet e-mail.',
 };
 
 export function authEmailLayout({ title, locale, content }: AuthEmailLayoutOptions): string {

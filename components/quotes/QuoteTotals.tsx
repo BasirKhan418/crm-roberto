@@ -51,7 +51,7 @@ export default function QuoteTotals({ lineItems }: QuoteTotalsProps) {
       beforeDiscount: 'Before discount',
     },
     fr: {
-      summary: 'Resume',
+      summary: 'Résumé',
       totalExclTax: 'Total HT',
       discount: 'Remise',
       totalExclTaxNet: 'Total HT (net)',

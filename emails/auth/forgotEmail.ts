@@ -22,15 +22,15 @@ const t = {
       `Your password reset code is: ${otp}\n\nThis code will expire in 5 minutes.\n\nIf you did not request this, please ignore this email.`,
   },
   fr: {
-    subject: 'Code de reinitialisation du mot de passe',
-    heading: 'Reinitialisation du mot de passe',
+    subject: 'Code de r\u00e9initialisation du mot de passe',
+    heading: 'R\u00e9initialisation du mot de passe',
     greeting: 'Bonjour,',
-    intro: 'Nous avons recu une demande de reinitialisation de votre mot de passe. Utilisez le code ci-dessous pour continuer.',
-    codeLabel: 'Code de reinitialisation',
+    intro: 'Nous avons re\u00e7u une demande de r\u00e9initialisation de votre mot de passe. Utilisez le code ci-dessous pour continuer.',
+    codeLabel: 'Code de r\u00e9initialisation',
     expiry: 'Ce code expirera dans 5 minutes.',
-    ignore: 'Si vous n\'avez pas demande de reinitialisation, vous pouvez ignorer cet e-mail. Votre mot de passe restera inchange.',
+    ignore: 'Si vous n\'avez pas demand\u00e9 de r\u00e9initialisation, vous pouvez ignorer cet e-mail. Votre mot de passe restera inchang\u00e9.',
     plainText: (otp: string) =>
-      `Votre code de reinitialisation est : ${otp}\n\nCe code expirera dans 5 minutes.\n\nSi vous n'avez pas fait cette demande, veuillez ignorer cet e-mail.`,
+      `Votre code de r\u00e9initialisation est\u00a0: ${otp}\n\nCe code expirera dans 5 minutes.\n\nSi vous n'avez pas fait cette demande, veuillez ignorer cet e-mail.`,
   },
 };
 

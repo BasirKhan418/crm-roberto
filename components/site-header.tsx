@@ -24,7 +24,7 @@ const headerMessages = {
   },
   fr: {
     back: "Retour",
-    backLabel: "Revenir a la page precedente",
+    backLabel: "Revenir à la page précédente",
     dashboard: "Retour au tableau de bord",
     dashboardLabel: "Aller au tableau de bord",
   },

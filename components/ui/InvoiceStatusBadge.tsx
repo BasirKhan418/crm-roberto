@@ -25,9 +25,9 @@ const STATUS_STYLES: Record<InvoiceStatus, { backgroundColor: string; color: str
 
 function getStatusLabel(status: InvoiceStatus, locale: 'en' | 'fr'): string {
   if (locale === 'fr') {
-    if (status === 'unpaid') return 'Impayee';
-    if (status === 'deposit_paid') return 'Acompte paye';
-    if (status === 'paid') return 'Payee';
+    if (status === 'unpaid') return 'Impay\u00e9e';
+    if (status === 'deposit_paid') return 'Acompte pay\u00e9';
+    if (status === 'paid') return 'Pay\u00e9e';
     return 'En retard';
   }
 

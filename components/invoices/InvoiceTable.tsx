@@ -79,7 +79,7 @@ export default function InvoiceTable({
   const priceLocale = locale === 'fr' ? 'fr-FR' : 'en-GB';
 
   function renderActions(invoice: InvoiceListItem, align: 'start' | 'end' = 'end') {
-    const moreActionsLabel = locale === 'fr' ? 'Plus d actions' : 'More actions';
+    const moreActionsLabel = locale === 'fr' ? "Plus d'actions" : 'More actions';
 
     return (
       <DropdownMenu>

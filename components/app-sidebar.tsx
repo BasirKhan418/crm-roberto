@@ -43,6 +43,13 @@ const sidebarMessages = {
     logout: "Logout",
     userFallback: "User",
     noEmail: "No email",
+    badges: {
+      declined: (count: number) => `${count} declined — mark as reviewed`,
+      pendingInvoice: (count: number) => `${count} to invoice`,
+      overdue: (count: number) => `${count} overdue`,
+      depositPaid: (count: number) => `${count} balance due`,
+      unpaid: (count: number) => `${count} unpaid`,
+    },
     nav: {
       dashboard: "Dashboard",
       clients: "Clients",
@@ -55,14 +62,21 @@ const sidebarMessages = {
     },
   },
   fr: {
-    tagline: "Contexte metier, toujours pret",
+    tagline: "Contexte métier, toujours prêt",
     workspace: "Espace de travail",
-    preferences: "Preferences",
+    preferences: "Préférences",
     language: "Langue",
     session: "Session",
-    logout: "Deconnexion",
+    logout: "Déconnexion",
     userFallback: "Utilisateur",
     noEmail: "Aucun e-mail",
+    badges: {
+      declined: (count: number) => `${count} refusé(s) — à marquer comme traité`,
+      pendingInvoice: (count: number) => `${count} à facturer`,
+      overdue: (count: number) => `${count} en retard`,
+      depositPaid: (count: number) => `${count} solde à encaisser`,
+      unpaid: (count: number) => `${count} impayé(e)(s)`,
+    },
     nav: {
       dashboard: "Tableau de bord",
       clients: "Clients",
@@ -81,8 +95,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { user } = useAuthMe()
   const { locale } = useLocale()
   const t = sidebarMessages[locale]
-  const { rejectedCount, acceptedCount } = useQuotesActionCount()
-  const { paidCount, overdueCount, depositPaidCount } = useInvoicesActionCount()
+  const { unacknowledgedRejectedCount, pendingInvoiceCount } = useQuotesActionCount()
+  const { overdueCount, depositPaidCount, unpaidCount } = useInvoicesActionCount()
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>
@@ -119,35 +133,35 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   <Link href={item.url}>
                     {item.icon}
                     <span>{t.nav[item.key]}</span>
-                    {item.key === "quotes" && (rejectedCount > 0 || acceptedCount > 0) ? (
+                    {item.key === "quotes" && (unacknowledgedRejectedCount > 0 || pendingInvoiceCount > 0) ? (
                       <span className="ml-auto flex items-center gap-1">
-                        {rejectedCount > 0 ? (
+                        {unacknowledgedRejectedCount > 0 ? (
                           <span
                             className="flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white"
                             style={{ backgroundColor: '#ea580c' }}
-                            title={`${rejectedCount} declined`}
+                            title={t.badges.declined(unacknowledgedRejectedCount)}
                           >
-                            {rejectedCount > 99 ? '99+' : rejectedCount}
+                            {unacknowledgedRejectedCount > 99 ? '99+' : unacknowledgedRejectedCount}
                           </span>
                         ) : null}
-                        {acceptedCount > 0 ? (
+                        {pendingInvoiceCount > 0 ? (
                           <span
                             className="flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white"
                             style={{ backgroundColor: 'var(--color-text-success)' }}
-                            title={`${acceptedCount} accepted`}
+                            title={t.badges.pendingInvoice(pendingInvoiceCount)}
                           >
-                            {acceptedCount > 99 ? '99+' : acceptedCount}
+                            {pendingInvoiceCount > 99 ? '99+' : pendingInvoiceCount}
                           </span>
                         ) : null}
                       </span>
                     ) : null}
-                    {item.key === "invoices" && (paidCount > 0 || overdueCount > 0 || depositPaidCount > 0) ? (
+                    {item.key === "invoices" && (overdueCount > 0 || unpaidCount > 0 || depositPaidCount > 0) ? (
                       <span className="ml-auto flex items-center gap-1">
                         {overdueCount > 0 ? (
                           <span
                             className="flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white"
                             style={{ backgroundColor: 'var(--color-text-danger)' }}
-                            title={`${overdueCount} overdue`}
+                            title={t.badges.overdue(overdueCount)}
                           >
                             {overdueCount > 99 ? '99+' : overdueCount}
                           </span>
@@ -156,18 +170,18 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                           <span
                             className="flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white"
                             style={{ backgroundColor: 'var(--color-text-warning)' }}
-                            title={`${depositPaidCount} deposit paid`}
+                            title={t.badges.depositPaid(depositPaidCount)}
                           >
                             {depositPaidCount > 99 ? '99+' : depositPaidCount}
                           </span>
                         ) : null}
-                        {paidCount > 0 ? (
+                        {unpaidCount > 0 ? (
                           <span
                             className="flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white"
-                            style={{ backgroundColor: 'var(--color-text-success)' }}
-                            title={`${paidCount} paid`}
+                            style={{ backgroundColor: '#6366f1' }}
+                            title={t.badges.unpaid(unpaidCount)}
                           >
-                            {paidCount > 99 ? '99+' : paidCount}
+                            {unpaidCount > 99 ? '99+' : unpaidCount}
                           </span>
                         ) : null}
                       </span>

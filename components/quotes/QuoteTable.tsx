@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-import { CopyIcon, DownloadIcon, EllipsisVerticalIcon, EyeIcon, FileTextIcon, HistoryIcon, PencilIcon, SendIcon, Trash2Icon } from 'lucide-react';
+import { CopyIcon, CheckCircle2Icon, DownloadIcon, EllipsisVerticalIcon, EyeIcon, FileTextIcon, HistoryIcon, PencilIcon, SendIcon, Trash2Icon } from 'lucide-react';
 
 import QuoteHistoryDialog from '@/components/quotes/QuoteHistoryDialog';
 import { PriceDisplay } from '@/components/ui/PriceDisplay';
@@ -30,12 +30,6 @@ const STATUS_ROW_BG: Record<QuoteStatus, string> = {
   rejected: 'rgba(239, 68, 68, 0.07)',
 };
 
-function isNewQuote(quote: QuoteListItem): boolean {
-  if (quote.status !== 'accepted' && quote.status !== 'rejected') return false;
-  if (!quote.statusChangedAt) return false;
-  const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
-  return Date.now() - new Date(quote.statusChangedAt).getTime() < SEVEN_DAYS_MS;
-}
 
 export interface QuoteListItem {
   _id: string;
@@ -51,6 +45,7 @@ export interface QuoteListItem {
   signedStatus?: 'not_signed' | 'signed';
   convertedToInvoice?: boolean;
   invoiceId?: string | null;
+  rejectionAcknowledgedAt?: string | Date | null;
   statusChangedAt?: string | null;
   subject?: string | null;
 }
@@ -78,6 +73,8 @@ interface QuoteTableProps {
     history: string;
     convertToInvoice: string;
     invoiced: string;
+    markReviewed: string;
+    markReviewing: string;
   };
   locale: 'en' | 'fr';
   formatDate: (value: string) => string;
@@ -86,13 +83,19 @@ interface QuoteTableProps {
   onDuplicate: (quote: QuoteListItem) => Promise<void>;
   onSend: (quote: QuoteListItem) => void;
   onConvert: (quote: QuoteListItem) => void;
+  onAcknowledge: (quote: QuoteListItem) => Promise<void>;
   duplicatingId?: string | null;
+  acknowledgingId?: string | null;
 }
 
-export default function QuoteTable({ items, loading, labels, locale, formatDate, onDelete, onDownload, onDuplicate, onSend, onConvert, duplicatingId }: QuoteTableProps) {
+export default function QuoteTable({ items, loading, labels, locale, formatDate, onDelete, onDownload, onDuplicate, onSend, onConvert, onAcknowledge, duplicatingId, acknowledgingId }: QuoteTableProps) {
   const router = useRouter();
   const [historyTarget, setHistoryTarget] = useState<QuoteListItem | null>(null);
   const priceLocale = locale === 'fr' ? 'fr-FR' : 'en-GB';
+
+  function isNeedsReview(quote: QuoteListItem): boolean {
+    return quote.status === 'rejected' && !quote.rejectionAcknowledgedAt;
+  }
 
   function renderPrimaryAction(quote: QuoteListItem, className?: string) {
     if (quote.status === 'draft') {
@@ -180,6 +183,17 @@ export default function QuoteTable({ items, loading, labels, locale, formatDate,
             </DropdownMenuItem>
           ) : null}
 
+          {isNeedsReview(quote) ? (
+            <DropdownMenuItem
+              disabled={acknowledgingId === quote._id}
+              onSelect={() => void onAcknowledge(quote)}
+              className="text-orange-700 focus:bg-orange-50 focus:text-orange-700 dark:text-orange-400 dark:focus:bg-orange-950/40"
+            >
+              <CheckCircle2Icon className="size-4" />
+              {acknowledgingId === quote._id ? labels.markReviewing : labels.markReviewed}
+            </DropdownMenuItem>
+          ) : null}
+
           <DropdownMenuItem onSelect={() => void onDownload(quote)}>
             <DownloadIcon className="size-4" />
             {labels.downloadPdf}
@@ -261,13 +275,13 @@ export default function QuoteTable({ items, loading, labels, locale, formatDate,
                         {labels.invoiced}
                       </span>
                     ) : null}
-                    {isNewQuote(quote) ? (
+                    {isNeedsReview(quote) ? (
                       <span className="inline-flex items-center gap-1 rounded-full bg-orange-500 px-2 py-0.5 text-[10px] font-bold leading-none text-white">
                         <span className="relative flex size-1.5">
                           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-70" />
                           <span className="relative inline-flex size-1.5 rounded-full bg-white" />
                         </span>
-                        NEW
+                        {locale === 'fr' ? 'REVU ?' : 'REVIEW'}
                       </span>
                     ) : null}
                     <StatusBadge status={quote.status} className="mt-0.5" />
@@ -384,16 +398,16 @@ export default function QuoteTable({ items, loading, labels, locale, formatDate,
                       />
                     </TableCell>
 
-                    {/* Status badge + NEW indicator if client responded recently */}
+                    {/* Status badge + REVIEW indicator for unacknowledged rejections */}
                     <TableCell className="py-4 align-middle">
                       <div className="flex flex-col items-start gap-1">
-                        {isNewQuote(quote) ? (
+                        {isNeedsReview(quote) ? (
                           <span className="inline-flex items-center gap-1 rounded-full bg-orange-500 px-2 py-0.5 text-[10px] font-bold leading-none text-white">
                             <span className="relative flex size-1.5">
                               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-70" />
                               <span className="relative inline-flex size-1.5 rounded-full bg-white" />
                             </span>
-                            NEW
+                            {locale === 'fr' ? 'REVU ?' : 'REVIEW'}
                           </span>
                         ) : null}
                         <StatusBadge status={quote.status} />

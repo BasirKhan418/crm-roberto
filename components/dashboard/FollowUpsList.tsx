@@ -210,15 +210,15 @@ export default function FollowUpsList({ followUps = [], loading = false, error =
     fr: {
       title: 'Suivis',
       overdue: 'En retard',
-      scheduled: 'Programmes',
-      empty: 'Aucun suivi programme. Ajoutez une date de suivi a une note.',
+      scheduled: 'Programm\u00e9s',
+      empty: 'Aucun suivi programm\u00e9. Ajoutez une date de suivi \u00e0 une note.',
       untitled: 'Suivi sans titre',
       unknown: 'Inconnu',
-      markAsDone: 'Marquer comme termine',
+      markAsDone: 'Marquer comme termin\u00e9',
       overdueMonths: (count: number) => `${count} mois de retard`,
       overdueWeeks: (count: number) => `${count} sem de retard`,
       overdueDays: (count: number) => `${count} j de retard`,
-      dueToday: 'Pour aujourd hui',
+      dueToday: "Pour aujourd'hui",
       tomorrow: 'Demain',
       inWeeks: (count: number) => `Dans ${count} sem`,
       inDays: (count: number) => `Dans ${count} j`,
@@ -378,12 +378,12 @@ export default function FollowUpsList({ followUps = [], loading = false, error =
               <>
               {overdueItems.length > 0 ? (
                 <span className="rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-bold text-white">
-                  {overdueItems.length} overdue
+                  {locale === 'fr' ? `${overdueItems.length} en retard` : `${overdueItems.length} overdue`}
                 </span>
               ) : null}
               {scheduledItems.length > 0 ? (
                 <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-bold text-white">
-                  {scheduledItems.length} upcoming
+                  {locale === 'fr' ? `${scheduledItems.length} à venir` : `${scheduledItems.length} upcoming`}
                 </span>
               ) : null}
               </>

@@ -71,12 +71,12 @@ const translations = {
   },
   fr: {
     title: 'Envoyer le devis par e-mail',
-    description: 'Envoyer ce devis en pièce jointe PDF au client.',
-    successTitle: 'E-mail du devis envoye',
-    successDescription: 'L e-mail a ete envoye avec succes et ce devis est pret pour votre client.',
-    resendSuccessDescription: 'L e-mail de signature a ete renvoye avec succes a votre client.',
-    nextStepLabel: 'Prochaine etape',
-    nextStep: 'Votre client peut maintenant ouvrir l e-mail et continuer a partir du lien de signature qu il contient.',
+    description: 'Envoyer ce devis en pi\u00e8ce jointe PDF au client.',
+    successTitle: 'E-mail du devis envoy\u00e9',
+    successDescription: "L'e-mail a \u00e9t\u00e9 envoy\u00e9 avec succ\u00e8s et ce devis est pr\u00eat pour votre client.",
+    resendSuccessDescription: "L'e-mail de signature a \u00e9t\u00e9 renvoy\u00e9 avec succ\u00e8s \u00e0 votre client.",
+    nextStepLabel: 'Prochaine \u00e9tape',
+    nextStep: "Votre client peut maintenant ouvrir l'e-mail et continuer \u00e0 partir du lien de signature qu'il contient.",
     emailLabel: 'E-mail du client',
     emailPlaceholder: 'client@exemple.com',
     subjectLabel: 'Objet',
@@ -87,17 +87,17 @@ const translations = {
     resendSigningLink: 'Renvoyer le lien de signature',
     send: 'Envoyer au client',
     sending: 'Envoi en cours...',
-    success: 'Devis envoyé avec succès',
-    emailSentWithLink: 'E-mail envoye. Lien de signature pret a partager :',
+    success: 'Devis envoy\u00e9 avec succ\u00e8s',
+    emailSentWithLink: 'E-mail envoy\u00e9. Lien de signature pr\u00eat \u00e0 partager\u00a0:',
     copyLink: 'Copier le lien',
-    copied: 'Copie',
+    copied: 'Copi\u00e9',
     error: "Impossible d'envoyer le devis",
     emailRequired: "L'e-mail du client est requis",
-    defaultSubject: (quoteNumber: string) => `Devis ${quoteNumber} - Merci de verifier et signer`,
+    defaultSubject: (quoteNumber: string) => `Devis ${quoteNumber} - Merci de v\u00e9rifier et signer`,
     defaultMessage: (quoteNumber: string, clientName?: string | null, senderCompany?: string | null) => {
       const greeting = clientName ? `Bonjour ${clientName},` : 'Bonjour,';
       const signOff = senderCompany ? `Bien cordialement,\n${senderCompany}` : 'Bien cordialement,';
-      return `${greeting}\n\nVeuillez trouver ci-joint votre devis ${quoteNumber}.\n\nLorsque vous etes pret, utilisez le bouton securise de cet e-mail pour consulter le devis et signer en ligne.\n\nN'hesitez pas a revenir vers nous pour toute question avant signature.\n\n${signOff}`;
+      return `${greeting}\n\nVeuillez trouver ci-joint votre devis ${quoteNumber}.\n\nLorsque vous \u00eates pr\u00eat, utilisez le bouton s\u00e9curis\u00e9 de cet e-mail pour consulter le devis et signer en ligne.\n\nN'h\u00e9sitez pas \u00e0 revenir vers nous pour toute question avant signature.\n\n${signOff}`;
     },
   },
 };

@@ -52,8 +52,8 @@ export default function StatusChanger({
     },
     fr: {
       placeholder: 'Changer le statut…',
-      failed: 'Impossible de changer le statut. Veuillez reessayer.',
-      success: 'Statut mis a jour',
+      failed: 'Impossible de changer le statut. Veuillez réessayer.',
+      success: 'Statut mis à jour',
     },
   }[locale];
 

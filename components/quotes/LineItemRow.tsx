@@ -96,14 +96,14 @@ export default function LineItemRow({ row, index, products, onChange, onDelete }
       product: 'Produit',
       discount: 'Remise %',
       discountAmount: 'Remise HT',
-      qty: 'Qte',
+      qty: 'Qt\u00e9',
       unitPrice: 'Prix unitaire HT',
       vatRate: 'TVA %',
       totalExclTax: 'Total HT',
       totalInclTax: 'Total TTC',
       removeLine: 'Supprimer la ligne',
       searchPlaceholder: 'Rechercher un produit/service',
-      noMatches: 'Aucun resultat',
+      noMatches: 'Aucun r\u00e9sultat',
     },
   }[locale];
 

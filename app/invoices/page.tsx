@@ -75,48 +75,60 @@ function InvoicesPageContent() {
       total: 'total',
       previous: 'Previous',
       next: 'Next',
+      actionOverdue: (n: number) => `${n} invoice${n === 1 ? '' : 's'} overdue — collect now`,
+      actionOverdueHint: 'Disappears when marked as paid or deposit paid',
+      actionDepositPaid: (n: number) => `${n} invoice${n === 1 ? '' : 's'} with deposit — balance outstanding`,
+      actionDepositPaidHint: 'Disappears when fully paid',
+      seeOverdue: 'See overdue',
+      seeDepositPaid: 'See balance due',
     },
     fr: {
       shellTitle: 'Factures',
       heading: 'Factures',
-      subtitle: 'Suivez la facturation, les urgences et l encaissement au meme endroit.',
-      totalResults: 'resultats au total',
+      subtitle: "Suivez la facturation, les urgences et l'encaissement au même endroit.",
+      totalResults: 'résultats au total',
       currentFilter: 'Filtre actuel',
       deleteFailed: 'Impossible de supprimer la facture',
-      deleted: 'Facture supprimee',
-      downloadFailed: 'Impossible de telecharger le PDF',
+      deleted: 'Facture supprimée',
+      downloadFailed: 'Impossible de télécharger le PDF',
       newInvoice: 'Nouvelle facture',
-      search: 'Rechercher par numero de facture ou nom client...',
+      search: 'Rechercher par numéro de facture ou nom client...',
       sortDate: 'Date',
       sortAmount: 'Montant',
       tabAll: 'Tous',
-      tabUnpaid: 'Impayees',
-      tabDepositPaid: 'Acompte paye',
-      tabPaid: 'Payees',
+      tabUnpaid: 'Impayées',
+      tabDepositPaid: 'Acompte payé',
+      tabPaid: 'Payées',
       tabOverdue: 'En retard',
-      empty: 'Aucune facture - creez votre premiere facture',
-      invoiceNumber: 'Numero',
+      empty: 'Aucune facture - créez votre première facture',
+      invoiceNumber: 'Numéro',
       client: 'Client',
       date: 'Date',
-      dueDate: 'Echeance',
+      dueDate: 'Échéance',
       totalIncludingTax: 'Total TTC',
       status: 'Statut',
       actions: 'Actions',
       view: 'Voir',
       edit: 'Modifier',
       send: 'Envoyer',
-      downloadPdf: 'Telecharger PDF',
+      downloadPdf: 'Télécharger PDF',
       delete: 'Supprimer',
-      deleteTitle: 'Supprimer la facture ?',
-      deleteDescription: 'Voulez-vous vraiment supprimer cette facture ?',
+      deleteTitle: 'Supprimer la facture ?',
+      deleteDescription: 'Voulez-vous vraiment supprimer cette facture ?',
       cancel: 'Annuler',
       deleting: 'Suppression...',
       deleteInvoice: 'Supprimer la facture',
       page: 'Page',
       of: 'sur',
       total: 'au total',
-      previous: 'Precedent',
+      previous: 'Précédent',
       next: 'Suivant',
+      actionOverdue: (n: number) => `${n} facture${n === 1 ? '' : 's'} en retard — encaissez maintenant`,
+      actionOverdueHint: 'Disparaît lorsque la facture est marquée comme payée',
+      actionDepositPaid: (n: number) => `${n} facture${n === 1 ? '' : 's'} avec solde restant`,
+      actionDepositPaidHint: 'Disparaît lorsque la facture est intégralement payée',
+      seeOverdue: 'Voir en retard',
+      seeDepositPaid: 'Voir soldes dus',
     },
   }[locale];
 
@@ -317,6 +329,49 @@ function InvoicesPageContent() {
         </div>
 
         {error ? <ErrorMessage message={error} /> : null}
+
+        {/* ── Action-required banners ────────────────────────────────────────── */}
+        {!loading && (status === 'all' || status === 'overdue' || status === 'deposit_paid') &&
+          (overdueCount > 0 || depositPaidCount > 0) ? (
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+            {overdueCount > 0 && status !== 'deposit_paid' ? (
+              <button
+                type="button"
+                onClick={() => setStatus('overdue')}
+                className="flex flex-1 basis-64 flex-col gap-1.5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-left transition-colors hover:bg-red-100 dark:border-red-900/40 dark:bg-red-950/30 dark:hover:bg-red-950/50 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                <div className="flex items-center gap-2.5">
+                  <span className="relative flex size-2.5 shrink-0">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-60" />
+                    <span className="relative inline-flex size-2.5 rounded-full bg-red-500" />
+                  </span>
+                  <div>
+                    <span className="block text-sm font-semibold text-red-800 dark:text-red-300">{t.actionOverdue(overdueCount)}</span>
+                    <span className="mt-0.5 block text-[11px] text-red-600/80 dark:text-red-400/70">{t.actionOverdueHint}</span>
+                  </div>
+                </div>
+                <span className="shrink-0 text-xs font-semibold text-red-700 underline underline-offset-2 dark:text-red-400">{t.seeOverdue} →</span>
+              </button>
+            ) : null}
+            {depositPaidCount > 0 && status !== 'overdue' ? (
+              <button
+                type="button"
+                onClick={() => setStatus('deposit_paid')}
+                className="flex flex-1 basis-64 flex-col gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-left transition-colors hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-950/30 dark:hover:bg-amber-950/50 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                <div className="flex items-center gap-2.5">
+                  <span className="relative flex size-2.5 shrink-0">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-500 opacity-60" />
+                    <span className="relative inline-flex size-2.5 rounded-full bg-amber-500" />
+                  </span>
+                  <div>
+                    <span className="block text-sm font-semibold text-amber-800 dark:text-amber-300">{t.actionDepositPaid(depositPaidCount)}</span>
+                    <span className="mt-0.5 block text-[11px] text-amber-600/80 dark:text-amber-400/70">{t.actionDepositPaidHint}</span>
+                  </div>
+                </div>
+                <span className="shrink-0 text-xs font-semibold text-amber-700 underline underline-offset-2 dark:text-amber-400">{t.seeDepositPaid} →</span>
+              </button>
+            ) : null}
+          </div>
+        ) : null}
 
         {!loading && invoices.length === 0 ? (
           <EmptyState message={t.empty} actionLabel={t.newInvoice} onAction={() => router.push('/invoices/new')} />

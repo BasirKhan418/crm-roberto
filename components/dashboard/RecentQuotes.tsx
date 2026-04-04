@@ -83,7 +83,7 @@ export default function RecentQuotes({ refreshKey = 0 }: RecentQuotesProps) {
       loadError: 'Impossible de charger les devis récents.',
       openQuote: 'Ouvrir le devis',
       viewAll: 'Voir tout →',
-      createQuote: 'Creer un devis',
+      createQuote: 'Créer un devis',
     },
   }[locale];
 

@@ -61,7 +61,7 @@ const translations = {
   },
   fr: {
     title: 'Envoyer la facture par e-mail',
-    description: 'Envoyer cette facture en piece jointe PDF avec paiement en ligne.',
+    description: 'Envoyer cette facture en pi\u00e8ce jointe PDF avec paiement en ligne.',
     emailLabel: 'E-mail du client',
     emailPlaceholder: 'client@exemple.com',
     subjectLabel: 'Objet',
@@ -69,19 +69,19 @@ const translations = {
     cancel: 'Annuler',
     send: 'Envoyer la facture',
     sending: 'Envoi en cours...',
-    emailRequired: 'L e-mail du client est requis',
-    success: 'Facture envoyee avec succes',
-    error: 'Impossible d envoyer la facture',
-    stripeErrorTitle: 'Stripe n est pas connecte',
+    emailRequired: "L'e-mail du client est requis",
+    success: 'Facture envoy\u00e9e avec succ\u00e8s',
+    error: "Impossible d'envoyer la facture",
+    stripeErrorTitle: "Stripe n'est pas connect\u00e9",
     stripeErrorDescription: 'Veuillez connecter Stripe pour envoyer des factures et accepter les paiements en ligne.',
     connectStripe: 'Connecter Stripe',
-    connectRedirecting: 'Redirection vers l onboarding Stripe...',
-    wireDisconnected: 'Emplacement illustration cable deconnecte',
-    defaultSubject: (invoiceNumber: string) => `Facture ${invoiceNumber} - Details de paiement`,
+    connectRedirecting: "Redirection vers l'onboarding Stripe...",
+    wireDisconnected: 'Emplacement illustration c\u00e2ble d\u00e9connect\u00e9',
+    defaultSubject: (invoiceNumber: string) => `Facture ${invoiceNumber} - D\u00e9tails de paiement`,
     defaultMessage: (invoiceNumber: string, clientName?: string | null, senderCompany?: string | null) => {
       const greeting = clientName ? `Bonjour ${clientName},` : 'Bonjour,';
       const signOff = senderCompany ? `Bien cordialement,\n${senderCompany}` : 'Bien cordialement,';
-      return `${greeting}\n\nVeuillez trouver ci-joint votre facture ${invoiceNumber}.\n\nUtilisez le bouton de paiement securise dans cet e-mail pour regler en ligne.\n\nSi vous avez des questions sur cette facture, vous pouvez repondre a cet e-mail.\n\n${signOff}`;
+      return `${greeting}\n\nVeuillez trouver ci-joint votre facture ${invoiceNumber}.\n\nUtilisez le bouton de paiement s\u00e9curis\u00e9 dans cet e-mail pour r\u00e9gler en ligne.\n\nSi vous avez des questions sur cette facture, vous pouvez r\u00e9pondre \u00e0 cet e-mail.\n\n${signOff}`;
     },
   },
 };

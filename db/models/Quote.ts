@@ -276,7 +276,11 @@ const QuoteSchema = new mongoose.Schema(
     invoiceId: {
       type: mongoose.Schema.Types.ObjectId,
       default: null,
-      // Will reference the Invoice model in Phase 3
+    },
+
+    rejectionAcknowledgedAt: {
+      type: Date,
+      default: null,
     },
     quotepdfUrl: {
       type: String,
@@ -292,19 +296,14 @@ const QuoteSchema = new mongoose.Schema(
 
 
 
-// Speed up list page: all quotes for this user, newest first
 QuoteSchema.index({ user: 1, createdAt: -1 });
 
-// Guarantee quote number uniqueness per user.
 QuoteSchema.index({ user: 1, quoteNumber: 1 }, { unique: true, name: 'unique_user_quote_number' });
 
-// Speed up status filter tabs
 QuoteSchema.index({ user: 1, status: 1 });
 
-// Speed up Dashboard "quotes this month" stat
 QuoteSchema.index({ user: 1, date: -1 });
 
-// Speed up search by quote number or client name
 QuoteSchema.index(
   { quoteNumber: "text", "clientSnapshot.fullName": "text" },
   { name: "quote_search_index" }

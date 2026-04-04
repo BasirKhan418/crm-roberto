@@ -102,37 +102,37 @@ export default function NotesPage() {
       next: 'Next',
     },
     fr: {
-      fetchFailed: 'Impossible de recuperer les notes',
-      validationRequired: 'Le titre, la description et l\'element lie sont requis',
+      fetchFailed: 'Impossible de récupérer les notes',
+      validationRequired: "Le titre, la description et l'élément lié sont requis",
       dateRequired: 'La date de suivi est requise',
-      createFailed: 'Impossible de creer la note',
-      created: 'Note creee',
+      createFailed: 'Impossible de créer la note',
+      created: 'Note créée',
       deleteFailed: 'Impossible de supprimer la note',
-      deleted: 'Note supprimee',
-      updateFailed: 'Impossible de mettre a jour la note',
-      updated: 'Note mise a jour',
+      deleted: 'Note supprimée',
+      updateFailed: 'Impossible de mettre à jour la note',
+      updated: 'Note mise à jour',
       shellTitle: 'Notes',
       heading: 'Notes',
-      subtitle: 'Recherchez toutes les notes et centralisez la memoire metier.',
+      subtitle: 'Recherchez toutes les notes et centralisez la mémoire métier.',
       addNote: 'Ajouter une note',
-      createNote: 'Creer une note',
-      createDesc: 'Ajoutez une note depuis la vue globale et liez-la a un client ou fournisseur.',
+      createNote: 'Créer une note',
+      createDesc: "Ajoutez une note depuis la vue globale et liez-la à un client ou fournisseur.",
       editNote: 'Modifier la note',
-      editDesc: 'Mettez a jour les details de la note et l\'element lie.',
+      editDesc: "Mettez à jour les détails de la note et l'élément lié.",
       title: 'Titre',
       description: 'Description',
-      linkedType: 'Type lie',
+      linkedType: 'Type lié',
       client: 'Client',
       supplier: 'Fournisseur',
-      linkedRecord: 'Element lie',
-      select: 'Selectionner',
+      linkedRecord: 'Élément lié',
+      select: 'Sélectionner',
       followUpDate: 'Date de suivi',
       cancel: 'Annuler',
       saving: 'Enregistrement...',
       saveNote: 'Enregistrer la note',
       saveChanges: 'Enregistrer les modifications',
-      deleteTitle: 'Supprimer la note ?',
-      deleteDesc: 'Cette action est irreversible. La note sera supprimee definitivement.',
+      deleteTitle: 'Supprimer la note ?',
+      deleteDesc: 'Cette action est irréversible. La note sera supprimée définitivement.',
       deleting: 'Suppression...',
       deleteNote: 'Supprimer la note',
       allNotes: 'Toutes les notes',
@@ -140,12 +140,12 @@ export default function NotesPage() {
       all: 'Tout',
       clientsOnly: 'Clients seulement',
       suppliersOnly: 'Fournisseurs seulement',
-      empty: 'Aucune note trouvee. Commencez par ajouter votre premiere note.',
+      empty: 'Aucune note trouvée. Commencez par ajouter votre première note.',
       followUp: 'Suivi',
       page: 'Page',
       of: 'sur',
       total: 'au total',
-      previous: 'Precedent',
+      previous: 'Précédent',
       next: 'Suivant',
     },
   }[locale];
@@ -428,7 +428,7 @@ export default function NotesPage() {
 
   return (
     <CrmShell title={t.shellTitle}>
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="font-heading text-2xl font-semibold tracking-tight">{t.heading}</h1>
           <p className="text-sm text-muted-foreground">{t.subtitle}</p>
@@ -436,7 +436,7 @@ export default function NotesPage() {
 
         <Sheet open={isAddOpen} onOpenChange={setIsAddOpen}>
           <SheetTrigger asChild>
-            <Button className='h-10'>
+            <Button className='h-10 w-full sm:w-auto'>
               <PlusIcon />
               {t.addNote}
             </Button>
@@ -634,8 +634,8 @@ export default function NotesPage() {
       <Card>
         <CardHeader className="border-b">
           <CardTitle className="text-base">{t.allNotes}</CardTitle>
-          <div className="mt-3 flex flex-col gap-2 md:flex-row md:items-center">
-            <div className="relative max-w-md flex-1">
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="relative flex-1">
               <SearchIcon className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
               <Input
                 className="pl-8"
@@ -651,7 +651,7 @@ export default function NotesPage() {
               />
             </div>
             <Select value={filter} onValueChange={(v: 'all' | 'client' | 'supplier') => { setFilter(v); setPagination((p) => ({ ...p, page: 1 })); }}>
-              <SelectTrigger className="w-45"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-full sm:w-45"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">{t.all}</SelectItem>
                 <SelectItem value="client">{t.clientsOnly}</SelectItem>
@@ -728,8 +728,7 @@ export default function NotesPage() {
                         type="button"
                         disabled={markingFollowUpId === note._id}
                         onClick={() => markFollowUpDone(note._id)}
-                        className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 dark:hover:bg-emerald-950/50"
-                      >
+                        className="inline-flex w-full items-center justify-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:justify-start dark:border-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 dark:hover:bg-emerald-950/50">
                         {markingFollowUpId === note._id ? (
                           <Loader2 className="size-3 animate-spin" />
                         ) : (
@@ -747,7 +746,7 @@ export default function NotesPage() {
             </div>
           )}
 
-          <div className="mt-4 flex items-center justify-between">
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs text-muted-foreground">
               {t.page} {pagination.page} {t.of} {Math.max(pagination.totalPages, 1)} - {pagination.total} {t.total}
             </p>

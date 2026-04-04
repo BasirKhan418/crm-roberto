@@ -50,18 +50,18 @@ const translations = {
   },
   fr: {
     title: 'Convertir en facture',
-    description: 'Definissez les parametres de facturation avant conversion du devis signe.',
-    depositLabel: 'Acompte %',
-    dueDateLabel: 'Echeance (optionnelle)',
+    description: 'D\u00e9finissez les param\u00e8tres de facturation avant conversion du devis sign\u00e9.',
+    depositLabel: 'Acompte\u00a0%',
+    dueDateLabel: '\u00c9ch\u00e9ance (optionnelle)',
     notesLabel: 'Notes / conditions',
     notesPlaceholder: 'Ajoutez des notes de facture ou conditions de paiement...',
-    customLabel: 'Personnalise',
+    customLabel: 'Personnalis\u00e9',
     cancel: 'Annuler',
     submit: 'Convertir en facture',
     converting: 'Conversion...',
     success: 'Devis converti en facture',
     error: 'Impossible de convertir le devis',
-    customInvalid: 'L acompte personnalise doit etre entre 0 et 100',
+    customInvalid: "L'acompte personnalis\u00e9 doit \u00eatre entre 0 et 100",
   },
 };
 

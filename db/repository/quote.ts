@@ -25,6 +25,7 @@ export interface QuoteListItemRecord {
   signedStatus?: QuoteSignedStatus;
   convertedToInvoice?: boolean;
   invoiceId?: string | null;
+  rejectionAcknowledgedAt?: Date | null;
   statusChangedAt: Date | null;
   totalIncludingTax: number;
   clientId: string;
@@ -61,6 +62,7 @@ interface QuoteListQueryRecord {
   signedStatus?: QuoteSignedStatus;
   convertedToInvoice?: boolean;
   invoiceId?: mongoose.Types.ObjectId | string | null;
+  rejectionAcknowledgedAt?: Date | null;
   signedAt?: Date | null;
   updatedAt?: Date | null;
   totalIncludingTax: number;
@@ -411,7 +413,7 @@ export const listQuotes = async (
     .sort(sortOptions)
     .skip(skip)
     .limit(limit)
-    .select('_id quoteNumber date status signedStatus convertedToInvoice invoiceId signedAt updatedAt clientId clientSnapshot.fullName clientSnapshot.email totalIncludingTax statusHistory.to statusHistory.changedAt subject')
+    .select('_id quoteNumber date status signedStatus convertedToInvoice invoiceId rejectionAcknowledgedAt signedAt updatedAt clientId clientSnapshot.fullName clientSnapshot.email totalIncludingTax statusHistory.to statusHistory.changedAt subject')
     .lean();
 
   const items = (quotes as (QuoteListQueryRecord & { subject?: string | null })[]).map((quote) => {
@@ -425,6 +427,7 @@ export const listQuotes = async (
     signedStatus: quote.signedStatus ?? 'not_signed',
     convertedToInvoice: Boolean(quote.convertedToInvoice),
     invoiceId: quote.invoiceId ? String(quote.invoiceId) : null,
+    rejectionAcknowledgedAt: quote.rejectionAcknowledgedAt ?? null,
     statusChangedAt: getLatestStatusChangedAt(normalizedStatus, quote.statusHistory, {
       signedAt: quote.signedAt,
       updatedAt: quote.updatedAt,

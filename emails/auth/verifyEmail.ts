@@ -22,15 +22,15 @@ const t = {
       `Your verification code is: ${otp}\n\nThis code will expire in 5 minutes.\n\nIf you did not request this, please ignore this email.`,
   },
   fr: {
-    subject: 'Votre code de verification',
-    heading: 'Verification de l\'e-mail',
+    subject: 'Votre code de v\u00e9rification',
+    heading: 'V\u00e9rification de l\'e-mail',
     greeting: 'Bonjour,',
-    intro: 'Utilisez le code ci-dessous pour verifier votre adresse e-mail.',
-    codeLabel: 'Code de verification',
+    intro: 'Utilisez le code ci-dessous pour v\u00e9rifier votre adresse e-mail.',
+    codeLabel: 'Code de v\u00e9rification',
     expiry: 'Ce code expirera dans 5 minutes.',
-    ignore: 'Si vous n\'avez pas demande cette verification, vous pouvez ignorer cet e-mail.',
+    ignore: 'Si vous n\'avez pas demand\u00e9 cette v\u00e9rification, vous pouvez ignorer cet e-mail.',
     plainText: (otp: string) =>
-      `Votre code de verification est : ${otp}\n\nCe code expirera dans 5 minutes.\n\nSi vous n'avez pas fait cette demande, veuillez ignorer cet e-mail.`,
+      `Votre code de v\u00e9rification est\u00a0: ${otp}\n\nCe code expirera dans 5 minutes.\n\nSi vous n'avez pas fait cette demande, veuillez ignorer cet e-mail.`,
   },
 };
 

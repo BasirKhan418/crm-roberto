@@ -44,16 +44,16 @@ const loginMessages = {
   },
   fr: {
     heading: "Bon retour",
-    subtitle: "Connectez-vous a votre tableau de bord editorial.",
+    subtitle: "Connectez-vous \u00e0 votre tableau de bord \u00e9ditorial.",
     emailLabel: "Adresse e-mail",
     passwordLabel: "Mot de passe",
-    forgotPassword: "Mot de passe oublie ?",
+    forgotPassword: "Mot de passe oubli\u00e9\u00a0?",
     loginButton: "Connexion",
-    signupPrompt: "Nouveau sur la plateforme executive ?",
+    signupPrompt: "Nouveau sur la plateforme executive\u00a0?",
     signupCta: "Inscription",
-    toastLoginSuccess: "Connexion reussie ! Redirection vers le tableau de bord...",
-    toastLoginFailed: "Echec de la connexion. Veuillez verifier vos identifiants et reessayer.",
-    toastLoginError: "Une erreur s'est produite lors de la connexion. Veuillez reessayer.",
+    toastLoginSuccess: "Connexion r\u00e9ussie\u00a0! Redirection vers le tableau de bord...",
+    toastLoginFailed: "\u00c9chec de la connexion. Veuillez v\u00e9rifier vos identifiants et r\u00e9essayer.",
+    toastLoginError: "Une erreur s'est produite lors de la connexion. Veuillez r\u00e9essayer.",
   },
 } as const
 

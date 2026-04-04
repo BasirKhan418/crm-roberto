@@ -23,6 +23,20 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { EllipsisVerticalIcon, CircleUserRoundIcon, KeyRoundIcon, LogOutIcon } from "lucide-react"
+import { useLocale } from "@/components/providers/locale-provider"
+
+const navUserMessages = {
+  en: {
+    account: 'Account',
+    changePassword: 'Change password',
+    logOut: 'Log out',
+  },
+  fr: {
+    account: 'Mon compte',
+    changePassword: 'Changer le mot de passe',
+    logOut: 'Se déconnecter',
+  },
+} as const
 
 export function NavUser({
   user,
@@ -34,6 +48,8 @@ export function NavUser({
   }
 }) {
   const { isMobile } = useSidebar()
+  const { locale } = useLocale()
+  const t = navUserMessages[locale]
 
   const initials = user.name
     .split(" ")
@@ -90,14 +106,14 @@ export function NavUser({
                 <Link href="/profile#company-profile">
                 <CircleUserRoundIcon
                 />
-                Account
+                {t.account}
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <Link href="/profile#password-security">
                   <KeyRoundIcon
                   />
-                  Change password
+                  {t.changePassword}
                 </Link>
               </DropdownMenuItem>
             </DropdownMenuGroup>
@@ -106,7 +122,7 @@ export function NavUser({
               <Link href="/logout">
               <LogOutIcon
               />
-              Log out
+              {t.logOut}
               </Link>
             </DropdownMenuItem>
           </DropdownMenuContent>

@@ -37,14 +37,14 @@ export default function DeleteCatalogueDialog({ open, item, onClose, onDeleted }
       error: 'Failed to delete item',
     },
     fr: {
-      title: 'Supprimer l\'element',
+      title: 'Supprimer l\'\u00e9l\u00e9ment',
       descriptionPrefix: 'Voulez-vous vraiment supprimer',
       descriptionSuffix:
-        '? Les devis existants qui incluent cet element ne seront pas affectes - ils stockent leur propre copie du prix.',
+        '? Les devis existants qui incluent cet \u00e9l\u00e9ment ne seront pas affect\u00e9s - ils stockent leur propre copie du prix.',
       cancel: 'Annuler',
       confirm: 'Supprimer',
       deleting: 'Suppression...',
-      error: 'Impossible de supprimer l\'element',
+      error: 'Impossible de supprimer l\'\u00e9l\u00e9ment',
     },
   }[locale];
 
