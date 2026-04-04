@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-import { DownloadIcon, EllipsisVerticalIcon, EyeIcon, PencilIcon, SendIcon, Trash2Icon } from 'lucide-react';
+import { CheckCircle2, DownloadIcon, EllipsisVerticalIcon, EyeIcon, Loader2, PencilIcon, SendIcon, Trash2Icon } from 'lucide-react';
 
 import type { InvoiceListItem } from '@/hooks/useInvoices';
 import { InvoiceStatusBadge } from '@/components/ui/InvoiceStatusBadge';
@@ -52,17 +52,24 @@ interface InvoiceTableProps {
     totalIncludingTax: string;
     status: string;
     actions: string;
+    quickActions: string;
     view: string;
     edit: string;
     send: string;
     downloadPdf: string;
     delete: string;
+    markAsPaid: string;
+    markingAsPaid: string;
+    markBalancePaid: string;
+    markingBalancePaid: string;
   };
   locale: 'en' | 'fr';
   formatDate: (value: string | null | undefined) => string;
   onDelete: (invoice: InvoiceListItem) => void;
   onDownload: (invoice: InvoiceListItem) => Promise<void>;
   onSend: (invoice: InvoiceListItem) => void;
+  onMarkPaid: (invoice: InvoiceListItem) => Promise<void>;
+  markingPaymentId: string | null;
 }
 
 export default function InvoiceTable({
@@ -74,11 +81,43 @@ export default function InvoiceTable({
   onDelete,
   onDownload,
   onSend,
+  onMarkPaid,
+  markingPaymentId,
 }: InvoiceTableProps) {
   const router = useRouter();
   const priceLocale = locale === 'fr' ? 'fr-FR' : 'en-GB';
 
-  function renderActions(invoice: InvoiceListItem, align: 'start' | 'end' = 'end') {
+  function renderPrimaryAction(invoice: InvoiceListItem, className?: string) {
+    // unpaid → send
+    if (invoice.status === 'unpaid') {
+      return (
+        <Button
+          type="button"
+          size="sm"
+          className={`h-8 px-3 text-xs ${className ?? ''}`}
+          onClick={(event) => {
+            event.stopPropagation();
+            onSend(invoice);
+          }}
+        >
+          <SendIcon className="size-3.5" />
+          {labels.send}
+        </Button>
+      );
+    }
+
+    // all other statuses → view
+    return (
+      <Button type="button" size="sm" className={`h-8 px-3 text-xs ${className ?? ''}`} asChild>
+        <Link href={`/invoices/${invoice._id}`}>
+          <EyeIcon className="size-3.5" />
+          {labels.view}
+        </Link>
+      </Button>
+    );
+  }
+
+  function renderSecondaryActions(invoice: InvoiceListItem, align: 'start' | 'end' = 'end') {
     const moreActionsLabel = locale === 'fr' ? "Plus d'actions" : 'More actions';
 
     return (
@@ -166,6 +205,20 @@ export default function InvoiceTable({
                   </div>
                   <div className="flex flex-col items-end gap-1.5 shrink-0">
                     <InvoiceStatusBadge status={invoice.status} locale={locale} className="mt-0.5" />
+                    {(invoice.status === 'overdue' || invoice.status === 'deposit_paid') ? (
+                      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                        invoice.status === 'overdue'
+                          ? 'bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-400'
+                          : 'bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400'
+                      }`}>
+                        <span className={`size-1.5 rounded-full animate-ping ${
+                          invoice.status === 'overdue' ? 'bg-red-500' : 'bg-amber-500'
+                        }`} />
+                        {invoice.status === 'overdue'
+                          ? (locale === 'fr' ? 'En retard' : 'Overdue!')
+                          : (locale === 'fr' ? 'Solde dû' : 'Balance')}
+                      </span>
+                    ) : null}
                   </div>
                 </div>
 
@@ -176,13 +229,8 @@ export default function InvoiceTable({
                     className="text-base font-semibold tabular-nums text-foreground"
                   />
                   <div className="flex items-center gap-1.5" onClick={(event) => event.stopPropagation()}>
-                    <Button type="button" size="sm" className="h-8 px-3 text-xs" asChild>
-                      <Link href={`/invoices/${invoice._id}`}>
-                        <EyeIcon className="size-3.5" />
-                        {labels.view}
-                      </Link>
-                    </Button>
-                    {renderActions(invoice)}
+                    {renderPrimaryAction(invoice)}
+                    {renderSecondaryActions(invoice)}
                   </div>
                 </div>
               </article>
@@ -199,7 +247,7 @@ export default function InvoiceTable({
               <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.dueDate}</TableHead>
               <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.totalIncludingTax}</TableHead>
               <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.status}</TableHead>
-              <TableHead className="h-11 pr-4 text-right text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.actions}</TableHead>
+              <TableHead className="h-11 pr-4 text-right text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.quickActions}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -255,7 +303,8 @@ export default function InvoiceTable({
                     </TableCell>
                     <TableCell className="py-4 pr-4 align-middle">
                       <div className="flex items-center justify-end gap-1.5" onClick={(event) => event.stopPropagation()}>
-                        {renderActions(invoice, 'end')}
+                        {renderPrimaryAction(invoice)}
+                        {renderSecondaryActions(invoice, 'end')}
                       </div>
                     </TableCell>
                   </TableRow>

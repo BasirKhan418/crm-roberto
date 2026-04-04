@@ -60,6 +60,7 @@ function InvoicesPageContent() {
       totalIncludingTax: 'Total incl. tax',
       status: 'Status',
       actions: 'Actions',
+      quickActions: 'Main action',
       view: 'View',
       edit: 'Edit',
       send: 'Send',
@@ -81,6 +82,10 @@ function InvoicesPageContent() {
       actionDepositPaidHint: 'Disappears when fully paid',
       seeOverdue: 'See overdue',
       seeDepositPaid: 'See balance due',
+      markAsPaid: 'Mark as paid',
+      markingAsPaid: 'Recording...',
+      markBalancePaid: 'Mark balance paid',
+      markingBalancePaid: 'Recording...',
     },
     fr: {
       shellTitle: 'Factures',
@@ -108,6 +113,7 @@ function InvoicesPageContent() {
       totalIncludingTax: 'Total TTC',
       status: 'Statut',
       actions: 'Actions',
+      quickActions: 'Action principale',
       view: 'Voir',
       edit: 'Modifier',
       send: 'Envoyer',
@@ -129,6 +135,10 @@ function InvoicesPageContent() {
       actionDepositPaidHint: 'Disparaît lorsque la facture est intégralement payée',
       seeOverdue: 'Voir en retard',
       seeDepositPaid: 'Voir soldes dus',
+      markAsPaid: 'Marquer comme payée',
+      markingAsPaid: 'Enregistrement...',
+      markBalancePaid: 'Solder la facture',
+      markingBalancePaid: 'Enregistrement...',
     },
   }[locale];
 
@@ -142,6 +152,7 @@ function InvoicesPageContent() {
   const [deleteTarget, setDeleteTarget] = useState<InvoiceListItem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [sendTarget, setSendTarget] = useState<InvoiceListItem | null>(null);
+  const [markingPaymentId, setMarkingPaymentId] = useState<string | null>(null);
 
   const { invoices, pagination, loading, error, refetch } = useInvoices(status, searchDebounced, sort, page, limit);
   const { allCount, unpaidCount, depositPaidCount, paidCount, overdueCount } = useInvoicesActionCount(
@@ -234,6 +245,28 @@ function InvoicesPageContent() {
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (downloadError) {
       toast.error(downloadError instanceof Error ? downloadError.message : t.downloadFailed);
+    }
+  }
+
+  async function handleMarkAsPaid(invoice: InvoiceListItem) {
+    setMarkingPaymentId(invoice._id);
+    try {
+      const response = await fetch(`/api/invoices/${invoice._id}/payments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ method: 'manual_offline' }),
+        credentials: 'include',
+      });
+      const payload = (await response.json()) as { success?: boolean; message?: string };
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.message || t.markAsPaid);
+      }
+      toast.success(locale === 'fr' ? 'Facture marquée comme payée' : 'Invoice marked as paid');
+      await refetch();
+    } catch (markError) {
+      toast.error(markError instanceof Error ? markError.message : t.markAsPaid);
+    } finally {
+      setMarkingPaymentId(null);
     }
   }
 
@@ -384,6 +417,8 @@ function InvoicesPageContent() {
               onDelete={setDeleteTarget}
               onDownload={handleDownloadPdf}
               onSend={setSendTarget}
+              onMarkPaid={handleMarkAsPaid}
+              markingPaymentId={markingPaymentId}
               labels={{
                 invoiceNumber: t.invoiceNumber,
                 client: t.client,
@@ -392,11 +427,16 @@ function InvoicesPageContent() {
                 totalIncludingTax: t.totalIncludingTax,
                 status: t.status,
                 actions: t.actions,
+                quickActions: t.quickActions,
                 view: t.view,
                 edit: t.edit,
                 send: t.send,
                 downloadPdf: t.downloadPdf,
                 delete: t.delete,
+                markAsPaid: t.markAsPaid,
+                markingAsPaid: t.markingAsPaid,
+                markBalancePaid: t.markBalancePaid,
+                markingBalancePaid: t.markingBalancePaid,
               }}
               locale={locale as 'en' | 'fr'}
             />
