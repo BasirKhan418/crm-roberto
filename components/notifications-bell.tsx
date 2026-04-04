@@ -356,7 +356,7 @@ export function NotificationsBell() {
         >
           <Bell className="size-4" />
           {unreadCount > 0 ? (
-            <span className="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full bg-[#001e3c] px-1.5 text-[10px] font-bold text-white">
+            <span className="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-[10px] font-bold text-white shadow-sm ring-2 ring-white/80">
               {unreadBadgeValue}
             </span>
           ) : null}
