@@ -19,32 +19,45 @@ export const POST = async (request: NextRequest) => {
         if(!rs.user){
             return NextResponse.json({ message: "User not found", success: false }, { status: 401 });
         }
-        if(rs.user.isOnboardingComplete){
-            return NextResponse.json({ message: "Onboarding already completed", success: false }, { status: 400 });
-        }
         const validatedData = createCompanyProfileSchema.safeParse({ ...data, user: rs.user.id });
 
         if (!validatedData.success) {
             return NextResponse.json(buildValidationError(validatedData.error), { status: 400 });
         }
-       
-        const result = await createCompanyProfile(validatedData.data);
-            //send an email to user here welcoming them and confirming company profile creation
+
+        // Check if a company profile already exists for this user
+        const existing = await getCompanyProfileByUserId(rs.user.id);
+        let result;
+        if (existing.success) {
+            // Profile already exists — update it instead of creating a duplicate
+            result = await updateCompanyProfileByUserId(rs.user.id, validatedData.data);
+        } else {
+            result = await createCompanyProfile(validatedData.data);
+        }
+
+        if (!result.success) {
+            return NextResponse.json(result, { status: 500 });
+        }
+
+        // Only send welcome email on first creation
+        if (!existing.success) {
             await sendWelcomeEmail({ email: rs.user.email, name: rs.user.name || "User" });
-            // Reissue JWT with isOnboardingComplete: true so proxy.ts reads the updated value
-            const newToken = jwt.sign(
-                { sub: rs.user.id, name: rs.user.name, email: rs.user.email, isOnboardingComplete: true, isEmailVerified: rs.user.isEmailVerified },
-                process.env.JWT_SECRET || "",
-                { expiresIn: "7d" }
-            );
-            const cookieStore = await cookies();
-            cookieStore.set("token", newToken, {
-                httpOnly: true,
-                secure: process.env.NODE_ENV === "production",
-                sameSite: "strict",
-                maxAge: 7 * 24 * 60 * 60,
-                path: "/",
-            });
+        }
+
+        // Reissue JWT with isOnboardingComplete: true so proxy.ts reads the updated value
+        const newToken = jwt.sign(
+            { sub: rs.user.id, name: rs.user.name, email: rs.user.email, isOnboardingComplete: true, isEmailVerified: rs.user.isEmailVerified },
+            process.env.JWT_SECRET || "",
+            { expiresIn: "7d" }
+        );
+        const cookieStore = await cookies();
+        cookieStore.set("token", newToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "strict",
+            maxAge: 7 * 24 * 60 * 60,
+            path: "/",
+        });
         return NextResponse.json(result);
     }
     catch(error){
