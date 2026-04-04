@@ -29,6 +29,7 @@ interface InvoicePaymentItem {
 }
 
 interface InvoiceData {
+  status?: 'unpaid' | 'deposit_paid' | 'initial_paid' | 'paid' | 'overdue';
   invoiceNumber: string;
   quoteNumber?: string | null;
   date: string | Date;
@@ -86,6 +87,11 @@ const translations = {
     totalVat: 'VAT',
     totalIncl: 'Total incl. tax',
     paymentSummary: 'Payment summary',
+    paymentStatus: 'Payment status',
+    statusUnpaid: 'Unpaid',
+    statusDepositPaid: 'Deposit paid',
+    statusPaid: 'Paid',
+    statusOverdue: 'Overdue',
     depositDue: 'Deposit due',
     totalPaid: 'Total paid',
     remaining: 'Remaining',
@@ -127,6 +133,11 @@ const translations = {
     totalVat: 'TVA',
     totalIncl: 'Total TTC',
     paymentSummary: 'R\u00e9sum\u00e9 paiement',
+    paymentStatus: 'Statut paiement',
+    statusUnpaid: 'Impay\u00e9e',
+    statusDepositPaid: 'Acompte pay\u00e9',
+    statusPaid: 'Pay\u00e9e',
+    statusOverdue: 'En retard',
     depositDue: 'Acompte \u00e0 payer',
     totalPaid: 'Total pay\u00e9',
     remaining: 'Reste \u00e0 payer',
@@ -351,7 +362,15 @@ const styles = StyleSheet.create({
   paymentRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 4,
+  },
+  statusBadge: {
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    fontSize: 9,
+    fontWeight: 700,
   },
   paymentLink: {
     marginTop: 5,
@@ -473,6 +492,41 @@ function paymentTypeLabel(type: InvoicePaymentItem['type'], localeText: (typeof 
   return localeText.paymentTypeFull;
 }
 
+function getStatusPresentation(
+  status: InvoiceData['status'],
+  localeText: (typeof translations)['en'] | (typeof translations)['fr']
+): { label: string; backgroundColor: string; color: string } {
+  if (status === 'deposit_paid' || status === 'initial_paid') {
+    return {
+      label: localeText.statusDepositPaid,
+      backgroundColor: 'rgba(217, 119, 6, 0.15)',
+      color: '#b45309',
+    };
+  }
+
+  if (status === 'paid') {
+    return {
+      label: localeText.statusPaid,
+      backgroundColor: 'rgba(34, 197, 94, 0.12)',
+      color: '#15803d',
+    };
+  }
+
+  if (status === 'overdue') {
+    return {
+      label: localeText.statusOverdue,
+      backgroundColor: 'rgba(239, 68, 68, 0.16)',
+      color: '#b91c1c',
+    };
+  }
+
+  return {
+    label: localeText.statusUnpaid,
+    backgroundColor: 'rgba(100, 116, 139, 0.11)',
+    color: '#475569',
+  };
+}
+
 export function InvoicePdfTemplate({ invoice, company, paymentUrl = null, locale = 'en' }: InvoicePdfTemplateProps) {
   const t = translations[locale];
   const depositPercentage = Math.max(0, Math.min(100, Math.round(invoice.depositPercentage ?? 100)));
@@ -480,6 +534,7 @@ export function InvoicePdfTemplate({ invoice, company, paymentUrl = null, locale
   const payments = invoice.payments ?? [];
   const totalPaidAmount = payments.reduce((sum, payment) => sum + Math.max(0, Math.round(payment.amount || 0)), 0);
   const remainingAmount = Math.max(0, invoice.totalIncludingTax - totalPaidAmount);
+  const statusPresentation = getStatusPresentation(invoice.status, t);
 
   return (
     <Document>
@@ -628,6 +683,20 @@ export function InvoicePdfTemplate({ invoice, company, paymentUrl = null, locale
 
         <View style={styles.paymentBox} wrap={false}>
           <Text style={styles.sectionTitle}>{t.paymentSummary}</Text>
+          <View style={styles.paymentRow}>
+            <Text style={styles.value}>{t.paymentStatus}</Text>
+            <Text
+              style={[
+                styles.statusBadge,
+                {
+                  backgroundColor: statusPresentation.backgroundColor,
+                  color: statusPresentation.color,
+                },
+              ]}
+            >
+              {statusPresentation.label}
+            </Text>
+          </View>
           <View style={styles.paymentRow}>
             <Text style={styles.value}>{t.depositDue}</Text>
             <Text style={styles.value}>{formatPrice(depositAmount)}</Text>

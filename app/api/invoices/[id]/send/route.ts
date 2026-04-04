@@ -146,6 +146,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     const invoicePdf = React.createElement(InvoicePdfTemplate, {
       invoice: {
+        status: invoice.status,
         invoiceNumber: invoice.invoiceNumber,
         quoteNumber: invoice.quoteNumber ?? null,
         date: invoice.date,

@@ -33,7 +33,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     const invoice = await Invoice.findOne({ _id: id, userId: me.user.id })
       .select(
-        '_id invoiceNumber quoteNumber date dueDate lineItems totalExcludingTax totalVat totalIncludingTax depositPercentage notes paymentToken paymentTokenExpiry clientSnapshot'
+        '_id invoiceNumber quoteNumber date dueDate status lineItems totalExcludingTax totalVat totalIncludingTax depositPercentage notes paymentToken paymentTokenExpiry clientSnapshot'
       )
       .lean();
 
@@ -91,6 +91,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     const invoicePdf = React.createElement(InvoicePdfTemplate, {
       invoice: {
+        status: invoice.status,
         invoiceNumber: invoice.invoiceNumber,
         quoteNumber: invoice.quoteNumber ?? null,
         date: invoice.date,
