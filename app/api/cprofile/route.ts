@@ -27,15 +27,10 @@ export const POST = async (request: NextRequest) => {
             return NextResponse.json(buildValidationError(validatedData.error), { status: 400 });
         }
 
-        // Check if a company profile already exists for this user
         const existing = await getCompanyProfileByUserId(rs.user.id);
         let result;
         if (existing.success) {
-            // Profile already exists — update it instead of creating a duplicate
             result = await updateCompanyProfileByUserId(rs.user.id, validatedData.data);
-            // Ensure User.isOnboardingComplete is synced in DB (may be stale from a previous partial failure)
-            await ConnectDb();
-            await User.findByIdAndUpdate(rs.user.id, { isOnboardingComplete: true });
         } else {
             result = await createCompanyProfile(validatedData.data);
         }
@@ -44,12 +39,15 @@ export const POST = async (request: NextRequest) => {
             return NextResponse.json(result, { status: 500 });
         }
 
-        // Only send welcome email on first creation
+        if (existing.success) {
+            await ConnectDb();
+            await User.findByIdAndUpdate(rs.user.id, { isOnboardingComplete: true });
+        }
+
         if (!existing.success) {
             await sendWelcomeEmail({ email: rs.user.email, name: rs.user.name || "User" });
         }
 
-        // Reissue JWT with isOnboardingComplete: true so proxy.ts reads the updated value
         const newToken = jwt.sign(
             { sub: rs.user.id, name: rs.user.name, email: rs.user.email, isOnboardingComplete: true, isEmailVerified: rs.user.isEmailVerified },
             process.env.JWT_SECRET || "",
