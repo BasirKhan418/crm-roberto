@@ -87,6 +87,31 @@ function isInvoiceNumberDuplicateError(error: unknown): boolean {
   return error.message.includes('E11000') && error.message.includes('invoiceNumber');
 }
 
+type CreatedInvoiceLike = {
+  _id: mongoose.Types.ObjectId;
+  invoiceNumber: string;
+  dueDate?: Date | null;
+};
+
+async function createInvoiceWithUniqueNumber(
+  year: number,
+  payloadFactory: (invoiceNumber: string) => Record<string, unknown>
+): Promise<CreatedInvoiceLike> {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const invoiceNumber = await getNextInvoiceNumberForYear(year);
+    try {
+      const created = await Invoice.create(payloadFactory(invoiceNumber));
+      return created as unknown as CreatedInvoiceLike;
+    } catch (creationError) {
+      if (!isInvoiceNumberDuplicateError(creationError) || attempt === 4) {
+        throw creationError;
+      }
+    }
+  }
+
+  throw new Error('Could not generate a unique invoice number');
+}
+
 function withComputedInvoiceStatus<T extends { status: string; dueDate?: Date | string | null }>(invoice: T): T {
   const dueDate = invoice.dueDate ? new Date(invoice.dueDate) : null;
   const isPastDue = Boolean(dueDate && Number.isFinite(dueDate.getTime()) && dueDate.getTime() < Date.now());
@@ -205,6 +230,7 @@ export async function POST(request: NextRequest) {
     if (!me.success || !me.user) {
       return NextResponse.json({ message: me.message || 'Unauthorized' }, { status: 401 });
     }
+    const userId = me.user.id;
 
     const body = await request.json();
     const shouldConvertFromQuote = typeof body?.quoteId === 'string' && body.quoteId.trim().length > 0;
@@ -217,7 +243,7 @@ export async function POST(request: NextRequest) {
 
       await ConnectDb();
 
-      const quote = await Quote.findOne({ _id: parsed.data.quoteId, user: me.user.id });
+      const quote = await Quote.findOne({ _id: parsed.data.quoteId, user: userId });
       if (!quote) {
         return NextResponse.json({ message: 'Quote not found' }, { status: 404 });
       }
@@ -230,7 +256,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ message: 'This quote has already been converted to an invoice' }, { status: 409 });
       }
 
-      const existingInvoice = await Invoice.findOne({ userId: me.user.id, quoteId: quote._id }).select('_id');
+      const existingInvoice = await Invoice.findOne({ userId, quoteId: quote._id }).select('_id');
       if (existingInvoice) {
         quote.convertedToInvoice = true;
         quote.invoiceId = existingInvoice._id;
@@ -239,13 +265,8 @@ export async function POST(request: NextRequest) {
       }
 
       const currentYear = new Date().getFullYear();
-      let invoice: Awaited<ReturnType<typeof Invoice.create>> | null = null;
-
-      for (let attempt = 0; attempt < 5; attempt += 1) {
-        const invoiceNumber = await getNextInvoiceNumberForYear(currentYear);
-        try {
-          invoice = await Invoice.create({
-            userId: me.user.id,
+      const invoice = await createInvoiceWithUniqueNumber(currentYear, (invoiceNumber) => ({
+            userId,
             invoiceNumber,
             quoteId: quote._id,
             quoteNumber: quote.quoteNumber,
@@ -260,24 +281,13 @@ export async function POST(request: NextRequest) {
             totalIncludingTax: quote.totalIncludingTax,
             depositPercentage: parsed.data.depositPercentage,
             notes: parsed.data.notes ?? quote.notes ?? null,
-          });
-          break;
-        } catch (creationError) {
-          if (!isInvoiceNumberDuplicateError(creationError) || attempt === 4) {
-            throw creationError;
-          }
-        }
-      }
-
-      if (!invoice) {
-        return NextResponse.json({ message: 'Could not generate a unique invoice number' }, { status: 500 });
-      }
+          }));
 
       quote.convertedToInvoice = true;
       quote.invoiceId = invoice._id;
       await quote.save();
 
-      await createActivityLog(me.user.id, {
+      await createActivityLog(userId, {
         action: 'invoice_created',
         entityType: 'invoice',
         entityName: invoice.invoiceNumber,
@@ -312,7 +322,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'Client not found' }, { status: 404 });
     }
 
-    const client = await Client.findOne({ _id: parsed.data.clientId, user: me.user.id })
+    const client = await Client.findOne({ _id: parsed.data.clientId, user: userId })
       .select('fullName email phone address companyName vatNumber')
       .lean<{
         _id: mongoose.Types.ObjectId;
@@ -356,13 +366,8 @@ export async function POST(request: NextRequest) {
 
     const totals = computeQuoteTotalsFromComputedLines(computedLineItems);
     const currentYear = new Date().getFullYear();
-    let invoice: Awaited<ReturnType<typeof Invoice.create>> | null = null;
-
-    for (let attempt = 0; attempt < 5; attempt += 1) {
-      const invoiceNumber = await getNextInvoiceNumberForYear(currentYear);
-      try {
-        invoice = await Invoice.create({
-          userId: me.user.id,
+    const invoice = await createInvoiceWithUniqueNumber(currentYear, (invoiceNumber) => ({
+          userId,
           invoiceNumber,
           date: parsed.data.date ?? new Date(),
           dueDate: parsed.data.dueDate ?? null,
@@ -382,20 +387,9 @@ export async function POST(request: NextRequest) {
           totalIncludingTax: totals.totalIncludingTax,
           depositPercentage: parsed.data.depositPercentage,
           notes: parsed.data.notes ?? null,
-        });
-        break;
-      } catch (creationError) {
-        if (!isInvoiceNumberDuplicateError(creationError) || attempt === 4) {
-          throw creationError;
-        }
-      }
-    }
+        }));
 
-    if (!invoice) {
-      return NextResponse.json({ message: 'Could not generate a unique invoice number' }, { status: 500 });
-    }
-
-    await createActivityLog(me.user.id, {
+    await createActivityLog(userId, {
       action: 'invoice_created',
       entityType: 'invoice',
       entityName: invoice.invoiceNumber,
