@@ -2,6 +2,7 @@
 import ConnectDb from "../connectDb";
 import argon2 from "argon2";
 import User from "../models/User";
+import CompanyProfile from "../models/CompanyProfile";
 const registerUser = async (name: string, email: string, password: string) => {
     try{
         await ConnectDb();
@@ -25,7 +26,7 @@ const registerUser = async (name: string, email: string, password: string) => {
 const loginUser = async (email: string, password: string) => {
     try {
         await ConnectDb();
-        const user = await User.findOne({ email,isEmailVerified: true }).select("+password account_status");
+        const user = await User.findOne({ email, isEmailVerified: true }).select("+password name email isOnboardingComplete isEmailVerified account_status");
         console.log("User found:", user);
         if (!user) {
             return { message: "User not found", success: false };
@@ -44,6 +45,15 @@ const loginUser = async (email: string, password: string) => {
 
         if (!isValid) {
             return { message: "Invalid password", success: false };
+        }
+
+        // Self-heal onboarding status if a company profile already exists.
+        if (!user.isOnboardingComplete) {
+            const existingProfile = await CompanyProfile.exists({ user: user._id });
+            if (existingProfile) {
+                user.isOnboardingComplete = true;
+                await user.save();
+            }
         }
 
         return { message: "Login successful", success: true, user };
