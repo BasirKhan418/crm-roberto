@@ -168,8 +168,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                         ) : null}
                         {depositPaidCount > 0 ? (
                           <span
-                            className="flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white"
-                            style={{ backgroundColor: 'var(--color-text-warning)' }}
+                            className="flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold"
+                            style={{ backgroundColor: '#f59e0b', color: '#ffffff' }}
                             title={t.badges.depositPaid(depositPaidCount)}
                           >
                             {depositPaidCount > 99 ? '99+' : depositPaidCount}
