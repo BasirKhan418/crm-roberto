@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -90,14 +90,16 @@ export default function ManualPaymentModal({
   const [customAmount, setCustomAmount] = useState('');
   const [customType, setCustomType] = useState<'deposit' | 'remaining_balance'>('remaining_balance');
 
-  useEffect(() => {
-    if (!open) {
+  function handleOpenChange(nextOpen: boolean) {
+    if (!nextOpen) {
       setMode('full');
       setPercentage('30');
       setCustomAmount('');
       setCustomType('remaining_balance');
     }
-  }, [open]);
+
+    onOpenChange(nextOpen);
+  }
 
   const formatter = useMemo(
     () =>
@@ -150,7 +152,7 @@ export default function ManualPaymentModal({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{t.title}</DialogTitle>
