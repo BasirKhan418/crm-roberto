@@ -414,7 +414,7 @@ function QuotesPageContent() {
               <button
                 type="button"
                 onClick={() => setStatus('rejected')}
-                className="flex flex-1 basis-64 flex-col gap-1.5 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-left transition-colors hover:bg-orange-100 dark:border-orange-900/40 dark:bg-orange-950/30 dark:hover:bg-orange-950/50 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                className="flex w-full flex-col gap-1.5 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-left transition-colors hover:bg-orange-100 dark:border-orange-900/40 dark:bg-orange-950/30 dark:hover:bg-orange-950/50 sm:flex-1 sm:basis-64 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                 <div className="flex items-center gap-2.5">
                   <span className="relative flex size-2.5 shrink-0">
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-orange-500 opacity-60" />
@@ -432,7 +432,7 @@ function QuotesPageContent() {
               <button
                 type="button"
                 onClick={() => setStatus('accepted')}
-                className="flex flex-1 basis-64 flex-col gap-1.5 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-left transition-colors hover:bg-green-100 dark:border-green-900/40 dark:bg-green-950/30 dark:hover:bg-green-950/50 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                className="flex w-full flex-col gap-1.5 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-left transition-colors hover:bg-green-100 dark:border-green-900/40 dark:bg-green-950/30 dark:hover:bg-green-950/50 sm:flex-1 sm:basis-64 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                 <div className="flex items-center gap-2.5">
                   <span className="relative flex size-2.5 shrink-0">
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-500 opacity-60" />

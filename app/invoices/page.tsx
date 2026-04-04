@@ -371,7 +371,7 @@ function InvoicesPageContent() {
               <button
                 type="button"
                 onClick={() => setStatus('overdue')}
-                className="flex flex-1 basis-64 flex-col gap-1.5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-left transition-colors hover:bg-red-100 dark:border-red-900/40 dark:bg-red-950/30 dark:hover:bg-red-950/50 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                className="flex w-full flex-col gap-1.5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-left transition-colors hover:bg-red-100 dark:border-red-900/40 dark:bg-red-950/30 dark:hover:bg-red-950/50 sm:flex-1 sm:basis-64 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                 <div className="flex items-center gap-2.5">
                   <span className="relative flex size-2.5 shrink-0">
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-60" />
@@ -389,7 +389,7 @@ function InvoicesPageContent() {
               <button
                 type="button"
                 onClick={() => setStatus('deposit_paid')}
-                className="flex flex-1 basis-64 flex-col gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-left transition-colors hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-950/30 dark:hover:bg-amber-950/50 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                className="flex w-full flex-col gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-left transition-colors hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-950/30 dark:hover:bg-amber-950/50 sm:flex-1 sm:basis-64 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                 <div className="flex items-center gap-2.5">
                   <span className="relative flex size-2.5 shrink-0">
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-500 opacity-60" />
