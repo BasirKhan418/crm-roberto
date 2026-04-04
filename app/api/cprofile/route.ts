@@ -4,6 +4,8 @@ import checkMe from "@/utils/middlewares/checkMe";
 import { createCompanyProfile, getCompanyProfileByUserId, updateCompanyProfileByUserId } from "@/db/repository/cprofile";
 import { buildValidationError } from "@/utils/api/validation";
 import getMe from "@/utils/middlewares/useMe";
+import User from "@/db/models/User";
+import ConnectDb from "@/db/connectDb";
 import { sendWelcomeEmail } from "@/emails/auth/sendWelcomeEmail";
 import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
@@ -31,6 +33,9 @@ export const POST = async (request: NextRequest) => {
         if (existing.success) {
             // Profile already exists — update it instead of creating a duplicate
             result = await updateCompanyProfileByUserId(rs.user.id, validatedData.data);
+            // Ensure User.isOnboardingComplete is synced in DB (may be stale from a previous partial failure)
+            await ConnectDb();
+            await User.findByIdAndUpdate(rs.user.id, { isOnboardingComplete: true });
         } else {
             result = await createCompanyProfile(validatedData.data);
         }
