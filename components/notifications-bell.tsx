@@ -34,9 +34,17 @@ const bellMessages = {
     markAllRead: "Mark all as read",
     loading: "Loading notifications...",
     viewUpdates: "Update",
-    newQuote: "New quote",
-    signedQuote: "Signed quote",
-    newInvoice: "New invoice",
+    newQuote: "New quote created",
+    signedQuote: "Quote accepted",
+    newInvoice: "New invoice created",
+    quoteSent: "Quote sent",
+    quoteUpdated: "Quote updated",
+    quoteDeleted: "Quote deleted",
+    statusChanged: "Status updated",
+    invoiceDueOn: "Due on",
+    sentTo: "Sent to",
+    movedTo: "Moved to",
+    fromQuote: "From quote",
     openItem: "Open item",
     refresh: "Refresh",
     read: "Read",
@@ -48,15 +56,69 @@ const bellMessages = {
     markAllRead: "Tout marquer comme lu",
     loading: "Chargement des notifications...",
     viewUpdates: "Mise à jour",
-    newQuote: "Nouveau devis",
-    signedQuote: "Devis signé",
-    newInvoice: "Nouvelle facture",
+    newQuote: "Nouveau devis créé",
+    signedQuote: "Devis accepté",
+    newInvoice: "Nouvelle facture créée",
+    quoteSent: "Devis envoyé",
+    quoteUpdated: "Devis mis à jour",
+    quoteDeleted: "Devis supprimé",
+    statusChanged: "Statut mis à jour",
+    invoiceDueOn: "Échéance le",
+    sentTo: "Envoyé à",
+    movedTo: "Passé à",
+    fromQuote: "Depuis le devis",
     openItem: "Ouvrir l'élément",
     refresh: "Actualiser",
     read: "Lu",
     newLabel: "nouveau",
   },
 } as const;
+
+function getMetaString(metadata: Record<string, unknown> | null | undefined, key: string): string | null {
+  const value = metadata?.[key];
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function getStatusLabel(locale: "en" | "fr", status: string | null): string {
+  if (!status) {
+    return locale === "fr" ? "mis à jour" : "updated";
+  }
+
+  const normalized = status.toLowerCase();
+
+  if (locale === "fr") {
+    if (normalized === "accepted") return "accepté";
+    if (normalized === "refused") return "refusé";
+    if (normalized === "rejected") return "rejeté";
+    if (normalized === "sent") return "envoyé";
+    if (normalized === "draft") return "brouillon";
+    return normalized;
+  }
+
+  return normalized;
+}
+
+function formatNotificationDate(locale: "en" | "fr", dateValue: string | null): string | null {
+  if (!dateValue) {
+    return null;
+  }
+
+  const date = new Date(dateValue);
+  if (!Number.isFinite(date.getTime())) {
+    return null;
+  }
+
+  return date.toLocaleDateString(locale === "fr" ? "fr-FR" : "en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
 
 function buildActivityPath(item: NotificationItem): string | null {
   if (item.action?.endsWith("_deleted")) {
@@ -98,9 +160,65 @@ function pickNotificationTitle(item: NotificationItem, locale: "en" | "fr"): str
     if (toStatus === "accepted") {
       return t.signedQuote;
     }
+
+    return `${t.statusChanged}: ${getStatusLabel(locale, toStatus)}`;
+  }
+
+  if (item.action === "quote_sent") {
+    return t.quoteSent;
+  }
+
+  if (item.action === "quote_updated") {
+    return t.quoteUpdated;
+  }
+
+  if (item.action === "quote_deleted") {
+    return t.quoteDeleted;
   }
 
   return t.viewUpdates;
+}
+
+function buildNotificationDetails(item: NotificationItem, locale: "en" | "fr"): string {
+  const t = bellMessages[locale];
+  const headline = getActivityHeadline(locale, item.action);
+
+  if (item.action === "quote_status_changed") {
+    const toStatus = getMetaString(item.metadata, "to");
+    const fromStatus = getMetaString(item.metadata, "from");
+    const targetLabel = getStatusLabel(locale, toStatus);
+    const originLabel = getStatusLabel(locale, fromStatus);
+    return `${item.entityName} - ${originLabel} -> ${targetLabel}`;
+  }
+
+  if (item.action === "quote_sent") {
+    const sentTo = getMetaString(item.metadata, "sentTo");
+    if (sentTo) {
+      return `${item.entityName} - ${t.sentTo} ${sentTo}`;
+    }
+    return item.entityName || headline;
+  }
+
+  if (item.action === "invoice_created") {
+    const dueDateText = formatNotificationDate(locale, getMetaString(item.metadata, "dueDate"));
+    const quoteNumber = getMetaString(item.metadata, "quoteNumber");
+
+    if (dueDateText && quoteNumber) {
+      return `${item.entityName} - ${t.invoiceDueOn} ${dueDateText} - ${t.fromQuote} ${quoteNumber}`;
+    }
+
+    if (dueDateText) {
+      return `${item.entityName} - ${t.invoiceDueOn} ${dueDateText}`;
+    }
+
+    if (quoteNumber) {
+      return `${item.entityName} - ${t.fromQuote} ${quoteNumber}`;
+    }
+
+    return item.entityName || headline;
+  }
+
+  return item.entityName || headline;
 }
 
 function pickIcon(item: NotificationItem) {
@@ -274,7 +392,7 @@ export function NotificationsBell() {
           {!loading
             ? items.map((item) => {
                 const title = pickNotificationTitle(item, locale);
-                const headline = getActivityHeadline(locale, item.action);
+                const details = buildNotificationDetails(item, locale);
                 const path = buildActivityPath(item);
                 const Icon = pickIcon(item);
 
@@ -295,7 +413,7 @@ export function NotificationsBell() {
 
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-semibold text-slate-900">{title}</p>
-                        <p className="truncate text-xs text-slate-600">{item.entityName || headline}</p>
+                        <p className="truncate text-xs text-slate-600">{details}</p>
                         <p className="mt-1 text-[11px] text-slate-500">{formatActivityRelativeTime(locale, item.createdAt)}</p>
                       </div>
 

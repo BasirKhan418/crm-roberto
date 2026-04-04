@@ -5,6 +5,7 @@ import CompanyProfile from "@/db/models/CompanyProfile";
 import Quote from "@/db/models/Quote";
 import QuoteSignature from "@/db/models/QuoteSignature";
 import User from "@/db/models/User";
+import { createActivityLog } from "@/db/repository/activity";
 import { sendQuoteRejectionNotification } from "@/lib/email";
 import { isTokenExpired } from "@/lib/tokens";
 
@@ -212,6 +213,19 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   });
   await quote.save();
 
+  await createActivityLog(String(quote.user), {
+    action: "quote_status_changed",
+    entityType: "quote",
+    entityName: quote.quoteNumber,
+    entityId: String(quote._id),
+    metadata: {
+      from: previousStatus,
+      to: "accepted",
+      source: "signature",
+      signedAt: signedAt.toISOString(),
+    },
+  });
+
   return NextResponse.json({ message: "Quote signed successfully", signedAt: signedAt.toISOString() });
 }
 
@@ -254,6 +268,19 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     changedAt: new Date(),
   });
   await quote.save();
+
+  await createActivityLog(String(quote.user), {
+    action: "quote_status_changed",
+    entityType: "quote",
+    entityName: quote.quoteNumber,
+    entityId: String(quote._id),
+    metadata: {
+      from: previousStatus,
+      to: "rejected",
+      source: "signature",
+      hasComment: Boolean(comment),
+    },
+  });
 
   // Notify the admin asynchronously — do not block the client response
   (async () => {

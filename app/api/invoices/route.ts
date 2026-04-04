@@ -260,7 +260,11 @@ export async function POST(request: NextRequest) {
         entityType: 'invoice',
         entityName: invoice.invoiceNumber,
         entityId: String(invoice._id),
-        metadata: { source: 'quote_conversion', quoteNumber: quote.quoteNumber },
+        metadata: {
+          source: 'quote_conversion',
+          quoteNumber: quote.quoteNumber,
+          dueDate: invoice.dueDate ? new Date(invoice.dueDate).toISOString() : null,
+        },
       });
 
       return NextResponse.json(
@@ -359,7 +363,10 @@ export async function POST(request: NextRequest) {
       entityType: 'invoice',
       entityName: invoice.invoiceNumber,
       entityId: String(invoice._id),
-      metadata: { source: 'standalone' },
+      metadata: {
+        source: 'standalone',
+        dueDate: invoice.dueDate ? new Date(invoice.dueDate).toISOString() : null,
+      },
     });
 
     return NextResponse.json(
