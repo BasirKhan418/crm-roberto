@@ -4,7 +4,7 @@ import ConnectDb from '@/db/connectDb';
 import User from '@/db/models/User';
 import getMe from '@/utils/middlewares/useMe';
 
-const PAGE_KEY_PATTERN = /^[a-z0-9/_-]{1,120}$/i;
+const PAGE_KEY_PATTERN = /^[a-z0-9/_:[\]-]{1,120}$/i;
 
 function normalizePageKey(input: unknown): string | null {
   if (typeof input !== 'string') {

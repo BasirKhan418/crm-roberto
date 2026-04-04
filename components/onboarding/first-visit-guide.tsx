@@ -250,18 +250,34 @@ const TOUR_STORAGE_KEY_BY_ROUTE: Partial<Record<string, string>> = {
 };
 
 function normalizePathKey(pathname: string): string {
-  const segments = pathname
-    .split('/')
-    .filter(Boolean)
+  const cleaned = pathname.replace(/\/+$/, '') || '/';
+
+  if (TOUR_BY_ROUTE[cleaned]) {
+    return cleaned;
+  }
+
+  const segments = cleaned.split('/').filter(Boolean);
+  for (let i = 1; i < segments.length; i += 1) {
+    const candidate = `/${segments
+      .map((segment, idx) => (idx === i ? '[id]' : segment))
+      .join('/')}`;
+
+    if (TOUR_BY_ROUTE[candidate]) {
+      return candidate;
+    }
+  }
+
+  const fallback = segments
     .map((segment) => {
       if (/^[0-9]+$/.test(segment)) return '[id]';
       if (/^[a-f0-9]{24}$/i.test(segment)) return '[id]';
       if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(segment)) return '[id]';
-      if (segment.length > 28 && /[A-Za-z0-9_-]+/.test(segment)) return '[id]';
+      if (segment.length > 28 && /^[A-Za-z0-9_-]+$/.test(segment)) return '[id]';
       return segment;
-    });
+    })
+    .join('/');
 
-  return `/${segments.join('/')}`;
+  return `/${fallback}`;
 }
 
 export default function FirstVisitGuide() {
