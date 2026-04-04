@@ -216,6 +216,14 @@ const TOUR_BY_ROUTE: Record<string, (locale: Locale) => TourStep[]> = {
           ? 'Cliquez ici pour ouvrir les paramètres Stripe, lancer ou reprendre l\'onboarding, et vérifier le statut de connexion/paiement.'
           : 'Click here to open Stripe settings, start or resume onboarding, and check connection/payment status.',
     },
+    {
+      element: '[data-tour-profile-restart-tour]',
+      title: locale === 'fr' ? 'Relancer la visite' : 'Restart platform tour',
+      description:
+        locale === 'fr'
+          ? 'Ce bouton réinitialise tous les guides de la plateforme et vous redirige vers le tableau de bord pour recommencer la visite complète.'
+          : 'This button resets all platform guide progress and redirects you to dashboard to run the full guided tour again.',
+    },
   ],
   '/notes': (locale) => [
     {

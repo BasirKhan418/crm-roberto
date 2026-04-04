@@ -78,3 +78,25 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export async function DELETE() {
+  try {
+    const me = await getMe(true);
+    if (!me.success || !me.user) {
+      return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
+    }
+
+    await ConnectDb();
+
+    await User.findByIdAndUpdate(me.user.id, {
+      $set: { onboardingGuideSeenPages: [] },
+    });
+
+    return NextResponse.json({ success: true, message: 'Onboarding guide progress reset' });
+  } catch (error) {
+    return NextResponse.json(
+      { success: false, message: `Error resetting onboarding guide state: ${String(error)}` },
+      { status: 500 }
+    );
+  }
+}

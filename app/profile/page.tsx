@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 
-import { ArrowUpRightIcon, BanknoteIcon, BuildingIcon, CreditCardIcon, SaveIcon, ShieldCheckIcon, Trash2Icon, UploadIcon } from 'lucide-react';
+import { ArrowUpRightIcon, BanknoteIcon, BuildingIcon, CompassIcon, CreditCardIcon, SaveIcon, ShieldCheckIcon, Trash2Icon, UploadIcon } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -49,6 +50,7 @@ const emptyForm: ProfileForm = {
 };
 
 export default function ProfilePage() {
+  const router = useRouter();
   const { locale } = useLocale();
   const t = {
     en: {
@@ -101,6 +103,11 @@ export default function ProfilePage() {
       stripeFeatureSettlement: 'Direct settlement to your bank account',
       stripeFeatureSecurity: 'Secure checkout hosted by Stripe',
       stripeFeatureAutomation: 'Automatic invoice payment tracking',
+      restartTour: 'Take a platform tour',
+      restartingTour: 'Preparing tour...',
+      restartTourHint: 'Resets all onboarding tips and starts the guided experience again from dashboard.',
+      restartTourSuccess: 'Tour reset. Redirecting to dashboard...',
+      restartTourFailed: 'Unable to restart platform tour',
     },
     fr: {
       loadFailed: 'Impossible de charger le profil',
@@ -152,6 +159,11 @@ export default function ProfilePage() {
       stripeFeatureSettlement: 'Versement direct vers votre compte bancaire',
       stripeFeatureSecurity: 'Paiement s\u00e9curis\u00e9 h\u00e9berg\u00e9 par Stripe',
       stripeFeatureAutomation: 'Suivi automatique des paiements de factures',
+      restartTour: 'Reprendre la visite de la plateforme',
+      restartingTour: 'Préparation de la visite...',
+      restartTourHint: 'Réinitialise tous les guides et relance l\'expérience guidée depuis le tableau de bord.',
+      restartTourSuccess: 'Visite réinitialisée. Redirection vers le tableau de bord...',
+      restartTourFailed: 'Impossible de relancer la visite de la plateforme',
     },
   }[locale];
 
@@ -171,7 +183,26 @@ export default function ProfilePage() {
   const [logoUploading, setLogoUploading] = useState(false);
   const [logoDeleting, setLogoDeleting] = useState(false);
   const [showDeleteLogoDialog, setShowDeleteLogoDialog] = useState(false);
+  const [resettingTour, setResettingTour] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
+
+  async function handleRestartPlatformTour() {
+    setResettingTour(true);
+    try {
+      const response = await fetch('/api/onboarding/guide', { method: 'DELETE' });
+      const payload = (await response.json()) as { success?: boolean; message?: string };
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.message || t.restartTourFailed);
+      }
+
+      toast.success(t.restartTourSuccess);
+      router.push('/dashboard');
+    } catch (error) {
+      toast.error(resolveTranslatedError(locale, error, t.restartTourFailed));
+    } finally {
+      setResettingTour(false);
+    }
+  }
 
   useEffect(() => {
     async function loadProfile() {
@@ -429,6 +460,21 @@ export default function ProfilePage() {
                     {t.deleteLogo}
                   </Button>
                 )}
+              </div>
+
+              <div className="w-full rounded-xl border border-sky-300/70 bg-sky-50/70 p-3 dark:border-sky-900/50 dark:bg-sky-950/20">
+                <p className="mb-2 text-xs text-sky-800 dark:text-sky-200">{t.restartTourHint}</p>
+                <Button
+                  type="button"
+                  variant="default"
+                  data-tour-profile-restart-tour
+                  className="h-10 w-full bg-sky-700 text-white hover:bg-sky-800 dark:bg-sky-600 dark:hover:bg-sky-500"
+                  disabled={resettingTour}
+                  onClick={() => void handleRestartPlatformTour()}
+                >
+                  <CompassIcon className="size-4" />
+                  {resettingTour ? t.restartingTour : t.restartTour}
+                </Button>
               </div>
             </div>
           )}
