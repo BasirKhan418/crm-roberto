@@ -2,15 +2,25 @@ import ConnectDb from "../connectDb";
 import User from "../models/User";
 import mongoose from "mongoose";
 
+interface AdminUserListItem {
+  _id: mongoose.Types.ObjectId | string;
+  name?: string;
+  email?: string;
+  account_status?: "active" | "suspended";
+  isEmailVerified?: boolean;
+  isOnboardingComplete?: boolean;
+  createdAt?: Date;
+}
+
 export async function getAllUsers() {
   try {
     await ConnectDb();
     const rawUsers = await User.find({})
       .select("name email account_status isEmailVerified isOnboardingComplete createdAt")
       .sort({ createdAt: -1 })
-      .lean();
+      .lean<AdminUserListItem[]>();
     // Treat missing account_status as 'active' for legacy documents
-    const users = rawUsers.map((u: any) => ({
+    const users = rawUsers.map((u) => ({
       ...u,
       account_status: u.account_status ?? 'active',
     }));
