@@ -1,8 +1,5 @@
 import { z } from 'zod';
 
-const emptyToUndefined = (value: unknown) =>
-  typeof value === 'string' && value.trim() === '' ? undefined : value;
-
 const emptyToNull = (value: unknown) =>
   typeof value === 'string' && value.trim() === '' ? null : value;
 

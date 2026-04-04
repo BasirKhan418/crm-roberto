@@ -119,6 +119,10 @@ export default function InvoiceTable({
 
   function renderSecondaryActions(invoice: InvoiceListItem, align: 'start' | 'end' = 'end') {
     const moreActionsLabel = locale === 'fr' ? "Plus d'actions" : 'More actions';
+    const canMarkPaid = invoice.status === 'unpaid' || invoice.status === 'deposit_paid' || invoice.status === 'overdue';
+    const isMarkingThis = markingPaymentId === invoice._id;
+    const paymentLabel = invoice.status === 'deposit_paid' ? labels.markBalancePaid : labels.markAsPaid;
+    const paymentLoadingLabel = invoice.status === 'deposit_paid' ? labels.markingBalancePaid : labels.markingAsPaid;
 
     return (
       <DropdownMenu>
@@ -150,6 +154,17 @@ export default function InvoiceTable({
             <DownloadIcon className="size-4" />
             {labels.downloadPdf}
           </DropdownMenuItem>
+          {canMarkPaid ? (
+            <DropdownMenuItem
+              disabled={isMarkingThis}
+              onSelect={() => {
+                void onMarkPaid(invoice);
+              }}
+            >
+              {isMarkingThis ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle2 className="size-4" />}
+              {isMarkingThis ? paymentLoadingLabel : paymentLabel}
+            </DropdownMenuItem>
+          ) : null}
           <DropdownMenuSeparator />
           <DropdownMenuItem variant="destructive" onSelect={() => onDelete(invoice)}>
             <Trash2Icon className="size-4" />

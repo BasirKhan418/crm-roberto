@@ -411,7 +411,7 @@ export default function PriorityActionsPanel({
     loadSmartActions();
 
     return () => controller.abort();
-  }, [onActionSuccess]);
+  }, [onActionSuccess, t.smartActionFailed]);
 
   async function runSmartAction(
     actionKey: string,
