@@ -9,10 +9,12 @@ import { buildPagination } from '@/utils/api/query';
 export interface ActivityRecord {
   _id: string;
   action: string;
-  entityType: 'client' | 'supplier' | 'note' | 'product' | 'quote';
+  entityType: 'client' | 'supplier' | 'note' | 'product' | 'quote' | 'invoice';
   entityName: string;
   entityId?: string | null;
   metadata?: Record<string, unknown> | null;
+  isRead?: boolean;
+  readAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -20,6 +22,7 @@ export interface ActivityRecord {
 export interface ActivityListResult {
   items: ActivityRecord[];
   pagination: PaginationMeta;
+  unreadCount: number;
 }
 
 function isValidObjectId(value: string): boolean {
@@ -53,18 +56,20 @@ export const listActivities = async (userId: string, options: ListQueryOptions):
   const sortDirection = options.sortOrder === 'asc' ? 1 : -1;
   const skip = (options.page - 1) * options.limit;
 
-  const [items, total] = await Promise.all([
+  const [items, total, unreadCount] = await Promise.all([
     ActivityLog.find(query)
       .sort({ [options.sortBy]: sortDirection })
       .skip(skip)
       .limit(options.limit)
       .lean(),
     ActivityLog.countDocuments(query),
+    ActivityLog.countDocuments({ user: userId, isRead: false }),
   ]);
 
   return {
     items: items as ActivityRecord[],
     pagination: buildPagination(options.page, options.limit, total),
+    unreadCount,
   };
 };
 
@@ -90,12 +95,28 @@ export const updateActivityById = async (
     return null;
   }
 
-  const updated = await ActivityLog.findOneAndUpdate({ _id: activityId, user: userId }, payload, {
+  const normalizedPayload = {
+    ...payload,
+    ...(typeof payload.readAt === 'string' ? { readAt: new Date(payload.readAt) } : {}),
+  };
+
+  const updated = await ActivityLog.findOneAndUpdate({ _id: activityId, user: userId }, normalizedPayload, {
     new: true,
     runValidators: true,
   }).lean();
 
   return (updated as ActivityRecord | null) || null;
+};
+
+export const markAllActivitiesAsRead = async (userId: string): Promise<number> => {
+  await ConnectDb();
+
+  const result = await ActivityLog.updateMany(
+    { user: userId, isRead: false },
+    { $set: { isRead: true, readAt: new Date() } }
+  );
+
+  return result.modifiedCount;
 };
 
 export const deleteActivityById = async (userId: string, activityId: string): Promise<boolean> => {

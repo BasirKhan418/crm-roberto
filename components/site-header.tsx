@@ -7,6 +7,7 @@ import { useEffect, useMemo } from "react"
 import { ArrowLeftIcon, LayoutDashboardIcon } from "lucide-react"
 
 import { LanguageThemeToggle } from "@/components/language-theme-toggle"
+import { NotificationsBell } from "@/components/notifications-bell"
 import { useLocale } from "@/components/providers/locale-provider"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
@@ -154,7 +155,10 @@ export function SiteHeader({ title = "Documents" }: { title?: string }) {
           </div>
         ) : null}
 
-        <LanguageThemeToggle className="order-2 shrink-0 lg:order-3 lg:ml-auto" />
+        <div className="order-2 flex shrink-0 items-center gap-2 lg:order-3 lg:ml-auto">
+          <NotificationsBell />
+          <LanguageThemeToggle className="shrink-0" />
+        </div>
       </div>
     </header>
   )

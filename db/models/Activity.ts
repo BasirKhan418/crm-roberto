@@ -31,12 +31,13 @@ const ActivityLogSchema = new mongoose.Schema(
         "quote_sent",
         "quote_status_changed", 
         "quote_duplicated",
+        "invoice_created",
       ],
     },
 
     entityType: {
       type: String,
-      enum: ["client", "supplier", "note", "product", "quote"],
+      enum: ["client", "supplier", "note", "product", "quote", "invoice"],
       required: true,
     },
 
@@ -53,12 +54,22 @@ const ActivityLogSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.Mixed,
       default: null,
     },
+    isRead: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    readAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );
 
 
 ActivityLogSchema.index({ user: 1, createdAt: -1 });
+ActivityLogSchema.index({ user: 1, isRead: 1, createdAt: -1 });
 
 export default mongoose.models.ActivityLog ||
   mongoose.model("ActivityLog", ActivityLogSchema);

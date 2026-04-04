@@ -24,11 +24,14 @@ export const createActivitySchema = z.object({
     'quote_deleted',
     'quote_sent',
     'quote_status_changed',
+    'invoice_created',
   ]),
-  entityType: z.enum(['client', 'supplier', 'note', 'product', 'quote']),
+  entityType: z.enum(['client', 'supplier', 'note', 'product', 'quote', 'invoice']),
   entityName: z.string().trim().min(1, i18nKey('validation.entityNameRequired')),
   entityId: objectIdSchema,
   metadata: z.record(z.string(), z.unknown()).nullable().optional(),
+  isRead: z.boolean().optional(),
+  readAt: z.string().datetime().nullable().optional(),
 });
 
 export const updateActivitySchema = z.object({
@@ -37,6 +40,8 @@ export const updateActivitySchema = z.object({
   entityName: createActivitySchema.shape.entityName.optional(),
   entityId: objectIdSchema,
   metadata: createActivitySchema.shape.metadata,
+  isRead: z.boolean().optional(),
+  readAt: z.string().datetime().nullable().optional(),
 });
 
 export type CreateActivityDTO = z.infer<typeof createActivitySchema>;

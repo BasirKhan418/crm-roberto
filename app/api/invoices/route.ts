@@ -256,11 +256,11 @@ export async function POST(request: NextRequest) {
       await quote.save();
 
       await createActivityLog(me.user.id, {
-        action: 'quote_updated',
-        entityType: 'quote',
-        entityName: quote.quoteNumber,
-        entityId: String(quote._id),
-        metadata: { action: 'converted_to_invoice', invoiceNumber },
+        action: 'invoice_created',
+        entityType: 'invoice',
+        entityName: invoice.invoiceNumber,
+        entityId: String(invoice._id),
+        metadata: { source: 'quote_conversion', quoteNumber: quote.quoteNumber },
       });
 
       return NextResponse.json(
@@ -352,6 +352,14 @@ export async function POST(request: NextRequest) {
       totalIncludingTax: totals.totalIncludingTax,
       depositPercentage: parsed.data.depositPercentage,
       notes: parsed.data.notes ?? null,
+    });
+
+    await createActivityLog(me.user.id, {
+      action: 'invoice_created',
+      entityType: 'invoice',
+      entityName: invoice.invoiceNumber,
+      entityId: String(invoice._id),
+      metadata: { source: 'standalone' },
     });
 
     return NextResponse.json(

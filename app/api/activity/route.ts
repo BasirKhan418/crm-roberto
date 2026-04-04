@@ -26,6 +26,7 @@ export async function GET(request: NextRequest) {
       success: true,
       data: result.items,
       pagination: result.pagination,
+      unreadCount: result.unreadCount,
     });
   } catch (error) {
     return NextResponse.json({ success: false, message: `Error fetching activity logs: ${String(error)}` }, { status: 500 });
