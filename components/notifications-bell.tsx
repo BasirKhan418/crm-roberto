@@ -40,7 +40,9 @@ const bellMessages = {
     quoteSent: "Quote sent",
     quoteUpdated: "Quote updated",
     quoteDeleted: "Quote deleted",
+    invoicePaymentReceived: 'Payment received',
     statusChanged: "Status updated",
+    amountPaid: 'Amount paid',
     invoiceDueOn: "Due on",
     sentTo: "Sent to",
     movedTo: "Moved to",
@@ -62,7 +64,9 @@ const bellMessages = {
     quoteSent: "Devis envoyé",
     quoteUpdated: "Devis mis à jour",
     quoteDeleted: "Devis supprimé",
+    invoicePaymentReceived: 'Paiement reçu',
     statusChanged: "Statut mis à jour",
+    amountPaid: 'Montant payé',
     invoiceDueOn: "Échéance le",
     sentTo: "Envoyé à",
     movedTo: "Passé à",
@@ -172,6 +176,10 @@ function pickNotificationTitle(item: NotificationItem, locale: "en" | "fr"): str
     return t.quoteUpdated;
   }
 
+  if (item.action === 'invoice_payment_received') {
+    return t.invoicePaymentReceived;
+  }
+
   if (item.action === "quote_deleted") {
     return t.quoteDeleted;
   }
@@ -218,11 +226,24 @@ function buildNotificationDetails(item: NotificationItem, locale: "en" | "fr"): 
     return item.entityName || headline;
   }
 
+  if (item.action === 'invoice_payment_received') {
+    const amount = item.metadata?.amount;
+    if (typeof amount === 'number' && Number.isFinite(amount)) {
+      const formatted = new Intl.NumberFormat(locale === 'fr' ? 'fr-FR' : 'en-GB', {
+        style: 'currency',
+        currency: 'EUR',
+      }).format(amount / 100);
+      return `${item.entityName} - ${t.amountPaid} ${formatted}`;
+    }
+
+    return item.entityName || headline;
+  }
+
   return item.entityName || headline;
 }
 
 function pickIcon(item: NotificationItem) {
-  if (item.action === "invoice_created") {
+  if (item.action === "invoice_created" || item.action === 'invoice_payment_received') {
     return FileText;
   }
 

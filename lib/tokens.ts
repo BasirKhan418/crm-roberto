@@ -25,3 +25,11 @@ export function isTokenExpired(expiry: Date | null): boolean {
 export function buildSignUrl(token: string, baseUrl: string): string {
   return `${baseUrl}/sign/${token}`;
 }
+
+export function generatePaymentToken(): string {
+  return randomUUID();
+}
+
+export function buildInvoicePayUrl(token: string, baseUrl: string): string {
+  return `${baseUrl}/pay/${token}`;
+}

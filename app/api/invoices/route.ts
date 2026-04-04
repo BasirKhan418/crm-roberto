@@ -116,7 +116,15 @@ function withComputedInvoiceStatus<T extends { status: string; dueDate?: Date | 
   const dueDate = invoice.dueDate ? new Date(invoice.dueDate) : null;
   const isPastDue = Boolean(dueDate && Number.isFinite(dueDate.getTime()) && dueDate.getTime() < Date.now());
 
-  if ((invoice.status === 'unpaid' || invoice.status === 'deposit_paid') && isPastDue) {
+  if (
+    invoice.status === 'unpaid' ||
+    invoice.status === 'deposit_paid' ||
+    invoice.status === 'initial_paid'
+  ) {
+    if (!isPastDue) {
+      return invoice;
+    }
+
     return {
       ...invoice,
       status: 'overdue',
@@ -144,6 +152,7 @@ export async function GET(request: NextRequest) {
     const status =
       statusParam === 'unpaid' ||
       statusParam === 'deposit_paid' ||
+      statusParam === 'initial_paid' ||
       statusParam === 'paid' ||
       statusParam === 'overdue'
         ? statusParam
@@ -162,10 +171,12 @@ export async function GET(request: NextRequest) {
         query.$or = [
           { status: 'overdue' },
           {
-            status: { $in: ['unpaid', 'deposit_paid'] },
+            status: { $in: ['unpaid', 'deposit_paid', 'initial_paid'] },
             dueDate: { $lt: now },
           },
         ];
+      } else if (status === 'deposit_paid' || status === 'initial_paid') {
+        query.status = { $in: ['deposit_paid', 'initial_paid'] };
       } else {
         query.status = status;
       }

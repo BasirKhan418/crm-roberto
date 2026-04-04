@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import ConnectDb from '@/db/connectDb';
 import Invoice from '@/db/models/Invoice';
 import Payment from '@/db/models/Payment';
+import { createActivityLog } from '@/db/repository/activity';
 import getMe from '@/utils/middlewares/useMe';
 
 interface RouteParams {
@@ -66,11 +67,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const body = (await request.json().catch(() => ({}))) as {
       amount?: number;
       method?: string;
+      paymentType?: 'full' | 'deposit' | 'remaining_balance';
     };
 
     await ConnectDb();
 
-    const invoice = await Invoice.findOne({ _id: id, userId: me.user.id }).select('_id totalIncludingTax status');
+    const invoice = await Invoice.findOne({ _id: id, userId: me.user.id }).select('_id invoiceNumber totalIncludingTax status');
     if (!invoice) {
       return NextResponse.json({ success: false, message: 'Invoice not found' }, { status: 404 });
     }
@@ -84,21 +86,83 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       : Math.max(0, Math.round(invoice.totalIncludingTax));
 
     const method = typeof body.method === 'string' && body.method.trim() ? body.method.trim() : 'manual_offline';
+    const requestedPaymentType =
+      body.paymentType === 'full' || body.paymentType === 'deposit' || body.paymentType === 'remaining_balance'
+        ? body.paymentType
+        : null;
+    const userObjectId = new mongoose.Types.ObjectId(me.user.id);
+
+    const existingTotals = await Payment.aggregate<{ _id: null; paidTotal: number }>([
+      {
+        $match: {
+          userId: userObjectId,
+          invoiceId: invoice._id,
+          status: 'succeeded',
+        },
+      },
+      { $group: { _id: null, paidTotal: { $sum: '$amount' } } },
+    ]);
+    const alreadyPaid = Math.max(0, Math.round(existingTotals[0]?.paidTotal ?? 0));
+    const invoiceTotal = Math.max(0, Math.round(invoice.totalIncludingTax ?? 0));
+    const remainingBeforePayment = Math.max(0, invoiceTotal - alreadyPaid);
+    const normalizedAmount = Math.min(amount, remainingBeforePayment || amount);
 
     const payment = await Payment.create({
       userId: me.user.id,
       invoiceId: invoice._id,
       stripePaymentId: `manual_${invoice._id}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-      amount,
+      amount: normalizedAmount,
       currency: 'eur',
-      type: 'full',
+      type:
+        normalizedAmount >= remainingBeforePayment
+          ? 'full'
+          : requestedPaymentType === 'deposit'
+            ? 'deposit'
+            : 'remaining_balance',
       status: 'succeeded',
       method,
       paidAt: new Date(),
     });
 
-    invoice.status = 'paid';
+    const totals = await Payment.aggregate<{ _id: null; paidTotal: number }>([
+      {
+        $match: {
+          userId: userObjectId,
+          invoiceId: invoice._id,
+          status: 'succeeded',
+        },
+      },
+      { $group: { _id: null, paidTotal: { $sum: '$amount' } } },
+    ]);
+    const totalPaid = Math.max(0, Math.round(totals[0]?.paidTotal ?? 0));
+    const finalInvoiceTotal = Math.max(0, Math.round(invoice.totalIncludingTax ?? 0));
+
+    if (totalPaid >= finalInvoiceTotal) {
+      invoice.status = 'paid';
+    } else if (totalPaid > 0) {
+      invoice.status = payment.type === 'deposit' ? 'deposit_paid' : 'initial_paid';
+    } else {
+      invoice.status = 'unpaid';
+    }
+
     await invoice.save();
+
+    await createActivityLog(me.user.id, {
+      action: 'invoice_payment_received',
+      entityType: 'invoice',
+      entityName: invoice.invoiceNumber,
+      entityId: String(invoice._id),
+      metadata: {
+        source: 'manual',
+        amount: payment.amount,
+        paymentType: payment.type,
+        method: payment.method,
+        invoiceStatus: invoice.status,
+        totalPaid,
+        invoiceTotal: finalInvoiceTotal,
+        remainingAmount: Math.max(0, finalInvoiceTotal - totalPaid),
+      },
+    });
 
     return NextResponse.json({
       success: true,

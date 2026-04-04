@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import ConnectDb from '@/db/connectDb';
 import Invoice from '@/db/models/Invoice';
+import Payment from '@/db/models/Payment';
 import Quote from '@/db/models/Quote';
 import { buildValidationError } from '@/utils/api/validation';
 import getMe from '@/utils/middlewares/useMe';
@@ -16,7 +17,10 @@ function withComputedInvoiceStatus<T extends { status: string; dueDate?: Date | 
   const dueDate = invoice.dueDate ? new Date(invoice.dueDate) : null;
   const isPastDue = Boolean(dueDate && Number.isFinite(dueDate.getTime()) && dueDate.getTime() < Date.now());
 
-  if ((invoice.status === 'unpaid' || invoice.status === 'deposit_paid') && isPastDue) {
+  if (
+    (invoice.status === 'unpaid' || invoice.status === 'deposit_paid' || invoice.status === 'initial_paid') &&
+    isPastDue
+  ) {
     return {
       ...invoice,
       status: 'overdue',
@@ -163,6 +167,7 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
     }
 
     await Invoice.deleteOne({ _id: invoice._id, userId: me.user.id });
+    await Payment.deleteMany({ invoiceId: invoice._id, userId: me.user.id });
 
     await Quote.updateMany(
       {

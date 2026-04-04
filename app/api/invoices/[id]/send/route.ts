@@ -10,6 +10,7 @@ import StripeConnect from '@/db/models/StripeConnect';
 import { getCompanyProfileByUserId } from '@/db/repository/cprofile';
 import { sendInvoice } from '@/lib/email';
 import { InvoicePdfTemplate } from '@/lib/pdf/InvoicePdfTemplate';
+import { buildInvoicePayUrl, generatePaymentToken, generateTokenExpiry, isTokenExpired } from '@/lib/tokens';
 import getMe from '@/utils/middlewares/useMe';
 
 export const runtime = 'nodejs';
@@ -53,7 +54,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     const invoice = await Invoice.findOne({ _id: id, userId: me.user.id })
       .select(
-        '_id invoiceNumber quoteNumber date dueDate status lineItems totalExcludingTax totalVat totalIncludingTax depositPercentage notes stripePaymentLinkId stripeDepositLinkId clientSnapshot'
+        '_id userId invoiceNumber quoteNumber date dueDate status lineItems totalExcludingTax totalVat totalIncludingTax depositPercentage notes paymentToken paymentTokenExpiry clientSnapshot'
       )
       .lean();
 
@@ -79,21 +80,20 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, message: 'Invalid email address' }, { status: 400 });
     }
 
-    const depositPercentage = typeof invoice.depositPercentage === 'number' ? invoice.depositPercentage : 100;
-    const paymentUrl = depositPercentage < 100 ? invoice.stripeDepositLinkId : invoice.stripePaymentLinkId;
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
+    let paymentToken = typeof invoice.paymentToken === 'string' && invoice.paymentToken.trim() ? invoice.paymentToken : null;
+    let paymentTokenExpiry = invoice.paymentTokenExpiry ?? null;
 
-    if (!paymentUrl) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            depositPercentage < 100
-              ? 'Missing Stripe deposit link for this invoice. Generate a deposit payment link first.'
-              : 'Missing Stripe payment link for this invoice. Generate a payment link first.',
-        },
-        { status: 422 }
+    if (!paymentToken || isTokenExpired(paymentTokenExpiry)) {
+      paymentToken = generatePaymentToken();
+      paymentTokenExpiry = generateTokenExpiry(30);
+      await Invoice.updateOne(
+        { _id: invoice._id, userId: me.user.id },
+        { $set: { paymentToken, paymentTokenExpiry } }
       );
     }
+
+    const paymentUrl = buildInvoicePayUrl(paymentToken, appUrl);
 
     const companyResult = await getCompanyProfileByUserId(me.user.id);
     const profile = companyResult.success
@@ -124,6 +124,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       vatRate: item.vatRate,
       totalExcludingTax: item.totalExcludingTax,
     }));
+    const depositPercentage = typeof invoice.depositPercentage === 'number' ? invoice.depositPercentage : 100;
 
     const totalExcludingTaxBeforeDiscount = computedLineItems.reduce(
       (sum, item) => sum + item.baseUnitPriceExcludingTax * item.quantity,

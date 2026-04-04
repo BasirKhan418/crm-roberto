@@ -12,7 +12,7 @@ import ErrorMessage from '@/components/ui/ErrorMessage';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
-type InvoiceStatus = 'unpaid' | 'deposit_paid' | 'paid' | 'overdue';
+type InvoiceStatus = 'unpaid' | 'deposit_paid' | 'initial_paid' | 'paid' | 'overdue';
 
 interface InvoiceEditData {
   _id: string;

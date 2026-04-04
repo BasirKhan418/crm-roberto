@@ -87,6 +87,7 @@ const translations = {
     totalIncl: 'Total incl. tax',
     paymentSummary: 'Payment summary',
     depositDue: 'Deposit due',
+    totalPaid: 'Total paid',
     remaining: 'Remaining',
     paymentLink: 'Online payment link',
     paymentHistory: 'Payment history',
@@ -127,6 +128,7 @@ const translations = {
     totalIncl: 'Total TTC',
     paymentSummary: 'R\u00e9sum\u00e9 paiement',
     depositDue: 'Acompte \u00e0 payer',
+    totalPaid: 'Total pay\u00e9',
     remaining: 'Reste \u00e0 payer',
     paymentLink: 'Lien de paiement en ligne',
     paymentHistory: 'Historique des paiements',
@@ -475,8 +477,9 @@ export function InvoicePdfTemplate({ invoice, company, paymentUrl = null, locale
   const t = translations[locale];
   const depositPercentage = Math.max(0, Math.min(100, Math.round(invoice.depositPercentage ?? 100)));
   const depositAmount = Math.round(invoice.totalIncludingTax * (depositPercentage / 100));
-  const remainingAmount = Math.max(0, invoice.totalIncludingTax - depositAmount);
   const payments = invoice.payments ?? [];
+  const totalPaidAmount = payments.reduce((sum, payment) => sum + Math.max(0, Math.round(payment.amount || 0)), 0);
+  const remainingAmount = Math.max(0, invoice.totalIncludingTax - totalPaidAmount);
 
   return (
     <Document>
@@ -628,6 +631,10 @@ export function InvoicePdfTemplate({ invoice, company, paymentUrl = null, locale
           <View style={styles.paymentRow}>
             <Text style={styles.value}>{t.depositDue}</Text>
             <Text style={styles.value}>{formatPrice(depositAmount)}</Text>
+          </View>
+          <View style={styles.paymentRow}>
+            <Text style={styles.value}>{t.totalPaid}</Text>
+            <Text style={styles.value}>{formatPrice(totalPaidAmount)}</Text>
           </View>
           <View style={styles.paymentRow}>
             <Text style={styles.value}>{t.remaining}</Text>

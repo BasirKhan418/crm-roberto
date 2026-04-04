@@ -8,6 +8,7 @@ import { CheckCircle2Icon, DownloadIcon, PencilIcon, ReceiptTextIcon, SendIcon }
 import { toast } from 'sonner';
 
 import CrmShell from '@/components/crm-shell';
+import ManualPaymentModal, { type ManualPaymentType } from '@/components/invoices/ManualPaymentModal';
 import SendInvoiceModal from '@/components/invoices/SendInvoiceModal';
 import { useLocale } from '@/components/providers/locale-provider';
 import { computeQuoteLine } from '@/lib/quote-calculations';
@@ -151,9 +152,8 @@ export default function InvoiceDetailPage() {
       paymentSummary: 'Payment summary',
       deposit: 'Deposit',
       remaining: 'Remaining',
+      paid: 'Paid',
       total: 'Total',
-      fullPaymentLink: 'Open full payment link',
-      depositPaymentLink: 'Open deposit payment link',
       paymentHistory: 'Payment history',
       paymentMethod: 'Method',
       paymentAmount: 'Amount',
@@ -208,9 +208,8 @@ export default function InvoiceDetailPage() {
       paymentSummary: 'R\u00e9sum\u00e9 des paiements',
       deposit: 'Acompte',
       remaining: 'Reste',
+      paid: 'Pay\u00e9',
       total: 'Total',
-      fullPaymentLink: 'Ouvrir le lien de paiement complet',
-      depositPaymentLink: "Ouvrir le lien d'acompte",
       paymentHistory: 'Historique des paiements',
       paymentMethod: 'M\u00e9thode',
       paymentAmount: 'Montant',
@@ -234,6 +233,7 @@ export default function InvoiceDetailPage() {
   const [company, setCompany] = useState<CompanyProfile | null>(null);
   const [payments, setPayments] = useState<PaymentHistoryItem[]>([]);
   const [sendOpen, setSendOpen] = useState(false);
+  const [manualPaymentOpen, setManualPaymentOpen] = useState(false);
   const [markingPaid, setMarkingPaid] = useState(false);
 
   const loadData = useCallback(async () => {
@@ -312,7 +312,13 @@ export default function InvoiceDetailPage() {
 
   const normalizedDepositPercentage = Math.max(0, Math.min(100, Math.round(invoice?.depositPercentage ?? 100)));
   const depositAmount = Math.round((invoice?.totalIncludingTax ?? 0) * (normalizedDepositPercentage / 100));
-  const remainingAmount = Math.max(0, (invoice?.totalIncludingTax ?? 0) - depositAmount);
+  const totalPaidAmount = Math.max(
+    0,
+    payments
+      .filter((payment) => payment.status === 'succeeded')
+      .reduce((sum, payment) => sum + Math.max(0, Math.round(payment.amount || 0)), 0)
+  );
+  const remainingAmount = Math.max(0, (invoice?.totalIncludingTax ?? 0) - totalPaidAmount);
   const canEdit = invoice?.status === 'unpaid';
 
   function paymentTypeLabel(type: PaymentHistoryItem['type']): string {
@@ -354,7 +360,7 @@ export default function InvoiceDetailPage() {
     }
   }
 
-  async function markAsPaidManually() {
+  async function markAsPaidManually(manualPayload?: { amount: number; paymentType: ManualPaymentType }) {
     if (!invoice?._id || markingPaid) {
       return;
     }
@@ -364,15 +370,20 @@ export default function InvoiceDetailPage() {
       const response = await fetch(`/api/invoices/${invoice._id}/payments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: invoice.totalIncludingTax, method: 'manual_offline' }),
+        body: JSON.stringify({
+          amount: manualPayload?.amount ?? remainingAmount,
+          method: 'manual_offline',
+          paymentType: manualPayload?.paymentType ?? 'full',
+        }),
       });
 
-      const payload = (await response.json()) as { success?: boolean; message?: string };
-      if (!response.ok || !payload.success) {
-        throw new Error(payload.message || t.markPaidFailed);
+      const responsePayload = (await response.json()) as { success?: boolean; message?: string };
+      if (!response.ok || !responsePayload.success) {
+        throw new Error(responsePayload.message || t.markPaidFailed);
       }
 
       toast.success(t.markedPaid);
+      setManualPaymentOpen(false);
       await loadData();
     } catch (paidError) {
       toast.error(paidError instanceof Error ? paidError.message : t.markPaidFailed);
@@ -427,7 +438,7 @@ export default function InvoiceDetailPage() {
                 variant="outline"
                 size="sm"
                 className="h-10 w-full justify-start sm:h-9 sm:w-auto sm:justify-center"
-                onClick={markAsPaidManually}
+                onClick={() => setManualPaymentOpen(true)}
                 disabled={invoice.status === 'paid' || markingPaid}
               >
                 <CheckCircle2Icon className="size-3.5" />
@@ -583,27 +594,10 @@ export default function InvoiceDetailPage() {
                 {' · '}
                 {t.remaining}: <PriceDisplay cents={remainingAmount} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="font-medium" />
                 {' · '}
+                {t.paid}: <PriceDisplay cents={totalPaidAmount} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="font-medium" />
+                {' · '}
                 {t.total}: <PriceDisplay cents={invoice.totalIncludingTax} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="font-semibold" />
               </p>
-
-              {(invoice.stripePaymentLinkId || invoice.stripeDepositLinkId) ? (
-                <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-                  {invoice.stripePaymentLinkId ? (
-                    <Button type="button" variant="outline" size="sm" className="h-9" asChild>
-                      <a href={invoice.stripePaymentLinkId} target="_blank" rel="noreferrer">
-                        {t.fullPaymentLink}
-                      </a>
-                    </Button>
-                  ) : null}
-                  {invoice.stripeDepositLinkId ? (
-                    <Button type="button" variant="outline" size="sm" className="h-9" asChild>
-                      <a href={invoice.stripeDepositLinkId} target="_blank" rel="noreferrer">
-                        {t.depositPaymentLink}
-                      </a>
-                    </Button>
-                  ) : null}
-                </div>
-              ) : null}
             </section>
 
             <section className="mb-4 rounded-xl border border-border/70 bg-card p-4">
@@ -657,6 +651,22 @@ export default function InvoiceDetailPage() {
           companyName={company?.companyName ?? company?.ownerName ?? null}
           locale={locale as 'en' | 'fr'}
           onSent={loadData}
+        />
+      ) : null}
+
+      {invoice ? (
+        <ManualPaymentModal
+          open={manualPaymentOpen}
+          onOpenChange={setManualPaymentOpen}
+          loading={markingPaid}
+          locale={locale as 'en' | 'fr'}
+          totalAmount={invoice.totalIncludingTax}
+          totalPaidAmount={totalPaidAmount}
+          remainingAmount={remainingAmount}
+          depositAmount={depositAmount}
+          onConfirm={async (payload) => {
+            await markAsPaidManually(payload);
+          }}
         />
       ) : null}
     </CrmShell>

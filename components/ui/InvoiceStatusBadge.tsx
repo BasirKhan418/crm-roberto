@@ -2,7 +2,7 @@
 
 import { cn } from '@/lib/utils';
 
-export type InvoiceStatus = 'unpaid' | 'deposit_paid' | 'paid' | 'overdue';
+export type InvoiceStatus = 'unpaid' | 'deposit_paid' | 'initial_paid' | 'paid' | 'overdue';
 
 const STATUS_STYLES: Record<InvoiceStatus, { backgroundColor: string; color: string }> = {
   unpaid: {
@@ -10,6 +10,10 @@ const STATUS_STYLES: Record<InvoiceStatus, { backgroundColor: string; color: str
     color: '#475569',
   },
   deposit_paid: {
+    backgroundColor: 'rgba(217, 119, 6, 0.15)',
+    color: '#b45309',
+  },
+  initial_paid: {
     backgroundColor: 'rgba(217, 119, 6, 0.15)',
     color: '#b45309',
   },
@@ -26,13 +30,13 @@ const STATUS_STYLES: Record<InvoiceStatus, { backgroundColor: string; color: str
 function getStatusLabel(status: InvoiceStatus, locale: 'en' | 'fr'): string {
   if (locale === 'fr') {
     if (status === 'unpaid') return 'Impay\u00e9e';
-    if (status === 'deposit_paid') return 'Acompte pay\u00e9';
+    if (status === 'deposit_paid' || status === 'initial_paid') return 'Acompte pay\u00e9';
     if (status === 'paid') return 'Pay\u00e9e';
     return 'En retard';
   }
 
   if (status === 'unpaid') return 'Unpaid';
-  if (status === 'deposit_paid') return 'Deposit paid';
+  if (status === 'deposit_paid' || status === 'initial_paid') return 'Deposit paid';
   if (status === 'paid') return 'Paid';
   return 'Overdue';
 }

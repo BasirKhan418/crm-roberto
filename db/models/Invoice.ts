@@ -1,6 +1,6 @@
 import mongoose, { type InferSchemaType, type Model } from "mongoose";
 
-export const INVOICE_STATUS = ["unpaid", "deposit_paid", "paid", "overdue"] as const;
+export const INVOICE_STATUS = ["unpaid", "deposit_paid", "initial_paid", "paid", "overdue"] as const;
 
 const InvoiceLineItemSchema = new mongoose.Schema(
   {
@@ -122,7 +122,7 @@ const InvoiceSchema = new mongoose.Schema(
       required: true,
       enum: {
         values: INVOICE_STATUS,
-        message: "Status must be unpaid, deposit_paid, paid, or overdue",
+        message: "Status must be unpaid, deposit_paid, initial_paid, paid, or overdue",
       },
       default: "unpaid",
     },
@@ -192,6 +192,15 @@ const InvoiceSchema = new mongoose.Schema(
       default: null,
       trim: true,
     },
+    paymentToken: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    paymentTokenExpiry: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );
@@ -206,6 +215,7 @@ InvoiceSchema.index({ invoiceNumber: 1 }, { unique: true, name: "unique_invoice_
 InvoiceSchema.index({ userId: 1, createdAt: -1 });
 InvoiceSchema.index({ userId: 1, status: 1 });
 InvoiceSchema.index({ userId: 1, quoteId: 1 });
+InvoiceSchema.index({ paymentToken: 1 }, { unique: true, sparse: true, name: "unique_invoice_payment_token" });
 
 export type InvoiceDocument = InferSchemaType<typeof InvoiceSchema>;
 
