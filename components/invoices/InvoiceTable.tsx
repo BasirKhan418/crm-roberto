@@ -232,18 +232,10 @@ export default function InvoiceTable({
                   </div>
                   <div className="flex flex-col items-end gap-1.5 shrink-0">
                     <InvoiceStatusBadge status={invoice.status} locale={locale} className="mt-0.5" />
-                    {(invoice.status === 'overdue' || invoice.status === 'deposit_paid' || invoice.status === 'initial_paid') ? (
-                      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
-                        invoice.status === 'overdue'
-                          ? 'bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-400'
-                          : 'bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400'
-                      }`}>
-                        <span className={`size-1.5 rounded-full animate-ping ${
-                          invoice.status === 'overdue' ? 'bg-red-500' : 'bg-amber-500'
-                        }`} />
-                        {invoice.status === 'overdue'
-                          ? (locale === 'fr' ? 'En retard' : 'Overdue!')
-                          : (locale === 'fr' ? 'Solde dû' : 'Balance')}
+                    {(invoice.status === 'deposit_paid' || invoice.status === 'initial_paid') ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700 dark:bg-amber-950/30 dark:text-amber-400">
+                        <span className="size-1.5 rounded-full bg-amber-500 animate-ping" />
+                        {locale === 'fr' ? 'Solde dû' : 'Balance'}
                       </span>
                     ) : null}
                   </div>
