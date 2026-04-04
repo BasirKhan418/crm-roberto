@@ -67,10 +67,9 @@ const standaloneInvoiceSchema = baseInvoiceSchema.extend({
     .min(1),
 });
 
-async function getNextInvoiceNumberForYear(userId: string, year: number): Promise<string> {
+async function getNextInvoiceNumberForYear(year: number): Promise<string> {
   const yearPrefix = `INV-${year}-`;
   const lastInvoice = await Invoice.findOne({
-    userId,
     invoiceNumber: { $regex: `^${yearPrefix}` },
   })
     .sort({ invoiceNumber: -1 })
@@ -78,6 +77,14 @@ async function getNextInvoiceNumberForYear(userId: string, year: number): Promis
     .lean<{ invoiceNumber?: string } | null>();
 
   return nextInvoiceNumber(lastInvoice?.invoiceNumber ?? null, year);
+}
+
+function isInvoiceNumberDuplicateError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  return error.message.includes('E11000') && error.message.includes('invoiceNumber');
 }
 
 function withComputedInvoiceStatus<T extends { status: string; dueDate?: Date | string | null }>(invoice: T): T {
@@ -231,25 +238,40 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ message: 'This quote has already been converted to an invoice' }, { status: 409 });
       }
 
-      const invoiceNumber = await getNextInvoiceNumberForYear(me.user.id, new Date().getFullYear());
+      const currentYear = new Date().getFullYear();
+      let invoice: Awaited<ReturnType<typeof Invoice.create>> | null = null;
 
-      const invoice = await Invoice.create({
-        userId: me.user.id,
-        invoiceNumber,
-        quoteId: quote._id,
-        quoteNumber: quote.quoteNumber,
-        date: new Date(),
-        dueDate: parsed.data.dueDate ?? null,
-        status: 'unpaid',
-        clientId: quote.clientId,
-        clientSnapshot: quote.clientSnapshot,
-        lineItems: quote.lineItems,
-        totalExcludingTax: quote.totalExcludingTax,
-        totalVat: quote.totalVat,
-        totalIncludingTax: quote.totalIncludingTax,
-        depositPercentage: parsed.data.depositPercentage,
-        notes: parsed.data.notes ?? quote.notes ?? null,
-      });
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        const invoiceNumber = await getNextInvoiceNumberForYear(currentYear);
+        try {
+          invoice = await Invoice.create({
+            userId: me.user.id,
+            invoiceNumber,
+            quoteId: quote._id,
+            quoteNumber: quote.quoteNumber,
+            date: new Date(),
+            dueDate: parsed.data.dueDate ?? null,
+            status: 'unpaid',
+            clientId: quote.clientId,
+            clientSnapshot: quote.clientSnapshot,
+            lineItems: quote.lineItems,
+            totalExcludingTax: quote.totalExcludingTax,
+            totalVat: quote.totalVat,
+            totalIncludingTax: quote.totalIncludingTax,
+            depositPercentage: parsed.data.depositPercentage,
+            notes: parsed.data.notes ?? quote.notes ?? null,
+          });
+          break;
+        } catch (creationError) {
+          if (!isInvoiceNumberDuplicateError(creationError) || attempt === 4) {
+            throw creationError;
+          }
+        }
+      }
+
+      if (!invoice) {
+        return NextResponse.json({ message: 'Could not generate a unique invoice number' }, { status: 500 });
+      }
 
       quote.convertedToInvoice = true;
       quote.invoiceId = invoice._id;
@@ -333,30 +355,45 @@ export async function POST(request: NextRequest) {
     });
 
     const totals = computeQuoteTotalsFromComputedLines(computedLineItems);
-    const invoiceNumber = await getNextInvoiceNumberForYear(me.user.id, new Date().getFullYear());
+    const currentYear = new Date().getFullYear();
+    let invoice: Awaited<ReturnType<typeof Invoice.create>> | null = null;
 
-    const invoice = await Invoice.create({
-      userId: me.user.id,
-      invoiceNumber,
-      date: parsed.data.date ?? new Date(),
-      dueDate: parsed.data.dueDate ?? null,
-      status: 'unpaid',
-      clientId: client._id,
-      clientSnapshot: {
-        fullName: client.fullName,
-        email: client.email ?? null,
-        phone: client.phone ?? null,
-        address: client.address ?? null,
-        companyName: client.companyName ?? null,
-        vatNumber: client.vatNumber ?? null,
-      },
-      lineItems: computedLineItems,
-      totalExcludingTax: totals.totalExcludingTax,
-      totalVat: totals.totalVat,
-      totalIncludingTax: totals.totalIncludingTax,
-      depositPercentage: parsed.data.depositPercentage,
-      notes: parsed.data.notes ?? null,
-    });
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const invoiceNumber = await getNextInvoiceNumberForYear(currentYear);
+      try {
+        invoice = await Invoice.create({
+          userId: me.user.id,
+          invoiceNumber,
+          date: parsed.data.date ?? new Date(),
+          dueDate: parsed.data.dueDate ?? null,
+          status: 'unpaid',
+          clientId: client._id,
+          clientSnapshot: {
+            fullName: client.fullName,
+            email: client.email ?? null,
+            phone: client.phone ?? null,
+            address: client.address ?? null,
+            companyName: client.companyName ?? null,
+            vatNumber: client.vatNumber ?? null,
+          },
+          lineItems: computedLineItems,
+          totalExcludingTax: totals.totalExcludingTax,
+          totalVat: totals.totalVat,
+          totalIncludingTax: totals.totalIncludingTax,
+          depositPercentage: parsed.data.depositPercentage,
+          notes: parsed.data.notes ?? null,
+        });
+        break;
+      } catch (creationError) {
+        if (!isInvoiceNumberDuplicateError(creationError) || attempt === 4) {
+          throw creationError;
+        }
+      }
+    }
+
+    if (!invoice) {
+      return NextResponse.json({ message: 'Could not generate a unique invoice number' }, { status: 500 });
+    }
 
     await createActivityLog(me.user.id, {
       action: 'invoice_created',

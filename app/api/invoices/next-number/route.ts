@@ -18,7 +18,6 @@ export async function GET() {
     const yearPrefix = `INV-${year}-`;
 
     const lastInvoice = await Invoice.findOne({
-      userId: me.user.id,
       invoiceNumber: { $regex: `^${yearPrefix}` },
     })
       .sort({ invoiceNumber: -1 })
