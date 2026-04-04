@@ -785,7 +785,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                   </div>
                 </div>
                 {/* Action buttons – horizontally scrollable on small screens */}
-                <div className="-mx-5 flex items-center gap-2 overflow-x-auto px-5 pb-1 sm:mx-0 sm:px-0 sm:pb-0">
+                <div data-tour-client-actions className="-mx-5 flex items-center gap-2 overflow-x-auto px-5 pb-1 sm:mx-0 sm:px-0 sm:pb-0">
                   <Button size="sm" asChild className="shrink-0">
                     <Link href={`/quotes/new?clientId=${clientId}`}>
                       <FilePlusIcon className="size-3.5" />{t.createQuote}
@@ -827,7 +827,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
               <div className="space-y-4">
 
                 {/* Profile */}
-                <Card>
+                <Card data-tour-client-profile-card>
                   <CardHeader className="border-b pb-3">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex flex-wrap items-center gap-2">
@@ -877,7 +877,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                 </Card>
 
                 {/* Billing */}
-                <Card>
+                <Card data-tour-client-billing-card>
                   <CardHeader className="border-b pb-3">
                     <CardTitle className="text-base">{t.billing}</CardTitle>
                   </CardHeader>
@@ -914,7 +914,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
               </div>
 
               {/* ── Tabs ─────────────────────────────────────────────────── */}
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="min-w-0">
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="min-w-0" data-tour-client-tabs>
                 <div className="mb-4 overflow-x-auto">
                   <TabsList variant="line" className="w-full justify-start gap-0 rounded-none border-b border-border/60 bg-transparent p-0 h-auto">
                     <TabTriggerStyled value="timeline">{t.timeline}</TabTriggerStyled>

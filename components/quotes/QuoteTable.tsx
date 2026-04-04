@@ -125,7 +125,7 @@ export default function QuoteTable({ items, loading, labels, locale, formatDate,
     );
   }
 
-  function renderSecondaryActions(quote: QuoteListItem, align: 'start' | 'end' = 'end') {
+  function renderSecondaryActions(quote: QuoteListItem, align: 'start' | 'end' = 'end', tourTarget: 'mobile' | 'table' = 'table') {
     const canEdit = quote.status === 'draft' || quote.status === 'sent' || quote.status === 'rejected';
     const canConvert =
       quote.status === 'accepted' &&
@@ -139,7 +139,14 @@ export default function QuoteTable({ items, loading, labels, locale, formatDate,
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button type="button" size="icon" variant="outline" className="size-8 shrink-0" aria-label={`${moreActionsLabel} ${quote.quoteNumber}`}>
+          <Button
+            type="button"
+            size="icon"
+            variant="outline"
+            className="size-8 shrink-0"
+            data-tour-quote-actions={tourTarget}
+            aria-label={`${moreActionsLabel} ${quote.quoteNumber}`}
+          >
             <EllipsisVerticalIcon className="size-4" />
           </Button>
         </DropdownMenuTrigger>
@@ -297,7 +304,7 @@ export default function QuoteTable({ items, loading, labels, locale, formatDate,
                   />
                   <div className="flex items-center gap-1.5" onClick={(event) => event.stopPropagation()}>
                     {renderPrimaryAction(quote, 'h-8 px-3 text-xs')}
-                    {renderSecondaryActions(quote)}
+                    {renderSecondaryActions(quote, 'end', 'mobile')}
                   </div>
                 </div>
               </article>
@@ -418,7 +425,7 @@ export default function QuoteTable({ items, loading, labels, locale, formatDate,
                     <TableCell className="py-4 pr-4 align-middle">
                       <div className="flex items-center justify-end gap-1.5" onClick={(event) => event.stopPropagation()}>
                         {renderPrimaryAction(quote, 'h-8 px-3 text-xs')}
-                        {renderSecondaryActions(quote, 'end')}
+                        {renderSecondaryActions(quote, 'end', 'table')}
                       </div>
                     </TableCell>
                   </TableRow>

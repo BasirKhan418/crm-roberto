@@ -428,7 +428,7 @@ export default function NotesPage() {
 
   return (
     <CrmShell title={t.shellTitle}>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div data-tour-notes-header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="font-heading text-2xl font-semibold tracking-tight">{t.heading}</h1>
           <p className="text-sm text-muted-foreground">{t.subtitle}</p>
@@ -436,7 +436,7 @@ export default function NotesPage() {
 
         <Sheet open={isAddOpen} onOpenChange={setIsAddOpen}>
           <SheetTrigger asChild>
-            <Button className='h-10 w-full sm:w-auto'>
+            <Button data-tour-notes-add className='h-10 w-full sm:w-auto'>
               <PlusIcon />
               {t.addNote}
             </Button>
@@ -631,13 +631,14 @@ export default function NotesPage() {
         </div>
       ) : null}
 
-      <Card>
+      <Card data-tour-notes-panel>
         <CardHeader className="border-b">
           <CardTitle className="text-base">{t.allNotes}</CardTitle>
           <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
             <div className="relative flex-1">
               <SearchIcon className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
               <Input
+                data-tour-notes-search
                 className="pl-8"
                 placeholder={t.searchPlaceholder}
                 value={searchInput}
@@ -651,7 +652,7 @@ export default function NotesPage() {
               />
             </div>
             <Select value={filter} onValueChange={(v: 'all' | 'client' | 'supplier') => { setFilter(v); setPagination((p) => ({ ...p, page: 1 })); }}>
-              <SelectTrigger className="w-full sm:w-45"><SelectValue /></SelectTrigger>
+              <SelectTrigger data-tour-notes-filter className="w-full sm:w-45"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">{t.all}</SelectItem>
                 <SelectItem value="client">{t.clientsOnly}</SelectItem>
@@ -665,7 +666,7 @@ export default function NotesPage() {
           {error ? <ErrorMessage message={error} /> : null}
 
           {loading ? (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div data-tour-notes-list className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {Array.from({ length: 5 }).map((_, idx) => <Skeleton key={idx} className="h-28 w-full" />)}
             </div>
           ) : notes.length === 0 ? (

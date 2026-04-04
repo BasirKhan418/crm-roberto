@@ -624,7 +624,7 @@ export default function QuoteDetailPage() {
             </section>
           ) : null}
 
-          <div className="flex flex-col gap-2.5 rounded-xl border border-border/60 bg-card/80 px-3.5 py-3 print:hidden sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-2.5 sm:py-2.5">
+          <div data-tour-quote-detail-actions className="flex flex-col gap-2.5 rounded-xl border border-border/60 bg-card/80 px-3.5 py-3 print:hidden sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-2.5 sm:py-2.5">
             <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
              
 
@@ -667,6 +667,7 @@ export default function QuoteDetailPage() {
                   type="button"
                   variant="default"
                   size="sm"
+                  data-tour-quote-convert
                   className={`${actionButtonClass} bg-black text-white hover:bg-black/90 dark:bg-black dark:text-white dark:hover:bg-black/90`}
                   disabled={convertingToInvoice}
                   onClick={() => setConvertOpen(true)}
@@ -726,7 +727,7 @@ export default function QuoteDetailPage() {
             </div>
           </div>
 
-          <article className="rounded-2xl border border-border/60 bg-white p-4 shadow-sm print:rounded-none print:border-0 print:p-0 print:shadow-none sm:p-6">
+          <article data-tour-quote-document className="rounded-2xl border border-border/60 bg-white p-4 shadow-sm print:rounded-none print:border-0 print:p-0 print:shadow-none sm:p-6">
             <header className="mb-5 rounded-xl border border-border/60 bg-linear-to-b from-background to-secondary/15 p-4 sm:p-5">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>

@@ -399,7 +399,7 @@ export default function InvoiceDetailPage() {
 
       {!loading && !error && invoice ? (
         <section className="space-y-5 print:space-y-3">
-          <div className="flex flex-col gap-2.5 rounded-xl border border-border/60 bg-card/80 px-3.5 py-3 print:hidden sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-2.5 sm:py-2.5">
+          <div data-tour-invoice-detail-actions className="flex flex-col gap-2.5 rounded-xl border border-border/60 bg-card/80 px-3.5 py-3 print:hidden sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-2.5 sm:py-2.5">
             <Button type="button" variant="outline" size="sm" className="h-10 w-full justify-start sm:h-9 sm:w-auto sm:justify-center" onClick={() => router.push('/invoices')}>
               <ReceiptTextIcon className="size-3.5" />
               {t.back}
@@ -436,7 +436,7 @@ export default function InvoiceDetailPage() {
             </div>
           </div>
 
-          <article className="rounded-2xl border border-border/60 bg-white p-4 shadow-sm print:rounded-none print:border-0 print:p-0 print:shadow-none sm:p-6">
+          <article data-tour-invoice-document className="rounded-2xl border border-border/60 bg-white p-4 shadow-sm print:rounded-none print:border-0 print:p-0 print:shadow-none sm:p-6">
             <header className="mb-5 rounded-xl border border-border/60 bg-linear-to-b from-background to-secondary/15 p-4 sm:p-5">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>

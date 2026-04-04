@@ -3,6 +3,7 @@
 import type { CSSProperties, ReactNode } from 'react';
 
 import { AppSidebar } from '@/components/app-sidebar';
+import FirstVisitGuide from '@/components/onboarding/first-visit-guide';
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { cn } from '@/lib/utils';
@@ -36,6 +37,7 @@ export default function CrmShell({ title, children, contentClassName }: CrmShell
             {children}
           </div>
         </main>
+        <FirstVisitGuide />
       </SidebarInset>
     </SidebarProvider>
   );

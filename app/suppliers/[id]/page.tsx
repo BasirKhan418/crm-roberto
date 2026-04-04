@@ -380,7 +380,7 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
         <EmptyState message={t.notFound} />
       ) : (
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_1.2fr]">
-          <Card>
+          <Card data-tour-supplier-profile>
             <CardHeader className="border-b">
               <div className="flex items-center gap-3">
                 <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-amber-100 text-base font-bold text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
@@ -399,7 +399,7 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
               <p><span className="text-muted-foreground">{t.company}:</span> {supplier.companyName || '-'}</p>
               <p><span className="text-muted-foreground">{t.vat}:</span> {supplier.vatNumber || '-'}</p>
 
-              <div className="flex flex-wrap gap-2 pt-3">
+              <div data-tour-supplier-actions className="flex flex-wrap gap-2 pt-3">
                 <Sheet open={isEditOpen} onOpenChange={setIsEditOpen}>
                   <SheetTrigger asChild>
                     <Button variant="outline" size="sm"><PencilIcon />{t.edit}</Button>
@@ -520,7 +520,7 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
             </CardContent>
           </Card>
 
-          <Card>
+          <Card data-tour-supplier-timeline>
             <CardHeader className="border-b">
               <CardTitle>{t.timeline}</CardTitle>
               <p className="text-sm text-muted-foreground">{t.timelineDesc}</p>

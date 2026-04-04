@@ -225,7 +225,7 @@ export default function InvoiceForm({ defaultClientId, defaultQuoteId }: Invoice
   }
 
   return (
-    <section className="space-y-4 pb-24 lg:pb-6">
+    <section data-tour-invoice-form className="space-y-4 pb-24 lg:pb-6">
       <header className="rounded-xl border border-border/70 bg-linear-to-b from-background to-secondary/30 p-4 sm:p-5">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="space-y-1">
@@ -274,7 +274,7 @@ export default function InvoiceForm({ defaultClientId, defaultQuoteId }: Invoice
 
           <div className="space-y-1.5 rounded-lg border border-border/70 bg-background/80 p-3">
             <Label htmlFor="invoice-due-date">{t.dueDate}</Label>
-            <Input id="invoice-due-date" type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
+            <Input data-tour-invoice-due-date id="invoice-due-date" type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
             {errors.dueDate ? <p className="text-xs text-destructive">{errors.dueDate}</p> : null}
           </div>
         </div>
@@ -285,7 +285,7 @@ export default function InvoiceForm({ defaultClientId, defaultQuoteId }: Invoice
       <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr]">
         <div className="space-y-4">
           {!convertFromQuote ? (
-            <section className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
+            <section data-tour-invoice-client-step className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
               <h2 className="mb-3 inline-flex items-center gap-2 font-heading text-base font-semibold">
                 <span className="flex size-6 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">{clientId ? '✓' : '1'}</span>
                 <UserRoundIcon className="size-4 text-muted-foreground" />
@@ -298,7 +298,7 @@ export default function InvoiceForm({ defaultClientId, defaultQuoteId }: Invoice
           ) : null}
 
           {!convertFromQuote ? (
-            <section className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
+            <section data-tour-invoice-items-step className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
               <h2 className="mb-3 inline-flex items-center gap-2 font-heading text-base font-semibold">
                 <span className="flex size-6 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">{lineItems.length > 0 ? '✓' : '2'}</span>
                 <FileTextIcon className="size-4 text-muted-foreground" />
@@ -312,14 +312,14 @@ export default function InvoiceForm({ defaultClientId, defaultQuoteId }: Invoice
         </div>
 
         <aside className="space-y-4 lg:sticky lg:top-20 lg:self-start">
-          <div className="rounded-xl border border-border/70 bg-background/95 p-4 shadow-sm">
-            <Button type="button" className="h-11 w-full rounded-xl text-sm font-semibold" disabled={submitting} onClick={handleSubmit}>
+          <div data-tour-invoice-create-action className="rounded-xl border border-border/70 bg-background/95 p-4 shadow-sm">
+            <Button type="button" data-tour-invoice-create-button className="h-11 w-full rounded-xl text-sm font-semibold" disabled={submitting} onClick={handleSubmit}>
               {submitting ? t.creating : t.createInvoice}
             </Button>
           </div>
 
           {!convertFromQuote ? (
-            <div>
+            <div data-tour-invoice-totals-step>
               <h2 className="mb-3 inline-flex items-center gap-2 font-heading text-base font-semibold">
                 <span className="flex size-6 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">3</span>
                 {t.step3}

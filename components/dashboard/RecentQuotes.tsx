@@ -140,13 +140,13 @@ export default function RecentQuotes({ refreshKey = 0 }: RecentQuotesProps) {
             {t.title}
           </CardTitle>
           <div className="flex items-center gap-2">
-            <Button asChild type="button" variant="ghost" size="sm" className="h-7 rounded-full px-2.5 text-[11px] font-semibold">
+            <Button asChild type="button" variant="ghost" size="sm" data-tour-dashboard-recent-new-quote className="h-7 rounded-full px-2.5 text-[11px] font-semibold">
               <Link href="/quotes/new">
                 <PlusIcon className="size-3.5" strokeWidth={2.2} />
                 <span className="hidden sm:inline">{t.createQuote}</span>
               </Link>
             </Button>
-            <Link href="/quotes" className="text-xs font-semibold text-indigo-700 hover:text-indigo-800 hover:underline dark:text-indigo-400">
+            <Link href="/quotes" data-tour-dashboard-recent-view-all className="text-xs font-semibold text-indigo-700 hover:text-indigo-800 hover:underline dark:text-indigo-400">
               {t.viewAll}
             </Link>
           </div>

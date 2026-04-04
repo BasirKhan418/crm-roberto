@@ -17,7 +17,9 @@ function NewInvoicePageContent() {
 
   return (
     <CrmShell title={shellTitle}>
-      <InvoiceForm defaultClientId={defaultClientId} defaultQuoteId={defaultQuoteId} />
+      <div data-tour-invoice-form>
+        <InvoiceForm defaultClientId={defaultClientId} defaultQuoteId={defaultQuoteId} />
+      </div>
     </CrmShell>
   );
 }

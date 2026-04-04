@@ -18,6 +18,10 @@ const UserSchema = new mongoose.Schema({
       type: Boolean,
       default: false,
     },
+    onboardingGuideSeenPages: {
+      type: [String],
+      default: [],
+    },
     isEmailVerified: {
       type: Boolean,
       default: false,

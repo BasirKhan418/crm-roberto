@@ -167,13 +167,13 @@ export default function ClientsPage() {
   return (
     <CrmShell title={t.shellTitle}>
       {/* Page header */}
-      <div className="flex flex-col gap-3 border-b border-border/60 pb-5 md:flex-row md:items-end md:justify-between">
+      <div data-tour-clients-header className="flex flex-col gap-3 border-b border-border/60 pb-5 md:flex-row md:items-end md:justify-between">
         <div>
           <h1 className="font-heading text-2xl font-bold tracking-tight">{t.heading}</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">{t.subtitle}</p>
         </div>
 
-        <Button className="h-10" onClick={() => setIsAddOpen(true)}>
+        <Button className="h-10" data-tour-add-client onClick={() => setIsAddOpen(true)}>
           <PlusIcon />
           {t.addClient}
         </Button>
@@ -197,6 +197,7 @@ export default function ClientsPage() {
         <div className="relative flex-1 max-w-md">
           <SearchIcon className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
           <Input
+            data-tour-clients-search
             className="pl-8"
             placeholder={t.search}
             value={searchInput}
@@ -264,7 +265,7 @@ export default function ClientsPage() {
         <EmptyState message={t.empty} />
       ) : (
         <>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div data-tour-clients-grid className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {clients.map((client) => (
               <Link
                 key={client._id}

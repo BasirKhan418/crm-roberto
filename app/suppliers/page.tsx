@@ -242,7 +242,7 @@ export default function SuppliersPage() {
   return (
     <CrmShell title={t.shellTitle}>
       {/* Page header */}
-      <div className="flex flex-col gap-3 border-b border-border/60 pb-5 md:flex-row md:items-end md:justify-between">
+      <div data-tour-suppliers-header className="flex flex-col gap-3 border-b border-border/60 pb-5 md:flex-row md:items-end md:justify-between">
         <div>
           <h1 className="font-heading text-2xl font-bold tracking-tight">{t.heading}</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">{t.subtitle}</p>
@@ -250,7 +250,7 @@ export default function SuppliersPage() {
 
         <Sheet open={isAddOpen} onOpenChange={setIsAddOpen}>
           <SheetTrigger asChild>
-            <Button className="h-10">
+            <Button className="h-10" data-tour-add-supplier>
               <PlusIcon />
               {t.addSupplier}
             </Button>
@@ -263,7 +263,7 @@ export default function SuppliersPage() {
             <div className="max-h-[calc(100svh-10rem)] space-y-3 overflow-y-auto px-4 pb-4 sm:px-6">
               <div className="space-y-1.5">
                 <Label htmlFor="supplier-full-name">{t.name}</Label>
-                <Input id="supplier-full-name" value={form.fullName} onChange={(e) => setForm((p) => ({ ...p, fullName: e.target.value }))} />
+                <Input id="supplier-full-name" data-tour-supplier-modal-name value={form.fullName} onChange={(e) => setForm((p) => ({ ...p, fullName: e.target.value }))} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="supplier-email">{t.email}</Label>
@@ -290,7 +290,7 @@ export default function SuppliersPage() {
             </div>
             <SheetFooter>
               <Button variant="outline" onClick={() => setIsAddOpen(false)}>{t.cancel}</Button>
-              <Button onClick={handleCreateSupplier} disabled={isSubmitting}>
+              <Button data-tour-supplier-modal-save onClick={handleCreateSupplier} disabled={isSubmitting}>
                 {isSubmitting ? t.saving : t.saveSupplier}
               </Button>
             </SheetFooter>
@@ -315,6 +315,7 @@ export default function SuppliersPage() {
       <div className="relative max-w-md">
         <SearchIcon className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
         <Input
+          data-tour-suppliers-search
           className="pl-8"
           placeholder={t.search}
           value={searchInput}
@@ -352,7 +353,7 @@ export default function SuppliersPage() {
         <EmptyState message={t.empty} />
       ) : (
         <>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div data-tour-suppliers-grid className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {suppliers.map((supplier) => (
               <Link
                 key={supplier._id}

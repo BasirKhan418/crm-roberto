@@ -376,7 +376,7 @@ export default function ProfilePage() {
       />
 
       {/* Logo card */}
-      <Card id="company-logo" className="scroll-mt-20">
+      <Card id="company-logo" data-tour-profile-logo-card className="scroll-mt-20">
         <CardHeader className="border-b">
           <CardTitle>{t.logoTitle}</CardTitle>
           <p className="text-sm text-muted-foreground">{t.logoSubtitle}</p>
@@ -408,6 +408,7 @@ export default function ProfilePage() {
               <div className="flex flex-wrap gap-2">
                 <Button
                   variant="outline"
+                  data-tour-profile-logo-upload
                   className=''
                   size="sm"
                   disabled={logoUploading || logoDeleting}
@@ -434,7 +435,7 @@ export default function ProfilePage() {
         </CardContent>
       </Card>
 
-      <Card id="stripe-payments" className="scroll-mt-20 overflow-hidden border-primary/20 bg-linear-to-br from-sky-50/70 via-background to-indigo-50/40 dark:from-sky-950/20 dark:to-indigo-950/20">
+      <Card id="stripe-payments" data-tour-profile-stripe-card className="scroll-mt-20 overflow-hidden border-primary/20 bg-linear-to-br from-sky-50/70 via-background to-indigo-50/40 dark:from-sky-950/20 dark:to-indigo-950/20">
         <CardHeader className="border-b">
           <CardTitle>{t.stripeTitle}</CardTitle>
           <p className="text-sm text-muted-foreground">{t.stripeSubtitle}</p>
@@ -469,7 +470,7 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            <Button asChild className="h-11 min-w-52 rounded-xl px-5">
+            <Button asChild data-tour-profile-stripe-cta className="h-11 min-w-52 rounded-xl px-5">
               <Link href="/settings/stripe">
                 {t.stripeCta}
                 <ArrowUpRightIcon className="size-4" />
@@ -503,7 +504,7 @@ export default function ProfilePage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <Card id="company-profile" className="scroll-mt-20">
+      <Card id="company-profile" data-tour-profile-company-card className="scroll-mt-20">
         <CardHeader className="border-b">
           <CardTitle>{exists ? t.updateTitle : t.createTitle}</CardTitle>
         </CardHeader>
@@ -546,7 +547,7 @@ export default function ProfilePage() {
           )}
 
           <div className="mt-4">
-            <Button onClick={saveProfile} disabled={saving || loading} className='h-10 w-full lg:w-auto md:w-auto '>
+            <Button data-tour-profile-save onClick={saveProfile} disabled={saving || loading} className='h-10 w-full lg:w-auto md:w-auto '>
               <SaveIcon />
               {saving ? t.saving : t.saveProfile}
             </Button>
@@ -554,7 +555,7 @@ export default function ProfilePage() {
         </CardContent>
       </Card>
 
-      <Card id="password-security" className="scroll-mt-20">
+      <Card id="password-security" data-tour-profile-password-card className="scroll-mt-20">
         <CardHeader className="border-b">
           <CardTitle>{t.updatePassword}</CardTitle>
         </CardHeader>

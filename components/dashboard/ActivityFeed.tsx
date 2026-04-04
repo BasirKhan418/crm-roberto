@@ -125,6 +125,7 @@ export default function ActivityFeed({ activity = [], loading = false, error = n
             type="button"
             variant="ghost"
             size="sm"
+            data-tour-dashboard-add-note
             className="h-7 rounded-full px-2.5 text-[11px] font-semibold"
             onClick={() => setIsAddNoteOpen(true)}
           >

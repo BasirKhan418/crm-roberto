@@ -284,12 +284,12 @@ function InvoicesPageContent() {
   return (
     <CrmShell title={t.shellTitle}>
       <section className="space-y-5">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div data-tour-invoices-header className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h1 className="font-heading text-2xl font-semibold tracking-tight">{t.heading}</h1>
             <p className="text-sm text-muted-foreground">{t.subtitle}</p>
           </div>
-          <Button type="button" className="h-10 w-full sm:w-auto" asChild>
+          <Button type="button" className="h-10 w-full sm:w-auto" data-tour-new-invoice asChild>
             <Link href="/invoices/new">
               <PlusIcon className="size-4" />
               {t.newInvoice}
@@ -297,7 +297,7 @@ function InvoicesPageContent() {
           </Button>
         </div>
 
-        <div className="space-y-3 rounded-xl border border-border/70 bg-card/40 p-3 sm:p-4">
+        <div data-tour-invoices-filters className="space-y-3 rounded-xl border border-border/70 bg-card/40 p-3 sm:p-4">
           <div className="flex flex-wrap items-center gap-2 text-xs">
             <span className="rounded-full border border-border/70 bg-background px-2.5 py-1 text-muted-foreground">
               {pagination.total} {t.totalResults}
@@ -410,6 +410,7 @@ function InvoicesPageContent() {
           <EmptyState message={t.empty} actionLabel={t.newInvoice} onAction={() => router.push('/invoices/new')} />
         ) : (
           <>
+            <div data-tour-invoices-table>
             <InvoiceTable
               items={invoices}
               loading={loading}
@@ -440,6 +441,7 @@ function InvoicesPageContent() {
               }}
               locale={locale as 'en' | 'fr'}
             />
+            </div>
 
             <div className="flex flex-col gap-2 rounded-lg border border-border/70 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-xs text-muted-foreground">

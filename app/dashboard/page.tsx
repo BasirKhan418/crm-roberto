@@ -45,7 +45,7 @@ export default function DashboardPage() {
   return (
     <CrmShell title={t.title} contentClassName="gap-6 px-4 py-5 lg:px-6 lg:py-6">
       {/* Page header */}
-      <div className="flex flex-col gap-3 border-b border-border/60 pb-5 lg:flex-row lg:items-end lg:justify-between">
+      <div data-tour-dashboard-header className="flex flex-col gap-3 border-b border-border/60 pb-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="font-heading text-2xl font-bold tracking-tight text-foreground">{t.heading}</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">{t.subtitle}</p>
@@ -55,19 +55,26 @@ export default function DashboardPage() {
 
       {error ? <ErrorMessage message={error} /> : null}
 
+      <div data-tour-dashboard-priority>
       <PriorityActionsPanel
         followUps={followUps}
         loading={loading}
         error={followUpsError}
         onActionSuccess={handleQuickAddSuccess}
       />
+      </div>
 
       {/* KPI Cards */}
-      <StatCards key={statsRefreshKey} />
+      <div data-tour-dashboard-stats>
+        <StatCards key={statsRefreshKey} />
+      </div>
 
       {/* Activity + Follow-ups */}
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-[1.4fr_1fr]" aria-label={t.sectionAria}>
-        <ActivityFeed activity={activity} loading={loading} error={activityError} onActionSuccess={handleQuickAddSuccess} />
+        <div data-tour-dashboard-activity>
+          <ActivityFeed activity={activity} loading={loading} error={activityError} onActionSuccess={handleQuickAddSuccess} />
+        </div>
+        <div data-tour-dashboard-followups>
         <FollowUpsList
           followUps={followUps}
           loading={loading}
@@ -75,10 +82,13 @@ export default function DashboardPage() {
           onMarkDone={refetch}
           onActionSuccess={handleQuickAddSuccess}
         />
+        </div>
       </section>
 
       {/* Recent Quotes */}
-      <RecentQuotes refreshKey={statsRefreshKey} />
+      <div data-tour-dashboard-recent-quotes>
+        <RecentQuotes refreshKey={statsRefreshKey} />
+      </div>
     </CrmShell>
   );
 }

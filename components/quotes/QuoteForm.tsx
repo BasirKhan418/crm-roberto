@@ -381,7 +381,7 @@ export default function QuoteForm({ mode, quote, defaultClientId }: QuoteFormPro
   }
 
   return (
-    <section className="space-y-4 pb-24 lg:pb-6">
+    <section data-tour-quote-form className="space-y-4 pb-24 lg:pb-6">
       <header className="rounded-xl border border-border/70 bg-linear-to-b from-background to-secondary/30 p-4 sm:p-5">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="space-y-1">
@@ -426,6 +426,7 @@ export default function QuoteForm({ mode, quote, defaultClientId }: QuoteFormPro
           </Label>
           <Input
             id="quote-subject"
+            data-tour-quote-subject
             value={subject}
             onChange={(event) => setSubject(event.target.value)}
             placeholder={t.subjectPlaceholder}
@@ -438,7 +439,7 @@ export default function QuoteForm({ mode, quote, defaultClientId }: QuoteFormPro
 
       <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr]">
         <div className="space-y-4">
-          <section className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
+          <section data-tour-quote-client-step className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
             <h2 className="mb-3 inline-flex items-center gap-2 font-heading text-base font-semibold">
               <span className="flex size-6 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">{clientId ? '✓' : '1'}</span>
               <UserRoundIcon className="size-4 text-muted-foreground" />
@@ -449,7 +450,7 @@ export default function QuoteForm({ mode, quote, defaultClientId }: QuoteFormPro
             {errors.clientId ? <p className="mt-2 text-xs text-destructive">{errors.clientId}</p> : null}
           </section>
 
-          <section className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
+          <section data-tour-quote-items-step className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
             <h2 className="mb-3 inline-flex items-center gap-2 font-heading text-base font-semibold">
               <span className="flex size-6 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">{lineItems.length > 0 ? '✓' : '2'}</span>
               <PackageIcon className="size-4 text-muted-foreground" />
@@ -465,6 +466,7 @@ export default function QuoteForm({ mode, quote, defaultClientId }: QuoteFormPro
 
           {/* ── Sticky save bar ─ compact on mobile, card on desktop ─── */}
           <div
+            data-tour-quote-save-actions
             className="fixed inset-x-3 bottom-2 z-30 rounded-2xl border border-border/70 bg-background/95 px-3 pt-3 shadow-[0_14px_36px_-18px_rgba(0,0,0,0.4)] backdrop-blur lg:static lg:rounded-xl lg:bg-background/95 lg:p-4 lg:shadow-sm"
             style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 12px)' }}
           >
@@ -493,7 +495,7 @@ export default function QuoteForm({ mode, quote, defaultClientId }: QuoteFormPro
             </div>
           </div>
 
-          <div>
+          <div data-tour-quote-totals-step>
             <h2 className="mb-3 inline-flex items-center gap-2 font-heading text-base font-semibold">
               <span className="flex size-6 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">3</span>
               {t.step3}

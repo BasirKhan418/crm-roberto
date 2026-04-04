@@ -368,6 +368,7 @@ export default function FollowUpsList({ followUps = [], loading = false, error =
               type="button"
               variant="ghost"
               size="sm"
+              data-tour-dashboard-followup-add-note
               className="h-7 rounded-full px-2.5 text-[11px] font-semibold"
               onClick={() => setIsAddNoteOpen(true)}
             >

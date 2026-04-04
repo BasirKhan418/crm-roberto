@@ -304,12 +304,12 @@ export default function CataloguePage() {
   return (
     <CrmShell title={t.shellTitle}>
       <section className="space-y-5">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div data-tour-catalogue-header className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h1 className="font-heading text-2xl font-semibold tracking-tight">{t.heading}</h1>
             <p className="text-sm text-muted-foreground">{t.subtitle}</p>
           </div>
-          <Button type="button" className="w-full sm:w-auto h-10" onClick={() => setCreateOpen(true)}>
+          <Button type="button" data-tour-catalogue-new-item className="w-full sm:w-auto h-10" onClick={() => setCreateOpen(true)}>
             <PlusIcon className="size-4" />
             {t.newItem}
           </Button>
@@ -320,6 +320,7 @@ export default function CataloguePage() {
             <div className="relative">
               <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
+                data-tour-catalogue-search
                 className="h-10 pl-9"
                 value={searchInput}
                 onChange={(event) => setSearchInput(event.target.value)}
@@ -327,7 +328,7 @@ export default function CataloguePage() {
               />
             </div>
 
-            <div className="flex items-center gap-2 overflow-x-auto pb-0.5">
+            <div data-tour-catalogue-filters className="flex items-center gap-2 overflow-x-auto pb-0.5">
               <SortButton label={t.sortName} column="name" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
               <SortButton label={t.sortPrice} column="priceExcludingTax" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
               <SortButton label={t.sortDate} column="createdAt" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
@@ -370,6 +371,7 @@ export default function CataloguePage() {
           <EmptyState message={t.emptyMessage} actionLabel={t.newItem} onAction={() => setCreateOpen(true)} />
         ) : (
           <>
+            <div data-tour-catalogue-table>
             <CatalogueTable
               items={items}
               loading={loading}
@@ -393,6 +395,7 @@ export default function CataloguePage() {
                 addedDate: t.addedDate,
               }}
             />
+            </div>
 
             <div className="flex flex-col gap-2 rounded-lg border border-border/70 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-xs text-muted-foreground">

@@ -15,7 +15,9 @@ function NewQuotePageContent() {
 
   return (
     <CrmShell title={shellTitle}>
-      <QuoteForm mode="create" defaultClientId={defaultClientId} />
+      <div data-tour-quote-form>
+        <QuoteForm mode="create" defaultClientId={defaultClientId} />
+      </div>
     </CrmShell>
   );
 }

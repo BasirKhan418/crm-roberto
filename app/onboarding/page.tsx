@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import Image from "next/image"
 
 import { LanguageThemeToggle } from "@/components/language-theme-toggle"
+import FirstVisitGuide from "@/components/onboarding/first-visit-guide"
 import { useLocale } from "@/components/providers/locale-provider"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -267,6 +268,7 @@ export default function IdentitySetupPage() {
   }
 
   return (
+    <>
     <div className="flex flex-col bg-[#f8fafc] lg:flex-row lg:overflow-hidden" style={{ minHeight: 'var(--app-viewport-height)', height: 'var(--app-viewport-height)' }}>
       <aside className="hidden lg:flex w-105 xl:w-120 shrink-0 flex-col bg-[#020b18] text-white relative overflow-hidden">
         <WorldMapBg
@@ -533,5 +535,7 @@ export default function IdentitySetupPage() {
         </AnimatePresence>
         </main>
     </div>
+    <FirstVisitGuide />
+    </>
   )
 }
