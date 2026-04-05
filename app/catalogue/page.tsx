@@ -15,6 +15,7 @@ import DeleteCatalogueDialog from '@/components/catalogue/DeleteCatalogueDialog'
 import CrmShell from '@/components/crm-shell';
 import { useLocale } from '@/components/providers/locale-provider';
 import { resolveTranslatedError } from '@/lib/i18n/messages';
+import { eurosToCents } from '@/lib/price';
 import { Button } from '@/components/ui/button';
 import EmptyState from '@/components/ui/EmptyState';
 import ErrorMessage from '@/components/ui/ErrorMessage';
@@ -92,6 +93,13 @@ export default function CataloguePage() {
       sortName: 'Name',
       sortPrice: 'Price',
       sortDate: 'Date added',
+      quickCreateTitle: 'Quick add reusable item',
+      quickNamePlaceholder: 'Item name',
+      quickPricePlaceholder: 'Price HT',
+      quickAdd: 'Add',
+      quickAdding: 'Adding...',
+      quickValidation: 'Name and price are required',
+      quickFailed: 'Failed to create item',
       emptyMessage: 'No products or services yet',
       name: 'Name',
       type: 'Type',
@@ -125,6 +133,13 @@ export default function CataloguePage() {
       sortName: 'Nom',
       sortPrice: 'Prix',
       sortDate: "Date d'ajout",
+      quickCreateTitle: 'Ajout rapide d\'un élément réutilisable',
+      quickNamePlaceholder: 'Nom de l\'élément',
+      quickPricePlaceholder: 'Prix HT',
+      quickAdd: 'Ajouter',
+      quickAdding: 'Ajout...',
+      quickValidation: 'Le nom et le prix sont requis',
+      quickFailed: 'Impossible de créer l\'élément',
       emptyMessage: 'Aucun produit ou service pour le moment',
       name: 'Nom',
       type: 'Type',
@@ -159,6 +174,10 @@ export default function CataloguePage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editItem, setEditItem] = useState<CatalogueItemFormValue | null>(null);
   const [deleteItem, setDeleteItem] = useState<CatalogueItem | null>(null);
+  const [quickName, setQuickName] = useState('');
+  const [quickPrice, setQuickPrice] = useState('');
+  const [quickType, setQuickType] = useState<'product' | 'service'>('product');
+  const [quickSaving, setQuickSaving] = useState(false);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -301,6 +320,49 @@ export default function CataloguePage() {
     await loadItems();
   }
 
+  async function handleQuickCreate() {
+    const name = quickName.trim();
+    const price = quickPrice.trim();
+    if (!name || !price) {
+      toast.error(t.quickValidation);
+      return;
+    }
+
+    const numericPrice = Number(price);
+    if (!Number.isFinite(numericPrice) || numericPrice < 0) {
+      toast.error(t.quickValidation);
+      return;
+    }
+
+    setQuickSaving(true);
+    try {
+      const response = await fetch('/api/catalogue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          type: quickType,
+          priceExcludingTax: eurosToCents(numericPrice),
+          vatRate: 17,
+          currency: 'EUR',
+        }),
+      });
+
+      const payload = (await response.json()) as { success?: boolean; message?: string };
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.message || t.quickFailed);
+      }
+
+      setQuickName('');
+      setQuickPrice('');
+      await refreshAfterMutation();
+    } catch (error) {
+      toast.error(resolveTranslatedError(locale, error, t.quickFailed));
+    } finally {
+      setQuickSaving(false);
+    }
+  }
+
   return (
     <CrmShell title={t.shellTitle}>
       <section className="space-y-5">
@@ -316,6 +378,44 @@ export default function CataloguePage() {
         </div>
 
         <div className="space-y-3 rounded-xl border border-border/70 bg-card/40 p-3 sm:p-4">
+          <div data-tour-catalogue-quick-add className="rounded-lg border border-border/80 bg-background/70 p-3">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t.quickCreateTitle}</p>
+            <div className="grid gap-2 sm:grid-cols-[1.2fr_0.7fr_auto_auto]">
+              <Input
+                value={quickName}
+                onChange={(event) => setQuickName(event.target.value)}
+                placeholder={t.quickNamePlaceholder}
+                className="h-9"
+              />
+              <Input
+                value={quickPrice}
+                onChange={(event) => setQuickPrice(event.target.value)}
+                placeholder={t.quickPricePlaceholder}
+                className="h-9"
+                inputMode="decimal"
+              />
+              <Tabs value={quickType} onValueChange={(value) => setQuickType(value as 'product' | 'service')}>
+                <TabsList className="h-9 border border-border/80 bg-transparent p-1">
+                  <TabsTrigger
+                    value="product"
+                    className="px-3 text-xs hover:bg-transparent hover:text-foreground data-active:bg-primary data-active:text-primary-foreground"
+                  >
+                    {t.product}
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="service"
+                    className="px-3 text-xs hover:bg-transparent hover:text-foreground data-active:bg-primary data-active:text-primary-foreground"
+                  >
+                    {t.service}
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+              <Button type="button" className="h-9" onClick={() => void handleQuickCreate()} disabled={quickSaving}>
+                {quickSaving ? t.quickAdding : t.quickAdd}
+              </Button>
+            </div>
+          </div>
+
           <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
             <div className="relative">
               <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />

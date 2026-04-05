@@ -63,7 +63,6 @@ interface FieldErrors {
   name?: string;
   type?: string;
   priceInput?: string;
-  priceIncludingTax?: string;
   vatRate?: string;
   currency?: string;
   description?: string;
@@ -81,7 +80,6 @@ function issueToField(path: PropertyKey[]): keyof FieldErrors | null {
   if (first === 'vatRate') return 'vatRate';
   if (first === 'description') return 'description';
   if (first === 'priceExcludingTax') return 'priceInput';
-  if (first === 'priceIncludingTax') return 'priceIncludingTax';
   if (first === 'currency') return 'currency';
   if (first === 'attachmentUrl' || first === 'attachmentKey' || first === 'attachmentMimeType' || first === 'attachmentName') {
     return 'attachment';
@@ -382,13 +380,12 @@ export default function CatalogueItemModal({ open, mode, item, onClose, onSaved 
       name,
       type,
       priceExcludingTax: eurosToCents(priceInput),
-        priceIncludingTax: Math.round(unitPriceIncludingTax * 100),
       vatRate: Number(vatRate),
-        currency,
-        attachmentUrl,
-        attachmentKey,
-        attachmentMimeType,
-        attachmentName,
+      currency,
+      attachmentUrl,
+      attachmentKey,
+      attachmentMimeType,
+      attachmentName,
       description: description.trim() ? description : undefined,
     };
 
@@ -431,7 +428,6 @@ export default function CatalogueItemModal({ open, mode, item, onClose, onSaved 
           ...prev,
           name: apiFieldErrors.name?.[0] ?? prev.name,
           priceInput: apiFieldErrors.priceExcludingTax?.[0] ?? prev.priceInput,
-          priceIncludingTax: apiFieldErrors.priceIncludingTax?.[0] ?? prev.priceIncludingTax,
           vatRate: apiFieldErrors.vatRate?.[0] ?? prev.vatRate,
           currency: apiFieldErrors.currency?.[0] ?? prev.currency,
           type: apiFieldErrors.type?.[0] ?? prev.type,
@@ -601,7 +597,6 @@ export default function CatalogueItemModal({ open, mode, item, onClose, onSaved 
                   className="pl-6.5 text-sm md:text-sm bg-muted/30"
                 />
               </div>
-              {errors.priceIncludingTax ? <p className="text-xs text-destructive">{resolveTranslatedText(locale, errors.priceIncludingTax)}</p> : null}
             </div>
 
             <div className="min-w-0 space-y-1.5">

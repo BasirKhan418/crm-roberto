@@ -71,7 +71,22 @@ const TOUR_BY_ROUTE: Record<string, (locale: Locale) => TourStep[]> = {
   ],
   '/catalogue': (locale) => [
     { element: '[data-tour-catalogue-header]', title: locale === 'fr' ? 'Produits & services' : 'Products & services', description: locale === 'fr' ? 'Gérez vos éléments réutilisables pour devis/factures.' : 'Manage reusable items for quotes/invoices.' },
-    { element: '[data-tour-catalogue-new-item]', title: locale === 'fr' ? 'Créer un élément' : 'Create item', description: locale === 'fr' ? 'Ajoutez un produit ou service avec prix et TVA.' : 'Add a product/service with pricing and VAT.' },
+    {
+      element: '[data-tour-catalogue-quick-add]',
+      title: locale === 'fr' ? 'Ajout rapide' : 'Quick add',
+      description:
+        locale === 'fr'
+          ? 'Ajoutez rapidement un produit/service réutilisable (nom, prix HT, type) sans ouvrir la modale.'
+          : 'Quickly add a reusable product/service (name, price excl. tax, type) without opening the modal.',
+    },
+    {
+      element: '[data-tour-catalogue-new-item]',
+      title: locale === 'fr' ? 'Formulaire complet' : 'Full form',
+      description:
+        locale === 'fr'
+          ? 'Utilisez ce bouton si vous avez besoin de plus de détails (description, pièce jointe, TVA personnalisée).'
+          : 'Use this button when you need advanced fields (description, attachment, custom VAT).',
+    },
     { element: '[data-tour-catalogue-search]', title: locale === 'fr' ? 'Recherche catalogue' : 'Catalogue search', description: locale === 'fr' ? 'Filtrez et retrouvez rapidement un élément.' : 'Filter and find items quickly.' },
     { element: '[data-tour-catalogue-filters]', title: locale === 'fr' ? 'Filtres et tri' : 'Filters and sorting', description: locale === 'fr' ? 'Filtrez par type et triez par nom, prix ou date.' : 'Filter by type and sort by name, price, or date.' },
     { element: '[data-tour-catalogue-table]', title: locale === 'fr' ? 'Table catalogue' : 'Catalogue table', description: locale === 'fr' ? 'Modifiez ou supprimez vos éléments depuis cette table.' : 'Edit or delete your items from this table.' },

@@ -57,10 +57,6 @@ export const createCatalogueItemSchema = z.object({
     toNumber,
     z.number().min(0, i18nKey('validation.priceExcludingTaxNonNegative'))
   ),
-  priceIncludingTax: z.preprocess(
-    toNumber,
-    z.number().min(0, i18nKey('validation.priceIncludingTaxNonNegative'))
-  ).optional(),
   vatRate: z
     .preprocess(
       toNumber,
@@ -84,12 +80,6 @@ export const updateCatalogueItemSchema = z.object({
       z.number().min(0, i18nKey('validation.priceExcludingTaxNonNegative'))
     )
     .optional(),
-  priceIncludingTax: z
-    .preprocess(
-      toNumber,
-      z.number().min(0, i18nKey('validation.priceIncludingTaxNonNegative'))
-    )
-    .optional(),
   vatRate: z
     .preprocess(
       toNumber,
@@ -102,6 +92,8 @@ export const updateCatalogueItemSchema = z.object({
   attachmentMimeType: updateOptionalNullableString,
   attachmentName: updateOptionalNullableString,
   type: z.enum(['product', 'service']).optional(),
+}).refine((data) => Object.keys(data).length > 0, {
+  message: i18nKey('validation.updateAtLeastOneField'),
 });
 
 export type CreateCatalogueItemDTO = z.infer<typeof createCatalogueItemSchema>;

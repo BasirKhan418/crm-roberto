@@ -129,7 +129,7 @@ export const updateCatalogueItemById = async (
   const nextPriceExcludingTax = payload.priceExcludingTax ?? (existing as { priceExcludingTax: number }).priceExcludingTax;
   const nextVatRate = payload.vatRate ?? (existing as { vatRate: number }).vatRate;
 
-  const nextPayload: UpdateCatalogueItemDTO = {
+  const nextPayload: Record<string, unknown> = {
     ...payload,
     currency: payload.currency ?? 'EUR',
     priceIncludingTax: toPriceIncludingTax(nextPriceExcludingTax, nextVatRate),
