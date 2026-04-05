@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, CheckCheck, CheckIcon, FileText, RefreshCw } from "lucide-react";
+import { Bell, CheckCheck, FileText, RefreshCw } from "lucide-react";
 
 import { useLocale } from "@/components/providers/locale-provider";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,13 @@ interface ActivityListResponse {
   success: boolean;
   data?: NotificationItem[];
   unreadCount?: number;
+}
+
+interface ActivitySseEvent {
+  id: string;
+  type: "created" | "updated" | "deleted" | "read_all";
+  activityId?: string | null;
+  at: number;
 }
 
 const bellMessages = {
@@ -263,6 +270,7 @@ export function NotificationsBell() {
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [markingAllRead, setMarkingAllRead] = useState(false);
 
   const unreadBadgeValue = useMemo(() => {
     if (unreadCount > 99) {
@@ -292,47 +300,57 @@ export function NotificationsBell() {
   }, []);
 
   useEffect(() => {
-    fetchNotifications();
-
-    const timer = window.setInterval(() => {
-      fetchNotifications();
-    }, 60000);
-
-    return () => window.clearInterval(timer);
+    void fetchNotifications();
   }, [fetchNotifications]);
 
-  const markOneAsRead = useCallback(async (id: string) => {
-    const readAtIso = new Date().toISOString();
+  useEffect(() => {
+    let source: EventSource | null = null;
+    let closedByUnmount = false;
 
-    const previousItems = items;
-    const target = previousItems.find((item) => item._id === id);
+    const connect = () => {
+      source = new EventSource("/api/activity/events");
 
-    if (target && !target.isRead) {
-      setItems((prev) => prev.map((item) => (item._id === id ? { ...item, isRead: true } : item)));
-      setUnreadCount((count) => Math.max(0, count - 1));
-    }
+      source.addEventListener("activity_changed", (event) => {
+        if (!event.data) return;
 
-    try {
-      await fetch(`/api/activity/${id}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ isRead: true, readAt: readAtIso }),
+        try {
+          const payload = JSON.parse(event.data) as ActivitySseEvent;
+          if (!payload?.id) {
+            return;
+          }
+          void fetchNotifications();
+        } catch {
+          // Ignore malformed SSE payloads.
+        }
       });
-    } catch {
-      setItems(previousItems);
-      setUnreadCount(previousItems.filter((item) => !item.isRead).length);
-    }
-  }, [items]);
+
+      source.onerror = () => {
+        if (closedByUnmount) {
+          source?.close();
+          return;
+        }
+
+        // Browser reconnects automatically; force a fresh fetch while reconnecting.
+        void fetchNotifications();
+      };
+    };
+
+    connect();
+
+    return () => {
+      closedByUnmount = true;
+      source?.close();
+    };
+  }, [fetchNotifications]);
 
   const markAllAsRead = useCallback(async () => {
-    const hadUnread = items.some((item) => !item.isRead);
-    if (!hadUnread) {
+    if (markingAllRead) {
       return;
     }
 
     const previousItems = items;
+    const previousUnreadCount = unreadCount;
+    setMarkingAllRead(true);
     setItems((prev) => prev.map((item) => ({ ...item, isRead: true })));
     setUnreadCount(0);
 
@@ -340,30 +358,31 @@ export function NotificationsBell() {
       await fetch("/api/activity/read-all", { method: "PATCH" });
     } catch {
       setItems(previousItems);
-      setUnreadCount(previousItems.filter((item) => !item.isRead).length);
+      setUnreadCount(previousUnreadCount);
+    } finally {
+      setMarkingAllRead(false);
     }
-  }, [items]);
+  }, [items, markingAllRead, unreadCount]);
 
   const handleOpenChange = useCallback((nextOpen: boolean) => {
     setOpen(nextOpen);
     if (nextOpen) {
-      fetchNotifications();
+      void (async () => {
+        await fetchNotifications();
+        await markAllAsRead();
+      })();
     }
-  }, [fetchNotifications]);
+  }, [fetchNotifications, markAllAsRead]);
 
-  const handleOpenNotification = useCallback(async (item: NotificationItem) => {
+  const handleOpenNotification = useCallback((item: NotificationItem) => {
     const path = buildActivityPath(item);
     if (!path) {
       return;
     }
 
-    if (!item.isRead) {
-      await markOneAsRead(item._id);
-    }
-
     setOpen(false);
     router.push(path);
-  }, [markOneAsRead, router]);
+  }, [router]);
 
   return (
     <DropdownMenu open={open} onOpenChange={handleOpenChange}>
@@ -377,14 +396,14 @@ export function NotificationsBell() {
         >
           <Bell className="size-4" />
           {unreadCount > 0 ? (
-            <span className="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-[10px] font-bold text-white shadow-sm ring-2 ring-white/80">
+            <span className="absolute -right-1 -top-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-[10px] font-bold leading-none text-white shadow-sm ring-2 ring-white/80">
               {unreadBadgeValue}
             </span>
           ) : null}
         </Button>
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent align="end" className="w-88 rounded-2xl border border-slate-200 bg-white p-0 shadow-xl sm:w-104">
+      <DropdownMenuContent align="end" className="w-[calc(100vw-1rem)] max-w-104 rounded-2xl border border-slate-200 bg-white p-0 shadow-xl sm:w-104">
         <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
           <div>
             <p className="text-sm font-semibold text-slate-900">{t.title}</p>
@@ -394,14 +413,14 @@ export function NotificationsBell() {
             <Button type="button" variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={fetchNotifications}>
               <RefreshCw className="size-3.5" />
             </Button>
-            <Button type="button" variant="ghost" size="sm" className="h-8 rounded-full px-3 text-xs" onClick={markAllAsRead}>
+            <Button type="button" variant="ghost" size="sm" className="h-8 rounded-full px-3 text-xs" onClick={markAllAsRead} disabled={markingAllRead || unreadCount === 0}>
               <CheckCheck className="size-3.5" />
               <span>{t.markAllRead}</span>
             </Button>
           </div>
         </div>
 
-        <div className="max-h-96 overflow-y-auto px-2 py-2">
+        <div className="max-h-[min(70vh,26rem)] overflow-y-auto px-2 py-2">
           {loading ? (
             <p className="px-2 py-4 text-sm text-slate-500">{t.loading}</p>
           ) : null}
@@ -442,26 +461,13 @@ export function NotificationsBell() {
                     </div>
 
                     <div className="mt-2 flex items-center justify-end gap-1.5">
-                      {!item.isRead ? (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 rounded-full px-2 text-[11px]"
-                          onClick={() => markOneAsRead(item._id)}
-                        >
-                          <CheckIcon className="size-3" />
-                          <span>{t.read}</span>
-                        </Button>
-                      ) : null}
-
                       <Button
                         type="button"
                         size="sm"
                         variant="outline"
                         className="h-7 rounded-full px-2 text-[11px]"
                         disabled={!path}
-                        onClick={() => void handleOpenNotification(item)}
+                        onClick={() => handleOpenNotification(item)}
                       >
                         {t.openItem}
                       </Button>

@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 
 import ConnectDb from '@/db/connectDb';
 import ActivityLog from '@/db/models/Activity';
+import { emitActivityChanged } from '@/lib/activity-events';
 import type { CreateActivityDTO, UpdateActivityDTO } from '@/validators/activity.schema';
 import type { ListQueryOptions, PaginationMeta } from '@/utils/api/query';
 import { buildPagination } from '@/utils/api/query';
@@ -35,6 +36,12 @@ export const createActivityLog = async (userId: string, payload: CreateActivityD
   const created = await ActivityLog.create({
     ...payload,
     user: userId,
+  });
+
+  emitActivityChanged({
+    userId,
+    type: 'created',
+    activityId: String(created._id),
   });
 
   return created.toObject() as ActivityRecord;
@@ -105,6 +112,14 @@ export const updateActivityById = async (
     runValidators: true,
   }).lean();
 
+  if (updated) {
+    emitActivityChanged({
+      userId,
+      type: 'updated',
+      activityId: String(activityId),
+    });
+  }
+
   return (updated as ActivityRecord | null) || null;
 };
 
@@ -115,6 +130,14 @@ export const markAllActivitiesAsRead = async (userId: string): Promise<number> =
     { user: userId, isRead: false },
     { $set: { isRead: true, readAt: new Date() } }
   );
+
+  if (result.modifiedCount > 0) {
+    emitActivityChanged({
+      userId,
+      type: 'read_all',
+      activityId: null,
+    });
+  }
 
   return result.modifiedCount;
 };
@@ -127,5 +150,14 @@ export const deleteActivityById = async (userId: string, activityId: string): Pr
   }
 
   const result = await ActivityLog.deleteOne({ _id: activityId, user: userId });
+
+  if (result.deletedCount === 1) {
+    emitActivityChanged({
+      userId,
+      type: 'deleted',
+      activityId,
+    });
+  }
+
   return result.deletedCount === 1;
 };
