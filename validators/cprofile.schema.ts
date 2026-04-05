@@ -20,10 +20,7 @@ const emailSchema = z
   .toLowerCase()
   .email(i18nKey('validation.invalidBusinessEmail'));
 
-
-export const createCompanyProfileSchema = z.object({
-  user: objectIdSchema,
-
+const companyProfileFieldsSchema = z.object({
   companyName: z
     .string()
     .trim()
@@ -49,12 +46,25 @@ export const createCompanyProfileSchema = z.object({
     .min(1, i18nKey('validation.vatNumberRequired')),
 });
 
+export const createCompanyProfileSchema = z.object({
+  user: objectIdSchema,
+}).merge(companyProfileFieldsSchema);
 
-export const updateCompanyProfileSchema = createCompanyProfileSchema.partial();
+export const createCompanyProfileInputSchema = companyProfileFieldsSchema;
+
+export const updateCompanyProfileSchema = companyProfileFieldsSchema
+  .partial()
+  .refine((data) => Object.keys(data).length > 0, {
+    message: i18nKey('validation.updateAtLeastOneField'),
+  });
 
 
 export type CreateCompanyProfileDTO = z.infer<
   typeof createCompanyProfileSchema
+>;
+
+export type CreateCompanyProfileInputDTO = z.infer<
+  typeof createCompanyProfileInputSchema
 >;
 
 export type UpdateCompanyProfileDTO = z.infer<

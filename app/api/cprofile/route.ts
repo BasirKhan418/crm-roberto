@@ -1,6 +1,5 @@
 import { NextResponse,NextRequest } from "next/server";
-import { createCompanyProfileSchema } from "@/validators/cprofile.schema";
-import checkMe from "@/utils/middlewares/checkMe";
+import { createCompanyProfileInputSchema, createCompanyProfileSchema, updateCompanyProfileSchema } from "@/validators/cprofile.schema";
 import { createCompanyProfile, getCompanyProfileByUserId, updateCompanyProfileByUserId } from "@/db/repository/cprofile";
 import { buildValidationError } from "@/utils/api/validation";
 import getMe from "@/utils/middlewares/useMe";
@@ -11,26 +10,35 @@ import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
 export const POST = async (request: NextRequest) => {
     try{
-        const  data = await request.json();
-        
-        const rs = await checkMe(true);
-        console.log("checkMe result in cprofile route:", rs);
-        if(!rs.success){
-            return NextResponse.json({ message: "Unauthorized", success: false }, { status: 401 });
+        const data = await request.json();
+
+        const me = await getMe(true);
+        if(!me.success || !me.user){
+            return NextResponse.json({ message: me.message || "Unauthorized", success: false }, { status: 401 });
         }
-        if(!rs.user){
-            return NextResponse.json({ message: "User not found", success: false }, { status: 401 });
+
+        const parsedInput = createCompanyProfileInputSchema.safeParse(data);
+        if (!parsedInput.success) {
+            return NextResponse.json(buildValidationError(parsedInput.error), { status: 400 });
         }
-        const validatedData = createCompanyProfileSchema.safeParse({ ...data, user: rs.user.id });
+
+        const validatedData = createCompanyProfileSchema.safeParse({ ...parsedInput.data, user: me.user.id });
 
         if (!validatedData.success) {
             return NextResponse.json(buildValidationError(validatedData.error), { status: 400 });
         }
 
-        const existing = await getCompanyProfileByUserId(rs.user.id);
+        const existing = await getCompanyProfileByUserId(me.user.id);
+        const profileExists = existing.success && !!existing.profile;
+        const isNotFound = !existing.success && existing.message === "Company profile not found";
+
+        if (!profileExists && !isNotFound) {
+            return NextResponse.json({ message: existing.message || "Unable to verify company profile", success: false }, { status: 500 });
+        }
+
         let result;
-        if (existing.success) {
-            result = await updateCompanyProfileByUserId(rs.user.id, validatedData.data);
+        if (profileExists) {
+            result = await updateCompanyProfileByUserId(me.user.id, parsedInput.data);
         } else {
             result = await createCompanyProfile(validatedData.data);
         }
@@ -39,17 +47,15 @@ export const POST = async (request: NextRequest) => {
             return NextResponse.json(result, { status: 500 });
         }
 
-        if (existing.success) {
-            await ConnectDb();
-            await User.findByIdAndUpdate(rs.user.id, { isOnboardingComplete: true });
-        }
+        await ConnectDb();
+        await User.findByIdAndUpdate(me.user.id, { isOnboardingComplete: true });
 
-        if (!existing.success) {
-            await sendWelcomeEmail({ email: rs.user.email, name: rs.user.name || "User" });
+        if (!profileExists) {
+            await sendWelcomeEmail({ email: me.user.email, name: me.user.name || "User" });
         }
 
         const newToken = jwt.sign(
-            { sub: rs.user.id, name: rs.user.name, email: rs.user.email, isOnboardingComplete: true, isEmailVerified: rs.user.isEmailVerified },
+            { sub: me.user.id, name: me.user.name, email: me.user.email, isOnboardingComplete: true, isEmailVerified: me.user.isEmailVerified },
             process.env.JWT_SECRET || "",
             { expiresIn: "7d" }
         );
@@ -100,7 +106,12 @@ export const PATCH = async (request: NextRequest) => {
         delete sanitizedData.logoUrl;
         delete sanitizedData.logoKey;
 
-        const result = await updateCompanyProfileByUserId(me.user.id, sanitizedData);
+        const parsedUpdate = updateCompanyProfileSchema.safeParse(sanitizedData);
+        if (!parsedUpdate.success) {
+            return NextResponse.json(buildValidationError(parsedUpdate.error), { status: 400 });
+        }
+
+        const result = await updateCompanyProfileByUserId(me.user.id, parsedUpdate.data);
         if (!result.success) {
             return NextResponse.json(result, { status: 404 });
         }

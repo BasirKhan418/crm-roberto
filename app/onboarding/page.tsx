@@ -24,7 +24,7 @@ const MAX_LOGO_SIZE = 5 * 1024 * 1024
 
 const onboardingMessages = {
   en: {
-    phase: "Onboarding — Step 1 of 1",
+    phase: "Onboarding — Step 1 of 2",
     panelLine1: "Configure",
     panelHighlight: "Your Business",
     panelLine2: "Profile.",
@@ -67,7 +67,7 @@ const onboardingMessages = {
     step2SizeError: "File too large. Maximum size is 5 MB",
   },
   fr: {
-    phase: "Onboarding \u2014 \u00c9tape 1 sur 1",
+    phase: "Onboarding \u2014 \u00c9tape 1 sur 2",
     panelLine1: "Configurez",
     panelHighlight: "Votre Profil",
     panelLine2: "Entreprise.",
@@ -117,7 +117,7 @@ export default function IdentitySetupPage() {
   const t = onboardingMessages[locale]
 
   const [isLoading, setIsLoading] = useState(false)
-  const [isAgreed, setIsAgreed] = useState(true)
+  const [isAgreed, setIsAgreed] = useState(false)
   const [step, setStep] = useState<1 | 2>(1)
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [logoUploading, setLogoUploading] = useState(false)
@@ -153,6 +153,42 @@ export default function IdentitySetupPage() {
     loadDraftFromLocalStorage()
   }, [])
 
+  useEffect(() => {
+    let cancelled = false
+
+    async function prefillIdentity() {
+      try {
+        const response = await fetch("/api/me?fch=1", { cache: "no-store" })
+        if (!response.ok) {
+          return
+        }
+
+        const payload = (await response.json()) as {
+          success?: boolean
+          user?: { name?: string; email?: string }
+        }
+
+        if (cancelled || !payload.success || !payload.user) {
+          return
+        }
+
+        setFormData((prev) => ({
+          ...prev,
+          ownerName: prev.ownerName.trim() ? prev.ownerName : (payload.user?.name ?? ""),
+          businessEmail: prev.businessEmail.trim() ? prev.businessEmail : (payload.user?.email ?? ""),
+        }))
+      } catch {
+        // Silent fallback: onboarding form remains manually editable.
+      }
+    }
+
+    void prefillIdentity()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const handleSaveDraft = () => {
     try {
       localStorage.setItem(ONBOARDING_DRAFT_KEY, JSON.stringify(formData))
@@ -171,12 +207,21 @@ export default function IdentitySetupPage() {
 
     setIsLoading(true)
     try {
+      const payload = {
+        companyName: formData.companyName.trim(),
+        ownerName: formData.ownerName.trim(),
+        businessEmail: formData.businessEmail.trim(),
+        phone: formData.phone.trim(),
+        vatNumber: formData.vatNumber.trim(),
+        address: formData.address.trim(),
+      }
+
       const response = await fetch("/api/cprofile", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       })
       const result = await response.json()
 
