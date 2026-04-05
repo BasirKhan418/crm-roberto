@@ -7,6 +7,7 @@ import Client from '@/db/models/Client';
 import Invoice from '@/db/models/Invoice';
 import Quote from '@/db/models/Quote';
 import { createActivityLog } from '@/db/repository/activity';
+import { ensureInvoiceIndexes } from '@/db/repository/ensureInvoiceIndexes';
 import { computeQuoteLine, computeQuoteTotalsFromComputedLines } from '@/lib/quote-calculations';
 import { nextInvoiceNumber } from '@/lib/price';
 import { buildValidationError } from '@/utils/api/validation';
@@ -67,9 +68,10 @@ const standaloneInvoiceSchema = baseInvoiceSchema.extend({
     .min(1),
 });
 
-async function getNextInvoiceNumberForYear(year: number): Promise<string> {
+async function getNextInvoiceNumberForYear(userId: string, year: number): Promise<string> {
   const yearPrefix = `INV-${year}-`;
   const lastInvoice = await Invoice.findOne({
+    userId,
     invoiceNumber: { $regex: `^${yearPrefix}` },
   })
     .sort({ invoiceNumber: -1 })
@@ -94,11 +96,12 @@ type CreatedInvoiceLike = {
 };
 
 async function createInvoiceWithUniqueNumber(
+  userId: string,
   year: number,
   payloadFactory: (invoiceNumber: string) => Record<string, unknown>
 ): Promise<CreatedInvoiceLike> {
   for (let attempt = 0; attempt < 5; attempt += 1) {
-    const invoiceNumber = await getNextInvoiceNumberForYear(year);
+    const invoiceNumber = await getNextInvoiceNumberForYear(userId, year);
     try {
       const created = await Invoice.create(payloadFactory(invoiceNumber));
       return created as unknown as CreatedInvoiceLike;
@@ -142,6 +145,7 @@ export async function GET(request: NextRequest) {
     }
 
     await ConnectDb();
+    await ensureInvoiceIndexes();
 
     const statusParam = request.nextUrl.searchParams.get('status');
     const searchParam = request.nextUrl.searchParams.get('search')?.trim();
@@ -253,6 +257,7 @@ export async function POST(request: NextRequest) {
       }
 
       await ConnectDb();
+      await ensureInvoiceIndexes();
 
       const quote = await Quote.findOne({ _id: parsed.data.quoteId, user: userId });
       if (!quote) {
@@ -276,7 +281,7 @@ export async function POST(request: NextRequest) {
       }
 
       const currentYear = new Date().getFullYear();
-      const invoice = await createInvoiceWithUniqueNumber(currentYear, (invoiceNumber) => ({
+      const invoice = await createInvoiceWithUniqueNumber(userId, currentYear, (invoiceNumber) => ({
             userId,
             invoiceNumber,
             quoteId: quote._id,
@@ -328,6 +333,7 @@ export async function POST(request: NextRequest) {
     }
 
     await ConnectDb();
+    await ensureInvoiceIndexes();
 
     if (!mongoose.Types.ObjectId.isValid(parsed.data.clientId)) {
       return NextResponse.json({ message: 'Client not found' }, { status: 404 });
@@ -377,7 +383,7 @@ export async function POST(request: NextRequest) {
 
     const totals = computeQuoteTotalsFromComputedLines(computedLineItems);
     const currentYear = new Date().getFullYear();
-    const invoice = await createInvoiceWithUniqueNumber(currentYear, (invoiceNumber) => ({
+    const invoice = await createInvoiceWithUniqueNumber(userId, currentYear, (invoiceNumber) => ({
           userId,
           invoiceNumber,
           date: parsed.data.date ?? new Date(),

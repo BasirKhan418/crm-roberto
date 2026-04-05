@@ -95,7 +95,6 @@ const InvoiceSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
-      unique: true,
     },
     quoteId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -211,11 +210,18 @@ InvoiceSchema.pre("validate", function computeDepositAmount() {
   this.depositAmount = Math.round(total * (percent / 100));
 });
 
-InvoiceSchema.index({ invoiceNumber: 1 }, { unique: true, name: "unique_invoice_number" });
+InvoiceSchema.index({ userId: 1, invoiceNumber: 1 }, { unique: true, name: "unique_user_invoice_number" });
 InvoiceSchema.index({ userId: 1, createdAt: -1 });
 InvoiceSchema.index({ userId: 1, status: 1 });
 InvoiceSchema.index({ userId: 1, quoteId: 1 });
-InvoiceSchema.index({ paymentToken: 1 }, { unique: true, sparse: true, name: "unique_invoice_payment_token" });
+InvoiceSchema.index(
+  { paymentToken: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { paymentToken: { $type: "string" } },
+    name: "unique_invoice_payment_token",
+  }
+);
 
 export type InvoiceDocument = InferSchemaType<typeof InvoiceSchema>;
 

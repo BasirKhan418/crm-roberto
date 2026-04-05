@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import ConnectDb from '@/db/connectDb';
 import Invoice from '@/db/models/Invoice';
+import { ensureInvoiceIndexes } from '@/db/repository/ensureInvoiceIndexes';
 import { nextInvoiceNumber } from '@/lib/price';
 import getMe from '@/utils/middlewares/useMe';
 
@@ -13,11 +14,13 @@ export async function GET() {
     }
 
     await ConnectDb();
+    await ensureInvoiceIndexes();
 
     const year = new Date().getFullYear();
     const yearPrefix = `INV-${year}-`;
 
     const lastInvoice = await Invoice.findOne({
+      userId: me.user.id,
       invoiceNumber: { $regex: `^${yearPrefix}` },
     })
       .sort({ invoiceNumber: -1 })
