@@ -15,6 +15,16 @@ const SupplierSchema = new mongoose.Schema(
       trim: true,
     },
 
+    category: {
+      type: String,
+      enum: {
+        values: ["materials", "logistics", "services", "technology", "other"],
+        message: "Invalid supplier category",
+      },
+      default: "other",
+      index: true,
+    },
+
     email: {
       type: String,
       lowercase: true,
@@ -58,6 +68,7 @@ SupplierSchema.index({
 });
 
 SupplierSchema.index({ user: 1, createdAt: -1 });
+SupplierSchema.index({ user: 1, category: 1, createdAt: -1 });
 
 
 SupplierSchema.virtual("notes", {

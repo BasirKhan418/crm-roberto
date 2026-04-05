@@ -10,6 +10,7 @@ import { buildPagination } from '@/utils/api/query';
 export interface SupplierRecord {
   _id: string;
   fullName: string;
+  category: 'materials' | 'logistics' | 'services' | 'technology' | 'other';
   email?: string | null;
   phone?: string | null;
   address?: string | null;
@@ -55,10 +56,18 @@ export const createSupplier = async (userId: string, payload: CreateSupplierDTO)
   return created.toObject() as SupplierRecord;
 };
 
-export const listSuppliers = async (userId: string, options: ListQueryOptions): Promise<SupplierListResult> => {
+export const listSuppliers = async (
+  userId: string,
+  options: ListQueryOptions,
+  filters?: { category?: 'materials' | 'logistics' | 'services' | 'technology' | 'other' }
+): Promise<SupplierListResult> => {
   await ConnectDb();
 
   const query: Record<string, unknown> = { user: userId };
+
+  if (filters?.category) {
+    query.category = filters.category;
+  }
 
   if (options.search) {
     query.$or = [

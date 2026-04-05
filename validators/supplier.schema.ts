@@ -22,8 +22,11 @@ const updatableOptionalEmail = z.preprocess(
   z.string().trim().toLowerCase().email(i18nKey('validation.invalidEmailAddress')).nullable().optional()
 );
 
+const supplierCategorySchema = z.enum(['materials', 'logistics', 'services', 'technology', 'other']);
+
 export const createSupplierSchema = z.object({
   fullName: z.string().trim().min(1, i18nKey('validation.supplierNameRequired')),
+  category: supplierCategorySchema.optional().default('other'),
   email: optionalEmail,
   phone: optionalText,
   address: optionalText,
@@ -33,11 +36,14 @@ export const createSupplierSchema = z.object({
 
 export const updateSupplierSchema = z.object({
   fullName: z.string().trim().min(1, i18nKey('validation.supplierNameRequired')).optional(),
+  category: supplierCategorySchema.optional(),
   email: updatableOptionalEmail,
   phone: updatableOptionalText,
   address: updatableOptionalText,
   companyName: updatableOptionalText,
   vatNumber: updatableOptionalText,
+}).refine((data) => Object.keys(data).length > 0, {
+  message: i18nKey('validation.updateAtLeastOneField'),
 });
 
 export type CreateSupplierDTO = z.infer<typeof createSupplierSchema>;

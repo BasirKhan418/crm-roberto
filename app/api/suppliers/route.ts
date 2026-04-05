@@ -16,12 +16,22 @@ export async function GET(request: NextRequest) {
 
     const options = parseListQuery(request.nextUrl.searchParams, {
       defaultSortBy: 'createdAt',
-      allowedSortBy: ['createdAt', 'updatedAt', 'fullName', 'email', 'companyName'],
+      allowedSortBy: ['createdAt', 'updatedAt', 'fullName', 'email', 'companyName', 'category'],
       defaultLimit: 10,
       maxLimit: 100,
     });
 
-    const result = await listSuppliers(me.user.id, options);
+    const rawCategory = request.nextUrl.searchParams.get('category');
+    const category =
+      rawCategory === 'materials' ||
+      rawCategory === 'logistics' ||
+      rawCategory === 'services' ||
+      rawCategory === 'technology' ||
+      rawCategory === 'other'
+        ? rawCategory
+        : undefined;
+
+    const result = await listSuppliers(me.user.id, options, { category });
 
     return NextResponse.json({
       success: true,

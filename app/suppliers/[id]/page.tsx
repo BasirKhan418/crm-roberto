@@ -31,6 +31,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 interface SupplierRecord {
   _id: string;
   fullName: string;
+  category: 'materials' | 'logistics' | 'services' | 'technology' | 'other';
   email?: string | null;
   phone?: string | null;
   address?: string | null;
@@ -78,6 +79,12 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
       phone: 'Phone',
       address: 'Address',
       company: 'Company',
+      category: 'Category',
+      materials: 'Materials',
+      logistics: 'Logistics',
+      services: 'Services',
+      technology: 'Technology',
+      other: 'Other',
       vat: 'VAT',
       edit: 'Edit',
       editSupplier: 'Edit supplier',
@@ -125,6 +132,12 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
       phone: 'T\u00e9l\u00e9phone',
       address: 'Adresse',
       company: 'Entreprise',
+      category: 'Catégorie',
+      materials: 'Matériaux',
+      logistics: 'Logistique',
+      services: 'Services',
+      technology: 'Technologie',
+      other: 'Autre',
       vat: 'TVA',
       edit: 'Modifier',
       editSupplier: 'Modifier le fournisseur',
@@ -172,6 +185,7 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
 
   const [editForm, setEditForm] = useState({
     fullName: '',
+    category: 'other' as SupplierRecord['category'],
     email: '',
     phone: '',
     address: '',
@@ -208,6 +222,7 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
       setTimeline(data.data.timeline);
       setEditForm({
         fullName: data.data.supplier.fullName || '',
+        category: data.data.supplier.category || 'other',
         email: data.data.supplier.email || '',
         phone: data.data.supplier.phone || '',
         address: data.data.supplier.address || '',
@@ -397,6 +412,17 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
               <p><span className="text-muted-foreground">{t.phone}:</span> {supplier.phone || '-'}</p>
               <p><span className="text-muted-foreground">{t.address}:</span> {supplier.address || '-'}</p>
               <p><span className="text-muted-foreground">{t.company}:</span> {supplier.companyName || '-'}</p>
+              <p><span className="text-muted-foreground">{t.category}:</span> {
+                supplier.category === 'materials'
+                  ? t.materials
+                  : supplier.category === 'logistics'
+                  ? t.logistics
+                  : supplier.category === 'services'
+                  ? t.services
+                  : supplier.category === 'technology'
+                  ? t.technology
+                  : t.other
+              }</p>
               <p><span className="text-muted-foreground">{t.vat}:</span> {supplier.vatNumber || '-'}</p>
 
               <div data-tour-supplier-actions className="flex flex-wrap gap-2 pt-3">
@@ -415,6 +441,20 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
                       <div className="space-y-1.5"><Label>{t.phone}</Label><Input value={editForm.phone} onChange={(e) => setEditForm((p) => ({ ...p, phone: e.target.value }))} /></div>
                       <div className="space-y-1.5"><Label>{t.address}</Label><Input value={editForm.address} onChange={(e) => setEditForm((p) => ({ ...p, address: e.target.value }))} /></div>
                       <div className="space-y-1.5"><Label>{t.company}</Label><Input value={editForm.companyName} onChange={(e) => setEditForm((p) => ({ ...p, companyName: e.target.value }))} /></div>
+                      <div className="space-y-1.5">
+                        <Label>{t.category}</Label>
+                        <select
+                          value={editForm.category}
+                          onChange={(e) => setEditForm((p) => ({ ...p, category: e.target.value as SupplierRecord['category'] }))}
+                          className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none"
+                        >
+                          <option value="materials">{t.materials}</option>
+                          <option value="logistics">{t.logistics}</option>
+                          <option value="services">{t.services}</option>
+                          <option value="technology">{t.technology}</option>
+                          <option value="other">{t.other}</option>
+                        </select>
+                      </div>
                       <div className="space-y-1.5"><Label>{t.vatTax}</Label><Input value={editForm.vatNumber} onChange={(e) => setEditForm((p) => ({ ...p, vatNumber: e.target.value }))} /></div>
                     </div>
                     <SheetFooter>

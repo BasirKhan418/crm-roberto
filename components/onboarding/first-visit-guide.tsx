@@ -59,9 +59,10 @@ const TOUR_BY_ROUTE: Record<string, (locale: Locale) => TourStep[]> = {
     { element: '[data-tour-client-tabs]', title: locale === 'fr' ? 'Sections détaillées' : 'Detailed sections', description: locale === 'fr' ? 'Naviguez entre timeline, notes, interactions, devis et pièces jointes.' : 'Switch between timeline, notes, interactions, quotes, and attachments.' },
   ],
   '/suppliers': (locale) => [
-    { element: '[data-tour-suppliers-header]', title: locale === 'fr' ? 'Gestion fournisseurs' : 'Supplier workspace', description: locale === 'fr' ? 'Suivez vos fournisseurs et l’historique opérationnel.' : 'Track suppliers and operational history.' },
-    { element: '[data-tour-add-supplier]', title: locale === 'fr' ? 'Nouveau fournisseur' : 'New supplier', description: locale === 'fr' ? 'Ajoutez un fournisseur avec ses informations essentielles.' : 'Add a supplier with key information.' },
-    { element: '[data-tour-suppliers-search]', title: locale === 'fr' ? 'Recherche fournisseur' : 'Supplier search', description: locale === 'fr' ? 'Filtrez par nom, e-mail ou entreprise.' : 'Filter by name, email, or company.' },
+    { element: '[data-tour-suppliers-header]', title: locale === 'fr' ? 'Gestion fournisseurs' : 'Supplier workspace', description: locale === 'fr' ? 'Gérez vos fournisseurs dans une structure plus claire par catégorie.' : 'Manage suppliers with a clearer category-based structure.' },
+    { element: '[data-tour-suppliers-categories]', title: locale === 'fr' ? 'Catégories fournisseurs' : 'Supplier categories', description: locale === 'fr' ? 'Filtrez rapidement par catégorie (matériaux, logistique, services, technologie, autre).' : 'Filter quickly by category (materials, logistics, services, technology, other).' },
+    { element: '[data-tour-add-supplier]', title: locale === 'fr' ? 'Nouveau fournisseur' : 'New supplier', description: locale === 'fr' ? 'Ajoutez un fournisseur avec les infos essentielles et une catégorie claire.' : 'Add a supplier with core details and a clear category.' },
+    { element: '[data-tour-suppliers-search]', title: locale === 'fr' ? 'Recherche fournisseur' : 'Supplier search', description: locale === 'fr' ? 'La recherche est simplifiée et s’applique automatiquement.' : 'Search is simplified and applies automatically.' },
     { element: '[data-tour-suppliers-grid]', title: locale === 'fr' ? 'Liste fournisseurs' : 'Supplier list', description: locale === 'fr' ? 'Ouvrez une fiche fournisseur pour notes et suivi.' : 'Open supplier details for notes and tracking.' },
   ],
   '/suppliers/[id]': (locale) => [
