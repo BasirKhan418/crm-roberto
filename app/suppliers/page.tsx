@@ -386,27 +386,29 @@ export default function SuppliersPage() {
               setPagination((prev) => ({ ...prev, page: 1 }));
             }}
           >
-            <TabsList className="h-auto w-full max-w-full flex-wrap justify-start rounded-lg border border-border/80 bg-transparent p-1">
-              <TabsTrigger
-                value="all"
-                className="rounded-md px-3 py-1 text-xs text-foreground data-[state=inactive]:hover:bg-transparent data-[state=inactive]:hover:text-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:hover:bg-primary data-[state=active]:hover:text-primary-foreground"
-              >
-                {t.allCategories}
-              </TabsTrigger>
-              {SUPPLIER_CATEGORY_ORDER.map((category) => (
+            <div className="-mx-1 overflow-x-auto px-1 pb-1">
+              <TabsList className="h-auto w-max min-w-max flex-nowrap justify-start rounded-lg border border-border/80 bg-transparent p-1 sm:w-full sm:min-w-0 sm:max-w-full sm:flex-wrap">
                 <TabsTrigger
-                  key={category}
-                  value={category}
-                  className="rounded-md px-3 py-1 text-xs text-foreground data-[state=inactive]:hover:bg-transparent data-[state=inactive]:hover:text-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:hover:bg-primary data-[state=active]:hover:text-primary-foreground"
+                  value="all"
+                  className="h-8 flex-none rounded-md px-3 py-1 text-[11px] text-foreground sm:text-xs data-[state=inactive]:hover:bg-transparent data-[state=inactive]:hover:text-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:hover:bg-primary data-[state=active]:hover:text-primary-foreground"
                 >
-                  {categoryLabelByValue[category]}
+                  {t.allCategories}
                 </TabsTrigger>
-              ))}
-            </TabsList>
+                {SUPPLIER_CATEGORY_ORDER.map((category) => (
+                  <TabsTrigger
+                    key={category}
+                    value={category}
+                    className="h-8 flex-none rounded-md px-3 py-1 text-[11px] text-foreground sm:text-xs data-[state=inactive]:hover:bg-transparent data-[state=inactive]:hover:text-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:hover:bg-primary data-[state=active]:hover:text-primary-foreground"
+                  >
+                    {categoryLabelByValue[category]}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </div>
           </Tabs>
         </div>
 
-      <div className="relative max-w-md">
+      <div className="relative w-full max-w-md">
         <SearchIcon className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
         <Input
           data-tour-suppliers-search
@@ -508,14 +510,15 @@ export default function SuppliersPage() {
           </div>
 
           {/* Pagination */}
-          <div className="flex items-center justify-between border-t border-border/60 pt-4">
+          <div className="flex flex-col gap-3 border-t border-border/60 pt-4 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs text-muted-foreground">
               {t.page} {pagination.page} {t.of} {Math.max(pagination.totalPages, 1)} — {pagination.total} {t.total}
             </p>
-            <div className="flex gap-2">
+            <div className="flex w-full gap-2 sm:w-auto">
               <Button
                 variant="outline"
                 size="sm"
+                className="flex-1 sm:flex-none"
                 disabled={pagination.page <= 1}
                 onClick={() => setPagination((prev) => ({ ...prev, page: prev.page - 1 }))}
               >
@@ -524,6 +527,7 @@ export default function SuppliersPage() {
               <Button
                 variant="outline"
                 size="sm"
+                className="flex-1 sm:flex-none"
                 disabled={pagination.totalPages === 0 || pagination.page >= pagination.totalPages}
                 onClick={() => setPagination((prev) => ({ ...prev, page: prev.page + 1 }))}
               >
