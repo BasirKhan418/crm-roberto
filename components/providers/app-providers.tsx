@@ -4,6 +4,7 @@ import * as React from "react"
 
 import { KeyboardViewportManager } from "@/components/providers/keyboard-viewport-manager"
 import { LocaleProvider } from "@/components/providers/locale-provider"
+import { SuspensionSseListener } from "@/components/providers/suspension-sse-listener"
 import { ThemeProvider } from "@/components/providers/theme-provider"
 
 export function AppProviders({ children }: { children: React.ReactNode }) {
@@ -17,6 +18,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
     >
       <LocaleProvider>
         <KeyboardViewportManager />
+        <SuspensionSseListener />
         {children}
       </LocaleProvider>
     </ThemeProvider>

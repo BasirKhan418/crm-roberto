@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 import { getAllUsers, updateAccountStatus } from "@/db/repository/admin";
+import { emitAccountStatusChanged } from "@/lib/account-status-events";
 import { updateAccountStatusSchema } from "@/validators/admin.schema";
 import { buildValidationError } from "@/utils/api/validation";
 
@@ -53,6 +54,15 @@ export async function PATCH(request: Request) {
     const { userId, account_status } = validation.data;
 
     const result = await updateAccountStatus(userId, account_status);
+
+    if (result.success) {
+      emitAccountStatusChanged({
+        userId,
+        account_status,
+        at: Date.now(),
+      });
+    }
+
     return NextResponse.json(result, { status: result.success ? 200 : 400 });
   } catch (error) {
     return NextResponse.json(

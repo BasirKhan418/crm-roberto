@@ -1,33 +1,31 @@
-import { NextResponse,NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import jwt from "jsonwebtoken";
-import getUserByEmail from "@/db/repository/getUserByEmail";
+
+import checkMe from "@/utils/middlewares/checkMe";
+
 export async function GET(request: NextRequest) {
-    try{
-        const cookieStore = await cookies();
+    try {
         const searchParams = request.nextUrl.searchParams;
-        const fch = searchParams.get("fch");
-        const token = cookieStore.get("token")?.value;
-        if(!token){
-            return NextResponse.json({ message: "No token found", success: false }, { status: 401 });
-        }
-        try{
-            const decoded = jwt.verify(token, process.env.JWT_SECRET || "") as { sub: string, name: string, email: string };
-            console.log("Decoded token:", decoded);
-            if(fch){
-                const user = await getUserByEmail(decoded.email);
-                if(user.success){
-                    return NextResponse.json({ message: "User data fetched successfully", success: true, user: { id: decoded.sub, name: decoded.name, email: decoded.email, isOnboardingComplete: user.user.isOnboardingComplete } });
-                }
-            }
-            return NextResponse.json({ message: "User data fetched successfully", success: true, user: { id: decoded.sub, name: decoded.name, email: decoded.email } });
-        }
-        catch{
-            return NextResponse.json({ message: "Invalid token", success: false }, { status: 401 });
+        const withUserFetch = searchParams.get("fch") !== null;
+
+        const me = await checkMe(withUserFetch);
+        if (!me.success || !me.user) {
+            const cookieStore = await cookies();
+            cookieStore.delete("token");
+
+            const isSuspended = typeof me.message === "string" && me.message.toLowerCase().includes("suspended");
+            return NextResponse.json(
+                { message: me.message || "Unauthorized", success: false },
+                { status: isSuspended ? 403 : 401 }
+            );
         }
 
-    }
-    catch(error){
-        return NextResponse.json({ message: "Error fetching user data"+error, success: false });
+        return NextResponse.json({
+            message: me.message || "User data fetched successfully",
+            success: true,
+            user: me.user,
+        });
+    } catch (error) {
+        return NextResponse.json({ message: "Error fetching user data" + error, success: false }, { status: 500 });
     }
 }
