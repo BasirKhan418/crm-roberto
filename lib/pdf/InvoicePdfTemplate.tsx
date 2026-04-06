@@ -88,6 +88,7 @@ const translations = {
     totalIncl: 'Total incl. tax',
     paymentSummary: 'Payment summary',
     paymentStatus: 'Payment status',
+    totalInvoiceAmount: 'Total invoice amount',
     statusUnpaid: 'Unpaid',
     statusDepositPaid: 'Partially paid',
     statusPaid: 'Paid',
@@ -134,6 +135,7 @@ const translations = {
     totalIncl: 'Total TTC',
     paymentSummary: 'R\u00e9sum\u00e9 paiement',
     paymentStatus: 'Statut paiement',
+    totalInvoiceAmount: 'Montant total facture',
     statusUnpaid: 'Impay\u00e9e',
     statusDepositPaid: 'Partiellement pay\u00e9e',
     statusPaid: 'Pay\u00e9e',
@@ -365,6 +367,35 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 4,
   },
+  paymentSummaryStack: {
+    marginTop: 2,
+    borderWidth: 1,
+    borderColor: '#dbe4ef',
+    borderRadius: 6,
+    overflow: 'hidden',
+    backgroundColor: '#ffffff',
+  },
+  paymentSummaryItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
+  paymentSummaryItemLast: {
+    borderBottomWidth: 0,
+  },
+  paymentSummaryLabel: {
+    fontSize: 9,
+    color: '#475569',
+  },
+  paymentSummaryAmount: {
+    fontSize: 10,
+    fontWeight: 700,
+    color: '#0f172a',
+  },
   statusBadge: {
     borderRadius: 10,
     paddingHorizontal: 8,
@@ -379,6 +410,12 @@ const styles = StyleSheet.create({
     textDecoration: 'underline',
   },
   paymentHistorySection: {
+    marginTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#dbe4ef',
+    paddingTop: 6,
+  },
+  notesSection: {
     marginTop: 8,
     borderTopWidth: 1,
     borderTopColor: '#dbe4ef',
@@ -529,8 +566,6 @@ function getStatusPresentation(
 
 export function InvoicePdfTemplate({ invoice, company, paymentUrl = null, locale = 'en' }: InvoicePdfTemplateProps) {
   const t = translations[locale];
-  const depositPercentage = Math.max(0, Math.min(100, Math.round(invoice.depositPercentage ?? 100)));
-  const depositAmount = Math.round(invoice.totalIncludingTax * (depositPercentage / 100));
   const payments = invoice.payments ?? [];
   const totalPaidAmount = payments.reduce((sum, payment) => sum + Math.max(0, Math.round(payment.amount || 0)), 0);
   const remainingAmount = Math.max(0, invoice.totalIncludingTax - totalPaidAmount);
@@ -697,17 +732,19 @@ export function InvoicePdfTemplate({ invoice, company, paymentUrl = null, locale
               {statusPresentation.label}
             </Text>
           </View>
-          <View style={styles.paymentRow}>
-            <Text style={styles.value}>{t.depositDue}</Text>
-            <Text style={styles.value}>{formatPrice(depositAmount)}</Text>
-          </View>
-          <View style={styles.paymentRow}>
-            <Text style={styles.value}>{t.totalPaid}</Text>
-            <Text style={styles.value}>{formatPrice(totalPaidAmount)}</Text>
-          </View>
-          <View style={styles.paymentRow}>
-            <Text style={styles.value}>{t.remaining}</Text>
-            <Text style={styles.value}>{formatPrice(remainingAmount)}</Text>
+          <View style={styles.paymentSummaryStack}>
+            <View style={styles.paymentSummaryItem}>
+              <Text style={styles.paymentSummaryLabel}>{t.totalInvoiceAmount}</Text>
+              <Text style={styles.paymentSummaryAmount}>{formatPrice(invoice.totalIncludingTax)}</Text>
+            </View>
+            <View style={styles.paymentSummaryItem}>
+              <Text style={styles.paymentSummaryLabel}>{t.totalPaid}</Text>
+              <Text style={styles.paymentSummaryAmount}>{formatPrice(totalPaidAmount)}</Text>
+            </View>
+            <View style={[styles.paymentSummaryItem, styles.paymentSummaryItemLast]}>
+              <Text style={styles.paymentSummaryLabel}>{t.remaining}</Text>
+              <Text style={styles.paymentSummaryAmount}>{formatPrice(remainingAmount)}</Text>
+            </View>
           </View>
           {paymentUrl ? <Link src={paymentUrl} style={styles.paymentLink}>{t.paymentLink}</Link> : null}
 
@@ -730,16 +767,16 @@ export function InvoicePdfTemplate({ invoice, company, paymentUrl = null, locale
               ))}
             </View>
           ) : null}
-        </View>
 
-        {invoice.notes ? (
-          <View style={styles.section} wrap={false}>
-            <Text style={styles.sectionTitle}>{t.notes}</Text>
-            <Text style={styles.notesBox}>
-              <Text style={styles.notesText}>{invoice.notes}</Text>
-            </Text>
-          </View>
-        ) : null}
+          {invoice.notes ? (
+            <View style={styles.notesSection}>
+              <Text style={styles.sectionTitle}>{t.notes}</Text>
+              <Text style={styles.notesBox}>
+                <Text style={styles.notesText}>{invoice.notes}</Text>
+              </Text>
+            </View>
+          ) : null}
+        </View>
       </Page>
     </Document>
   );
