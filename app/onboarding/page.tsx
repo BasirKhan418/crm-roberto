@@ -338,7 +338,7 @@ export default function IdentitySetupPage() {
 
   return (
     <>
-    <div className="flex flex-col bg-[#f8fafc] lg:flex-row lg:overflow-hidden" style={{ minHeight: 'var(--app-viewport-height)', height: 'var(--app-viewport-height)' }}>
+    <div className="flex flex-col bg-[#f8fafc] lg:flex-row lg:overflow-hidden" style={{ minHeight: 'var(--app-viewport-height)' }}>
       <aside className="hidden lg:flex w-105 xl:w-120 shrink-0 flex-col bg-[#020b18] text-white relative overflow-hidden">
         <WorldMapBg
           className="absolute inset-0 w-full h-full object-cover pointer-events-none"
@@ -450,7 +450,7 @@ export default function IdentitySetupPage() {
                     onChange={(e) =>
                       setFormData((prev) => ({ ...prev, [field.key]: e.target.value }))
                     }
-                    className="h-9 bg-zinc-50 border-zinc-200 text-zinc-900 rounded-lg focus-visible:ring-2 focus-visible:ring-[#001e3c]/20 focus-visible:border-[#001e3c] transition-all placeholder:text-zinc-300 text-sm"
+                    className="h-9 bg-zinc-50 border-zinc-200 text-zinc-900 rounded-lg focus-visible:ring-2 focus-visible:ring-[#001e3c]/20 focus-visible:border-[#001e3c] transition-all placeholder:text-zinc-300 text-base md:text-sm"
                   />
                 </div>
               ))}
@@ -465,7 +465,7 @@ export default function IdentitySetupPage() {
                   onChange={(e) =>
                     setFormData((prev) => ({ ...prev, address: e.target.value }))
                   }
-                  className="h-9 bg-zinc-50 border-zinc-200 text-zinc-900 rounded-lg focus-visible:ring-2 focus-visible:ring-[#001e3c]/20 focus-visible:border-[#001e3c] transition-all placeholder:text-zinc-300 text-sm"
+                  className="h-9 bg-zinc-50 border-zinc-200 text-zinc-900 rounded-lg focus-visible:ring-2 focus-visible:ring-[#001e3c]/20 focus-visible:border-[#001e3c] transition-all placeholder:text-zinc-300 text-base md:text-sm"
                 />
                 <p className="text-xs text-zinc-400">{t.hqHint}</p>
               </div>

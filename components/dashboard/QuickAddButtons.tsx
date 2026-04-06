@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { UserPlus, Building2, PenLine, FileText } from 'lucide-react';
+import { UserPlus, Building2, PenLine, FileText, ReceiptText } from 'lucide-react';
 
 import AddClientModal from '@/components/modals/AddClientModal';
 import AddNoteModal from '@/components/modals/AddNoteModal';
@@ -21,8 +21,8 @@ export default function QuickAddButtons({ onSuccess }: QuickAddButtonsProps) {
   const router = useRouter();
   const { locale } = useLocale();
   const t = {
-    en: { client: 'Add Client', supplier: 'Add Supplier', note: 'Add Note', quote: 'New Quote' },
-    fr: { client: 'Ajouter Client', supplier: 'Ajouter Fournisseur', note: 'Ajouter Note', quote: 'Nouveau Devis' },
+    en: { client: 'Add Client', supplier: 'Add Supplier', note: 'Add Note', quote: 'New Quote', invoice: 'New Invoice' },
+    fr: { client: 'Ajouter Client', supplier: 'Ajouter Fournisseur', note: 'Ajouter Note', quote: 'Nouveau Devis', invoice: 'Nouvelle Facture' },
   }[locale];
 
   return (
@@ -70,6 +70,17 @@ export default function QuickAddButtons({ onSuccess }: QuickAddButtonsProps) {
         >
           <FileText className="size-3.5" strokeWidth={2} />
           {t.quote}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          data-tour-new-invoice
+          className="h-9 gap-1.5 border-emerald-300 bg-white text-emerald-700 shadow-sm hover:border-emerald-400 hover:bg-emerald-50 dark:border-emerald-700 dark:bg-transparent dark:text-emerald-300 dark:hover:bg-emerald-950/40"
+          onClick={() => router.push('/invoices/new')}
+        >
+          <ReceiptText className="size-3.5" strokeWidth={2} />
+          {t.invoice}
         </Button>
       </div>
 
