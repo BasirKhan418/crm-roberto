@@ -15,6 +15,12 @@ const SupplierSchema = new mongoose.Schema(
       trim: true,
     },
 
+    contactName: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+
     category: {
       type: String,
       enum: {
@@ -44,6 +50,24 @@ const SupplierSchema = new mongoose.Schema(
       default: null,
     },
 
+    postalCode: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+
+    city: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+
+    country: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+
     companyName: {
       type: String,
       trim: true,
@@ -55,6 +79,18 @@ const SupplierSchema = new mongoose.Schema(
       trim: true,
       default: null,
     },
+
+    iban: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+
+    notes: {
+      type: String,
+      trim: true,
+      default: null,
+    },
   },
   { timestamps: true }
 );
@@ -62,16 +98,19 @@ const SupplierSchema = new mongoose.Schema(
 
 SupplierSchema.index({
   fullName: "text",
+  contactName: "text",
   email: "text",
   phone: "text",
   companyName: "text",
+  city: "text",
+  country: "text",
 });
 
 SupplierSchema.index({ user: 1, createdAt: -1 });
 SupplierSchema.index({ user: 1, category: 1, createdAt: -1 });
 
 
-SupplierSchema.virtual("notes", {
+SupplierSchema.virtual("timelineNotes", {
   ref: "Note",
   localField: "_id",
   foreignField: "linkedId",

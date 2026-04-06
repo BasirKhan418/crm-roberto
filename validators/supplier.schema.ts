@@ -26,22 +26,34 @@ const supplierCategorySchema = z.enum(['materials', 'logistics', 'services', 'te
 
 export const createSupplierSchema = z.object({
   fullName: z.string().trim().min(1, i18nKey('validation.supplierNameRequired')),
+  contactName: optionalText,
   category: supplierCategorySchema.optional().default('other'),
   email: optionalEmail,
   phone: optionalText,
   address: optionalText,
+  postalCode: optionalText,
+  city: optionalText,
+  country: optionalText,
   companyName: optionalText,
   vatNumber: optionalText,
+  iban: optionalText,
+  notes: optionalText,
 });
 
 export const updateSupplierSchema = z.object({
   fullName: z.string().trim().min(1, i18nKey('validation.supplierNameRequired')).optional(),
+  contactName: updatableOptionalText,
   category: supplierCategorySchema.optional(),
   email: updatableOptionalEmail,
   phone: updatableOptionalText,
   address: updatableOptionalText,
+  postalCode: updatableOptionalText,
+  city: updatableOptionalText,
+  country: updatableOptionalText,
   companyName: updatableOptionalText,
   vatNumber: updatableOptionalText,
+  iban: updatableOptionalText,
+  notes: updatableOptionalText,
 }).refine((data) => Object.keys(data).length > 0, {
   message: i18nKey('validation.updateAtLeastOneField'),
 });

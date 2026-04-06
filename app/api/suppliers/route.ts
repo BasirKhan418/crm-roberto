@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
 
     const options = parseListQuery(request.nextUrl.searchParams, {
       defaultSortBy: 'createdAt',
-      allowedSortBy: ['createdAt', 'updatedAt', 'fullName', 'email', 'companyName', 'category'],
+      allowedSortBy: ['createdAt', 'updatedAt', 'fullName', 'contactName', 'email', 'city', 'country', 'category'],
       defaultLimit: 10,
       maxLimit: 100,
     });

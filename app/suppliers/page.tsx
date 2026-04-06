@@ -16,17 +16,22 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface Supplier {
   _id: string;
   fullName: string;
+  contactName?: string | null;
   category: 'materials' | 'logistics' | 'services' | 'technology' | 'other';
   email?: string | null;
   phone?: string | null;
   address?: string | null;
+  postalCode?: string | null;
+  city?: string | null;
+  country?: string | null;
   companyName?: string | null;
   vatNumber?: string | null;
+  iban?: string | null;
+  notes?: string | null;
   createdAt: string;
 }
 
@@ -67,8 +72,6 @@ function avatarColor(id: string): string {
 
 type SupplierCategory = 'materials' | 'logistics' | 'services' | 'technology' | 'other';
 
-const SUPPLIER_CATEGORY_ORDER: SupplierCategory[] = ['materials', 'logistics', 'services', 'technology', 'other'];
-
 export default function SuppliersPage() {
   const { locale } = useLocale();
   const t = {
@@ -80,8 +83,6 @@ export default function SuppliersPage() {
       shellTitle: 'Suppliers',
       heading: 'Suppliers',
       subtitle: 'Track suppliers with contextual notes and negotiation history.',
-      categoriesLabel: 'Categories',
-      allCategories: 'All categories',
       materials: 'Materials',
       logistics: 'Logistics',
       services: 'Services',
@@ -90,17 +91,22 @@ export default function SuppliersPage() {
       addSupplier: 'Add Supplier',
       addTitle: 'Add new supplier',
       addDesc: 'Create a supplier and it will appear immediately in your list.',
-      name: 'Name',
+      legalName: 'Company legal name',
+      contactName: 'Contact name',
       email: 'Email',
       phone: 'Phone',
       address: 'Address',
-      company: 'Company',
+      postalCode: 'Postal code',
+      city: 'City',
+      country: 'Country',
       vat: 'VAT/Tax ID',
+      iban: 'IBAN',
+      notes: 'Notes',
       cancel: 'Cancel',
       saving: 'Saving...',
       saveSupplier: 'Save supplier',
       directory: 'Supplier directory',
-      search: 'Search by name, email, company...',
+      search: 'Search by legal name, contact, email, city...',
       empty: 'No suppliers yet. Add your first supplier to keep operational context in one place.',
       createdCol: 'Created',
       page: 'Page',
@@ -121,8 +127,6 @@ export default function SuppliersPage() {
       shellTitle: 'Fournisseurs',
       heading: 'Fournisseurs',
       subtitle: 'Suivez les fournisseurs avec notes contextuelles et historique de négociation.',
-      categoriesLabel: 'Catégories',
-      allCategories: 'Toutes catégories',
       materials: 'Matériaux',
       logistics: 'Logistique',
       services: 'Services',
@@ -131,17 +135,22 @@ export default function SuppliersPage() {
       addSupplier: 'Ajouter un fournisseur',
       addTitle: 'Ajouter un nouveau fournisseur',
       addDesc: 'Créez un fournisseur et il apparaêtra immédiatement dans la liste.',
-      name: 'Nom',
+      legalName: 'Raison sociale',
+      contactName: 'Nom du contact',
       email: 'E-mail',
       phone: 'Téléphone',
       address: 'Adresse',
-      company: 'Entreprise',
+      postalCode: 'Code postal',
+      city: 'Ville',
+      country: 'Pays',
       vat: 'TVA/ID fiscal',
+      iban: 'IBAN',
+      notes: 'Notes',
       cancel: 'Annuler',
       saving: 'Enregistrement...',
       saveSupplier: 'Enregistrer le fournisseur',
       directory: 'Répertoire des fournisseurs',
-      search: 'Rechercher par nom, e-mail, entreprise...',
+      search: 'Rechercher par raison sociale, contact, e-mail, ville...',
       empty: 'Aucun fournisseur. Ajoutez votre premier fournisseur.',
       createdCol: 'Créé le',
       page: 'Page',
@@ -163,18 +172,21 @@ export default function SuppliersPage() {
 
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState<'all' | SupplierCategory>('all');
 
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [form, setForm] = useState({
     fullName: '',
-    category: 'other' as SupplierCategory,
+    contactName: '',
     email: '',
     phone: '',
     address: '',
-    companyName: '',
+    postalCode: '',
+    city: '',
+    country: '',
     vatNumber: '',
+    iban: '',
+    notes: '',
   });
 
   const query = useMemo(() => {
@@ -186,11 +198,9 @@ export default function SuppliersPage() {
     if (search) {
       params.set('search', search);
     }
-    if (categoryFilter !== 'all') {
-      params.set('category', categoryFilter);
-    }
+    // Removed category filter
     return params.toString();
-  }, [pagination.page, pagination.limit, search, categoryFilter]);
+  }, [pagination.page, pagination.limit, search]);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -264,12 +274,16 @@ export default function SuppliersPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           fullName: form.fullName,
+          contactName: form.contactName || undefined,
           email: form.email || undefined,
-          category: form.category,
           phone: form.phone || undefined,
           address: form.address || undefined,
-          companyName: form.companyName || undefined,
+          postalCode: form.postalCode || undefined,
+          city: form.city || undefined,
+          country: form.country || undefined,
           vatNumber: form.vatNumber || undefined,
+          iban: form.iban || undefined,
+          notes: form.notes || undefined,
         }),
       });
 
@@ -280,7 +294,19 @@ export default function SuppliersPage() {
 
       toast.success(t.created);
       setIsAddOpen(false);
-      setForm({ fullName: '', category: 'other', email: '', phone: '', address: '', companyName: '', vatNumber: '' });
+      setForm({
+        fullName: '',
+        contactName: '',
+        email: '',
+        phone: '',
+        address: '',
+        postalCode: '',
+        city: '',
+        country: '',
+        vatNumber: '',
+        iban: '',
+        notes: '',
+      });
       setPagination((prev) => ({ ...prev, page: 1 }));
       await loadSuppliers();
     } catch (err) {
@@ -292,6 +318,7 @@ export default function SuppliersPage() {
 
   return (
     <CrmShell title={t.shellTitle}>
+
       {/* Page header */}
       <div data-tour-suppliers-header className="flex flex-col gap-3 border-b border-border/60 pb-5 md:flex-row md:items-end md:justify-between">
         <div>
@@ -313,8 +340,12 @@ export default function SuppliersPage() {
             </SheetHeader>
             <div className="max-h-[calc(100svh-10rem)] space-y-3 overflow-y-auto px-4 pb-4 sm:px-6">
               <div className="space-y-1.5">
-                <Label htmlFor="supplier-full-name">{t.name}</Label>
+                <Label htmlFor="supplier-full-name">{t.legalName}</Label>
                 <Input id="supplier-full-name" data-tour-supplier-modal-name value={form.fullName} onChange={(e) => setForm((p) => ({ ...p, fullName: e.target.value }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="supplier-contact-name">{t.contactName}</Label>
+                <Input id="supplier-contact-name" value={form.contactName} onChange={(e) => setForm((p) => ({ ...p, contactName: e.target.value }))} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="supplier-email">{t.email}</Label>
@@ -328,28 +359,33 @@ export default function SuppliersPage() {
                 <Label htmlFor="supplier-address">{t.address}</Label>
                 <Input id="supplier-address" value={form.address} onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))} />
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="supplier-category">{t.categoriesLabel}</Label>
-                <select
-                  id="supplier-category"
-                  value={form.category}
-                  onChange={(e) => setForm((p) => ({ ...p, category: e.target.value as SupplierCategory }))}
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none"
-                >
-                  {SUPPLIER_CATEGORY_ORDER.map((category) => (
-                    <option key={category} value={category}>{getCategoryLabel(category)}</option>
-                  ))}
-                </select>
-              </div>
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <div className="space-y-1.5">
-                  <Label htmlFor="supplier-company">{t.company}</Label>
-                  <Input id="supplier-company" value={form.companyName} onChange={(e) => setForm((p) => ({ ...p, companyName: e.target.value }))} />
+                  <Label htmlFor="supplier-postal">{t.postalCode}</Label>
+                  <Input id="supplier-postal" value={form.postalCode} onChange={(e) => setForm((p) => ({ ...p, postalCode: e.target.value }))} />
                 </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="supplier-city">{t.city}</Label>
+                  <Input id="supplier-city" value={form.city} onChange={(e) => setForm((p) => ({ ...p, city: e.target.value }))} />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="supplier-country">{t.country}</Label>
+                <Input id="supplier-country" value={form.country} onChange={(e) => setForm((p) => ({ ...p, country: e.target.value }))} />
+              </div>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label htmlFor="supplier-vat">{t.vat}</Label>
                   <Input id="supplier-vat" value={form.vatNumber} onChange={(e) => setForm((p) => ({ ...p, vatNumber: e.target.value }))} />
                 </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="supplier-iban">{t.iban}</Label>
+                  <Input id="supplier-iban" value={form.iban} onChange={(e) => setForm((p) => ({ ...p, iban: e.target.value }))} />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="supplier-notes">{t.notes}</Label>
+                <Input id="supplier-notes" value={form.notes} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))} />
               </div>
             </div>
             <SheetFooter>
@@ -377,37 +413,6 @@ export default function SuppliersPage() {
 
       {/* Search */}
       <div className="space-y-3">
-        <div data-tour-suppliers-categories className="space-y-1.5">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t.categoriesLabel}</p>
-          <Tabs
-            value={categoryFilter}
-            onValueChange={(value) => {
-              setCategoryFilter(value as 'all' | SupplierCategory);
-              setPagination((prev) => ({ ...prev, page: 1 }));
-            }}
-          >
-            <div className="-mx-1 overflow-x-auto px-1 pb-1">
-              <TabsList className="h-auto w-max min-w-max flex-nowrap justify-start rounded-lg border border-border/80 bg-transparent p-1 sm:w-full sm:min-w-0 sm:max-w-full sm:flex-wrap">
-                <TabsTrigger
-                  value="all"
-                  className="h-8 flex-none rounded-md px-3 py-1 text-[11px] text-foreground sm:text-xs data-[state=inactive]:hover:bg-transparent data-[state=inactive]:hover:text-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:hover:bg-primary data-[state=active]:hover:text-primary-foreground"
-                >
-                  {t.allCategories}
-                </TabsTrigger>
-                {SUPPLIER_CATEGORY_ORDER.map((category) => (
-                  <TabsTrigger
-                    key={category}
-                    value={category}
-                    className="h-8 flex-none rounded-md px-3 py-1 text-[11px] text-foreground sm:text-xs data-[state=inactive]:hover:bg-transparent data-[state=inactive]:hover:text-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:hover:bg-primary data-[state=active]:hover:text-primary-foreground"
-                  >
-                    {categoryLabelByValue[category]}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </div>
-          </Tabs>
-        </div>
-
       <div className="relative w-full max-w-md">
         <SearchIcon className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
         <Input
@@ -460,10 +465,10 @@ export default function SuppliersPage() {
                     <p className="truncate font-semibold text-foreground group-hover:text-primary dark:group-hover:text-primary/80">
                       {supplier.fullName}
                     </p>
-                    {supplier.companyName ? (
+                    {supplier.contactName ? (
                       <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-muted-foreground">
                         <Building2 className="size-3 shrink-0" strokeWidth={1.75} />
-                        {supplier.companyName}
+                        {supplier.contactName}
                       </p>
                     ) : (
                       <p className="mt-0.5 text-xs text-muted-foreground/50">{t.noData}</p>

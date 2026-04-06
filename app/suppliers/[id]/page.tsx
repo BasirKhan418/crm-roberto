@@ -31,12 +31,17 @@ import { Skeleton } from '@/components/ui/skeleton';
 interface SupplierRecord {
   _id: string;
   fullName: string;
+  contactName?: string | null;
   category: 'materials' | 'logistics' | 'services' | 'technology' | 'other';
   email?: string | null;
   phone?: string | null;
   address?: string | null;
-  companyName?: string | null;
+  postalCode?: string | null;
+  city?: string | null;
+  country?: string | null;
   vatNumber?: string | null;
+  iban?: string | null;
+  notes?: string | null;
 }
 
 interface NoteItem {
@@ -78,7 +83,10 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
       email: 'Email',
       phone: 'Phone',
       address: 'Address',
-      company: 'Company',
+      contactName: 'Contact name',
+      postalCode: 'Postal code',
+      city: 'City',
+      country: 'Country',
       category: 'Category',
       materials: 'Materials',
       logistics: 'Logistics',
@@ -89,8 +97,10 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
       edit: 'Edit',
       editSupplier: 'Edit supplier',
       editSupplierDesc: 'Update supplier information.',
-      name: 'Name',
+      legalName: 'Company legal name',
       vatTax: 'VAT/Tax ID',
+      iban: 'IBAN',
+      notes: 'Notes',
       cancel: 'Cancel',
       saving: 'Saving...',
       saveChanges: 'Save changes',
@@ -131,7 +141,10 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
       email: 'E-mail',
       phone: 'T\u00e9l\u00e9phone',
       address: 'Adresse',
-      company: 'Entreprise',
+      contactName: 'Nom du contact',
+      postalCode: 'Code postal',
+      city: 'Ville',
+      country: 'Pays',
       category: 'Catégorie',
       materials: 'Matériaux',
       logistics: 'Logistique',
@@ -142,8 +155,10 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
       edit: 'Modifier',
       editSupplier: 'Modifier le fournisseur',
       editSupplierDesc: 'Mettez \u00e0 jour les informations du fournisseur.',
-      name: 'Nom',
+      legalName: 'Raison sociale',
       vatTax: 'TVA/ID fiscal',
+      iban: 'IBAN',
+      notes: 'Notes',
       cancel: 'Annuler',
       saving: 'Enregistrement...',
       saveChanges: 'Enregistrer les modifications',
@@ -185,12 +200,17 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
 
   const [editForm, setEditForm] = useState({
     fullName: '',
+    contactName: '',
     category: 'other' as SupplierRecord['category'],
     email: '',
     phone: '',
     address: '',
-    companyName: '',
+    postalCode: '',
+    city: '',
+    country: '',
     vatNumber: '',
+    iban: '',
+    notes: '',
   });
 
   const [noteForm, setNoteForm] = useState({ title: '', description: '', followUpDate: '' });
@@ -222,12 +242,17 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
       setTimeline(data.data.timeline);
       setEditForm({
         fullName: data.data.supplier.fullName || '',
+        contactName: data.data.supplier.contactName || '',
         category: data.data.supplier.category || 'other',
         email: data.data.supplier.email || '',
         phone: data.data.supplier.phone || '',
         address: data.data.supplier.address || '',
-        companyName: data.data.supplier.companyName || '',
+        postalCode: data.data.supplier.postalCode || '',
+        city: data.data.supplier.city || '',
+        country: data.data.supplier.country || '',
         vatNumber: data.data.supplier.vatNumber || '',
+        iban: data.data.supplier.iban || '',
+        notes: data.data.supplier.notes || '',
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : t.loadFailed);
@@ -411,7 +436,10 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
               <p><span className="text-muted-foreground">{t.email}:</span> {supplier.email || '-'}</p>
               <p><span className="text-muted-foreground">{t.phone}:</span> {supplier.phone || '-'}</p>
               <p><span className="text-muted-foreground">{t.address}:</span> {supplier.address || '-'}</p>
-              <p><span className="text-muted-foreground">{t.company}:</span> {supplier.companyName || '-'}</p>
+              <p><span className="text-muted-foreground">{t.contactName}:</span> {supplier.contactName || '-'}</p>
+              <p><span className="text-muted-foreground">{t.postalCode}:</span> {supplier.postalCode || '-'}</p>
+              <p><span className="text-muted-foreground">{t.city}:</span> {supplier.city || '-'}</p>
+              <p><span className="text-muted-foreground">{t.country}:</span> {supplier.country || '-'}</p>
               <p><span className="text-muted-foreground">{t.category}:</span> {
                 supplier.category === 'materials'
                   ? t.materials
@@ -424,6 +452,8 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
                   : t.other
               }</p>
               <p><span className="text-muted-foreground">{t.vat}:</span> {supplier.vatNumber || '-'}</p>
+                  <p><span className="text-muted-foreground">{t.iban}:</span> {supplier.iban || '-'}</p>
+                  <p><span className="text-muted-foreground">{t.notes}:</span> {supplier.notes || '-'}</p>
 
               <div data-tour-supplier-actions className="flex flex-wrap gap-2 pt-3">
                 <Sheet open={isEditOpen} onOpenChange={setIsEditOpen}>
@@ -436,11 +466,16 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
                       <SheetDescription>{t.editSupplierDesc}</SheetDescription>
                     </SheetHeader>
                     <div className="space-y-3 px-4">
-                      <div className="space-y-1.5"><Label>{t.name}</Label><Input value={editForm.fullName} onChange={(e) => setEditForm((p) => ({ ...p, fullName: e.target.value }))} /></div>
+                      <div className="space-y-1.5"><Label>{t.legalName}</Label><Input value={editForm.fullName} onChange={(e) => setEditForm((p) => ({ ...p, fullName: e.target.value }))} /></div>
+                      <div className="space-y-1.5"><Label>{t.contactName}</Label><Input value={editForm.contactName} onChange={(e) => setEditForm((p) => ({ ...p, contactName: e.target.value }))} /></div>
                       <div className="space-y-1.5"><Label>{t.email}</Label><Input value={editForm.email} onChange={(e) => setEditForm((p) => ({ ...p, email: e.target.value }))} /></div>
                       <div className="space-y-1.5"><Label>{t.phone}</Label><Input value={editForm.phone} onChange={(e) => setEditForm((p) => ({ ...p, phone: e.target.value }))} /></div>
                       <div className="space-y-1.5"><Label>{t.address}</Label><Input value={editForm.address} onChange={(e) => setEditForm((p) => ({ ...p, address: e.target.value }))} /></div>
-                      <div className="space-y-1.5"><Label>{t.company}</Label><Input value={editForm.companyName} onChange={(e) => setEditForm((p) => ({ ...p, companyName: e.target.value }))} /></div>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                        <div className="space-y-1.5"><Label>{t.postalCode}</Label><Input value={editForm.postalCode} onChange={(e) => setEditForm((p) => ({ ...p, postalCode: e.target.value }))} /></div>
+                        <div className="space-y-1.5"><Label>{t.city}</Label><Input value={editForm.city} onChange={(e) => setEditForm((p) => ({ ...p, city: e.target.value }))} /></div>
+                        <div className="space-y-1.5"><Label>{t.country}</Label><Input value={editForm.country} onChange={(e) => setEditForm((p) => ({ ...p, country: e.target.value }))} /></div>
+                      </div>
                       <div className="space-y-1.5">
                         <Label>{t.category}</Label>
                         <select
@@ -455,7 +490,18 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
                           <option value="other">{t.other}</option>
                         </select>
                       </div>
-                      <div className="space-y-1.5"><Label>{t.vatTax}</Label><Input value={editForm.vatNumber} onChange={(e) => setEditForm((p) => ({ ...p, vatNumber: e.target.value }))} /></div>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div className="space-y-1.5"><Label>{t.vatTax}</Label><Input value={editForm.vatNumber} onChange={(e) => setEditForm((p) => ({ ...p, vatNumber: e.target.value }))} /></div>
+                        <div className="space-y-1.5"><Label>{t.iban}</Label><Input value={editForm.iban} onChange={(e) => setEditForm((p) => ({ ...p, iban: e.target.value }))} /></div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>{t.notes}</Label>
+                        <textarea
+                          className="min-h-20 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                          value={editForm.notes}
+                          onChange={(e) => setEditForm((p) => ({ ...p, notes: e.target.value }))}
+                        />
+                      </div>
                     </div>
                     <SheetFooter>
                       <Button variant="outline" onClick={() => setIsEditOpen(false)}>{t.cancel}</Button>

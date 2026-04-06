@@ -10,12 +10,18 @@ import { buildPagination } from '@/utils/api/query';
 export interface SupplierRecord {
   _id: string;
   fullName: string;
+  contactName?: string | null;
   category: 'materials' | 'logistics' | 'services' | 'technology' | 'other';
   email?: string | null;
   phone?: string | null;
   address?: string | null;
+  postalCode?: string | null;
+  city?: string | null;
+  country?: string | null;
   companyName?: string | null;
   vatNumber?: string | null;
+  iban?: string | null;
+  notes?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -75,8 +81,14 @@ export const listSuppliers = async (
       { email: { $regex: options.search, $options: 'i' } },
       { phone: { $regex: options.search, $options: 'i' } },
       { address: { $regex: options.search, $options: 'i' } },
+      { postalCode: { $regex: options.search, $options: 'i' } },
+      { city: { $regex: options.search, $options: 'i' } },
+      { country: { $regex: options.search, $options: 'i' } },
+      { contactName: { $regex: options.search, $options: 'i' } },
       { companyName: { $regex: options.search, $options: 'i' } },
       { vatNumber: { $regex: options.search, $options: 'i' } },
+      { iban: { $regex: options.search, $options: 'i' } },
+      { notes: { $regex: options.search, $options: 'i' } },
     ];
   }
 
