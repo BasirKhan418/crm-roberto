@@ -35,6 +35,12 @@ interface ProfileForm {
   businessEmail: string;
   address: string;
   vatNumber: string;
+  rcsNumber: string;
+  businessAuthorizationNumber: string;
+  matriculeNumber: string;
+  iban: string;
+  bankName: string;
+  legalIdentifier: string;
 }
 
 const ALLOWED_LOGO_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml'];
@@ -47,6 +53,12 @@ const emptyForm: ProfileForm = {
   businessEmail: '',
   address: '',
   vatNumber: '',
+  rcsNumber: '',
+  businessAuthorizationNumber: '',
+  matriculeNumber: '',
+  iban: '',
+  bankName: '',
+  legalIdentifier: '',
 };
 
 export default function ProfilePage() {
@@ -72,6 +84,12 @@ export default function ProfilePage() {
       businessEmail: 'Business email',
       address: 'Address',
       vat: 'VAT number',
+      rcsNumber: 'RCS number',
+      businessAuthorizationNumber: 'Business authorization number',
+      matriculeNumber: 'Matricule number',
+      iban: 'IBAN',
+      bankName: 'Bank name',
+      legalIdentifier: 'Additional legal identifier',
       saving: 'Saving...',
       saveProfile: 'Save profile',
       updatePassword: 'Update password',
@@ -128,6 +146,12 @@ export default function ProfilePage() {
       businessEmail: 'E-mail professionnel',
       address: 'Adresse',
       vat: 'Num\u00e9ro de TVA',
+      rcsNumber: 'Num\u00e9ro RCS',
+      businessAuthorizationNumber: "Num\u00e9ro d'autorisation d'\u00e9tablissement",
+      matriculeNumber: 'Num\u00e9ro matricule',
+      iban: 'IBAN',
+      bankName: 'Banque',
+      legalIdentifier: 'Identifiant l\u00e9gal suppl\u00e9mentaire',
       saving: 'Enregistrement...',
       saveProfile: 'Enregistrer le profil',
       updatePassword: 'Mettre \u00e0 jour le mot de passe',
@@ -232,6 +256,12 @@ export default function ProfilePage() {
           businessEmail: data.profile?.businessEmail || '',
           address: data.profile?.address || '',
           vatNumber: data.profile?.vatNumber || '',
+          rcsNumber: data.profile?.rcsNumber || '',
+          businessAuthorizationNumber: data.profile?.businessAuthorizationNumber || '',
+          matriculeNumber: data.profile?.matriculeNumber || '',
+          iban: data.profile?.iban || '',
+          bankName: data.profile?.bankName || '',
+          legalIdentifier: data.profile?.legalIdentifier || '',
         });
         setLogoUrl((data.profile as Record<string, unknown>)?.logoUrl as string | null ?? null);
       } catch (err) {
@@ -585,9 +615,35 @@ export default function ProfilePage() {
                 <Label>{t.address}</Label>
                 <Input value={form.address} onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))} />
               </div>
-              <div className="space-y-1.5">
-                <Label>{t.vat}</Label>
-                <Input value={form.vatNumber} onChange={(e) => setForm((p) => ({ ...p, vatNumber: e.target.value }))} />
+              <div data-tour-profile-legal-fields className="grid grid-cols-1 gap-3 md:col-span-2 md:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label>{t.vat}</Label>
+                  <Input value={form.vatNumber} onChange={(e) => setForm((p) => ({ ...p, vatNumber: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>{t.rcsNumber}</Label>
+                  <Input value={form.rcsNumber} onChange={(e) => setForm((p) => ({ ...p, rcsNumber: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>{t.businessAuthorizationNumber}</Label>
+                  <Input value={form.businessAuthorizationNumber} onChange={(e) => setForm((p) => ({ ...p, businessAuthorizationNumber: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>{t.matriculeNumber}</Label>
+                  <Input value={form.matriculeNumber} onChange={(e) => setForm((p) => ({ ...p, matriculeNumber: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>{t.iban}</Label>
+                  <Input value={form.iban} onChange={(e) => setForm((p) => ({ ...p, iban: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>{t.bankName}</Label>
+                  <Input value={form.bankName} onChange={(e) => setForm((p) => ({ ...p, bankName: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5 md:col-span-2">
+                  <Label>{t.legalIdentifier}</Label>
+                  <Input value={form.legalIdentifier} onChange={(e) => setForm((p) => ({ ...p, legalIdentifier: e.target.value }))} />
+                </div>
               </div>
             </div>
           )}

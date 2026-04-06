@@ -59,9 +59,10 @@ const TOUR_BY_ROUTE: Record<string, (locale: Locale) => TourStep[]> = {
     { element: '[data-tour-client-tabs]', title: locale === 'fr' ? 'Sections détaillées' : 'Detailed sections', description: locale === 'fr' ? 'Naviguez entre timeline, notes, interactions, devis et pièces jointes.' : 'Switch between timeline, notes, interactions, quotes, and attachments.' },
   ],
   '/suppliers': (locale) => [
-    { element: '[data-tour-suppliers-header]', title: locale === 'fr' ? 'Gestion fournisseurs' : 'Supplier workspace', description: locale === 'fr' ? 'Gérez vos fournisseurs dans une structure plus claire par catégorie.' : 'Manage suppliers with a clearer category-based structure.' },
-    { element: '[data-tour-suppliers-categories]', title: locale === 'fr' ? 'Catégories fournisseurs' : 'Supplier categories', description: locale === 'fr' ? 'Filtrez rapidement par catégorie (matériaux, logistique, services, technologie, autre).' : 'Filter quickly by category (materials, logistics, services, technology, other).' },
-    { element: '[data-tour-add-supplier]', title: locale === 'fr' ? 'Nouveau fournisseur' : 'New supplier', description: locale === 'fr' ? 'Ajoutez un fournisseur avec les infos essentielles et une catégorie claire.' : 'Add a supplier with core details and a clear category.' },
+    { element: '[data-tour-suppliers-header]', title: locale === 'fr' ? 'Gestion fournisseurs' : 'Supplier workspace', description: locale === 'fr' ? 'Gérez vos fournisseurs et centralisez vos relations opérationnelles.' : 'Manage suppliers and centralize your operational relationships.' },
+    { element: '[data-tour-add-supplier]', title: locale === 'fr' ? 'Nouveau fournisseur' : 'New supplier', description: locale === 'fr' ? 'Ouvrez le panneau d\'ajout pour créer un fournisseur.' : 'Open the add panel to create a supplier.' },
+    { element: '[data-tour-supplier-modal-name]', title: locale === 'fr' ? 'Raison sociale' : 'Legal name', description: locale === 'fr' ? 'Renseignez au minimum la raison sociale pour enregistrer un fournisseur.' : 'At minimum, enter the company legal name to save a supplier.' },
+    { element: '[data-tour-supplier-modal-save]', title: locale === 'fr' ? 'Enregistrer fournisseur' : 'Save supplier', description: locale === 'fr' ? 'Validez ici pour ajouter le fournisseur à votre base.' : 'Confirm here to add the supplier to your database.' },
     { element: '[data-tour-suppliers-search]', title: locale === 'fr' ? 'Recherche fournisseur' : 'Supplier search', description: locale === 'fr' ? 'La recherche est simplifiée et s’applique automatiquement.' : 'Search is simplified and applies automatically.' },
     { element: '[data-tour-suppliers-grid]', title: locale === 'fr' ? 'Liste fournisseurs' : 'Supplier list', description: locale === 'fr' ? 'Ouvrez une fiche fournisseur pour notes et suivi.' : 'Open supplier details for notes and tracking.' },
   ],
@@ -213,6 +214,7 @@ const TOUR_BY_ROUTE: Record<string, (locale: Locale) => TourStep[]> = {
   ],
   '/profile': (locale) => [
     { element: '[data-tour-profile-company-card]', title: locale === 'fr' ? 'Profil entreprise' : 'Company profile', description: locale === 'fr' ? 'Mettez à jour vos informations société.' : 'Update your company information.' },
+    { element: '[data-tour-profile-legal-fields]', title: locale === 'fr' ? 'Conformité légale' : 'Legal compliance fields', description: locale === 'fr' ? 'Renseignez RCS, autorisation, matricule, IBAN et identifiants légaux selon votre pays.' : 'Fill in RCS, authorization, matricule, IBAN, and legal identifiers based on your country.' },
     { element: '[data-tour-profile-save]', title: locale === 'fr' ? 'Enregistrer profil' : 'Save profile', description: locale === 'fr' ? 'Enregistrez les changements de votre identité société.' : 'Save company profile changes.' },
     { element: '[data-tour-profile-logo-card]', title: locale === 'fr' ? 'Logo entreprise' : 'Company logo', description: locale === 'fr' ? 'Ajoutez votre logo pour devis et factures.' : 'Upload your logo for quotes and invoices.' },
     { element: '[data-tour-profile-password-card]', title: locale === 'fr' ? 'Sécurité mot de passe' : 'Password security', description: locale === 'fr' ? 'Mettez à jour votre mot de passe ici.' : 'Update your password here.' },

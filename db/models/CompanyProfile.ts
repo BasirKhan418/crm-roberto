@@ -36,6 +36,36 @@ const CompanyProfileSchema = new mongoose.Schema({
       required: [true, 'VAT number is required'],
       trim: true,
     },
+    rcsNumber: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    businessAuthorizationNumber: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    matriculeNumber: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    iban: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    bankName: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    legalIdentifier: {
+      type: String,
+      trim: true,
+      default: null,
+    },
     logoUrl: {
       type: String,
       default: null,

@@ -16,6 +16,12 @@ interface CompanyData {
   phone?: string;
   businessEmail?: string;
   vatNumber?: string;
+  rcsNumber?: string | null;
+  businessAuthorizationNumber?: string | null;
+  matriculeNumber?: string | null;
+  iban?: string | null;
+  bankName?: string | null;
+  legalIdentifier?: string | null;
   logoUrl?: string | null;
 }
 
@@ -78,6 +84,12 @@ const translations = {
     email: 'Email',
     address: 'Address',
     vat: 'VAT',
+    rcs: 'RCS',
+    businessAuthorization: 'Business auth.',
+    matricule: 'Matricule',
+    iban: 'IBAN',
+    bankName: 'Bank',
+    legalIdentifier: 'Legal ID',
     lineItems: 'Line Items',
     colDesc: 'Description',
     colQty: 'Qty',
@@ -118,6 +130,12 @@ const translations = {
     email: 'E-mail',
     address: 'Adresse',
     vat: 'TVA',
+    rcs: 'RCS',
+    businessAuthorization: 'Autorisation',
+    matricule: 'Matricule',
+    iban: 'IBAN',
+    bankName: 'Banque',
+    legalIdentifier: 'ID legal',
     lineItems: 'Lignes du devis',
     colDesc: 'Description',
     colQty: 'Qt\u00e9',
@@ -563,9 +581,33 @@ export function QuotePdfTemplate({ quote, company, locale = 'en' }: QuotePdfTemp
                 <Text style={styles.infoKey}>{t.email}</Text>
                 <Text style={styles.infoValue}>{notEmpty(company?.businessEmail)}</Text>
               </View>
-              <View style={[styles.infoRow, styles.infoRowLast]}>
+              <View style={styles.infoRow}>
                 <Text style={styles.infoKey}>{t.vat}</Text>
                 <Text style={styles.infoValue}>{notEmpty(company?.vatNumber)}</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoKey}>{t.rcs}</Text>
+                <Text style={styles.infoValue}>{notEmpty(company?.rcsNumber)}</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoKey}>{t.businessAuthorization}</Text>
+                <Text style={styles.infoValue}>{notEmpty(company?.businessAuthorizationNumber)}</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoKey}>{t.matricule}</Text>
+                <Text style={styles.infoValue}>{notEmpty(company?.matriculeNumber)}</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoKey}>{t.iban}</Text>
+                <Text style={styles.infoValue}>{notEmpty(company?.iban)}</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoKey}>{t.bankName}</Text>
+                <Text style={styles.infoValue}>{notEmpty(company?.bankName)}</Text>
+              </View>
+              <View style={[styles.infoRow, styles.infoRowLast]}>
+                <Text style={styles.infoKey}>{t.legalIdentifier}</Text>
+                <Text style={styles.infoValue}>{notEmpty(company?.legalIdentifier)}</Text>
               </View>
             </View>
 

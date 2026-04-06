@@ -20,6 +20,16 @@ const emailSchema = z
   .toLowerCase()
   .email(i18nKey('validation.invalidBusinessEmail'));
 
+const optionalText = z.preprocess(
+  (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+  z.string().trim().min(1).optional()
+);
+
+const updatableOptionalText = z.preprocess(
+  (value) => (typeof value === 'string' && value.trim() === '' ? null : value),
+  z.string().trim().min(1).nullable().optional()
+);
+
 const companyProfileFieldsSchema = z.object({
   companyName: z
     .string()
@@ -44,6 +54,13 @@ const companyProfileFieldsSchema = z.object({
     .string()
     .trim()
     .min(1, i18nKey('validation.vatNumberRequired')),
+
+  rcsNumber: optionalText,
+  businessAuthorizationNumber: optionalText,
+  matriculeNumber: optionalText,
+  iban: optionalText,
+  bankName: optionalText,
+  legalIdentifier: optionalText,
 });
 
 export const createCompanyProfileSchema = z.object({
@@ -53,6 +70,14 @@ export const createCompanyProfileSchema = z.object({
 export const createCompanyProfileInputSchema = companyProfileFieldsSchema;
 
 export const updateCompanyProfileSchema = companyProfileFieldsSchema
+  .extend({
+    rcsNumber: updatableOptionalText,
+    businessAuthorizationNumber: updatableOptionalText,
+    matriculeNumber: updatableOptionalText,
+    iban: updatableOptionalText,
+    bankName: updatableOptionalText,
+    legalIdentifier: updatableOptionalText,
+  })
   .partial()
   .refine((data) => Object.keys(data).length > 0, {
     message: i18nKey('validation.updateAtLeastOneField'),

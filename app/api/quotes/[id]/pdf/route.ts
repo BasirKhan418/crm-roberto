@@ -123,6 +123,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
           phone: (company.phone as string) || '',
           businessEmail: (company.businessEmail as string) || '',
           vatNumber: (company.vatNumber as string) || '',
+          rcsNumber: (company.rcsNumber as string | null) ?? null,
+          businessAuthorizationNumber: (company.businessAuthorizationNumber as string | null) ?? null,
+          matriculeNumber: (company.matriculeNumber as string | null) ?? null,
+          iban: (company.iban as string | null) ?? null,
+          bankName: (company.bankName as string | null) ?? null,
+          legalIdentifier: (company.legalIdentifier as string | null) ?? null,
           logoUrl: (company.logoUrl as string | null) ?? null,
         }
       : null;

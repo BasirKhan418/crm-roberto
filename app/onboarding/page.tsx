@@ -37,6 +37,12 @@ const onboardingMessages = {
     businessEmail: "Business Email",
     phone: "Phone Number",
     vatNumber: "VAT Number",
+    rcsNumber: "RCS Number",
+    businessAuthorizationNumber: "Business authorization number",
+    matriculeNumber: "Matricule number",
+    iban: "IBAN",
+    bankName: "Bank name",
+    legalIdentifier: "Additional legal identifier",
     hqAddress: "HQ Address",
     hqHint: "Include building and floor numbers for document accuracy.",
     agreementBody:
@@ -80,6 +86,12 @@ const onboardingMessages = {
     businessEmail: "E-mail professionnel",
     phone: "Num\u00e9ro de t\u00e9l\u00e9phone",
     vatNumber: "Num\u00e9ro de TVA",
+    rcsNumber: "Num\u00e9ro RCS",
+    businessAuthorizationNumber: "Num\u00e9ro d'autorisation d'\u00e9tablissement",
+    matriculeNumber: "Num\u00e9ro matricule",
+    iban: "IBAN",
+    bankName: "Banque",
+    legalIdentifier: "Identifiant l\u00e9gal suppl\u00e9mentaire",
     hqAddress: "Adresse du si\u00e8ge",
     hqHint: "Incluez le b\u00e2timent et l'\u00e9tage pour une meilleure pr\u00e9cision documentaire.",
     agreementBody:
@@ -129,6 +141,12 @@ export default function IdentitySetupPage() {
     businessEmail: "",
     phone: "",
     vatNumber: "",
+    rcsNumber: "",
+    businessAuthorizationNumber: "",
+    matriculeNumber: "",
+    iban: "",
+    bankName: "",
+    legalIdentifier: "",
     address: "",
   })
 
@@ -213,6 +231,12 @@ export default function IdentitySetupPage() {
         businessEmail: formData.businessEmail.trim(),
         phone: formData.phone.trim(),
         vatNumber: formData.vatNumber.trim(),
+        rcsNumber: formData.rcsNumber.trim(),
+        businessAuthorizationNumber: formData.businessAuthorizationNumber.trim(),
+        matriculeNumber: formData.matriculeNumber.trim(),
+        iban: formData.iban.trim(),
+        bankName: formData.bankName.trim(),
+        legalIdentifier: formData.legalIdentifier.trim(),
         address: formData.address.trim(),
       }
 
@@ -403,15 +427,21 @@ export default function IdentitySetupPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
               {[
-                { key: "companyName", label: t.companyName, placeholder: "Acme Corporation" },
-                { key: "ownerName", label: t.ownerName, placeholder: "Eleanor Vance" },
-                { key: "businessEmail", label: t.businessEmail, placeholder: "executive@company.com", type: "email" },
-                { key: "phone", label: t.phone, placeholder: "9876543210", type: "tel" },
-                { key: "vatNumber", label: t.vatNumber, placeholder: "IE 1234567T" },
+                { key: "companyName", label: t.companyName, placeholder: "Acme Corporation", required: true },
+                { key: "ownerName", label: t.ownerName, placeholder: "Eleanor Vance", required: true },
+                { key: "businessEmail", label: t.businessEmail, placeholder: "executive@company.com", type: "email", required: true },
+                { key: "phone", label: t.phone, placeholder: "9876543210", type: "tel", required: true },
+                { key: "vatNumber", label: t.vatNumber, placeholder: "LU12345678", required: true },
+                { key: "rcsNumber", label: t.rcsNumber, placeholder: "B123456", required: false },
+                { key: "businessAuthorizationNumber", label: t.businessAuthorizationNumber, placeholder: "10012345/0", required: false },
+                { key: "matriculeNumber", label: t.matriculeNumber, placeholder: "20001234567", required: false },
+                { key: "iban", label: t.iban, placeholder: "LU12 3456 7890 1234 5678", required: false },
+                { key: "bankName", label: t.bankName, placeholder: "BGL BNP Paribas", required: false },
+                { key: "legalIdentifier", label: t.legalIdentifier, placeholder: "Extra local legal reference", required: false },
               ].map((field) => (
                 <div key={field.key} className="space-y-1.5">
                   <Label className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
-                    {field.label} <span className="text-red-500">*</span>
+                    {field.label} {field.required ? <span className="text-red-500">*</span> : null}
                   </Label>
                   <Input
                     type={field.type ?? "text"}

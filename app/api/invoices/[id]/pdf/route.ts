@@ -50,6 +50,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
           phone?: string | null;
           businessEmail?: string | null;
           vatNumber?: string | null;
+          rcsNumber?: string | null;
+          businessAuthorizationNumber?: string | null;
+          matriculeNumber?: string | null;
+          iban?: string | null;
+          bankName?: string | null;
+          legalIdentifier?: string | null;
           logoUrl?: string | null;
         })
       : null;
@@ -128,6 +134,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
             phone: profile.phone ?? null,
             businessEmail: profile.businessEmail ?? null,
             vatNumber: profile.vatNumber ?? null,
+            rcsNumber: profile.rcsNumber ?? null,
+            businessAuthorizationNumber: profile.businessAuthorizationNumber ?? null,
+            matriculeNumber: profile.matriculeNumber ?? null,
+            iban: profile.iban ?? null,
+            bankName: profile.bankName ?? null,
+            legalIdentifier: profile.legalIdentifier ?? null,
             logoUrl: profile.logoUrl ?? null,
           }
         : null,
