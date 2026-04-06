@@ -136,7 +136,10 @@ export default function SignupPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          ...payload,
+          locale,
+        }),
       })
       const result = await response.json()
       setIsLoading(false)
@@ -177,7 +180,10 @@ export default function SignupPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(signupPayload),
+        body: JSON.stringify({
+          ...signupPayload,
+          locale,
+        }),
       })
 
       const result = await response.json()

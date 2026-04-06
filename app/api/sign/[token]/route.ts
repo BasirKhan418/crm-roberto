@@ -7,6 +7,7 @@ import QuoteSignature from "@/db/models/QuoteSignature";
 import User from "@/db/models/User";
 import { createActivityLog } from "@/db/repository/activity";
 import { sendQuoteRejectionNotification } from "@/lib/email";
+import { resolveLocaleFromRequest, resolveLocaleFromValue } from "@/lib/i18n/locale";
 import { isTokenExpired } from "@/lib/tokens";
 
 interface RouteParams {
@@ -309,6 +310,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         clientName: quote.clientSnapshot?.fullName ?? "Client",
         rejectionComment: comment,
         quoteDetailUrl,
+        locale: resolveLocaleFromValue(
+          typeof (quote as { sentLocale?: string | null }).sentLocale === "string"
+            ? (quote as { sentLocale?: string | null }).sentLocale
+            : resolveLocaleFromRequest(request)
+        ),
       });
     } catch {
       // email failure must not affect the client response

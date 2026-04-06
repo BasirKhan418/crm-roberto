@@ -238,6 +238,7 @@ export default function IdentitySetupPage() {
         bankName: formData.bankName.trim(),
         legalIdentifier: formData.legalIdentifier.trim(),
         address: formData.address.trim(),
+        locale,
       }
 
       const response = await fetch("/api/cprofile", {

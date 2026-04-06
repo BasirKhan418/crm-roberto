@@ -123,7 +123,7 @@ export default function ForgotPasswordPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email: data.email, status: "forgot" }),
+        body: JSON.stringify({ email: data.email, status: "forgot", locale }),
       })
       const result = await response.json()
       setIsLoading(false)
@@ -150,7 +150,7 @@ export default function ForgotPasswordPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email: userEmail, status: "verify", otp: data.otp }),
+        body: JSON.stringify({ email: userEmail, status: "verify", otp: data.otp, locale }),
       })
       const result = await response.json()
       setIsLoading(false)

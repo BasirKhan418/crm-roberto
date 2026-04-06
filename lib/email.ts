@@ -189,8 +189,8 @@ function buildDocumentEmailTemplate({
 </html>`;
 }
 
-function formatDate(value: Date | string): string {
-  return new Intl.DateTimeFormat("en-GB", {
+function formatDate(value: Date | string, locale: TranslationLocale = 'en'): string {
+  return new Intl.DateTimeFormat(locale === 'fr' ? 'fr-FR' : 'en-GB', {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -579,7 +579,7 @@ export async function sendPaymentReceipt({
     details: [
       { label: translate(locale, 'email.paymentReceipt.amountPaid'), value: amount },
       { label: translate(locale, 'email.paymentReceipt.method'), value: paymentMethod },
-      { label: translate(locale, 'email.paymentReceipt.paidAt'), value: formatDate(paidAt) },
+      { label: translate(locale, 'email.paymentReceipt.paidAt'), value: formatDate(paidAt, locale) },
     ],
     messageBody,
     locale,
@@ -590,7 +590,7 @@ export async function sendPaymentReceipt({
     invoiceNumber,
     amount,
     paymentMethod,
-    paidAt: formatDate(paidAt),
+    paidAt: formatDate(paidAt, locale),
   });
 
   return sendDocumentEmail({

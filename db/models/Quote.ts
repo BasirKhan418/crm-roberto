@@ -263,6 +263,12 @@ const QuoteSchema = new mongoose.Schema(
       default: null,
     },
 
+    sentLocale: {
+      type: String,
+      enum: ["en", "fr"],
+      default: null,
+    },
+
     signedAt: {
       type: Date,
       default: null,

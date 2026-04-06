@@ -8,6 +8,7 @@ import { getCompanyProfileByUserId } from '@/db/repository/cprofile';
 import { getQuoteById } from '@/db/repository/quote';
 import { computeQuoteLine } from '@/lib/quote-calculations';
 import { QuotePdfTemplate } from '@/lib/pdf/QuotePdfTemplate';
+import { resolveLocaleFromRequest } from '@/lib/i18n/locale';
 import getMe from '@/utils/middlewares/useMe';
 
 export const runtime = 'nodejs';
@@ -24,7 +25,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     const rawLocale = request.nextUrl.searchParams.get('locale');
-    const locale: 'en' | 'fr' = rawLocale === 'fr' ? 'fr' : 'en';
+    const locale = resolveLocaleFromRequest(request, { rawLocale });
 
     const { id } = await params;
     const quote = await getQuoteById(me.user.id, id);

@@ -7,9 +7,16 @@ import getUserByEmail from "@/db/repository/getUserByEmail";
 import { SendForgotPasswordEmail } from "@/emails/auth/forgotEmail";
 import { buildValidationError } from "@/utils/api/validation";
 import { forgotPasswordSchema } from "@/validators/forgot.schema";
+import { resolveLocaleFromRequest } from "@/lib/i18n/locale";
 export async function POST(request: NextRequest) {
     try{
-        const { email ,status,otp} = await request.json();
+        const { email ,status,otp, locale: rawLocale } = await request.json() as {
+            email: string;
+            status: string;
+            otp?: string;
+            locale?: string;
+        };
+        const locale = resolveLocaleFromRequest(request, { rawLocale });
         const parseResult = forgotPasswordSchema.safeParse({ email, status, otp });
         if (!parseResult.success) {
             return NextResponse.json(buildValidationError(parseResult.error), { status: 400 });
@@ -25,10 +32,13 @@ export async function POST(request: NextRequest) {
             if (!result.success) {
                 return NextResponse.json({ message: result.message, success: false },{ status: 429 });
             }
-            SendForgotPasswordEmail({ email, otp: generatedOtp });
+            SendForgotPasswordEmail({ email, otp: generatedOtp, locale });
             return NextResponse.json({ message: "If that email is registered, a reset code has been sent.", success: true },{ status: 200 });
         }
         //handle otp verification for forgot password
+        if (typeof otp !== "string" || !otp.trim()) {
+            return NextResponse.json({ message: "OTP is required", success: false },{ status: 400 });
+        }
         const verifyResult = await verifyOtp(`forgot:${email}`, otp);
         if(verifyResult.success){
             const token = jwt.sign({ email }, process.env.JWT_SECRET ||"", { expiresIn: '15m' });

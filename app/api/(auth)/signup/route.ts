@@ -6,10 +6,17 @@ import { generateOtp } from "@/utils/otp/generateOtp";
 import { sendOtpEmail } from "@/emails/auth/verifyEmail";
 import { buildValidationError } from "@/utils/api/validation";
 import { randomInt } from "crypto";
+import { resolveLocaleFromRequest } from "@/lib/i18n/locale";
 export async function POST(request: NextRequest) {
     try {
         const pepper = process.env.PASSWORD_PEPPER;
-        const { name, email, password } = await request.json();
+        const { name, email, password, locale: rawLocale } = await request.json() as {
+            name: string;
+            email: string;
+            password: string;
+            locale?: string;
+        };
+        const locale = resolveLocaleFromRequest(request, { rawLocale });
       
         const validation = signupSchema.safeParse({ name, email, password });
 
@@ -25,7 +32,7 @@ export async function POST(request: NextRequest) {
             if (!otpResult.success) {
                 return NextResponse.json({ message: otpResult.message, success: false }, { status: 429 });
             }
-            sendOtpEmail({ email, otp });
+            sendOtpEmail({ email, otp, locale });
         }
         return NextResponse.json(result, { status: result.success ? 200 : 400 });
     }

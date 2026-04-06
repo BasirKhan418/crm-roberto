@@ -7,6 +7,7 @@ import ConnectDb from '@/db/connectDb';
 import Invoice from '@/db/models/Invoice';
 import Payment from '@/db/models/Payment';
 import { getCompanyProfileByUserId } from '@/db/repository/cprofile';
+import { resolveLocaleFromRequest } from '@/lib/i18n/locale';
 import { InvoicePdfTemplate } from '@/lib/pdf/InvoicePdfTemplate';
 import { buildInvoicePayUrl, isTokenExpired } from '@/lib/tokens';
 import getMe from '@/utils/middlewares/useMe';
@@ -25,7 +26,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     const rawLocale = request.nextUrl.searchParams.get('locale');
-    const locale: 'en' | 'fr' = rawLocale === 'fr' ? 'fr' : 'en';
+    const locale = resolveLocaleFromRequest(request, { rawLocale });
 
     const { id } = await params;
 

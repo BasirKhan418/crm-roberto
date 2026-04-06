@@ -8,9 +8,13 @@ import ConnectDb from "@/db/connectDb";
 import { sendWelcomeEmail } from "@/emails/auth/sendWelcomeEmail";
 import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
+import { resolveLocaleFromRequest } from "@/lib/i18n/locale";
 export const POST = async (request: NextRequest) => {
     try{
-        const data = await request.json();
+        const data = await request.json() as Record<string, unknown>;
+        const locale = resolveLocaleFromRequest(request, {
+            rawLocale: typeof data.locale === "string" ? data.locale : null,
+        });
 
         const me = await getMe(true);
         if(!me.success || !me.user){
@@ -51,7 +55,7 @@ export const POST = async (request: NextRequest) => {
         await User.findByIdAndUpdate(me.user.id, { isOnboardingComplete: true });
 
         if (!profileExists) {
-            await sendWelcomeEmail({ email: me.user.email, name: me.user.name || "User" });
+            await sendWelcomeEmail({ email: me.user.email, name: me.user.name || "User", locale });
         }
 
         const newToken = jwt.sign(

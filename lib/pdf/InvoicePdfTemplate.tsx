@@ -138,7 +138,7 @@ const translations = {
     matricule: 'Matricule',
     iban: 'IBAN',
     bankName: 'Banque',
-    legalIdentifier: 'ID legal',
+    legalIdentifier: 'ID légal',
     lineItems: 'Prestations / Produits',
     colDesc: 'Description',
     colQty: 'Qt\u00e9',

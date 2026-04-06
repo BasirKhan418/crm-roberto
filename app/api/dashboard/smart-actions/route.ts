@@ -10,6 +10,7 @@ import Note from '@/db/models/Note';
 import Quote from '@/db/models/Quote';
 import { getCompanyProfileByUserId } from '@/db/repository/cprofile';
 import { sendInvoice } from '@/lib/email';
+import { resolveLocaleFromRequest } from '@/lib/i18n/locale';
 import { InvoicePdfTemplate } from '@/lib/pdf/InvoicePdfTemplate';
 import getMe from '@/utils/middlewares/useMe';
 
@@ -570,7 +571,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: false, message: 'invoiceId is required' }, { status: 400 });
       }
 
-      const locale: Locale = body.locale === 'fr' ? 'fr' : 'en';
+      const locale = resolveLocaleFromRequest(request, { rawLocale: body.locale }) as Locale;
       const result = await sendInvoiceReminder(me.user.id, invoiceId, locale);
       return NextResponse.json({ success: result.ok, message: result.message }, { status: result.status });
     }

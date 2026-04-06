@@ -9,6 +9,7 @@ import Payment from '@/db/models/Payment';
 import StripeConnect from '@/db/models/StripeConnect';
 import { getCompanyProfileByUserId } from '@/db/repository/cprofile';
 import { sendInvoice } from '@/lib/email';
+import { resolveLocaleFromRequest } from '@/lib/i18n/locale';
 import { InvoicePdfTemplate } from '@/lib/pdf/InvoicePdfTemplate';
 import { buildInvoicePayUrl, generatePaymentToken, generateTokenExpiry, isTokenExpired } from '@/lib/tokens';
 import getMe from '@/utils/middlewares/useMe';
@@ -36,7 +37,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       locale?: string;
       sendMode?: string;
     };
-    const locale: 'en' | 'fr' = rawLocale === 'fr' ? 'fr' : 'en';
+    const locale = resolveLocaleFromRequest(request, { rawLocale });
     const sendMode: InvoiceSendMode = rawSendMode === 'online' ? 'online' : 'normal';
     const customSubject = typeof subject === 'string' && subject.trim() ? subject.trim() : undefined;
     const customMessageBody = typeof message === 'string' && message.trim() ? message.trim() : undefined;

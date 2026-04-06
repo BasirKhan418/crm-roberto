@@ -9,6 +9,7 @@ import { createActivityLog } from '@/db/repository/activity';
 import { sendQuoteEmail } from '@/lib/email';
 import { computeQuoteLine } from '@/lib/quote-calculations';
 import { QuotePdfTemplate } from '@/lib/pdf/QuotePdfTemplate';
+import { resolveLocaleFromRequest } from '@/lib/i18n/locale';
 import { buildSignUrl, generateSignToken, generateTokenExpiry } from '@/lib/tokens';
 import getMe from '@/utils/middlewares/useMe';
 
@@ -33,7 +34,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       locale?: string;
     };
 
-    const locale: 'en' | 'fr' = rawLocale === 'fr' ? 'fr' : 'en';
+    const locale = resolveLocaleFromRequest(request, { rawLocale });
     const { id } = await params;
 
     const quote = await getQuoteById(me.user.id, id);
@@ -181,6 +182,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           signatureTokenExpiry,
           signedStatus: 'not_signed',
           signedAt: null,
+          sentLocale: locale,
         },
       }
     );
