@@ -30,7 +30,8 @@ interface SendSignLinkParams extends BaseSendParams {
 
 interface SendInvoiceParams extends BaseSendParams {
   invoiceNumber: string;
-  paymentUrl: string;
+  paymentUrl?: string | null;
+  includeOnlinePayment?: boolean;
   amount: string;
   locale?: TranslationLocale;
   subject?: string;
@@ -391,6 +392,7 @@ export async function sendInvoice({
   clientName,
   invoiceNumber,
   paymentUrl,
+  includeOnlinePayment,
   amount,
   companyName,
   pdfBuffer,
@@ -398,6 +400,10 @@ export async function sendInvoice({
   subject,
   messageBody,
 }: SendInvoiceParams) {
+  const shouldIncludeOnlinePayment = typeof includeOnlinePayment === 'boolean'
+    ? includeOnlinePayment
+    : Boolean(paymentUrl);
+
   const resolvedSubject = subject?.trim()
     ? subject.trim()
     : translate(locale, 'email.sendInvoice.subject', { invoiceNumber, amount });
@@ -411,14 +417,16 @@ export async function sendInvoice({
     clientName,
     documentLabel: translate(locale, 'email.sendInvoice.documentLabel'),
     documentNumber: invoiceNumber,
-    details: [
-      { label: translate(locale, 'email.sendInvoice.amountDue'), value: amount },
-      { label: translate(locale, 'email.sendInvoice.payment'), value: translate(locale, 'email.sendInvoice.onlineCheckout') },
-    ],
+    details: shouldIncludeOnlinePayment
+      ? [
+          { label: translate(locale, 'email.sendInvoice.amountDue'), value: amount },
+          { label: translate(locale, 'email.sendInvoice.payment'), value: translate(locale, 'email.sendInvoice.onlineCheckout') },
+        ]
+      : [{ label: translate(locale, 'email.sendInvoice.amountDue'), value: amount }],
     messageBody: resolvedMessageBody,
     locale,
-    ctaLabel: translate(locale, 'email.sendInvoice.ctaLabel'),
-    ctaUrl: paymentUrl,
+    ctaLabel: shouldIncludeOnlinePayment ? translate(locale, 'email.sendInvoice.ctaLabel') : undefined,
+    ctaUrl: shouldIncludeOnlinePayment ? paymentUrl ?? undefined : undefined,
   });
 
   const text = [
@@ -426,7 +434,9 @@ export async function sendInvoice({
     '',
     translate(locale, 'email.sendInvoice.documentLabel') + ` ${invoiceNumber}`,
     `${translate(locale, 'email.sendInvoice.amountDue')}: ${amount}`,
-    `${translate(locale, 'email.sendInvoice.ctaLabel')}: ${paymentUrl}`,
+    ...(shouldIncludeOnlinePayment && paymentUrl
+      ? [`${translate(locale, 'email.sendInvoice.ctaLabel')}: ${paymentUrl}`]
+      : []),
   ].join('\n');
 
   return sendDocumentEmail({

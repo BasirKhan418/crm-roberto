@@ -19,6 +19,8 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
+type InvoiceSendMode = 'normal' | 'online';
+
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     const me = await getMe(true);
@@ -27,13 +29,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     const body = await request.json();
-    const { email, subject, message, locale: rawLocale } = body as {
+    const { email, subject, message, locale: rawLocale, sendMode: rawSendMode } = body as {
       email?: string;
       subject?: string;
       message?: string;
       locale?: string;
+      sendMode?: string;
     };
     const locale: 'en' | 'fr' = rawLocale === 'fr' ? 'fr' : 'en';
+    const sendMode: InvoiceSendMode = rawSendMode === 'online' ? 'online' : 'normal';
     const customSubject = typeof subject === 'string' && subject.trim() ? subject.trim() : undefined;
     const customMessageBody = typeof message === 'string' && message.trim() ? message.trim() : undefined;
 
@@ -41,15 +45,17 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     await ConnectDb();
 
-    const stripeConnect = await StripeConnect.findOne({ userId: me.user.id })
-      .select('onboardingComplete chargesEnabled payoutsEnabled')
-      .lean<{ onboardingComplete?: boolean; chargesEnabled?: boolean; payoutsEnabled?: boolean } | null>();
+    if (sendMode === 'online') {
+      const stripeConnect = await StripeConnect.findOne({ userId: me.user.id })
+        .select('onboardingComplete chargesEnabled payoutsEnabled')
+        .lean<{ onboardingComplete?: boolean; chargesEnabled?: boolean; payoutsEnabled?: boolean } | null>();
 
-    if (!stripeConnect?.onboardingComplete || !stripeConnect?.chargesEnabled) {
-      return NextResponse.json(
-        { success: false, message: 'Please connect Stripe before sending invoice.' },
-        { status: 422 }
-      );
+      if (!stripeConnect?.onboardingComplete || !stripeConnect?.chargesEnabled) {
+        return NextResponse.json(
+          { success: false, message: 'Please connect Stripe before sending invoice with online payment.' },
+          { status: 422 }
+        );
+      }
     }
 
     const invoice = await Invoice.findOne({ _id: id, userId: me.user.id })
@@ -81,19 +87,23 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
-    let paymentToken = typeof invoice.paymentToken === 'string' && invoice.paymentToken.trim() ? invoice.paymentToken : null;
-    let paymentTokenExpiry = invoice.paymentTokenExpiry ?? null;
+    let paymentUrl: string | null = null;
 
-    if (!paymentToken || isTokenExpired(paymentTokenExpiry)) {
-      paymentToken = generatePaymentToken();
-      paymentTokenExpiry = generateTokenExpiry(30);
-      await Invoice.updateOne(
-        { _id: invoice._id, userId: me.user.id },
-        { $set: { paymentToken, paymentTokenExpiry } }
-      );
+    if (sendMode === 'online') {
+      let paymentToken = typeof invoice.paymentToken === 'string' && invoice.paymentToken.trim() ? invoice.paymentToken : null;
+      let paymentTokenExpiry = invoice.paymentTokenExpiry ?? null;
+
+      if (!paymentToken || isTokenExpired(paymentTokenExpiry)) {
+        paymentToken = generatePaymentToken();
+        paymentTokenExpiry = generateTokenExpiry(30);
+        await Invoice.updateOne(
+          { _id: invoice._id, userId: me.user.id },
+          { $set: { paymentToken, paymentTokenExpiry } }
+        );
+      }
+
+      paymentUrl = buildInvoicePayUrl(paymentToken, appUrl);
     }
-
-    const paymentUrl = buildInvoicePayUrl(paymentToken, appUrl);
 
     const companyResult = await getCompanyProfileByUserId(me.user.id);
     const profile = companyResult.success
@@ -144,53 +154,69 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       .select('amount method type paidAt createdAt')
       .lean();
 
-    const invoicePdf = React.createElement(InvoicePdfTemplate, {
-      invoice: {
-        status: invoice.status,
-        invoiceNumber: invoice.invoiceNumber,
-        quoteNumber: invoice.quoteNumber ?? null,
-        date: invoice.date,
-        dueDate: invoice.dueDate ?? null,
-        clientSnapshot: {
-          fullName: invoice.clientSnapshot?.fullName ?? 'Client',
-          companyName: invoice.clientSnapshot?.companyName ?? null,
-          address: invoice.clientSnapshot?.address ?? null,
-          email: invoice.clientSnapshot?.email ?? null,
-          phone: invoice.clientSnapshot?.phone ?? null,
-          vatNumber: invoice.clientSnapshot?.vatNumber ?? null,
-        },
-        lineItems: computedLineItems,
-        totalExcludingTaxBeforeDiscount,
-        totalDiscountExcludingTax,
-        totalExcludingTax: invoice.totalExcludingTax,
-        totalVat: invoice.totalVat,
-        totalIncludingTax: invoice.totalIncludingTax,
-        depositPercentage,
-        notes: invoice.notes ?? null,
-        payments: payments.map((payment) => ({
-          amount: payment.amount,
-          method: payment.method,
-          type: payment.type,
-          paidAt: payment.paidAt ?? null,
-          createdAt: payment.createdAt ?? null,
-        })),
-      },
-      company: profile
-        ? {
-            companyName: profile.companyName ?? profile.ownerName ?? 'CRM',
-            ownerName: profile.ownerName ?? null,
-            address: profile.address ?? null,
-            phone: profile.phone ?? null,
-            businessEmail: profile.businessEmail ?? null,
-            vatNumber: profile.vatNumber ?? null,
-            logoUrl: profile.logoUrl ?? null,
-          }
-        : null,
-      paymentUrl,
-      locale,
-    }) as unknown as React.ReactElement<DocumentProps>;
+    const baseCompanyData = profile
+      ? {
+          companyName: profile.companyName ?? profile.ownerName ?? 'CRM',
+          ownerName: profile.ownerName ?? null,
+          address: profile.address ?? null,
+          phone: profile.phone ?? null,
+          businessEmail: profile.businessEmail ?? null,
+          vatNumber: profile.vatNumber ?? null,
+          logoUrl: profile.logoUrl ?? null,
+        }
+      : null;
 
-    const pdfBuffer = await renderToBuffer(invoicePdf);
+    const createPdfDocument = (logoUrlOverride?: string | null) =>
+      React.createElement(InvoicePdfTemplate, {
+        invoice: {
+          status: invoice.status,
+          invoiceNumber: invoice.invoiceNumber,
+          quoteNumber: invoice.quoteNumber ?? null,
+          date: invoice.date,
+          dueDate: invoice.dueDate ?? null,
+          clientSnapshot: {
+            fullName: invoice.clientSnapshot?.fullName ?? 'Client',
+            companyName: invoice.clientSnapshot?.companyName ?? null,
+            address: invoice.clientSnapshot?.address ?? null,
+            email: invoice.clientSnapshot?.email ?? null,
+            phone: invoice.clientSnapshot?.phone ?? null,
+            vatNumber: invoice.clientSnapshot?.vatNumber ?? null,
+          },
+          lineItems: computedLineItems,
+          totalExcludingTaxBeforeDiscount,
+          totalDiscountExcludingTax,
+          totalExcludingTax: invoice.totalExcludingTax,
+          totalVat: invoice.totalVat,
+          totalIncludingTax: invoice.totalIncludingTax,
+          depositPercentage,
+          notes: invoice.notes ?? null,
+          payments: payments.map((payment) => ({
+            amount: payment.amount,
+            method: payment.method,
+            type: payment.type,
+            paidAt: payment.paidAt ?? null,
+            createdAt: payment.createdAt ?? null,
+          })),
+        },
+        company: baseCompanyData
+          ? {
+              ...baseCompanyData,
+              logoUrl: logoUrlOverride ?? baseCompanyData.logoUrl,
+            }
+          : null,
+        paymentUrl,
+        locale,
+      }) as unknown as React.ReactElement<DocumentProps>;
+
+    let pdfBuffer: Buffer;
+    try {
+      pdfBuffer = await renderToBuffer(createPdfDocument());
+    } catch {
+      if (!baseCompanyData?.logoUrl) {
+        return NextResponse.json({ success: false, message: 'Failed to generate PDF' }, { status: 500 });
+      }
+      pdfBuffer = await renderToBuffer(createPdfDocument(''));
+    }
 
     await sendInvoice({
       to: recipientEmail,
@@ -201,6 +227,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       companyName,
       pdfBuffer,
       locale,
+      includeOnlinePayment: sendMode === 'online',
       subject: customSubject,
       messageBody: customMessageBody,
     });

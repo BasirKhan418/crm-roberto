@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Image from 'next/image';
 
 import { AlertTriangleIcon, Loader2Icon, MailIcon, X } from 'lucide-react';
@@ -20,6 +20,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 type Locale = 'en' | 'fr';
+type InvoiceSendMode = 'normal' | 'online';
 
 interface SendInvoiceModalProps {
   open: boolean;
@@ -36,52 +37,60 @@ interface SendInvoiceModalProps {
 const translations = {
   en: {
     title: 'Send invoice by email',
-    description: 'Send this invoice as a PDF attachment and include online payment.',
+    description: 'Send this invoice as a branded PDF attachment. Optionally include online payment.',
     emailLabel: 'Client email',
     emailPlaceholder: 'client@example.com',
     subjectLabel: 'Subject',
     messageLabel: 'Message',
     cancel: 'Cancel',
-    send: 'Send invoice',
-    sending: 'Sending...',
+    sendNormal: 'Send',
+    sendOnline: 'Send with online payment',
+    sendingNormal: 'Sending invoice...',
+    sendingOnline: 'Sending invoice with online payment...',
+    modeHint: 'Normal send includes the PDF only. Online payment adds a secure pay button in the email and PDF.',
     emailRequired: 'Client email is required',
-    success: 'Invoice sent successfully',
+    successNormal: 'Invoice sent successfully',
+    successOnline: 'Invoice with online payment sent successfully',
     error: 'Failed to send invoice',
     stripeErrorTitle: 'Stripe is not connected',
-    stripeErrorDescription: 'Please connect Stripe to send invoices and accept online payments.',
+    stripeErrorDescription: 'Please connect Stripe to send invoices with online payment.',
     connectStripe: 'Connect Stripe',
     connectRedirecting: 'Redirecting to Stripe onboarding...',
     wireDisconnected: 'Wire disconnected illustration placeholder',
-    defaultSubject: (invoiceNumber: string) => `Invoice ${invoiceNumber} - Payment details`,
+    defaultSubject: (invoiceNumber: string) => `Invoice ${invoiceNumber}`,
     defaultMessage: (invoiceNumber: string, clientName?: string | null, senderCompany?: string | null) => {
       const greeting = clientName ? `Dear ${clientName},` : 'Hello,';
       const signOff = senderCompany ? `Best regards,\n${senderCompany}` : 'Best regards,';
-      return `${greeting}\n\nPlease find attached your invoice ${invoiceNumber}.\n\nUse the secure payment button in this email to complete payment online.\n\nIf you have any questions about this invoice, feel free to reply to this email.\n\n${signOff}`;
+      return `${greeting}\n\nPlease find attached your invoice ${invoiceNumber}.\n\nIf you have any questions about this invoice, feel free to reply to this email.\n\n${signOff}`;
     },
   },
   fr: {
     title: 'Envoyer la facture par e-mail',
-    description: 'Envoyer cette facture en pi\u00e8ce jointe PDF avec paiement en ligne.',
+    description: 'Envoyez cette facture en PDF joint avec votre branding. Le paiement en ligne est optionnel.',
     emailLabel: 'E-mail du client',
     emailPlaceholder: 'client@exemple.com',
     subjectLabel: 'Objet',
     messageLabel: 'Message',
     cancel: 'Annuler',
-    send: 'Envoyer la facture',
-    sending: 'Envoi en cours...',
+    sendNormal: 'Envoyer normalement',
+    sendOnline: 'Envoyer avec paiement en ligne',
+    sendingNormal: 'Envoi de la facture...',
+    sendingOnline: 'Envoi de la facture avec paiement en ligne...',
+    modeHint: 'Envoi normal: PDF uniquement. Paiement en ligne: ajoute un bouton de paiement sécurisé dans l’e-mail et le PDF.',
     emailRequired: "L'e-mail du client est requis",
-    success: 'Facture envoy\u00e9e avec succ\u00e8s',
+    successNormal: 'Facture envoy\u00e9e avec succ\u00e8s',
+    successOnline: 'Facture envoy\u00e9e avec paiement en ligne',
     error: "Impossible d'envoyer la facture",
     stripeErrorTitle: "Stripe n'est pas connect\u00e9",
-    stripeErrorDescription: 'Veuillez connecter Stripe pour envoyer des factures et accepter les paiements en ligne.',
+    stripeErrorDescription: 'Veuillez connecter Stripe pour envoyer des factures avec paiement en ligne.',
     connectStripe: 'Connecter Stripe',
     connectRedirecting: "Redirection vers l'onboarding Stripe...",
     wireDisconnected: 'Emplacement illustration c\u00e2ble d\u00e9connect\u00e9',
-    defaultSubject: (invoiceNumber: string) => `Facture ${invoiceNumber} - D\u00e9tails de paiement`,
+    defaultSubject: (invoiceNumber: string) => `Facture ${invoiceNumber}`,
     defaultMessage: (invoiceNumber: string, clientName?: string | null, senderCompany?: string | null) => {
       const greeting = clientName ? `Bonjour ${clientName},` : 'Bonjour,';
       const signOff = senderCompany ? `Bien cordialement,\n${senderCompany}` : 'Bien cordialement,';
-      return `${greeting}\n\nVeuillez trouver ci-joint votre facture ${invoiceNumber}.\n\nUtilisez le bouton de paiement s\u00e9curis\u00e9 dans cet e-mail pour r\u00e9gler en ligne.\n\nSi vous avez des questions sur cette facture, vous pouvez r\u00e9pondre \u00e0 cet e-mail.\n\n${signOff}`;
+      return `${greeting}\n\nVeuillez trouver ci-joint votre facture ${invoiceNumber}.\n\nSi vous avez des questions sur cette facture, vous pouvez r\u00e9pondre \u00e0 cet e-mail.\n\n${signOff}`;
     },
   },
 };
@@ -99,17 +108,61 @@ export default function SendInvoiceModal({
 }: SendInvoiceModalProps) {
   const t = translations[locale];
 
+  const [resolvedCompanyName, setResolvedCompanyName] = useState<string | null>(companyName ?? null);
+
   const getInitialSubject = useCallback(() => t.defaultSubject(invoiceNumber), [t, invoiceNumber]);
   const getInitialMessage = useCallback(
-    () => t.defaultMessage(invoiceNumber, clientName, companyName),
-    [t, invoiceNumber, clientName, companyName]
+    () => t.defaultMessage(invoiceNumber, clientName, resolvedCompanyName),
+    [t, invoiceNumber, clientName, resolvedCompanyName]
   );
 
   const [email, setEmail] = useState(clientEmail || '');
   const [subject, setSubject] = useState(getInitialSubject);
   const [message, setMessage] = useState(getInitialMessage);
-  const [sending, setSending] = useState(false);
+  const [sendingMode, setSendingMode] = useState<InvoiceSendMode | null>(null);
   const [showStripeError, setShowStripeError] = useState(false);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    setResolvedCompanyName(companyName ?? null);
+
+    if (companyName?.trim()) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadCompanyProfile = async () => {
+      try {
+        const response = await fetch('/api/cprofile', { method: 'GET', cache: 'no-store' });
+        if (!response.ok) {
+          return;
+        }
+
+        const payload = (await response.json()) as {
+          success?: boolean;
+          profile?: { companyName?: string | null; ownerName?: string | null };
+        };
+
+        if (!cancelled && payload.success && payload.profile) {
+          setResolvedCompanyName(payload.profile.companyName || payload.profile.ownerName || null);
+        }
+      } catch {
+        // Ignore profile fetch failure and keep existing fallback.
+      }
+    };
+
+    void loadCompanyProfile();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, companyName]);
+
+  const sending = sendingMode !== null;
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (nextOpen) {
@@ -117,6 +170,7 @@ export default function SendInvoiceModal({
       setSubject(getInitialSubject());
       setMessage(getInitialMessage());
       setShowStripeError(false);
+      setSendingMode(null);
     }
     onOpenChange(nextOpen);
   };
@@ -131,14 +185,14 @@ export default function SendInvoiceModal({
     window.location.assign('/api/stripe/connect');
   }
 
-  async function handleSend() {
+  async function handleSend(mode: InvoiceSendMode) {
     const trimmedEmail = email.trim();
     if (!trimmedEmail) {
       toast.error(t.emailRequired);
       return;
     }
 
-    setSending(true);
+    setSendingMode(mode);
     try {
       const response = await fetch(`/api/invoices/${invoiceId}/send`, {
         method: 'POST',
@@ -148,32 +202,43 @@ export default function SendInvoiceModal({
           subject: subject.trim(),
           message: message.trim(),
           locale,
+          sendMode: mode,
         }),
       });
 
       const payload = (await response.json()) as { success?: boolean; message?: string };
       if (!response.ok || !payload.success) {
         const resolvedMessage = payload.message || t.error;
-        if (isStripeNotConnectedError(resolvedMessage)) {
+        if (mode === 'online' && isStripeNotConnectedError(resolvedMessage)) {
           setShowStripeError(true);
           return;
         }
         throw new Error(resolvedMessage);
       }
 
-      toast.success(t.success);
+      toast.success(mode === 'online' ? t.successOnline : t.successNormal);
       onSent?.();
       onOpenChange(false);
     } catch (error) {
       toast.error(resolveTranslatedError(locale, error, t.error));
     } finally {
-      setSending(false);
+      setSendingMode(null);
     }
   }
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="flex w-[calc(100vw-1rem)] max-w-md max-h-[calc(100dvh-1rem-var(--app-safe-area-top)-var(--app-safe-area-bottom))] flex-col gap-2.5 scroll-pb-24 p-3.5 pb-3.5 [&_button[data-slot=button]]:focus-visible:ring-inset [&_input[data-slot=input]]:focus-visible:ring-inset [&_textarea]:focus-visible:ring-inset [&_textarea]:focus-visible:ring-offset-0 sm:max-h-[calc(100dvh-2rem-var(--app-safe-area-top)-var(--app-safe-area-bottom))] sm:p-4 sm:pb-4">
+      <DialogContent className="flex w-[calc(100vw-1rem)] max-w-md flex-col gap-2.5 overflow-hidden scroll-pb-24 p-3.5 pb-3.5 [&_button[data-slot=button]]:focus-visible:ring-inset [&_input[data-slot=input]]:focus-visible:ring-inset [&_textarea]:focus-visible:ring-inset [&_textarea]:focus-visible:ring-offset-0 sm:w-[calc(100vw-2rem)] sm:p-4 sm:pb-4">
+        <div className="relative flex min-h-0 flex-1 flex-col gap-2.5">
+          {sending ? (
+            <div className="absolute inset-0 z-20 flex items-center justify-center rounded-lg bg-background/80 p-4 backdrop-blur-[1px]">
+              <div className="flex w-full max-w-xs items-center gap-3 rounded-xl border border-border bg-card p-3 shadow-sm">
+                <Loader2Icon className="size-5 shrink-0 animate-spin" />
+                <p className="text-sm text-foreground">{sendingMode === 'online' ? t.sendingOnline : t.sendingNormal}</p>
+              </div>
+            </div>
+          ) : null}
+
         <Button
           type="button"
           variant="ghost"
@@ -271,19 +336,36 @@ export default function SendInvoiceModal({
               </div>
 
               <p className="text-xs text-muted-foreground">{invoiceNumber}</p>
+              <p className="text-xs text-muted-foreground">{t.modeHint}</p>
             </div>
 
-            <DialogFooter className="border-t pt-3">
-              <Button type="button" variant="outline" className="h-10 text-sm sm:h-9" onClick={() => onOpenChange(false)} disabled={sending}>
+            <DialogFooter className="border-t pt-3 sm:flex-row sm:justify-end">
+              <Button type="button" variant="outline" className="h-10 w-full text-sm sm:h-9 sm:w-auto" onClick={() => onOpenChange(false)} disabled={sending}>
                 {t.cancel}
               </Button>
-              <Button type="button" className="h-10 text-sm sm:h-9" onClick={handleSend} disabled={sending}>
-                {sending ? <Loader2Icon className="size-4 animate-spin" /> : null}
-                {sending ? t.sending : t.send}
+              <Button
+                type="button"
+                variant="secondary"
+                className="h-10 w-full text-sm sm:h-9 sm:w-auto"
+                onClick={() => handleSend('normal')}
+                disabled={sending}
+              >
+                {sendingMode === 'normal' ? <Loader2Icon className="size-4 animate-spin" /> : null}
+                <span className="whitespace-nowrap">{t.sendNormal}</span>
+              </Button>
+              <Button
+                type="button"
+                className="h-10 w-full text-sm sm:h-9 sm:w-auto"
+                onClick={() => handleSend('online')}
+                disabled={sending}
+              >
+                {sendingMode === 'online' ? <Loader2Icon className="size-4 animate-spin" /> : null}
+                <span className="whitespace-nowrap">{t.sendOnline}</span>
               </Button>
             </DialogFooter>
           </>
         )}
+        </div>
       </DialogContent>
     </Dialog>
   );
