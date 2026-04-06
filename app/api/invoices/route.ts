@@ -40,7 +40,7 @@ const toNumber = (value: unknown) => {
 };
 
 const baseInvoiceSchema = z.object({
-  dueDate: z.preprocess(emptyToUndefined, z.coerce.date().optional()),
+  dueDate: z.preprocess(emptyToUndefined, z.coerce.date()),
   notes: z.preprocess(emptyToNull, z.string().trim().max(2000).nullable().optional()),
 });
 

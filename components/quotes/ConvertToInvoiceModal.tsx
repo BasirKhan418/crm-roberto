@@ -34,7 +34,8 @@ const translations = {
   en: {
     title: 'Convert to invoice',
     description: 'Set due date and notes before converting this signed quote.',
-    dueDateLabel: 'Due date (optional)',
+    dueDateLabel: 'Due date',
+    dueDateRequired: 'Due date is mandatory',
     notesLabel: 'Notes / terms',
     notesPlaceholder: 'Add invoice notes or payment terms...',
     cancel: 'Cancel',
@@ -46,7 +47,8 @@ const translations = {
   fr: {
     title: 'Convertir en facture',
     description: 'Definissez l\'echeance et les notes avant la conversion du devis signe.',
-    dueDateLabel: '\u00c9ch\u00e9ance (optionnelle)',
+    dueDateLabel: '\u00c9ch\u00e9ance',
+    dueDateRequired: "L'echeance est obligatoire",
     notesLabel: 'Notes / conditions',
     notesPlaceholder: 'Ajoutez des notes de facture ou conditions de paiement...',
     cancel: 'Annuler',
@@ -70,6 +72,7 @@ export default function ConvertToInvoiceModal({
 
   const [dueDate, setDueDate] = useState('');
   const [notes, setNotes] = useState(initialNotes?.trim() || '');
+  const [dueDateError, setDueDateError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -79,9 +82,16 @@ export default function ConvertToInvoiceModal({
 
     setDueDate('');
     setNotes(initialNotes?.trim() || '');
+    setDueDateError(null);
   }, [open, initialNotes]);
 
   async function handleConvert() {
+    if (!dueDate.trim()) {
+      setDueDateError(t.dueDateRequired);
+      toast.error(t.dueDateRequired);
+      return;
+    }
+
     setSubmitting(true);
     try {
       const response = await fetch('/api/invoices', {
@@ -89,7 +99,7 @@ export default function ConvertToInvoiceModal({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           quoteId,
-          dueDate: dueDate || null,
+          dueDate,
           notes: notes.trim() || null,
         }),
       });
@@ -151,9 +161,17 @@ export default function ConvertToInvoiceModal({
               id="convert-due-date"
               type="date"
               value={dueDate}
-              onChange={(event) => setDueDate(event.target.value)}
+              onChange={(event) => {
+                const nextValue = event.target.value;
+                setDueDate(nextValue);
+                if (nextValue.trim()) {
+                  setDueDateError(null);
+                }
+              }}
               disabled={submitting}
+              aria-invalid={Boolean(dueDateError)}
             />
+            {dueDateError ? <p className="text-xs text-destructive">{dueDateError}</p> : null}
           </div>
 
           <div className="space-y-1.5">

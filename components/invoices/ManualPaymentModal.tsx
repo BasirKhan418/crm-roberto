@@ -46,6 +46,7 @@ export default function ManualPaymentModal({
       typeFull: 'Full payment',
       typePartial: 'Partial payment',
       amountPaid: 'Amount paid (EUR)',
+      amountHint: 'Enter the amount to record for this payment.',
       paymentMethod: 'Payment method',
       methodCash: 'Cash',
       methodBank: 'Bank transfer',
@@ -55,6 +56,7 @@ export default function ManualPaymentModal({
       cancel: 'Cancel',
       confirm: 'Add payment',
       saving: 'Saving...',
+      amountPlaceholder: '250.00',
       summaryTotal: 'Total invoice amount',
       summaryPaid: 'Total paid',
       summaryRemaining: 'Remaining amount',
@@ -66,6 +68,7 @@ export default function ManualPaymentModal({
       typeFull: 'Paiement complet',
       typePartial: 'Paiement partiel',
       amountPaid: 'Montant paye (EUR)',
+      amountHint: 'Saisissez le montant a enregistrer pour ce paiement.',
       paymentMethod: 'Methode de paiement',
       methodCash: 'Especes',
       methodBank: 'Virement bancaire',
@@ -75,6 +78,7 @@ export default function ManualPaymentModal({
       cancel: 'Annuler',
       confirm: 'Ajouter le paiement',
       saving: 'Enregistrement...',
+      amountPlaceholder: '250,00',
       summaryTotal: 'Montant total de la facture',
       summaryPaid: 'Total paye',
       summaryRemaining: 'Montant restant',
@@ -136,9 +140,13 @@ export default function ManualPaymentModal({
     await onConfirm(preview);
   }
 
+  const paymentTypeSelectId = 'manual-payment-type';
+  const paymentAmountInputId = 'manual-payment-amount';
+  const paymentMethodSelectId = 'manual-payment-method';
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent>
+      <DialogContent className="sm:max-w-140">
         <DialogHeader>
           <DialogTitle>{t.title}</DialogTitle>
           <DialogDescription>{t.description}</DialogDescription>
@@ -152,9 +160,18 @@ export default function ManualPaymentModal({
           </div>
 
           <div className="space-y-1.5">
-            <Label>{t.paymentType}</Label>
-            <Select value={paymentType} onValueChange={(value) => setPaymentType(value as ManualPaymentType)}>
-              <SelectTrigger>
+            <Label htmlFor={paymentTypeSelectId}>{t.paymentType}</Label>
+            <Select
+              value={paymentType}
+              onValueChange={(value) => {
+                const nextType = value as ManualPaymentType;
+                setPaymentType(nextType);
+                if (nextType === 'full') {
+                  setAmountInput('');
+                }
+              }}
+            >
+              <SelectTrigger id={paymentTypeSelectId} className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -165,19 +182,22 @@ export default function ManualPaymentModal({
           </div>
 
           <div className="space-y-1.5">
-            <Label>{t.amountPaid}</Label>
+            <Label htmlFor={paymentAmountInputId}>{t.amountPaid}</Label>
             <Input
+              id={paymentAmountInputId}
               value={paymentType === 'full' ? (remainingAmount / 100).toFixed(2) : amountInput}
               onChange={(event) => setAmountInput(event.target.value)}
-              placeholder="250.00"
+              placeholder={t.amountPlaceholder}
+              inputMode="decimal"
               disabled={paymentType === 'full'}
             />
+            <p className="text-xs text-muted-foreground">{t.amountHint}</p>
           </div>
 
           <div className="space-y-1.5">
-            <Label>{t.paymentMethod}</Label>
+            <Label htmlFor={paymentMethodSelectId}>{t.paymentMethod}</Label>
             <Select value={method} onValueChange={setMethod}>
-              <SelectTrigger>
+              <SelectTrigger id={paymentMethodSelectId} className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

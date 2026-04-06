@@ -43,6 +43,7 @@ export default function EditInvoicePage() {
       invoiceNumber: 'Invoice number',
       date: 'Date',
       dueDate: 'Due date',
+      dueDateRequired: 'Due date is mandatory',
       notes: 'Notes',
       notesPlaceholder: 'Add payment or legal notes...',
       save: 'Save changes',
@@ -60,6 +61,7 @@ export default function EditInvoicePage() {
       invoiceNumber: 'Num\u00e9ro de facture',
       date: 'Date',
       dueDate: '\u00c9ch\u00e9ance',
+      dueDateRequired: "L'echeance est obligatoire",
       notes: 'Notes',
       notesPlaceholder: 'Ajoutez des notes de paiement ou l\u00e9gales...',
       save: 'Enregistrer',
@@ -73,6 +75,7 @@ export default function EditInvoicePage() {
 
   const [invoice, setInvoice] = useState<InvoiceEditData | null>(null);
   const [dueDate, setDueDate] = useState('');
+  const [dueDateError, setDueDateError] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -128,6 +131,13 @@ export default function EditInvoicePage() {
       return;
     }
 
+    if (!dueDate) {
+      const message = t.dueDateRequired;
+      setDueDateError(message);
+      toast.error(message);
+      return;
+    }
+
     setSaving(true);
     setError(null);
 
@@ -136,7 +146,7 @@ export default function EditInvoicePage() {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          dueDate: dueDate || null,
+          dueDate,
           notes: notes.trim() || null,
         }),
       });
@@ -194,7 +204,20 @@ export default function EditInvoicePage() {
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="invoice-due-date">{t.dueDate}</Label>
-                <Input id="invoice-due-date" type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
+                <Input
+                  id="invoice-due-date"
+                  type="date"
+                  value={dueDate}
+                  onChange={(event) => {
+                    const nextValue = event.target.value;
+                    setDueDate(nextValue);
+                    if (nextValue) {
+                      setDueDateError(null);
+                    }
+                  }}
+                  aria-invalid={Boolean(dueDateError)}
+                />
+                {dueDateError ? <p className="text-xs text-destructive">{dueDateError}</p> : null}
               </div>
             </div>
 
@@ -210,7 +233,7 @@ export default function EditInvoicePage() {
             </div>
 
             <div className="mt-4">
-              <Button type="button" className="h-10" onClick={handleSave} disabled={saving}>
+              <Button type="button" className="h-10" onClick={handleSave} disabled={saving || !dueDate}>
                 {saving ? t.saving : t.save}
               </Button>
             </div>

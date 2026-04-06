@@ -44,6 +44,7 @@ export default function InvoiceForm({ defaultClientId, defaultQuoteId }: Invoice
       createFailed: 'Failed to create invoice',
       clientRequired: 'Client is required',
       dateRequired: 'Date is required',
+      dueDateRequired: 'Due date is mandatory',
       dueDateInvalid: 'Due date must be after invoice date',
       lineItemsRequired: 'At least one line item is required',
       lineItemNameRequired: 'Each line item must have a name',
@@ -73,6 +74,7 @@ export default function InvoiceForm({ defaultClientId, defaultQuoteId }: Invoice
       createFailed: 'Impossible de cr\u00e9er la facture',
       clientRequired: 'Le client est requis',
       dateRequired: 'La date est requise',
+      dueDateRequired: "L'echeance est obligatoire",
       dueDateInvalid: "L'\u00e9ch\u00e9ance doit \u00eatre post\u00e9rieure \u00e0 la date de facture",
       lineItemsRequired: 'Au moins une ligne est requise',
       lineItemNameRequired: 'Chaque ligne doit avoir un nom',
@@ -124,10 +126,15 @@ export default function InvoiceForm({ defaultClientId, defaultQuoteId }: Invoice
   function validate() {
     const nextErrors: Record<string, string> = {};
 
+    if (!dueDate) {
+      nextErrors.dueDate = t.dueDateRequired;
+    }
+
     if (convertFromQuote) {
       if (!defaultQuoteId) {
         nextErrors.quoteId = t.quoteIdInvalid;
       }
+
       setErrors(nextErrors);
       return Object.keys(nextErrors).length === 0;
     }
@@ -171,13 +178,13 @@ export default function InvoiceForm({ defaultClientId, defaultQuoteId }: Invoice
       const payload = convertFromQuote
         ? {
             quoteId: defaultQuoteId,
-            dueDate: dueDate || null,
+            dueDate,
             notes: notes.trim() || null,
           }
         : {
             clientId,
             date,
-            dueDate: dueDate || null,
+            dueDate,
             lineItems,
             notes: notes.trim() || null,
           };
