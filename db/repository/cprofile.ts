@@ -1,6 +1,6 @@
 import ConnectDb from "../connectDb";
 import CompanyProfile from "../models/CompanyProfile";
-import { CreateCompanyProfileDTO } from "../../validators/cprofile.schema";
+import { CreateCompanyProfileDTO, UpdateCompanyProfileDTO } from "../../validators/cprofile.schema";
 import User from "../models/User";
 export const createCompanyProfile = async (data:CreateCompanyProfileDTO) => {
     try{
@@ -31,7 +31,7 @@ export const getCompanyProfileByUserId = async (userId: string) => {
     }
 }
 
-export const updateCompanyProfileByUserId = async (userId: string, data: Partial<CreateCompanyProfileDTO>) => {
+export const updateCompanyProfileByUserId = async (userId: string, data: UpdateCompanyProfileDTO) => {
     try {
         await ConnectDb();
         const profile = await CompanyProfile.findOneAndUpdate(
