@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
     if (totalPaid >= invoiceTotal) {
       invoice.status = 'paid';
     } else if (totalPaid > 0) {
-      invoice.status = 'initial_paid';
+      invoice.status = 'partial_paid';
     } else {
       invoice.status = 'unpaid';
     }

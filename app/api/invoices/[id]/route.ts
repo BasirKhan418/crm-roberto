@@ -18,7 +18,7 @@ function withComputedInvoiceStatus<T extends { status: string; dueDate?: Date | 
   const isPastDue = Boolean(dueDate && Number.isFinite(dueDate.getTime()) && dueDate.getTime() < Date.now());
 
   if (
-    (invoice.status === 'unpaid' || invoice.status === 'deposit_paid' || invoice.status === 'initial_paid') &&
+    (invoice.status === 'unpaid' || invoice.status === 'partial_paid') &&
     isPastDue
   ) {
     return {
@@ -92,7 +92,6 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const payload: {
       notes?: string | null;
       dueDate?: Date | null;
-      depositPercentage?: number;
     } = {};
 
     if ('notes' in parsed.data) {
@@ -101,10 +100,6 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     if ('dueDate' in parsed.data) {
       payload.dueDate = parsed.data.dueDate ?? null;
     }
-    if (typeof parsed.data.depositPercentage === 'number') {
-      payload.depositPercentage = parsed.data.depositPercentage;
-    }
-
     const existing = await Invoice.findOne({ _id: id, userId: me.user.id }).select('status').lean();
 
     if (!existing) {

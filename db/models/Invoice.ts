@@ -1,6 +1,6 @@
 import mongoose, { type InferSchemaType, type Model } from "mongoose";
 
-export const INVOICE_STATUS = ["unpaid", "deposit_paid", "initial_paid", "paid", "overdue"] as const;
+export const INVOICE_STATUS = ["unpaid", "partial_paid", "paid", "overdue"] as const;
 
 const InvoiceLineItemSchema = new mongoose.Schema(
   {
@@ -121,7 +121,7 @@ const InvoiceSchema = new mongoose.Schema(
       required: true,
       enum: {
         values: INVOICE_STATUS,
-        message: "Status must be unpaid, deposit_paid, initial_paid, paid, or overdue",
+        message: "Status must be unpaid, partial_paid, paid, or overdue",
       },
       default: "unpaid",
     },

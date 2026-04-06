@@ -21,16 +21,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 
 const STATUS_ACCENT: Record<InvoiceListItem['status'], string> = {
   unpaid: 'var(--color-text-secondary)',
-  deposit_paid: 'var(--color-text-warning)',
-  initial_paid: 'var(--color-text-warning)',
+  partial_paid: 'var(--color-text-warning)',
   paid: 'var(--color-text-success)',
   overdue: 'var(--color-text-danger)',
 };
 
 const STATUS_ROW_BG: Record<InvoiceListItem['status'], string> = {
   unpaid: 'rgba(100, 116, 139, 0.04)',
-  deposit_paid: 'rgba(245, 158, 11, 0.08)',
-  initial_paid: 'rgba(245, 158, 11, 0.08)',
+  partial_paid: 'rgba(245, 158, 11, 0.08)',
   paid: 'rgba(34, 197, 94, 0.05)',
   overdue: 'rgba(239, 68, 68, 0.08)',
 };
@@ -62,8 +60,6 @@ interface InvoiceTableProps {
     delete: string;
     markAsPaid: string;
     markingAsPaid: string;
-    markBalancePaid: string;
-    markingBalancePaid: string;
   };
   locale: 'en' | 'fr';
   formatDate: (value: string | null | undefined) => string;
@@ -123,18 +119,11 @@ export default function InvoiceTable({
     const moreActionsLabel = locale === 'fr' ? "Plus d'actions" : 'More actions';
     const canMarkPaid =
       invoice.status === 'unpaid' ||
-      invoice.status === 'deposit_paid' ||
-      invoice.status === 'initial_paid' ||
+      invoice.status === 'partial_paid' ||
       invoice.status === 'overdue';
     const isMarkingThis = markingPaymentId === invoice._id;
-    const paymentLabel =
-      invoice.status === 'deposit_paid' || invoice.status === 'initial_paid'
-        ? labels.markBalancePaid
-        : labels.markAsPaid;
-    const paymentLoadingLabel =
-      invoice.status === 'deposit_paid' || invoice.status === 'initial_paid'
-        ? labels.markingBalancePaid
-        : labels.markingAsPaid;
+    const paymentLabel = labels.markAsPaid;
+    const paymentLoadingLabel = labels.markingAsPaid;
 
     return (
       <DropdownMenu>
@@ -232,10 +221,10 @@ export default function InvoiceTable({
                   </div>
                   <div className="flex flex-col items-end gap-1.5 shrink-0">
                     <InvoiceStatusBadge status={invoice.status} locale={locale} className="mt-0.5" />
-                    {(invoice.status === 'deposit_paid' || invoice.status === 'initial_paid') ? (
+                    {invoice.status === 'partial_paid' ? (
                       <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700 dark:bg-amber-950/30 dark:text-amber-400">
                         <span className="size-1.5 rounded-full bg-amber-500 animate-ping" />
-                        {locale === 'fr' ? 'Solde dû' : 'Balance'}
+                        {locale === 'fr' ? 'Partiel' : 'Partial'}
                       </span>
                     ) : null}
                   </div>

@@ -12,7 +12,7 @@ import ErrorMessage from '@/components/ui/ErrorMessage';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
-type InvoiceStatus = 'unpaid' | 'deposit_paid' | 'initial_paid' | 'paid' | 'overdue';
+type InvoiceStatus = 'unpaid' | 'partial_paid' | 'paid' | 'overdue';
 
 interface InvoiceEditData {
   _id: string;
@@ -20,7 +20,6 @@ interface InvoiceEditData {
   date: string;
   dueDate?: string | null;
   notes?: string | null;
-  depositPercentage?: number;
   status: InvoiceStatus;
 }
 
@@ -44,7 +43,6 @@ export default function EditInvoicePage() {
       invoiceNumber: 'Invoice number',
       date: 'Date',
       dueDate: 'Due date',
-      depositPercentage: 'Deposit percentage',
       notes: 'Notes',
       notesPlaceholder: 'Add payment or legal notes...',
       save: 'Save changes',
@@ -62,7 +60,6 @@ export default function EditInvoicePage() {
       invoiceNumber: 'Num\u00e9ro de facture',
       date: 'Date',
       dueDate: '\u00c9ch\u00e9ance',
-      depositPercentage: "Pourcentage d'acompte",
       notes: 'Notes',
       notesPlaceholder: 'Ajoutez des notes de paiement ou l\u00e9gales...',
       save: 'Enregistrer',
@@ -77,7 +74,6 @@ export default function EditInvoicePage() {
   const [invoice, setInvoice] = useState<InvoiceEditData | null>(null);
   const [dueDate, setDueDate] = useState('');
   const [notes, setNotes] = useState('');
-  const [depositPercentage, setDepositPercentage] = useState('100');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -108,7 +104,6 @@ export default function EditInvoicePage() {
           setInvoice(payload.data);
           setDueDate(payload.data.dueDate ? new Date(payload.data.dueDate).toISOString().slice(0, 10) : '');
           setNotes(payload.data.notes ?? '');
-          setDepositPercentage(String(payload.data.depositPercentage ?? 100));
         }
       } catch (fetchError) {
         if (!cancelled) {
@@ -137,18 +132,12 @@ export default function EditInvoicePage() {
     setError(null);
 
     try {
-      const parsedDeposit = Number(depositPercentage);
-      const normalizedDeposit = Number.isFinite(parsedDeposit)
-        ? Math.max(0, Math.min(100, Math.round(parsedDeposit)))
-        : 100;
-
       const response = await fetch(`/api/invoices/${invoice._id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           dueDate: dueDate || null,
           notes: notes.trim() || null,
-          depositPercentage: normalizedDeposit,
         }),
       });
 
@@ -206,24 +195,6 @@ export default function EditInvoicePage() {
               <div className="space-y-1.5">
                 <Label htmlFor="invoice-due-date">{t.dueDate}</Label>
                 <Input id="invoice-due-date" type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="invoice-deposit">{t.depositPercentage}</Label>
-                <Input
-                  id="invoice-deposit"
-                  type="number"
-                  min={0}
-                  max={100}
-                  value={depositPercentage}
-                  onChange={(event) => setDepositPercentage(event.target.value)}
-                  onBlur={() => {
-                    const parsed = Number(depositPercentage);
-                    const normalized = Number.isFinite(parsed)
-                      ? Math.max(0, Math.min(100, Math.round(parsed)))
-                      : 100;
-                    setDepositPercentage(String(normalized));
-                  }}
-                />
               </div>
             </div>
 

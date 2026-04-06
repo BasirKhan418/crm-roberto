@@ -49,7 +49,7 @@ function InvoicesPageContent() {
       sortAmount: 'Amount',
       tabAll: 'All',
       tabUnpaid: 'Unpaid',
-      tabDepositPaid: 'Deposit paid',
+      tabInitialPaid: 'Partially paid',
       tabPaid: 'Paid',
       tabOverdue: 'Overdue',
       empty: 'No invoices yet - create your first invoice',
@@ -77,15 +77,13 @@ function InvoicesPageContent() {
       previous: 'Previous',
       next: 'Next',
       actionOverdue: (n: number) => `${n} invoice${n === 1 ? '' : 's'} overdue — collect now`,
-      actionOverdueHint: 'Disappears when marked as paid or deposit paid',
-      actionDepositPaid: (n: number) => `${n} invoice${n === 1 ? '' : 's'} with deposit — balance outstanding`,
-      actionDepositPaidHint: 'Disappears when fully paid',
+      actionOverdueHint: 'Disappears when invoice is paid',
+      actionInitialPaid: (n: number) => `${n} invoice${n === 1 ? '' : 's'} partially paid — remaining balance due`,
+      actionInitialPaidHint: 'Disappears when fully paid',
       seeOverdue: 'See overdue',
-      seeDepositPaid: 'See balance due',
-      markAsPaid: 'Mark as paid',
+      seeInitialPaid: 'See partially paid',
+      markAsPaid: 'Add payment',
       markingAsPaid: 'Recording...',
-      markBalancePaid: 'Mark balance paid',
-      markingBalancePaid: 'Recording...',
     },
     fr: {
       shellTitle: 'Factures',
@@ -102,7 +100,7 @@ function InvoicesPageContent() {
       sortAmount: 'Montant',
       tabAll: 'Tous',
       tabUnpaid: 'Impayées',
-      tabDepositPaid: 'Acompte payé',
+      tabInitialPaid: 'Partiellement payées',
       tabPaid: 'Payées',
       tabOverdue: 'En retard',
       empty: 'Aucune facture - créez votre première facture',
@@ -131,14 +129,12 @@ function InvoicesPageContent() {
       next: 'Suivant',
       actionOverdue: (n: number) => `${n} facture${n === 1 ? '' : 's'} en retard — encaissez maintenant`,
       actionOverdueHint: 'Disparaît lorsque la facture est marquée comme payée',
-      actionDepositPaid: (n: number) => `${n} facture${n === 1 ? '' : 's'} avec solde restant`,
-      actionDepositPaidHint: 'Disparaît lorsque la facture est intégralement payée',
+      actionInitialPaid: (n: number) => `${n} facture${n === 1 ? '' : 's'} partiellement payée(s)`,
+      actionInitialPaidHint: 'Disparaît lorsque la facture est intégralement payée',
       seeOverdue: 'Voir en retard',
-      seeDepositPaid: 'Voir soldes dus',
-      markAsPaid: 'Marquer comme payée',
+      seeInitialPaid: 'Voir paiements partiels',
+      markAsPaid: 'Ajouter un paiement',
       markingAsPaid: 'Enregistrement...',
-      markBalancePaid: 'Solder la facture',
-      markingBalancePaid: 'Enregistrement...',
     },
   }[locale];
 
@@ -155,7 +151,7 @@ function InvoicesPageContent() {
   const [markingPaymentId, setMarkingPaymentId] = useState<string | null>(null);
 
   const { invoices, pagination, loading, error, refetch } = useInvoices(status, searchDebounced, sort, page, limit);
-  const { allCount, unpaidCount, depositPaidCount, paidCount, overdueCount } = useInvoicesActionCount(
+  const { allCount, unpaidCount, partialPaidCount, paidCount, overdueCount } = useInvoicesActionCount(
     pagination.total + invoices.length + Number(loading)
   );
 
@@ -254,14 +250,14 @@ function InvoicesPageContent() {
       const response = await fetch(`/api/invoices/${invoice._id}/payments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ method: 'manual_offline' }),
+        body: JSON.stringify({ method: 'bank_transfer', paymentType: 'full' }),
         credentials: 'include',
       });
       const payload = (await response.json()) as { success?: boolean; message?: string };
       if (!response.ok || !payload.success) {
         throw new Error(payload.message || t.markAsPaid);
       }
-      toast.success(locale === 'fr' ? 'Facture marquée comme payée' : 'Invoice marked as paid');
+      toast.success(locale === 'fr' ? 'Paiement ajoute' : 'Payment added');
       await refetch();
     } catch (markError) {
       toast.error(markError instanceof Error ? markError.message : t.markAsPaid);
@@ -275,8 +271,8 @@ function InvoicesPageContent() {
       ? t.tabAll
       : status === 'unpaid'
         ? t.tabUnpaid
-        : status === 'deposit_paid'
-          ? t.tabDepositPaid
+        : status === 'partial_paid'
+          ? t.tabInitialPaid
           : status === 'paid'
             ? t.tabPaid
             : t.tabOverdue;
@@ -338,10 +334,10 @@ function InvoicesPageContent() {
                     {unpaidCount > 99 ? '99+' : unpaidCount}
                   </span>
                 </TabsTrigger>
-                <TabsTrigger value="deposit_paid" className="min-h-6 rounded-md border border-border/80 px-3 py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
-                  <span>{t.tabDepositPaid}</span>
+                <TabsTrigger value="partial_paid" className="min-h-6 rounded-md border border-border/80 px-3 py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
+                  <span>{t.tabInitialPaid}</span>
                   <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-600 px-1.5 text-[10px] font-semibold leading-none text-white shadow-sm">
-                    {depositPaidCount > 99 ? '99+' : depositPaidCount}
+                    {partialPaidCount > 99 ? '99+' : partialPaidCount}
                   </span>
                 </TabsTrigger>
                 <TabsTrigger value="paid" className="min-h-6 rounded-md border border-border/80 px-3 py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
@@ -364,10 +360,10 @@ function InvoicesPageContent() {
         {error ? <ErrorMessage message={error} /> : null}
 
         {/* ── Action-required banners ────────────────────────────────────────── */}
-        {!loading && (status === 'all' || status === 'overdue' || status === 'deposit_paid') &&
-          (overdueCount > 0 || depositPaidCount > 0) ? (
+        {!loading && (status === 'all' || status === 'overdue' || status === 'partial_paid') &&
+          (overdueCount > 0 || partialPaidCount > 0) ? (
           <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-            {overdueCount > 0 && status !== 'deposit_paid' ? (
+            {overdueCount > 0 && status !== 'partial_paid' ? (
               <button
                 type="button"
                 onClick={() => setStatus('overdue')}
@@ -385,10 +381,10 @@ function InvoicesPageContent() {
                 <span className="shrink-0 text-xs font-semibold text-red-700 underline underline-offset-2 dark:text-red-400">{t.seeOverdue} →</span>
               </button>
             ) : null}
-            {depositPaidCount > 0 && status !== 'overdue' ? (
+            {partialPaidCount > 0 && status !== 'overdue' ? (
               <button
                 type="button"
-                onClick={() => setStatus('deposit_paid')}
+                onClick={() => setStatus('partial_paid')}
                 className="flex w-full flex-col gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-left transition-colors hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-950/30 dark:hover:bg-amber-950/50 sm:flex-1 sm:basis-64 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                 <div className="flex items-center gap-2.5">
                   <span className="relative flex size-2.5 shrink-0">
@@ -396,11 +392,11 @@ function InvoicesPageContent() {
                     <span className="relative inline-flex size-2.5 rounded-full bg-amber-500" />
                   </span>
                   <div>
-                    <span className="block text-sm font-semibold text-amber-800 dark:text-amber-300">{t.actionDepositPaid(depositPaidCount)}</span>
-                    <span className="mt-0.5 block text-[11px] text-amber-600/80 dark:text-amber-400/70">{t.actionDepositPaidHint}</span>
+                    <span className="block text-sm font-semibold text-amber-800 dark:text-amber-300">{t.actionInitialPaid(partialPaidCount)}</span>
+                    <span className="mt-0.5 block text-[11px] text-amber-600/80 dark:text-amber-400/70">{t.actionInitialPaidHint}</span>
                   </div>
                 </div>
-                <span className="shrink-0 text-xs font-semibold text-amber-700 underline underline-offset-2 dark:text-amber-400">{t.seeDepositPaid} →</span>
+                <span className="shrink-0 text-xs font-semibold text-amber-700 underline underline-offset-2 dark:text-amber-400">{t.seeInitialPaid} →</span>
               </button>
             ) : null}
           </div>
@@ -436,8 +432,6 @@ function InvoicesPageContent() {
                 delete: t.delete,
                 markAsPaid: t.markAsPaid,
                 markingAsPaid: t.markingAsPaid,
-                markBalancePaid: t.markBalancePaid,
-                markingBalancePaid: t.markingBalancePaid,
               }}
               locale={locale as 'en' | 'fr'}
             />

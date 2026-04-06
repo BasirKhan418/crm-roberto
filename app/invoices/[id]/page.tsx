@@ -75,7 +75,7 @@ interface PaymentHistoryItem {
   _id: string;
   amount: number;
   method: string;
-  type: 'deposit' | 'full' | 'remaining_balance';
+  type: 'full' | 'remaining_balance' | 'deposit';
   status: 'pending' | 'succeeded' | 'failed';
   paidAt?: string | null;
   createdAt?: string;
@@ -119,10 +119,10 @@ export default function InvoiceDetailPage() {
       edit: 'Edit',
       sendToClient: 'Send invoice',
       download: 'Download PDF',
-      markPaid: 'Mark as paid manually',
-      markingPaid: 'Marking paid...',
-      markedPaid: 'Invoice marked as paid',
-      markPaidFailed: 'Failed to mark invoice as paid',
+      addPayment: 'Add payment',
+      addingPayment: 'Adding payment...',
+      paymentAdded: 'Payment added successfully',
+      addPaymentFailed: 'Failed to add payment',
       invoice: 'Invoice',
       date: 'Date',
       dueDate: 'Due date',
@@ -150,10 +150,9 @@ export default function InvoiceDetailPage() {
       totalVat: 'VAT',
       totalIncl: 'Total incl. tax',
       paymentSummary: 'Payment summary',
-      deposit: 'Deposit',
+      totalInvoiceAmount: 'Total invoice amount',
       remaining: 'Remaining',
-      paid: 'Paid',
-      total: 'Total',
+      totalPaid: 'Total paid',
       paymentHistory: 'Payment history',
       paymentMethod: 'Method',
       paymentAmount: 'Amount',
@@ -164,9 +163,8 @@ export default function InvoiceDetailPage() {
       loadFailed: 'Failed to load invoice detail',
       notFound: 'Invoice not found',
       downloadFailed: 'Failed to download PDF',
-      paymentTypeDeposit: 'Deposit',
       paymentTypeFull: 'Full',
-      paymentTypeRemaining: 'Remaining balance',
+      paymentTypeRemaining: 'Partial',
       noData: '-',
     },
     fr: {
@@ -175,10 +173,10 @@ export default function InvoiceDetailPage() {
       edit: 'Modifier',
       sendToClient: 'Envoyer la facture',
       download: 'T\u00e9l\u00e9charger PDF',
-      markPaid: 'Marquer comme pay\u00e9e manuellement',
-      markingPaid: 'Mise \u00e0 jour...',
-      markedPaid: 'Facture marqu\u00e9e comme pay\u00e9e',
-      markPaidFailed: 'Impossible de marquer la facture comme pay\u00e9e',
+      addPayment: 'Ajouter un paiement',
+      addingPayment: 'Ajout du paiement...',
+      paymentAdded: 'Paiement ajoute avec succes',
+      addPaymentFailed: 'Impossible d\'ajouter le paiement',
       invoice: 'Facture',
       date: 'Date',
       dueDate: '\u00c9ch\u00e9ance',
@@ -206,10 +204,9 @@ export default function InvoiceDetailPage() {
       totalVat: 'TVA',
       totalIncl: 'Total TTC',
       paymentSummary: 'R\u00e9sum\u00e9 des paiements',
-      deposit: 'Acompte',
+      totalInvoiceAmount: 'Montant total facture',
       remaining: 'Reste',
-      paid: 'Pay\u00e9',
-      total: 'Total',
+      totalPaid: 'Total paye',
       paymentHistory: 'Historique des paiements',
       paymentMethod: 'M\u00e9thode',
       paymentAmount: 'Montant',
@@ -220,9 +217,8 @@ export default function InvoiceDetailPage() {
       loadFailed: 'Impossible de charger le d\u00e9tail de la facture',
       notFound: 'Facture introuvable',
       downloadFailed: 'Impossible de t\u00e9l\u00e9charger le PDF',
-      paymentTypeDeposit: 'Acompte',
       paymentTypeFull: 'Complet',
-      paymentTypeRemaining: 'Solde restant',
+      paymentTypeRemaining: 'Partiel',
       noData: '-',
     },
   }[locale as Locale];
@@ -310,8 +306,6 @@ export default function InvoiceDetailPage() {
     };
   }, [invoice]);
 
-  const normalizedDepositPercentage = Math.max(0, Math.min(100, Math.round(invoice?.depositPercentage ?? 100)));
-  const depositAmount = Math.round((invoice?.totalIncludingTax ?? 0) * (normalizedDepositPercentage / 100));
   const totalPaidAmount = Math.max(
     0,
     payments
@@ -322,11 +316,7 @@ export default function InvoiceDetailPage() {
   const canEdit = invoice?.status === 'unpaid';
 
   function paymentTypeLabel(type: PaymentHistoryItem['type']): string {
-    if (type === 'deposit') {
-      return t.paymentTypeDeposit;
-    }
-
-    if (type === 'remaining_balance') {
+    if (type === 'remaining_balance' || type === 'deposit') {
       return t.paymentTypeRemaining;
     }
 
@@ -360,7 +350,7 @@ export default function InvoiceDetailPage() {
     }
   }
 
-  async function markAsPaidManually(manualPayload?: { amount: number; paymentType: ManualPaymentType }) {
+  async function markAsPaidManually(manualPayload?: { amount: number; paymentType: ManualPaymentType; method: string }) {
     if (!invoice?._id || markingPaid) {
       return;
     }
@@ -372,21 +362,21 @@ export default function InvoiceDetailPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           amount: manualPayload?.amount ?? remainingAmount,
-          method: 'manual_offline',
+          method: manualPayload?.method ?? 'bank_transfer',
           paymentType: manualPayload?.paymentType ?? 'full',
         }),
       });
 
       const responsePayload = (await response.json()) as { success?: boolean; message?: string };
       if (!response.ok || !responsePayload.success) {
-        throw new Error(responsePayload.message || t.markPaidFailed);
+        throw new Error(responsePayload.message || t.addPaymentFailed);
       }
 
-      toast.success(t.markedPaid);
+      toast.success(t.paymentAdded);
       setManualPaymentOpen(false);
       await loadData();
     } catch (paidError) {
-      toast.error(paidError instanceof Error ? paidError.message : t.markPaidFailed);
+      toast.error(paidError instanceof Error ? paidError.message : t.addPaymentFailed);
     } finally {
       setMarkingPaid(false);
     }
@@ -442,7 +432,7 @@ export default function InvoiceDetailPage() {
                 disabled={invoice.status === 'paid' || markingPaid}
               >
                 <CheckCircle2Icon className="size-3.5" />
-                {markingPaid ? t.markingPaid : t.markPaid}
+                {markingPaid ? t.addingPayment : t.addPayment}
               </Button>
             </div>
           </div>
@@ -590,13 +580,11 @@ export default function InvoiceDetailPage() {
             <section className="mb-4 rounded-xl border border-border/70 bg-card p-4">
               <h2 className="mb-2 font-heading text-base font-semibold">{t.paymentSummary}</h2>
               <p className="text-sm text-foreground/90">
-                {t.deposit}: <PriceDisplay cents={depositAmount} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="font-medium" />
-                {' · '}
+                {t.totalInvoiceAmount}: <PriceDisplay cents={invoice.totalIncludingTax} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="font-semibold" />
+                {' | '}
+                {t.totalPaid}: <PriceDisplay cents={totalPaidAmount} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="font-medium" />
+                {' | '}
                 {t.remaining}: <PriceDisplay cents={remainingAmount} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="font-medium" />
-                {' · '}
-                {t.paid}: <PriceDisplay cents={totalPaidAmount} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="font-medium" />
-                {' · '}
-                {t.total}: <PriceDisplay cents={invoice.totalIncludingTax} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="font-semibold" />
               </p>
             </section>
 
@@ -663,7 +651,6 @@ export default function InvoiceDetailPage() {
           totalAmount={invoice.totalIncludingTax}
           totalPaidAmount={totalPaidAmount}
           remainingAmount={remainingAmount}
-          depositAmount={depositAmount}
           onConfirm={async (payload) => {
             await markAsPaidManually(payload);
           }}

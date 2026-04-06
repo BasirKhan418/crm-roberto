@@ -41,7 +41,6 @@ const toNumber = (value: unknown) => {
 
 const baseInvoiceSchema = z.object({
   dueDate: z.preprocess(emptyToUndefined, z.coerce.date().optional()),
-  depositPercentage: z.preprocess(toNumber, z.number().min(0).max(100).optional()).default(100),
   notes: z.preprocess(emptyToNull, z.string().trim().max(2000).nullable().optional()),
 });
 
@@ -121,8 +120,7 @@ function withComputedInvoiceStatus<T extends { status: string; dueDate?: Date | 
 
   if (
     invoice.status === 'unpaid' ||
-    invoice.status === 'deposit_paid' ||
-    invoice.status === 'initial_paid'
+    invoice.status === 'partial_paid'
   ) {
     if (!isPastDue) {
       return invoice;
@@ -155,11 +153,12 @@ export async function GET(request: NextRequest) {
 
     const status =
       statusParam === 'unpaid' ||
-      statusParam === 'deposit_paid' ||
-      statusParam === 'initial_paid' ||
+      statusParam === 'partial_paid' ||
       statusParam === 'paid' ||
       statusParam === 'overdue'
         ? statusParam
+        : statusParam === 'deposit_paid' || statusParam === 'initial_paid'
+          ? 'partial_paid'
         : undefined;
 
     const sort: 'date' | 'amount' = sortParam === 'amount' ? 'amount' : 'date';
@@ -175,12 +174,12 @@ export async function GET(request: NextRequest) {
         query.$or = [
           { status: 'overdue' },
           {
-            status: { $in: ['unpaid', 'deposit_paid', 'initial_paid'] },
+            status: { $in: ['unpaid', 'partial_paid'] },
             dueDate: { $lt: now },
           },
         ];
-      } else if (status === 'deposit_paid' || status === 'initial_paid') {
-        query.status = { $in: ['deposit_paid', 'initial_paid'] };
+      } else if (status === 'partial_paid') {
+        query.status = 'partial_paid';
       } else {
         query.status = status;
       }
@@ -295,7 +294,6 @@ export async function POST(request: NextRequest) {
             totalExcludingTax: quote.totalExcludingTax,
             totalVat: quote.totalVat,
             totalIncludingTax: quote.totalIncludingTax,
-            depositPercentage: parsed.data.depositPercentage,
             notes: parsed.data.notes ?? quote.notes ?? null,
           }));
 
@@ -402,7 +400,6 @@ export async function POST(request: NextRequest) {
           totalExcludingTax: totals.totalExcludingTax,
           totalVat: totals.totalVat,
           totalIncludingTax: totals.totalIncludingTax,
-          depositPercentage: parsed.data.depositPercentage,
           notes: parsed.data.notes ?? null,
         }));
 

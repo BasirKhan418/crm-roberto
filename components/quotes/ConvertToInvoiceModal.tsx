@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { Loader2Icon, ReceiptTextIcon, X } from 'lucide-react';
 import { toast } from 'sonner';
@@ -30,38 +30,30 @@ interface ConvertToInvoiceModalProps {
   onConverted?: (invoiceId: string) => void;
 }
 
-const PRESET_DEPOSITS = [5, 10, 20, 30, 50, 80, 100] as const;
-
 const translations = {
   en: {
     title: 'Convert to invoice',
-    description: 'Set billing preferences before converting this signed quote.',
-    depositLabel: 'Deposit %',
+    description: 'Set due date and notes before converting this signed quote.',
     dueDateLabel: 'Due date (optional)',
     notesLabel: 'Notes / terms',
     notesPlaceholder: 'Add invoice notes or payment terms...',
-    customLabel: 'Custom',
     cancel: 'Cancel',
     submit: 'Convert to invoice',
     converting: 'Converting...',
     success: 'Quote converted to invoice',
     error: 'Failed to convert quote',
-    customInvalid: 'Custom deposit must be between 0 and 100',
   },
   fr: {
     title: 'Convertir en facture',
-    description: 'D\u00e9finissez les param\u00e8tres de facturation avant conversion du devis sign\u00e9.',
-    depositLabel: 'Acompte\u00a0%',
+    description: 'Definissez l\'echeance et les notes avant la conversion du devis signe.',
     dueDateLabel: '\u00c9ch\u00e9ance (optionnelle)',
     notesLabel: 'Notes / conditions',
     notesPlaceholder: 'Ajoutez des notes de facture ou conditions de paiement...',
-    customLabel: 'Personnalis\u00e9',
     cancel: 'Annuler',
     submit: 'Convertir en facture',
     converting: 'Conversion...',
     success: 'Devis converti en facture',
     error: 'Impossible de convertir le devis',
-    customInvalid: "L'acompte personnalis\u00e9 doit \u00eatre entre 0 et 100",
   },
 };
 
@@ -76,9 +68,6 @@ export default function ConvertToInvoiceModal({
 }: ConvertToInvoiceModalProps) {
   const t = translations[locale];
 
-  const [selectedDeposit, setSelectedDeposit] = useState<number>(100);
-  const [isCustomDeposit, setIsCustomDeposit] = useState(false);
-  const [customDeposit, setCustomDeposit] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [notes, setNotes] = useState(initialNotes?.trim() || '');
   const [submitting, setSubmitting] = useState(false);
@@ -88,32 +77,11 @@ export default function ConvertToInvoiceModal({
       return;
     }
 
-    setSelectedDeposit(100);
-    setIsCustomDeposit(false);
-    setCustomDeposit('');
     setDueDate('');
     setNotes(initialNotes?.trim() || '');
   }, [open, initialNotes]);
 
-  const resolvedDeposit = useMemo(() => {
-    if (!isCustomDeposit) {
-      return selectedDeposit;
-    }
-
-    const parsed = Number(customDeposit);
-    if (!Number.isFinite(parsed)) {
-      return NaN;
-    }
-
-    return Math.round(parsed);
-  }, [isCustomDeposit, selectedDeposit, customDeposit]);
-
   async function handleConvert() {
-    if (isCustomDeposit && (!Number.isFinite(resolvedDeposit) || resolvedDeposit < 0 || resolvedDeposit > 100)) {
-      toast.error(t.customInvalid);
-      return;
-    }
-
     setSubmitting(true);
     try {
       const response = await fetch('/api/invoices', {
@@ -121,7 +89,6 @@ export default function ConvertToInvoiceModal({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           quoteId,
-          depositPercentage: resolvedDeposit,
           dueDate: dueDate || null,
           notes: notes.trim() || null,
         }),
@@ -178,53 +145,6 @@ export default function ConvertToInvoiceModal({
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="space-y-2">
-            <Label className="text-xs">{t.depositLabel}</Label>
-            <div className="grid grid-cols-4 gap-2 sm:grid-cols-8">
-              {PRESET_DEPOSITS.map((value) => {
-                const active = !isCustomDeposit && selectedDeposit === value;
-                return (
-                  <Button
-                    key={value}
-                    type="button"
-                    variant={active ? 'default' : 'outline'}
-                    size="sm"
-                    className="h-8"
-                    onClick={() => {
-                      setSelectedDeposit(value);
-                      setIsCustomDeposit(false);
-                    }}
-                    disabled={submitting}
-                  >
-                    {value}%
-                  </Button>
-                );
-              })}
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant={isCustomDeposit ? 'default' : 'outline'}
-                size="sm"
-                className="h-8"
-                onClick={() => setIsCustomDeposit(true)}
-                disabled={submitting}
-              >
-                {t.customLabel}
-              </Button>
-              <Input
-                type="number"
-                min={0}
-                max={100}
-                value={customDeposit}
-                onChange={(event) => setCustomDeposit(event.target.value)}
-                className="h-8"
-                placeholder="0-100"
-                disabled={submitting || !isCustomDeposit}
-              />
-            </div>
-          </div>
-
           <div className="space-y-1.5">
             <Label htmlFor="convert-due-date" className="text-xs">{t.dueDateLabel}</Label>
             <Input

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-export type InvoiceStatus = 'unpaid' | 'deposit_paid' | 'initial_paid' | 'paid' | 'overdue';
+export type InvoiceStatus = 'unpaid' | 'partial_paid' | 'paid' | 'overdue';
 export type InvoiceStatusFilter = 'all' | InvoiceStatus;
 export type InvoiceSort = 'date' | 'amount';
 

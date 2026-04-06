@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-import { CalendarDaysIcon, FileTextIcon, NotebookTextIcon, PercentIcon, UserRoundIcon } from 'lucide-react';
+import { CalendarDaysIcon, FileTextIcon, NotebookTextIcon, UserRoundIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import ClientPicker from '@/components/quotes/ClientPicker';
@@ -38,7 +38,6 @@ export default function InvoiceForm({ defaultClientId, defaultQuoteId }: Invoice
       lineItems: 'Products / Services',
       notes: 'Notes',
       notesPlaceholder: 'Add payment or legal notes...',
-      depositPercentage: 'Deposit percentage',
       createInvoice: 'Create invoice',
       creating: 'Creating...',
       createSuccess: 'Invoice created successfully',
@@ -68,7 +67,6 @@ export default function InvoiceForm({ defaultClientId, defaultQuoteId }: Invoice
       lineItems: 'Produits / Services',
       notes: 'Notes',
       notesPlaceholder: 'Ajoutez des notes de paiement ou l\u00e9gales...',
-      depositPercentage: "Pourcentage d'acompte",
       createInvoice: 'Cr\u00e9er la facture',
       creating: 'Cr\u00e9ation...',
       createSuccess: 'Facture cr\u00e9\u00e9e avec succ\u00e8s',
@@ -94,7 +92,6 @@ export default function InvoiceForm({ defaultClientId, defaultQuoteId }: Invoice
   const [dueDate, setDueDate] = useState('');
   const [lineItems, setLineItems] = useState<QuoteLineItem[]>([]);
   const [notes, setNotes] = useState('');
-  const [depositPercentage, setDepositPercentage] = useState('100');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [apiError, setApiError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -123,12 +120,6 @@ export default function InvoiceForm({ defaultClientId, defaultQuoteId }: Invoice
       cancelled = true;
     };
   }, []);
-
-  const normalizedDepositPercentage = useMemo(() => {
-    const parsed = Number(depositPercentage);
-    if (!Number.isFinite(parsed)) return 100;
-    return Math.min(100, Math.max(0, Math.round(parsed)));
-  }, [depositPercentage]);
 
   function validate() {
     const nextErrors: Record<string, string> = {};
@@ -181,7 +172,6 @@ export default function InvoiceForm({ defaultClientId, defaultQuoteId }: Invoice
         ? {
             quoteId: defaultQuoteId,
             dueDate: dueDate || null,
-            depositPercentage: normalizedDepositPercentage,
             notes: notes.trim() || null,
           }
         : {
@@ -189,7 +179,6 @@ export default function InvoiceForm({ defaultClientId, defaultQuoteId }: Invoice
             date,
             dueDate: dueDate || null,
             lineItems,
-            depositPercentage: normalizedDepositPercentage,
             notes: notes.trim() || null,
           };
 
@@ -333,22 +322,6 @@ export default function InvoiceForm({ defaultClientId, defaultQuoteId }: Invoice
               <span className="flex size-6 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">4</span>
               {t.step4}
             </h2>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="invoice-deposit" className="inline-flex items-center gap-2">
-                <PercentIcon className="size-4 text-muted-foreground" />
-                {t.depositPercentage}
-              </Label>
-              <Input
-                id="invoice-deposit"
-                type="number"
-                min={0}
-                max={100}
-                value={depositPercentage}
-                onChange={(event) => setDepositPercentage(event.target.value)}
-                onBlur={() => setDepositPercentage(String(normalizedDepositPercentage))}
-              />
-            </div>
 
             <div className="space-y-1.5">
               <Label htmlFor="invoice-notes" className="inline-flex items-center gap-2">

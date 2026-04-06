@@ -67,7 +67,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const body = (await request.json().catch(() => ({}))) as {
       amount?: number;
       method?: string;
-      paymentType?: 'full' | 'deposit' | 'remaining_balance';
+      paymentType?: 'full' | 'partial';
     };
 
     await ConnectDb();
@@ -86,10 +86,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       : Math.max(0, Math.round(invoice.totalIncludingTax));
 
     const method = typeof body.method === 'string' && body.method.trim() ? body.method.trim() : 'manual_offline';
-    const requestedPaymentType =
-      body.paymentType === 'full' || body.paymentType === 'deposit' || body.paymentType === 'remaining_balance'
-        ? body.paymentType
-        : null;
     const userObjectId = new mongoose.Types.ObjectId(me.user.id);
 
     const existingTotals = await Payment.aggregate<{ _id: null; paidTotal: number }>([
@@ -116,9 +112,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       type:
         normalizedAmount >= remainingBeforePayment
           ? 'full'
-          : requestedPaymentType === 'deposit'
-            ? 'deposit'
-            : 'remaining_balance',
+          : 'remaining_balance',
       status: 'succeeded',
       method,
       paidAt: new Date(),
@@ -140,7 +134,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (totalPaid >= finalInvoiceTotal) {
       invoice.status = 'paid';
     } else if (totalPaid > 0) {
-      invoice.status = payment.type === 'deposit' ? 'deposit_paid' : 'initial_paid';
+      invoice.status = 'partial_paid';
     } else {
       invoice.status = 'unpaid';
     }
@@ -166,7 +160,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({
       success: true,
-      message: 'Invoice marked as paid',
+      message: 'Payment added successfully',
       data: {
         payment: {
           ...payment.toObject(),

@@ -29,7 +29,7 @@ interface InvoicePaymentItem {
 }
 
 interface InvoiceData {
-  status?: 'unpaid' | 'deposit_paid' | 'initial_paid' | 'paid' | 'overdue';
+  status?: 'unpaid' | 'partial_paid' | 'paid' | 'overdue' | 'deposit_paid' | 'initial_paid';
   invoiceNumber: string;
   quoteNumber?: string | null;
   date: string | Date;
@@ -89,7 +89,7 @@ const translations = {
     paymentSummary: 'Payment summary',
     paymentStatus: 'Payment status',
     statusUnpaid: 'Unpaid',
-    statusDepositPaid: 'Deposit paid',
+    statusDepositPaid: 'Partially paid',
     statusPaid: 'Paid',
     statusOverdue: 'Overdue',
     depositDue: 'Deposit due',
@@ -101,7 +101,7 @@ const translations = {
     paymentMethod: 'Method',
     paymentType: 'Type',
     paymentAmount: 'Amount',
-    paymentTypeDeposit: 'Deposit',
+    paymentTypeDeposit: 'Partial',
     paymentTypeFull: 'Full',
     paymentTypeRemaining: 'Remaining balance',
     notes: 'Notes',
@@ -135,7 +135,7 @@ const translations = {
     paymentSummary: 'R\u00e9sum\u00e9 paiement',
     paymentStatus: 'Statut paiement',
     statusUnpaid: 'Impay\u00e9e',
-    statusDepositPaid: 'Acompte pay\u00e9',
+    statusDepositPaid: 'Partiellement pay\u00e9e',
     statusPaid: 'Pay\u00e9e',
     statusOverdue: 'En retard',
     depositDue: 'Acompte \u00e0 payer',
@@ -147,7 +147,7 @@ const translations = {
     paymentMethod: 'M\u00e9thode',
     paymentType: 'Type',
     paymentAmount: 'Montant',
-    paymentTypeDeposit: 'Acompte',
+    paymentTypeDeposit: 'Partiel',
     paymentTypeFull: 'Complet',
     paymentTypeRemaining: 'Solde restant',
     notes: 'Notes',
@@ -496,7 +496,7 @@ function getStatusPresentation(
   status: InvoiceData['status'],
   localeText: (typeof translations)['en'] | (typeof translations)['fr']
 ): { label: string; backgroundColor: string; color: string } {
-  if (status === 'deposit_paid' || status === 'initial_paid') {
+  if (status === 'partial_paid' || status === 'deposit_paid' || status === 'initial_paid') {
     return {
       label: localeText.statusDepositPaid,
       backgroundColor: 'rgba(217, 119, 6, 0.15)',

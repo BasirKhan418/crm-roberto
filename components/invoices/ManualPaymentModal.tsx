@@ -15,9 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-export type ManualPaymentType = 'full' | 'deposit' | 'remaining_balance';
-
-type PaymentMode = 'full' | 'deposit' | 'percentage' | 'custom';
+export type ManualPaymentType = 'full' | 'partial';
 
 interface ManualPaymentModalProps {
   open: boolean;
@@ -27,8 +25,7 @@ interface ManualPaymentModalProps {
   totalAmount: number;
   totalPaidAmount: number;
   remainingAmount: number;
-  depositAmount: number;
-  onConfirm: (payload: { amount: number; paymentType: ManualPaymentType }) => Promise<void>;
+  onConfirm: (payload: { amount: number; paymentType: ManualPaymentType; method: string }) => Promise<void>;
 }
 
 export default function ManualPaymentModal({
@@ -39,63 +36,60 @@ export default function ManualPaymentModal({
   totalAmount,
   totalPaidAmount,
   remainingAmount,
-  depositAmount,
   onConfirm,
 }: ManualPaymentModalProps) {
   const t = {
     en: {
-      title: 'Record manual payment',
-      description: 'Choose how much was paid and how to classify this payment.',
-      mode: 'Payment option',
-      modeFull: 'Full remaining amount',
-      modeDeposit: 'Deposit paid',
-      modePercentage: 'Percentage',
-      modeCustom: 'Custom amount',
-      percentage: 'Percentage of invoice total',
-      customAmount: 'Custom paid amount (EUR)',
-      classify: 'Classify as',
-      classifyDeposit: 'Deposit paid',
-      classifyBalance: 'Initial / balance payment',
+      title: 'Add payment',
+      description: 'Record a full or partial payment in one step.',
+      paymentType: 'Payment type',
+      typeFull: 'Full payment',
+      typePartial: 'Partial payment',
+      amountPaid: 'Amount paid (EUR)',
+      paymentMethod: 'Payment method',
+      methodCash: 'Cash',
+      methodBank: 'Bank transfer',
+      methodCard: 'Card',
+      methodCheck: 'Check',
+      methodOther: 'Other',
       cancel: 'Cancel',
-      confirm: 'Save payment',
+      confirm: 'Add payment',
       saving: 'Saving...',
-      summaryTotal: 'Total',
-      summaryPaid: 'Already paid',
-      summaryRemaining: 'Remaining',
+      summaryTotal: 'Total invoice amount',
+      summaryPaid: 'Total paid',
+      summaryRemaining: 'Remaining amount',
     },
     fr: {
-      title: 'Enregistrer un paiement manuel',
-      description: 'Choisissez le montant payé et la classification de ce paiement.',
-      mode: 'Option de paiement',
-      modeFull: 'Solde total restant',
-      modeDeposit: 'Acompte payé',
-      modePercentage: 'Pourcentage',
-      modeCustom: 'Montant personnalisé',
-      percentage: 'Pourcentage du total facture',
-      customAmount: 'Montant payé personnalisé (EUR)',
-      classify: 'Classer comme',
-      classifyDeposit: 'Acompte payé',
-      classifyBalance: 'Paiement initial / solde',
+      title: 'Ajouter un paiement',
+      description: 'Enregistrez un paiement complet ou partiel en une seule etape.',
+      paymentType: 'Type de paiement',
+      typeFull: 'Paiement complet',
+      typePartial: 'Paiement partiel',
+      amountPaid: 'Montant paye (EUR)',
+      paymentMethod: 'Methode de paiement',
+      methodCash: 'Especes',
+      methodBank: 'Virement bancaire',
+      methodCard: 'Carte',
+      methodCheck: 'Cheque',
+      methodOther: 'Autre',
       cancel: 'Annuler',
-      confirm: 'Enregistrer',
+      confirm: 'Ajouter le paiement',
       saving: 'Enregistrement...',
-      summaryTotal: 'Total',
-      summaryPaid: 'Déjà payé',
-      summaryRemaining: 'Reste',
+      summaryTotal: 'Montant total de la facture',
+      summaryPaid: 'Total paye',
+      summaryRemaining: 'Montant restant',
     },
   }[locale];
 
-  const [mode, setMode] = useState<PaymentMode>('full');
-  const [percentage, setPercentage] = useState('30');
-  const [customAmount, setCustomAmount] = useState('');
-  const [customType, setCustomType] = useState<'deposit' | 'remaining_balance'>('remaining_balance');
+  const [paymentType, setPaymentType] = useState<ManualPaymentType>('partial');
+  const [amountInput, setAmountInput] = useState('');
+  const [method, setMethod] = useState('bank_transfer');
 
   function handleOpenChange(nextOpen: boolean) {
     if (!nextOpen) {
-      setMode('full');
-      setPercentage('30');
-      setCustomAmount('');
-      setCustomType('remaining_balance');
+      setPaymentType('partial');
+      setAmountInput('');
+      setMethod('bank_transfer');
     }
 
     onOpenChange(nextOpen);
@@ -110,33 +104,24 @@ export default function ManualPaymentModal({
     [locale]
   );
 
-  const depositOutstanding = Math.max(0, depositAmount - totalPaidAmount);
-
-  function computePayload(): { amount: number; paymentType: ManualPaymentType } {
-    if (mode === 'full') {
-      return { amount: remainingAmount, paymentType: 'full' };
+  function computePayload(): { amount: number; paymentType: ManualPaymentType; method: string } {
+    if (paymentType === 'full') {
+      return {
+        amount: remainingAmount,
+        paymentType: 'full',
+        method,
+      };
     }
 
-    if (mode === 'deposit') {
-      const amount = Math.max(0, Math.min(remainingAmount, depositOutstanding > 0 ? depositOutstanding : depositAmount));
-      return { amount, paymentType: 'deposit' };
-    }
-
-    if (mode === 'percentage') {
-      const parsed = Number(percentage.replace(',', '.'));
-      const pct = Number.isFinite(parsed) ? Math.max(0, Math.min(100, parsed)) : 0;
-      const amount = Math.max(0, Math.min(remainingAmount, Math.round((totalAmount * pct) / 100)));
-      return { amount, paymentType: 'remaining_balance' };
-    }
-
-    const parsed = Number(customAmount.replace(',', '.'));
+    const parsed = Number(amountInput.replace(',', '.'));
     const amount = Number.isFinite(parsed)
       ? Math.max(0, Math.min(remainingAmount, Math.round(parsed * 100)))
       : 0;
 
     return {
       amount,
-      paymentType: customType,
+      paymentType: 'partial',
+      method,
     };
   }
 
@@ -167,50 +152,46 @@ export default function ManualPaymentModal({
           </div>
 
           <div className="space-y-1.5">
-            <Label>{t.mode}</Label>
-            <Select value={mode} onValueChange={(value) => setMode(value as PaymentMode)}>
+            <Label>{t.paymentType}</Label>
+            <Select value={paymentType} onValueChange={(value) => setPaymentType(value as ManualPaymentType)}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="full">{t.modeFull}</SelectItem>
-                <SelectItem value="deposit">{t.modeDeposit}</SelectItem>
-                <SelectItem value="percentage">{t.modePercentage}</SelectItem>
-                <SelectItem value="custom">{t.modeCustom}</SelectItem>
+                <SelectItem value="full">{t.typeFull}</SelectItem>
+                <SelectItem value="partial">{t.typePartial}</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          {mode === 'percentage' ? (
-            <div className="space-y-1.5">
-              <Label>{t.percentage}</Label>
-              <Input value={percentage} onChange={(event) => setPercentage(event.target.value)} placeholder="30" />
-            </div>
-          ) : null}
+          <div className="space-y-1.5">
+            <Label>{t.amountPaid}</Label>
+            <Input
+              value={paymentType === 'full' ? (remainingAmount / 100).toFixed(2) : amountInput}
+              onChange={(event) => setAmountInput(event.target.value)}
+              placeholder="250.00"
+              disabled={paymentType === 'full'}
+            />
+          </div>
 
-          {mode === 'custom' ? (
-            <div className="space-y-3">
-              <div className="space-y-1.5">
-                <Label>{t.customAmount}</Label>
-                <Input value={customAmount} onChange={(event) => setCustomAmount(event.target.value)} placeholder="250.00" />
-              </div>
-              <div className="space-y-1.5">
-                <Label>{t.classify}</Label>
-                <Select value={customType} onValueChange={(value) => setCustomType(value as 'deposit' | 'remaining_balance')}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="deposit">{t.classifyDeposit}</SelectItem>
-                    <SelectItem value="remaining_balance">{t.classifyBalance}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          ) : null}
+          <div className="space-y-1.5">
+            <Label>{t.paymentMethod}</Label>
+            <Select value={method} onValueChange={setMethod}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="cash">{t.methodCash}</SelectItem>
+                <SelectItem value="bank_transfer">{t.methodBank}</SelectItem>
+                <SelectItem value="card">{t.methodCard}</SelectItem>
+                <SelectItem value="check">{t.methodCheck}</SelectItem>
+                <SelectItem value="other">{t.methodOther}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
           <p className="text-sm text-muted-foreground">
-            {t.summaryRemaining}: <span className="font-semibold text-foreground">{formatter.format(preview.amount / 100)}</span>
+            {t.summaryRemaining}: <span className="font-semibold text-foreground">{formatter.format(Math.max(0, remainingAmount - preview.amount) / 100)}</span>
           </p>
         </div>
 

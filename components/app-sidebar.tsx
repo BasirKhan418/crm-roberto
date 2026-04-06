@@ -47,7 +47,7 @@ const sidebarMessages = {
       declined: (count: number) => `${count} declined — mark as reviewed`,
       pendingInvoice: (count: number) => `${count} to invoice`,
       overdue: (count: number) => `${count} overdue`,
-      depositPaid: (count: number) => `${count} balance due`,
+      partialPaid: (count: number) => `${count} partially paid`,
       unpaid: (count: number) => `${count} unpaid`,
     },
     nav: {
@@ -74,7 +74,7 @@ const sidebarMessages = {
       declined: (count: number) => `${count} refusé(s) — à marquer comme traité`,
       pendingInvoice: (count: number) => `${count} à facturer`,
       overdue: (count: number) => `${count} en retard`,
-      depositPaid: (count: number) => `${count} solde à encaisser`,
+      partialPaid: (count: number) => `${count} partiellement payée(s)`,
       unpaid: (count: number) => `${count} impayé(e)(s)`,
     },
     nav: {
@@ -96,7 +96,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { locale } = useLocale()
   const t = sidebarMessages[locale]
   const { unacknowledgedRejectedCount, pendingInvoiceCount } = useQuotesActionCount()
-  const { overdueCount, depositPaidCount, unpaidCount } = useInvoicesActionCount()
+  const { overdueCount, partialPaidCount, unpaidCount } = useInvoicesActionCount()
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>
@@ -155,7 +155,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                         ) : null}
                       </span>
                     ) : null}
-                    {item.key === "invoices" && (overdueCount > 0 || unpaidCount > 0 || depositPaidCount > 0) ? (
+                    {item.key === "invoices" && (overdueCount > 0 || unpaidCount > 0 || partialPaidCount > 0) ? (
                       <span className="ml-auto flex items-center gap-1">
                         {overdueCount > 0 ? (
                           <span
@@ -166,13 +166,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                             {overdueCount > 99 ? '99+' : overdueCount}
                           </span>
                         ) : null}
-                        {depositPaidCount > 0 ? (
+                        {partialPaidCount > 0 ? (
                           <span
                             className="flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold"
                             style={{ backgroundColor: '#f59e0b', color: '#ffffff' }}
-                            title={t.badges.depositPaid(depositPaidCount)}
+                            title={t.badges.partialPaid(partialPaidCount)}
                           >
-                            {depositPaidCount > 99 ? '99+' : depositPaidCount}
+                            {partialPaidCount > 99 ? '99+' : partialPaidCount}
                           </span>
                         ) : null}
                         {unpaidCount > 0 ? (
