@@ -148,8 +148,6 @@ function InvoicesPageContent() {
   const [deleteTarget, setDeleteTarget] = useState<InvoiceListItem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [sendTarget, setSendTarget] = useState<InvoiceListItem | null>(null);
-  const [markingPaymentId, setMarkingPaymentId] = useState<string | null>(null);
-
   const { invoices, pagination, loading, error, refetch } = useInvoices(status, searchDebounced, sort, page, limit);
   const { allCount, unpaidCount, partialPaidCount, paidCount, overdueCount } = useInvoicesActionCount(
     pagination.total + invoices.length + Number(loading)
@@ -241,28 +239,6 @@ function InvoicesPageContent() {
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (downloadError) {
       toast.error(downloadError instanceof Error ? downloadError.message : t.downloadFailed);
-    }
-  }
-
-  async function handleMarkAsPaid(invoice: InvoiceListItem) {
-    setMarkingPaymentId(invoice._id);
-    try {
-      const response = await fetch(`/api/invoices/${invoice._id}/payments`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ method: 'bank_transfer', paymentType: 'full' }),
-        credentials: 'include',
-      });
-      const payload = (await response.json()) as { success?: boolean; message?: string };
-      if (!response.ok || !payload.success) {
-        throw new Error(payload.message || t.markAsPaid);
-      }
-      toast.success(locale === 'fr' ? 'Paiement ajoute' : 'Payment added');
-      await refetch();
-    } catch (markError) {
-      toast.error(markError instanceof Error ? markError.message : t.markAsPaid);
-    } finally {
-      setMarkingPaymentId(null);
     }
   }
 
@@ -414,8 +390,6 @@ function InvoicesPageContent() {
               onDelete={setDeleteTarget}
               onDownload={handleDownloadPdf}
               onSend={setSendTarget}
-              onMarkPaid={handleMarkAsPaid}
-              markingPaymentId={markingPaymentId}
               labels={{
                 invoiceNumber: t.invoiceNumber,
                 client: t.client,
@@ -430,8 +404,6 @@ function InvoicesPageContent() {
                 send: t.send,
                 downloadPdf: t.downloadPdf,
                 delete: t.delete,
-                markAsPaid: t.markAsPaid,
-                markingAsPaid: t.markingAsPaid,
               }}
               locale={locale as 'en' | 'fr'}
             />

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-import { CheckCircle2, DownloadIcon, EllipsisVerticalIcon, EyeIcon, Loader2, PencilIcon, SendIcon, Trash2Icon } from 'lucide-react';
+import { DownloadIcon, EllipsisVerticalIcon, EyeIcon, PencilIcon, SendIcon, Trash2Icon } from 'lucide-react';
 
 import type { InvoiceListItem } from '@/hooks/useInvoices';
 import { InvoiceStatusBadge } from '@/components/ui/InvoiceStatusBadge';
@@ -58,16 +58,12 @@ interface InvoiceTableProps {
     send: string;
     downloadPdf: string;
     delete: string;
-    markAsPaid: string;
-    markingAsPaid: string;
   };
   locale: 'en' | 'fr';
   formatDate: (value: string | null | undefined) => string;
   onDelete: (invoice: InvoiceListItem) => void;
   onDownload: (invoice: InvoiceListItem) => Promise<void>;
   onSend: (invoice: InvoiceListItem) => void;
-  onMarkPaid: (invoice: InvoiceListItem) => Promise<void>;
-  markingPaymentId: string | null;
 }
 
 export default function InvoiceTable({
@@ -79,8 +75,6 @@ export default function InvoiceTable({
   onDelete,
   onDownload,
   onSend,
-  onMarkPaid,
-  markingPaymentId,
 }: InvoiceTableProps) {
   const router = useRouter();
   const priceLocale = locale === 'fr' ? 'fr-FR' : 'en-GB';
@@ -117,13 +111,6 @@ export default function InvoiceTable({
 
   function renderSecondaryActions(invoice: InvoiceListItem, align: 'start' | 'end' = 'end') {
     const moreActionsLabel = locale === 'fr' ? "Plus d'actions" : 'More actions';
-    const canMarkPaid =
-      invoice.status === 'unpaid' ||
-      invoice.status === 'partial_paid' ||
-      invoice.status === 'overdue';
-    const isMarkingThis = markingPaymentId === invoice._id;
-    const paymentLabel = labels.markAsPaid;
-    const paymentLoadingLabel = labels.markingAsPaid;
 
     return (
       <DropdownMenu>
@@ -155,17 +142,6 @@ export default function InvoiceTable({
             <DownloadIcon className="size-4" />
             {labels.downloadPdf}
           </DropdownMenuItem>
-          {canMarkPaid ? (
-            <DropdownMenuItem
-              disabled={isMarkingThis}
-              onSelect={() => {
-                void onMarkPaid(invoice);
-              }}
-            >
-              {isMarkingThis ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle2 className="size-4" />}
-              {isMarkingThis ? paymentLoadingLabel : paymentLabel}
-            </DropdownMenuItem>
-          ) : null}
           <DropdownMenuSeparator />
           <DropdownMenuItem variant="destructive" onSelect={() => onDelete(invoice)}>
             <Trash2Icon className="size-4" />

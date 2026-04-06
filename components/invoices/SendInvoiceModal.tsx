@@ -228,7 +228,7 @@ export default function SendInvoiceModal({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="flex w-[calc(100vw-1rem)] max-w-md flex-col gap-2.5 overflow-hidden scroll-pb-24 p-3.5 pb-3.5 [&_button[data-slot=button]]:focus-visible:ring-inset [&_input[data-slot=input]]:focus-visible:ring-inset [&_textarea]:focus-visible:ring-inset [&_textarea]:focus-visible:ring-offset-0 sm:w-[calc(100vw-2rem)] sm:p-4 sm:pb-4">
+      <DialogContent className="flex w-[calc(100vw-1rem)] max-w-lg flex-col gap-2.5 overflow-hidden scroll-pb-24 p-3.5 pb-3.5 [&_button[data-slot=button]]:focus-visible:ring-inset [&_input[data-slot=input]]:focus-visible:ring-inset [&_textarea]:focus-visible:ring-inset [&_textarea]:focus-visible:ring-offset-0 sm:w-[calc(100vw-2rem)] sm:p-4 sm:pb-4">
         <div className="relative flex min-h-0 flex-1 flex-col gap-2.5">
           {sending ? (
             <div className="absolute inset-0 z-20 flex items-center justify-center rounded-lg bg-background/80 p-4 backdrop-blur-[1px]">
@@ -253,7 +253,7 @@ export default function SendInvoiceModal({
 
         {showStripeError ? (
           <>
-            <DialogHeader className="gap-1 pr-8">
+            <DialogHeader className="gap-1 pr-12">
               <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
                 <AlertTriangleIcon className="size-4 text-amber-600" />
                 {t.stripeErrorTitle}
@@ -288,7 +288,7 @@ export default function SendInvoiceModal({
           </>
         ) : (
           <>
-            <DialogHeader className="gap-1 pr-8">
+            <DialogHeader className="gap-1 pr-12">
               <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
                 <MailIcon className="size-4" />
                 {t.title}
@@ -339,28 +339,28 @@ export default function SendInvoiceModal({
               <p className="text-xs text-muted-foreground">{t.modeHint}</p>
             </div>
 
-            <DialogFooter className="border-t pt-3 sm:flex-row sm:justify-end">
-              <Button type="button" variant="outline" className="h-10 w-full text-sm sm:h-9 sm:w-auto" onClick={() => onOpenChange(false)} disabled={sending}>
+            <DialogFooter className="grid grid-cols-1 gap-2 border-t pt-3 sm:grid-cols-2">
+              <Button type="button" variant="outline" className="h-auto min-h-10 w-full py-2 text-sm sm:h-auto sm:min-h-9 sm:col-span-1" onClick={() => onOpenChange(false)} disabled={sending}>
                 {t.cancel}
               </Button>
               <Button
                 type="button"
                 variant="secondary"
-                className="h-10 w-full text-sm sm:h-9 sm:w-auto"
+                className="h-auto min-h-10 w-full bg-slate-700 py-2 text-sm text-white hover:bg-slate-800 sm:h-auto sm:min-h-9 sm:col-span-1"
                 onClick={() => handleSend('normal')}
                 disabled={sending}
               >
                 {sendingMode === 'normal' ? <Loader2Icon className="size-4 animate-spin" /> : null}
-                <span className="whitespace-nowrap">{t.sendNormal}</span>
+                <span className="text-center leading-tight">{t.sendNormal}</span>
               </Button>
               <Button
                 type="button"
-                className="h-10 w-full text-sm sm:h-9 sm:w-auto"
+                className="h-auto min-h-10 w-full py-2 text-sm sm:h-auto sm:min-h-9 sm:col-span-2"
                 onClick={() => handleSend('online')}
                 disabled={sending}
               >
                 {sendingMode === 'online' ? <Loader2Icon className="size-4 animate-spin" /> : null}
-                <span className="whitespace-nowrap">{t.sendOnline}</span>
+                <span className="text-center leading-tight">{t.sendOnline}</span>
               </Button>
             </DialogFooter>
           </>
