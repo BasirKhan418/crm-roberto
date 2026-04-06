@@ -364,15 +364,63 @@ export function NotificationsBell() {
     }
   }, [items, markingAllRead, unreadCount]);
 
+  const markNotificationAsRead = useCallback(async (activityId: string) => {
+    const existing = items.find((item) => item._id === activityId);
+    const wasUnread = Boolean(existing && !existing.isRead);
+
+    if (!wasUnread) {
+      return;
+    }
+
+    setItems((prev) =>
+      prev.map((item) =>
+        item._id === activityId
+          ? {
+              ...item,
+              isRead: true,
+            }
+          : item
+      )
+    );
+    setUnreadCount((prev) => Math.max(0, prev - 1));
+
+    try {
+      const response = await fetch(`/api/activity/${activityId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          isRead: true,
+          readAt: new Date().toISOString(),
+        }),
+      });
+
+      const payload = (await response.json().catch(() => null)) as { success?: boolean } | null;
+      if (!response.ok || !payload?.success) {
+        throw new Error("Failed to mark notification as read");
+      }
+    } catch {
+      setItems((prev) =>
+        prev.map((item) =>
+          item._id === activityId
+            ? {
+                ...item,
+                isRead: false,
+              }
+            : item
+        )
+      );
+      setUnreadCount((prev) => prev + 1);
+    }
+  }, [items]);
+
   const handleOpenChange = useCallback((nextOpen: boolean) => {
     setOpen(nextOpen);
     if (nextOpen) {
-      void (async () => {
-        await fetchNotifications();
-        await markAllAsRead();
-      })();
+      void fetchNotifications();
     }
-  }, [fetchNotifications, markAllAsRead]);
+  }, [fetchNotifications]);
 
   const handleOpenNotification = useCallback((item: NotificationItem) => {
     const path = buildActivityPath(item);
@@ -380,9 +428,13 @@ export function NotificationsBell() {
       return;
     }
 
+    if (!item.isRead) {
+      void markNotificationAsRead(item._id);
+    }
+
     setOpen(false);
     router.push(path);
-  }, [router]);
+  }, [markNotificationAsRead, router]);
 
   return (
     <DropdownMenu open={open} onOpenChange={handleOpenChange}>
