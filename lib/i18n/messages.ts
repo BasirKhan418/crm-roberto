@@ -364,18 +364,18 @@ const messages = {
       greeting: 'Bonjour {name},',
       pdfAttached: 'PDF joint pour vos archives.',
       sendSignLink: {
-        subject: 'Devis {quoteNumber} - Merci de vérifier et signer',
+        subject: 'Devis {quoteNumber} - Merci de vérifier et de signer',
         documentLabel: 'Devis',
         amountLabel: 'Montant',
         validityLabel: 'Validité',
         validityValue: '{count} jours',
         messageBody:
-          'Veuillez vérifier et signer le devis ci-joint en utilisant ce lien sécurisé :\n{signUrl}\n\nCe lien expire dans 30 jours.\n\nSi ce bouton ne fonctionne pas, utilisez ce lien pour continuer :\n{signUrl}',
+          'Veuillez consulter puis signer le devis ci-joint en utilisant ce lien sécurisé :\n{signUrl}\n\nCe lien expire dans 30 jours.\n\nSi le bouton ne fonctionne pas, utilisez ce lien pour continuer :\n{signUrl}',
         ctaLabel: 'Vérifier et signer le devis',
         ctaNote: 'Ce lien expire dans 30 jours.',
       },
       sendQuote: {
-        subject: 'Devis {quoteNumber} - Merci de vérifier et signer',
+        subject: 'Devis {quoteNumber} - Merci de vérifier et de signer',
         defaultBody:
           'Bonjour,\n\nVeuillez trouver ci-joint votre devis {quoteNumber}.\n\nLorsque vous êtes prêt, utilisez le bouton sécurisé de cet e-mail pour consulter le devis et signer en ligne.\n\nN\'hésitez pas à revenir vers nous pour toute question avant signature.\n\nBien cordialement,',
         reference: 'Référence du devis : {quoteNumber}',
@@ -387,7 +387,7 @@ const messages = {
       sendInvoice: {
         subject: 'Facture {invoiceNumber} - {amount}',
         documentLabel: 'Facture',
-        messageBody: 'Veuillez trouver votre facture en pièce jointe. Vous pouvez effectuer le paiement avec le bouton ci-dessous.',
+        messageBody: 'Veuillez trouver votre facture en pièce jointe. Vous pouvez la régler avec le bouton ci-dessous.',
         amountDue: 'Montant dû',
         payment: 'Paiement',
         onlineCheckout: 'Paiement en ligne',
