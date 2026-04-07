@@ -1,6 +1,7 @@
 import { Document, Image, Link, Page, StyleSheet, Text, View } from '@react-pdf/renderer';
 
 import { formatInvoiceDisplayNumber } from '@/lib/i18n/messages';
+import { getPaymentMethodLabel, getPaymentTypeLabel } from '@/lib/payments';
 
 interface InvoiceCompanyData {
   companyName?: string | null;
@@ -182,9 +183,9 @@ const styles = StyleSheet.create({
     fontFamily: 'Helvetica',
     fontSize: 10,
     color: '#0f172a',
-    paddingTop: 30,
-    paddingBottom: 34,
-    paddingHorizontal: 38,
+    paddingTop: 26,
+    paddingBottom: 28,
+    paddingHorizontal: 34,
     backgroundColor: '#ffffff',
   },
   topHeader: {
@@ -192,7 +193,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     gap: 16,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   logo: {
     width: 68,
@@ -215,12 +216,12 @@ const styles = StyleSheet.create({
     fontSize: 9,
   },
   identityCard: {
-    width: '50%',
+    width: '48%',
     borderWidth: 1,
     borderColor: '#e2e8f0',
     borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     backgroundColor: '#f8fafc',
   },
   identityTitle: {
@@ -230,10 +231,10 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   identityNumber: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 700,
     color: '#0b1f5d',
-    marginBottom: 6,
+    marginBottom: 4,
   },
   identityMetaRow: {
     flexDirection: 'row',
@@ -254,7 +255,7 @@ const styles = StyleSheet.create({
     color: '#0f172a',
   },
   section: {
-    marginBottom: 10,
+    marginBottom: 8,
   },
   sectionTitle: {
     fontSize: 9,
@@ -273,8 +274,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e2e8f0',
     borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    paddingHorizontal: 9,
+    paddingVertical: 7,
     backgroundColor: '#ffffff',
   },
   infoRow: {
@@ -283,7 +284,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
-    paddingVertical: 3,
+    paddingVertical: 2.5,
     gap: 10,
   },
   infoRowLast: {
@@ -292,13 +293,13 @@ const styles = StyleSheet.create({
   infoKey: {
     width: '32%',
     color: '#64748b',
-    fontSize: 9,
+    fontSize: 8.5,
   },
   infoValue: {
     width: '68%',
     textAlign: 'right',
     color: '#0f172a',
-    fontSize: 10,
+    fontSize: 9.5,
   },
   table: {
     borderWidth: 1,
@@ -311,12 +312,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#e2e8f0',
     borderBottomWidth: 1,
     borderBottomColor: '#cbd5e1',
-    minHeight: 22,
+    minHeight: 20,
     alignItems: 'center',
   },
   tableRow: {
     flexDirection: 'row',
-    minHeight: 22,
+    minHeight: 20,
     alignItems: 'center',
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
@@ -329,8 +330,8 @@ const styles = StyleSheet.create({
   },
   cell: {
     paddingHorizontal: 6,
-    paddingVertical: 3,
-    fontSize: 9,
+    paddingVertical: 2.5,
+    fontSize: 8.5,
   },
   colDesc: { width: '30%' },
   colQty: { width: '8%' },
@@ -341,10 +342,15 @@ const styles = StyleSheet.create({
   right: {
     textAlign: 'right',
   },
-  totalsSection: {
+  financialRow: {
     marginTop: 8,
-    alignSelf: 'flex-end',
-    width: '48%',
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  totalsSection: {
+    flexBasis: '47%',
+    width: '47%',
     borderWidth: 1,
     borderColor: '#cbd5e1',
     borderRadius: 8,
@@ -354,7 +360,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingVertical: 4.5,
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
     backgroundColor: '#ffffff',
@@ -373,12 +379,12 @@ const styles = StyleSheet.create({
     fontWeight: 700,
   },
   paymentBox: {
-    marginTop: 10,
+    flex: 1,
     borderWidth: 1,
     borderColor: '#e2e8f0',
     borderRadius: 8,
     paddingHorizontal: 10,
-    paddingVertical: 8,
+    paddingVertical: 7,
     backgroundColor: '#f8fafc',
   },
   paymentRow: {
@@ -400,7 +406,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 8,
-    paddingVertical: 6,
+    paddingVertical: 5,
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
   },
@@ -431,15 +437,12 @@ const styles = StyleSheet.create({
   },
   paymentHistorySection: {
     marginTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#dbe4ef',
-    paddingTop: 6,
   },
   notesSection: {
     marginTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#dbe4ef',
-    paddingTop: 6,
+  },
+  supplementarySection: {
+    marginTop: 8,
   },
   paymentHistoryHeader: {
     flexDirection: 'row',
@@ -457,7 +460,7 @@ const styles = StyleSheet.create({
   },
   paymentCell: {
     paddingHorizontal: 6,
-    paddingVertical: 4,
+    paddingVertical: 3,
     fontSize: 8,
   },
   payColDate: { width: '30%' },
@@ -480,6 +483,19 @@ const styles = StyleSheet.create({
 
 function notEmpty(value?: string | null): string {
   return value && value.trim() ? value : '-';
+}
+
+function hasContent(value?: string | null): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+function compactInfoRows(fields: Array<{ label: string; value?: string | null; always?: boolean }>) {
+  return fields
+    .filter((field) => field.always || hasContent(field.value))
+    .map((field) => ({
+      label: field.label,
+      value: field.always ? notEmpty(field.value) : field.value!.trim(),
+    }));
 }
 
 function formatDate(dateValue: string | Date | null | undefined): string {
@@ -539,14 +555,12 @@ function formatDateTime(dateValue: string | Date | null | undefined, locale: 'en
   });
 }
 
-function paymentTypeLabel(type: InvoicePaymentItem['type'], localeText: (typeof translations)['en'] | (typeof translations)['fr']) {
-  if (type === 'deposit') {
-    return localeText.paymentTypeDeposit;
-  }
-  if (type === 'remaining_balance') {
-    return localeText.paymentTypeRemaining;
-  }
-  return localeText.paymentTypeFull;
+function paymentTypeLabel(type: InvoicePaymentItem['type'], locale: 'en' | 'fr') {
+  return getPaymentTypeLabel(type, locale);
+}
+
+function paymentMethodLabel(method: string, locale: 'en' | 'fr') {
+  return getPaymentMethodLabel(method, locale);
 }
 
 function getStatusPresentation(
@@ -591,6 +605,27 @@ export function InvoicePdfTemplate({ invoice, company, paymentUrl = null, locale
   const totalPaidAmount = payments.reduce((sum, payment) => sum + Math.max(0, Math.round(payment.amount || 0)), 0);
   const remainingAmount = Math.max(0, invoice.totalIncludingTax - totalPaidAmount);
   const statusPresentation = getStatusPresentation(invoice.status, t);
+  const issuerRows = compactInfoRows([
+    { label: t.company, value: company?.companyName || company?.ownerName, always: true },
+    { label: t.address, value: company?.address },
+    { label: t.phone, value: company?.phone },
+    { label: t.email, value: company?.businessEmail },
+    { label: t.vat, value: company?.vatNumber },
+    { label: t.rcs, value: company?.rcsNumber },
+    { label: t.businessAuthorization, value: company?.businessAuthorizationNumber },
+    { label: t.matricule, value: company?.matriculeNumber },
+    { label: t.iban, value: company?.iban },
+    { label: t.bankName, value: company?.bankName },
+    { label: t.legalIdentifier, value: company?.legalIdentifier },
+  ]);
+  const clientRows = compactInfoRows([
+    { label: t.name, value: invoice.clientSnapshot.fullName, always: true },
+    { label: t.company, value: invoice.clientSnapshot.companyName },
+    { label: t.phone, value: invoice.clientSnapshot.phone },
+    { label: t.email, value: invoice.clientSnapshot.email },
+    { label: t.address, value: invoice.clientSnapshot.address },
+    { label: t.vat, value: invoice.clientSnapshot.vatNumber },
+  ]);
 
   return (
     <Document>
@@ -615,7 +650,7 @@ export function InvoicePdfTemplate({ invoice, company, paymentUrl = null, locale
               </View>
               <View style={styles.identityMetaCol}>
                 <Text style={styles.label}>{t.dueDate}</Text>
-                <Text style={styles.value}>{invoice.dueDate ? `${t.dueInline}: ${formatLongDate(invoice.dueDate, locale)}` : '-'}</Text>
+                <Text style={styles.value}>{invoice.dueDate ? formatLongDate(invoice.dueDate, locale) : '-'}</Text>
               </View>
             </View>
           </View>
@@ -625,78 +660,28 @@ export function InvoicePdfTemplate({ invoice, company, paymentUrl = null, locale
           <View style={styles.partyRow}>
             <View style={styles.partyBox}>
               <Text style={styles.sectionTitle}>{t.issuerInfo}</Text>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoKey}>{t.company}</Text>
-                <Text style={styles.infoValue}>{notEmpty(company?.companyName || company?.ownerName)}</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoKey}>{t.address}</Text>
-                <Text style={styles.infoValue}>{notEmpty(company?.address)}</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoKey}>{t.phone}</Text>
-                <Text style={styles.infoValue}>{notEmpty(company?.phone)}</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoKey}>{t.email}</Text>
-                <Text style={styles.infoValue}>{notEmpty(company?.businessEmail)}</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoKey}>{t.vat}</Text>
-                <Text style={styles.infoValue}>{notEmpty(company?.vatNumber)}</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoKey}>{t.rcs}</Text>
-                <Text style={styles.infoValue}>{notEmpty(company?.rcsNumber)}</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoKey}>{t.businessAuthorization}</Text>
-                <Text style={styles.infoValue}>{notEmpty(company?.businessAuthorizationNumber)}</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoKey}>{t.matricule}</Text>
-                <Text style={styles.infoValue}>{notEmpty(company?.matriculeNumber)}</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoKey}>{t.iban}</Text>
-                <Text style={styles.infoValue}>{notEmpty(company?.iban)}</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoKey}>{t.bankName}</Text>
-                <Text style={styles.infoValue}>{notEmpty(company?.bankName)}</Text>
-              </View>
-              <View style={[styles.infoRow, styles.infoRowLast]}>
-                <Text style={styles.infoKey}>{t.legalIdentifier}</Text>
-                <Text style={styles.infoValue}>{notEmpty(company?.legalIdentifier)}</Text>
-              </View>
+              {issuerRows.map((row, index) => (
+                <View
+                  key={`${row.label}-${index}`}
+                  style={index === issuerRows.length - 1 ? [styles.infoRow, styles.infoRowLast] : styles.infoRow}
+                >
+                  <Text style={styles.infoKey}>{row.label}</Text>
+                  <Text style={styles.infoValue}>{row.value}</Text>
+                </View>
+              ))}
             </View>
 
             <View style={styles.partyBox}>
               <Text style={styles.sectionTitle}>{t.clientInfo}</Text>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoKey}>{t.name}</Text>
-                <Text style={styles.infoValue}>{notEmpty(invoice.clientSnapshot.fullName)}</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoKey}>{t.company}</Text>
-                <Text style={styles.infoValue}>{notEmpty(invoice.clientSnapshot.companyName)}</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoKey}>{t.phone}</Text>
-                <Text style={styles.infoValue}>{notEmpty(invoice.clientSnapshot.phone)}</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoKey}>{t.email}</Text>
-                <Text style={styles.infoValue}>{notEmpty(invoice.clientSnapshot.email)}</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoKey}>{t.address}</Text>
-                <Text style={styles.infoValue}>{notEmpty(invoice.clientSnapshot.address)}</Text>
-              </View>
-              <View style={[styles.infoRow, styles.infoRowLast]}>
-                <Text style={styles.infoKey}>{t.vat}</Text>
-                <Text style={styles.infoValue}>{notEmpty(invoice.clientSnapshot.vatNumber)}</Text>
-              </View>
+              {clientRows.map((row, index) => (
+                <View
+                  key={`${row.label}-${index}`}
+                  style={index === clientRows.length - 1 ? [styles.infoRow, styles.infoRowLast] : styles.infoRow}
+                >
+                  <Text style={styles.infoKey}>{row.label}</Text>
+                  <Text style={styles.infoValue}>{row.value}</Text>
+                </View>
+              ))}
             </View>
           </View>
         </View>
@@ -738,62 +723,66 @@ export function InvoicePdfTemplate({ invoice, company, paymentUrl = null, locale
           </View>
         </View>
 
-        <View style={styles.totalsSection} wrap={false}>
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>{t.totalExcl}</Text>
-            <Text style={styles.totalValue}>{formatPrice(invoice.totalExcludingTaxBeforeDiscount)}</Text>
+        <View style={styles.financialRow} wrap={false}>
+          <View style={styles.paymentBox}>
+            <Text style={styles.sectionTitle}>{t.paymentSummary}</Text>
+            <View style={styles.paymentRow}>
+              <Text style={styles.value}>{t.paymentStatus}</Text>
+              <Text
+                style={[
+                  styles.statusBadge,
+                  {
+                    backgroundColor: statusPresentation.backgroundColor,
+                    color: statusPresentation.color,
+                  },
+                ]}
+              >
+                {statusPresentation.label}
+              </Text>
+            </View>
+            <View style={styles.paymentSummaryStack}>
+              <View style={styles.paymentSummaryItem}>
+                <Text style={styles.paymentSummaryLabel}>{t.totalInvoiceAmount}</Text>
+                <Text style={styles.paymentSummaryAmount}>{formatPrice(invoice.totalIncludingTax)}</Text>
+              </View>
+              <View style={styles.paymentSummaryItem}>
+                <Text style={styles.paymentSummaryLabel}>{t.totalPaid}</Text>
+                <Text style={styles.paymentSummaryAmount}>{formatPrice(totalPaidAmount)}</Text>
+              </View>
+              <View style={[styles.paymentSummaryItem, styles.paymentSummaryItemLast]}>
+                <Text style={styles.paymentSummaryLabel}>{t.remaining}</Text>
+                <Text style={styles.paymentSummaryAmount}>{formatPrice(remainingAmount)}</Text>
+              </View>
+            </View>
+            {paymentUrl ? <Link src={paymentUrl} style={styles.paymentLink}>{t.paymentLink}</Link> : null}
           </View>
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>{t.totalDiscount}</Text>
-            <Text style={styles.totalValue}>- {formatPrice(invoice.totalDiscountExcludingTax)}</Text>
-          </View>
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>{t.totalNet}</Text>
-            <Text style={styles.totalValue}>{formatPrice(invoice.totalExcludingTax)}</Text>
-          </View>
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>{t.totalVat}</Text>
-            <Text style={styles.totalValue}>{formatPrice(invoice.totalVat)}</Text>
-          </View>
-          <View style={[styles.totalRow, styles.grandTotal]}>
-            <Text style={styles.totalLabel}>{t.totalIncl}</Text>
-            <Text style={styles.totalValue}>{formatPrice(invoice.totalIncludingTax)}</Text>
+
+          <View style={styles.totalsSection}>
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>{t.totalExcl}</Text>
+              <Text style={styles.totalValue}>{formatPrice(invoice.totalExcludingTaxBeforeDiscount)}</Text>
+            </View>
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>{t.totalDiscount}</Text>
+              <Text style={styles.totalValue}>- {formatPrice(invoice.totalDiscountExcludingTax)}</Text>
+            </View>
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>{t.totalNet}</Text>
+              <Text style={styles.totalValue}>{formatPrice(invoice.totalExcludingTax)}</Text>
+            </View>
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>{t.totalVat}</Text>
+              <Text style={styles.totalValue}>{formatPrice(invoice.totalVat)}</Text>
+            </View>
+            <View style={[styles.totalRow, styles.grandTotal]}>
+              <Text style={styles.totalLabel}>{t.totalIncl}</Text>
+              <Text style={styles.totalValue}>{formatPrice(invoice.totalIncludingTax)}</Text>
+            </View>
           </View>
         </View>
 
-        <View style={styles.paymentBox} wrap={false}>
-          <Text style={styles.sectionTitle}>{t.paymentSummary}</Text>
-          <View style={styles.paymentRow}>
-            <Text style={styles.value}>{t.paymentStatus}</Text>
-            <Text
-              style={[
-                styles.statusBadge,
-                {
-                  backgroundColor: statusPresentation.backgroundColor,
-                  color: statusPresentation.color,
-                },
-              ]}
-            >
-              {statusPresentation.label}
-            </Text>
-          </View>
-          <View style={styles.paymentSummaryStack}>
-            <View style={styles.paymentSummaryItem}>
-              <Text style={styles.paymentSummaryLabel}>{t.totalInvoiceAmount}</Text>
-              <Text style={styles.paymentSummaryAmount}>{formatPrice(invoice.totalIncludingTax)}</Text>
-            </View>
-            <View style={styles.paymentSummaryItem}>
-              <Text style={styles.paymentSummaryLabel}>{t.totalPaid}</Text>
-              <Text style={styles.paymentSummaryAmount}>{formatPrice(totalPaidAmount)}</Text>
-            </View>
-            <View style={[styles.paymentSummaryItem, styles.paymentSummaryItemLast]}>
-              <Text style={styles.paymentSummaryLabel}>{t.remaining}</Text>
-              <Text style={styles.paymentSummaryAmount}>{formatPrice(remainingAmount)}</Text>
-            </View>
-          </View>
-          {paymentUrl ? <Link src={paymentUrl} style={styles.paymentLink}>{t.paymentLink}</Link> : null}
-
-          {payments.length > 0 ? (
+        {payments.length > 0 ? (
+          <View style={styles.supplementarySection}>
             <View style={styles.paymentHistorySection}>
               <Text style={styles.sectionTitle}>{t.paymentHistory}</Text>
               <View style={styles.paymentHistoryHeader}>
@@ -805,23 +794,23 @@ export function InvoicePdfTemplate({ invoice, company, paymentUrl = null, locale
               {payments.map((payment, index) => (
                 <View key={`${payment.method}-${payment.amount}-${index}`} style={styles.paymentHistoryRow}>
                   <Text style={[styles.paymentCell, styles.payColDate]}>{formatDateTime(payment.paidAt ?? payment.createdAt, locale)}</Text>
-                  <Text style={[styles.paymentCell, styles.payColMethod]}>{payment.method || '-'}</Text>
-                  <Text style={[styles.paymentCell, styles.payColType]}>{paymentTypeLabel(payment.type, t)}</Text>
+                  <Text style={[styles.paymentCell, styles.payColMethod]}>{payment.method ? paymentMethodLabel(payment.method, locale) : '-'}</Text>
+                  <Text style={[styles.paymentCell, styles.payColType]}>{paymentTypeLabel(payment.type, locale)}</Text>
                   <Text style={[styles.paymentCell, styles.payColAmount, styles.right]}>{formatPrice(payment.amount)}</Text>
                 </View>
               ))}
             </View>
-          ) : null}
+          </View>
+        ) : null}
 
-          {invoice.notes ? (
-            <View style={styles.notesSection}>
-              <Text style={styles.sectionTitle}>{t.notes}</Text>
-              <Text style={styles.notesBox}>
-                <Text style={styles.notesText}>{invoice.notes}</Text>
-              </Text>
-            </View>
-          ) : null}
-        </View>
+        {invoice.notes ? (
+          <View style={styles.notesSection} wrap={false}>
+            <Text style={styles.sectionTitle}>{t.notes}</Text>
+            <Text style={styles.notesBox}>
+              <Text style={styles.notesText}>{invoice.notes}</Text>
+            </Text>
+          </View>
+        ) : null}
       </Page>
     </Document>
   );

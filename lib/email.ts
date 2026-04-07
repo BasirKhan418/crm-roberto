@@ -1,6 +1,7 @@
 import ConnectEmailClient from "@/emails/connectEmailClient";
 import { getQuoteEmailTemplate } from "@/emails/quoteEmailTemplate";
 import { formatInvoiceDisplayNumber, getDocumentEmailLanguage, translate, type TranslationLocale } from '@/lib/i18n/messages';
+import { getPaymentMethodLabel } from '@/lib/payments';
 
 interface BaseSendParams {
   to: string;
@@ -622,6 +623,7 @@ export async function sendPaymentReceipt({
   locale = 'en',
 }: SendPaymentReceiptParams) {
   const displayInvoiceNumber = formatInvoiceDisplayNumber(locale, invoiceNumber);
+  const localizedPaymentMethod = getPaymentMethodLabel(paymentMethod, locale);
   const subject = translate(locale, 'email.paymentReceipt.subject', { invoiceNumber: displayInvoiceNumber });
   const messageBody = translate(locale, 'email.paymentReceipt.messageBody');
 
@@ -633,7 +635,7 @@ export async function sendPaymentReceipt({
     documentNumber: displayInvoiceNumber,
     details: [
       { label: translate(locale, 'email.paymentReceipt.amountPaid'), value: amount },
-      { label: translate(locale, 'email.paymentReceipt.method'), value: paymentMethod },
+      { label: translate(locale, 'email.paymentReceipt.method'), value: localizedPaymentMethod },
       { label: translate(locale, 'email.paymentReceipt.paidAt'), value: formatDate(paidAt) },
     ],
     messageBody,
@@ -644,7 +646,7 @@ export async function sendPaymentReceipt({
     name: clientName,
     invoiceNumber: displayInvoiceNumber,
     amount,
-    paymentMethod,
+    paymentMethod: localizedPaymentMethod,
     paidAt: formatDate(paidAt),
   });
 

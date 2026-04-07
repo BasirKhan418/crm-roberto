@@ -16,6 +16,8 @@ export interface InvoiceListItem {
   status: InvoiceStatus;
   totalIncludingTax: number;
   depositPercentage?: number;
+  depositAmount?: number | null;
+  depositPaidAt?: string | null;
   clientId: string;
   clientSnapshot: {
     fullName: string;

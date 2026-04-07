@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, CheckCheck, FileText, RefreshCw } from "lucide-react";
+import { Bell, CheckCheck, FileText, RefreshCw, Search } from "lucide-react";
 
 import { useLocale } from "@/components/providers/locale-provider";
 import { Button } from "@/components/ui/button";
@@ -38,6 +38,8 @@ const bellMessages = {
   en: {
     title: "Notifications",
     empty: "No new activity right now.",
+    noResults: "No notifications match your search.",
+    searchPlaceholder: "Search notifications…",
     markAllRead: "Mark all as read",
     loading: "Loading notifications...",
     viewUpdates: "Update",
@@ -64,6 +66,8 @@ const bellMessages = {
   fr: {
     title: "Notifications",
     empty: "Aucune nouvelle activité pour le moment.",
+    noResults: "Aucune notification ne correspond à votre recherche.",
+    searchPlaceholder: "Rechercher…",
     markAllRead: "Tout marquer comme lu",
     loading: "Chargement des notifications...",
     viewUpdates: "Mise à jour",
@@ -294,6 +298,12 @@ export function NotificationsBell() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [markingAllRead, setMarkingAllRead] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const searchQueryRef = useRef("");
+
+  useEffect(() => {
+    searchQueryRef.current = searchQuery;
+  }, [searchQuery]);
 
   const unreadBadgeValue = useMemo(() => {
     if (unreadCount > 99) {
@@ -305,7 +315,10 @@ export function NotificationsBell() {
   const fetchNotifications = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch("/api/activity?sortBy=createdAt&sortOrder=desc&limit=12", {
+      const params = new URLSearchParams({ sortBy: "createdAt", sortOrder: "desc", limit: "12" });
+      const search = searchQueryRef.current.trim();
+      if (search) params.set("search", search);
+      const response = await fetch(`/api/activity?${params.toString()}`, {
         cache: "no-store",
       });
       const payload = (await response.json()) as ActivityListResponse;
@@ -326,6 +339,17 @@ export function NotificationsBell() {
     void fetchNotifications();
   }, [fetchNotifications]);
 
+  // Debounced re-fetch when search query changes (skip initial mount)
+  const isFirstSearchRender = useRef(true);
+  useEffect(() => {
+    if (isFirstSearchRender.current) {
+      isFirstSearchRender.current = false;
+      return;
+    }
+    const timer = setTimeout(() => { void fetchNotifications(); }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery, fetchNotifications]);
+
   useEffect(() => {
     let source: EventSource | null = null;
     let closedByUnmount = false;
@@ -341,7 +365,12 @@ export function NotificationsBell() {
           if (!payload?.id) {
             return;
           }
-          void fetchNotifications();
+          // Only re-fetch for externally triggered events.
+          // read/read_all are optimistically updated locally — re-fetching
+          // on those events risks a race that reverts the optimistic state.
+          if (payload.type === "created" || payload.type === "deleted") {
+            void fetchNotifications();
+          }
         } catch {
           // Ignore malformed SSE payloads.
         }
@@ -471,7 +500,7 @@ export function NotificationsBell() {
         >
           <Bell className="size-4" />
           {unreadCount > 0 ? (
-            <span className="absolute -right-1 -top-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-[10px] font-bold leading-none text-white shadow-sm ring-2 ring-white/80">
+            <span className="absolute -right-1 -top-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold leading-none text-white shadow ring-2 ring-white">
               {unreadBadgeValue}
             </span>
           ) : null}
@@ -495,13 +524,29 @@ export function NotificationsBell() {
           </div>
         </div>
 
-        <div className="max-h-[min(70vh,26rem)] overflow-y-auto px-2 py-2">
+        {/* Search */}
+        <div className="border-b border-slate-100 px-3 py-2">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder={t.searchPlaceholder}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full rounded-lg border border-slate-200 bg-slate-50 py-1.5 pl-8 pr-3 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-300"
+            />
+          </div>
+        </div>
+
+        <div className="max-h-[min(70vh,24rem)] overflow-y-auto px-2 py-2">
           {loading ? (
             <p className="px-2 py-4 text-sm text-slate-500">{t.loading}</p>
           ) : null}
 
           {!loading && items.length === 0 ? (
-            <p className="px-2 py-4 text-sm text-slate-500">{t.empty}</p>
+            <p className="px-2 py-4 text-sm text-slate-500">
+              {searchQuery.trim() ? t.noResults : t.empty}
+            </p>
           ) : null}
 
           {!loading
@@ -518,12 +563,12 @@ export function NotificationsBell() {
                       "mb-1 rounded-xl border px-2 py-2 transition-colors",
                       item.isRead
                         ? "border-slate-100 bg-slate-50"
-                        : "border-slate-200 bg-white shadow-[0_1px_0_0_rgba(15,23,42,0.04)]"
+                        : "border-blue-200 bg-blue-50/40 shadow-sm"
                     )}
                   >
                     <div className="flex items-start gap-2.5">
-                      <div className={cn("mt-0.5 rounded-full p-1.5", item.isRead ? "bg-slate-200" : "bg-slate-100") }>
-                        <Icon className="size-3.5 text-slate-700" />
+                      <div className={cn("mt-0.5 rounded-full p-1.5", item.isRead ? "bg-slate-100" : "bg-blue-100") }>
+                        <Icon className={cn("size-3.5", item.isRead ? "text-slate-400" : "text-blue-600")} />
                       </div>
 
                       <div className="min-w-0 flex-1">
@@ -532,10 +577,24 @@ export function NotificationsBell() {
                         <p className="mt-1 text-[11px] text-slate-500">{formatActivityRelativeTime(locale, item.createdAt)}</p>
                       </div>
 
-                      {!item.isRead ? <span className="mt-1 size-2 rounded-full bg-[#001e3c]" aria-hidden /> : null}
+                      {!item.isRead ? <span className="mt-1 size-2.5 shrink-0 rounded-full bg-blue-500" aria-hidden /> : null}
                     </div>
 
-                    <div className="mt-2 flex items-center justify-end gap-1.5">
+                    <div className="mt-2 flex items-center justify-between gap-1.5">
+                      {!item.isRead ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 rounded-full px-2 text-[11px] text-slate-500 hover:text-slate-700"
+                          onClick={() => void markNotificationAsRead(item._id)}
+                        >
+                          <CheckCheck className="mr-0.5 size-3" />
+                          {t.read}
+                        </Button>
+                      ) : (
+                        <div />
+                      )}
                       <Button
                         type="button"
                         size="sm"

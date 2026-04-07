@@ -14,11 +14,12 @@ function NewInvoicePageContent() {
 
   const defaultClientId = searchParams.get('clientId') ?? undefined;
   const defaultQuoteId = searchParams.get('quoteId') ?? undefined;
+  const defaultDueDate = searchParams.get('dueDate') ?? undefined;
 
   return (
     <CrmShell title={shellTitle}>
       <div data-tour-invoice-form>
-        <InvoiceForm defaultClientId={defaultClientId} defaultQuoteId={defaultQuoteId} />
+        <InvoiceForm defaultClientId={defaultClientId} defaultQuoteId={defaultQuoteId} defaultDueDate={defaultDueDate} />
       </div>
     </CrmShell>
   );

@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import ConnectDb from '@/db/connectDb';
 import Client from '@/db/models/Client';
 import Invoice from '@/db/models/Invoice';
+import Payment from '@/db/models/Payment';
 import Quote from '@/db/models/Quote';
 import { createActivityLog } from '@/db/repository/activity';
 import { ensureInvoiceIndexes } from '@/db/repository/ensureInvoiceIndexes';
@@ -94,6 +95,47 @@ type CreatedInvoiceLike = {
   invoiceNumber: string;
   dueDate?: Date | null;
 };
+
+type InvoiceListQueryResult = {
+  _id: mongoose.Types.ObjectId;
+  invoiceNumber: string;
+  quoteId?: mongoose.Types.ObjectId | null;
+  quoteNumber?: string | null;
+  date: Date;
+  dueDate?: Date | null;
+  status: string;
+  totalIncludingTax: number;
+  depositPercentage?: number | null;
+  depositAmount?: number | null;
+  clientId: mongoose.Types.ObjectId;
+  clientSnapshot: {
+    fullName: string;
+    email?: string | null;
+  };
+};
+
+type PaymentTimelineItem = {
+  invoiceId: mongoose.Types.ObjectId;
+  amount: number;
+  paidAt?: Date | null;
+  createdAt?: Date | null;
+};
+
+function getInvoiceDepositTarget(invoice: {
+  depositPercentage?: number | null;
+  depositAmount?: number | null;
+  totalIncludingTax?: number | null;
+}): number {
+  const invoiceTotal = Math.max(0, Math.round(invoice.totalIncludingTax ?? 0));
+  const depositPercentage = typeof invoice.depositPercentage === 'number' ? invoice.depositPercentage : 100;
+  const configuredDeposit = Math.max(0, Math.round(invoice.depositAmount ?? 0));
+
+  if (invoiceTotal <= 0 || depositPercentage >= 100 || configuredDeposit <= 0) {
+    return 0;
+  }
+
+  return Math.min(configuredDeposit, invoiceTotal - 1);
+}
 
 async function createInvoiceWithUniqueNumber(
   userId: string,
@@ -208,21 +250,73 @@ export async function GET(request: NextRequest) {
       sort === 'amount' ? { totalIncludingTax: -1, createdAt: -1 } : { date: -1, createdAt: -1 };
 
     const [items, total] = await Promise.all([
-      Invoice.find(query).sort(sortSpec).skip(skip).limit(limit).lean(),
+      Invoice.find(query)
+        .select(
+          '_id invoiceNumber quoteId quoteNumber date dueDate status totalIncludingTax depositPercentage depositAmount clientId clientSnapshot.fullName clientSnapshot.email'
+        )
+        .sort(sortSpec)
+        .skip(skip)
+        .limit(limit)
+        .lean<InvoiceListQueryResult[]>(),
       Invoice.countDocuments(query),
     ]);
 
+    const depositTargetByInvoiceId = new Map<string, number>();
+    const depositInvoiceIds: mongoose.Types.ObjectId[] = [];
+
+    for (const invoice of items) {
+      const depositTarget = getInvoiceDepositTarget(invoice);
+      if (depositTarget <= 0) {
+        continue;
+      }
+
+      depositTargetByInvoiceId.set(String(invoice._id), depositTarget);
+      depositInvoiceIds.push(invoice._id);
+    }
+
+    const depositPaidAtByInvoiceId = new Map<string, Date | null>();
+
+    if (depositInvoiceIds.length > 0) {
+      const paymentTimeline = await Payment.find({
+        userId: me.user.id,
+        invoiceId: { $in: depositInvoiceIds },
+        status: 'succeeded',
+      })
+        .select('invoiceId amount paidAt createdAt')
+        .sort({ paidAt: 1, createdAt: 1, _id: 1 })
+        .lean<PaymentTimelineItem[]>();
+
+      const cumulativePaidByInvoiceId = new Map<string, number>();
+
+      for (const payment of paymentTimeline) {
+        const invoiceId = String(payment.invoiceId);
+        const depositTarget = depositTargetByInvoiceId.get(invoiceId);
+
+        if (!depositTarget || depositPaidAtByInvoiceId.has(invoiceId)) {
+          continue;
+        }
+
+        const nextPaidAmount = (cumulativePaidByInvoiceId.get(invoiceId) ?? 0) + Math.max(0, Math.round(payment.amount ?? 0));
+        cumulativePaidByInvoiceId.set(invoiceId, nextPaidAmount);
+
+        if (nextPaidAmount >= depositTarget) {
+          depositPaidAtByInvoiceId.set(invoiceId, payment.paidAt ?? payment.createdAt ?? null);
+        }
+      }
+    }
+
     const data = items.map((invoice) => {
       const normalized = withComputedInvoiceStatus(invoice);
+      const invoiceId = String(normalized._id);
+      const depositTarget = depositTargetByInvoiceId.get(invoiceId) ?? 0;
+
       return {
         ...normalized,
-        _id: String(normalized._id),
+        _id: invoiceId,
         quoteId: normalized.quoteId ? String(normalized.quoteId) : null,
         clientId: String(normalized.clientId),
-        lineItems: normalized.lineItems.map((line) => ({
-          ...line,
-          productId: line.productId ? String(line.productId) : null,
-        })),
+        depositAmount: depositTarget > 0 ? depositTarget : null,
+        depositPaidAt: depositTarget > 0 ? depositPaidAtByInvoiceId.get(invoiceId) ?? null : null,
       };
     });
 

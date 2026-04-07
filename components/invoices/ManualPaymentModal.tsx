@@ -14,6 +14,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { type ManualPaymentMethodOption } from '@/lib/payments';
 
 export type ManualPaymentType = 'full' | 'partial';
 
@@ -25,7 +26,7 @@ interface ManualPaymentModalProps {
   totalAmount: number;
   totalPaidAmount: number;
   remainingAmount: number;
-  onConfirm: (payload: { amount: number; paymentType: ManualPaymentType; method: string }) => Promise<void>;
+  onConfirm: (payload: { amount: number; paymentType: ManualPaymentType; method: string; customMethod?: string }) => Promise<void>;
 }
 
 export default function ManualPaymentModal({
@@ -40,8 +41,8 @@ export default function ManualPaymentModal({
 }: ManualPaymentModalProps) {
   const t = {
     en: {
-      title: 'Add payment',
-      description: 'Record a full or partial payment in one step.',
+      title: 'Record payment',
+      description: 'Capture the received amount and how the client paid it.',
       paymentType: 'Payment type',
       typeFull: 'Full payment',
       typePartial: 'Partial payment',
@@ -52,9 +53,12 @@ export default function ManualPaymentModal({
       methodBank: 'Bank transfer',
       methodCard: 'Card',
       methodCheck: 'Check',
-      methodOther: 'Other',
+      methodCustom: 'Custom method',
+      customMethod: 'Custom payment method',
+      customMethodPlaceholder: 'Wire transfer Luxembourg',
+      customMethodHint: 'Use the exact label you want to see in payment history and PDFs.',
       cancel: 'Cancel',
-      confirm: 'Add payment',
+      confirm: 'Save payment',
       saving: 'Saving...',
       amountPlaceholder: '250.00',
       summaryTotal: 'Total invoice amount',
@@ -62,8 +66,8 @@ export default function ManualPaymentModal({
       summaryRemaining: 'Remaining amount',
     },
     fr: {
-      title: 'Ajouter un paiement',
-      description: 'Enregistrez un paiement complet ou partiel en une seule etape.',
+      title: 'Enregistrer un paiement',
+      description: 'Indiquez le montant recu et la methode de paiement du client.',
       paymentType: 'Type de paiement',
       typeFull: 'Paiement complet',
       typePartial: 'Paiement partiel',
@@ -74,9 +78,12 @@ export default function ManualPaymentModal({
       methodBank: 'Virement bancaire',
       methodCard: 'Carte',
       methodCheck: 'Cheque',
-      methodOther: 'Autre',
+      methodCustom: 'Methode personnalisee',
+      customMethod: 'Nom de la methode personnalisee',
+      customMethodPlaceholder: 'Virement Luxembourg',
+      customMethodHint: 'Ce libelle sera affiche tel quel dans l historique et les PDF.',
       cancel: 'Annuler',
-      confirm: 'Ajouter le paiement',
+      confirm: 'Enregistrer le paiement',
       saving: 'Enregistrement...',
       amountPlaceholder: '250,00',
       summaryTotal: 'Montant total de la facture',
@@ -87,13 +94,19 @@ export default function ManualPaymentModal({
 
   const [paymentType, setPaymentType] = useState<ManualPaymentType>('partial');
   const [amountInput, setAmountInput] = useState('');
-  const [method, setMethod] = useState('bank_transfer');
+  const [method, setMethod] = useState<ManualPaymentMethodOption>('bank_transfer');
+  const [customMethod, setCustomMethod] = useState('');
+
+  function resetForm() {
+    setPaymentType('partial');
+    setAmountInput('');
+    setMethod('bank_transfer');
+    setCustomMethod('');
+  }
 
   function handleOpenChange(nextOpen: boolean) {
     if (!nextOpen) {
-      setPaymentType('partial');
-      setAmountInput('');
-      setMethod('bank_transfer');
+      resetForm();
     }
 
     onOpenChange(nextOpen);
@@ -108,12 +121,13 @@ export default function ManualPaymentModal({
     [locale]
   );
 
-  function computePayload(): { amount: number; paymentType: ManualPaymentType; method: string } {
+  function computePayload(): { amount: number; paymentType: ManualPaymentType; method: string; customMethod?: string } {
     if (paymentType === 'full') {
       return {
         amount: remainingAmount,
         paymentType: 'full',
-        method,
+        method: method === 'custom' ? 'other' : method,
+        ...(method === 'custom' ? { customMethod: customMethod.trim() } : {}),
       };
     }
 
@@ -125,12 +139,15 @@ export default function ManualPaymentModal({
     return {
       amount,
       paymentType: 'partial',
-      method,
+      method: method === 'custom' ? 'other' : method,
+      ...(method === 'custom' ? { customMethod: customMethod.trim() } : {}),
     };
   }
 
   const preview = computePayload();
-  const canSubmit = !loading && remainingAmount > 0 && preview.amount > 0;
+  const requiresCustomMethod = method === 'custom';
+  const hasValidCustomMethod = !requiresCustomMethod || customMethod.trim().length > 0;
+  const canSubmit = !loading && remainingAmount > 0 && preview.amount > 0 && hasValidCustomMethod;
 
   async function handleSubmit() {
     if (!canSubmit) {
@@ -143,6 +160,7 @@ export default function ManualPaymentModal({
   const paymentTypeSelectId = 'manual-payment-type';
   const paymentAmountInputId = 'manual-payment-amount';
   const paymentMethodSelectId = 'manual-payment-method';
+  const customPaymentMethodInputId = 'manual-payment-custom-method';
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -196,7 +214,7 @@ export default function ManualPaymentModal({
 
           <div className="space-y-1.5">
             <Label htmlFor={paymentMethodSelectId}>{t.paymentMethod}</Label>
-            <Select value={method} onValueChange={setMethod}>
+            <Select value={method} onValueChange={(value) => setMethod(value as ManualPaymentMethodOption)}>
               <SelectTrigger id={paymentMethodSelectId} className="w-full">
                 <SelectValue />
               </SelectTrigger>
@@ -205,10 +223,24 @@ export default function ManualPaymentModal({
                 <SelectItem value="bank_transfer">{t.methodBank}</SelectItem>
                 <SelectItem value="card">{t.methodCard}</SelectItem>
                 <SelectItem value="check">{t.methodCheck}</SelectItem>
-                <SelectItem value="other">{t.methodOther}</SelectItem>
+                <SelectItem value="custom">{t.methodCustom}</SelectItem>
               </SelectContent>
             </Select>
           </div>
+
+          {requiresCustomMethod ? (
+            <div className="space-y-1.5">
+              <Label htmlFor={customPaymentMethodInputId}>{t.customMethod}</Label>
+              <Input
+                id={customPaymentMethodInputId}
+                value={customMethod}
+                onChange={(event) => setCustomMethod(event.target.value)}
+                placeholder={t.customMethodPlaceholder}
+                maxLength={80}
+              />
+              <p className="text-xs text-muted-foreground">{t.customMethodHint}</p>
+            </div>
+          ) : null}
 
           <p className="text-sm text-muted-foreground">
             {t.summaryRemaining}: <span className="font-semibold text-foreground">{formatter.format(Math.max(0, remainingAmount - preview.amount) / 100)}</span>
@@ -216,7 +248,7 @@ export default function ManualPaymentModal({
         </div>
 
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
+          <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} disabled={loading}>
             {t.cancel}
           </Button>
           <Button type="button" onClick={handleSubmit} disabled={!canSubmit}>

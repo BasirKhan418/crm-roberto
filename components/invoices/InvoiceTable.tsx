@@ -51,6 +51,8 @@ interface InvoiceTableProps {
     date: string;
     dueDate: string;
     totalIncludingTax: string;
+    depositAmount: string;
+    depositPaymentDate: string;
     status: string;
     actions: string;
     quickActions: string;
@@ -79,6 +81,10 @@ export default function InvoiceTable({
 }: InvoiceTableProps) {
   const router = useRouter();
   const priceLocale = locale === 'fr' ? 'fr-FR' : 'en-GB';
+
+  function hasDeposit(invoice: InvoiceListItem) {
+    return typeof invoice.depositAmount === 'number' && invoice.depositAmount > 0;
+  }
 
   function renderPrimaryAction(invoice: InvoiceListItem, className?: string) {
     // unpaid → send
@@ -178,6 +184,7 @@ export default function InvoiceTable({
             ))
           : items.map((invoice) => {
               const displayInvoiceNumber = formatInvoiceDisplayNumber(locale, invoice.invoiceNumber);
+              const showDepositSummary = hasDeposit(invoice) || Boolean(invoice.depositPaidAt);
 
               return (
                 <article
@@ -211,6 +218,27 @@ export default function InvoiceTable({
                     </div>
                   </div>
 
+                  {showDepositSummary ? (
+                    <div className="mx-4 rounded-lg border border-border/60 bg-background/70 px-3 py-2">
+                      <div className="grid grid-cols-2 gap-3 text-[11px]">
+                        <div className="min-w-0">
+                          <p className="text-muted-foreground">{labels.depositAmount}</p>
+                          {hasDeposit(invoice) ? (
+                            <PriceDisplay cents={invoice.depositAmount ?? 0} locale={priceLocale} className="mt-1 block truncate text-sm font-semibold tabular-nums text-foreground" />
+                          ) : (
+                            <p className="mt-1 text-sm text-muted-foreground">—</p>
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-muted-foreground">{labels.depositPaymentDate}</p>
+                          <p className={`mt-1 text-sm ${invoice.depositPaidAt ? 'font-medium text-foreground' : 'text-muted-foreground'}`}>
+                            {formatDate(invoice.depositPaidAt)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+
                   <div className="flex items-center justify-between gap-3 px-4 pb-4.5 pt-3">
                     <PriceDisplay
                       cents={invoice.totalIncludingTax}
@@ -228,14 +256,16 @@ export default function InvoiceTable({
       </div>
 
       <div className="hidden overflow-hidden rounded-xl border border-border/70 bg-white md:block dark:bg-card">
-        <Table>
+        <Table className="min-w-280">
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               <TableHead className="h-11 pl-5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.invoiceNumber}</TableHead>
               <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.client}</TableHead>
               <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.date}</TableHead>
               <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.dueDate}</TableHead>
-              <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.totalIncludingTax}</TableHead>
+              <TableHead className="h-11 text-right text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.totalIncludingTax}</TableHead>
+              <TableHead className="h-11 text-right text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.depositAmount}</TableHead>
+              <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.depositPaymentDate}</TableHead>
               <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.status}</TableHead>
               <TableHead className="h-11 pr-4 text-right text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.quickActions}</TableHead>
             </TableRow>
@@ -249,12 +279,15 @@ export default function InvoiceTable({
                     <TableCell className="py-4"><Skeleton className="h-4 w-24" /></TableCell>
                     <TableCell className="py-4"><Skeleton className="h-4 w-24" /></TableCell>
                     <TableCell className="py-4"><Skeleton className="h-5 w-24" /></TableCell>
+                    <TableCell className="py-4"><Skeleton className="ml-auto h-5 w-20" /></TableCell>
+                    <TableCell className="py-4"><Skeleton className="h-4 w-24" /></TableCell>
                     <TableCell className="py-4"><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
                     <TableCell className="py-4 pr-4"><Skeleton className="ml-auto h-8 w-8" /></TableCell>
                   </TableRow>
                 ))
               : items.map((invoice) => {
                   const displayInvoiceNumber = formatInvoiceDisplayNumber(locale, invoice.invoiceNumber);
+                  const invoiceHasDeposit = hasDeposit(invoice);
 
                   return (
                     <TableRow
@@ -288,8 +321,20 @@ export default function InvoiceTable({
                       <TableCell className="py-4 align-middle text-sm" style={getDueDateStyle(invoice.dueDate, invoice.status)}>
                         {formatDate(invoice.dueDate)}
                       </TableCell>
-                      <TableCell className="py-4 align-middle">
+                      <TableCell className="py-4 align-middle text-right">
                         <PriceDisplay cents={invoice.totalIncludingTax} locale={priceLocale} className="text-[15px] font-semibold tabular-nums text-foreground" />
+                      </TableCell>
+                      <TableCell className="py-4 align-middle text-right">
+                        {invoiceHasDeposit ? (
+                          <PriceDisplay cents={invoice.depositAmount ?? 0} locale={priceLocale} className="text-sm font-medium tabular-nums text-foreground" />
+                        ) : (
+                          <span className="text-sm text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="py-4 align-middle text-sm">
+                        <span className={invoice.depositPaidAt ? 'font-medium text-foreground' : 'text-muted-foreground'}>
+                          {formatDate(invoice.depositPaidAt)}
+                        </span>
                       </TableCell>
                       <TableCell className="py-4 align-middle">
                         <InvoiceStatusBadge status={invoice.status} locale={locale} />

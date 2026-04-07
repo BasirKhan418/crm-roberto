@@ -45,7 +45,7 @@ export default function DashboardPage() {
   return (
     <CrmShell title={t.title} contentClassName="gap-6 px-4 py-5 lg:px-6 lg:py-6">
       {/* Page header */}
-      <div data-tour-dashboard-header className="flex flex-col gap-3 border-b border-border/60 pb-5 lg:flex-row lg:items-end lg:justify-between">
+      <div data-tour-dashboard-header className="flex flex-col items-center gap-3 border-b border-border/60 pb-5 text-center lg:flex-row lg:items-end lg:justify-between lg:text-left">
         <div>
           <h1 className="font-heading text-2xl font-bold tracking-tight text-foreground">{t.heading}</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">{t.subtitle}</p>

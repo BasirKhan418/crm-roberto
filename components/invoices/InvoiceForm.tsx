@@ -20,9 +20,10 @@ import { Label } from '@/components/ui/label';
 interface InvoiceFormProps {
   defaultClientId?: string;
   defaultQuoteId?: string;
+  defaultDueDate?: string;
 }
 
-export default function InvoiceForm({ defaultClientId, defaultQuoteId }: InvoiceFormProps) {
+export default function InvoiceForm({ defaultClientId, defaultQuoteId, defaultDueDate }: InvoiceFormProps) {
   const router = useRouter();
   const { locale } = useLocale();
 
@@ -92,7 +93,7 @@ export default function InvoiceForm({ defaultClientId, defaultQuoteId }: Invoice
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [clientId, setClientId] = useState(defaultClientId ?? '');
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
-  const [dueDate, setDueDate] = useState('');
+  const [dueDate, setDueDate] = useState(defaultDueDate ?? '');
   const [lineItems, setLineItems] = useState<QuoteLineItem[]>([]);
   const [notes, setNotes] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});

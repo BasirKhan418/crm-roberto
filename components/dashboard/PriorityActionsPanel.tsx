@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 
 import SendQuoteModal from '@/components/quotes/SendQuoteModal';
 import { useLocale } from '@/components/providers/locale-provider';
+import BaseAddModal from '@/components/modals/BaseAddModal';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import EmptyState from '@/components/ui/EmptyState';
@@ -240,24 +241,24 @@ function SmartActionRow({
 
   return (
     <div className={`rounded-2xl border p-3 transition-colors ${toneClass.row}`}>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex min-w-0 items-start gap-3">
+      <div className="flex flex-col items-center gap-3 text-center sm:flex-row sm:items-center sm:justify-between sm:text-left">
+        <div className="flex min-w-0 items-start justify-center gap-3 sm:justify-start">
           <div className={`mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl ${toneClass.icon}`}>
             <Icon className="size-4.5" strokeWidth={1.9} />
           </div>
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-foreground">{title}</p>
+            <p className="text-sm font-semibold text-foreground sm:truncate">{title}</p>
             <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center justify-end sm:pl-3">
+        <div className="flex w-full shrink-0 items-center justify-center sm:w-auto sm:justify-end sm:pl-3">
           <Button
             type="button"
             size="sm"
             onClick={onClick}
             disabled={disabled}
-            className={`h-8 rounded-full px-3 text-xs font-semibold ${toneClass.badge}`}
+            className={`h-8 w-full rounded-full px-3 text-xs font-semibold sm:w-auto ${toneClass.badge}`}
           >
             {buttonLabel}
           </Button>
@@ -275,6 +276,8 @@ export default function PriorityActionsPanel({
 }: PriorityActionsPanelProps) {
   const router = useRouter();
   const [isFollowUpModalOpen, setIsFollowUpModalOpen] = useState(false);
+  const [isInvoiceConfirmOpen, setIsInvoiceConfirmOpen] = useState(false);
+  const [isReminderConfirmOpen, setIsReminderConfirmOpen] = useState(false);
   const [smartActionsData, setSmartActionsData] = useState<SmartActionsData | null>(null);
   const [smartActionsLoading, setSmartActionsLoading] = useState(true);
   const [actionLoadingKey, setActionLoadingKey] = useState<string | null>(null);
@@ -306,6 +309,18 @@ export default function PriorityActionsPanel({
       acceptedNotInvoicedDescription: 'Turn accepted work into invoices and keep cash flow moving.',
       createInvoiceActionButton: 'Create invoice',
       reviewAcceptedQuotesAction: 'Review quotes',
+      confirmInvoiceTitle: 'Create invoice from accepted quote?',
+      confirmInvoiceDescription: (quoteNumber: string) =>
+        `This will create a new invoice draft for quote ${quoteNumber} immediately. Continue only if you are ready to bill this accepted work.`,
+      confirmInvoiceCancel: 'Cancel',
+      confirmInvoiceAction: 'Create invoice',
+      confirmInvoicePending: 'Creating...',
+      confirmReminderTitle: 'Send payment reminder?',
+      confirmReminderDescription: (invoiceNumber: string) =>
+        `A reminder email will be sent to the client for invoice ${invoiceNumber}. This action cannot be undone.`,
+      confirmReminderCancel: 'Cancel',
+      confirmReminderAction: 'Send reminder',
+      confirmReminderPending: 'Sending...',
       inactiveClients: (count: number) => `${count} inactive clients`,
       noInactiveClients: 'No inactive clients right now',
       inactiveClientsDescription: 'No quote, invoice, or note activity in the last 30 days.',
@@ -354,6 +369,18 @@ export default function PriorityActionsPanel({
       acceptedNotInvoicedDescription: "Transformez les devis accept\u00e9s en factures pour acc\u00e9l\u00e9rer l'encaissement.",
       createInvoiceActionButton: 'Cr\u00e9er facture',
       reviewAcceptedQuotesAction: 'Voir devis',
+      confirmInvoiceTitle: 'Cr\u00e9er une facture depuis ce devis accept\u00e9 ?',
+      confirmInvoiceDescription: (quoteNumber: string) =>
+        `Cette action va cr\u00e9er imm\u00e9diatement un brouillon de facture pour le devis ${quoteNumber}. Continuez seulement si vous \u00eates pr\u00eat \u00e0 facturer ce travail accept\u00e9.`,
+      confirmInvoiceCancel: 'Annuler',
+      confirmInvoiceAction: 'Cr\u00e9er facture',
+      confirmInvoicePending: 'Cr\u00e9ation...',
+      confirmReminderTitle: 'Envoyer le rappel de paiement\u00a0?',
+      confirmReminderDescription: (invoiceNumber: string) =>
+        `Un e-mail de rappel sera envoy\u00e9 au client pour la facture ${invoiceNumber}. Cette action est irr\u00e9versible.`,
+      confirmReminderCancel: 'Annuler',
+      confirmReminderAction: 'Envoyer rappel',
+      confirmReminderPending: 'Envoi...',
       inactiveClients: (count: number) => `${count} clients inactifs`,
       noInactiveClients: 'Aucun client inactif actuellement',
       inactiveClientsDescription: 'Aucune activit\u00e9 devis, facture, ou note sur les 30 derniers jours.',
@@ -472,6 +499,33 @@ export default function PriorityActionsPanel({
   const inactiveCount = smartActionsData?.inactiveClients.count ?? 0;
   const overdueInvoiceTarget = smartActionsData?.overdueInvoices.target ?? null;
   const overdueInvoiceCount = smartActionsData?.overdueInvoices.count ?? 0;
+  const isAcceptedInvoiceLoading = actionLoadingKey === 'accepted-to-invoice';
+
+  function handleAcceptedInvoiceConfirm() {
+    if (!acceptedTarget || isAcceptedInvoiceLoading) {
+      return;
+    }
+
+    void runSmartAction(
+      'accepted-to-invoice',
+      { action: 'create-invoice-from-quote', quoteId: acceptedTarget._id },
+      t.invoiceCreated,
+      t.smartActionFailed
+    );
+  }
+
+  function handleReminderConfirm() {
+    if (!overdueInvoiceTarget || actionLoadingKey === 'overdue-invoices') {
+      return;
+    }
+
+    void runSmartAction(
+      'overdue-invoices',
+      { action: 'send-invoice-reminder', invoiceId: overdueInvoiceTarget._id, locale },
+      t.invoiceReminderSent,
+      t.smartActionFailed
+    );
+  }
 
   const smartActions = [
     {
@@ -503,14 +557,9 @@ export default function PriorityActionsPanel({
           return;
         }
 
-        void runSmartAction(
-          'accepted-to-invoice',
-          { action: 'create-invoice-from-quote', quoteId: acceptedTarget._id },
-          t.invoiceCreated,
-          t.smartActionFailed
-        );
+        setIsInvoiceConfirmOpen(true);
       },
-      disabled: smartActionsLoading || actionLoadingKey === 'accepted-to-invoice',
+      disabled: smartActionsLoading || isAcceptedInvoiceLoading,
     },
     {
       key: 'inactive-clients',
@@ -541,18 +590,14 @@ export default function PriorityActionsPanel({
           return;
         }
 
-        void runSmartAction(
-          'overdue-invoices',
-          { action: 'send-invoice-reminder', invoiceId: overdueInvoiceTarget._id, locale },
-          t.invoiceReminderSent,
-          t.smartActionFailed
-        );
+        setIsReminderConfirmOpen(true);
       },
       disabled: smartActionsLoading || actionLoadingKey === 'overdue-invoices',
     },
   ] as const;
 
   return (
+    <>
     <section className="grid gap-4 xl:grid-cols-[1.45fr_1fr]">
       <Card className="gap-0 overflow-hidden border border-foreground/10">
         <CardHeader className="border-b bg-slate-50 px-5 py-4 dark:bg-slate-900/40">
@@ -674,22 +719,58 @@ export default function PriorityActionsPanel({
         </CardContent>
       </Card>
 
-      {isFollowUpModalOpen && followUpTarget ? (
-        <SendQuoteModal
-          open={isFollowUpModalOpen}
-          onOpenChange={setIsFollowUpModalOpen}
-          quoteId={followUpTarget._id}
-          quoteNumber={followUpTarget.quoteNumber}
-          clientEmail={followUpTarget.clientSnapshot.email}
-          clientName={followUpTarget.clientSnapshot.fullName}
-          companyName={null}
-          quoteStatus="sent"
-          locale={locale}
-          initialSubject={t.followUpSubject(followUpTarget.quoteNumber)}
-          initialMessage={t.followUpMessage(followUpTarget.quoteNumber, followUpTarget.clientSnapshot.fullName)}
-          onSent={onActionSuccess}
-        />
-      ) : null}
     </section>
+
+    {isInvoiceConfirmOpen ? (
+      <BaseAddModal
+        title={t.confirmInvoiceTitle}
+        description={acceptedTarget ? t.confirmInvoiceDescription(acceptedTarget.quoteNumber) : t.acceptedNotInvoicedDescription}
+        onClose={() => setIsInvoiceConfirmOpen(false)}
+      >
+        <div className="flex gap-2 pt-1">
+          <Button type="button" variant="outline" className="flex-1" disabled={isAcceptedInvoiceLoading} onClick={() => setIsInvoiceConfirmOpen(false)}>
+            {t.confirmInvoiceCancel}
+          </Button>
+          <Button type="button" className="flex-1" disabled={isAcceptedInvoiceLoading} onClick={() => { handleAcceptedInvoiceConfirm(); setIsInvoiceConfirmOpen(false); }}>
+            {isAcceptedInvoiceLoading ? t.confirmInvoicePending : t.confirmInvoiceAction}
+          </Button>
+        </div>
+      </BaseAddModal>
+    ) : null}
+
+    {isReminderConfirmOpen ? (
+      <BaseAddModal
+        title={t.confirmReminderTitle}
+        description={overdueInvoiceTarget ? t.confirmReminderDescription(overdueInvoiceTarget.invoiceNumber) : t.overdueInvoicesDescription}
+        onClose={() => setIsReminderConfirmOpen(false)}
+      >
+        <div className="flex gap-2 pt-1">
+          <Button type="button" variant="outline" className="flex-1" disabled={actionLoadingKey === 'overdue-invoices'} onClick={() => setIsReminderConfirmOpen(false)}>
+            {t.confirmReminderCancel}
+          </Button>
+          <Button type="button" className="flex-1" disabled={actionLoadingKey === 'overdue-invoices'} onClick={() => { handleReminderConfirm(); setIsReminderConfirmOpen(false); }}>
+            {actionLoadingKey === 'overdue-invoices' ? t.confirmReminderPending : t.confirmReminderAction}
+          </Button>
+        </div>
+      </BaseAddModal>
+    ) : null}
+
+    {isFollowUpModalOpen && followUpTarget ? (
+      <SendQuoteModal
+        open={isFollowUpModalOpen}
+        onOpenChange={setIsFollowUpModalOpen}
+        quoteId={followUpTarget._id}
+        quoteNumber={followUpTarget.quoteNumber}
+        clientEmail={followUpTarget.clientSnapshot.email}
+        clientName={followUpTarget.clientSnapshot.fullName}
+        companyName={null}
+        quoteStatus="sent"
+        locale={locale}
+        initialSubject={t.followUpSubject(followUpTarget.quoteNumber)}
+        initialMessage={t.followUpMessage(followUpTarget.quoteNumber, followUpTarget.clientSnapshot.fullName)}
+        onSent={onActionSuccess}
+      />
+    ) : null}
+    </>
   );
 }

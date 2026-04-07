@@ -12,6 +12,7 @@ import ManualPaymentModal, { type ManualPaymentType } from '@/components/invoice
 import SendInvoiceModal from '@/components/invoices/SendInvoiceModal';
 import { useLocale } from '@/components/providers/locale-provider';
 import { formatInvoiceDisplayNumber, getInvoiceStatusLabel } from '@/lib/i18n/messages';
+import { getPaymentMethodLabel, getPaymentTypeLabel } from '@/lib/payments';
 import { computeQuoteLine } from '@/lib/quote-calculations';
 import { InvoiceStatusBadge, type InvoiceStatus } from '@/components/ui/InvoiceStatusBadge';
 import { PriceDisplay } from '@/components/ui/PriceDisplay';
@@ -120,8 +121,8 @@ export default function InvoiceDetailPage() {
       edit: 'Edit',
       sendToClient: 'Send invoice',
       download: 'Download PDF',
-      addPayment: 'Add payment',
-      addingPayment: 'Adding payment...',
+      addPayment: 'Record payment',
+      addingPayment: 'Saving payment...',
       paymentAdded: 'Payment added successfully',
       addPaymentFailed: 'Failed to add payment',
       invoice: 'Invoice',
@@ -159,13 +160,18 @@ export default function InvoiceDetailPage() {
       paymentAmount: 'Amount',
       paymentDate: 'Date',
       paymentType: 'Type',
+      paymentTypeDeposit: 'Deposit',
       noPayments: 'No completed payments yet.',
+      paymentActionTitle: 'Payment shortcut',
+      paymentActionDescription: 'Record a received payment here without hunting through the page.',
+      paymentSettledTitle: 'Invoice settled',
+      paymentSettledDescription: 'No payment action is needed for this invoice.',
       notes: 'Notes',
       loadFailed: 'Failed to load invoice detail',
       notFound: 'Invoice not found',
       downloadFailed: 'Failed to download PDF',
       paymentTypeFull: 'Full',
-      paymentTypeRemaining: 'Partial',
+      paymentTypeRemaining: 'Remaining balance',
       noData: '-',
     },
     fr: {
@@ -174,7 +180,7 @@ export default function InvoiceDetailPage() {
       edit: 'Modifier',
       sendToClient: 'Envoyer la facture',
       download: 'T\u00e9l\u00e9charger PDF',
-      addPayment: 'Ajouter un paiement',
+      addPayment: 'Enregistrer un paiement',
       addingPayment: 'Ajout du paiement...',
       paymentAdded: 'Paiement ajoute avec succes',
       addPaymentFailed: 'Impossible d\'ajouter le paiement',
@@ -213,13 +219,18 @@ export default function InvoiceDetailPage() {
       paymentAmount: 'Montant',
       paymentDate: 'Date',
       paymentType: 'Type',
+      paymentTypeDeposit: 'Acompte',
       noPayments: 'Aucun paiement finalis\u00e9 pour le moment.',
+      paymentActionTitle: 'Raccourci paiement',
+      paymentActionDescription: 'Enregistrez ici un paiement recu sans devoir chercher le bouton.',
+      paymentSettledTitle: 'Facture reglee',
+      paymentSettledDescription: 'Aucune action de paiement n est necessaire pour cette facture.',
       notes: 'Notes',
       loadFailed: 'Impossible de charger le d\u00e9tail de la facture',
       notFound: 'Facture introuvable',
       downloadFailed: 'Impossible de t\u00e9l\u00e9charger le PDF',
       paymentTypeFull: 'Complet',
-      paymentTypeRemaining: 'Partiel',
+      paymentTypeRemaining: 'Solde restant',
       noData: '-',
     },
   }[locale as Locale];
@@ -315,15 +326,20 @@ export default function InvoiceDetailPage() {
   );
   const remainingAmount = Math.max(0, (invoice?.totalIncludingTax ?? 0) - totalPaidAmount);
   const canEdit = invoice?.status === 'unpaid';
+  const canRecordPayment = Boolean(invoice && invoice.status !== 'paid' && remainingAmount > 0);
   const displayInvoiceNumber = invoice ? formatInvoiceDisplayNumber(locale as Locale, invoice.invoiceNumber) : '';
   const displayInvoiceStatus = invoice ? getInvoiceStatusLabel(locale as Locale, invoice.status) : '';
 
   function paymentTypeLabel(type: PaymentHistoryItem['type']): string {
-    if (type === 'remaining_balance' || type === 'deposit') {
-      return t.paymentTypeRemaining;
+    if (type === 'deposit') {
+      return t.paymentTypeDeposit;
     }
 
-    return t.paymentTypeFull;
+    return getPaymentTypeLabel(type, locale as Locale);
+  }
+
+  function paymentMethodLabel(method: string): string {
+    return getPaymentMethodLabel(method, locale as Locale);
   }
 
   async function downloadPdf() {
@@ -353,7 +369,7 @@ export default function InvoiceDetailPage() {
     }
   }
 
-  async function markAsPaidManually(manualPayload?: { amount: number; paymentType: ManualPaymentType; method: string }) {
+  async function markAsPaidManually(manualPayload?: { amount: number; paymentType: ManualPaymentType; method: string; customMethod?: string }) {
     if (!invoice?._id || markingPaid) {
       return;
     }
@@ -366,6 +382,7 @@ export default function InvoiceDetailPage() {
         body: JSON.stringify({
           amount: manualPayload?.amount ?? remainingAmount,
           method: manualPayload?.method ?? 'bank_transfer',
+          customMethod: manualPayload?.customMethod,
           paymentType: manualPayload?.paymentType ?? 'full',
         }),
       });
@@ -410,6 +427,19 @@ export default function InvoiceDetailPage() {
             </Button>
 
             <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:items-center">
+              {canRecordPayment ? (
+                <Button
+                  type="button"
+                  variant="default"
+                  size="sm"
+                  className="h-10 w-full justify-start shadow-sm sm:h-9 sm:w-auto sm:justify-center"
+                  onClick={() => setManualPaymentOpen(true)}
+                  disabled={markingPaid}
+                >
+                  <CheckCircle2Icon className="size-3.5" />
+                  {markingPaid ? t.addingPayment : t.addPayment}
+                </Button>
+              ) : null}
               {canEdit ? (
                 <Button type="button" variant="outline" size="sm" className="h-10 w-full justify-start sm:h-9 sm:w-auto sm:justify-center" asChild>
                   <Link href={`/invoices/${invoice._id}/edit`}>
@@ -418,24 +448,13 @@ export default function InvoiceDetailPage() {
                   </Link>
                 </Button>
               ) : null}
-              <Button type="button" variant="default" size="sm" className="h-10 w-full justify-start sm:h-9 sm:w-auto sm:justify-center" onClick={() => setSendOpen(true)}>
+              <Button type="button" variant="outline" size="sm" className="h-10 w-full justify-start sm:h-9 sm:w-auto sm:justify-center" onClick={() => setSendOpen(true)}>
                 <SendIcon className="size-3.5" />
                 {t.sendToClient}
               </Button>
               <Button type="button" variant="outline" size="sm" className="h-10 w-full justify-start sm:h-9 sm:w-auto sm:justify-center" onClick={downloadPdf}>
                 <DownloadIcon className="size-3.5" />
                 {t.download}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-10 w-full justify-start sm:h-9 sm:w-auto sm:justify-center"
-                onClick={() => setManualPaymentOpen(true)}
-                disabled={invoice.status === 'paid' || markingPaid}
-              >
-                <CheckCircle2Icon className="size-3.5" />
-                {markingPaid ? t.addingPayment : t.addPayment}
               </Button>
             </div>
           </div>
@@ -581,14 +600,47 @@ export default function InvoiceDetailPage() {
             </section>
 
             <section className="mb-4 rounded-xl border border-border/70 bg-card p-4">
-              <h2 className="mb-2 font-heading text-base font-semibold">{t.paymentSummary}</h2>
-              <p className="text-sm text-foreground/90">
-                {t.totalInvoiceAmount}: <PriceDisplay cents={invoice.totalIncludingTax} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="font-semibold" />
-                {' | '}
-                {t.totalPaid}: <PriceDisplay cents={totalPaidAmount} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="font-medium" />
-                {' | '}
-                {t.remaining}: <PriceDisplay cents={remainingAmount} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="font-medium" />
-              </p>
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <h2 className="font-heading text-base font-semibold">{t.paymentSummary}</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {canRecordPayment ? t.paymentActionDescription : t.paymentSettledDescription}
+                  </p>
+                </div>
+
+                <div className={`rounded-xl border px-3.5 py-3 lg:w-full lg:max-w-sm ${canRecordPayment ? 'border-amber-200 bg-amber-50/70 dark:border-amber-900/40 dark:bg-amber-950/20' : 'border-emerald-200 bg-emerald-50/70 dark:border-emerald-900/40 dark:bg-emerald-950/20'}`}>
+                  <p className={`text-[11px] font-semibold uppercase tracking-wide ${canRecordPayment ? 'text-amber-900 dark:text-amber-300' : 'text-emerald-900 dark:text-emerald-300'}`}>
+                    {canRecordPayment ? t.paymentActionTitle : t.paymentSettledTitle}
+                  </p>
+                  <div className="mt-2 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs text-muted-foreground">{t.remaining}</p>
+                      <PriceDisplay cents={remainingAmount} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="text-base font-semibold text-foreground" />
+                    </div>
+                    {canRecordPayment ? (
+                      <Button type="button" size="sm" className="shrink-0" onClick={() => setManualPaymentOpen(true)} disabled={markingPaid}>
+                        <CheckCircle2Icon className="size-3.5" />
+                        {markingPaid ? t.addingPayment : t.addPayment}
+                      </Button>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <div className="rounded-xl border border-border/60 bg-background px-3 py-3">
+                  <p className="text-xs text-muted-foreground">{t.totalInvoiceAmount}</p>
+                  <PriceDisplay cents={invoice.totalIncludingTax} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="mt-1 text-base font-semibold text-foreground" />
+                </div>
+                <div className="rounded-xl border border-border/60 bg-background px-3 py-3">
+                  <p className="text-xs text-muted-foreground">{t.totalPaid}</p>
+                  <PriceDisplay cents={totalPaidAmount} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="mt-1 text-base font-semibold text-foreground" />
+                </div>
+                <div className="rounded-xl border border-border/60 bg-background px-3 py-3">
+                  <p className="text-xs text-muted-foreground">{t.remaining}</p>
+                  <PriceDisplay cents={remainingAmount} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="mt-1 text-base font-semibold text-foreground" />
+                </div>
+              </div>
             </section>
 
             <section className="mb-4 rounded-xl border border-border/70 bg-card p-4">
@@ -610,7 +662,7 @@ export default function InvoiceDetailPage() {
                       {payments.map((payment) => (
                         <tr key={payment._id} className="border-t border-border/60 odd:bg-background even:bg-secondary/10">
                           <td className="px-3 py-2">{formatDateTime(payment.paidAt || payment.createdAt, locale as Locale)}</td>
-                          <td className="px-3 py-2">{payment.method || t.noData}</td>
+                          <td className="px-3 py-2">{payment.method ? paymentMethodLabel(payment.method) : t.noData}</td>
                           <td className="px-3 py-2">{paymentTypeLabel(payment.type)}</td>
                           <td className="px-3 py-2 text-right font-medium"><PriceDisplay cents={payment.amount} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} /></td>
                         </tr>
@@ -645,7 +697,7 @@ export default function InvoiceDetailPage() {
         />
       ) : null}
 
-      {invoice ? (
+      {invoice && manualPaymentOpen ? (
         <ManualPaymentModal
           open={manualPaymentOpen}
           onOpenChange={setManualPaymentOpen}
