@@ -11,6 +11,7 @@ import CrmShell from '@/components/crm-shell';
 import ManualPaymentModal, { type ManualPaymentType } from '@/components/invoices/ManualPaymentModal';
 import SendInvoiceModal from '@/components/invoices/SendInvoiceModal';
 import { useLocale } from '@/components/providers/locale-provider';
+import { formatInvoiceDisplayNumber, getInvoiceStatusLabel } from '@/lib/i18n/messages';
 import { computeQuoteLine } from '@/lib/quote-calculations';
 import { InvoiceStatusBadge, type InvoiceStatus } from '@/components/ui/InvoiceStatusBadge';
 import { PriceDisplay } from '@/components/ui/PriceDisplay';
@@ -314,6 +315,8 @@ export default function InvoiceDetailPage() {
   );
   const remainingAmount = Math.max(0, (invoice?.totalIncludingTax ?? 0) - totalPaidAmount);
   const canEdit = invoice?.status === 'unpaid';
+  const displayInvoiceNumber = invoice ? formatInvoiceDisplayNumber(locale as Locale, invoice.invoiceNumber) : '';
+  const displayInvoiceStatus = invoice ? getInvoiceStatusLabel(locale as Locale, invoice.status) : '';
 
   function paymentTypeLabel(type: PaymentHistoryItem['type']): string {
     if (type === 'remaining_balance' || type === 'deposit') {
@@ -339,7 +342,7 @@ export default function InvoiceDetailPage() {
       const objectUrl = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = objectUrl;
-      anchor.download = `${invoice.invoiceNumber}.pdf`;
+      anchor.download = `${displayInvoiceNumber}.pdf`;
       anchor.style.display = 'none';
       document.body.append(anchor);
       anchor.click();
@@ -442,7 +445,7 @@ export default function InvoiceDetailPage() {
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{t.invoice}</p>
-                  <h1 className="font-heading text-3xl font-semibold tracking-tight">{invoice.invoiceNumber}</h1>
+                  <h1 className="font-heading text-3xl font-semibold tracking-tight">{displayInvoiceNumber}</h1>
                   {invoice.quoteId && invoice.quoteNumber ? (
                     <p className="mt-1 text-sm text-muted-foreground">
                       {t.convertedFrom}{' '}
@@ -465,7 +468,7 @@ export default function InvoiceDetailPage() {
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">{t.status}</p>
-                  <p className="font-medium">{invoice.status}</p>
+                  <p className="font-medium">{displayInvoiceStatus}</p>
                 </div>
               </div>
             </header>

@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 
+import { useLocale } from '@/components/providers/locale-provider';
 import { PriceDisplay } from '@/components/ui/PriceDisplay';
+import { formatInvoiceDisplayNumber } from '@/lib/i18n/messages';
 
 interface PaymentLinkData {
   invoiceId: string;
@@ -19,6 +21,44 @@ interface PaymentLinkData {
 export default function PayByTokenPage() {
   const params = useParams<{ token: string }>();
   const token = params?.token;
+  const { locale } = useLocale();
+
+  const t = {
+    en: {
+      invalidLink: 'Invalid payment link',
+      loading: 'Loading payment page...',
+      pageTitle: 'Payment link',
+      invoiceLabel: 'Invoice',
+      secureHosted: 'Secure payment hosted by Stripe.',
+      total: 'Total',
+      paid: 'Paid',
+      remaining: 'Remaining',
+      payDeposit: 'Pay deposit',
+      payTwenty: 'Pay 20%',
+      payThirty: 'Pay 30%',
+      payRemaining: 'Pay remaining',
+      fullyPaid: 'This invoice is fully paid.',
+      redirecting: 'Redirecting...',
+      createPaymentFailed: 'Could not create payment link',
+    },
+    fr: {
+      invalidLink: 'Lien de paiement invalide',
+      loading: 'Chargement de la page de paiement...',
+      pageTitle: 'Lien de paiement',
+      invoiceLabel: 'Facture',
+      secureHosted: 'Paiement sécurisé hébergé par Stripe.',
+      total: 'Total',
+      paid: 'Payé',
+      remaining: 'Reste',
+      payDeposit: "Payer l'acompte",
+      payTwenty: 'Payer 20%',
+      payThirty: 'Payer 30%',
+      payRemaining: 'Payer le reste',
+      fullyPaid: 'Cette facture est entièrement réglée.',
+      redirecting: 'Redirection...',
+      createPaymentFailed: 'Impossible de créer le lien de paiement',
+    },
+  }[locale];
 
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
@@ -26,7 +66,7 @@ export default function PayByTokenPage() {
 
   useEffect(() => {
     if (!token) {
-      setMessage('Invalid payment link');
+      setMessage(t.invalidLink);
       setLoading(false);
       return;
     }
@@ -39,7 +79,7 @@ export default function PayByTokenPage() {
           | null;
 
         if (!response.ok || !payload?.success || !payload.data) {
-          setMessage(payload?.message || 'Invalid payment link');
+          setMessage(payload?.message || t.invalidLink);
           setData(null);
           return;
         }
@@ -51,63 +91,78 @@ export default function PayByTokenPage() {
     };
 
     run();
-  }, [token]);
+  }, [t.invalidLink, token]);
 
-  const locale = useMemo(() => 'en-GB', []);
+  const priceLocale = useMemo(() => (locale === 'fr' ? 'fr-FR' : 'en-GB'), [locale]);
 
   if (loading) {
-    return <main className="mx-auto max-w-2xl p-6 text-sm text-muted-foreground">Loading payment page...</main>;
+    return <main className="mx-auto max-w-2xl p-6 text-sm text-muted-foreground">{t.loading}</main>;
   }
 
   if (!data) {
     return (
       <main className="mx-auto max-w-2xl p-6">
-        <h1 className="text-xl font-semibold">Payment link</h1>
-        <p className="mt-2 text-sm text-destructive">{message || 'Invalid payment link'}</p>
+        <h1 className="text-xl font-semibold">{t.pageTitle}</h1>
+        <p className="mt-2 text-sm text-destructive">{message || t.invalidLink}</p>
       </main>
     );
   }
 
   const quick20 = Math.min(data.remainingAmount, Math.round(data.totalAmount * 0.2));
   const quick30 = Math.min(data.remainingAmount, Math.round(data.totalAmount * 0.3));
+  const displayInvoiceNumber = formatInvoiceDisplayNumber(locale, data.invoiceNumber);
 
   return (
     <main className="mx-auto max-w-2xl p-6">
-      <h1 className="text-2xl font-semibold">Invoice {data.invoiceNumber}</h1>
-      <p className="mt-2 text-sm text-muted-foreground">Secure payment hosted by Stripe.</p>
+      <h1 className="text-2xl font-semibold">{t.invoiceLabel} {displayInvoiceNumber}</h1>
+      <p className="mt-2 text-sm text-muted-foreground">{t.secureHosted}</p>
 
       <section className="mt-5 rounded-xl border border-border/70 bg-card p-4">
         <p className="text-sm">
-          Total: <PriceDisplay cents={data.totalAmount} locale={locale} className="font-semibold" />
+          {t.total}: <PriceDisplay cents={data.totalAmount} locale={priceLocale} className="font-semibold" />
           {' · '}
-          Paid: <PriceDisplay cents={data.totalPaid} locale={locale} className="font-medium" />
+          {t.paid}: <PriceDisplay cents={data.totalPaid} locale={priceLocale} className="font-medium" />
           {' · '}
-          Remaining: <PriceDisplay cents={data.remainingAmount} locale={locale} className="font-medium" />
+          {t.remaining}: <PriceDisplay cents={data.remainingAmount} locale={priceLocale} className="font-medium" />
         </p>
 
         {data.canPay && token ? (
           <div className="mt-4 flex flex-wrap gap-2">
             {data.depositAmount > 0 && data.totalPaid === 0 && data.depositAmount <= data.remainingAmount ? (
-              <TokenPayButton token={token} type="deposit" amountCents={data.depositAmount} label="Pay deposit" />
+              <TokenPayButton token={token} type="deposit" amountCents={data.depositAmount} label={t.payDeposit} loadingLabel={t.redirecting} errorMessage={t.createPaymentFailed} />
             ) : null}
 
             {quick20 > 0 && quick20 < data.remainingAmount ? (
-              <TokenPayButton token={token} type="full" amountCents={quick20} label="Pay 20%" />
+              <TokenPayButton token={token} type="full" amountCents={quick20} label={t.payTwenty} loadingLabel={t.redirecting} errorMessage={t.createPaymentFailed} />
             ) : null}
             {quick30 > 0 && quick30 < data.remainingAmount ? (
-              <TokenPayButton token={token} type="full" amountCents={quick30} label="Pay 30%" />
+              <TokenPayButton token={token} type="full" amountCents={quick30} label={t.payThirty} loadingLabel={t.redirecting} errorMessage={t.createPaymentFailed} />
             ) : null}
-            <TokenPayButton token={token} type="full" amountCents={data.remainingAmount} label="Pay remaining" />
+            <TokenPayButton token={token} type="full" amountCents={data.remainingAmount} label={t.payRemaining} loadingLabel={t.redirecting} errorMessage={t.createPaymentFailed} />
           </div>
         ) : (
-          <p className="mt-4 text-sm text-emerald-700">This invoice is fully paid.</p>
+          <p className="mt-4 text-sm text-emerald-700">{t.fullyPaid}</p>
         )}
       </section>
     </main>
   );
 }
 
-function TokenPayButton({ token, type, amountCents, label }: { token: string; type: 'full' | 'deposit'; amountCents: number; label: string }) {
+function TokenPayButton({
+  token,
+  type,
+  amountCents,
+  label,
+  loadingLabel,
+  errorMessage,
+}: {
+  token: string;
+  type: 'full' | 'deposit';
+  amountCents: number;
+  label: string;
+  loadingLabel: string;
+  errorMessage: string;
+}) {
   const [loading, setLoading] = useState(false);
 
   async function handleClick() {
@@ -127,7 +182,7 @@ function TokenPayButton({ token, type, amountCents, label }: { token: string; ty
         window.location.href = payload.checkoutUrl;
         return;
       }
-      alert(payload?.message || 'Could not create payment link');
+      alert(payload?.message || errorMessage);
     } finally {
       setLoading(false);
     }
@@ -140,7 +195,7 @@ function TokenPayButton({ token, type, amountCents, label }: { token: string; ty
       disabled={loading}
       className="inline-flex h-9 items-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground disabled:opacity-60"
     >
-      {loading ? 'Redirecting...' : label}
+      {loading ? loadingLabel : label}
     </button>
   );
 }

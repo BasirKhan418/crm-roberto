@@ -7,6 +7,7 @@ import { DownloadIcon, EllipsisVerticalIcon, EyeIcon, PencilIcon, SendIcon, Tras
 
 import type { InvoiceListItem } from '@/hooks/useInvoices';
 import { InvoiceStatusBadge } from '@/components/ui/InvoiceStatusBadge';
+import { formatInvoiceDisplayNumber } from '@/lib/i18n/messages';
 import { PriceDisplay } from '@/components/ui/PriceDisplay';
 import { Button } from '@/components/ui/button';
 import {
@@ -111,11 +112,12 @@ export default function InvoiceTable({
 
   function renderSecondaryActions(invoice: InvoiceListItem, align: 'start' | 'end' = 'end') {
     const moreActionsLabel = locale === 'fr' ? "Plus d'actions" : 'More actions';
+    const displayInvoiceNumber = formatInvoiceDisplayNumber(locale, invoice.invoiceNumber);
 
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button type="button" size="icon" variant="outline" className="size-8 shrink-0" aria-label={`${moreActionsLabel} ${invoice.invoiceNumber}`}>
+          <Button type="button" size="icon" variant="outline" className="size-8 shrink-0" aria-label={`${moreActionsLabel} ${displayInvoiceNumber}`}>
             <EllipsisVerticalIcon className="size-4" />
           </Button>
         </DropdownMenuTrigger>
@@ -174,51 +176,55 @@ export default function InvoiceTable({
                 </div>
               </div>
             ))
-          : items.map((invoice) => (
-              <article
-                key={invoice._id}
-                className="cursor-pointer rounded-xl border border-border/60 bg-card shadow-xs"
-                style={{ borderLeftWidth: '3px', borderLeftColor: STATUS_ACCENT[invoice.status], backgroundColor: STATUS_ROW_BG[invoice.status] }}
-                onClick={() => router.push(`/invoices/${invoice._id}`)}
-              >
-                <div className="flex items-start justify-between gap-3 px-4 pt-4.5">
-                  <div className="min-w-0">
-                    <Link
-                      href={`/clients/${invoice.clientId}`}
-                      className="block truncate text-sm font-semibold text-foreground hover:underline"
-                      onClick={(event) => event.stopPropagation()}
-                    >
-                      {invoice.clientSnapshot.fullName}
-                    </Link>
-                    <p className="mt-0.5 text-[11px] font-medium text-muted-foreground">{invoice.invoiceNumber}</p>
-                    <p className="mt-1 text-[11px]" style={getDueDateStyle(invoice.dueDate, invoice.status)}>
-                      {labels.dueDate}: {formatDate(invoice.dueDate)}
-                    </p>
-                  </div>
-                  <div className="flex flex-col items-end gap-1.5 shrink-0">
-                    <InvoiceStatusBadge status={invoice.status} locale={locale} className="mt-0.5" />
-                    {invoice.status === 'partial_paid' ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700 dark:bg-amber-950/30 dark:text-amber-400">
-                        <span className="size-1.5 rounded-full bg-amber-500 animate-ping" />
-                        {locale === 'fr' ? 'Partiel' : 'Partial'}
-                      </span>
-                    ) : null}
-                  </div>
-                </div>
+          : items.map((invoice) => {
+              const displayInvoiceNumber = formatInvoiceDisplayNumber(locale, invoice.invoiceNumber);
 
-                <div className="flex items-center justify-between gap-3 px-4 pb-4.5 pt-3">
-                  <PriceDisplay
-                    cents={invoice.totalIncludingTax}
-                    locale={priceLocale}
-                    className="text-base font-semibold tabular-nums text-foreground"
-                  />
-                  <div className="flex items-center gap-1.5" onClick={(event) => event.stopPropagation()}>
-                    {renderPrimaryAction(invoice)}
-                    {renderSecondaryActions(invoice)}
+              return (
+                <article
+                  key={invoice._id}
+                  className="cursor-pointer rounded-xl border border-border/60 bg-card shadow-xs"
+                  style={{ borderLeftWidth: '3px', borderLeftColor: STATUS_ACCENT[invoice.status], backgroundColor: STATUS_ROW_BG[invoice.status] }}
+                  onClick={() => router.push(`/invoices/${invoice._id}`)}
+                >
+                  <div className="flex items-start justify-between gap-3 px-4 pt-4.5">
+                    <div className="min-w-0">
+                      <Link
+                        href={`/clients/${invoice.clientId}`}
+                        className="block truncate text-sm font-semibold text-foreground hover:underline"
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        {invoice.clientSnapshot.fullName}
+                      </Link>
+                      <p className="mt-0.5 text-[11px] font-medium text-muted-foreground">{displayInvoiceNumber}</p>
+                      <p className="mt-1 text-[11px]" style={getDueDateStyle(invoice.dueDate, invoice.status)}>
+                        {labels.dueDate}: {formatDate(invoice.dueDate)}
+                      </p>
+                    </div>
+                    <div className="flex flex-col items-end gap-1.5 shrink-0">
+                      <InvoiceStatusBadge status={invoice.status} locale={locale} className="mt-0.5" />
+                      {invoice.status === 'partial_paid' ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700 dark:bg-amber-950/30 dark:text-amber-400">
+                          <span className="size-1.5 rounded-full bg-amber-500 animate-ping" />
+                          {locale === 'fr' ? 'Partiel' : 'Partial'}
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
-                </div>
-              </article>
-            ))}
+
+                  <div className="flex items-center justify-between gap-3 px-4 pb-4.5 pt-3">
+                    <PriceDisplay
+                      cents={invoice.totalIncludingTax}
+                      locale={priceLocale}
+                      className="text-base font-semibold tabular-nums text-foreground"
+                    />
+                    <div className="flex items-center gap-1.5" onClick={(event) => event.stopPropagation()}>
+                      {renderPrimaryAction(invoice)}
+                      {renderSecondaryActions(invoice)}
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
       </div>
 
       <div className="hidden overflow-hidden rounded-xl border border-border/70 bg-white md:block dark:bg-card">
@@ -247,52 +253,56 @@ export default function InvoiceTable({
                     <TableCell className="py-4 pr-4"><Skeleton className="ml-auto h-8 w-8" /></TableCell>
                   </TableRow>
                 ))
-              : items.map((invoice) => (
-                  <TableRow
-                    key={invoice._id}
-                    className="group cursor-pointer border-b border-border/45 transition-colors last:border-0 hover:bg-muted/20"
-                    style={{ backgroundColor: STATUS_ROW_BG[invoice.status] }}
-                    onClick={() => router.push(`/invoices/${invoice._id}`)}
-                  >
-                    <TableCell
-                      className="py-4 pl-5 align-middle"
-                      style={{ borderLeft: `3px solid ${STATUS_ACCENT[invoice.status]}` }}
+              : items.map((invoice) => {
+                  const displayInvoiceNumber = formatInvoiceDisplayNumber(locale, invoice.invoiceNumber);
+
+                  return (
+                    <TableRow
+                      key={invoice._id}
+                      className="group cursor-pointer border-b border-border/45 transition-colors last:border-0 hover:bg-muted/20"
+                      style={{ backgroundColor: STATUS_ROW_BG[invoice.status] }}
+                      onClick={() => router.push(`/invoices/${invoice._id}`)}
                     >
-                      <Link
-                        href={`/invoices/${invoice._id}`}
-                        className="text-sm font-semibold text-foreground hover:text-(--color-text-info) hover:underline"
-                        onClick={(event) => event.stopPropagation()}
+                      <TableCell
+                        className="py-4 pl-5 align-middle"
+                        style={{ borderLeft: `3px solid ${STATUS_ACCENT[invoice.status]}` }}
                       >
-                        {invoice.invoiceNumber}
-                      </Link>
-                    </TableCell>
-                    <TableCell className="py-4 align-middle">
-                      <Link
-                        href={`/clients/${invoice.clientId}`}
-                        className="text-sm font-medium text-foreground hover:underline"
-                        onClick={(event) => event.stopPropagation()}
-                      >
-                        {invoice.clientSnapshot.fullName}
-                      </Link>
-                    </TableCell>
-                    <TableCell className="py-4 align-middle text-sm text-muted-foreground">{formatDate(invoice.date)}</TableCell>
-                    <TableCell className="py-4 align-middle text-sm" style={getDueDateStyle(invoice.dueDate, invoice.status)}>
-                      {formatDate(invoice.dueDate)}
-                    </TableCell>
-                    <TableCell className="py-4 align-middle">
-                      <PriceDisplay cents={invoice.totalIncludingTax} locale={priceLocale} className="text-[15px] font-semibold tabular-nums text-foreground" />
-                    </TableCell>
-                    <TableCell className="py-4 align-middle">
-                      <InvoiceStatusBadge status={invoice.status} locale={locale} />
-                    </TableCell>
-                    <TableCell className="py-4 pr-4 align-middle">
-                      <div className="flex items-center justify-end gap-1.5" onClick={(event) => event.stopPropagation()}>
-                        {renderPrimaryAction(invoice)}
-                        {renderSecondaryActions(invoice, 'end')}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                        <Link
+                          href={`/invoices/${invoice._id}`}
+                          className="text-sm font-semibold text-foreground hover:text-(--color-text-info) hover:underline"
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          {displayInvoiceNumber}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="py-4 align-middle">
+                        <Link
+                          href={`/clients/${invoice.clientId}`}
+                          className="text-sm font-medium text-foreground hover:underline"
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          {invoice.clientSnapshot.fullName}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="py-4 align-middle text-sm text-muted-foreground">{formatDate(invoice.date)}</TableCell>
+                      <TableCell className="py-4 align-middle text-sm" style={getDueDateStyle(invoice.dueDate, invoice.status)}>
+                        {formatDate(invoice.dueDate)}
+                      </TableCell>
+                      <TableCell className="py-4 align-middle">
+                        <PriceDisplay cents={invoice.totalIncludingTax} locale={priceLocale} className="text-[15px] font-semibold tabular-nums text-foreground" />
+                      </TableCell>
+                      <TableCell className="py-4 align-middle">
+                        <InvoiceStatusBadge status={invoice.status} locale={locale} />
+                      </TableCell>
+                      <TableCell className="py-4 pr-4 align-middle">
+                        <div className="flex items-center justify-end gap-1.5" onClick={(event) => event.stopPropagation()}>
+                          {renderPrimaryAction(invoice)}
+                          {renderSecondaryActions(invoice, 'end')}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
           </TableBody>
         </Table>
       </div>

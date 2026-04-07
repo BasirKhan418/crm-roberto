@@ -7,6 +7,7 @@ import ConnectDb from '@/db/connectDb';
 import Invoice from '@/db/models/Invoice';
 import Payment from '@/db/models/Payment';
 import { getCompanyProfileByUserId } from '@/db/repository/cprofile';
+import { formatInvoiceDisplayNumber } from '@/lib/i18n/messages';
 import { resolveLocaleFromRequest } from '@/lib/i18n/locale';
 import { InvoicePdfTemplate } from '@/lib/pdf/InvoicePdfTemplate';
 import { buildInvoicePayUrl, isTokenExpired } from '@/lib/tokens';
@@ -149,12 +150,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }) as unknown as React.ReactElement<DocumentProps>;
 
     const pdfBuffer = await renderToBuffer(invoicePdf);
+    const attachmentFilename = `${formatInvoiceDisplayNumber(locale, invoice.invoiceNumber)}.pdf`;
 
     return new NextResponse(new Uint8Array(pdfBuffer), {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="${invoice.invoiceNumber}.pdf"`,
+        'Content-Disposition': `attachment; filename="${attachmentFilename}"`,
       },
     });
   } catch (error) {

@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { AlertTriangleIcon, Loader2Icon, MailIcon, X } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { resolveTranslatedError } from '@/lib/i18n/messages';
+import { formatInvoiceDisplayNumber, resolveTranslatedError } from '@/lib/i18n/messages';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -107,13 +107,14 @@ export default function SendInvoiceModal({
   onSent,
 }: SendInvoiceModalProps) {
   const t = translations[locale];
+  const displayInvoiceNumber = formatInvoiceDisplayNumber(locale, invoiceNumber);
 
   const [resolvedCompanyName, setResolvedCompanyName] = useState<string | null>(companyName ?? null);
 
-  const getInitialSubject = useCallback(() => t.defaultSubject(invoiceNumber), [t, invoiceNumber]);
+  const getInitialSubject = useCallback(() => t.defaultSubject(displayInvoiceNumber), [displayInvoiceNumber, t]);
   const getInitialMessage = useCallback(
-    () => t.defaultMessage(invoiceNumber, clientName, resolvedCompanyName),
-    [t, invoiceNumber, clientName, resolvedCompanyName]
+    () => t.defaultMessage(displayInvoiceNumber, clientName, resolvedCompanyName),
+    [displayInvoiceNumber, t, clientName, resolvedCompanyName]
   );
 
   const [email, setEmail] = useState(clientEmail || '');
@@ -335,7 +336,7 @@ export default function SendInvoiceModal({
                 />
               </div>
 
-              <p className="text-xs text-muted-foreground">{invoiceNumber}</p>
+              <p className="text-xs text-muted-foreground">{displayInvoiceNumber}</p>
               <p className="text-xs text-muted-foreground">{t.modeHint}</p>
             </div>
 

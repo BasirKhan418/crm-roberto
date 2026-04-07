@@ -132,6 +132,19 @@ interface QuoteRecord {
   updatedAt: Date;
 }
 
+type QuoteLineItemRecord = QuoteRecord['lineItems'][number];
+
+type QuoteLineItemSource = Omit<QuoteLineItemRecord, 'productId'> & {
+  productId?: mongoose.Types.ObjectId | string | null;
+};
+
+type QuoteRecordSource = Omit<QuoteRecord, '_id' | 'clientId' | 'invoiceId' | 'lineItems'> & {
+  _id: mongoose.Types.ObjectId | string;
+  clientId: mongoose.Types.ObjectId | string;
+  invoiceId?: mongoose.Types.ObjectId | string | null;
+  lineItems: QuoteLineItemSource[];
+};
+
 export type QuoteDetailRecord = QuoteRecord;
 
 type CreateQuoteResult =
@@ -198,6 +211,38 @@ function normalizeDate(value: Date | string | null | undefined): Date | null {
 
   const normalized = value instanceof Date ? value : new Date(value);
   return Number.isFinite(normalized.getTime()) ? normalized : null;
+}
+
+function stringifyObjectId(value: mongoose.Types.ObjectId | string | null | undefined): string | null {
+  if (!value) {
+    return null;
+  }
+
+  return String(value);
+}
+
+function toQuoteRecord(quote: QuoteRecordSource): QuoteRecord {
+  return {
+    ...quote,
+    _id: String(quote._id),
+    clientId: String(quote.clientId),
+    invoiceId: stringifyObjectId(quote.invoiceId),
+    lineItems: quote.lineItems.map((item) => ({
+      productId: stringifyObjectId(item.productId),
+      productImageUrl: item.productImageUrl ?? null,
+      name: item.name,
+      quantity: item.quantity,
+      baseUnitPriceExcludingTax: item.baseUnitPriceExcludingTax,
+      unitPriceExcludingTax: item.unitPriceExcludingTax,
+      discountPercentage: item.discountPercentage,
+      vatRate: item.vatRate,
+      totalExcludingTaxBeforeDiscount: item.totalExcludingTaxBeforeDiscount,
+      discountAmountExcludingTax: item.discountAmountExcludingTax,
+      totalExcludingTax: item.totalExcludingTax,
+      vatAmount: item.vatAmount,
+      totalIncludingTax: item.totalIncludingTax,
+    })),
+  };
 }
 
 function getLatestStatusChangedAt(
@@ -472,7 +517,14 @@ export const deleteQuoteById = async (userId: string, quoteId: string): Promise<
     .select('_id quoteNumber')
     .lean();
 
-  return (deleted as QuoteDeleteRecord | null) || null;
+  if (!deleted) {
+    return null;
+  }
+
+  return {
+    _id: String((deleted as { _id: mongoose.Types.ObjectId | string })._id),
+    quoteNumber: (deleted as { quoteNumber: string }).quoteNumber,
+  };
 };
 
 export const getQuoteById = async (userId: string, quoteId: string): Promise<QuoteDetailRecord | null> => {
@@ -483,7 +535,7 @@ export const getQuoteById = async (userId: string, quoteId: string): Promise<Quo
   }
 
   const quote = await Quote.findOne({ _id: quoteId, user: userId }).lean();
-  return (quote as QuoteDetailRecord | null) || null;
+  return quote ? toQuoteRecord(quote as QuoteRecordSource) : null;
 };
 
 async function getClientSnapshot(userId: string, clientId: string): Promise<ClientSnapshotRecord | null> {
@@ -552,7 +604,7 @@ export const createQuote = async (userId: string, payload: CreateQuoteDTO): Prom
 
       return {
         kind: 'ok',
-        quote: created.toObject() as QuoteRecord,
+        quote: toQuoteRecord(created.toObject() as QuoteRecordSource),
       };
     } catch (error) {
       if (!isDuplicateKeyError(error)) {
@@ -626,12 +678,15 @@ export const updateQuoteById = async (
       })
     );
 
-    quote.lineItems = payload.lineItems.map((item, index) => ({
-      productId: item.productId ?? null,
-      productImageUrl: item.productImageUrl ?? null,
-      name: item.name,
-      ...computedLines[index],
-    }));
+    quote.set(
+      'lineItems',
+      payload.lineItems.map((item, index) => ({
+        productId: item.productId ?? null,
+        productImageUrl: item.productImageUrl ?? null,
+        name: item.name,
+        ...computedLines[index],
+      }))
+    );
 
     const totals = computeQuoteTotalsFromComputedLines(computedLines);
     quote.totalExcludingTaxBeforeDiscount = totals.totalExcludingTaxBeforeDiscount;
@@ -645,7 +700,7 @@ export const updateQuoteById = async (
 
   return {
     kind: 'ok',
-    quote: quote.toObject() as QuoteRecord,
+    quote: toQuoteRecord(quote.toObject() as QuoteRecordSource),
   };
 };
 
@@ -679,7 +734,7 @@ export const updateQuoteStatusById = async (
 
   return {
     kind: 'ok',
-    quote: quote.toObject() as QuoteRecord,
+    quote: toQuoteRecord(quote.toObject() as QuoteRecordSource),
     from,
     to,
   };
@@ -698,7 +753,9 @@ export const duplicateQuoteById = async (userId: string, quoteId: string): Promi
     return { kind: 'not-found' };
   }
 
-  const lineItems = (sourceQuote as QuoteRecord).lineItems.map((item) => {
+  const sourceQuoteRecord = toQuoteRecord(sourceQuote as QuoteRecordSource);
+
+  const lineItems = sourceQuoteRecord.lineItems.map((item) => {
     const computed = computeQuoteLine({
       quantity: item.quantity,
       unitPriceExcludingTax: item.unitPriceExcludingTax,
@@ -727,14 +784,14 @@ export const duplicateQuoteById = async (userId: string, quoteId: string): Promi
         quoteNumber,
         date: new Date(),
         status: 'draft',
-        clientId: (sourceQuote as QuoteRecord).clientId,
-        clientSnapshot: (sourceQuote as QuoteRecord).clientSnapshot,
+        clientId: sourceQuoteRecord.clientId,
+        clientSnapshot: sourceQuoteRecord.clientSnapshot,
         lineItems,
         ...totals,
-        notes: (sourceQuote as QuoteRecord).notes ?? null,
-        paymentTerms: (sourceQuote as QuoteRecord).paymentTerms ?? null,
-        validityDays: (sourceQuote as QuoteRecord).validityDays ?? 30,
-        subject: (sourceQuote as QuoteRecord & { subject?: string | null }).subject ?? null,
+        notes: sourceQuoteRecord.notes ?? null,
+        paymentTerms: sourceQuoteRecord.paymentTerms ?? null,
+        validityDays: sourceQuoteRecord.validityDays ?? 30,
+        subject: sourceQuoteRecord.subject ?? null,
         statusHistory: [{ to: 'draft', changedAt: new Date() }],
         convertedToInvoice: false,
         invoiceId: null,
@@ -742,7 +799,7 @@ export const duplicateQuoteById = async (userId: string, quoteId: string): Promi
 
       return {
         kind: 'ok',
-        quote: created.toObject() as QuoteRecord,
+        quote: toQuoteRecord(created.toObject() as QuoteRecordSource),
         sourceQuoteId: quoteId,
       };
     } catch (error) {

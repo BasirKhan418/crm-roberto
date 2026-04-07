@@ -11,6 +11,7 @@ import InvoiceTable from '@/components/invoices/InvoiceTable';
 import SendInvoiceModal from '@/components/invoices/SendInvoiceModal';
 import CrmShell from '@/components/crm-shell';
 import { useLocale } from '@/components/providers/locale-provider';
+import { formatInvoiceDisplayNumber } from '@/lib/i18n/messages';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -231,7 +232,7 @@ function InvoicesPageContent() {
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = url;
-      anchor.download = `${invoice.invoiceNumber}.pdf`;
+      anchor.download = `${formatInvoiceDisplayNumber(locale as 'en' | 'fr', invoice.invoiceNumber)}.pdf`;
       anchor.style.display = 'none';
       document.body.append(anchor);
       anchor.click();

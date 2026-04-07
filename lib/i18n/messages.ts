@@ -88,6 +88,12 @@ const messages = {
         refused: 'Refused',
         rejected: 'Rejected',
       },
+      invoice: {
+        unpaid: 'Unpaid',
+        partial_paid: 'Partially paid',
+        paid: 'Paid',
+        overdue: 'Overdue',
+      },
       quoteDatePrefix: {
         draft: 'Created on',
         sent: 'Sent on',
@@ -175,6 +181,7 @@ const messages = {
         subject: 'Invoice {invoiceNumber} - {amount}',
         documentLabel: 'Invoice',
         messageBody: 'Please find your invoice attached. You can complete payment using the button below.',
+        messageBodyNoPayment: 'Please find your invoice attached. If you have any questions, feel free to reply to this email.',
         amountDue: 'Amount due',
         payment: 'Payment',
         onlineCheckout: 'Online checkout',
@@ -303,6 +310,12 @@ const messages = {
         refused: 'Refusé',
         rejected: 'Refusé (client)',
       },
+      invoice: {
+        unpaid: 'Impayée',
+        partial_paid: 'Partiellement payée',
+        paid: 'Payée',
+        overdue: 'En retard',
+      },
       quoteDatePrefix: {
         draft: 'Créé le',
         sent: 'Envoyé le',
@@ -390,6 +403,7 @@ const messages = {
         subject: 'Facture {invoiceNumber} - {amount}',
         documentLabel: 'Facture',
         messageBody: 'Veuillez trouver votre facture en pièce jointe. Vous pouvez effectuer le paiement avec le bouton ci-dessous.',
+        messageBodyNoPayment: 'Veuillez trouver votre facture en pièce jointe. Si vous avez des questions, vous pouvez répondre à cet e-mail.',
         amountDue: 'Montant dû',
         payment: 'Paiement',
         onlineCheckout: 'Paiement en ligne',
@@ -514,6 +528,59 @@ export function translateFieldErrors<T extends Record<string, string[] | undefin
 
 export function getQuoteStatusLabel(locale: TranslationLocale, status: string): string {
   return translate(locale, `statuses.quote.${status}`);
+}
+
+const INVOICE_DISPLAY_PREFIX: Record<TranslationLocale, string> = {
+  en: 'INV',
+  fr: 'FAC',
+};
+
+function splitInvoiceReference(invoiceNumber: string): { prefix: string; suffix: string } | null {
+  const trimmed = invoiceNumber.trim();
+  const separatorIndex = trimmed.indexOf('-');
+
+  if (separatorIndex <= 0) {
+    return null;
+  }
+
+  const prefix = trimmed.slice(0, separatorIndex).toUpperCase();
+  if (prefix !== INVOICE_DISPLAY_PREFIX.en && prefix !== INVOICE_DISPLAY_PREFIX.fr) {
+    return null;
+  }
+
+  return {
+    prefix,
+    suffix: trimmed.slice(separatorIndex),
+  };
+}
+
+export function getInvoiceStatusLabel(locale: TranslationLocale, status: string): string {
+  return getMessage(locale, `statuses.invoice.${status}`)
+    ?? getMessage('en', `statuses.invoice.${status}`)
+    ?? status;
+}
+
+export function formatInvoiceDisplayNumber(locale: TranslationLocale, invoiceNumber: string): string {
+  const parts = splitInvoiceReference(invoiceNumber);
+  if (!parts) {
+    return invoiceNumber;
+  }
+
+  return `${INVOICE_DISPLAY_PREFIX[locale]}${parts.suffix}`;
+}
+
+export function normalizeInvoiceNumberSearchTerm(searchTerm: string): string {
+  const trimmed = searchTerm.trim();
+  if (!trimmed) {
+    return trimmed;
+  }
+
+  const parts = splitInvoiceReference(trimmed);
+  if (!parts) {
+    return trimmed;
+  }
+
+  return `${INVOICE_DISPLAY_PREFIX.en}${parts.suffix}`;
 }
 
 export function getQuoteStatusDateLabel(

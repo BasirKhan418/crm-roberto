@@ -1,6 +1,6 @@
 import ConnectEmailClient from "@/emails/connectEmailClient";
 import { getQuoteEmailTemplate } from "@/emails/quoteEmailTemplate";
-import { getDocumentEmailLanguage, translate, type TranslationLocale } from '@/lib/i18n/messages';
+import { formatInvoiceDisplayNumber, getDocumentEmailLanguage, translate, type TranslationLocale } from '@/lib/i18n/messages';
 
 interface BaseSendParams {
   to: string;
@@ -30,8 +30,9 @@ interface SendSignLinkParams extends BaseSendParams {
 
 interface SendInvoiceParams extends BaseSendParams {
   invoiceNumber: string;
-  paymentUrl: string;
+  paymentUrl?: string | null;
   amount: string;
+  includeOnlinePayment?: boolean;
   locale?: TranslationLocale;
   subject?: string;
   messageBody?: string;
@@ -394,40 +395,54 @@ export async function sendInvoice({
   amount,
   companyName,
   pdfBuffer,
+  includeOnlinePayment = false,
   locale = 'en',
   subject,
   messageBody,
 }: SendInvoiceParams) {
+  const displayInvoiceNumber = formatInvoiceDisplayNumber(locale, invoiceNumber);
   const resolvedSubject = subject?.trim()
     ? subject.trim()
-    : translate(locale, 'email.sendInvoice.subject', { invoiceNumber, amount });
+    : translate(locale, 'email.sendInvoice.subject', { invoiceNumber: displayInvoiceNumber, amount });
   const resolvedMessageBody = messageBody?.trim()
     ? messageBody.trim()
-    : translate(locale, 'email.sendInvoice.messageBody');
+    : translate(
+        locale,
+        includeOnlinePayment ? 'email.sendInvoice.messageBody' : 'email.sendInvoice.messageBodyNoPayment'
+      );
+
+  const invoiceDetails = [
+    { label: translate(locale, 'email.sendInvoice.amountDue'), value: amount },
+    ...(includeOnlinePayment
+      ? [{ label: translate(locale, 'email.sendInvoice.payment'), value: translate(locale, 'email.sendInvoice.onlineCheckout') }]
+      : []),
+  ];
+
+  const textLines = [
+    resolvedMessageBody,
+    '',
+    translate(locale, 'email.sendInvoice.documentLabel') + ` ${displayInvoiceNumber}`,
+    `${translate(locale, 'email.sendInvoice.amountDue')}: ${amount}`,
+  ];
+
+  if (includeOnlinePayment && paymentUrl) {
+    textLines.push(`${translate(locale, 'email.sendInvoice.ctaLabel')}: ${paymentUrl}`);
+  }
 
   const html = buildDocumentEmailTemplate({
     subject: resolvedSubject,
     companyName,
     clientName,
     documentLabel: translate(locale, 'email.sendInvoice.documentLabel'),
-    documentNumber: invoiceNumber,
-    details: [
-      { label: translate(locale, 'email.sendInvoice.amountDue'), value: amount },
-      { label: translate(locale, 'email.sendInvoice.payment'), value: translate(locale, 'email.sendInvoice.onlineCheckout') },
-    ],
+    documentNumber: displayInvoiceNumber,
+    details: invoiceDetails,
     messageBody: resolvedMessageBody,
     locale,
-    ctaLabel: translate(locale, 'email.sendInvoice.ctaLabel'),
-    ctaUrl: paymentUrl,
+    ctaLabel: includeOnlinePayment && paymentUrl ? translate(locale, 'email.sendInvoice.ctaLabel') : undefined,
+    ctaUrl: includeOnlinePayment ? paymentUrl ?? undefined : undefined,
   });
 
-  const text = [
-    resolvedMessageBody,
-    '',
-    translate(locale, 'email.sendInvoice.documentLabel') + ` ${invoiceNumber}`,
-    `${translate(locale, 'email.sendInvoice.amountDue')}: ${amount}`,
-    `${translate(locale, 'email.sendInvoice.ctaLabel')}: ${paymentUrl}`,
-  ].join('\n');
+  const text = textLines.join('\n');
 
   return sendDocumentEmail({
     to,
@@ -435,7 +450,7 @@ export async function sendInvoice({
     html,
     text,
     companyName,
-    attachmentFilename: `${invoiceNumber}.pdf`,
+    attachmentFilename: `${displayInvoiceNumber}.pdf`,
     pdfBuffer,
   });
 }
@@ -606,7 +621,8 @@ export async function sendPaymentReceipt({
   pdfBuffer,
   locale = 'en',
 }: SendPaymentReceiptParams) {
-  const subject = translate(locale, 'email.paymentReceipt.subject', { invoiceNumber });
+  const displayInvoiceNumber = formatInvoiceDisplayNumber(locale, invoiceNumber);
+  const subject = translate(locale, 'email.paymentReceipt.subject', { invoiceNumber: displayInvoiceNumber });
   const messageBody = translate(locale, 'email.paymentReceipt.messageBody');
 
   const html = buildDocumentEmailTemplate({
@@ -614,7 +630,7 @@ export async function sendPaymentReceipt({
     companyName,
     clientName,
     documentLabel: translate(locale, 'email.paymentReceipt.documentLabel'),
-    documentNumber: invoiceNumber,
+    documentNumber: displayInvoiceNumber,
     details: [
       { label: translate(locale, 'email.paymentReceipt.amountPaid'), value: amount },
       { label: translate(locale, 'email.paymentReceipt.method'), value: paymentMethod },
@@ -626,7 +642,7 @@ export async function sendPaymentReceipt({
 
   const text = translate(locale, 'email.paymentReceipt.textBody', {
     name: clientName,
-    invoiceNumber,
+    invoiceNumber: displayInvoiceNumber,
     amount,
     paymentMethod,
     paidAt: formatDate(paidAt),
@@ -638,7 +654,7 @@ export async function sendPaymentReceipt({
     html,
     text,
     companyName,
-    attachmentFilename: `${invoiceNumber}-receipt.pdf`,
+    attachmentFilename: `${displayInvoiceNumber}-receipt.pdf`,
     pdfBuffer,
   });
 }

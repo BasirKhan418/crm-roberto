@@ -8,6 +8,7 @@ import Invoice from '@/db/models/Invoice';
 import Quote from '@/db/models/Quote';
 import { createActivityLog } from '@/db/repository/activity';
 import { ensureInvoiceIndexes } from '@/db/repository/ensureInvoiceIndexes';
+import { normalizeInvoiceNumberSearchTerm } from '@/lib/i18n/messages';
 import { computeQuoteLine, computeQuoteTotalsFromComputedLines } from '@/lib/quote-calculations';
 import { nextInvoiceNumber } from '@/lib/price';
 import { buildValidationError } from '@/utils/api/validation';
@@ -186,9 +187,11 @@ export async function GET(request: NextRequest) {
     }
 
     if (searchParam) {
+      const normalizedInvoiceSearch = normalizeInvoiceNumberSearchTerm(searchParam);
+      const invoiceNumberSearchTerms = Array.from(new Set([searchParam, normalizedInvoiceSearch]));
       const searchFilter = {
         $or: [
-          { invoiceNumber: { $regex: searchParam, $options: 'i' } },
+          ...invoiceNumberSearchTerms.map((value) => ({ invoiceNumber: { $regex: value, $options: 'i' } })),
           { 'clientSnapshot.fullName': { $regex: searchParam, $options: 'i' } },
         ],
       };

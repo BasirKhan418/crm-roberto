@@ -1,5 +1,7 @@
 import { Document, Image, Link, Page, StyleSheet, Text, View } from '@react-pdf/renderer';
 
+import { formatInvoiceDisplayNumber } from '@/lib/i18n/messages';
+
 interface InvoiceCompanyData {
   companyName?: string | null;
   ownerName?: string | null;
@@ -584,6 +586,7 @@ function getStatusPresentation(
 
 export function InvoicePdfTemplate({ invoice, company, paymentUrl = null, locale = 'en' }: InvoicePdfTemplateProps) {
   const t = translations[locale];
+  const displayInvoiceNumber = formatInvoiceDisplayNumber(locale, invoice.invoiceNumber);
   const payments = invoice.payments ?? [];
   const totalPaidAmount = payments.reduce((sum, payment) => sum + Math.max(0, Math.round(payment.amount || 0)), 0);
   const remainingAmount = Math.max(0, invoice.totalIncludingTax - totalPaidAmount);
@@ -604,7 +607,7 @@ export function InvoicePdfTemplate({ invoice, company, paymentUrl = null, locale
 
           <View style={styles.identityCard}>
             <Text style={styles.identityTitle}>{t.invoice}</Text>
-            <Text style={styles.identityNumber}>{invoice.invoiceNumber}</Text>
+            <Text style={styles.identityNumber}>{displayInvoiceNumber}</Text>
             <View style={styles.identityMetaRow}>
               <View style={styles.identityMetaCol}>
                 <Text style={styles.label}>{t.date}</Text>

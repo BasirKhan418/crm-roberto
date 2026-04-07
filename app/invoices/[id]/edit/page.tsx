@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 
 import CrmShell from '@/components/crm-shell';
 import { useLocale } from '@/components/providers/locale-provider';
+import { formatInvoiceDisplayNumber } from '@/lib/i18n/messages';
 import { Button } from '@/components/ui/button';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import { Input } from '@/components/ui/input';
@@ -196,7 +197,7 @@ export default function EditInvoicePage() {
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="invoice-number">{t.invoiceNumber}</Label>
-                <Input id="invoice-number" value={invoice.invoiceNumber} readOnly className="bg-muted/40" />
+                <Input id="invoice-number" value={formatInvoiceDisplayNumber(locale as 'en' | 'fr', invoice.invoiceNumber)} readOnly className="bg-muted/40" />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="invoice-date">{t.date}</Label>

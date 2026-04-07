@@ -1,5 +1,6 @@
 'use client';
 
+import { getInvoiceStatusLabel } from '@/lib/i18n/messages';
 import { cn } from '@/lib/utils';
 
 export type InvoiceStatus = 'unpaid' | 'partial_paid' | 'paid' | 'overdue';
@@ -23,20 +24,6 @@ const STATUS_STYLES: Record<InvoiceStatus, { backgroundColor: string; color: str
   },
 };
 
-function getStatusLabel(status: InvoiceStatus, locale: 'en' | 'fr'): string {
-  if (locale === 'fr') {
-    if (status === 'unpaid') return 'Impay\u00e9e';
-    if (status === 'partial_paid') return 'Partiellement pay\u00e9e';
-    if (status === 'paid') return 'Pay\u00e9e';
-    return 'En retard';
-  }
-
-  if (status === 'unpaid') return 'Unpaid';
-  if (status === 'partial_paid') return 'Partially paid';
-  if (status === 'paid') return 'Paid';
-  return 'Overdue';
-}
-
 type InvoiceStatusBadgeProps = {
   status: InvoiceStatus;
   locale: 'en' | 'fr';
@@ -45,7 +32,7 @@ type InvoiceStatusBadgeProps = {
 
 export function InvoiceStatusBadge({ status, locale, className }: InvoiceStatusBadgeProps) {
   const style = STATUS_STYLES[status];
-  const label = getStatusLabel(status, locale);
+  const label = getInvoiceStatusLabel(locale, status);
 
   if (status === 'paid' || status === 'overdue') {
     return (

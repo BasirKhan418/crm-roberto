@@ -13,7 +13,7 @@ import { useLocale } from '@/components/providers/locale-provider';
 import QuoteHistoryBar from '@/components/quotes/QuoteHistoryBar';
 import SendQuoteModal from '@/components/quotes/SendQuoteModal';
 import StatusChanger from '@/components/quotes/StatusChanger';
-import { getQuoteStatusLabel, resolveTranslatedError, translate } from '@/lib/i18n/messages';
+import { formatInvoiceDisplayNumber, getQuoteStatusLabel, resolveTranslatedError, translate } from '@/lib/i18n/messages';
 import { computeQuoteLine } from '@/lib/quote-calculations';
 import { PriceDisplay } from '@/components/ui/PriceDisplay';
 import { StatusBadge, type QuoteStatus } from '@/components/ui/StatusBadge';
@@ -762,7 +762,7 @@ export default function QuoteDetailPage() {
                   href={`/invoices/${quote.invoiceId}`}
                   className="inline-flex h-10 w-full items-center justify-start rounded-md border border-emerald-200 bg-emerald-50 px-3 text-sm font-medium text-emerald-800 hover:bg-emerald-100 sm:h-9 sm:w-auto sm:justify-center"
                 >
-                  {t.convertedToInvoiceLabel} {convertedInvoiceNumber ? convertedInvoiceNumber : ''}
+                  {t.convertedToInvoiceLabel} {convertedInvoiceNumber ? formatInvoiceDisplayNumber(locale as Locale, convertedInvoiceNumber) : ''}
                 </Link>
               </div>
             ) : null}
