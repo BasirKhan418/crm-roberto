@@ -1153,13 +1153,15 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
             <SheetTitle>{t.addNoteTitle}</SheetTitle>
             <SheetDescription>{t.addNoteDesc}</SheetDescription>
           </SheetHeader>
-          <div className="space-y-3 px-4 pb-4">
-            <div className="space-y-1.5"><Label>{t.title}</Label><Input value={noteForm.title} onChange={(e) => setNoteForm((p) => ({ ...p, title: e.target.value }))} /></div>
-            <div className="space-y-1.5">
-              <Label>{t.description}</Label>
-              <textarea className="min-h-28 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50" value={noteForm.description} onChange={(e) => setNoteForm((p) => ({ ...p, description: e.target.value }))} />
+          <div className="flex-1 overflow-y-auto px-4 pb-4">
+            <div className="space-y-3">
+              <div className="space-y-1.5"><Label>{t.title}</Label><Input value={noteForm.title} onChange={(e) => setNoteForm((p) => ({ ...p, title: e.target.value }))} /></div>
+              <div className="space-y-1.5">
+                <Label>{t.description}</Label>
+                <textarea className="min-h-28 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50" value={noteForm.description} onChange={(e) => setNoteForm((p) => ({ ...p, description: e.target.value }))} />
+              </div>
+              <div className="space-y-1.5"><Label>{t.followUpDate}</Label><Input type="date" value={noteForm.followUpDate} onChange={(e) => setNoteForm((p) => ({ ...p, followUpDate: e.target.value }))} /></div>
             </div>
-            <div className="space-y-1.5"><Label>{t.followUpDate}</Label><Input type="date" value={noteForm.followUpDate} onChange={(e) => setNoteForm((p) => ({ ...p, followUpDate: e.target.value }))} /></div>
           </div>
           <SheetFooter>
             <Button variant="outline" onClick={() => setIsNoteOpen(false)}>{t.cancel}</Button>
@@ -1175,13 +1177,15 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
             <SheetTitle>{t.editNote}</SheetTitle>
             <SheetDescription>{t.editNoteDesc}</SheetDescription>
           </SheetHeader>
-          <div className="space-y-3 px-4 pb-4">
-            <div className="space-y-1.5"><Label>{t.title}</Label><Input value={editNoteForm.title} onChange={(e) => setEditNoteForm((p) => ({ ...p, title: e.target.value }))} /></div>
-            <div className="space-y-1.5">
-              <Label>{t.description}</Label>
-              <textarea className="min-h-28 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50" value={editNoteForm.description} onChange={(e) => setEditNoteForm((p) => ({ ...p, description: e.target.value }))} />
+          <div className="flex-1 overflow-y-auto px-4 pb-4">
+            <div className="space-y-3">
+              <div className="space-y-1.5"><Label>{t.title}</Label><Input value={editNoteForm.title} onChange={(e) => setEditNoteForm((p) => ({ ...p, title: e.target.value }))} /></div>
+              <div className="space-y-1.5">
+                <Label>{t.description}</Label>
+                <textarea className="min-h-28 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50" value={editNoteForm.description} onChange={(e) => setEditNoteForm((p) => ({ ...p, description: e.target.value }))} />
+              </div>
+              <div className="space-y-1.5"><Label>{t.followUpDate}</Label><Input type="date" value={editNoteForm.followUpDate} onChange={(e) => setEditNoteForm((p) => ({ ...p, followUpDate: e.target.value }))} /></div>
             </div>
-            <div className="space-y-1.5"><Label>{t.followUpDate}</Label><Input type="date" value={editNoteForm.followUpDate} onChange={(e) => setEditNoteForm((p) => ({ ...p, followUpDate: e.target.value }))} /></div>
           </div>
           <SheetFooter>
             <Button variant="outline" onClick={() => setIsNoteEditOpen(false)}>{t.cancel}</Button>
@@ -1197,27 +1201,29 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
             <SheetTitle>{t.addInteractionTitle}</SheetTitle>
             <SheetDescription>{t.addInteractionDesc}</SheetDescription>
           </SheetHeader>
-          <div className="space-y-3 px-4 pb-4">
-            <div className="space-y-1.5">
-              <Label>{t.interactionType}</Label>
-              <div className="grid grid-cols-4 gap-1.5">
-                {(['call', 'meeting', 'email', 'discussion'] as InteractionType[]).map((type) => (
-                  <button key={type} type="button" onClick={() => setInteractionForm((p) => ({ ...p, type }))}
-                    className={`flex flex-col items-center gap-1.5 rounded-lg border py-2.5 text-xs font-medium transition-colors ${interactionForm.type === type ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-secondary'}`}>
-                    <span className="flex items-center justify-center [&_svg]:size-4">{INTERACTION_ICONS[type]}</span>
-                    <span>{type === 'email' ? t.emailType : type === 'call' ? t.call : type === 'meeting' ? t.meeting : t.discussion}</span>
-                  </button>
-                ))}
+          <div className="flex-1 overflow-y-auto px-4 pb-4">
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label>{t.interactionType}</Label>
+                <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+                  {(['call', 'meeting', 'email', 'discussion'] as InteractionType[]).map((type) => (
+                    <button key={type} type="button" onClick={() => setInteractionForm((p) => ({ ...p, type }))}
+                      className={`flex flex-col items-center gap-1.5 rounded-lg border py-2.5 text-xs font-medium transition-colors ${interactionForm.type === type ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-secondary'}`}>
+                      <span className="flex items-center justify-center [&_svg]:size-4">{INTERACTION_ICONS[type]}</span>
+                      <span>{type === 'email' ? t.emailType : type === 'call' ? t.call : type === 'meeting' ? t.meeting : t.discussion}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-            <div className="space-y-1.5"><Label>{t.interactionTitle}</Label><Input value={interactionForm.title} onChange={(e) => setInteractionForm((p) => ({ ...p, title: e.target.value }))} /></div>
-            <div className="space-y-1.5">
-              <Label>{t.interactionNotes}</Label>
-              <textarea className="min-h-20 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50" value={interactionForm.notes} onChange={(e) => setInteractionForm((p) => ({ ...p, notes: e.target.value }))} />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5"><Label>{t.interactionDate}</Label><Input type="date" value={interactionForm.date} onChange={(e) => setInteractionForm((p) => ({ ...p, date: e.target.value }))} /></div>
-              <div className="space-y-1.5"><Label>{t.interactionFollowUp}</Label><Input type="date" value={interactionForm.followUpDate} onChange={(e) => setInteractionForm((p) => ({ ...p, followUpDate: e.target.value }))} /></div>
+              <div className="space-y-1.5"><Label>{t.interactionTitle}</Label><Input value={interactionForm.title} onChange={(e) => setInteractionForm((p) => ({ ...p, title: e.target.value }))} /></div>
+              <div className="space-y-1.5">
+                <Label>{t.interactionNotes}</Label>
+                <textarea className="min-h-20 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50" value={interactionForm.notes} onChange={(e) => setInteractionForm((p) => ({ ...p, notes: e.target.value }))} />
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5"><Label>{t.interactionDate}</Label><Input type="date" value={interactionForm.date} onChange={(e) => setInteractionForm((p) => ({ ...p, date: e.target.value }))} /></div>
+                <div className="space-y-1.5"><Label>{t.interactionFollowUp}</Label><Input type="date" value={interactionForm.followUpDate} onChange={(e) => setInteractionForm((p) => ({ ...p, followUpDate: e.target.value }))} /></div>
+              </div>
             </div>
           </div>
           <SheetFooter>

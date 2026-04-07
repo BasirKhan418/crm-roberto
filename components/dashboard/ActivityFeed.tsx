@@ -14,6 +14,7 @@ import type { ActivityItem } from '@/hooks/useDashboard';
 import {
   formatActivityRelativeTime,
   formatExactTimestamp,
+  formatInvoiceDisplayNumber,
   getActivityBadgeLabel,
   getActivityHeadline,
   translate,
@@ -165,6 +166,9 @@ export default function ActivityFeed({ activity = [], loading = false, error = n
               const headline = item.action
                 ? getActivityHeadline(locale, item.action)
                 : translate(locale, 'activity.fallbackHeadline');
+              const entityName = item.entityType === 'invoice' && item.entityName
+                ? formatInvoiceDisplayNumber(locale, item.entityName)
+                : item.entityName;
               const isDeleted = item.action?.endsWith('_deleted');
               const path = buildActivityPath(item);
               const key = item._id ?? `${item.createdAt ?? 'activity'}-${index}`;
@@ -179,9 +183,9 @@ export default function ActivityFeed({ activity = [], loading = false, error = n
                     <p className={`text-sm font-medium leading-tight ${isDeleted ? 'text-muted-foreground line-through' : 'text-foreground'}`}>
                       {headline}
                     </p>
-                    {item.entityName ? (
+                    {entityName ? (
                       <p className={`mt-0.5 truncate text-xs font-semibold ${entityCfg.labelColor}`}>
-                        {item.entityName}
+                        {entityName}
                       </p>
                     ) : null}
                   </div>
