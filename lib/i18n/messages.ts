@@ -116,9 +116,8 @@ const messages = {
         quote_duplicated: 'Duplicated',
         quote_updated: 'Updated',
         quote_deleted: 'Deleted',
+        quote_client_replied: 'Client replied',
         quote_status_changed: 'Status changed',
-        invoice_created: 'Created',
-        invoice_payment_received: 'Payment received',
       },
       headlines: {
         client_created: 'Client added',
@@ -134,9 +133,8 @@ const messages = {
         quote_duplicated: 'Quote duplicated',
         quote_updated: 'Quote updated',
         quote_deleted: 'Quote deleted',
+        quote_client_replied: 'Client replied to quote',
         quote_status_changed: 'Quote status changed',
-        invoice_created: 'Invoice created',
-        invoice_payment_received: 'Invoice payment received',
       },
       relative: {
         justNow: 'Just now',
@@ -201,6 +199,12 @@ const messages = {
         documentLabel: 'Quote',
         ctaLabel: 'View updated quote',
         ctaNote: 'Use the secure link above to view the latest version of your quote once it is resent.',
+      },
+      clientReply: {
+        subject: 'Client replied to quote {quoteNumber}',
+        documentLabel: 'Quote',
+        clientLabel: 'Client',
+        ctaLabel: 'View quote & reply',
       },
       paymentReceipt: {
         subject: 'Payment receipt - {invoiceNumber}',
@@ -327,9 +331,8 @@ const messages = {
         quote_duplicated: 'Dupliqué',
         quote_updated: 'Modifié',
         quote_deleted: 'Supprimé',
+        quote_client_replied: 'Le client a répondu',
         quote_status_changed: 'Statut modifié',
-        invoice_created: 'Créée',
-        invoice_payment_received: 'Paiement reçu',
       },
       headlines: {
         client_created: 'Client ajouté',
@@ -345,9 +348,8 @@ const messages = {
         quote_duplicated: 'Devis dupliqué',
         quote_updated: 'Devis mis à jour',
         quote_deleted: 'Devis supprimé',
+        quote_client_replied: 'Le client a répondu au devis',
         quote_status_changed: 'Statut du devis modifié',
-        invoice_created: 'Facture créée',
-        invoice_payment_received: 'Paiement de facture reçu',
       },
       relative: {
         justNow: "À l'instant",
@@ -364,18 +366,18 @@ const messages = {
       greeting: 'Bonjour {name},',
       pdfAttached: 'PDF joint pour vos archives.',
       sendSignLink: {
-        subject: 'Devis {quoteNumber} - Merci de vérifier et de signer',
+        subject: 'Devis {quoteNumber} - Merci de vérifier et signer',
         documentLabel: 'Devis',
         amountLabel: 'Montant',
         validityLabel: 'Validité',
         validityValue: '{count} jours',
         messageBody:
-          'Veuillez consulter puis signer le devis ci-joint en utilisant ce lien sécurisé :\n{signUrl}\n\nCe lien expire dans 30 jours.\n\nSi le bouton ne fonctionne pas, utilisez ce lien pour continuer :\n{signUrl}',
+          'Veuillez vérifier et signer le devis ci-joint en utilisant ce lien sécurisé :\n{signUrl}\n\nCe lien expire dans 30 jours.\n\nSi ce bouton ne fonctionne pas, utilisez ce lien pour continuer :\n{signUrl}',
         ctaLabel: 'Vérifier et signer le devis',
         ctaNote: 'Ce lien expire dans 30 jours.',
       },
       sendQuote: {
-        subject: 'Devis {quoteNumber} - Merci de vérifier et de signer',
+        subject: 'Devis {quoteNumber} - Merci de vérifier et signer',
         defaultBody:
           'Bonjour,\n\nVeuillez trouver ci-joint votre devis {quoteNumber}.\n\nLorsque vous êtes prêt, utilisez le bouton sécurisé de cet e-mail pour consulter le devis et signer en ligne.\n\nN\'hésitez pas à revenir vers nous pour toute question avant signature.\n\nBien cordialement,',
         reference: 'Référence du devis : {quoteNumber}',
@@ -387,7 +389,7 @@ const messages = {
       sendInvoice: {
         subject: 'Facture {invoiceNumber} - {amount}',
         documentLabel: 'Facture',
-        messageBody: 'Veuillez trouver votre facture en pièce jointe. Vous pouvez la régler avec le bouton ci-dessous.',
+        messageBody: 'Veuillez trouver votre facture en pièce jointe. Vous pouvez effectuer le paiement avec le bouton ci-dessous.',
         amountDue: 'Montant dû',
         payment: 'Paiement',
         onlineCheckout: 'Paiement en ligne',
@@ -412,6 +414,12 @@ const messages = {
         documentLabel: 'Devis',
         ctaLabel: 'Voir le devis mis à jour',
         ctaNote: "Utilisez le lien sécurisé ci-dessus pour consulter la dernière version de votre devis une fois qu'il sera renvoyé.",
+      },
+      clientReply: {
+        subject: 'Le client a répondu au devis {quoteNumber}',
+        documentLabel: 'Devis',
+        clientLabel: 'Client',
+        ctaLabel: 'Voir le devis et répondre',
       },
       paymentReceipt: {
         subject: 'Reçu de paiement - {invoiceNumber}',

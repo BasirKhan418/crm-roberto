@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import ConnectDb from '@/db/connectDb';
+import Quote from '@/db/models/Quote';
 import { getCompanyProfileByUserId } from '@/db/repository/cprofile';
 import { getQuoteById } from '@/db/repository/quote';
 import { sendRejectionReplyToClient } from '@/lib/email';
+import { buildQuoteConversation } from '@/lib/quote-conversation';
 import getMe from '@/utils/middlewares/useMe';
 
 export const runtime = 'nodejs';
@@ -13,6 +16,8 @@ interface RouteParams {
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
+    await ConnectDb();
+
     const me = await getMe(true);
     if (!me.success || !me.user) {
       return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
@@ -62,7 +67,29 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       'CRM';
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? '';
-    const quoteAdminUrl = appUrl ? `${appUrl}/quotes/${String(quote._id)}` : undefined;
+    const rejectedSignToken = quote.rejectedSignToken;
+    const signPageUrl =
+      appUrl && rejectedSignToken ? `${appUrl}/sign/${rejectedSignToken}` : undefined;
+
+    const now = new Date();
+
+    const updated = await Quote.findOneAndUpdate(
+      { _id: id, user: me.user.id },
+      {
+        $set: { adminReplyMessage: message },
+        $push: { conversationMessages: { role: 'admin', text: message, sentAt: now } },
+      },
+      { new: true, strict: false }
+    );
+
+    if (!updated) {
+      return NextResponse.json({ success: false, message: 'Quote not found or could not be updated' }, { status: 404 });
+    }
+
+    await Quote.updateOne(
+      { _id: id, user: me.user.id, rejectionAcknowledgedAt: null },
+      { $set: { rejectionAcknowledgedAt: now } }
+    );
 
     await sendRejectionReplyToClient({
       to: clientEmail,
@@ -70,11 +97,21 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       companyName,
       quoteNumber: quote.quoteNumber,
       messageBody: message,
-      quoteAdminUrl,
+      quoteAdminUrl: signPageUrl,
       locale,
     });
 
-    return NextResponse.json({ success: true, message: 'Reply sent successfully' });
+    return NextResponse.json({
+      success: true,
+      message: 'Reply sent successfully',
+      conversationMessages: buildQuoteConversation(
+        updated as unknown as {
+          rejectionComment?: string | null;
+          adminReplyMessage?: string | null;
+          conversationMessages?: Array<{ role?: string | null; text?: string | null; sentAt?: Date | string | null }>;
+        }
+      ),
+    });
   } catch (error) {
     console.error('Error sending rejection reply:', error);
     return NextResponse.json(

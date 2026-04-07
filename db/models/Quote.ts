@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+import mongoose, { type InferSchemaType, type Model } from "mongoose";
 export type QuoteStatus = "draft" | "sent" | "accepted" | "refused" | "rejected";
 export type QuoteSignedStatus = "not_signed" | "signed";
 
@@ -263,12 +263,6 @@ const QuoteSchema = new mongoose.Schema(
       default: null,
     },
 
-    sentLocale: {
-      type: String,
-      enum: ["en", "fr"],
-      default: null,
-    },
-
     signedAt: {
       type: Date,
       default: null,
@@ -288,6 +282,47 @@ const QuoteSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+
+    // Token preserved after rejection so the client can revisit their sign page
+    rejectedSignToken: {
+      type: String,
+      default: null,
+      index: true,
+    },
+
+    // Admin reply message stored after admin responds to a rejection
+    adminReplyMessage: {
+      type: String,
+      trim: true,
+      default: null,
+      maxlength: [2000, "Admin reply cannot exceed 2000 characters"],
+    },
+
+    // Back-and-forth conversation thread after a rejection (admin ↔ client)
+    conversationMessages: {
+      type: [
+        {
+          _id: false,
+          role: {
+            type: String,
+            enum: ["admin", "client"],
+            required: true,
+          },
+          text: {
+            type: String,
+            trim: true,
+            required: true,
+            maxlength: [2000, "Message cannot exceed 2000 characters"],
+          },
+          sentAt: {
+            type: Date,
+            default: () => new Date(),
+          },
+        },
+      ],
+      default: [],
+    },
+
     quotepdfUrl: {
       type: String,
       default: null,
@@ -315,5 +350,21 @@ QuoteSchema.index(
   { name: "quote_search_index" }
 );
 
-export default mongoose.models.Quote ||
-  mongoose.model("Quote", QuoteSchema);
+export type QuoteDocument = InferSchemaType<typeof QuoteSchema>;
+
+const existingQuoteModel = mongoose.models.Quote as Model<QuoteDocument> | undefined;
+
+if (
+  existingQuoteModel &&
+  (!existingQuoteModel.schema.path("rejectedSignToken") ||
+    !existingQuoteModel.schema.path("adminReplyMessage") ||
+    !existingQuoteModel.schema.path("conversationMessages"))
+) {
+  delete (mongoose.models as Record<string, Model<QuoteDocument>>).Quote;
+}
+
+const QuoteModel =
+  (mongoose.models.Quote as Model<QuoteDocument>) ||
+  mongoose.model<QuoteDocument>("Quote", QuoteSchema);
+
+export default QuoteModel;

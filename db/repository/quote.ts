@@ -119,6 +119,15 @@ interface QuoteRecord {
   notes?: string | null;
   paymentTerms?: string | null;
   validityDays?: number;
+  rejectionComment?: string | null;
+  subject?: string | null;
+  rejectedSignToken?: string | null;
+  adminReplyMessage?: string | null;
+  conversationMessages?: Array<{
+    role: 'admin' | 'client';
+    text: string;
+    sentAt: Date | string;
+  }>;
   createdAt: Date;
   updatedAt: Date;
 }

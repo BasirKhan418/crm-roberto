@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { createActivityLog } from '@/db/repository/activity';
 import { deleteQuoteById, getQuoteById, updateQuoteById } from '@/db/repository/quote';
+import { buildQuoteConversation } from '@/lib/quote-conversation';
 import { buildValidationError } from '@/utils/api/validation';
 import getMe from '@/utils/middlewares/useMe';
 import { updateQuoteSchema } from '@/validators/quote.schema';
@@ -28,6 +29,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       success: true,
       data: {
         ...quote,
+        conversationMessages: buildQuoteConversation(quote),
         clientId: String(quote.clientId),
         invoiceId: quote.invoiceId ? String(quote.invoiceId) : null,
         convertedToInvoice: Boolean(quote.convertedToInvoice),

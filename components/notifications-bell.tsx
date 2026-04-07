@@ -45,6 +45,7 @@ const bellMessages = {
     signedQuote: "Quote accepted",
     newInvoice: "New invoice created",
     quoteSent: "Quote sent",
+    clientReply: "Client replied",
     quoteUpdated: "Quote updated",
     quoteDeleted: "Quote deleted",
     invoicePaymentReceived: 'Payment received',
@@ -52,6 +53,7 @@ const bellMessages = {
     amountPaid: 'Amount paid',
     invoiceDueOn: "Due on",
     sentTo: "Sent to",
+    fromClient: "From",
     movedTo: "Moved to",
     fromQuote: "From quote",
     openItem: "Open item",
@@ -69,6 +71,7 @@ const bellMessages = {
     signedQuote: "Devis accepté",
     newInvoice: "Nouvelle facture créée",
     quoteSent: "Devis envoyé",
+    clientReply: "Le client a répondu",
     quoteUpdated: "Devis mis à jour",
     quoteDeleted: "Devis supprimé",
     invoicePaymentReceived: 'Paiement reçu',
@@ -76,6 +79,7 @@ const bellMessages = {
     amountPaid: 'Montant payé',
     invoiceDueOn: "Échéance le",
     sentTo: "Envoyé à",
+    fromClient: "De la part de",
     movedTo: "Passé à",
     fromQuote: "Depuis le devis",
     openItem: "Ouvrir l'élément",
@@ -179,6 +183,10 @@ function pickNotificationTitle(item: NotificationItem, locale: "en" | "fr"): str
     return t.quoteSent;
   }
 
+  if (item.action === "quote_client_replied") {
+    return t.clientReply;
+  }
+
   if (item.action === "quote_updated") {
     return t.quoteUpdated;
   }
@@ -211,6 +219,21 @@ function buildNotificationDetails(item: NotificationItem, locale: "en" | "fr"): 
     if (sentTo) {
       return `${item.entityName} - ${t.sentTo} ${sentTo}`;
     }
+    return item.entityName || headline;
+  }
+
+  if (item.action === "quote_client_replied") {
+    const clientName = getMetaString(item.metadata, "clientName");
+    const messagePreview = getMetaString(item.metadata, "messagePreview");
+
+    if (clientName && messagePreview) {
+      return `${item.entityName} - ${t.fromClient} ${clientName} - ${messagePreview}`;
+    }
+
+    if (clientName) {
+      return `${item.entityName} - ${t.fromClient} ${clientName}`;
+    }
+
     return item.entityName || headline;
   }
 
@@ -254,7 +277,7 @@ function pickIcon(item: NotificationItem) {
     return FileText;
   }
 
-  if (item.action === "quote_created" || item.action === "quote_status_changed") {
+  if (item.action === "quote_created" || item.action === "quote_status_changed" || item.action === "quote_client_replied") {
     return FileText;
   }
 

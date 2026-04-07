@@ -74,6 +74,8 @@ interface QuoteDetail {
   paymentTerms?: string | null;
   validityDays?: number;
   rejectionComment?: string | null;
+  adminReplyMessage?: string | null;
+  conversationMessages?: Array<{ role: 'admin' | 'client'; text: string; sentAt?: string }>;
   statusHistory?: Array<{
     from?: QuoteStatus;
     to: QuoteStatus;
@@ -177,6 +179,9 @@ export default function QuoteDetailPage() {
       responseSent: 'Response sent to client',
       replyRequired: 'Please write a reply message before sending.',
       replyFailed: 'Failed to send response',
+      conversationThread: 'Conversation thread',
+      youLabel: 'You',
+      clientLabel: 'Client',
       deleteTitle: 'Delete quote?',
       deleteDescription: 'Are you sure you want to delete this quote? This action cannot be undone.',
       cancel: 'Cancel',
@@ -250,6 +255,9 @@ export default function QuoteDetailPage() {
       responseSent: 'R\u00e9ponse envoy\u00e9e au client',
       replyRequired: "Veuillez r\u00e9diger un message avant d'envoyer.",
       replyFailed: "Impossible d'envoyer la r\u00e9ponse",
+      conversationThread: 'Fil de conversation',
+      youLabel: 'Vous',
+      clientLabel: 'Client',
       deleteTitle: 'Supprimer le devis\u00a0?',
       deleteDescription: 'Voulez-vous vraiment supprimer ce devis\u00a0? Cette action est irr\u00e9versible.',
       cancel: 'Annuler',
@@ -279,7 +287,7 @@ export default function QuoteDetailPage() {
   const [duplicating, setDuplicating] = useState(false);
   const [replyMessage, setReplyMessage] = useState('');
   const [sendingReply, setSendingReply] = useState(false);
-  const [replySent, setReplySent] = useState(false);
+  const [threadExpanded, setThreadExpanded] = useState(false);
 
   const canEdit = quote ? quote.status === 'draft' || quote.status === 'sent' || quote.status === 'rejected' : false;
   const canConvertToInvoice = Boolean(
@@ -332,6 +340,7 @@ export default function QuoteDetailPage() {
       setQuote(quotePayload.data);
       setConvertedInvoiceNumber(nextConvertedInvoiceNumber);
       setCompany(companyRes.ok && companyPayload.success ? companyPayload.profile ?? null : null);
+      setThreadExpanded(false);
     } catch (fetchError) {
       setError(fetchError instanceof Error ? fetchError.message : t.loadFailed);
     } finally {
@@ -466,14 +475,29 @@ export default function QuoteDetailPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: trimmed, locale }),
       });
-      const payload = (await response.json()) as { success?: boolean; message?: string };
+      const payload = (await response.json()) as {
+        success?: boolean;
+        message?: string;
+        conversationMessages?: Array<{ role: 'admin' | 'client'; text: string; sentAt?: string }>;
+      };
 
       if (!response.ok || !payload.success) {
         throw new Error(payload.message || t.replyFailed);
       }
 
-      setReplySent(true);
       setReplyMessage('');
+      setQuote((prev) =>
+        prev
+          ? {
+              ...prev,
+              adminReplyMessage: trimmed,
+              conversationMessages: payload.conversationMessages ?? [
+                ...(prev.conversationMessages ?? []),
+                { role: 'admin' as const, text: trimmed, sentAt: new Date().toISOString() },
+              ],
+            }
+          : prev,
+      );
       toast.success(t.responseSent);
     } catch (replyError) {
       toast.error(resolveTranslatedError(locale, replyError, t.replyFailed));
@@ -567,59 +591,113 @@ export default function QuoteDetailPage() {
                 </p>
               </div>
 
-              {/* Admin reply section */}
-              <div className="px-4 py-3 sm:px-5">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-red-700">{t.replyToClient}</p>
-                {replySent ? (
-                  <p className="mt-2 text-sm font-medium text-emerald-700">{t.responseSent}</p>
-                ) : (
-                  <div className="mt-2 space-y-2">
-                    <textarea
-                      rows={4}
-                      maxLength={2000}
-                      value={replyMessage}
-                      onChange={(e) => setReplyMessage(e.target.value)}
-                      placeholder={t.replyPlaceholder}
-                      disabled={sendingReply}
-                      className="w-full resize-none rounded-lg border border-red-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-red-400 focus:outline-none focus:ring-1 focus:ring-red-400 disabled:opacity-50"
-                    />
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <p className="text-xs text-red-500/70">{replyMessage.length}/2000</p>
-                      <div className="flex flex-col gap-2 sm:flex-row">
-                        <Button type="button" variant="outline" size="sm" className="h-9 w-full sm:w-auto" asChild>
-                          <Link href={`/quotes/${quote._id}/edit`}>
-                            <PencilIcon className="size-3.5" />
-                            {t.editAndResend}
-                          </Link>
-                        </Button>
-                        <Button
+              {/* Conversation thread */}
+              {(() => {
+                const msgs = quote.conversationMessages ?? [];
+                if (msgs.length === 0) return null;
+                const older = msgs.slice(0, -2);
+                const latest = msgs.slice(-2);
+                return (
+                  <div className="border-b border-red-200 px-4 py-3 sm:px-5">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-red-700">{t.conversationThread}</p>
+                      {older.length > 0 ? (
+                        <button
                           type="button"
-                          size="sm"
-                          className="h-9 w-full sm:w-auto"
-                          onClick={sendReplyToClient}
-                          disabled={sendingReply || !replyMessage.trim()}
+                          onClick={() => setThreadExpanded(v => !v)}
+                          className="flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium text-red-600 hover:bg-red-100 hover:text-red-800 sm:text-xs"
                         >
-                          <SendIcon className="size-3.5" />
-                          {sendingReply ? t.sendingResponse : t.sendResponse}
-                        </Button>
-                      </div>
+                          {threadExpanded
+                            ? 'Collapse'
+                            : `+${older.length} older`}
+                          <svg
+                            className={`size-3 transition-transform duration-200 ${threadExpanded ? 'rotate-180' : ''}`}
+                            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                      ) : null}
+                    </div>
+                    <div className="mt-2 space-y-2">
+                      {/* Collapsed older messages placeholder */}
+                      {older.length > 0 && !threadExpanded ? (
+                        <button
+                          type="button"
+                          onClick={() => setThreadExpanded(true)}
+                          className="w-full rounded-lg border border-dashed border-red-200 py-2 text-center text-xs text-red-400 hover:border-red-300 hover:text-red-600"
+                        >
+                          View {older.length} earlier message{older.length > 1 ? 's' : ''}
+                        </button>
+                      ) : null}
+                      {/* Older messages shown when expanded */}
+                      {threadExpanded
+                        ? older.map((msg, i) => (
+                            <div
+                              key={`old-${i}`}
+                              className={msg.role === 'admin' ? 'rounded-lg border border-slate-200 bg-white p-3' : 'rounded-lg border border-red-200 bg-red-100 p-3'}
+                            >
+                              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                                {msg.role === 'admin' ? t.youLabel : t.clientLabel}
+                              </p>
+                              <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">{msg.text}</p>
+                              {msg.sentAt ? <p className="mt-0.5 text-[10px] text-slate-400">{new Date(msg.sentAt).toLocaleString()}</p> : null}
+                            </div>
+                          ))
+                        : null}
+                      {/* Always-visible latest 2 */}
+                      {latest.map((msg, i) => (
+                        <div
+                          key={`latest-${i}`}
+                          className={msg.role === 'admin' ? 'rounded-lg border border-slate-200 bg-white p-3' : 'rounded-lg border border-red-200 bg-red-100 p-3'}
+                        >
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                            {msg.role === 'admin' ? t.youLabel : t.clientLabel}
+                          </p>
+                          <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">{msg.text}</p>
+                          {msg.sentAt ? <p className="mt-0.5 text-[10px] text-slate-400">{new Date(msg.sentAt).toLocaleString()}</p> : null}
+                        </div>
+                      ))}
                     </div>
                   </div>
-                )}
-                {replySent ? (
-                  <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-                    <Button type="button" variant="outline" size="sm" className="h-9 w-full sm:w-auto" onClick={() => { setReplySent(false); }}>
-                      <SendIcon className="size-3.5" />
-                      {t.sendResponse}
-                    </Button>
-                    <Button type="button" size="sm" className="h-9 w-full sm:w-auto" asChild>
-                      <Link href={`/quotes/${quote._id}/edit`}>
-                        <PencilIcon className="size-3.5" />
-                        {t.editAndResend}
-                      </Link>
-                    </Button>
+                );
+              })()}
+
+              {/* Admin reply section — always visible */}
+              <div className="px-4 py-3 sm:px-5">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-red-700">{t.replyToClient}</p>
+                <div className="mt-2 space-y-2">
+                  <textarea
+                    rows={4}
+                    maxLength={2000}
+                    value={replyMessage}
+                    onChange={(e) => setReplyMessage(e.target.value)}
+                    placeholder={t.replyPlaceholder}
+                    disabled={sendingReply}
+                    className="w-full resize-none rounded-lg border border-red-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-red-400 focus:outline-none focus:ring-1 focus:ring-red-400 disabled:opacity-50"
+                  />
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-xs text-red-500/70">{replyMessage.length}/2000</p>
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <Button type="button" variant="outline" size="sm" className="h-9 w-full sm:w-auto" asChild>
+                        <Link href={`/quotes/${quote._id}/edit`}>
+                          <PencilIcon className="size-3.5" />
+                          {t.editAndResend}
+                        </Link>
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="h-9 w-full sm:w-auto"
+                        onClick={sendReplyToClient}
+                        disabled={sendingReply || !replyMessage.trim()}
+                      >
+                        <SendIcon className="size-3.5" />
+                        {sendingReply ? t.sendingResponse : t.sendResponse}
+                      </Button>
+                    </div>
                   </div>
-                ) : null}
+                </div>
               </div>
             </section>
           ) : null}

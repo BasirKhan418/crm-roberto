@@ -23,6 +23,7 @@ export const createActivitySchema = z.object({
     'quote_updated',
     'quote_deleted',
     'quote_sent',
+    'quote_client_replied',
     'quote_status_changed',
     'invoice_created',
     'invoice_payment_received',

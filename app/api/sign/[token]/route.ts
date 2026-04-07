@@ -5,9 +5,8 @@ import CompanyProfile from "@/db/models/CompanyProfile";
 import Quote from "@/db/models/Quote";
 import QuoteSignature from "@/db/models/QuoteSignature";
 import User from "@/db/models/User";
-import { createActivityLog } from "@/db/repository/activity";
 import { sendQuoteRejectionNotification } from "@/lib/email";
-import { resolveLocaleFromRequest, resolveLocaleFromValue } from "@/lib/i18n/locale";
+import { buildQuoteConversation } from '@/lib/quote-conversation';
 import { isTokenExpired } from "@/lib/tokens";
 
 interface RouteParams {
@@ -26,6 +25,10 @@ function getClientIp(request: NextRequest): string {
 
 async function findQuoteByToken(token: string) {
   return Quote.findOne({ signatureToken: token });
+}
+
+async function findRejectedQuoteByToken(token: string) {
+  return Quote.findOne({ rejectedSignToken: token });
 }
 
 type QuoteDocument = NonNullable<Awaited<ReturnType<typeof findQuoteByToken>>>;
@@ -101,6 +104,47 @@ async function buildAlreadySignedPayloadByToken(token: string) {
   return buildAlreadySignedPayload(signedQuote, existingSignature.signedAt);
 }
 
+async function buildRejectedPayload(quote: QuoteDocument) {
+  const companyProfile = await CompanyProfile.findOne({ user: quote.user })
+    .select({ companyName: 1, ownerName: 1, logoUrl: 1, address: 1, phone: 1, businessEmail: 1, vatNumber: 1 })
+    .lean();
+
+  const companyName =
+    (companyProfile?.companyName as string | undefined) ||
+    (companyProfile?.ownerName as string | undefined) ||
+    "Our Company";
+  const logoUrl = (companyProfile?.logoUrl as string | null | undefined) ?? null;
+
+  const q = quote as unknown as {
+    rejectionComment?: string | null;
+    adminReplyMessage?: string | null;
+    conversationMessages?: Array<{ role: string; text: string; sentAt: Date }>;
+  };
+
+  return {
+    state: "rejected" as const,
+    company: {
+      companyName,
+      logoUrl,
+      address: (companyProfile?.address as string | undefined) || null,
+      phone: (companyProfile?.phone as string | undefined) || null,
+      email: (companyProfile?.businessEmail as string | undefined) || null,
+      vatNumber: (companyProfile?.vatNumber as string | undefined) || null,
+    },
+    quoteNumber: quote.quoteNumber,
+    date: quote.date,
+    clientSnapshot: quote.clientSnapshot,
+    lineItems: quote.lineItems,
+    totalExcludingTax: quote.totalExcludingTax,
+    totalVat: quote.totalVat,
+    totalIncludingTax: quote.totalIncludingTax,
+    notes: quote.notes,
+    rejectionComment: q.rejectionComment ?? null,
+    adminReplyMessage: q.adminReplyMessage ?? null,
+    conversationMessages: buildQuoteConversation(q),
+  };
+}
+
 export async function GET(_request: NextRequest, { params }: RouteParams) {
   await ConnectDb();
 
@@ -113,6 +157,23 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       return NextResponse.json(alreadySignedPayload);
     }
 
+    // Check if the token belongs to a rejected quote (rejectedSignToken was preserved)
+    const rejectedQuote = await findRejectedQuoteByToken(token);
+    if (rejectedQuote) {
+      // Quote was resent (or otherwise moved out of rejected state) — old link is stale
+      if (rejectedQuote.status !== "rejected") {
+        const cpDoc = await CompanyProfile.findOne({ user: rejectedQuote.user })
+          .select({ companyName: 1, ownerName: 1 })
+          .lean();
+        const companyName =
+          (cpDoc?.companyName as string | undefined) ||
+          (cpDoc?.ownerName as string | undefined) ||
+          "Our Company";
+        return NextResponse.json({ error: "link_no_longer_valid", companyName }, { status: 410 });
+      }
+      return NextResponse.json(await buildRejectedPayload(rejectedQuote));
+    }
+
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
@@ -123,7 +184,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: "link_no_longer_valid", companyName }, { status: 410 });
   }
 
-  if (isTokenExpired(quote.signatureTokenExpiry)) {
+  if (isTokenExpired(quote.signatureTokenExpiry ?? null)) {
     return NextResponse.json({ error: "expired", companyName }, { status: 410 });
   }
 
@@ -159,12 +220,20 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: "link_no_longer_valid" }, { status: 410 });
   }
 
-  if (isTokenExpired(quote.signatureTokenExpiry)) {
+  if (isTokenExpired(quote.signatureTokenExpiry ?? null)) {
+    return NextResponse.json({ error: "expired" }, { status: 410 });
+  }
+
+  if (!quote.signatureTokenExpiry) {
     return NextResponse.json({ error: "expired" }, { status: 410 });
   }
 
   if (quote.signedStatus === "signed") {
     return NextResponse.json(await buildAlreadySignedPayload(quote), { status: 409 });
+  }
+
+  if (quote.status === "rejected") {
+    return NextResponse.json({ error: "already_rejected" }, { status: 409 });
   }
 
   const signedAt = new Date();
@@ -214,19 +283,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   });
   await quote.save();
 
-  await createActivityLog(String(quote.user), {
-    action: "quote_status_changed",
-    entityType: "quote",
-    entityName: quote.quoteNumber,
-    entityId: String(quote._id),
-    metadata: {
-      from: previousStatus,
-      to: "accepted",
-      source: "signature",
-      signedAt: signedAt.toISOString(),
-    },
-  });
-
   return NextResponse.json({ message: "Quote signed successfully", signedAt: signedAt.toISOString() });
 }
 
@@ -246,7 +302,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: "link_no_longer_valid" }, { status: 410 });
   }
 
-  if (isTokenExpired(quote.signatureTokenExpiry)) {
+  if (isTokenExpired(quote.signatureTokenExpiry ?? null)) {
     return NextResponse.json({ error: "expired" }, { status: 410 });
   }
 
@@ -259,29 +315,25 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   }
 
   const previousStatus = quote.status;
+  const rejectedAt = new Date();
   quote.status = "rejected";
   quote.rejectionComment = comment ?? null;
+  (
+    quote as unknown as {
+      conversationMessages?: Array<{ role: 'admin' | 'client'; text: string; sentAt: Date }>;
+    }
+  ).conversationMessages = comment
+    ? [{ role: 'client', text: comment, sentAt: rejectedAt }]
+    : [];
+  (quote as unknown as { rejectedSignToken: string | null }).rejectedSignToken = token;
   quote.signatureToken = null;
   quote.signatureTokenExpiry = null;
   quote.statusHistory.push({
     from: previousStatus,
     to: "rejected",
-    changedAt: new Date(),
+    changedAt: rejectedAt,
   });
   await quote.save();
-
-  await createActivityLog(String(quote.user), {
-    action: "quote_status_changed",
-    entityType: "quote",
-    entityName: quote.quoteNumber,
-    entityId: String(quote._id),
-    metadata: {
-      from: previousStatus,
-      to: "rejected",
-      source: "signature",
-      hasComment: Boolean(comment),
-    },
-  });
 
   // Notify the admin asynchronously — do not block the client response
   (async () => {
@@ -310,11 +362,6 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         clientName: quote.clientSnapshot?.fullName ?? "Client",
         rejectionComment: comment,
         quoteDetailUrl,
-        locale: resolveLocaleFromValue(
-          typeof (quote as { sentLocale?: string | null }).sentLocale === "string"
-            ? (quote as { sentLocale?: string | null }).sentLocale
-            : resolveLocaleFromRequest(request)
-        ),
       });
     } catch {
       // email failure must not affect the client response

@@ -11,8 +11,11 @@ import SignatureCanvas from '@/components/sign/SignatureCanvas';
 import { PriceDisplay } from '@/components/ui/PriceDisplay';
 
 interface SignQuotePayload {
-  state?: 'ready' | 'already_signed';
+  state?: 'ready' | 'already_signed' | 'rejected';
   signedAt?: string | null;
+  rejectionComment?: string | null;
+  adminReplyMessage?: string | null;
+  conversationMessages?: Array<{ role: 'admin' | 'client'; text: string; sentAt?: string }>;
   company?: {
     companyName: string;
     logoUrl: string | null;
@@ -30,7 +33,7 @@ interface SignQuotePayload {
     phone?: string | null;
     address?: string | null;
   };
-  lineItems: Array<{
+  lineItems?: Array<{
     _id?: string;
     name: string;
     quantity: number;
@@ -128,6 +131,25 @@ const signMessages = {
     rejectionSubmittedBody: (clientName: string, companyName: string) =>
       `Thank you, ${clientName}. ${companyName} has been notified and will be in touch with an updated quote.`,
     yourComment: 'Your comment',
+    alreadyRejectedBadge: 'Quote rejected',
+    alreadyRejectedTitle: 'This quote was rejected',
+    alreadyRejectedBody: (clientName: string, companyName: string) =>
+      `Thank you for your feedback, ${clientName}. ${companyName} has reviewed your rejection. See the response section below.`,
+    yourRejectionComment: 'Your rejection comment',
+    replyFromCompany: (companyName: string) => `Response from ${companyName}`,
+    noReplyYet: (companyName: string) =>
+      `${companyName} has not yet replied to your rejection. Please check back later or wait for their email.`,
+    alreadyRejectedNext1: (companyName: string) => `${companyName} may send you a revised quote by email.`,
+    alreadyRejectedNext2: 'You can close this page now and keep the original email for your records.',
+    conversation: 'Conversation',
+    adminMessage: (companyName: string) => `${companyName}`,
+    clientMessageLabel: 'You',
+    replyToVendor: (companyName: string) => `Reply to ${companyName}`,
+    clientReplyPlaceholder: 'Write your reply here...',
+    sendClientReply: 'Send reply',
+    sendingClientReply: 'Sending...',
+    clientReplySent: 'Your reply was sent',
+    clientReplyFailed: 'Could not send reply. Please try again.',
     signatureCompletedBadge: 'Signature completed',
     signatureCompletedTitle: 'Quote signed successfully',
     signatureCompletedBody: (clientName: string, signedAtText: string | null) =>
@@ -231,7 +253,26 @@ const signMessages = {
     rejectionSubmittedBody: (clientName: string, companyName: string) =>
       `Merci, ${clientName}. ${companyName} a \u00e9t\u00e9 inform\u00e9 et reviendra vers vous avec un devis mis \u00e0 jour.`,
     yourComment: 'Votre commentaire',
-    signatureCompletedBadge: 'Signature termin\u00e9e',
+    alreadyRejectedBadge: 'Devis refusé',
+    alreadyRejectedTitle: 'Ce devis a été refusé',
+    alreadyRejectedBody: (clientName: string, companyName: string) =>
+      `Merci pour votre retour, ${clientName}. ${companyName} a examiné votre refus. Consultez la section réponse ci-dessous.`,
+    yourRejectionComment: 'Votre commentaire de refus',
+    replyFromCompany: (companyName: string) => `Réponse de ${companyName}`,
+    noReplyYet: (companyName: string) =>
+      `${companyName} n'a pas encore répondu à votre refus. Veuillez revenir ultérieurement ou attendre leur e-mail.`,
+    alreadyRejectedNext1: (companyName: string) => `${companyName} pourra vous envoyer un devis révisé par e-mail.`,
+    alreadyRejectedNext2: "Vous pouvez fermer cette page et conserver l'e-mail d'origine pour vos archives.",
+    conversation: 'Conversation',
+    adminMessage: (companyName: string) => `${companyName}`,
+    clientMessageLabel: 'Vous',
+    replyToVendor: (companyName: string) => `Répondre à ${companyName}`,
+    clientReplyPlaceholder: 'Rédigez votre réponse ici...',
+    sendClientReply: 'Envoyer la réponse',
+    sendingClientReply: 'Envoi en cours...',
+    clientReplySent: 'Votre réponse a été envoyée',
+    clientReplyFailed: 'Impossible d’envoyer la réponse. Veuillez réessayer.',
+    signatureCompletedBadge: 'Signature terminée',
     signatureCompletedTitle: 'Devis sign\u00e9 avec succ\u00e8s',
     signatureCompletedBody: (clientName: string, signedAtText: string | null) =>
       `Merci, ${clientName}. Votre signature a \u00e9t\u00e9 enregistr\u00e9e${signedAtText ? ` le ${signedAtText}` : ''} et ce devis est maintenant marqu\u00e9 comme sign\u00e9.`,
@@ -317,11 +358,15 @@ export default function SignPage() {
   const [signedAt, setSignedAt] = useState<string | null>(null);
   const [isSigning, setIsSigning] = useState(false);
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
+  const [alreadyRejected, setAlreadyRejected] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
   const [rejected, setRejected] = useState(false);
   const [rejectionComment, setRejectionComment] = useState('');
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [confirmRejectIntent, setConfirmRejectIntent] = useState(false);
+  const [clientReplyText, setClientReplyText] = useState('');
+  const [isSendingClientReply, setIsSendingClientReply] = useState(false);
+  const [conversationExpanded, setConversationExpanded] = useState(false);
 
   useEffect(() => {
     if (!token) {
@@ -371,10 +416,15 @@ export default function SignPage() {
         }
 
         setQuote(payload as SignQuotePayload);
+        setConversationExpanded(false);
 
         if (payload?.state === 'already_signed') {
           setSignedAt(payload.signedAt ?? null);
           setAlreadySigned(true);
+        }
+
+        if (payload?.state === 'rejected') {
+          setAlreadyRejected(true);
         }
       } catch (loadError) {
         if (!isMounted) {
@@ -438,7 +488,7 @@ export default function SignPage() {
       return 0;
     }
 
-    return quote.lineItems.reduce((sum, item) => sum + (item.discountAmountExcludingTax ?? 0), 0);
+    return (quote.lineItems ?? []).reduce((sum, item) => sum + (item.discountAmountExcludingTax ?? 0), 0);
   }, [quote]);
 
   const currencyFormatter = useMemo(
@@ -450,7 +500,7 @@ export default function SignPage() {
     [locale],
   );
 
-  const itemCount = quote?.lineItems.length ?? 0;
+  const itemCount = quote?.lineItems?.length ?? 0;
 
   const handleSign = async () => {
     if (!signatureDataUrl || !token) {
@@ -518,6 +568,42 @@ export default function SignPage() {
       toast.error(t.networkError);
     } finally {
       setIsRejecting(false);
+    }
+  };
+
+  const handleClientReply = async () => {
+    const trimmed = clientReplyText.trim();
+    if (!trimmed || !token) return;
+    setIsSendingClientReply(true);
+    try {
+      const res = await fetch(`/api/sign/${token}/reply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: trimmed, locale: localeKey }),
+      });
+      const payload = (await res.json()) as {
+        success?: boolean;
+        error?: string;
+        conversationMessages?: Array<{ role: 'admin' | 'client'; text: string; sentAt?: string }>;
+      };
+      if (!res.ok || !payload.success) throw new Error(payload.error);
+      setQuote(prev =>
+        prev
+          ? {
+              ...prev,
+              conversationMessages: payload.conversationMessages ?? [
+                ...(prev.conversationMessages ?? []),
+                { role: 'client' as const, text: trimmed, sentAt: new Date().toISOString() },
+              ],
+            }
+          : prev,
+      );
+      setClientReplyText('');
+      toast.success(t.clientReplySent);
+    } catch {
+      toast.error(t.clientReplyFailed);
+    } finally {
+      setIsSendingClientReply(false);
     }
   };
 
@@ -613,6 +699,166 @@ export default function SignPage() {
     );
   };
 
+  const renderAlreadyRejected = () => {
+    const clientName = quote?.clientSnapshot?.fullName || t.clientFallback;
+    const rejComment = quote?.rejectionComment;
+    const messages = quote?.conversationMessages ?? [];
+
+    // Determine if admin has ever replied (from thread or legacy field)
+    const hasAdminReplied = messages.some(m => m.role === 'admin') || Boolean(quote?.adminReplyMessage);
+
+    // Build display messages: use thread if populated, else fall back to legacy adminReplyMessage
+    const displayMessages: Array<{ role: 'admin' | 'client'; text: string; sentAt?: string }> =
+      messages.length > 0
+        ? messages
+        : quote?.adminReplyMessage
+          ? [{ role: 'admin', text: quote.adminReplyMessage }]
+          : [];
+
+    return (
+      <section className="overflow-hidden rounded-2xl border border-orange-200 bg-white shadow-xl shadow-slate-950/5 sm:rounded-3xl">
+        <div className="border-b border-orange-100 bg-orange-50 px-4 py-4 sm:px-6 sm:py-5 md:px-8 md:py-6">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-orange-700 sm:text-xs">{t.alreadyRejectedBadge}</p>
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-orange-950 sm:mt-3 sm:text-3xl md:text-4xl">{t.alreadyRejectedTitle}</h1>
+          <p className="mt-2 text-xs leading-5 text-orange-900/80 sm:mt-3 sm:text-sm sm:leading-6 md:text-base">
+            {t.alreadyRejectedBody(clientName, companyName)}
+          </p>
+        </div>
+
+        <div className="space-y-4 px-4 py-4 sm:px-6 sm:py-6 md:px-8 md:py-8">
+          {rejComment ? (
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:rounded-3xl sm:p-5">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 sm:text-xs">{t.yourRejectionComment}</p>
+              <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700 sm:mt-3">{rejComment}</p>
+            </div>
+          ) : null}
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:rounded-3xl sm:p-5">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 sm:text-xs">{t.conversation}</p>
+              {displayMessages.length > 2 ? (
+                <button
+                  type="button"
+                  onClick={() => setConversationExpanded(v => !v)}
+                  className="flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-700 sm:text-xs"
+                >
+                  {conversationExpanded
+                    ? (localeKey === 'fr' ? 'Réduire' : 'Collapse')
+                    : (localeKey === 'fr' ? `+${displayMessages.length - 2} message${displayMessages.length - 2 > 1 ? 's' : ''}` : `+${displayMessages.length - 2} older`)}
+                  <svg
+                    className={`size-3 transition-transform duration-200 ${conversationExpanded ? 'rotate-180' : ''}`}
+                    fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+              ) : null}
+            </div>
+            {displayMessages.length > 0 ? (
+              <div className="mt-3 space-y-2.5">
+                {/* Collapsed older messages */}
+                {displayMessages.length > 2 && !conversationExpanded ? (
+                  <button
+                    type="button"
+                    onClick={() => setConversationExpanded(true)}
+                    className="w-full rounded-xl border border-dashed border-slate-200 py-2.5 text-center text-xs text-slate-400 hover:border-slate-300 hover:text-slate-600"
+                  >
+                        {localeKey === 'fr'
+                      ? `Voir ${displayMessages.length - 2} message${displayMessages.length - 2 > 1 ? 's' : ''} précédent${displayMessages.length - 2 > 1 ? 's' : ''}`
+                      : `View ${displayMessages.length - 2} earlier message${displayMessages.length - 2 > 1 ? 's' : ''}`}
+                  </button>
+                ) : null}
+                {/* Older messages (shown when expanded) */}
+                {conversationExpanded
+                  ? displayMessages.slice(0, -2).map((msg, i) => (
+                      <div
+                        key={`old-${i}`}
+                        className={
+                          msg.role === 'admin'
+                            ? 'rounded-xl border border-orange-100 bg-orange-50 p-3 sm:p-4'
+                            : 'rounded-xl border border-slate-200 bg-slate-50 p-3 sm:p-4'
+                        }
+                      >
+                        <p className={`text-[10px] font-semibold uppercase tracking-[0.15em] sm:text-[11px] ${msg.role === 'admin' ? 'text-orange-600' : 'text-slate-500'}`}>
+                          {msg.role === 'admin' ? t.adminMessage(companyName) : t.clientMessageLabel}
+                        </p>
+                        <p className="mt-1.5 whitespace-pre-wrap text-sm leading-6 text-slate-800">{msg.text}</p>
+                        {msg.sentAt ? <p className="mt-1 text-[10px] text-slate-400">{new Date(msg.sentAt).toLocaleString(locale)}</p> : null}
+                      </div>
+                    ))
+                  : null}
+                {/* Always-visible latest 2 messages */}
+                {displayMessages.slice(-2).map((msg, i) => (
+                  <div
+                    key={`latest-${i}`}
+                    className={
+                      msg.role === 'admin'
+                        ? 'rounded-xl border border-orange-100 bg-orange-50 p-3 sm:p-4'
+                        : 'rounded-xl border border-slate-200 bg-slate-50 p-3 sm:p-4'
+                    }
+                  >
+                    <p className={`text-[10px] font-semibold uppercase tracking-[0.15em] sm:text-[11px] ${msg.role === 'admin' ? 'text-orange-600' : 'text-slate-500'}`}>
+                      {msg.role === 'admin' ? t.adminMessage(companyName) : t.clientMessageLabel}
+                    </p>
+                    <p className="mt-1.5 whitespace-pre-wrap text-sm leading-6 text-slate-800">{msg.text}</p>
+                    {msg.sentAt ? <p className="mt-1 text-[10px] text-slate-400">{new Date(msg.sentAt).toLocaleString(locale)}</p> : null}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-2 text-sm leading-6 text-slate-400 sm:mt-3">{t.noReplyYet(companyName)}</p>
+            )}
+          </div>
+
+          {hasAdminReplied ? (
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:rounded-3xl sm:p-5">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 sm:text-xs">{t.replyToVendor(companyName)}</p>
+              <div className="mt-3 space-y-3">
+                <textarea
+                  value={clientReplyText}
+                  onChange={e => setClientReplyText(e.target.value)}
+                  placeholder={t.clientReplyPlaceholder}
+                  maxLength={2000}
+                  rows={4}
+                  disabled={isSendingClientReply}
+                  className="w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm leading-6 text-slate-900 placeholder:text-slate-400 focus:border-orange-300 focus:outline-none focus:ring-2 focus:ring-orange-200 disabled:opacity-60 sm:px-4 sm:py-3"
+                />
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-[10px] text-slate-400 sm:text-xs">{clientReplyText.length}/2000</span>
+                  <button
+                    onClick={handleClientReply}
+                    disabled={isSendingClientReply || !clientReplyText.trim()}
+                    className="rounded-xl bg-orange-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-1 disabled:opacity-50 sm:px-5 sm:py-2.5 sm:text-sm"
+                  >
+                    {isSendingClientReply ? t.sendingClientReply : t.sendClientReply}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:rounded-3xl sm:p-5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 sm:text-xs">{t.whatHappensNext}</p>
+            <div className="mt-3 space-y-2 text-xs leading-5 text-slate-600 sm:mt-4 sm:space-y-3 sm:text-sm sm:leading-6">
+              <p>{t.alreadyRejectedNext1(companyName)}</p>
+              <p>{t.alreadyRejectedNext2}</p>
+            </div>
+          </div>
+
+          {quote?.company?.email || quote?.company?.phone ? (
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:rounded-3xl sm:p-5">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 sm:text-xs">{t.needHelp}</p>
+              <div className="mt-3 space-y-2 sm:mt-4 sm:space-y-3">
+                {quote.company?.email ? <DetailRow label={t.email} value={quote.company.email} /> : null}
+                {quote.company?.phone ? <DetailRow label={t.phone} value={quote.company.phone} /> : null}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </section>
+    );
+  };
+
   const isAlreadySignedState = alreadySigned || error === 'already_signed';
 
   return (
@@ -627,6 +873,8 @@ export default function SignPage() {
           renderAlreadySigned()
         ) : error ? (
           renderError()
+        ) : alreadyRejected ? (
+          renderAlreadyRejected()
         ) : rejected ? (
           <section className="overflow-hidden rounded-2xl border border-orange-200 bg-white shadow-xl shadow-slate-950/5 sm:rounded-3xl">
             <div className="border-b border-orange-100 bg-orange-50 px-4 py-4 sm:px-6 sm:py-5 md:px-8 md:py-6">
@@ -940,7 +1188,7 @@ export default function SignPage() {
                 openLabel={t.open}
               >
                 <div className="space-y-3 md:hidden">
-                  {quote.lineItems.map((item, index) => {
+                  {(quote.lineItems ?? []).map((item, index) => {
                     const discountPct = item.discountPercentage ?? 0;
                     const discountAmount = item.discountAmountExcludingTax ?? 0;
                     const vatRate = item.vatRate ?? 0;
@@ -978,7 +1226,7 @@ export default function SignPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {quote.lineItems.map((item, index) => {
+                      {(quote.lineItems ?? []).map((item, index) => {
                         const discountPct = item.discountPercentage ?? 0;
                         const discountAmount = item.discountAmountExcludingTax ?? 0;
                         const vatRate = item.vatRate ?? 0;
