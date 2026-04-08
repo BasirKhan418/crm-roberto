@@ -7,6 +7,10 @@ import type { CreateActivityDTO, UpdateActivityDTO } from '@/validators/activity
 import type { ListQueryOptions, PaginationMeta } from '@/utils/api/query';
 import { buildPagination } from '@/utils/api/query';
 
+interface ActivityListQueryOptions extends ListQueryOptions {
+  isRead?: boolean;
+}
+
 export interface ActivityRecord {
   _id: string;
   action: string;
@@ -47,10 +51,14 @@ export const createActivityLog = async (userId: string, payload: CreateActivityD
   return created.toObject() as ActivityRecord;
 };
 
-export const listActivities = async (userId: string, options: ListQueryOptions): Promise<ActivityListResult> => {
+export const listActivities = async (userId: string, options: ActivityListQueryOptions): Promise<ActivityListResult> => {
   await ConnectDb();
 
   const query: Record<string, unknown> = { user: userId };
+
+  if (typeof options.isRead === 'boolean') {
+    query.isRead = options.isRead;
+  }
 
   if (options.search) {
     query.$or = [

@@ -20,7 +20,13 @@ export async function GET(request: NextRequest) {
       maxLimit: 100,
     });
 
-    const result = await listActivities(me.user.id, options);
+    const isReadParam = request.nextUrl.searchParams.get('isRead');
+    const isRead = isReadParam === 'true' ? true : isReadParam === 'false' ? false : undefined;
+
+    const result = await listActivities(me.user.id, {
+      ...options,
+      isRead,
+    });
 
     return NextResponse.json({
       success: true,

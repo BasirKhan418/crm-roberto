@@ -34,6 +34,8 @@ interface ActivitySseEvent {
   at: number;
 }
 
+type NotificationsTab = "unread" | "read";
+
 const bellMessages = {
   en: {
     title: "Notifications",
@@ -42,6 +44,8 @@ const bellMessages = {
     searchPlaceholder: "Search notifications…",
     markAllRead: "Mark all as read",
     loading: "Loading notifications...",
+    unreadTab: "Unread",
+    readTab: "Read",
     viewUpdates: "Update",
     newQuote: "New quote created",
     signedQuote: "Quote accepted",
@@ -62,6 +66,8 @@ const bellMessages = {
     refresh: "Refresh",
     read: "Read",
     newLabel: "new",
+    unreadEmpty: "No unread notifications.",
+    readEmpty: "No read notifications yet.",
   },
   fr: {
     title: "Notifications",
@@ -70,6 +76,8 @@ const bellMessages = {
     searchPlaceholder: "Rechercher…",
     markAllRead: "Tout marquer comme lu",
     loading: "Chargement des notifications...",
+    unreadTab: "Non lues",
+    readTab: "Lues",
     viewUpdates: "Mise à jour",
     newQuote: "Nouveau devis créé",
     signedQuote: "Devis accepté",
@@ -90,6 +98,8 @@ const bellMessages = {
     refresh: "Actualiser",
     read: "Lu",
     newLabel: "nouveau",
+    unreadEmpty: "Aucune notification non lue.",
+    readEmpty: "Aucune notification lue pour le moment.",
   },
 } as const;
 
@@ -299,11 +309,17 @@ export function NotificationsBell() {
   const [loading, setLoading] = useState(false);
   const [markingAllRead, setMarkingAllRead] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [activeTab, setActiveTab] = useState<NotificationsTab>("unread");
   const searchQueryRef = useRef("");
+  const activeTabRef = useRef<NotificationsTab>("unread");
 
   useEffect(() => {
     searchQueryRef.current = searchQuery;
   }, [searchQuery]);
+
+  useEffect(() => {
+    activeTabRef.current = activeTab;
+  }, [activeTab]);
 
   const unreadBadgeValue = useMemo(() => {
     if (unreadCount > 99) {
@@ -312,12 +328,14 @@ export function NotificationsBell() {
     return String(unreadCount);
   }, [unreadCount]);
 
-  const fetchNotifications = useCallback(async () => {
+  const fetchNotifications = useCallback(async (tab?: NotificationsTab) => {
     setLoading(true);
     try {
       const params = new URLSearchParams({ sortBy: "createdAt", sortOrder: "desc", limit: "12" });
       const search = searchQueryRef.current.trim();
       if (search) params.set("search", search);
+      const targetTab = tab ?? activeTabRef.current;
+      params.set("isRead", targetTab === "read" ? "true" : "false");
       const response = await fetch(`/api/activity?${params.toString()}`, {
         cache: "no-store",
       });
@@ -336,8 +354,15 @@ export function NotificationsBell() {
   }, []);
 
   useEffect(() => {
-    void fetchNotifications();
-  }, [fetchNotifications]);
+    void fetchNotifications(activeTab);
+  }, [activeTab, fetchNotifications]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    void fetchNotifications(activeTab);
+  }, [activeTab, fetchNotifications, open]);
 
   // Debounced re-fetch when search query changes (skip initial mount)
   const isFirstSearchRender = useRef(true);
@@ -346,7 +371,7 @@ export function NotificationsBell() {
       isFirstSearchRender.current = false;
       return;
     }
-    const timer = setTimeout(() => { void fetchNotifications(); }, 300);
+    const timer = setTimeout(() => { void fetchNotifications(activeTabRef.current); }, 300);
     return () => clearTimeout(timer);
   }, [searchQuery, fetchNotifications]);
 
@@ -369,7 +394,7 @@ export function NotificationsBell() {
           // read/read_all are optimistically updated locally — re-fetching
           // on those events risks a race that reverts the optimistic state.
           if (payload.type === "created" || payload.type === "deleted") {
-            void fetchNotifications();
+            void fetchNotifications(activeTabRef.current);
           }
         } catch {
           // Ignore malformed SSE payloads.
@@ -383,7 +408,7 @@ export function NotificationsBell() {
         }
 
         // Browser reconnects automatically; force a fresh fetch while reconnecting.
-        void fetchNotifications();
+        void fetchNotifications(activeTabRef.current);
       };
     };
 
@@ -403,7 +428,7 @@ export function NotificationsBell() {
     const previousItems = items;
     const previousUnreadCount = unreadCount;
     setMarkingAllRead(true);
-    setItems((prev) => prev.map((item) => ({ ...item, isRead: true })));
+    setItems([]);
     setUnreadCount(0);
 
     try {
@@ -424,16 +449,7 @@ export function NotificationsBell() {
       return;
     }
 
-    setItems((prev) =>
-      prev.map((item) =>
-        item._id === activityId
-          ? {
-              ...item,
-              isRead: true,
-            }
-          : item
-      )
-    );
+    setItems((prev) => prev.filter((item) => item._id !== activityId));
     setUnreadCount((prev) => Math.max(0, prev - 1));
 
     try {
@@ -453,24 +469,14 @@ export function NotificationsBell() {
         throw new Error("Failed to mark notification as read");
       }
     } catch {
-      setItems((prev) =>
-        prev.map((item) =>
-          item._id === activityId
-            ? {
-                ...item,
-                isRead: false,
-              }
-            : item
-        )
-      );
-      setUnreadCount((prev) => prev + 1);
+      void fetchNotifications(activeTabRef.current);
     }
-  }, [items]);
+  }, [fetchNotifications, items]);
 
   const handleOpenChange = useCallback((nextOpen: boolean) => {
     setOpen(nextOpen);
     if (nextOpen) {
-      void fetchNotifications();
+      void fetchNotifications(activeTabRef.current);
     }
   }, [fetchNotifications]);
 
@@ -514,7 +520,7 @@ export function NotificationsBell() {
             <p className="text-xs text-slate-500">{`${unreadCount} ${t.newLabel}`}</p>
           </div>
           <div className="flex items-center gap-1">
-            <Button type="button" variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={fetchNotifications}>
+            <Button type="button" variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => void fetchNotifications(activeTabRef.current)}>
               <RefreshCw className="size-3.5" />
             </Button>
             <Button type="button" variant="ghost" size="sm" className="h-8 rounded-full px-3 text-xs" onClick={markAllAsRead} disabled={markingAllRead || unreadCount === 0}>
@@ -536,6 +542,31 @@ export function NotificationsBell() {
               className="w-full rounded-lg border border-slate-200 bg-slate-50 py-1.5 pl-8 pr-3 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-300"
             />
           </div>
+
+          <div className="mt-2 grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1">
+            <button
+              type="button"
+              className={cn(
+                "rounded-md px-2 py-1.5 text-xs font-medium transition-colors",
+                activeTab === "unread" ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-800"
+              )}
+              onClick={() => setActiveTab("unread")}
+              aria-pressed={activeTab === "unread"}
+            >
+              {t.unreadTab}
+            </button>
+            <button
+              type="button"
+              className={cn(
+                "rounded-md px-2 py-1.5 text-xs font-medium transition-colors",
+                activeTab === "read" ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-800"
+              )}
+              onClick={() => setActiveTab("read")}
+              aria-pressed={activeTab === "read"}
+            >
+              {t.readTab}
+            </button>
+          </div>
         </div>
 
         <div className="max-h-[min(70vh,24rem)] overflow-y-auto px-2 py-2">
@@ -545,7 +576,7 @@ export function NotificationsBell() {
 
           {!loading && items.length === 0 ? (
             <p className="px-2 py-4 text-sm text-slate-500">
-              {searchQuery.trim() ? t.noResults : t.empty}
+              {searchQuery.trim() ? t.noResults : activeTab === "read" ? t.readEmpty : t.unreadEmpty}
             </p>
           ) : null}
 
@@ -581,7 +612,7 @@ export function NotificationsBell() {
                     </div>
 
                     <div className="mt-2 flex items-center justify-between gap-1.5">
-                      {!item.isRead ? (
+                      {!item.isRead && activeTab === "unread" ? (
                         <Button
                           type="button"
                           size="sm"
