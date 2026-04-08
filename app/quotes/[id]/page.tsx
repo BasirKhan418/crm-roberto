@@ -778,7 +778,7 @@ export default function QuoteDetailPage() {
               buttonClassName="h-10 w-full justify-start sm:h-8 sm:w-auto sm:justify-center"
             />
 
-            <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:items-center">
+            <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2 sm:w-auto sm:items-center">
               {(quote.status === 'draft' || quote.status === 'sent') ? (
                 <Button type="button" variant="default" size="sm" className={actionButtonClass} onClick={() => setSendOpen(true)}>
                   <SendIcon className="size-3.5" />

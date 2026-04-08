@@ -470,24 +470,24 @@ export default function QuoteForm({ mode, quote, defaultClientId }: QuoteFormPro
             className="fixed inset-x-3 bottom-2 z-30 rounded-2xl border border-border/70 bg-background/95 px-3 pt-3 shadow-[0_14px_36px_-18px_rgba(0,0,0,0.4)] backdrop-blur lg:static lg:rounded-xl lg:bg-background/95 lg:p-4 lg:shadow-sm"
             style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 12px)' }}
           >
-            <div className={hasSecondaryAction ? 'grid grid-cols-2 gap-2 lg:grid-cols-1' : 'grid grid-cols-1 gap-2'}>
+            <div className={hasSecondaryAction ? 'grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-1' : 'grid grid-cols-1 gap-2'}>
               {mode === 'edit' ? (
                 <>
                   {showResendAction ? (
-                    <Button type="button" className="h-11 w-full rounded-xl text-sm font-semibold lg:h-11" disabled={submitting} onClick={() => saveQuote(true)}>
+                    <Button type="button" className="min-h-11 h-auto w-full rounded-xl px-3 py-2 text-center text-sm leading-tight whitespace-normal font-semibold lg:min-h-11" disabled={submitting} onClick={() => saveQuote(true)}>
                       {submitting ? t.saving : t.saveAndResend}
                     </Button>
                   ) : null}
-                  <Button type="button" variant={showResendAction ? 'outline' : 'default'} className="h-11 w-full rounded-xl text-sm font-semibold lg:h-11" disabled={submitting} onClick={() => saveQuote(false)}>
+                  <Button type="button" variant={showResendAction ? 'outline' : 'default'} className="min-h-11 h-auto w-full rounded-xl px-3 py-2 text-center text-sm leading-tight whitespace-normal font-semibold lg:min-h-11" disabled={submitting} onClick={() => saveQuote(false)}>
                     {submitting ? t.saving : t.saveChanges}
                   </Button>
                 </>
               ) : (
                 <>
-                  <Button type="button" className="h-11 w-full rounded-xl text-sm font-semibold lg:h-11" disabled={submitting} onClick={() => saveQuote(true)}>
+                  <Button type="button" className="min-h-11 h-auto w-full rounded-xl px-3 py-2 text-center text-sm leading-tight whitespace-normal font-semibold lg:min-h-11" disabled={submitting} onClick={() => saveQuote(true)}>
                     {submitting ? t.saving : t.saveAndSend}
                   </Button>
-                  <Button type="button" variant="outline" className="h-11 w-full rounded-xl text-sm font-semibold lg:h-11" disabled={submitting} onClick={() => saveQuote(false)}>
+                  <Button type="button" variant="outline" className="min-h-11 h-auto w-full rounded-xl px-3 py-2 text-center text-sm leading-tight whitespace-normal font-semibold lg:min-h-11" disabled={submitting} onClick={() => saveQuote(false)}>
                     {submitting ? t.saving : t.saveDraft}
                   </Button>
                 </>
