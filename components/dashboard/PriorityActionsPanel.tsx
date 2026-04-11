@@ -661,102 +661,106 @@ export default function PriorityActionsPanel({
                 )}
               </div>
 
-              <div className="grid items-start gap-3 lg:grid-cols-2">
-                <div className="min-w-0 self-start space-y-2 rounded-2xl bg-muted/20 p-2.5 sm:p-3">
-                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t.urgentTasks}</p>
-                  {urgentItems.length ? urgentItems.map((item) => (
-                    <Link key={item.item._id ?? `${item.timestamp}`} href={buildLinkedPath(item.item)} className="group flex items-start gap-2.5 rounded-xl bg-card p-2.5 shadow-xs transition-colors hover:bg-muted/40 sm:gap-3 sm:p-3">
-                      <div className={`mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-xl ${item.iconBg}`}>
-                        <item.Icon className={`size-4 ${item.iconColor}`} strokeWidth={1.9} />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold text-foreground">{item.item.title ?? t.addNote}</p>
-                        <p className="text-xs text-muted-foreground">{item.item.linkedId?.fullName ?? t.unknown}</p>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${item.badgeClass}`}>{item.badge}</span>
-                        <ArrowRightIcon className="size-3.5 text-muted-foreground transition-transform group-hover:translate-x-0.5" strokeWidth={2} />
-                      </div>
-                    </Link>
-                  )) : <EmptyState message={t.noPriority} />}
+              <div className="space-y-3">
+                <div className="min-w-0 rounded-2xl border border-border/60 bg-card p-2.5 sm:p-3">
+                  <p className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">{t.urgentTasks}</p>
+                  <div className="space-y-2">
+                    {urgentItems.length ? urgentItems.map((item) => (
+                      <Link key={item.item._id ?? `${item.timestamp}`} href={buildLinkedPath(item.item)} className="group flex items-start gap-2.5 rounded-xl bg-card p-2.5 shadow-xs ring-1 ring-border/60 transition-colors hover:bg-muted/40 sm:gap-3 sm:p-3">
+                        <div className={`mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-xl ${item.iconBg}`}>
+                          <item.Icon className={`size-4 ${item.iconColor}`} strokeWidth={1.9} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold text-foreground">{item.item.title ?? t.addNote}</p>
+                          <p className="text-xs text-muted-foreground">{item.item.linkedId?.fullName ?? t.unknown}</p>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${item.badgeClass}`}>{item.badge}</span>
+                          <ArrowRightIcon className="size-3.5 text-muted-foreground transition-transform group-hover:translate-x-0.5" strokeWidth={2} />
+                        </div>
+                      </Link>
+                    )) : <EmptyState message={t.noPriority} />}
+                  </div>
                 </div>
 
-                <div className="min-w-0 self-start space-y-2 rounded-2xl bg-muted/20 p-2.5 sm:p-3">
-                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t.followUps}</p>
-                  <SmartActionRow
-                    title={followUpCount > 0 ? t.quotesNeedFollowUp(followUpCount) : t.noQuotesNeedFollowUp}
-                    description={t.followUpDescription}
-                    buttonLabel={followUpCount > 0 ? t.followUpAction : t.reviewQuotesAction}
-                    tone={followUpCount > 0 ? 'urgent' : 'neutral'}
-                    Icon={MailWarningIcon}
-                    onClick={() => {
-                      if (followUpTarget?.clientSnapshot?.email) {
-                        setIsFollowUpModalOpen(true);
-                        return;
-                      }
-                      router.push('/quotes');
-                    }}
-                    disabled={smartActionsLoading}
-                  />
-                  {scheduledItems.length ? scheduledItems.map((item) => (
-                    <Link key={item.item._id ?? `${item.timestamp}`} href={buildLinkedPath(item.item)} className="group flex items-center justify-between gap-2 rounded-xl bg-card px-2.5 py-2 text-xs shadow-xs sm:px-3">
-                      <span className="truncate font-medium text-foreground">{item.item.title ?? t.addNote}</span>
-                      <span className="text-muted-foreground">{item.dateLabel}</span>
-                    </Link>
-                  )) : null}
-                </div>
+                <div className="grid items-start gap-3 md:grid-cols-2">
+                  <div className="min-w-0 space-y-2 rounded-2xl border border-border/60 bg-card p-2.5 sm:p-3">
+                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t.followUps}</p>
+                    <SmartActionRow
+                      title={followUpCount > 0 ? t.quotesNeedFollowUp(followUpCount) : t.noQuotesNeedFollowUp}
+                      description={t.followUpDescription}
+                      buttonLabel={followUpCount > 0 ? t.followUpAction : t.reviewQuotesAction}
+                      tone={followUpCount > 0 ? 'urgent' : 'neutral'}
+                      Icon={MailWarningIcon}
+                      onClick={() => {
+                        if (followUpTarget?.clientSnapshot?.email) {
+                          setIsFollowUpModalOpen(true);
+                          return;
+                        }
+                        router.push('/quotes');
+                      }}
+                      disabled={smartActionsLoading}
+                    />
+                    {scheduledItems.length ? scheduledItems.map((item) => (
+                      <Link key={item.item._id ?? `${item.timestamp}`} href={buildLinkedPath(item.item)} className="group flex items-center justify-between gap-2 rounded-xl bg-card px-2.5 py-2 text-xs shadow-xs ring-1 ring-border/60 sm:px-3">
+                        <span className="truncate font-medium text-foreground">{item.item.title ?? t.addNote}</span>
+                        <span className="text-muted-foreground">{item.dateLabel}</span>
+                      </Link>
+                    )) : null}
+                  </div>
 
-                <div className="min-w-0 self-start space-y-2 rounded-2xl bg-muted/20 p-2.5 sm:p-3">
-                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t.opportunities}</p>
-                  <SmartActionRow
-                    title={acceptedCount > 0 ? t.acceptedNotInvoiced(acceptedCount) : t.noAcceptedNotInvoiced}
-                    description={t.acceptedNotInvoicedDescription}
-                    buttonLabel={acceptedCount > 0 ? t.createInvoiceActionButton : t.reviewAcceptedQuotesAction}
-                    tone="medium"
-                    Icon={ReceiptTextIcon}
-                    onClick={() => {
-                      if (!acceptedItems.length) {
-                        router.push('/quotes?status=accepted');
-                        return;
-                      }
-                      setIsInvoicePickerOpen(true);
-                    }}
-                    disabled={smartActionsLoading || isAcceptedInvoiceLoading}
-                  />
-                  <SmartActionRow
-                    title={inactiveCount > 0 ? t.inactiveClients(inactiveCount) : t.noInactiveClients}
-                    description={t.inactiveClientsDescription}
-                    buttonLabel={inactiveCount > 0 ? t.contactClientActionButton : t.reviewClientsAction}
-                    tone="neutral"
-                    Icon={UserX2Icon}
-                    onClick={() => {
-                      if (!inactiveClientTarget) {
-                        router.push('/clients');
-                        return;
-                      }
-                      router.push(`/clients/${inactiveClientTarget._id}`);
-                    }}
-                    disabled={smartActionsLoading}
-                  />
-                </div>
+                  <div className="min-w-0 space-y-2 rounded-2xl border border-border/60 bg-card p-2.5 sm:p-3">
+                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t.opportunities}</p>
+                    <SmartActionRow
+                      title={acceptedCount > 0 ? t.acceptedNotInvoiced(acceptedCount) : t.noAcceptedNotInvoiced}
+                      description={t.acceptedNotInvoicedDescription}
+                      buttonLabel={acceptedCount > 0 ? t.createInvoiceActionButton : t.reviewAcceptedQuotesAction}
+                      tone="medium"
+                      Icon={ReceiptTextIcon}
+                      onClick={() => {
+                        if (!acceptedItems.length) {
+                          router.push('/quotes?status=accepted');
+                          return;
+                        }
+                        setIsInvoicePickerOpen(true);
+                      }}
+                      disabled={smartActionsLoading || isAcceptedInvoiceLoading}
+                    />
+                    <SmartActionRow
+                      title={inactiveCount > 0 ? t.inactiveClients(inactiveCount) : t.noInactiveClients}
+                      description={t.inactiveClientsDescription}
+                      buttonLabel={inactiveCount > 0 ? t.contactClientActionButton : t.reviewClientsAction}
+                      tone="neutral"
+                      Icon={UserX2Icon}
+                      onClick={() => {
+                        if (!inactiveClientTarget) {
+                          router.push('/clients');
+                          return;
+                        }
+                        router.push(`/clients/${inactiveClientTarget._id}`);
+                      }}
+                      disabled={smartActionsLoading}
+                    />
+                  </div>
 
-                <div className="min-w-0 self-start space-y-2 rounded-2xl bg-muted/20 p-2.5 sm:p-3">
-                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t.alerts}</p>
-                  <SmartActionRow
-                    title={overdueInvoiceCount > 0 ? t.overdueInvoices(overdueInvoiceCount) : t.noOverdueInvoices}
-                    description={t.overdueInvoicesDescription}
-                    buttonLabel={overdueInvoiceCount > 0 ? t.sendReminderActionButton : t.reviewInvoicesAction}
-                    tone={overdueInvoiceCount > 0 ? 'urgent' : 'neutral'}
-                    Icon={FileTextIcon}
-                    onClick={() => {
-                      if (!overdueInvoiceTarget) {
-                        router.push('/invoices');
-                        return;
-                      }
-                      setIsReminderConfirmOpen(true);
-                    }}
-                    disabled={smartActionsLoading || actionLoadingKey === 'overdue-invoices'}
-                  />
+                  <div className="min-w-0 space-y-2 rounded-2xl border border-border/60 bg-card p-2.5 sm:p-3 md:col-span-2">
+                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t.alerts}</p>
+                    <SmartActionRow
+                      title={overdueInvoiceCount > 0 ? t.overdueInvoices(overdueInvoiceCount) : t.noOverdueInvoices}
+                      description={t.overdueInvoicesDescription}
+                      buttonLabel={overdueInvoiceCount > 0 ? t.sendReminderActionButton : t.reviewInvoicesAction}
+                      tone={overdueInvoiceCount > 0 ? 'urgent' : 'neutral'}
+                      Icon={FileTextIcon}
+                      onClick={() => {
+                        if (!overdueInvoiceTarget) {
+                          router.push('/invoices');
+                          return;
+                        }
+                        setIsReminderConfirmOpen(true);
+                      }}
+                      disabled={smartActionsLoading || actionLoadingKey === 'overdue-invoices'}
+                    />
+                  </div>
                 </div>
               </div>
             </>
