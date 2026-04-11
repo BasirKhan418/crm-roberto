@@ -2,7 +2,9 @@ import mongoose from 'mongoose';
 
 import ConnectDb from '@/db/connectDb';
 import Client from '@/db/models/Client';
+import Invoice from '@/db/models/Invoice';
 import Note from '@/db/models/Note';
+import Payment from '@/db/models/Payment';
 import Quote from '@/db/models/Quote';
 import type { CreateClientDTO, UpdateClientDTO } from '@/validators/client.schema';
 import type { ListQueryOptions, PaginationMeta } from '@/utils/api/query';
@@ -46,6 +48,9 @@ export interface ClientRecord {
   lastQuoteStatus?: ClientLastQuoteStatus | null;
   lastQuoteDate?: Date | null;
   totalRevenue?: number;
+  totalInvoiced?: number;
+  totalDue?: number;
+  lastActivityAt?: Date | null;
 }
 
 export interface TimelineNoteRecord {
@@ -216,14 +221,75 @@ export const listClients = async (userId: string, options: ListQueryOptions, cli
 
   const quoteMap = new Map(quoteAgg.map((r) => [r._id.toString(), r]));
 
+  const invoiceAgg = await Invoice.aggregate<{
+    _id: mongoose.Types.ObjectId;
+    totalInvoiced: number;
+    totalDue: number;
+    lastInvoiceDate: Date | null;
+  }>([
+    { $match: { userId: new mongoose.Types.ObjectId(userId as string), clientId: { $in: clientIds } } },
+    {
+      $lookup: {
+        from: Payment.collection.name,
+        let: { invoiceId: '$_id' },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ['$invoiceId', '$$invoiceId'] },
+                  { $eq: ['$status', 'succeeded'] },
+                ],
+              },
+            },
+          },
+          { $group: { _id: null, paidTotal: { $sum: '$amount' } } },
+        ],
+        as: 'payments',
+      },
+    },
+    {
+      $addFields: {
+        paidTotal: { $ifNull: [{ $first: '$payments.paidTotal' }, 0] },
+      },
+    },
+    {
+      $addFields: {
+        remainingAmount: {
+          $max: [{ $subtract: ['$totalIncludingTax', '$paidTotal'] }, 0],
+        },
+      },
+    },
+    {
+      $group: {
+        _id: '$clientId',
+        totalInvoiced: { $sum: '$totalIncludingTax' },
+        totalDue: { $sum: '$remainingAmount' },
+        lastInvoiceDate: { $max: '$updatedAt' },
+      },
+    },
+  ]);
+
+  const invoiceMap = new Map(invoiceAgg.map((r) => [r._id.toString(), r]));
+
   const enriched: ClientRecord[] = (items as ClientRecord[]).map((c) => {
     const key = (c._id as unknown as mongoose.Types.ObjectId).toString();
     const q = quoteMap.get(key);
+    const invoiceMetrics = invoiceMap.get(key);
+    const lastActivityAt = [
+      c.updatedAt ? new Date(c.updatedAt) : null,
+      q?.lastDate ?? null,
+      invoiceMetrics?.lastInvoiceDate ?? null,
+    ].filter((value): value is Date => Boolean(value)).sort((a, b) => b.getTime() - a.getTime())[0] ?? null;
+
     return {
       ...c,
       lastQuoteStatus: (q?.lastStatus ?? null) as ClientLastQuoteStatus | null,
       lastQuoteDate: q?.lastDate ?? null,
       totalRevenue: q?.totalRevenue ?? 0,
+      totalInvoiced: invoiceMetrics?.totalInvoiced ?? 0,
+      totalDue: invoiceMetrics?.totalDue ?? 0,
+      lastActivityAt,
     };
   });
 
