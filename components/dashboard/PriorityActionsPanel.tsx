@@ -245,8 +245,8 @@ function SmartActionRow({
   const toneClass = getSmartToneClasses(tone);
 
   return (
-    <div className={`rounded-xl border p-2.5 transition-colors sm:p-3 ${toneClass.row}`}>
-      <div className="flex flex-col gap-2.5 text-left sm:flex-row sm:items-center sm:justify-between">
+    <div className={`min-w-0 rounded-xl border p-2.5 transition-colors sm:p-3 ${toneClass.row}`}>
+      <div className="flex min-w-0 flex-col gap-2.5 text-left sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-start gap-3">
           <div className={`mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl ${toneClass.icon}`}>
             <Icon className="size-4.5" strokeWidth={1.9} />
@@ -661,8 +661,8 @@ export default function PriorityActionsPanel({
                 )}
               </div>
 
-              <div className="grid gap-3 md:grid-cols-2">
-                <div className="space-y-2 rounded-2xl bg-muted/20 p-2.5 sm:p-3">
+              <div className="grid items-start gap-3 lg:grid-cols-2">
+                <div className="min-w-0 self-start space-y-2 rounded-2xl bg-muted/20 p-2.5 sm:p-3">
                   <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t.urgentTasks}</p>
                   {urgentItems.length ? urgentItems.map((item) => (
                     <Link key={item.item._id ?? `${item.timestamp}`} href={buildLinkedPath(item.item)} className="group flex items-start gap-2.5 rounded-xl bg-card p-2.5 shadow-xs transition-colors hover:bg-muted/40 sm:gap-3 sm:p-3">
@@ -681,7 +681,7 @@ export default function PriorityActionsPanel({
                   )) : <EmptyState message={t.noPriority} />}
                 </div>
 
-                <div className="space-y-2 rounded-2xl bg-muted/20 p-2.5 sm:p-3">
+                <div className="min-w-0 self-start space-y-2 rounded-2xl bg-muted/20 p-2.5 sm:p-3">
                   <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t.followUps}</p>
                   <SmartActionRow
                     title={followUpCount > 0 ? t.quotesNeedFollowUp(followUpCount) : t.noQuotesNeedFollowUp}
@@ -706,7 +706,7 @@ export default function PriorityActionsPanel({
                   )) : null}
                 </div>
 
-                <div className="space-y-2 rounded-2xl bg-muted/20 p-2.5 sm:p-3">
+                <div className="min-w-0 self-start space-y-2 rounded-2xl bg-muted/20 p-2.5 sm:p-3">
                   <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t.opportunities}</p>
                   <SmartActionRow
                     title={acceptedCount > 0 ? t.acceptedNotInvoiced(acceptedCount) : t.noAcceptedNotInvoiced}
@@ -740,7 +740,7 @@ export default function PriorityActionsPanel({
                   />
                 </div>
 
-                <div className="space-y-2 rounded-2xl bg-muted/20 p-2.5 sm:p-3">
+                <div className="min-w-0 self-start space-y-2 rounded-2xl bg-muted/20 p-2.5 sm:p-3">
                   <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t.alerts}</p>
                   <SmartActionRow
                     title={overdueInvoiceCount > 0 ? t.overdueInvoices(overdueInvoiceCount) : t.noOverdueInvoices}
