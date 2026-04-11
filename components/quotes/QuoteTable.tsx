@@ -7,8 +7,9 @@ import { useRouter } from 'next/navigation';
 import { CopyIcon, CheckCircle2Icon, DownloadIcon, EllipsisVerticalIcon, EyeIcon, FileTextIcon, HistoryIcon, PencilIcon, SendIcon, Trash2Icon } from 'lucide-react';
 
 import QuoteHistoryDialog from '@/components/quotes/QuoteHistoryDialog';
+import QuoteStatusSummary from '@/components/quotes/QuoteStatusSummary';
 import { PriceDisplay } from '@/components/ui/PriceDisplay';
-import { StatusBadge, type QuoteStatus } from '@/components/ui/StatusBadge';
+import type { QuoteStatus } from '@/components/ui/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -53,6 +54,7 @@ export interface QuoteListItem {
 interface QuoteTableProps {
   items: QuoteListItem[];
   loading: boolean;
+  visibleColumns?: Partial<Record<QuoteTableColumnKey, boolean>>;
   labels: {
     quoteNumber: string;
     client: string;
@@ -60,6 +62,7 @@ interface QuoteTableProps {
     date: string;
     totalIncludingTax: string;
     status: string;
+    invoiceLink: string;
     actions: string;
     quickActions: string;
     view: string;
@@ -88,10 +91,13 @@ interface QuoteTableProps {
   acknowledgingId?: string | null;
 }
 
-export default function QuoteTable({ items, loading, labels, locale, formatDate, onDelete, onDownload, onDuplicate, onSend, onConvert, onAcknowledge, duplicatingId, acknowledgingId }: QuoteTableProps) {
+export type QuoteTableColumnKey = 'quoteNumber' | 'client' | 'subject' | 'date' | 'totalIncludingTax' | 'status' | 'invoiceLink';
+
+export default function QuoteTable({ items, loading, visibleColumns, labels, locale, formatDate, onDelete, onDownload, onDuplicate, onSend, onConvert, onAcknowledge, duplicatingId, acknowledgingId }: QuoteTableProps) {
   const router = useRouter();
   const [historyTarget, setHistoryTarget] = useState<QuoteListItem | null>(null);
   const priceLocale = locale === 'fr' ? 'fr-FR' : 'en-GB';
+  const isVisible = (column: QuoteTableColumnKey) => visibleColumns?.[column] !== false;
 
   function isNeedsReview(quote: QuoteListItem): boolean {
     return quote.status === 'rejected' && !quote.rejectionAcknowledgedAt;
@@ -261,28 +267,29 @@ export default function QuoteTable({ items, loading, labels, locale, formatDate,
            
                 <div className="flex items-start justify-between gap-3 px-4 pt-4.5">
                   <div className="min-w-0">
-                    <Link
-                      href={`/clients/${quote.clientId}`}
-                      className="block truncate text-sm font-semibold text-foreground hover:underline"
-                      onClick={(event) => event.stopPropagation()}
-                    >
-                      {quote.clientSnapshot.fullName}
-                    </Link>
-                    {quote.subject ? (
+                    {isVisible('client') ? (
+                      <Link
+                        href={`/clients/${quote.clientId}`}
+                        className="block truncate text-sm font-semibold text-foreground hover:underline"
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        {quote.clientSnapshot.fullName}
+                      </Link>
+                    ) : null}
+                    {isVisible('quoteNumber') ? <p className="mt-0.5 text-[11px] font-medium text-muted-foreground">{quote.quoteNumber}</p> : null}
+                    {isVisible('subject') && quote.subject ? (
                       <p className="mt-0.5 truncate text-[11px] font-medium text-muted-foreground">{quote.subject}</p>
                     ) : null}
-                    <p className="mt-1 text-[11px] text-muted-foreground">
-                      {formatDate(quote.date)}
-                    </p>
+                    {isVisible('date') ? <p className="mt-1 text-[11px] text-muted-foreground">{formatDate(quote.date)}</p> : null}
                   </div>
                   <div className="flex flex-col items-end gap-1.5 shrink-0">
-                    {isInvoiced ? (
+                    {isVisible('invoiceLink') && isInvoiced ? (
                       <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold leading-none text-emerald-700">
                         <FileTextIcon className="size-3" />
                         {labels.invoiced}
                       </span>
                     ) : null}
-                    {isNeedsReview(quote) ? (
+                    {isVisible('status') && isNeedsReview(quote) ? (
                       <span className="inline-flex items-center gap-1 rounded-full bg-orange-500 px-2 py-0.5 text-[10px] font-bold leading-none text-white">
                         <span className="relative flex size-1.5">
                           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-70" />
@@ -291,18 +298,25 @@ export default function QuoteTable({ items, loading, labels, locale, formatDate,
                         {locale === 'fr' ? 'REVU ?' : 'REVIEW'}
                       </span>
                     ) : null}
-                    <StatusBadge status={quote.status} className="mt-0.5" />
+                    {isVisible('status') ? <QuoteStatusSummary status={quote.status} statusChangedAt={quote.statusChangedAt} locale={locale} className="items-end" /> : null}
                   </div>
                 </div>
 
              
                 <div className="flex items-center justify-between gap-3 px-4 pb-4.5 pt-3">
-                  <PriceDisplay
-                    cents={quote.totalIncludingTax}
-                    locale={priceLocale}
-                    className="text-base font-semibold tabular-nums text-foreground"
-                  />
+                  {isVisible('totalIncludingTax') ? (
+                    <PriceDisplay
+                      cents={quote.totalIncludingTax}
+                      locale={priceLocale}
+                      className="text-base font-semibold tabular-nums text-foreground"
+                    />
+                  ) : <span className="text-sm text-muted-foreground">{quote.quoteNumber}</span>}
                   <div className="flex items-center gap-1.5" onClick={(event) => event.stopPropagation()}>
+                    {isVisible('invoiceLink') && isInvoiced && quote.invoiceId ? (
+                      <Button type="button" variant="outline" size="sm" asChild>
+                        <Link href={`/invoices/${quote.invoiceId}`}>{labels.invoiced}</Link>
+                      </Button>
+                    ) : null}
                     {renderPrimaryAction(quote, 'h-8 px-3 text-xs')}
                     {renderSecondaryActions(quote, 'end', 'mobile')}
                   </div>
@@ -316,11 +330,13 @@ export default function QuoteTable({ items, loading, labels, locale, formatDate,
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
-              <TableHead className="h-11 pl-5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.client}</TableHead>
-              <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.subject}</TableHead>
-              <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.date}</TableHead>
-              <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.totalIncludingTax}</TableHead>
-              <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.status}</TableHead>
+              {isVisible('client') ? <TableHead className="h-11 pl-5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.client}</TableHead> : null}
+              {isVisible('quoteNumber') ? <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.quoteNumber}</TableHead> : null}
+              {isVisible('subject') ? <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.subject}</TableHead> : null}
+              {isVisible('date') ? <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.date}</TableHead> : null}
+              {isVisible('totalIncludingTax') ? <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.totalIncludingTax}</TableHead> : null}
+              {isVisible('status') ? <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.status}</TableHead> : null}
+              {isVisible('invoiceLink') ? <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.invoiceLink}</TableHead> : null}
               <TableHead className="h-11 pr-4 text-right text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.actions}</TableHead>
             </TableRow>
           </TableHeader>
@@ -328,16 +344,20 @@ export default function QuoteTable({ items, loading, labels, locale, formatDate,
             {loading
               ? Array.from({ length: 6 }).map((_, idx) => (
                   <TableRow key={`quote-skeleton-${idx}`}>
-                    <TableCell className="py-4 pl-5">
-                      <div className="space-y-1.5">
-                        <Skeleton className="h-4 w-32" />
-                        <Skeleton className="h-3 w-20" />
-                      </div>
-                    </TableCell>
-                    <TableCell className="py-4"><Skeleton className="h-5 w-20 rounded-full" /></TableCell>
-                    <TableCell className="py-4"><Skeleton className="h-4 w-24" /></TableCell>
-                    <TableCell className="py-4"><Skeleton className="h-5 w-24" /></TableCell>
-                    <TableCell className="py-4"><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
+                    {isVisible('client') ? (
+                      <TableCell className="py-4 pl-5">
+                        <div className="space-y-1.5">
+                          <Skeleton className="h-4 w-32" />
+                          <Skeleton className="h-3 w-20" />
+                        </div>
+                      </TableCell>
+                    ) : null}
+                    {isVisible('quoteNumber') ? <TableCell className="py-4"><Skeleton className="h-5 w-20 rounded-full" /></TableCell> : null}
+                    {isVisible('subject') ? <TableCell className="py-4"><Skeleton className="h-5 w-20 rounded-full" /></TableCell> : null}
+                    {isVisible('date') ? <TableCell className="py-4"><Skeleton className="h-4 w-24" /></TableCell> : null}
+                    {isVisible('totalIncludingTax') ? <TableCell className="py-4"><Skeleton className="h-5 w-24" /></TableCell> : null}
+                    {isVisible('status') ? <TableCell className="py-4"><Skeleton className="h-5 w-16 rounded-full" /></TableCell> : null}
+                    {isVisible('invoiceLink') ? <TableCell className="py-4"><Skeleton className="h-5 w-16 rounded-full" /></TableCell> : null}
                     <TableCell className="py-4 pr-4"><Skeleton className="ml-auto h-8 w-32" /></TableCell>
                   </TableRow>
                 ))
@@ -351,20 +371,27 @@ export default function QuoteTable({ items, loading, labels, locale, formatDate,
                     onClick={() => router.push(`/quotes/${quote._id}`)}
                   >
                     {/* Client */}
-                    <TableCell
-                      className="py-4 pl-5 align-middle"
-                      style={{ borderLeft: `3px solid ${STATUS_ACCENT[quote.status]}` }}
-                    >
-                      <Link
-                        href={`/clients/${quote.clientId}`}
-                        className="block text-sm font-semibold text-foreground hover:text-(--color-text-info) hover:underline"
-                        onClick={(event) => event.stopPropagation()}
+                    {isVisible('client') ? (
+                      <TableCell
+                        className="py-4 pl-5 align-middle"
+                        style={{ borderLeft: `3px solid ${STATUS_ACCENT[quote.status]}` }}
                       >
-                        {quote.clientSnapshot.fullName}
-                      </Link>
-                    </TableCell>
+                        <Link
+                          href={`/clients/${quote.clientId}`}
+                          className="block text-sm font-semibold text-foreground hover:text-(--color-text-info) hover:underline"
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          {quote.clientSnapshot.fullName}
+                        </Link>
+                      </TableCell>
+                    ) : null}
+
+                    {isVisible('quoteNumber') ? (
+                      <TableCell className="py-4 align-middle text-sm font-medium text-foreground">{quote.quoteNumber}</TableCell>
+                    ) : null}
 
                     {/* Subject */}
+                    {isVisible('subject') ? (
                     <TableCell className="py-4 align-middle">
                       {quote.subject ? (
                         <div className="flex flex-wrap items-center gap-1.5">
@@ -390,22 +417,28 @@ export default function QuoteTable({ items, loading, labels, locale, formatDate,
                         </div>
                       )}
                     </TableCell>
+                    ) : null}
 
                     {/* Date */}
-                    <TableCell className="py-4 align-middle text-sm text-muted-foreground">
-                      {formatDate(quote.date)}
-                    </TableCell>
+                    {isVisible('date') ? (
+                      <TableCell className="py-4 align-middle text-sm text-muted-foreground">
+                        {formatDate(quote.date)}
+                      </TableCell>
+                    ) : null}
 
                     {/* Amount */}
-                    <TableCell className="py-4 align-middle">
-                      <PriceDisplay
-                        cents={quote.totalIncludingTax}
-                        locale={priceLocale}
-                        className="text-[15px] font-semibold tabular-nums text-foreground"
-                      />
-                    </TableCell>
+                    {isVisible('totalIncludingTax') ? (
+                      <TableCell className="py-4 align-middle">
+                        <PriceDisplay
+                          cents={quote.totalIncludingTax}
+                          locale={priceLocale}
+                          className="text-[15px] font-semibold tabular-nums text-foreground"
+                        />
+                      </TableCell>
+                    ) : null}
 
                     {/* Status badge + REVIEW indicator for unacknowledged rejections */}
+                    {isVisible('status') ? (
                     <TableCell className="py-4 align-middle">
                       <div className="flex flex-col items-start gap-1">
                         {isNeedsReview(quote) ? (
@@ -417,9 +450,22 @@ export default function QuoteTable({ items, loading, labels, locale, formatDate,
                             {locale === 'fr' ? 'REVU ?' : 'REVIEW'}
                           </span>
                         ) : null}
-                        <StatusBadge status={quote.status} />
+                        <QuoteStatusSummary status={quote.status} statusChangedAt={quote.statusChangedAt} locale={locale} />
                       </div>
                     </TableCell>
+                    ) : null}
+
+                    {isVisible('invoiceLink') ? (
+                      <TableCell className="py-4 align-middle text-sm">
+                        {isInvoiced && quote.invoiceId ? (
+                          <Button type="button" variant="outline" size="sm" asChild>
+                            <Link href={`/invoices/${quote.invoiceId}`}>{labels.invoiced}</Link>
+                          </Button>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                    ) : null}
 
                     {/* Actions: primary + dropdown */}
                     <TableCell className="py-4 pr-4 align-middle">

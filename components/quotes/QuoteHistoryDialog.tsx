@@ -15,6 +15,17 @@ interface HistoryEntry {
   changedAt: string;
 }
 
+interface QuoteHistoryPayload {
+  success?: boolean;
+  data?: {
+    statusHistory?: HistoryEntry[];
+    convertedToInvoice?: boolean;
+    invoiceId?: string | null;
+    convertedAt?: string | null;
+    convertedInvoiceNumber?: string | null;
+  };
+}
+
 interface QuoteHistoryDialogProps {
   quoteId: string;
   quoteNumber: string;
@@ -38,6 +49,10 @@ export default function QuoteHistoryDialog({ quoteId, quoteNumber, currentStatus
   const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState<HistoryEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [convertedToInvoice, setConvertedToInvoice] = useState(false);
+  const [invoiceId, setInvoiceId] = useState<string | null>(null);
+  const [convertedAt, setConvertedAt] = useState<string | null>(null);
+  const [convertedInvoiceNumber, setConvertedInvoiceNumber] = useState<string | null>(null);
 
   const dialogOpen = open ?? internalOpen;
 
@@ -46,9 +61,13 @@ export default function QuoteHistoryDialog({ quoteId, quoteNumber, currentStatus
     setError(null);
     try {
       const res = await fetch(`/api/quotes/${quoteId}`, { cache: 'no-store' });
-      const payload = (await res.json()) as { success?: boolean; data?: { statusHistory?: HistoryEntry[] } };
+      const payload = (await res.json()) as QuoteHistoryPayload;
       const raw = payload.data?.statusHistory ?? [];
       setHistory([...raw].sort((a, b) => +new Date(a.changedAt) - +new Date(b.changedAt)));
+      setConvertedToInvoice(Boolean(payload.data?.convertedToInvoice));
+      setInvoiceId(payload.data?.invoiceId ?? null);
+      setConvertedAt(payload.data?.convertedAt ?? null);
+      setConvertedInvoiceNumber(payload.data?.convertedInvoiceNumber ?? null);
     } catch {
       setError(t.error);
     } finally {
@@ -74,6 +93,10 @@ export default function QuoteHistoryDialog({ quoteId, quoteNumber, currentStatus
     if (!next) {
       setHistory(null);
       setError(null);
+      setConvertedToInvoice(false);
+      setInvoiceId(null);
+      setConvertedAt(null);
+      setConvertedInvoiceNumber(null);
     }
   }
 
@@ -106,7 +129,15 @@ export default function QuoteHistoryDialog({ quoteId, quoteNumber, currentStatus
           ) : error ? (
             <p className="py-4 text-center text-sm text-destructive">{error}</p>
           ) : history ? (
-            <QuoteHistoryBar history={history} currentStatus={currentStatus} locale={locale} />
+            <QuoteHistoryBar
+              history={history}
+              currentStatus={currentStatus}
+              locale={locale}
+              convertedToInvoice={convertedToInvoice}
+              invoiceId={invoiceId}
+              convertedAt={convertedAt}
+              convertedInvoiceNumber={convertedInvoiceNumber}
+            />
           ) : null}
         </div>
       </DialogContent>

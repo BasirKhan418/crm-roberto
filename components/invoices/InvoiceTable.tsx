@@ -45,6 +45,7 @@ function getDueDateStyle(dueDate: string | null | undefined, status: string) {
 interface InvoiceTableProps {
   items: InvoiceListItem[];
   loading: boolean;
+  visibleColumns?: Partial<Record<InvoiceTableColumnKey, boolean>>;
   labels: {
     invoiceNumber: string;
     client: string;
@@ -72,9 +73,23 @@ interface InvoiceTableProps {
   onSend: (invoice: InvoiceListItem) => void;
 }
 
+export type InvoiceTableColumnKey =
+  | 'invoiceNumber'
+  | 'client'
+  | 'date'
+  | 'dueDate'
+  | 'totalIncludingTax'
+  | 'amountPaid'
+  | 'remainingAmount'
+  | 'paymentProgress'
+  | 'depositAmount'
+  | 'depositPaymentDate'
+  | 'status';
+
 export default function InvoiceTable({
   items,
   loading,
+  visibleColumns,
   labels,
   locale,
   formatDate,
@@ -106,6 +121,7 @@ export default function InvoiceTable({
   }
 
   const showDepositColumns = items.some((invoice) => hasDeposit(invoice) || Boolean(invoice.depositPaidAt));
+  const isVisible = (column: InvoiceTableColumnKey) => visibleColumns?.[column] !== false;
 
   function renderPrimaryAction(invoice: InvoiceListItem, className?: string) {
     // unpaid → send
@@ -205,7 +221,10 @@ export default function InvoiceTable({
             ))
           : items.map((invoice) => {
               const displayInvoiceNumber = formatInvoiceDisplayNumber(locale, invoice.invoiceNumber);
-              const showDepositSummary = hasDeposit(invoice) || Boolean(invoice.depositPaidAt);
+              const showDepositSummary =
+                (hasDeposit(invoice) || Boolean(invoice.depositPaidAt)) &&
+                (isVisible('depositAmount') || isVisible('depositPaymentDate'));
+              const showPaymentSummary = isVisible('amountPaid') || isVisible('remainingAmount') || isVisible('paymentProgress');
               const amountPaid = getAmountPaid(invoice);
               const remainingAmount = getRemainingAmount(invoice);
               const paymentProgressPercent = getPaymentProgressPercent(invoice);
@@ -219,20 +238,24 @@ export default function InvoiceTable({
                 >
                   <div className="flex items-start justify-between gap-3 px-4 pt-4.5">
                     <div className="min-w-0">
-                      <Link
-                        href={`/clients/${invoice.clientId}`}
-                        className="block truncate text-sm font-semibold text-foreground hover:underline"
-                        onClick={(event) => event.stopPropagation()}
-                      >
-                        {invoice.clientSnapshot.fullName}
-                      </Link>
+                      {isVisible('client') ? (
+                        <Link
+                          href={`/clients/${invoice.clientId}`}
+                          className="block truncate text-sm font-semibold text-foreground hover:underline"
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          {invoice.clientSnapshot.fullName}
+                        </Link>
+                      ) : null}
                       <p className="mt-0.5 text-[11px] font-medium text-muted-foreground">{displayInvoiceNumber}</p>
-                      <p className="mt-1 text-[11px]" style={getDueDateStyle(invoice.dueDate, invoice.status)}>
-                        {labels.dueDate}: {formatDate(invoice.dueDate)}
-                      </p>
+                      {isVisible('dueDate') ? (
+                        <p className="mt-1 text-[11px]" style={getDueDateStyle(invoice.dueDate, invoice.status)}>
+                          {labels.dueDate}: {formatDate(invoice.dueDate)}
+                        </p>
+                      ) : null}
                     </div>
                     <div className="flex flex-col items-end gap-1.5 shrink-0">
-                      <InvoiceStatusBadge status={invoice.status} locale={locale} className="mt-0.5" />
+                      {isVisible('status') ? <InvoiceStatusBadge status={invoice.status} locale={locale} className="mt-0.5" /> : null}
                       {invoice.status === 'partial_paid' ? (
                         <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700 dark:bg-amber-950/30 dark:text-amber-400">
                           <span className="size-1.5 rounded-full bg-amber-500 animate-ping" />
@@ -245,55 +268,69 @@ export default function InvoiceTable({
                   {showDepositSummary ? (
                     <div className="mx-4 rounded-lg border border-border/60 bg-background/70 px-3 py-2">
                       <div className="grid grid-cols-2 gap-3 text-[11px]">
-                        <div className="min-w-0">
-                          <p className="text-muted-foreground">{labels.depositAmount}</p>
-                          {hasDeposit(invoice) ? (
-                            <PriceDisplay cents={invoice.depositAmount ?? 0} locale={priceLocale} className="mt-1 block truncate text-sm font-semibold tabular-nums text-foreground" />
-                          ) : (
-                            <p className="mt-1 text-sm text-muted-foreground">—</p>
-                          )}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-muted-foreground">{labels.depositPaymentDate}</p>
-                          <p className={`mt-1 text-sm ${invoice.depositPaidAt ? 'font-medium text-foreground' : 'text-muted-foreground'}`}>
-                            {formatDate(invoice.depositPaidAt)}
-                          </p>
-                        </div>
+                        {isVisible('depositAmount') ? (
+                          <div className="min-w-0">
+                            <p className="text-muted-foreground">{labels.depositAmount}</p>
+                            {hasDeposit(invoice) ? (
+                              <PriceDisplay cents={invoice.depositAmount ?? 0} locale={priceLocale} className="mt-1 block truncate text-sm font-semibold tabular-nums text-foreground" />
+                            ) : (
+                              <p className="mt-1 text-sm text-muted-foreground">—</p>
+                            )}
+                          </div>
+                        ) : null}
+                        {isVisible('depositPaymentDate') ? (
+                          <div className="min-w-0">
+                            <p className="text-muted-foreground">{labels.depositPaymentDate}</p>
+                            <p className={`mt-1 text-sm ${invoice.depositPaidAt ? 'font-medium text-foreground' : 'text-muted-foreground'}`}>
+                              {formatDate(invoice.depositPaidAt)}
+                            </p>
+                          </div>
+                        ) : null}
                       </div>
                     </div>
                   ) : null}
 
-                  <div className="mx-4 rounded-lg border border-border/60 bg-background/70 px-3 py-2">
-                    <div className="grid grid-cols-2 gap-3 text-[11px]">
-                      <div className="min-w-0">
-                        <p className="text-muted-foreground">{labels.amountPaid}</p>
-                        <PriceDisplay cents={amountPaid} locale={priceLocale} className="mt-1 block truncate text-sm font-semibold tabular-nums text-foreground" />
+                  {showPaymentSummary ? (
+                    <div className="mx-4 rounded-lg border border-border/60 bg-background/70 px-3 py-2">
+                      <div className="grid grid-cols-2 gap-3 text-[11px]">
+                        {isVisible('amountPaid') ? (
+                          <div className="min-w-0">
+                            <p className="text-muted-foreground">{labels.amountPaid}</p>
+                            <PriceDisplay cents={amountPaid} locale={priceLocale} className="mt-1 block truncate text-sm font-semibold tabular-nums text-foreground" />
+                          </div>
+                        ) : null}
+                        {isVisible('remainingAmount') ? (
+                          <div className="min-w-0">
+                            <p className="text-muted-foreground">{labels.remainingAmount}</p>
+                            <PriceDisplay cents={remainingAmount} locale={priceLocale} className="mt-1 block truncate text-sm font-semibold tabular-nums text-foreground" />
+                          </div>
+                        ) : null}
                       </div>
-                      <div className="min-w-0">
-                        <p className="text-muted-foreground">{labels.remainingAmount}</p>
-                        <PriceDisplay cents={remainingAmount} locale={priceLocale} className="mt-1 block truncate text-sm font-semibold tabular-nums text-foreground" />
-                      </div>
+                      {isVisible('paymentProgress') ? (
+                        <div className="mt-2">
+                          <div className="mb-1 flex items-center justify-between text-[10px] text-muted-foreground">
+                            <span>{labels.paymentProgress}</span>
+                            <span className="font-semibold text-foreground">{paymentProgressPercent}%</span>
+                          </div>
+                          <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted/70">
+                            <div
+                              className="h-full rounded-full bg-emerald-500 transition-[width] duration-500"
+                              style={{ width: `${paymentProgressPercent}%` }}
+                            />
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
-                    <div className="mt-2">
-                      <div className="mb-1 flex items-center justify-between text-[10px] text-muted-foreground">
-                        <span>{labels.paymentProgress}</span>
-                        <span className="font-semibold text-foreground">{paymentProgressPercent}%</span>
-                      </div>
-                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted/70">
-                        <div
-                          className="h-full rounded-full bg-emerald-500 transition-[width] duration-500"
-                          style={{ width: `${paymentProgressPercent}%` }}
-                        />
-                      </div>
-                    </div>
-                  </div>
+                  ) : null}
 
                   <div className="flex items-center justify-between gap-3 px-4 pb-4.5 pt-3">
-                    <PriceDisplay
-                      cents={invoice.totalIncludingTax}
-                      locale={priceLocale}
-                      className="text-base font-semibold tabular-nums text-foreground"
-                    />
+                    {isVisible('totalIncludingTax') ? (
+                      <PriceDisplay
+                        cents={invoice.totalIncludingTax}
+                        locale={priceLocale}
+                        className="text-base font-semibold tabular-nums text-foreground"
+                      />
+                    ) : <span className="text-sm text-muted-foreground">{displayInvoiceNumber}</span>}
                     <div className="flex items-center gap-1.5" onClick={(event) => event.stopPropagation()}>
                       {renderPrimaryAction(invoice)}
                       {renderSecondaryActions(invoice)}
@@ -309,16 +346,16 @@ export default function InvoiceTable({
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               <TableHead className="h-11 pl-5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.invoiceNumber}</TableHead>
-              <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.client}</TableHead>
-              <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.date}</TableHead>
-              <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.dueDate}</TableHead>
-              <TableHead className="h-11 text-right text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.totalIncludingTax}</TableHead>
-              <TableHead className="h-11 text-right text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.amountPaid}</TableHead>
-              <TableHead className="h-11 text-right text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.remainingAmount}</TableHead>
-              <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.paymentProgress}</TableHead>
-              {showDepositColumns ? <TableHead className="h-11 text-right text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.depositAmount}</TableHead> : null}
-              {showDepositColumns ? <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.depositPaymentDate}</TableHead> : null}
-              <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.status}</TableHead>
+              {isVisible('client') ? <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.client}</TableHead> : null}
+              {isVisible('date') ? <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.date}</TableHead> : null}
+              {isVisible('dueDate') ? <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.dueDate}</TableHead> : null}
+              {isVisible('totalIncludingTax') ? <TableHead className="h-11 text-right text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.totalIncludingTax}</TableHead> : null}
+              {isVisible('amountPaid') ? <TableHead className="h-11 text-right text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.amountPaid}</TableHead> : null}
+              {isVisible('remainingAmount') ? <TableHead className="h-11 text-right text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.remainingAmount}</TableHead> : null}
+              {isVisible('paymentProgress') ? <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.paymentProgress}</TableHead> : null}
+              {showDepositColumns && isVisible('depositAmount') ? <TableHead className="h-11 text-right text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.depositAmount}</TableHead> : null}
+              {showDepositColumns && isVisible('depositPaymentDate') ? <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.depositPaymentDate}</TableHead> : null}
+              {isVisible('status') ? <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.status}</TableHead> : null}
               <TableHead className="h-11 pr-4 text-right text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.quickActions}</TableHead>
             </TableRow>
           </TableHeader>
@@ -327,16 +364,16 @@ export default function InvoiceTable({
               ? Array.from({ length: 6 }).map((_, idx) => (
                   <TableRow key={`invoice-skeleton-${idx}`}>
                     <TableCell className="py-4 pl-5"><Skeleton className="h-4 w-28" /></TableCell>
-                    <TableCell className="py-4"><Skeleton className="h-4 w-28" /></TableCell>
-                    <TableCell className="py-4"><Skeleton className="h-4 w-24" /></TableCell>
-                    <TableCell className="py-4"><Skeleton className="h-4 w-24" /></TableCell>
-                    <TableCell className="py-4"><Skeleton className="h-5 w-24" /></TableCell>
-                    <TableCell className="py-4"><Skeleton className="ml-auto h-5 w-24" /></TableCell>
-                    <TableCell className="py-4"><Skeleton className="ml-auto h-5 w-24" /></TableCell>
-                    <TableCell className="py-4"><Skeleton className="h-4 w-20" /></TableCell>
-                    {showDepositColumns ? <TableCell className="py-4"><Skeleton className="ml-auto h-5 w-20" /></TableCell> : null}
-                    {showDepositColumns ? <TableCell className="py-4"><Skeleton className="h-4 w-24" /></TableCell> : null}
-                    <TableCell className="py-4"><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
+                    {isVisible('client') ? <TableCell className="py-4"><Skeleton className="h-4 w-28" /></TableCell> : null}
+                    {isVisible('date') ? <TableCell className="py-4"><Skeleton className="h-4 w-24" /></TableCell> : null}
+                    {isVisible('dueDate') ? <TableCell className="py-4"><Skeleton className="h-4 w-24" /></TableCell> : null}
+                    {isVisible('totalIncludingTax') ? <TableCell className="py-4"><Skeleton className="h-5 w-24" /></TableCell> : null}
+                    {isVisible('amountPaid') ? <TableCell className="py-4"><Skeleton className="ml-auto h-5 w-24" /></TableCell> : null}
+                    {isVisible('remainingAmount') ? <TableCell className="py-4"><Skeleton className="ml-auto h-5 w-24" /></TableCell> : null}
+                    {isVisible('paymentProgress') ? <TableCell className="py-4"><Skeleton className="h-4 w-20" /></TableCell> : null}
+                    {showDepositColumns && isVisible('depositAmount') ? <TableCell className="py-4"><Skeleton className="ml-auto h-5 w-20" /></TableCell> : null}
+                    {showDepositColumns && isVisible('depositPaymentDate') ? <TableCell className="py-4"><Skeleton className="h-4 w-24" /></TableCell> : null}
+                    {isVisible('status') ? <TableCell className="py-4"><Skeleton className="h-5 w-16 rounded-full" /></TableCell> : null}
                     <TableCell className="py-4 pr-4"><Skeleton className="ml-auto h-8 w-8" /></TableCell>
                   </TableRow>
                 ))
@@ -366,42 +403,54 @@ export default function InvoiceTable({
                           {displayInvoiceNumber}
                         </Link>
                       </TableCell>
-                      <TableCell className="py-4 align-middle">
-                        <Link
-                          href={`/clients/${invoice.clientId}`}
-                          className="text-sm font-medium text-foreground hover:underline"
-                          onClick={(event) => event.stopPropagation()}
-                        >
-                          {invoice.clientSnapshot.fullName}
-                        </Link>
-                      </TableCell>
-                      <TableCell className="py-4 align-middle text-sm text-muted-foreground">{formatDate(invoice.date)}</TableCell>
-                      <TableCell className="py-4 align-middle text-sm" style={getDueDateStyle(invoice.dueDate, invoice.status)}>
-                        {formatDate(invoice.dueDate)}
-                      </TableCell>
-                      <TableCell className="py-4 align-middle text-right">
-                        <PriceDisplay cents={invoice.totalIncludingTax} locale={priceLocale} className="text-[15px] font-semibold tabular-nums text-foreground" />
-                      </TableCell>
-                      <TableCell className="py-4 align-middle text-right">
-                        <PriceDisplay cents={amountPaid} locale={priceLocale} className="text-sm font-medium tabular-nums text-foreground" />
-                      </TableCell>
-                      <TableCell className="py-4 align-middle text-right">
-                        <PriceDisplay cents={remainingAmount} locale={priceLocale} className="text-sm font-semibold tabular-nums text-foreground" />
-                      </TableCell>
-                      <TableCell className="py-4 align-middle">
-                        <div className="max-w-28">
-                          <div className="mb-1 flex items-center justify-between text-[11px]">
-                            <span className="text-muted-foreground">{paymentProgressPercent}%</span>
+                      {isVisible('client') ? (
+                        <TableCell className="py-4 align-middle">
+                          <Link
+                            href={`/clients/${invoice.clientId}`}
+                            className="text-sm font-medium text-foreground hover:underline"
+                            onClick={(event) => event.stopPropagation()}
+                          >
+                            {invoice.clientSnapshot.fullName}
+                          </Link>
+                        </TableCell>
+                      ) : null}
+                      {isVisible('date') ? <TableCell className="py-4 align-middle text-sm text-muted-foreground">{formatDate(invoice.date)}</TableCell> : null}
+                      {isVisible('dueDate') ? (
+                        <TableCell className="py-4 align-middle text-sm" style={getDueDateStyle(invoice.dueDate, invoice.status)}>
+                          {formatDate(invoice.dueDate)}
+                        </TableCell>
+                      ) : null}
+                      {isVisible('totalIncludingTax') ? (
+                        <TableCell className="py-4 align-middle text-right">
+                          <PriceDisplay cents={invoice.totalIncludingTax} locale={priceLocale} className="text-[15px] font-semibold tabular-nums text-foreground" />
+                        </TableCell>
+                      ) : null}
+                      {isVisible('amountPaid') ? (
+                        <TableCell className="py-4 align-middle text-right">
+                          <PriceDisplay cents={amountPaid} locale={priceLocale} className="text-sm font-medium tabular-nums text-foreground" />
+                        </TableCell>
+                      ) : null}
+                      {isVisible('remainingAmount') ? (
+                        <TableCell className="py-4 align-middle text-right">
+                          <PriceDisplay cents={remainingAmount} locale={priceLocale} className="text-sm font-semibold tabular-nums text-foreground" />
+                        </TableCell>
+                      ) : null}
+                      {isVisible('paymentProgress') ? (
+                        <TableCell className="py-4 align-middle">
+                          <div className="max-w-28">
+                            <div className="mb-1 flex items-center justify-between text-[11px]">
+                              <span className="text-muted-foreground">{paymentProgressPercent}%</span>
+                            </div>
+                            <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted/70">
+                              <div
+                                className="h-full rounded-full bg-emerald-500 transition-[width] duration-500"
+                                style={{ width: `${paymentProgressPercent}%` }}
+                              />
+                            </div>
                           </div>
-                          <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted/70">
-                            <div
-                              className="h-full rounded-full bg-emerald-500 transition-[width] duration-500"
-                              style={{ width: `${paymentProgressPercent}%` }}
-                            />
-                          </div>
-                        </div>
-                      </TableCell>
-                      {showDepositColumns ? (
+                        </TableCell>
+                      ) : null}
+                      {showDepositColumns && isVisible('depositAmount') ? (
                         <TableCell className="py-4 align-middle text-right">
                           {invoiceHasDeposit ? (
                             <PriceDisplay cents={invoice.depositAmount ?? 0} locale={priceLocale} className="text-sm font-medium tabular-nums text-foreground" />
@@ -410,16 +459,18 @@ export default function InvoiceTable({
                           )}
                         </TableCell>
                       ) : null}
-                      {showDepositColumns ? (
+                      {showDepositColumns && isVisible('depositPaymentDate') ? (
                         <TableCell className="py-4 align-middle text-sm">
                           <span className={invoice.depositPaidAt ? 'font-medium text-foreground' : 'text-muted-foreground'}>
                             {formatDate(invoice.depositPaidAt)}
                           </span>
                         </TableCell>
                       ) : null}
-                      <TableCell className="py-4 align-middle">
-                        <InvoiceStatusBadge status={invoice.status} locale={locale} />
-                      </TableCell>
+                      {isVisible('status') ? (
+                        <TableCell className="py-4 align-middle">
+                          <InvoiceStatusBadge status={invoice.status} locale={locale} />
+                        </TableCell>
+                      ) : null}
                       <TableCell className="py-4 pr-4 align-middle">
                         <div className="flex items-center justify-end gap-1.5" onClick={(event) => event.stopPropagation()}>
                           {renderPrimaryAction(invoice)}

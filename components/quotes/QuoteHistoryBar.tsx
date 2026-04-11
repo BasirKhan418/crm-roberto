@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { CheckIcon, XIcon } from 'lucide-react';
 
 import type { QuoteStatus } from '@/components/ui/StatusBadge';
@@ -15,11 +16,28 @@ interface QuoteHistoryBarProps {
   history: HistoryEntry[];
   currentStatus: QuoteStatus;
   locale: 'en' | 'fr';
+  convertedToInvoice?: boolean;
+  invoiceId?: string | null;
+  convertedAt?: string | null;
+  convertedInvoiceNumber?: string | null;
 }
 
 const HISTORY_LABELS = {
   en: 'Quote history',
   fr: 'Historique du devis',
+} as const;
+
+const CONVERSION_LABELS = {
+  en: {
+    converted: 'Converted to invoice',
+    on: 'on',
+    openInvoice: 'Open invoice',
+  },
+  fr: {
+    converted: 'Converti en facture',
+    on: 'le',
+    openInvoice: 'Ouvrir la facture',
+  },
 } as const;
 
 const STEPS: QuoteStatus[] = ['draft', 'sent', 'accepted'];
@@ -40,9 +58,10 @@ function formatDate(value: string, locale: 'en' | 'fr'): string {
   }).format(new Date(value));
 }
 
-export default function QuoteHistoryBar({ history, currentStatus, locale }: QuoteHistoryBarProps) {
+export default function QuoteHistoryBar({ history, currentStatus, locale, convertedToInvoice = false, invoiceId = null, convertedAt = null, convertedInvoiceNumber = null }: QuoteHistoryBarProps) {
   const isRefused = currentStatus === 'refused';
   const isRejected = currentStatus === 'rejected';
+  const c = CONVERSION_LABELS[locale];
 
   const steps: QuoteStatus[] = isRefused
     ? ['draft', 'sent', 'refused']
@@ -127,6 +146,23 @@ export default function QuoteHistoryBar({ history, currentStatus, locale }: Quot
           );
         })}
       </div>
+
+      {convertedToInvoice ? (
+        <div className="mt-5 rounded-lg border border-emerald-200/70 bg-emerald-50/60 p-3 dark:border-emerald-900/40 dark:bg-emerald-950/20">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
+              {c.converted}
+              {convertedInvoiceNumber ? `: ${convertedInvoiceNumber}` : ''}
+              {convertedAt ? ` ${c.on} ${formatDate(convertedAt, locale)}` : ''}
+            </p>
+            {invoiceId ? (
+              <Link href={`/invoices/${invoiceId}`} className="text-xs font-semibold text-emerald-700 underline underline-offset-2 dark:text-emerald-300">
+                {c.openInvoice}
+              </Link>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

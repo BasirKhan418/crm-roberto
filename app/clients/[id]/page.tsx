@@ -104,6 +104,8 @@ interface ClientQuote {
   date: string;
   status: QuoteStatus;
   statusChangedAt?: string | null;
+  convertedToInvoice?: boolean;
+  invoiceId?: string | null;
   totalIncludingTax: number;
 }
 
@@ -1394,6 +1396,7 @@ function TimelineQuoteItem({ quote, locale, dateFormatter, onSend, quoteBadge }:
     quote.status === 'accepted' ? 'bg-green-500' :
     quote.status === 'refused' || quote.status === 'rejected' ? 'bg-red-400' :
     quote.status === 'sent' ? 'bg-blue-400' : 'bg-muted-foreground/40';
+  const isConverted = Boolean(quote.convertedToInvoice && quote.invoiceId);
   return (
     <li className="mb-6 ml-4">
       <span className={`absolute -left-1.5 mt-1.5 size-3 rounded-full border border-border ${dotColor}`} />
@@ -1402,10 +1405,20 @@ function TimelineQuoteItem({ quote, locale, dateFormatter, onSend, quoteBadge }:
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="rounded bg-secondary px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{quoteBadge}</span>
             <span className="text-sm font-semibold">{quote.quoteNumber}</span>
+            {isConverted ? (
+              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold leading-none text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-300">
+                {locale === 'fr' ? 'Facture creee' : 'Invoiced'}
+              </span>
+            ) : null}
             <QuoteStatusSummary status={quote.status} statusChangedAt={quote.statusChangedAt} locale={locale} />
           </div>
           <div className="flex items-center gap-2">
             <PriceDisplay cents={quote.totalIncludingTax} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="text-xs font-semibold" />
+            {isConverted && quote.invoiceId ? (
+              <Button variant="ghost" size="sm" asChild>
+                <Link href={`/invoices/${quote.invoiceId}`}>{locale === 'fr' ? 'Facture' : 'Invoice'}</Link>
+              </Button>
+            ) : null}
             <Button variant="ghost" size="icon-sm" asChild>
               <Link href={`/quotes/${quote._id}`}><EyeIcon className="size-3.5" /></Link>
             </Button>

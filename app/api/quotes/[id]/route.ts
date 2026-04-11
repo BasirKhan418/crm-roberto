@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import ConnectDb from '@/db/connectDb';
+import Invoice from '@/db/models/Invoice';
 import { createActivityLog } from '@/db/repository/activity';
 import { deleteQuoteById, getQuoteById, updateQuoteById } from '@/db/repository/quote';
 import { buildQuoteConversation } from '@/lib/quote-conversation';
@@ -25,6 +27,19 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, message: 'Quote not found' }, { status: 404 });
     }
 
+    let convertedAt: Date | null = null;
+    let convertedInvoiceNumber: string | null = null;
+
+    if (quote.convertedToInvoice && quote.invoiceId) {
+      await ConnectDb();
+      const linkedInvoice = await Invoice.findOne({ _id: quote.invoiceId, userId: me.user.id })
+        .select('invoiceNumber date createdAt')
+        .lean<{ invoiceNumber?: string; date?: Date | null; createdAt?: Date | null } | null>();
+
+      convertedInvoiceNumber = linkedInvoice?.invoiceNumber ?? null;
+      convertedAt = linkedInvoice?.createdAt ?? linkedInvoice?.date ?? quote.updatedAt ?? null;
+    }
+
     return NextResponse.json({
       success: true,
       data: {
@@ -33,6 +48,8 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
         clientId: String(quote.clientId),
         invoiceId: quote.invoiceId ? String(quote.invoiceId) : null,
         convertedToInvoice: Boolean(quote.convertedToInvoice),
+        convertedAt,
+        convertedInvoiceNumber,
         signedStatus: quote.signedStatus ?? 'not_signed',
         lineItems: quote.lineItems.map((line) => ({
           ...line,

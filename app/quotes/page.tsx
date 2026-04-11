@@ -7,7 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { PlusIcon, SearchIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
-import QuoteTable, { type QuoteListItem } from '@/components/quotes/QuoteTable';
+import QuoteTable, { type QuoteListItem, type QuoteTableColumnKey } from '@/components/quotes/QuoteTable';
 import SendQuoteModal from '@/components/quotes/SendQuoteModal';
 import CrmShell from '@/components/crm-shell';
 import { useQuotes, type QuoteStatusFilter } from '@/hooks/useQuotes';
@@ -27,10 +27,22 @@ import { Button } from '@/components/ui/button';
 import EmptyState from '@/components/ui/EmptyState';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import { Input } from '@/components/ui/input';
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 function QuotesPageContent() {
+  const COLUMN_STORAGE_KEY = 'crm.quote.visibleColumns.v1';
+  const DEFAULT_VISIBLE_COLUMNS: Record<QuoteTableColumnKey, boolean> = {
+    quoteNumber: true,
+    client: true,
+    subject: true,
+    date: true,
+    totalIncludingTax: true,
+    status: true,
+    invoiceLink: true,
+  };
+
   const router = useRouter();
   const searchParams = useSearchParams();
   const { locale } = useLocale();
@@ -51,6 +63,10 @@ function QuotesPageContent() {
       search: 'Search by quote number or client name...',
       sortDate: 'Date',
       sortAmount: 'Amount',
+      columns: 'Columns',
+      visibleColumns: 'Visible columns',
+      applyColumns: 'Apply',
+      cancelColumns: 'Cancel',
       tabAll: 'All',
       tabDraft: 'Draft',
       tabSent: 'Sent',
@@ -63,6 +79,14 @@ function QuotesPageContent() {
       date: 'Date',
       totalIncludingTax: 'Total incl. tax',
       status: 'Status',
+      invoiceLink: 'Invoice link',
+      columnQuoteNumber: 'Quote',
+      columnClient: 'Client',
+      columnSubject: 'Subject',
+      columnDate: 'Date',
+      columnTotal: 'Total',
+      columnStatus: 'Status',
+      columnInvoiceLink: 'Invoice link',
       actions: 'Main action',
       quickActions: 'Quick actions',
       view: 'View',
@@ -111,6 +135,10 @@ function QuotesPageContent() {
       search: 'Rechercher par numéro de devis ou nom client...',
       sortDate: 'Date',
       sortAmount: 'Montant',
+      columns: 'Colonnes',
+      visibleColumns: 'Colonnes visibles',
+      applyColumns: 'Appliquer',
+      cancelColumns: 'Annuler',
       tabAll: 'Tous',
       tabDraft: 'Brouillon',
       tabSent: 'Envoyé',
@@ -123,6 +151,14 @@ function QuotesPageContent() {
       date: 'Date',
       totalIncludingTax: 'Total TTC',
       status: 'Statut',
+      invoiceLink: 'Lien facture',
+      columnQuoteNumber: 'Devis',
+      columnClient: 'Client',
+      columnSubject: 'Objet',
+      columnDate: 'Date',
+      columnTotal: 'Total',
+      columnStatus: 'Statut',
+      columnInvoiceLink: 'Lien facture',
       actions: 'Action principale',
       quickActions: 'Actions rapides',
       view: 'Voir',
@@ -163,6 +199,9 @@ function QuotesPageContent() {
   const [sort, setSort] = useState<'date' | 'amount'>('date');
   const [page, setPage] = useState(1);
   const limit = 10;
+  const [visibleColumns, setVisibleColumns] = useState<Record<QuoteTableColumnKey, boolean>>(DEFAULT_VISIBLE_COLUMNS);
+  const [draftVisibleColumns, setDraftVisibleColumns] = useState<Record<QuoteTableColumnKey, boolean>>(DEFAULT_VISIBLE_COLUMNS);
+  const [columnsOpen, setColumnsOpen] = useState(false);
 
   const [deleteTarget, setDeleteTarget] = useState<QuoteListItem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -233,6 +272,43 @@ function QuotesPageContent() {
 
     setPage(Math.max(1, pagination.totalPages));
   }, [loading, page, pagination.totalPages]);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(COLUMN_STORAGE_KEY);
+      if (!raw) {
+        return;
+      }
+
+      const parsed = JSON.parse(raw) as Partial<Record<QuoteTableColumnKey, boolean>>;
+      const next = { ...DEFAULT_VISIBLE_COLUMNS, ...parsed };
+      setVisibleColumns(next);
+      setDraftVisibleColumns(next);
+    } catch {
+      setVisibleColumns(DEFAULT_VISIBLE_COLUMNS);
+      setDraftVisibleColumns(DEFAULT_VISIBLE_COLUMNS);
+    }
+  }, []);
+
+  function toggleDraftColumn(column: QuoteTableColumnKey, checked: boolean) {
+    setDraftVisibleColumns((prev) => ({ ...prev, [column]: checked }));
+  }
+
+  function applyColumns() {
+    setVisibleColumns(draftVisibleColumns);
+    window.localStorage.setItem(COLUMN_STORAGE_KEY, JSON.stringify(draftVisibleColumns));
+    setColumnsOpen(false);
+  }
+
+  const columnOptions: Array<{ key: QuoteTableColumnKey; label: string }> = [
+    { key: 'quoteNumber', label: t.columnQuoteNumber },
+    { key: 'client', label: t.columnClient },
+    { key: 'subject', label: t.columnSubject },
+    { key: 'date', label: t.columnDate },
+    { key: 'totalIncludingTax', label: t.columnTotal },
+    { key: 'status', label: t.columnStatus },
+    { key: 'invoiceLink', label: t.columnInvoiceLink },
+  ];
 
   const formatDate = useCallback(
     (value: string) => {
@@ -351,7 +427,7 @@ function QuotesPageContent() {
             </span>
           </div>
 
-          <div className="grid gap-2.5 lg:grid-cols-[1fr_auto] lg:items-center">
+          <div className="grid gap-2.5 lg:grid-cols-[1fr_auto_auto] lg:items-center">
             <div className="relative">
               <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input className="h-10 pl-9" value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder={t.search} />
@@ -365,6 +441,42 @@ function QuotesPageContent() {
                 <SelectItem value="amount">{t.sortAmount}</SelectItem>
               </SelectContent>
             </Select>
+            <DropdownMenu
+              open={columnsOpen}
+              onOpenChange={(next) => {
+                setColumnsOpen(next);
+                if (next) {
+                  setDraftVisibleColumns(visibleColumns);
+                }
+              }}
+            >
+              <DropdownMenuTrigger asChild>
+                <Button type="button" variant="outline" className="h-9 w-full sm:w-auto">{t.columns}</Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuLabel>{t.visibleColumns}</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {columnOptions.map((column) => (
+                  <DropdownMenuCheckboxItem
+                    key={column.key}
+                    checked={draftVisibleColumns[column.key]}
+                    onCheckedChange={(checked) => toggleDraftColumn(column.key, Boolean(checked))}
+                    onSelect={(event) => event.preventDefault()}
+                  >
+                    {column.label}
+                  </DropdownMenuCheckboxItem>
+                ))}
+                <DropdownMenuSeparator />
+                <div className="flex gap-2 p-1">
+                  <Button type="button" size="sm" variant="outline" className="h-8 flex-1" onClick={() => setColumnsOpen(false)}>
+                    {t.cancelColumns}
+                  </Button>
+                  <Button type="button" size="sm" className="h-8 flex-1" onClick={applyColumns}>
+                    {t.applyColumns}
+                  </Button>
+                </div>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           <Tabs value={status} onValueChange={(value) => setStatus(value as QuoteStatusFilter)}>
@@ -457,6 +569,7 @@ function QuotesPageContent() {
             <QuoteTable
               items={quotes}
               loading={loading}
+              visibleColumns={visibleColumns}
               formatDate={formatDate}
               onDelete={setDeleteTarget}
               onDownload={handleDownloadPdf}
@@ -467,6 +580,7 @@ function QuotesPageContent() {
                 date: t.date,
                 totalIncludingTax: t.totalIncludingTax,
                 status: t.status,
+                invoiceLink: t.invoiceLink,
                 actions: t.actions,
                 quickActions: t.quickActions,
                 view: t.view,
