@@ -101,6 +101,7 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
       vatTax: 'VAT/Tax ID',
       iban: 'IBAN',
       notes: 'Notes',
+      notesHint: 'Tip: use #important, #pending, or #partner to create visual tags.',
       cancel: 'Cancel',
       saving: 'Saving...',
       saveChanges: 'Save changes',
@@ -159,6 +160,7 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
       vatTax: 'TVA/ID fiscal',
       iban: 'IBAN',
       notes: 'Notes',
+      notesHint: 'Astuce : utilisez #important, #pending ou #partner pour des tags visuels.',
       cancel: 'Annuler',
       saving: 'Enregistrement...',
       saveChanges: 'Enregistrer les modifications',
@@ -452,33 +454,61 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
                   : t.other
               }</p>
               <p><span className="text-muted-foreground">{t.vat}:</span> {supplier.vatNumber || '-'}</p>
-                  <p><span className="text-muted-foreground">{t.iban}:</span> {supplier.iban || '-'}</p>
-                  <p><span className="text-muted-foreground">{t.notes}:</span> {supplier.notes || '-'}</p>
+                  <p><span className="text-muted-foreground">{t.iban}:</span> <span className="font-mono text-xs break-all">{supplier.iban || '-'}</span></p>
+                  <p>
+                    <span className="text-muted-foreground">{t.notes}:</span>{' '}
+                    <span className="whitespace-pre-wrap wrap-break-word">{supplier.notes || '-'}</span>
+                  </p>
 
               <div data-tour-supplier-actions className="flex flex-wrap gap-2 pt-3">
                 <Sheet open={isEditOpen} onOpenChange={setIsEditOpen}>
                   <SheetTrigger asChild>
                     <Button variant="outline" size="sm"><PencilIcon />{t.edit}</Button>
                   </SheetTrigger>
-                  <SheetContent side="right" className="w-full sm:max-w-lg">
+                  <SheetContent side="right" className="w-full p-0 sm:max-w-xl">
                     <SheetHeader>
                       <SheetTitle>{t.editSupplier}</SheetTitle>
                       <SheetDescription>{t.editSupplierDesc}</SheetDescription>
                     </SheetHeader>
-                    <div className="space-y-3 px-4">
-                      <div className="space-y-1.5"><Label>{t.legalName}</Label><Input value={editForm.fullName} onChange={(e) => setEditForm((p) => ({ ...p, fullName: e.target.value }))} /></div>
-                      <div className="space-y-1.5"><Label>{t.contactName}</Label><Input value={editForm.contactName} onChange={(e) => setEditForm((p) => ({ ...p, contactName: e.target.value }))} /></div>
-                      <div className="space-y-1.5"><Label>{t.email}</Label><Input value={editForm.email} onChange={(e) => setEditForm((p) => ({ ...p, email: e.target.value }))} /></div>
-                      <div className="space-y-1.5"><Label>{t.phone}</Label><Input value={editForm.phone} onChange={(e) => setEditForm((p) => ({ ...p, phone: e.target.value }))} /></div>
-                      <div className="space-y-1.5"><Label>{t.address}</Label><Input value={editForm.address} onChange={(e) => setEditForm((p) => ({ ...p, address: e.target.value }))} /></div>
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                        <div className="space-y-1.5"><Label>{t.postalCode}</Label><Input value={editForm.postalCode} onChange={(e) => setEditForm((p) => ({ ...p, postalCode: e.target.value }))} /></div>
-                        <div className="space-y-1.5"><Label>{t.city}</Label><Input value={editForm.city} onChange={(e) => setEditForm((p) => ({ ...p, city: e.target.value }))} /></div>
-                        <div className="space-y-1.5"><Label>{t.country}</Label><Input value={editForm.country} onChange={(e) => setEditForm((p) => ({ ...p, country: e.target.value }))} /></div>
+                    <div className="max-h-[calc(100svh-10rem)] space-y-3 overflow-y-auto px-4 pb-4 sm:px-6">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="supplier-edit-full-name">{t.legalName}</Label>
+                        <Input id="supplier-edit-full-name" value={editForm.fullName} onChange={(e) => setEditForm((p) => ({ ...p, fullName: e.target.value }))} />
                       </div>
                       <div className="space-y-1.5">
-                        <Label>{t.category}</Label>
+                        <Label htmlFor="supplier-edit-contact-name">{t.contactName}</Label>
+                        <Input id="supplier-edit-contact-name" value={editForm.contactName} onChange={(e) => setEditForm((p) => ({ ...p, contactName: e.target.value }))} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="supplier-edit-email">{t.email}</Label>
+                        <Input id="supplier-edit-email" type="email" value={editForm.email} onChange={(e) => setEditForm((p) => ({ ...p, email: e.target.value }))} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="supplier-edit-phone">{t.phone}</Label>
+                        <Input id="supplier-edit-phone" value={editForm.phone} onChange={(e) => setEditForm((p) => ({ ...p, phone: e.target.value }))} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="supplier-edit-address">{t.address}</Label>
+                        <Input id="supplier-edit-address" value={editForm.address} onChange={(e) => setEditForm((p) => ({ ...p, address: e.target.value }))} />
+                      </div>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="supplier-edit-postal">{t.postalCode}</Label>
+                          <Input id="supplier-edit-postal" value={editForm.postalCode} onChange={(e) => setEditForm((p) => ({ ...p, postalCode: e.target.value }))} />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="supplier-edit-city">{t.city}</Label>
+                          <Input id="supplier-edit-city" value={editForm.city} onChange={(e) => setEditForm((p) => ({ ...p, city: e.target.value }))} />
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="supplier-edit-country">{t.country}</Label>
+                        <Input id="supplier-edit-country" value={editForm.country} onChange={(e) => setEditForm((p) => ({ ...p, country: e.target.value }))} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="supplier-edit-category">{t.category}</Label>
                         <select
+                          id="supplier-edit-category"
                           value={editForm.category}
                           onChange={(e) => setEditForm((p) => ({ ...p, category: e.target.value as SupplierRecord['category'] }))}
                           className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none"
@@ -490,17 +520,28 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
                           <option value="other">{t.other}</option>
                         </select>
                       </div>
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                        <div className="space-y-1.5"><Label>{t.vatTax}</Label><Input value={editForm.vatNumber} onChange={(e) => setEditForm((p) => ({ ...p, vatNumber: e.target.value }))} /></div>
-                        <div className="space-y-1.5"><Label>{t.iban}</Label><Input value={editForm.iban} onChange={(e) => setEditForm((p) => ({ ...p, iban: e.target.value }))} /></div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="supplier-edit-vat">{t.vatTax}</Label>
+                        <Input id="supplier-edit-vat" value={editForm.vatNumber} onChange={(e) => setEditForm((p) => ({ ...p, vatNumber: e.target.value }))} />
                       </div>
                       <div className="space-y-1.5">
-                        <Label>{t.notes}</Label>
+                        <Label htmlFor="supplier-edit-iban">{t.iban}</Label>
+                        <Input
+                          id="supplier-edit-iban"
+                          className="font-mono"
+                          value={editForm.iban}
+                          onChange={(e) => setEditForm((p) => ({ ...p, iban: e.target.value }))}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="supplier-edit-notes">{t.notes}</Label>
                         <textarea
-                          className="min-h-20 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                          id="supplier-edit-notes"
+                          className="min-h-32 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
                           value={editForm.notes}
                           onChange={(e) => setEditForm((p) => ({ ...p, notes: e.target.value }))}
                         />
+                        <p className="text-xs text-muted-foreground">{t.notesHint}</p>
                       </div>
                     </div>
                     <SheetFooter>

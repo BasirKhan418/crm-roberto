@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { Building2, Mail, MapPin, Phone, PlusIcon, SearchIcon, Truck } from 'lucide-react';
+import { Building2, LayoutGrid, List, Mail, MapPin, Phone, PlusIcon, SearchIcon, Truck } from 'lucide-react';
 import { toast } from 'sonner';
 
 import CrmShell from '@/components/crm-shell';
@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 interface Supplier {
   _id: string;
@@ -43,6 +44,7 @@ interface Pagination {
 }
 
 const initialPagination: Pagination = { page: 1, limit: 12, total: 0, totalPages: 0 };
+const SUPPLIERS_VIEW_STORAGE_KEY = 'crm.suppliers.viewMode.v1';
 
 function getInitials(name: string): string {
   return name
@@ -71,6 +73,20 @@ function avatarColor(id: string): string {
 }
 
 type SupplierCategory = 'materials' | 'logistics' | 'services' | 'technology' | 'other';
+type SupplierTag = 'important' | 'pending' | 'partner';
+
+function extractSupplierTags(notes?: string | null): SupplierTag[] {
+  if (!notes) {
+    return [];
+  }
+
+  const lowered = notes.toLowerCase();
+  const tags: SupplierTag[] = [];
+  if (/(^|\s)#important(\s|$)/.test(lowered)) tags.push('important');
+  if (/(^|\s)#pending(\s|$)/.test(lowered)) tags.push('pending');
+  if (/(^|\s)#partner(\s|$)/.test(lowered)) tags.push('partner');
+  return tags;
+}
 
 export default function SuppliersPage() {
   const { locale } = useLocale();
@@ -102,6 +118,7 @@ export default function SuppliersPage() {
       vat: 'VAT/Tax ID',
       iban: 'IBAN',
       notes: 'Notes',
+      notesHint: 'Tip: use #important, #pending, or #partner to create visual tags.',
       cancel: 'Cancel',
       saving: 'Saving...',
       saveSupplier: 'Save supplier',
@@ -118,6 +135,19 @@ export default function SuppliersPage() {
       noData: '—',
       totalSuppliers: 'Total suppliers',
       viewProfile: 'View profile →',
+      cardView: 'Card view',
+      listView: 'List view',
+      nameCol: 'Name',
+      contactCol: 'Contact',
+      categoryCol: 'Category',
+      emailCol: 'Email',
+      phoneCol: 'Phone',
+      cityCol: 'City',
+      ibanCol: 'IBAN',
+      tagsCol: 'Tags',
+      tagImportant: 'Important',
+      tagPending: 'Pending',
+      tagPartner: 'Partner',
     },
     fr: {
       fetchFailed: 'Impossible de récupérer les fournisseurs',
@@ -146,6 +176,7 @@ export default function SuppliersPage() {
       vat: 'TVA/ID fiscal',
       iban: 'IBAN',
       notes: 'Notes',
+      notesHint: 'Astuce : utilisez #important, #pending ou #partner pour des tags visuels.',
       cancel: 'Annuler',
       saving: 'Enregistrement...',
       saveSupplier: 'Enregistrer le fournisseur',
@@ -162,6 +193,19 @@ export default function SuppliersPage() {
       noData: '—',
       totalSuppliers: 'Total fournisseurs',
       viewProfile: 'Voir le profil →',
+      cardView: 'Vue cartes',
+      listView: 'Vue liste',
+      nameCol: 'Nom',
+      contactCol: 'Contact',
+      categoryCol: 'Categorie',
+      emailCol: 'E-mail',
+      phoneCol: 'Telephone',
+      cityCol: 'Ville',
+      ibanCol: 'IBAN',
+      tagsCol: 'Tags',
+      tagImportant: 'Important',
+      tagPending: 'En attente',
+      tagPartner: 'Partenaire',
     },
   }[locale];
 
@@ -172,6 +216,7 @@ export default function SuppliersPage() {
 
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
+  const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
 
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -188,6 +233,25 @@ export default function SuppliersPage() {
     iban: '',
     notes: '',
   });
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(SUPPLIERS_VIEW_STORAGE_KEY);
+      if (raw === 'card' || raw === 'list') {
+        setViewMode(raw);
+      }
+    } catch {
+      // Ignore storage errors.
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(SUPPLIERS_VIEW_STORAGE_KEY, viewMode);
+    } catch {
+      // Ignore storage errors.
+    }
+  }, [viewMode]);
 
   const query = useMemo(() => {
     const params = new URLSearchParams();
@@ -378,14 +442,25 @@ export default function SuppliersPage() {
                   <Label htmlFor="supplier-vat">{t.vat}</Label>
                   <Input id="supplier-vat" value={form.vatNumber} onChange={(e) => setForm((p) => ({ ...p, vatNumber: e.target.value }))} />
                 </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="supplier-iban">{t.iban}</Label>
-                  <Input id="supplier-iban" value={form.iban} onChange={(e) => setForm((p) => ({ ...p, iban: e.target.value }))} />
-                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="supplier-iban">{t.iban}</Label>
+                <Input
+                  id="supplier-iban"
+                  className="font-mono"
+                  value={form.iban}
+                  onChange={(e) => setForm((p) => ({ ...p, iban: e.target.value }))}
+                />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="supplier-notes">{t.notes}</Label>
-                <Input id="supplier-notes" value={form.notes} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))} />
+                <textarea
+                  id="supplier-notes"
+                  className="min-h-28 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                  value={form.notes}
+                  onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
+                />
+                <p className="text-xs text-muted-foreground">{t.notesHint}</p>
               </div>
             </div>
             <SheetFooter>
@@ -413,106 +488,249 @@ export default function SuppliersPage() {
 
       {/* Search */}
       <div className="space-y-3 rounded-xl bg-card/60 p-3 sm:p-4">
-        <div className="relative w-full sm:max-w-md">
-          <SearchIcon className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
-          <Input
-            data-tour-suppliers-search
-            className="h-10 pl-8"
-            placeholder={t.search}
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-          />
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+          <div className="relative w-full sm:max-w-md">
+            <SearchIcon className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
+            <Input
+              data-tour-suppliers-search
+              className="h-10 pl-8"
+              placeholder={t.search}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+            />
+          </div>
+
+          <div className="inline-flex w-full rounded-lg border bg-background p-1 md:w-auto">
+            <Button
+              type="button"
+              variant={viewMode === 'card' ? 'default' : 'ghost'}
+              size="sm"
+              className="flex-1 gap-1.5 md:flex-none"
+              onClick={() => setViewMode('card')}
+            >
+              <LayoutGrid className="size-3.5" />
+              {t.cardView}
+            </Button>
+            <Button
+              type="button"
+              variant={viewMode === 'list' ? 'default' : 'ghost'}
+              size="sm"
+              className="flex-1 gap-1.5 md:flex-none"
+              onClick={() => setViewMode('list')}
+            >
+              <List className="size-3.5" />
+              {t.listView}
+            </Button>
+          </div>
         </div>
       </div>
 
       {/* Error */}
       {error ? <ErrorMessage message={error} /> : null}
 
-      {/* Grid */}
+      {/* Results */}
       {loading ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 6 }).map((_, idx) => (
-            <div key={idx} className="space-y-3 rounded-2xl bg-card p-4 sm:p-5">
-              <div className="flex items-center gap-3">
-                <Skeleton className="size-11 shrink-0 rounded-full" />
-                <div className="flex-1 space-y-1.5">
-                  <Skeleton className="h-4 w-32" />
-                  <Skeleton className="h-3 w-24" />
+        viewMode === 'list' ? (
+          <div className="rounded-xl border bg-card">
+            <Table className="min-w-245">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t.nameCol}</TableHead>
+                  <TableHead>{t.contactCol}</TableHead>
+                  <TableHead>{t.categoryCol}</TableHead>
+                  <TableHead>{t.emailCol}</TableHead>
+                  <TableHead>{t.phoneCol}</TableHead>
+                  <TableHead>{t.cityCol}</TableHead>
+                  <TableHead>{t.ibanCol}</TableHead>
+                  <TableHead>{t.tagsCol}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {Array.from({ length: 6 }).map((_, idx) => (
+                  <TableRow key={idx}>
+                    <TableCell><Skeleton className="h-4 w-36" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-28" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-44" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-28" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-44" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-20 rounded-full" /></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, idx) => (
+              <div key={idx} className="space-y-3 rounded-2xl bg-card p-4 sm:p-5">
+                <div className="flex items-center gap-3">
+                  <Skeleton className="size-11 shrink-0 rounded-full" />
+                  <div className="flex-1 space-y-1.5">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-3 w-24" />
+                  </div>
                 </div>
+                <Skeleton className="h-3 w-40" />
+                <Skeleton className="h-3 w-32" />
               </div>
-              <Skeleton className="h-3 w-40" />
-              <Skeleton className="h-3 w-32" />
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )
       ) : suppliers.length === 0 ? (
         <EmptyState message={t.empty} />
       ) : (
         <>
-          <div data-tour-suppliers-grid className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {suppliers.map((supplier) => (
-              <Link
-                key={supplier._id}
-                href={`/suppliers/${supplier._id}`}
-                className="group relative flex flex-col gap-4 rounded-2xl bg-card p-4 shadow-sm transition-all hover:shadow-md sm:p-5"
-              >
-                {/* Avatar + name */}
-                <div className="flex items-start gap-3">
-                  <div className={`flex size-11 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white ${avatarColor(supplier._id)}`}>
-                    {getInitials(supplier.fullName)}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-semibold text-foreground group-hover:text-primary dark:group-hover:text-primary/80">
-                      {supplier.fullName}
-                    </p>
-                    {supplier.contactName ? (
-                      <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-muted-foreground">
-                        <Building2 className="size-3 shrink-0" strokeWidth={1.75} />
-                        {supplier.contactName}
+          {viewMode === 'list' ? (
+            <div className="overflow-hidden rounded-xl border bg-card">
+              <Table className="min-w-245">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t.nameCol}</TableHead>
+                    <TableHead>{t.contactCol}</TableHead>
+                    <TableHead>{t.categoryCol}</TableHead>
+                    <TableHead>{t.emailCol}</TableHead>
+                    <TableHead>{t.phoneCol}</TableHead>
+                    <TableHead>{t.cityCol}</TableHead>
+                    <TableHead>{t.ibanCol}</TableHead>
+                    <TableHead>{t.tagsCol}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {suppliers.map((supplier) => {
+                    const tags = extractSupplierTags(supplier.notes);
+                    return (
+                      <TableRow key={supplier._id}>
+                        <TableCell>
+                          <Link href={`/suppliers/${supplier._id}`} className="font-semibold hover:text-primary">
+                            {supplier.fullName}
+                          </Link>
+                        </TableCell>
+                        <TableCell>{supplier.contactName || t.noData}</TableCell>
+                        <TableCell>
+                          <span className="inline-flex rounded-full bg-background px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                            {getCategoryLabel(supplier.category)}
+                          </span>
+                        </TableCell>
+                        <TableCell className="max-w-55 truncate">{supplier.email || t.noData}</TableCell>
+                        <TableCell>{supplier.phone || t.noData}</TableCell>
+                        <TableCell>{supplier.city || t.noData}</TableCell>
+                        <TableCell className="max-w-55 truncate font-mono text-xs">{supplier.iban || t.noData}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1">
+                            {tags.length === 0 ? (
+                              <span className="text-xs text-muted-foreground">{t.noData}</span>
+                            ) : (
+                              tags.map((tag) => (
+                                <span
+                                  key={`${supplier._id}-${tag}`}
+                                  className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                                    tag === 'important'
+                                      ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
+                                      : tag === 'pending'
+                                        ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+                                        : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+                                  }`}
+                                >
+                                  {tag === 'important' ? t.tagImportant : tag === 'pending' ? t.tagPending : t.tagPartner}
+                                </span>
+                              ))
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <div data-tour-suppliers-grid className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {suppliers.map((supplier) => {
+                const tags = extractSupplierTags(supplier.notes);
+
+                return (
+                  <Link
+                    key={supplier._id}
+                    href={`/suppliers/${supplier._id}`}
+                    className="group relative flex flex-col gap-4 rounded-2xl bg-card p-4 shadow-sm transition-all hover:shadow-md sm:p-5"
+                  >
+                    {/* Avatar + name */}
+                    <div className="flex items-start gap-3">
+                      <div className={`flex size-11 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white ${avatarColor(supplier._id)}`}>
+                        {getInitials(supplier.fullName)}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-semibold text-foreground group-hover:text-primary dark:group-hover:text-primary/80">
+                          {supplier.fullName}
+                        </p>
+                        {supplier.contactName ? (
+                          <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-muted-foreground">
+                            <Building2 className="size-3 shrink-0" strokeWidth={1.75} />
+                            {supplier.contactName}
+                          </p>
+                        ) : (
+                          <p className="mt-0.5 text-xs text-muted-foreground/50">{t.noData}</p>
+                        )}
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          <span className="inline-flex w-fit rounded-full bg-background px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                            {getCategoryLabel(supplier.category)}
+                          </span>
+                          {tags.map((tag) => (
+                            <span
+                              key={`${supplier._id}-card-${tag}`}
+                              className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                                tag === 'important'
+                                  ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
+                                  : tag === 'pending'
+                                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+                                    : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+                              }`}
+                            >
+                              {tag === 'important' ? t.tagImportant : tag === 'pending' ? t.tagPending : t.tagPartner}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Contact details */}
+                    <div className="space-y-1.5 text-xs text-muted-foreground">
+                      {supplier.email ? (
+                        <p className="flex items-center gap-2 truncate">
+                          <Mail className="size-3.5 shrink-0 text-primary/50" strokeWidth={1.75} />
+                          {supplier.email}
+                        </p>
+                      ) : null}
+                      {supplier.phone ? (
+                        <p className="flex items-center gap-2 truncate">
+                          <Phone className="size-3.5 shrink-0 text-primary/50" strokeWidth={1.75} />
+                          {supplier.phone}
+                        </p>
+                      ) : null}
+                      {supplier.address ? (
+                        <p className="flex items-center gap-2 truncate">
+                          <MapPin className="size-3.5 shrink-0 text-primary/50" strokeWidth={1.75} />
+                          {supplier.address}
+                        </p>
+                      ) : null}
+                    </div>
+
+                    {/* Footer */}
+                    <div className="flex items-center justify-between pt-3">
+                      <p className="text-[11px] text-muted-foreground/60">
+                        {new Date(supplier.createdAt).toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
                       </p>
-                    ) : (
-                      <p className="mt-0.5 text-xs text-muted-foreground/50">{t.noData}</p>
-                    )}
-                    <p className="mt-1 inline-flex w-fit rounded-full bg-background px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                      {getCategoryLabel(supplier.category)}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Contact details */}
-                <div className="space-y-1.5 text-xs text-muted-foreground">
-                  {supplier.email ? (
-                    <p className="flex items-center gap-2 truncate">
-                      <Mail className="size-3.5 shrink-0 text-primary/50" strokeWidth={1.75} />
-                      {supplier.email}
-                    </p>
-                  ) : null}
-                  {supplier.phone ? (
-                    <p className="flex items-center gap-2 truncate">
-                      <Phone className="size-3.5 shrink-0 text-primary/50" strokeWidth={1.75} />
-                      {supplier.phone}
-                    </p>
-                  ) : null}
-                  {supplier.address ? (
-                    <p className="flex items-center gap-2 truncate">
-                      <MapPin className="size-3.5 shrink-0 text-primary/50" strokeWidth={1.75} />
-                      {supplier.address}
-                    </p>
-                  ) : null}
-                </div>
-
-                {/* Footer */}
-                <div className="flex items-center justify-between pt-3">
-                  <p className="text-[11px] text-muted-foreground/60">
-                    {new Date(supplier.createdAt).toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
-                  </p>
-                  <span className="text-[11px] font-medium text-primary/70 opacity-0 transition-opacity group-hover:opacity-100 dark:text-primary/60">
-                    {t.viewProfile}
-                  </span>
-                </div>
-              </Link>
-            ))}
-          </div>
+                      <span className="text-[11px] font-medium text-primary/70 opacity-0 transition-opacity group-hover:opacity-100 dark:text-primary/60">
+                        {t.viewProfile}
+                      </span>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
 
           {/* Pagination */}
           <div className="flex flex-col gap-3 border-t border-border/60 pt-4 sm:flex-row sm:items-center sm:justify-between">
