@@ -14,9 +14,10 @@ interface ClientPickerProps {
   value: string;
   onChange: (clientId: string) => void;
   onClientSelected: (client: ClientOption | null) => void;
+  compact?: boolean;
 }
 
-export default function ClientPicker({ value, onChange, onClientSelected }: ClientPickerProps) {
+export default function ClientPicker({ value, onChange, onClientSelected, compact = false }: ClientPickerProps) {
   const { locale } = useLocale();
   const t = {
     en: {
@@ -59,6 +60,7 @@ export default function ClientPicker({ value, onChange, onClientSelected }: Clie
   const [showAddModal, setShowAddModal] = useState(false);
   const [dropdownStyle, setDropdownStyle] = useState<CSSProperties | null>(null);
   const [isInfoExpanded, setIsInfoExpanded] = useState(false);
+  const [compactDetailsOpen, setCompactDetailsOpen] = useState(false);
 
   const rootRef = useRef<HTMLDivElement | null>(null);
   const dropdownAnchorRef = useRef<HTMLDivElement | null>(null);
@@ -225,6 +227,7 @@ export default function ClientPicker({ value, onChange, onClientSelected }: Clie
     setSearch(client.fullName);
     setIsOpen(false);
     setIsInfoExpanded(false);
+    setCompactDetailsOpen(false);
 
     const activeElement = document.activeElement;
     if (activeElement instanceof HTMLElement) {
@@ -314,7 +317,7 @@ export default function ClientPicker({ value, onChange, onClientSelected }: Clie
           )
         : null}
 
-      {selectedClient ? (
+      {selectedClient && !compact ? (
         <div className="rounded-xl border border-border/70 bg-muted/30">
           {/* Compact header — always visible */}
           <div className="flex items-center justify-between gap-2 px-3 py-2.5">
@@ -378,6 +381,82 @@ export default function ClientPicker({ value, onChange, onClientSelected }: Clie
           ) : null}
         </div>
       ) : null}
+
+      {selectedClient && compact ? (
+        <div className="flex items-center justify-between gap-2 rounded-lg border border-border/70 bg-muted/20 px-2.5 py-1.5">
+          <p className="truncate text-xs text-muted-foreground">{selectedClient.fullName}</p>
+          <div className="flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              className="inline-flex h-7 items-center rounded px-2 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+              onClick={() => setCompactDetailsOpen(true)}
+            >
+              {t.clientInfo}
+            </button>
+            <button
+              type="button"
+              className="inline-flex h-7 items-center rounded px-2 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+              onClick={() => {
+                onChange('');
+                onClientSelected(null);
+                setSearch('');
+                setIsOpen(true);
+                setCompactDetailsOpen(false);
+              }}
+            >
+              {t.change}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {selectedClient && compact && compactDetailsOpen
+        ? createPortal(
+            <div className="fixed inset-0 z-60 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+              <div className="absolute inset-0 bg-black/40" onClick={() => setCompactDetailsOpen(false)} />
+              <div className="relative z-10 w-full max-w-md rounded-xl border border-border bg-background p-4 shadow-xl">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <h3 className="font-heading text-base font-semibold">{t.clientInfo}</h3>
+                  <button
+                    type="button"
+                    className="inline-flex h-7 w-7 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+                    onClick={() => setCompactDetailsOpen(false)}
+                    aria-label={t.change}
+                  >
+                    <XIcon className="size-4" />
+                  </button>
+                </div>
+                <div className="space-y-1.5 rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5 text-sm">
+                  <div className="grid grid-cols-[90px_minmax(0,1fr)] gap-2">
+                    <p className="text-muted-foreground">{t.name}</p>
+                    <p className="min-w-0 break-all font-medium">{selectedClient.fullName || t.emptyField}</p>
+                  </div>
+                  <div className="grid grid-cols-[90px_minmax(0,1fr)] gap-2">
+                    <p className="text-muted-foreground">{t.company}</p>
+                    <p className="min-w-0 break-all font-medium">{selectedClient.companyName || t.noCompany}</p>
+                  </div>
+                  <div className="grid grid-cols-[90px_minmax(0,1fr)] gap-2">
+                    <p className="text-muted-foreground">{t.phone}</p>
+                    <p className="min-w-0 break-all font-medium">{selectedClient.phone || t.emptyField}</p>
+                  </div>
+                  <div className="grid grid-cols-[90px_minmax(0,1fr)] gap-2">
+                    <p className="text-muted-foreground">{t.email}</p>
+                    <p className="min-w-0 break-all font-medium">{selectedClient.email || t.emptyField}</p>
+                  </div>
+                  <div className="grid grid-cols-[90px_minmax(0,1fr)] gap-2">
+                    <p className="text-muted-foreground">{t.address}</p>
+                    <p className="min-w-0 break-all font-medium">{selectedClient.address || t.emptyField}</p>
+                  </div>
+                  <div className="grid grid-cols-[90px_minmax(0,1fr)] gap-2">
+                    <p className="text-muted-foreground">{t.vat}</p>
+                    <p className="min-w-0 break-all font-medium">{selectedClient.vatNumber || t.emptyField}</p>
+                  </div>
+                </div>
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
 
       {showAddModal ? (
         <AddClientModal
