@@ -1,9 +1,10 @@
 'use client';
 
-import { ArrowDown, ArrowUp, ArrowUpDown, PencilIcon, Trash2Icon } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, CopyIcon, EllipsisVerticalIcon, PencilIcon, SquarePenIcon, Trash2Icon } from 'lucide-react';
 
 import { PriceDisplay } from '@/components/ui/PriceDisplay';
 import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
@@ -25,14 +26,18 @@ export interface CatalogueItem {
 
 export type CatalogueSortBy = 'name' | 'priceExcludingTax' | 'createdAt';
 export type CatalogueSortOrder = 'asc' | 'desc';
+export type CatalogueTableColumnKey = 'type' | 'priceExcludingTax' | 'priceIncludingTax' | 'vatRate' | 'addedDate' | 'description';
 
 interface CatalogueTableProps {
   items: CatalogueItem[];
   loading: boolean;
   sortBy: CatalogueSortBy;
   sortOrder: CatalogueSortOrder;
+  visibleColumns?: Partial<Record<CatalogueTableColumnKey, boolean>>;
   onSort: (column: CatalogueSortBy) => void;
   onEdit: (item: CatalogueItem) => void;
+  onQuickEdit: (item: CatalogueItem) => void;
+  onDuplicate: (item: CatalogueItem) => void;
   onDelete: (item: CatalogueItem) => void;
   labels: {
     name: string;
@@ -40,10 +45,14 @@ interface CatalogueTableProps {
     product: string;
     service: string;
     priceExcludingTax: string;
+    priceIncludingTax: string;
     vatRate: string;
     description: string;
     actions: string;
     edit: string;
+    quickEdit: string;
+    duplicate: string;
+    moreActions: string;
     delete: string;
     noDescription: string;
     addedDate: string;
@@ -117,11 +126,49 @@ export default function CatalogueTable({
   loading,
   sortBy,
   sortOrder,
+  visibleColumns,
   onSort,
   onEdit,
+  onQuickEdit,
+  onDuplicate,
   onDelete,
   labels,
 }: CatalogueTableProps) {
+  const isVisible = (column: CatalogueTableColumnKey) => visibleColumns?.[column] !== false;
+
+  function renderActions(item: CatalogueItem, align: 'start' | 'end' = 'end') {
+    return (
+      <div className="flex items-center justify-end gap-1">
+        <Button type="button" size="sm" variant="outline" className="whitespace-nowrap" onClick={() => onEdit(item)}>
+          <PencilIcon className="size-3.5" />
+          {labels.edit}
+        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button type="button" size="icon" variant="outline" className="size-8" aria-label={labels.moreActions}>
+              <EllipsisVerticalIcon className="size-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align={align} className="w-48">
+            <DropdownMenuItem onSelect={() => onQuickEdit(item)}>
+              <SquarePenIcon className="size-4" />
+              {labels.quickEdit}
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => onDuplicate(item)}>
+              <CopyIcon className="size-4" />
+              {labels.duplicate}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem variant="destructive" onSelect={() => onDelete(item)}>
+              <Trash2Icon className="size-4" />
+              {labels.delete}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    );
+  }
+
   return (
     <>
       <div className="space-y-3 md:hidden">
@@ -169,35 +216,46 @@ export default function CatalogueTable({
 
                 {/* Stats grid: clearer on narrow screens */}
                 <div className="mb-3 grid grid-cols-2 gap-2 rounded-lg border border-border/60 bg-background px-2.5 py-2 text-xs">
-                  <div>
-                    <p className="mb-0.5 text-muted-foreground">{labels.priceExcludingTax}</p>
-                    <p className="font-medium"><PriceDisplay cents={item.priceExcludingTax} /></p>
-                  </div>
-                  <div>
-                    <p className="mb-0.5 text-muted-foreground">{labels.vatRate}</p>
-                    <p className="font-medium">{item.vatRate}%</p>
-                  </div>
-                  <div className="col-span-2">
-                    <p className="mb-0.5 text-muted-foreground">{labels.addedDate}</p>
-                    <p className="font-medium">{new Date(item.createdAt).toLocaleDateString()}</p>
-                  </div>
+                  {isVisible('priceExcludingTax') ? (
+                    <div>
+                      <p className="mb-0.5 text-muted-foreground">{labels.priceExcludingTax}</p>
+                      <p className="font-medium"><PriceDisplay cents={item.priceExcludingTax} /></p>
+                    </div>
+                  ) : null}
+                  {isVisible('priceIncludingTax') ? (
+                    <div>
+                      <p className="mb-0.5 text-muted-foreground">{labels.priceIncludingTax}</p>
+                      <p className="font-medium"><PriceDisplay cents={item.priceIncludingTax ?? Math.round(item.priceExcludingTax * (1 + item.vatRate / 100))} /></p>
+                    </div>
+                  ) : null}
+                  {isVisible('vatRate') ? (
+                    <div>
+                      <p className="mb-0.5 text-muted-foreground">{labels.vatRate}</p>
+                      <p className="font-medium">{item.vatRate}%</p>
+                    </div>
+                  ) : null}
+                  {isVisible('addedDate') ? (
+                    <div className="col-span-2">
+                      <p className="mb-0.5 text-muted-foreground">{labels.addedDate}</p>
+                      <p className="font-medium">{new Date(item.createdAt).toLocaleDateString()}</p>
+                    </div>
+                  ) : null}
                 </div>
 
                 {/* Description */}
-                {item.description ? (
+                {isVisible('description') && item.description ? (
                   <p className="mb-3 line-clamp-2 text-xs text-muted-foreground">{item.description}</p>
                 ) : null}
 
                 {/* Actions */}
                 <div className="grid grid-cols-2 gap-2">
-                  <Button type="button" size="sm" variant="outline" className="h-9" onClick={() => onEdit(item)}>
-                    <PencilIcon className="size-3.5" />
-                    {labels.edit}
+                  <Button type="button" size="sm" variant="secondary" className="h-9" onClick={() => onQuickEdit(item)}>
+                    <SquarePenIcon className="size-3.5" />
+                    {labels.quickEdit}
                   </Button>
-                  <Button type="button" size="sm" variant="destructive" className="h-9" onClick={() => onDelete(item)}>
-                    <Trash2Icon className="size-3.5" />
-                    {labels.delete}
-                  </Button>
+                  <div className="flex items-center justify-end gap-2">
+                    {renderActions(item, 'end')}
+                  </div>
                 </div>
               </article>
             ))}
@@ -210,12 +268,20 @@ export default function CatalogueTable({
               <TableHead style={{ width: '26%' }}>
                 <SortHeaderButton label={labels.name} column="name" sortBy={sortBy} sortOrder={sortOrder} onSort={onSort} />
               </TableHead>
-              <TableHead style={{ width: '10%' }}>{labels.type}</TableHead>
-              <TableHead style={{ width: '15%' }}>
-                <SortHeaderButton label={labels.priceExcludingTax} column="priceExcludingTax" sortBy={sortBy} sortOrder={sortOrder} onSort={onSort} />
-              </TableHead>
-              <TableHead style={{ width: '8%' }}>{labels.vatRate}</TableHead>
-              <TableHead style={{ width: '21%' }}>{labels.description}</TableHead>
+              {isVisible('type') ? <TableHead style={{ width: '10%' }}>{labels.type}</TableHead> : null}
+              {isVisible('priceExcludingTax') ? (
+                <TableHead style={{ width: '14%' }}>
+                  <SortHeaderButton label={labels.priceExcludingTax} column="priceExcludingTax" sortBy={sortBy} sortOrder={sortOrder} onSort={onSort} />
+                </TableHead>
+              ) : null}
+              {isVisible('priceIncludingTax') ? <TableHead style={{ width: '14%' }}>{labels.priceIncludingTax}</TableHead> : null}
+              {isVisible('vatRate') ? <TableHead style={{ width: '8%' }}>{labels.vatRate}</TableHead> : null}
+              {isVisible('addedDate') ? (
+                <TableHead style={{ width: '12%' }}>
+                  <SortHeaderButton label={labels.addedDate} column="createdAt" sortBy={sortBy} sortOrder={sortOrder} onSort={onSort} />
+                </TableHead>
+              ) : null}
+              {isVisible('description') ? <TableHead style={{ width: '18%' }}>{labels.description}</TableHead> : null}
               <TableHead style={{ width: '20%' }} className="text-right">{labels.actions}</TableHead>
             </TableRow>
           </TableHeader>
@@ -224,10 +290,12 @@ export default function CatalogueTable({
               ? Array.from({ length: 5 }).map((_, index) => (
                   <TableRow key={`skeleton-row-${index}`}>
                     <TableCell><Skeleton className="h-4 w-4/5" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-14 rounded-full" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-10" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-full" /></TableCell>
+                    {isVisible('type') ? <TableCell><Skeleton className="h-5 w-14 rounded-full" /></TableCell> : null}
+                    {isVisible('priceExcludingTax') ? <TableCell><Skeleton className="h-4 w-20" /></TableCell> : null}
+                    {isVisible('priceIncludingTax') ? <TableCell><Skeleton className="h-4 w-20" /></TableCell> : null}
+                    {isVisible('vatRate') ? <TableCell><Skeleton className="h-4 w-10" /></TableCell> : null}
+                    {isVisible('addedDate') ? <TableCell><Skeleton className="h-4 w-20" /></TableCell> : null}
+                    {isVisible('description') ? <TableCell><Skeleton className="h-4 w-full" /></TableCell> : null}
                     <TableCell><Skeleton className="h-7 w-full" /></TableCell>
                   </TableRow>
                 ))
@@ -249,26 +317,27 @@ export default function CatalogueTable({
                         <span className="truncate">{item.name}</span>
                       </div>
                     </TableCell>
-                    <TableCell>
-                      <span style={typePill(item.type)}>{item.type === 'product' ? labels.product : labels.service}</span>
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap">
-                      <PriceDisplay cents={item.priceExcludingTax} />
-                    </TableCell>
-                    <TableCell>{item.vatRate}%</TableCell>
-                    <TableCell className="truncate" title={item.description ?? labels.noDescription}>{truncate(item.description, 60) || labels.noDescription}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center justify-end gap-1">
-                        <Button type="button" size="sm" variant="outline" className="whitespace-nowrap" onClick={() => onEdit(item)}>
-                          <PencilIcon className="size-3.5" />
-                          {labels.edit}
-                        </Button>
-                        <Button type="button" size="sm" variant="destructive" className="whitespace-nowrap" onClick={() => onDelete(item)}>
-                          <Trash2Icon className="size-3.5" />
-                          {labels.delete}
-                        </Button>
-                      </div>
-                    </TableCell>
+                    {isVisible('type') ? (
+                      <TableCell>
+                        <span style={typePill(item.type)}>{item.type === 'product' ? labels.product : labels.service}</span>
+                      </TableCell>
+                    ) : null}
+                    {isVisible('priceExcludingTax') ? (
+                      <TableCell className="whitespace-nowrap">
+                        <PriceDisplay cents={item.priceExcludingTax} />
+                      </TableCell>
+                    ) : null}
+                    {isVisible('priceIncludingTax') ? (
+                      <TableCell className="whitespace-nowrap">
+                        <PriceDisplay cents={item.priceIncludingTax ?? Math.round(item.priceExcludingTax * (1 + item.vatRate / 100))} />
+                      </TableCell>
+                    ) : null}
+                    {isVisible('vatRate') ? <TableCell>{item.vatRate}%</TableCell> : null}
+                    {isVisible('addedDate') ? <TableCell>{new Date(item.createdAt).toLocaleDateString()}</TableCell> : null}
+                    {isVisible('description') ? (
+                      <TableCell className="truncate" title={item.description ?? labels.noDescription}>{truncate(item.description, 60) || labels.noDescription}</TableCell>
+                    ) : null}
+                    <TableCell>{renderActions(item)}</TableCell>
                   </TableRow>
                 ))}
           </TableBody>

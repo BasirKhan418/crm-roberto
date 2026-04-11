@@ -60,7 +60,7 @@ export const createCatalogueItem = async (
 export const listCatalogueItems = async (
   userId: string,
   options: ListQueryOptions,
-  filters?: { type?: CatalogueType }
+  filters?: { type?: CatalogueType; minPriceExcludingTax?: number; maxPriceExcludingTax?: number }
 ): Promise<CatalogueListResult> => {
   await ConnectDb();
 
@@ -68,6 +68,20 @@ export const listCatalogueItems = async (
 
   if (filters?.type) {
     query.type = filters.type;
+  }
+
+  if (typeof filters?.minPriceExcludingTax === 'number' || typeof filters?.maxPriceExcludingTax === 'number') {
+    const priceFilter: { $gte?: number; $lte?: number } = {};
+
+    if (typeof filters?.minPriceExcludingTax === 'number') {
+      priceFilter.$gte = Math.max(0, Math.round(filters.minPriceExcludingTax));
+    }
+
+    if (typeof filters?.maxPriceExcludingTax === 'number') {
+      priceFilter.$lte = Math.max(0, Math.round(filters.maxPriceExcludingTax));
+    }
+
+    query.priceExcludingTax = priceFilter;
   }
 
   if (options.search) {

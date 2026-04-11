@@ -24,7 +24,22 @@ export async function GET(request: NextRequest) {
     const rawType = request.nextUrl.searchParams.get('type');
     const type: CatalogueType | undefined = rawType === 'product' || rawType === 'service' ? rawType : undefined;
 
-    const result = await listCatalogueItems(me.user.id, options, { type });
+    const minPriceParam = request.nextUrl.searchParams.get('minPrice');
+    const maxPriceParam = request.nextUrl.searchParams.get('maxPrice');
+
+    const minPriceRaw = minPriceParam && minPriceParam.trim().length > 0 ? Number(minPriceParam) : undefined;
+    const maxPriceRaw = maxPriceParam && maxPriceParam.trim().length > 0 ? Number(maxPriceParam) : undefined;
+
+    const minPriceExcludingTax =
+      typeof minPriceRaw === 'number' && Number.isFinite(minPriceRaw) && minPriceRaw >= 0 ? Math.round(minPriceRaw) : undefined;
+    const maxPriceExcludingTax =
+      typeof maxPriceRaw === 'number' && Number.isFinite(maxPriceRaw) && maxPriceRaw >= 0 ? Math.round(maxPriceRaw) : undefined;
+
+    const result = await listCatalogueItems(me.user.id, options, {
+      type,
+      minPriceExcludingTax,
+      maxPriceExcludingTax,
+    });
 
     return NextResponse.json({
       success: true,

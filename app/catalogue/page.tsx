@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { ArrowDown, ArrowUp, ArrowUpDown, PlusIcon, SearchIcon } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, Columns3Icon, PlusIcon, SearchIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import CatalogueItemModal, { type CatalogueItemFormValue } from '@/components/catalogue/CatalogueItemModal';
 import CatalogueTable, {
   type CatalogueItem,
+  type CatalogueTableColumnKey,
   type CatalogueSortBy,
   type CatalogueSortOrder,
 } from '@/components/catalogue/CatalogueTable';
@@ -17,9 +18,19 @@ import { useLocale } from '@/components/providers/locale-provider';
 import { resolveTranslatedError } from '@/lib/i18n/messages';
 import { eurosToCents } from '@/lib/price';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import EmptyState from '@/components/ui/EmptyState';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import { Input } from '@/components/ui/input';
+import { PriceDisplay } from '@/components/ui/PriceDisplay';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 type CatalogueTypeFilter = 'all' | 'product' | 'service';
@@ -42,6 +53,27 @@ interface Pagination {
   total: number;
   totalPages: number;
 }
+
+interface CatalogueViewConfig {
+  searchInput?: string;
+  typeFilter?: CatalogueTypeFilter;
+  sortBy?: CatalogueSortBy;
+  sortOrder?: CatalogueSortOrder;
+  minPriceInput?: string;
+  maxPriceInput?: string;
+}
+
+const COLUMN_STORAGE_KEY = 'crm.catalogue.visibleColumns.v1';
+const VIEW_STORAGE_KEY = 'crm.catalogue.viewConfig.v1';
+
+const DEFAULT_VISIBLE_COLUMNS: Record<CatalogueTableColumnKey, boolean> = {
+  type: true,
+  priceExcludingTax: true,
+  priceIncludingTax: true,
+  vatRate: true,
+  addedDate: true,
+  description: true,
+};
 
 const initialPagination: Pagination = {
   page: 1,
@@ -93,6 +125,13 @@ export default function CataloguePage() {
       sortName: 'Name',
       sortPrice: 'Price',
       sortDate: 'Date added',
+      columns: 'Columns',
+      visibleColumns: 'Visible columns',
+      applyColumns: 'Apply',
+      cancelColumns: 'Cancel',
+      minPrice: 'Min price',
+      maxPrice: 'Max price',
+      resetFilters: 'Reset filters',
       quickCreateTitle: 'Quick add reusable item',
       quickNamePlaceholder: 'Item name',
       quickPricePlaceholder: 'Price HT',
@@ -100,15 +139,35 @@ export default function CataloguePage() {
       quickAdding: 'Adding...',
       quickValidation: 'Name and price are required',
       quickFailed: 'Failed to create item',
+      quickEditTitle: 'Quick edit item',
+      quickEditDescription: 'Update key business fields without opening the full form.',
+      quickEditName: 'Name',
+      quickEditPrice: 'Price excl. tax',
+      quickEditVat: 'VAT rate',
+      quickEditSave: 'Save changes',
+      quickEditSaving: 'Saving...',
+      quickEditFailed: 'Failed to update item',
+      duplicate: 'Duplicate',
+      duplicateSuccess: 'Item duplicated',
+      duplicateFailed: 'Failed to duplicate item',
+      quickEdit: 'Quick edit',
+      moreActions: 'More actions',
       emptyMessage: 'No products or services yet',
       name: 'Name',
       type: 'Type',
       product: 'Product',
       service: 'Service',
       priceExcludingTax: 'Price excl. tax',
+      priceIncludingTax: 'Price incl. tax',
       vatRate: 'VAT',
       description: 'Description',
       actions: 'Actions',
+      columnType: 'Type',
+      columnPriceExcludingTax: 'Price excl.',
+      columnPriceIncludingTax: 'Price incl.',
+      columnVatRate: 'VAT',
+      columnAddedDate: 'Date added',
+      columnDescription: 'Description',
       edit: 'Edit',
       delete: 'Delete',
       noDescription: '—',
@@ -133,6 +192,13 @@ export default function CataloguePage() {
       sortName: 'Nom',
       sortPrice: 'Prix',
       sortDate: "Date d'ajout",
+      columns: 'Colonnes',
+      visibleColumns: 'Colonnes visibles',
+      applyColumns: 'Appliquer',
+      cancelColumns: 'Annuler',
+      minPrice: 'Prix min',
+      maxPrice: 'Prix max',
+      resetFilters: 'Reinitialiser les filtres',
       quickCreateTitle: 'Ajout rapide d\'un élément réutilisable',
       quickNamePlaceholder: 'Nom de l\'élément',
       quickPricePlaceholder: 'Prix HT',
@@ -140,15 +206,35 @@ export default function CataloguePage() {
       quickAdding: 'Ajout...',
       quickValidation: 'Le nom et le prix sont requis',
       quickFailed: 'Impossible de créer l\'élément',
+      quickEditTitle: 'Modification rapide',
+      quickEditDescription: 'Mettez a jour les champs essentiels sans ouvrir le formulaire complet.',
+      quickEditName: 'Nom',
+      quickEditPrice: 'Prix HT',
+      quickEditVat: 'TVA',
+      quickEditSave: 'Enregistrer',
+      quickEditSaving: 'Enregistrement...',
+      quickEditFailed: 'Impossible de mettre a jour l\'element',
+      duplicate: 'Dupliquer',
+      duplicateSuccess: 'Element duplique',
+      duplicateFailed: 'Impossible de dupliquer l\'element',
+      quickEdit: 'Edition rapide',
+      moreActions: 'Plus d\'actions',
       emptyMessage: 'Aucun produit ou service pour le moment',
       name: 'Nom',
       type: 'Type',
       product: 'Produit',
       service: 'Service',
       priceExcludingTax: 'Prix HT',
+      priceIncludingTax: 'Prix TTC',
       vatRate: 'TVA',
       description: 'Description',
       actions: 'Actions',
+      columnType: 'Type',
+      columnPriceExcludingTax: 'Prix HT',
+      columnPriceIncludingTax: 'Prix TTC',
+      columnVatRate: 'TVA',
+      columnAddedDate: 'Date d\'ajout',
+      columnDescription: 'Description',
       edit: 'Modifier',
       delete: 'Supprimer',
       noDescription: '—',
@@ -168,16 +254,86 @@ export default function CataloguePage() {
   const [searchInput, setSearchInput] = useState('');
   const [searchDebounced, setSearchDebounced] = useState('');
   const [typeFilter, setTypeFilter] = useState<CatalogueTypeFilter>('all');
+  const [minPriceInput, setMinPriceInput] = useState('');
+  const [maxPriceInput, setMaxPriceInput] = useState('');
+  const [minPriceDebounced, setMinPriceDebounced] = useState('');
+  const [maxPriceDebounced, setMaxPriceDebounced] = useState('');
   const [sortBy, setSortBy] = useState<CatalogueSortBy>('createdAt');
   const [sortOrder, setSortOrder] = useState<CatalogueSortOrder>('desc');
+  const [visibleColumns, setVisibleColumns] = useState<Record<CatalogueTableColumnKey, boolean>>(DEFAULT_VISIBLE_COLUMNS);
+  const [draftVisibleColumns, setDraftVisibleColumns] = useState<Record<CatalogueTableColumnKey, boolean>>(DEFAULT_VISIBLE_COLUMNS);
+  const [columnsOpen, setColumnsOpen] = useState(false);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editItem, setEditItem] = useState<CatalogueItemFormValue | null>(null);
   const [deleteItem, setDeleteItem] = useState<CatalogueItem | null>(null);
+  const [quickEditItem, setQuickEditItem] = useState<CatalogueItem | null>(null);
+  const [quickEditName, setQuickEditName] = useState('');
+  const [quickEditPrice, setQuickEditPrice] = useState('');
+  const [quickEditVatRate, setQuickEditVatRate] = useState('17');
+  const [quickEditSaving, setQuickEditSaving] = useState(false);
   const [quickName, setQuickName] = useState('');
   const [quickPrice, setQuickPrice] = useState('');
   const [quickType, setQuickType] = useState<'product' | 'service'>('product');
   const [quickSaving, setQuickSaving] = useState(false);
+
+  useEffect(() => {
+    try {
+      const rawView = window.localStorage.getItem(VIEW_STORAGE_KEY);
+      if (rawView) {
+        const parsed = JSON.parse(rawView) as CatalogueViewConfig;
+        const nextSearchInput = typeof parsed.searchInput === 'string' ? parsed.searchInput : '';
+        const nextTypeFilter: CatalogueTypeFilter =
+          parsed.typeFilter === 'product' || parsed.typeFilter === 'service' ? parsed.typeFilter : 'all';
+        const nextSortBy: CatalogueSortBy =
+          parsed.sortBy === 'name' || parsed.sortBy === 'priceExcludingTax' || parsed.sortBy === 'createdAt'
+            ? parsed.sortBy
+            : 'createdAt';
+        const nextSortOrder: CatalogueSortOrder = parsed.sortOrder === 'asc' ? 'asc' : 'desc';
+        const nextMinPrice = typeof parsed.minPriceInput === 'string' ? parsed.minPriceInput : '';
+        const nextMaxPrice = typeof parsed.maxPriceInput === 'string' ? parsed.maxPriceInput : '';
+
+        setSearchInput(nextSearchInput);
+        setSearchDebounced(nextSearchInput.trim());
+        setTypeFilter(nextTypeFilter);
+        setSortBy(nextSortBy);
+        setSortOrder(nextSortOrder);
+        setMinPriceInput(nextMinPrice);
+        setMaxPriceInput(nextMaxPrice);
+        setMinPriceDebounced(nextMinPrice.trim());
+        setMaxPriceDebounced(nextMaxPrice.trim());
+      }
+
+      const rawColumns = window.localStorage.getItem(COLUMN_STORAGE_KEY);
+      if (rawColumns) {
+        const parsedColumns = JSON.parse(rawColumns) as Partial<Record<CatalogueTableColumnKey, boolean>>;
+        const nextColumns = { ...DEFAULT_VISIBLE_COLUMNS, ...parsedColumns };
+        setVisibleColumns(nextColumns);
+        setDraftVisibleColumns(nextColumns);
+      }
+    } catch {
+      setVisibleColumns(DEFAULT_VISIBLE_COLUMNS);
+      setDraftVisibleColumns(DEFAULT_VISIBLE_COLUMNS);
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        VIEW_STORAGE_KEY,
+        JSON.stringify({
+          searchInput,
+          typeFilter,
+          sortBy,
+          sortOrder,
+          minPriceInput,
+          maxPriceInput,
+        } satisfies CatalogueViewConfig),
+      );
+    } catch {
+      // Ignore storage errors.
+    }
+  }, [maxPriceInput, minPriceInput, searchInput, sortBy, sortOrder, typeFilter]);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -188,8 +344,17 @@ export default function CataloguePage() {
   }, [searchInput]);
 
   useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setMinPriceDebounced(minPriceInput.trim());
+      setMaxPriceDebounced(maxPriceInput.trim());
+    }, 300);
+
+    return () => window.clearTimeout(timeout);
+  }, [maxPriceInput, minPriceInput]);
+
+  useEffect(() => {
     setPagination((prev) => (prev.page === 1 ? prev : { ...prev, page: 1 }));
-  }, [searchDebounced]);
+  }, [maxPriceDebounced, minPriceDebounced, searchDebounced, sortBy, sortOrder, typeFilter]);
 
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
@@ -206,8 +371,20 @@ export default function CataloguePage() {
       params.set('search', searchDebounced);
     }
 
+    const hasMinPrice = minPriceDebounced.trim().length > 0;
+    const minPriceNumeric = Number(minPriceDebounced);
+    if (hasMinPrice && Number.isFinite(minPriceNumeric) && minPriceNumeric >= 0) {
+      params.set('minPrice', String(eurosToCents(minPriceNumeric)));
+    }
+
+    const hasMaxPrice = maxPriceDebounced.trim().length > 0;
+    const maxPriceNumeric = Number(maxPriceDebounced);
+    if (hasMaxPrice && Number.isFinite(maxPriceNumeric) && maxPriceNumeric >= 0) {
+      params.set('maxPrice', String(eurosToCents(maxPriceNumeric)));
+    }
+
     return params.toString();
-  }, [pagination.page, pagination.limit, sortBy, sortOrder, typeFilter, searchDebounced]);
+  }, [maxPriceDebounced, minPriceDebounced, pagination.page, pagination.limit, searchDebounced, sortBy, sortOrder, typeFilter]);
 
   const loadItems = useCallback(async () => {
     setLoading(true);
@@ -252,13 +429,117 @@ export default function CataloguePage() {
   function handleSort(column: CatalogueSortBy) {
     if (sortBy === column) {
       setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
-      setPagination((prev) => ({ ...prev, page: 1 }));
       return;
     }
 
     setSortBy(column);
     setSortOrder(column === 'createdAt' ? 'desc' : 'asc');
+  }
+
+  function toggleDraftColumn(column: CatalogueTableColumnKey, checked: boolean) {
+    setDraftVisibleColumns((prev) => ({ ...prev, [column]: checked }));
+  }
+
+  function applyColumns() {
+    setVisibleColumns(draftVisibleColumns);
+    try {
+      window.localStorage.setItem(COLUMN_STORAGE_KEY, JSON.stringify(draftVisibleColumns));
+    } catch {
+      // Ignore storage errors.
+    }
+    setColumnsOpen(false);
+  }
+
+  function openQuickEdit(item: CatalogueItem) {
+    setQuickEditItem(item);
+    setQuickEditName(item.name);
+    setQuickEditPrice((item.priceExcludingTax / 100).toString());
+    setQuickEditVatRate(item.vatRate.toString());
+  }
+
+  function resetFilters() {
+    setSearchInput('');
+    setSearchDebounced('');
+    setTypeFilter('all');
+    setSortBy('createdAt');
+    setSortOrder('desc');
+    setMinPriceInput('');
+    setMaxPriceInput('');
+    setMinPriceDebounced('');
+    setMaxPriceDebounced('');
     setPagination((prev) => ({ ...prev, page: 1 }));
+  }
+
+  async function handleDuplicateItem(item: CatalogueItem) {
+    try {
+      const response = await fetch('/api/catalogue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: `${item.name} (${t.duplicate})`,
+          type: item.type,
+          priceExcludingTax: item.priceExcludingTax,
+          vatRate: item.vatRate,
+          currency: item.currency ?? 'EUR',
+          description: item.description ?? null,
+          attachmentUrl: item.attachmentUrl ?? null,
+          attachmentKey: item.attachmentKey ?? null,
+          attachmentMimeType: item.attachmentMimeType ?? null,
+          attachmentName: item.attachmentName ?? null,
+        }),
+      });
+
+      const payload = (await response.json()) as { success?: boolean; message?: string };
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.message || t.duplicateFailed);
+      }
+
+      toast.success(t.duplicateSuccess);
+      await refreshAfterMutation();
+    } catch (error) {
+      toast.error(resolveTranslatedError(locale, error, t.duplicateFailed));
+    }
+  }
+
+  async function saveQuickEdit() {
+    if (!quickEditItem?._id) {
+      return;
+    }
+
+    const name = quickEditName.trim();
+    const price = Number(quickEditPrice.trim());
+    const vatRate = Number(quickEditVatRate.trim());
+
+    if (!name || !Number.isFinite(price) || price < 0 || !Number.isFinite(vatRate) || vatRate < 0 || vatRate > 100) {
+      toast.error(t.quickValidation);
+      return;
+    }
+
+    setQuickEditSaving(true);
+    try {
+      const response = await fetch(`/api/catalogue/${quickEditItem._id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          priceExcludingTax: eurosToCents(price),
+          vatRate,
+          currency: quickEditItem.currency ?? 'EUR',
+        }),
+      });
+
+      const payload = (await response.json()) as { success?: boolean; message?: string };
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.message || t.quickEditFailed);
+      }
+
+      setQuickEditItem(null);
+      await loadItems();
+    } catch (error) {
+      toast.error(resolveTranslatedError(locale, error, t.quickEditFailed));
+    } finally {
+      setQuickEditSaving(false);
+    }
   }
 
   async function openEdit(item: CatalogueItem) {
@@ -363,6 +644,20 @@ export default function CataloguePage() {
     }
   }
 
+  const productCount = items.filter((item) => item.type === 'product').length;
+  const serviceCount = items.filter((item) => item.type === 'service').length;
+  const avgPriceExcludingTax =
+    items.length === 0 ? 0 : Math.round(items.reduce((sum, item) => sum + item.priceExcludingTax, 0) / items.length);
+
+  const columnOptions: Array<{ key: CatalogueTableColumnKey; label: string }> = [
+    { key: 'type', label: t.columnType },
+    { key: 'priceExcludingTax', label: t.columnPriceExcludingTax },
+    { key: 'priceIncludingTax', label: t.columnPriceIncludingTax },
+    { key: 'vatRate', label: t.columnVatRate },
+    { key: 'addedDate', label: t.columnAddedDate },
+    { key: 'description', label: t.columnDescription },
+  ];
+
   return (
     <CrmShell title={t.shellTitle}>
       <section className="space-y-5">
@@ -377,7 +672,23 @@ export default function CataloguePage() {
           </Button>
         </div>
 
-        <div className="space-y-3 rounded-xl border border-border/70 bg-card/40 p-3 sm:p-4">
+        <div className="grid gap-2.5 sm:grid-cols-3">
+          <div className="rounded-xl border border-border/70 bg-linear-to-br from-background via-background to-muted/40 p-3">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">{t.tabAll}</p>
+            <p className="mt-1 text-xl font-semibold tabular-nums">{pagination.total}</p>
+          </div>
+          <div className="rounded-xl border border-border/70 bg-linear-to-br from-background via-background to-muted/40 p-3">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">{t.type}</p>
+            <p className="mt-1 text-xl font-semibold tabular-nums">{productCount} / {serviceCount}</p>
+            <p className="text-xs text-muted-foreground">{t.product} / {t.service}</p>
+          </div>
+          <div className="rounded-xl border border-border/70 bg-linear-to-br from-background via-background to-muted/40 p-3">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">{t.sortPrice}</p>
+            <p className="mt-1 text-xl font-semibold"><PriceDisplay cents={avgPriceExcludingTax} /></p>
+          </div>
+        </div>
+
+        <div className="space-y-3 rounded-xl border border-border/70 bg-card/50 p-3 shadow-sm sm:p-4">
           <div data-tour-catalogue-quick-add className="rounded-lg border border-border/80 bg-background/70 p-3">
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t.quickCreateTitle}</p>
             <div className="grid gap-2 sm:grid-cols-[1.2fr_0.7fr_auto_auto]">
@@ -416,7 +727,7 @@ export default function CataloguePage() {
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
+          <div className="grid gap-3 lg:grid-cols-[1fr_auto_auto_auto_auto_auto] lg:items-center">
             <div className="relative">
               <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -427,6 +738,66 @@ export default function CataloguePage() {
                 placeholder={t.searchPlaceholder}
               />
             </div>
+
+            <Input
+              value={minPriceInput}
+              onChange={(event) => setMinPriceInput(event.target.value)}
+              placeholder={t.minPrice}
+              className="h-10 w-full lg:w-28"
+              inputMode="decimal"
+            />
+
+            <Input
+              value={maxPriceInput}
+              onChange={(event) => setMaxPriceInput(event.target.value)}
+              placeholder={t.maxPrice}
+              className="h-10 w-full lg:w-28"
+              inputMode="decimal"
+            />
+
+            <DropdownMenu
+              open={columnsOpen}
+              onOpenChange={(next) => {
+                setColumnsOpen(next);
+                if (next) {
+                  setDraftVisibleColumns(visibleColumns);
+                }
+              }}
+            >
+              <DropdownMenuTrigger asChild>
+                <Button type="button" variant="outline" className="h-10 w-full lg:w-auto">
+                  <Columns3Icon className="size-4" />
+                  {t.columns}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuLabel>{t.visibleColumns}</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {columnOptions.map((column) => (
+                  <DropdownMenuCheckboxItem
+                    key={column.key}
+                    checked={draftVisibleColumns[column.key]}
+                    onCheckedChange={(checked) => toggleDraftColumn(column.key, Boolean(checked))}
+                    onSelect={(event) => event.preventDefault()}
+                  >
+                    {column.label}
+                  </DropdownMenuCheckboxItem>
+                ))}
+                <DropdownMenuSeparator />
+                <div className="flex gap-2 p-1">
+                  <Button type="button" size="sm" variant="outline" className="h-8 flex-1" onClick={() => setColumnsOpen(false)}>
+                    {t.cancelColumns}
+                  </Button>
+                  <Button type="button" size="sm" className="h-8 flex-1" onClick={applyColumns}>
+                    {t.applyColumns}
+                  </Button>
+                </div>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <Button type="button" variant="ghost" className="h-10" onClick={resetFilters}>
+              {t.resetFilters}
+            </Button>
 
             <div data-tour-catalogue-filters className="flex items-center gap-2 overflow-x-auto pb-0.5">
               <SortButton label={t.sortName} column="name" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
@@ -439,7 +810,6 @@ export default function CataloguePage() {
             value={typeFilter}
             onValueChange={(value) => {
               setTypeFilter(value as CatalogueTypeFilter);
-              setPagination((prev) => ({ ...prev, page: 1 }));
             }}
           >
             <TabsList className="h-auto w-full rounded-lg border border-border/80 bg-transparent p-1 sm:w-auto">
@@ -477,8 +847,11 @@ export default function CataloguePage() {
               loading={loading}
               sortBy={sortBy}
               sortOrder={sortOrder}
+              visibleColumns={visibleColumns}
               onSort={handleSort}
               onEdit={openEdit}
+              onQuickEdit={openQuickEdit}
+              onDuplicate={handleDuplicateItem}
               onDelete={setDeleteItem}
               labels={{
                 name: t.name,
@@ -486,10 +859,14 @@ export default function CataloguePage() {
                 product: t.product,
                 service: t.service,
                 priceExcludingTax: t.priceExcludingTax,
+                priceIncludingTax: t.priceIncludingTax,
                 vatRate: t.vatRate,
                 description: t.description,
                 actions: t.actions,
                 edit: t.edit,
+                quickEdit: t.quickEdit,
+                duplicate: t.duplicate,
+                moreActions: t.moreActions,
                 delete: t.delete,
                 noDescription: t.noDescription,
                 addedDate: t.addedDate,
@@ -547,6 +924,49 @@ export default function CataloguePage() {
         onClose={() => setDeleteItem(null)}
         onDeleted={handleDeletedItem}
       />
+
+      <Dialog open={Boolean(quickEditItem)} onOpenChange={(next) => (!next ? setQuickEditItem(null) : undefined)}>
+        <DialogContent className="w-[calc(100vw-1rem)] max-w-md p-4 sm:p-5">
+          <DialogHeader className="pr-8">
+            <DialogTitle>{t.quickEditTitle}</DialogTitle>
+            <DialogDescription>{t.quickEditDescription}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground">{t.quickEditName}</p>
+              <Input value={quickEditName} onChange={(event) => setQuickEditName(event.target.value)} className="h-9" />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-muted-foreground">{t.quickEditPrice}</p>
+                <Input
+                  value={quickEditPrice}
+                  onChange={(event) => setQuickEditPrice(event.target.value)}
+                  className="h-9"
+                  inputMode="decimal"
+                />
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-muted-foreground">{t.quickEditVat}</p>
+                <Input
+                  value={quickEditVatRate}
+                  onChange={(event) => setQuickEditVatRate(event.target.value)}
+                  className="h-9"
+                  inputMode="decimal"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="pt-3">
+            <Button type="button" variant="outline" onClick={() => setQuickEditItem(null)}>
+              {t.cancelColumns}
+            </Button>
+            <Button type="button" onClick={() => void saveQuickEdit()} disabled={quickEditSaving}>
+              {quickEditSaving ? t.quickEditSaving : t.quickEditSave}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </CrmShell>
   );
 }
