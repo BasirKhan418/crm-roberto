@@ -28,6 +28,10 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
+type NoteStatus = 'overdue' | 'today' | 'upcoming';
+const TAB_PAGE_SIZE = 6;
 
 interface LinkedEntity {
   _id: string;
@@ -49,6 +53,28 @@ interface Pagination {
   limit: number;
   total: number;
   totalPages: number;
+}
+
+function getDateKey(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function getNoteStatus(followUpDate: string | null | undefined, todayKey: string): NoteStatus | null {
+  if (!followUpDate) {
+    return null;
+  }
+
+  const followUpKey = getDateKey(new Date(followUpDate));
+  if (followUpKey < todayKey) {
+    return 'overdue';
+  }
+  if (followUpKey === todayKey) {
+    return 'today';
+  }
+  return 'upcoming';
 }
 
 export default function NotesPage() {
@@ -89,17 +115,34 @@ export default function NotesPage() {
       deleting: 'Deleting...',
       deleteNote: 'Delete note',
       allNotes: 'All notes',
+      taskBoard: 'Task board',
       searchPlaceholder: 'Search by title or description...',
       all: 'All',
       clientsOnly: 'Clients only',
       suppliersOnly: 'Suppliers only',
       empty: 'No notes found. Start by adding your first business note.',
+      emptyTaskSection: 'No tasks in this section.',
       followUp: 'Follow-up',
+      overdue: 'Overdue',
+      today: 'Today',
+      upcoming: 'Upcoming',
+      statusOverdue: 'Overdue',
+      statusToday: 'Today',
+      statusUpcoming: 'Upcoming',
+      summaryOverdue: 'Overdue tasks',
+      summaryToday: 'Due today',
+      summaryUpcoming: 'Upcoming tasks',
+      actionableEmpty: 'No follow-up tasks on this page. Add a follow-up date to make notes actionable.',
+      viewDetails: 'View details',
+      seeMore: 'See more',
+      taskDetails: 'Task details',
+      taskDetailsDesc: 'Review full note details and take action.',
       page: 'Page',
       of: 'of',
       total: 'total',
       previous: 'Previous',
       next: 'Next',
+      tabPage: 'Tab page',
     },
     fr: {
       fetchFailed: 'Impossible de récupérer les notes',
@@ -136,22 +179,38 @@ export default function NotesPage() {
       deleting: 'Suppression...',
       deleteNote: 'Supprimer la note',
       allNotes: 'Toutes les notes',
+      taskBoard: 'Tableau des taches',
       searchPlaceholder: 'Rechercher par titre ou description...',
       all: 'Tout',
       clientsOnly: 'Clients seulement',
       suppliersOnly: 'Fournisseurs seulement',
       empty: 'Aucune note trouvée. Commencez par ajouter votre première note.',
+      emptyTaskSection: 'Aucune tache dans cette section.',
       followUp: 'Suivi',
+      overdue: 'En retard',
+      today: "Aujourd'hui",
+      upcoming: 'A venir',
+      statusOverdue: 'En retard',
+      statusToday: "Aujourd'hui",
+      statusUpcoming: 'A venir',
+      summaryOverdue: 'Taches en retard',
+      summaryToday: 'A faire aujourd\'hui',
+      summaryUpcoming: 'Taches a venir',
+      actionableEmpty: 'Aucune tache de suivi sur cette page. Ajoutez une date de suivi pour rendre la note actionnable.',
+      viewDetails: 'Voir details',
+      seeMore: 'Voir plus',
+      taskDetails: 'Details de la tache',
+      taskDetailsDesc: 'Consultez la note complete et agissez rapidement.',
       page: 'Page',
       of: 'sur',
       total: 'au total',
       previous: 'Précédent',
       next: 'Suivant',
+      tabPage: 'Page onglet',
     },
   }[locale];
 
   const [notes, setNotes] = useState<Note[]>([]);
-  const [pagination, setPagination] = useState<Pagination>({ page: 1, limit: 10, total: 0, totalPages: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -168,6 +227,13 @@ export default function NotesPage() {
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
   const [markingFollowUpId, setMarkingFollowUpId] = useState<string | null>(null);
+  const [detailsNote, setDetailsNote] = useState<Note | null>(null);
+  const [activeTab, setActiveTab] = useState<NoteStatus>('today');
+  const [tabPageByStatus, setTabPageByStatus] = useState<Record<NoteStatus, number>>({
+    overdue: 1,
+    today: 1,
+    upcoming: 1,
+  });
 
   const dateFormatter = useMemo(
     () => new Intl.DateTimeFormat(locale === 'fr' ? 'fr-FR' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
@@ -175,11 +241,22 @@ export default function NotesPage() {
   );
 
   const today = useMemo(() => new Date(), []);
+  const todayKey = useMemo(() => getDateKey(today), [today]);
 
-  const overdueNotes = useMemo(
-    () => notes.filter((n) => n.followUpDate && new Date(n.followUpDate) < today),
-    [notes, today],
-  );
+  const groupedNotes = useMemo(() => {
+    const grouped: Record<NoteStatus, Note[]> = { overdue: [], today: [], upcoming: [] };
+    for (const note of notes) {
+      const status = getNoteStatus(note.followUpDate, todayKey);
+      if (status) {
+        grouped[status].push(note);
+      }
+    }
+    return grouped;
+  }, [notes, todayKey]);
+
+  const actionableNotesCount = groupedNotes.overdue.length + groupedNotes.today.length + groupedNotes.upcoming.length;
+
+  const overdueNotes = groupedNotes.overdue;
 
   const [clients, setClients] = useState<LinkedEntity[]>([]);
   const [suppliers, setSuppliers] = useState<LinkedEntity[]>([]);
@@ -202,8 +279,8 @@ export default function NotesPage() {
 
   const query = useMemo(() => {
     const params = new URLSearchParams();
-    params.set('page', String(pagination.page));
-    params.set('limit', String(pagination.limit));
+    params.set('page', '1');
+    params.set('limit', '100');
     params.set('sortBy', 'createdAt');
     params.set('sortOrder', 'desc');
     if (search) {
@@ -213,7 +290,7 @@ export default function NotesPage() {
       params.set('linkedType', filter);
     }
     return params.toString();
-  }, [pagination.page, pagination.limit, search, filter]);
+  }, [search, filter]);
 
   const loadNotes = useCallback(async () => {
     setLoading(true);
@@ -233,7 +310,6 @@ export default function NotesPage() {
       }
 
       setNotes(data.data ?? []);
-      setPagination((prev) => data.pagination ?? prev);
     } catch (err) {
       setError(err instanceof Error ? err.message : t.fetchFailed);
       setNotes([]);
@@ -265,6 +341,10 @@ export default function NotesPage() {
   useEffect(() => {
     loadLinkedOptions();
   }, [loadLinkedOptions]);
+
+  useEffect(() => {
+    setTabPageByStatus({ overdue: 1, today: 1, upcoming: 1 });
+  }, [search, filter]);
 
   useEffect(() => {
     const options = form.linkedType === 'client' ? clients : suppliers;
@@ -315,7 +395,7 @@ export default function NotesPage() {
       toast.success(t.created);
       setIsAddOpen(false);
       setForm({ title: '', description: '', linkedType: 'client', linkedId: '', followUpDate: '' });
-      setPagination((prev) => ({ ...prev, page: 1 }));
+      setTabPageByStatus({ overdue: 1, today: 1, upcoming: 1 });
       await loadNotes();
     } catch (err) {
       toast.error(resolveTranslatedError(locale, err, t.createFailed));
@@ -337,7 +417,6 @@ export default function NotesPage() {
       }
 
       setNotes((prev) => prev.filter((note) => note._id !== noteId));
-      setPagination((prev) => ({ ...prev, total: Math.max(0, prev.total - 1) }));
       toast.success(t.deleted);
       setIsDeleteConfirmOpen(false);
       setDeleteTargetId(null);
@@ -425,6 +504,16 @@ export default function NotesPage() {
 
   const linkedOptions = form.linkedType === 'client' ? clients : suppliers;
   const editLinkedOptions = editForm.linkedType === 'client' ? clients : suppliers;
+  const activeTabNotes = groupedNotes[activeTab];
+  const activeTabTotalPages = Math.max(1, Math.ceil(activeTabNotes.length / TAB_PAGE_SIZE));
+  const activeTabPage = Math.min(tabPageByStatus[activeTab], activeTabTotalPages);
+  const pagedActiveTabNotes = activeTabNotes.slice((activeTabPage - 1) * TAB_PAGE_SIZE, activeTabPage * TAB_PAGE_SIZE);
+
+  function setTabPage(status: NoteStatus, page: number) {
+    const total = Math.max(1, Math.ceil(groupedNotes[status].length / TAB_PAGE_SIZE));
+    const nextPage = Math.min(Math.max(1, page), total);
+    setTabPageByStatus((prev) => ({ ...prev, [status]: nextPage }));
+  }
 
   return (
     <CrmShell title={t.shellTitle}>
@@ -633,7 +722,7 @@ export default function NotesPage() {
 
       <Card data-tour-notes-panel>
         <CardHeader className="border-b">
-          <CardTitle className="text-base">{t.allNotes}</CardTitle>
+          <CardTitle className="text-base">{t.taskBoard}</CardTitle>
           <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
             <div className="relative flex-1">
               <SearchIcon className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
@@ -645,13 +734,12 @@ export default function NotesPage() {
                 onChange={(e) => setSearchInput(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
-                    setPagination((prev) => ({ ...prev, page: 1 }));
                     setSearch(searchInput.trim());
                   }
                 }}
               />
             </div>
-            <Select value={filter} onValueChange={(v: 'all' | 'client' | 'supplier') => { setFilter(v); setPagination((p) => ({ ...p, page: 1 })); }}>
+            <Select value={filter} onValueChange={(v: 'all' | 'client' | 'supplier') => { setFilter(v); }}>
               <SelectTrigger data-tour-notes-filter className="w-full sm:w-45"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">{t.all}</SelectItem>
@@ -662,8 +750,25 @@ export default function NotesPage() {
           </div>
         </CardHeader>
 
-        <CardContent className="space-y-3 pt-4">
+        <CardContent className="space-y-4 pt-4">
           {error ? <ErrorMessage message={error} /> : null}
+
+          {!loading && notes.length > 0 ? (
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              <div className="rounded-lg border border-red-200/80 bg-red-50/40 px-3 py-2 dark:border-red-900/40 dark:bg-red-950/10">
+                <p className="text-[11px] font-medium text-red-700 dark:text-red-300">{t.summaryOverdue}</p>
+                <p className="mt-0.5 text-lg font-semibold text-red-700 dark:text-red-300">{groupedNotes.overdue.length}</p>
+              </div>
+              <div className="rounded-lg border border-orange-200/80 bg-orange-50/40 px-3 py-2 dark:border-orange-900/40 dark:bg-orange-950/10">
+                <p className="text-[11px] font-medium text-orange-700 dark:text-orange-300">{t.summaryToday}</p>
+                <p className="mt-0.5 text-lg font-semibold text-orange-700 dark:text-orange-300">{groupedNotes.today.length}</p>
+              </div>
+              <div className="rounded-lg border border-emerald-200/80 bg-emerald-50/40 px-3 py-2 dark:border-emerald-900/40 dark:bg-emerald-950/10">
+                <p className="text-[11px] font-medium text-emerald-700 dark:text-emerald-300">{t.summaryUpcoming}</p>
+                <p className="mt-0.5 text-lg font-semibold text-emerald-700 dark:text-emerald-300">{groupedNotes.upcoming.length}</p>
+              </div>
+            </div>
+          ) : null}
 
           {loading ? (
             <div data-tour-notes-list className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -672,106 +777,234 @@ export default function NotesPage() {
           ) : notes.length === 0 ? (
             <EmptyState message={t.empty} />
           ) : (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {notes.map((note) => (
-              <div key={note._id} className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div className="flex min-w-0 flex-1 items-start gap-2.5">
-                    <span className={`mt-1.5 size-2 shrink-0 rounded-full ${note.linkedType === 'client' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-                    <h3 className="text-sm font-semibold leading-snug">{note.title}</h3>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-1">
-                    <span className="text-xs text-muted-foreground">{dateFormatter.format(new Date(note.createdAt))}</span>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      onClick={() => openEditNote(note)}
-                    >
-                      <PencilIcon />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-                      onClick={() => {
-                        setDeleteTargetId(note._id);
-                        setIsDeleteConfirmOpen(true);
-                      }}
-                      disabled={deletingNoteId === note._id}
-                    >
-                      <Trash2Icon />
-                    </Button>
-                  </div>
+            <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as NoteStatus)} className="space-y-4">
+              <TabsList className="h-auto w-full justify-start gap-1 border border-border/80 bg-muted/10 p-1">
+                <TabsTrigger value="overdue" className="min-h-7 flex-none px-3 py-1.5 text-sm">
+                  {t.overdue} ({groupedNotes.overdue.length})
+                </TabsTrigger>
+                <TabsTrigger value="today" className="min-h-7 flex-none px-3 py-1.5 text-sm">
+                  {t.today} ({groupedNotes.today.length})
+                </TabsTrigger>
+                <TabsTrigger value="upcoming" className="min-h-7 flex-none px-3 py-1.5 text-sm">
+                  {t.upcoming} ({groupedNotes.upcoming.length})
+                </TabsTrigger>
+              </TabsList>
+
+              {actionableNotesCount === 0 ? (
+                <div className="rounded-xl border border-dashed border-border/70 px-4 py-5 text-center text-sm text-muted-foreground">
+                  {t.actionableEmpty}
                 </div>
-                <p className="mt-2 line-clamp-3 text-sm text-muted-foreground">{note.description}</p>
-                <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-                  <Link
-                    className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground hover:bg-muted/80"
-                    href={`/${note.linkedType === 'client' ? 'clients' : 'suppliers'}/${note.linkedId?._id}`}
+              ) : null}
+
+              {([
+                {
+                  key: 'overdue' as NoteStatus,
+                  cardClass: 'border-red-200/80 bg-red-50/40 dark:border-red-900/40 dark:bg-red-950/10',
+                  badgeClass: 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300',
+                  badgeLabel: t.statusOverdue,
+                },
+                {
+                  key: 'today' as NoteStatus,
+                  cardClass: 'border-orange-200/80 bg-orange-50/40 dark:border-orange-900/40 dark:bg-orange-950/10',
+                  badgeClass: 'bg-orange-100 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300',
+                  badgeLabel: t.statusToday,
+                },
+                {
+                  key: 'upcoming' as NoteStatus,
+                  cardClass: 'border-emerald-200/80 bg-emerald-50/40 dark:border-emerald-900/40 dark:bg-emerald-950/10',
+                  badgeClass: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300',
+                  badgeLabel: t.statusUpcoming,
+                },
+              ]).map((section) => (
+                <TabsContent key={section.key} value={section.key} className="space-y-3">
+                  {(() => {
+                    const sectionNotes = groupedNotes[section.key];
+                    const sectionTotalPages = Math.max(1, Math.ceil(sectionNotes.length / TAB_PAGE_SIZE));
+                    const sectionPage = Math.min(tabPageByStatus[section.key], sectionTotalPages);
+                    const sectionPagedNotes = sectionNotes.slice((sectionPage - 1) * TAB_PAGE_SIZE, sectionPage * TAB_PAGE_SIZE);
+
+                    if (sectionPagedNotes.length === 0) {
+                      return (
+                        <div className="rounded-xl border border-dashed border-border/70 px-4 py-5 text-center text-xs text-muted-foreground">
+                          {t.emptyTaskSection}
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+                        {sectionPagedNotes.map((note) => (
+                          <article key={note._id} className={`rounded-xl border p-4 shadow-sm ${section.cardClass}`}>
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0 space-y-1">
+                                <h3 className="truncate text-sm font-semibold leading-snug">{note.title}</h3>
+                                <p className="text-xs text-muted-foreground">
+                                  {note.linkedType === 'client' ? t.client : t.supplier} · {note.linkedId?.fullName}
+                                </p>
+                              </div>
+                              <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${section.badgeClass}`}>
+                                {section.badgeLabel}
+                              </span>
+                            </div>
+
+                            <div className="mt-3 rounded-lg border border-border/60 bg-background/70 px-3 py-2">
+                              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{t.followUpDate}</p>
+                              <p className="mt-0.5 text-sm font-semibold">
+                                {dateFormatter.format(new Date(note.followUpDate as string))}
+                              </p>
+                            </div>
+
+                            <p className="mt-3 line-clamp-1 text-sm text-muted-foreground">
+                              {note.description}
+                            </p>
+                            <button
+                              type="button"
+                              className="mt-1 text-xs font-medium text-primary underline-offset-2 hover:underline"
+                              onClick={() => setDetailsNote(note)}
+                            >
+                              {t.seeMore}
+                            </button>
+
+                            <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="w-full"
+                                disabled={markingFollowUpId === note._id}
+                                onClick={() => markFollowUpDone(note._id)}
+                              >
+                                {markingFollowUpId === note._id ? <Loader2 className="size-3 animate-spin" /> : <CheckCircle2 className="size-3" />}
+                                {markingFollowUpId === note._id
+                                  ? (locale === 'fr' ? 'Enregistrement...' : 'Saving...')
+                                  : (locale === 'fr' ? 'Suivi termine' : 'Mark done')}
+                              </Button>
+                              <Button type="button" size="sm" variant="secondary" className="w-full" onClick={() => openEditNote(note)}>
+                                <PencilIcon className="size-3.5" />
+                                {t.editNote}
+                              </Button>
+                              <Button type="button" size="sm" variant="ghost" className="w-full" onClick={() => setDetailsNote(note)}>
+                                <ClockIcon className="size-3.5" />
+                                {t.viewDetails}
+                              </Button>
+                            </div>
+                          </article>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </TabsContent>
+              ))}
+
+              <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-xs text-muted-foreground">
+                  {t.tabPage} {activeTabPage} {t.of} {activeTabTotalPages} - {activeTabNotes.length} {t.total}
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={activeTabPage <= 1}
+                    onClick={() => setTabPage(activeTab, activeTabPage - 1)}
                   >
-                    {note.linkedType === 'client' ? t.client : t.supplier} · {note.linkedId?.fullName}
-                  </Link>
-                  {note.followUpDate ? (
-                    <>
-                      <span className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium ${
-                        new Date(note.followUpDate) < today
-                          ? 'bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-400'
-                          : 'bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400'
-                      }`}>
-                        {new Date(note.followUpDate) < today
-                          ? <AlertTriangleIcon className="size-3" />
-                          : <ClockIcon className="size-3" />}
-                        {t.followUp}: {dateFormatter.format(new Date(note.followUpDate))}
-                      </span>
-                      <button
-                        type="button"
-                        disabled={markingFollowUpId === note._id}
-                        onClick={() => markFollowUpDone(note._id)}
-                        className="inline-flex w-full items-center justify-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:justify-start dark:border-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 dark:hover:bg-emerald-950/50">
-                        {markingFollowUpId === note._id ? (
-                          <Loader2 className="size-3 animate-spin" />
-                        ) : (
-                          <CheckCircle2 className="size-3" strokeWidth={2.5} />
-                        )}
-                        {markingFollowUpId === note._id
-                          ? (locale === 'fr' ? 'Enregistrement...' : 'Saving...')
-                          : (locale === 'fr' ? 'Suivi terminé' : 'Mark done')}
-                      </button>
-                    </>
-                  ) : null}
+                    {t.previous}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={activeTabPage >= activeTabTotalPages}
+                    onClick={() => setTabPage(activeTab, activeTabPage + 1)}
+                  >
+                    {t.next}
+                  </Button>
                 </div>
               </div>
-            ))}
-            </div>
+            </Tabs>
           )}
-
-          <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs text-muted-foreground">
-              {t.page} {pagination.page} {t.of} {Math.max(pagination.totalPages, 1)} - {pagination.total} {t.total}
-            </p>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={pagination.page <= 1}
-                onClick={() => setPagination((prev) => ({ ...prev, page: prev.page - 1 }))}
-              >
-                {t.previous}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={pagination.totalPages === 0 || pagination.page >= pagination.totalPages}
-                onClick={() => setPagination((prev) => ({ ...prev, page: prev.page + 1 }))}
-              >
-                {t.next}
-              </Button>
-            </div>
-          </div>
         </CardContent>
       </Card>
+
+      <Sheet open={Boolean(detailsNote)} onOpenChange={(open) => { if (!open) { setDetailsNote(null); } }}>
+        <SheetContent side="right" className="w-full p-0 sm:max-w-xl">
+          <SheetHeader>
+            <SheetTitle>{t.taskDetails}</SheetTitle>
+            <SheetDescription>{t.taskDetailsDesc}</SheetDescription>
+          </SheetHeader>
+
+          {detailsNote ? (
+            <div className="space-y-4 px-4 pb-4 sm:px-6">
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">{t.title}</p>
+                <p className="mt-1 text-sm font-semibold">{detailsNote.title}</p>
+              </div>
+
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">{t.linkedRecord}</p>
+                <Link
+                  className="mt-1 inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted/80"
+                  href={`/${detailsNote.linkedType === 'client' ? 'clients' : 'suppliers'}/${detailsNote.linkedId?._id}`}
+                >
+                  {detailsNote.linkedType === 'client' ? t.client : t.supplier} · {detailsNote.linkedId?.fullName}
+                </Link>
+              </div>
+
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">{t.followUpDate}</p>
+                <p className="mt-1 text-sm font-semibold">
+                  {detailsNote.followUpDate ? dateFormatter.format(new Date(detailsNote.followUpDate)) : '-'}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">{t.description}</p>
+                <p className="mt-1 whitespace-pre-wrap text-sm text-foreground/90">{detailsNote.description}</p>
+              </div>
+
+              <div className="flex flex-wrap gap-2 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={markingFollowUpId === detailsNote._id}
+                  onClick={() => markFollowUpDone(detailsNote._id)}
+                >
+                  {markingFollowUpId === detailsNote._id ? <Loader2 className="size-3 animate-spin" /> : <CheckCircle2 className="size-3" />}
+                  {markingFollowUpId === detailsNote._id
+                    ? (locale === 'fr' ? 'Enregistrement...' : 'Saving...')
+                    : (locale === 'fr' ? 'Suivi termine' : 'Mark done')}
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    openEditNote(detailsNote);
+                    setDetailsNote(null);
+                  }}
+                >
+                  <PencilIcon className="size-4" />
+                  {t.editNote}
+                </Button>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  disabled={deletingNoteId === detailsNote._id}
+                  onClick={() => {
+                    setDeleteTargetId(detailsNote._id);
+                    setIsDeleteConfirmOpen(true);
+                    setDetailsNote(null);
+                  }}
+                >
+                  <Trash2Icon className="size-4" />
+                  {t.deleteNote}
+                </Button>
+              </div>
+            </div>
+          ) : null}
+
+          <SheetFooter>
+            <Button variant="outline" onClick={() => setDetailsNote(null)}>{t.cancel}</Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </CrmShell>
   );
 }
