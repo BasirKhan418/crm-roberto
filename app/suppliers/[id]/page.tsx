@@ -33,6 +33,7 @@ interface SupplierRecord {
   fullName: string;
   contactName?: string | null;
   category: 'materials' | 'logistics' | 'services' | 'technology' | 'other';
+  tags?: Array<'important' | 'pending' | 'partner'>;
   email?: string | null;
   phone?: string | null;
   address?: string | null;
@@ -59,6 +60,21 @@ interface DetailResponse {
     supplier: SupplierRecord;
     timeline: NoteItem[];
   };
+}
+
+type SupplierTag = 'important' | 'pending' | 'partner';
+const SUPPLIER_TAGS: SupplierTag[] = ['important', 'pending', 'partner'];
+
+function tagBadgeClass(tag: SupplierTag): string {
+  if (tag === 'important') {
+    return 'border border-rose-200 bg-rose-100 text-rose-700 dark:border-rose-800/60 dark:bg-rose-900/40 dark:text-rose-300';
+  }
+
+  if (tag === 'pending') {
+    return 'border border-amber-200 bg-amber-100 text-amber-700 dark:border-amber-800/60 dark:bg-amber-900/40 dark:text-amber-300';
+  }
+
+  return 'border border-emerald-200 bg-emerald-100 text-emerald-700 dark:border-emerald-800/60 dark:bg-emerald-900/40 dark:text-emerald-300';
 }
 
 export default function SupplierDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -100,8 +116,13 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
       legalName: 'Company legal name',
       vatTax: 'VAT/Tax ID',
       iban: 'IBAN',
+      tags: 'Tags',
       notes: 'Notes',
-      notesHint: 'Tip: use #important, #pending, or #partner to create visual tags.',
+      tagImportant: 'Important',
+      tagPending: 'Pending',
+      tagPartner: 'Partner',
+      tagsHint: 'Use tags to quickly identify supplier priority and relationship state.',
+      notesHint: 'Add longer business context, payment notes, or negotiation history.',
       cancel: 'Cancel',
       saving: 'Saving...',
       saveChanges: 'Save changes',
@@ -159,8 +180,13 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
       legalName: 'Raison sociale',
       vatTax: 'TVA/ID fiscal',
       iban: 'IBAN',
+      tags: 'Tags',
       notes: 'Notes',
-      notesHint: 'Astuce : utilisez #important, #pending ou #partner pour des tags visuels.',
+      tagImportant: 'Important',
+      tagPending: 'En attente',
+      tagPartner: 'Partenaire',
+      tagsHint: 'Utilisez des tags pour identifier rapidement la priorite et le statut de relation.',
+      notesHint: 'Ajoutez du contexte metier, des notes de paiement ou un historique de negociation.',
       cancel: 'Annuler',
       saving: 'Enregistrement...',
       saveChanges: 'Enregistrer les modifications',
@@ -212,6 +238,7 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
     country: '',
     vatNumber: '',
     iban: '',
+    tags: [] as SupplierTag[],
     notes: '',
   });
 
@@ -254,6 +281,7 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
         country: data.data.supplier.country || '',
         vatNumber: data.data.supplier.vatNumber || '',
         iban: data.data.supplier.iban || '',
+        tags: Array.isArray(data.data.supplier.tags) ? data.data.supplier.tags : [],
         notes: data.data.supplier.notes || '',
       });
     } catch (err) {
@@ -456,6 +484,18 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
               <p><span className="text-muted-foreground">{t.vat}:</span> {supplier.vatNumber || '-'}</p>
                   <p><span className="text-muted-foreground">{t.iban}:</span> <span className="font-mono text-xs break-all">{supplier.iban || '-'}</span></p>
                   <p>
+                    <span className="text-muted-foreground">{t.tags}:</span>{' '}
+                    {(supplier.tags?.length ?? 0) > 0 ? (
+                      <span className="inline-flex flex-wrap gap-1 align-middle">
+                        {(supplier.tags ?? []).map((tag) => (
+                          <span key={`profile-tag-${tag}`} className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${tagBadgeClass(tag)}`}>
+                            {tag === 'important' ? t.tagImportant : tag === 'pending' ? t.tagPending : t.tagPartner}
+                          </span>
+                        ))}
+                      </span>
+                    ) : '-'}
+                  </p>
+                  <p>
                     <span className="text-muted-foreground">{t.notes}:</span>{' '}
                     <span className="whitespace-pre-wrap wrap-break-word">{supplier.notes || '-'}</span>
                   </p>
@@ -532,6 +572,34 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
                           value={editForm.iban}
                           onChange={(e) => setEditForm((p) => ({ ...p, iban: e.target.value }))}
                         />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>{t.tags}</Label>
+                        <div className="flex flex-wrap gap-2">
+                          {SUPPLIER_TAGS.map((tag) => {
+                            const active = editForm.tags.includes(tag);
+                            return (
+                              <Button
+                                key={tag}
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setEditForm((prev) => ({
+                                    ...prev,
+                                    tags: prev.tags.includes(tag)
+                                      ? prev.tags.filter((item) => item !== tag)
+                                      : [...prev.tags, tag],
+                                  }));
+                                }}
+                                className={`h-8 rounded-full px-3 text-xs ${active ? tagBadgeClass(tag) : ''}`}
+                              >
+                                {tag === 'important' ? t.tagImportant : tag === 'pending' ? t.tagPending : t.tagPartner}
+                              </Button>
+                            );
+                          })}
+                        </div>
+                        <p className="text-xs text-muted-foreground">{t.tagsHint}</p>
                       </div>
                       <div className="space-y-1.5">
                         <Label htmlFor="supplier-edit-notes">{t.notes}</Label>

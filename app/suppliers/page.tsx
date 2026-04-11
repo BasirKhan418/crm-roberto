@@ -23,6 +23,7 @@ interface Supplier {
   fullName: string;
   contactName?: string | null;
   category: 'materials' | 'logistics' | 'services' | 'technology' | 'other';
+  tags?: Array<'important' | 'pending' | 'partner'>;
   email?: string | null;
   phone?: string | null;
   address?: string | null;
@@ -74,6 +75,7 @@ function avatarColor(id: string): string {
 
 type SupplierCategory = 'materials' | 'logistics' | 'services' | 'technology' | 'other';
 type SupplierTag = 'important' | 'pending' | 'partner';
+const SUPPLIER_TAGS: SupplierTag[] = ['important', 'pending', 'partner'];
 
 function extractSupplierTags(notes?: string | null): SupplierTag[] {
   if (!notes) {
@@ -86,6 +88,24 @@ function extractSupplierTags(notes?: string | null): SupplierTag[] {
   if (/(^|\s)#pending(\s|$)/.test(lowered)) tags.push('pending');
   if (/(^|\s)#partner(\s|$)/.test(lowered)) tags.push('partner');
   return tags;
+}
+
+function getSupplierTags(supplier: Supplier): SupplierTag[] {
+  const fromModel = Array.isArray(supplier.tags) ? supplier.tags : [];
+  const fromNotes = extractSupplierTags(supplier.notes);
+  return Array.from(new Set([...fromModel, ...fromNotes]));
+}
+
+function tagBadgeClass(tag: SupplierTag): string {
+  if (tag === 'important') {
+    return 'border border-rose-200 bg-rose-100 text-rose-700 dark:border-rose-800/60 dark:bg-rose-900/40 dark:text-rose-300';
+  }
+
+  if (tag === 'pending') {
+    return 'border border-amber-200 bg-amber-100 text-amber-700 dark:border-amber-800/60 dark:bg-amber-900/40 dark:text-amber-300';
+  }
+
+  return 'border border-emerald-200 bg-emerald-100 text-emerald-700 dark:border-emerald-800/60 dark:bg-emerald-900/40 dark:text-emerald-300';
 }
 
 export default function SuppliersPage() {
@@ -117,8 +137,10 @@ export default function SuppliersPage() {
       country: 'Country',
       vat: 'VAT/Tax ID',
       iban: 'IBAN',
+      tags: 'Tags',
       notes: 'Notes',
-      notesHint: 'Tip: use #important, #pending, or #partner to create visual tags.',
+      tagsHint: 'Use tags to quickly identify supplier priority and relationship state.',
+      notesHint: 'Add longer business context, payment notes, or negotiation history.',
       cancel: 'Cancel',
       saving: 'Saving...',
       saveSupplier: 'Save supplier',
@@ -175,8 +197,10 @@ export default function SuppliersPage() {
       country: 'Pays',
       vat: 'TVA/ID fiscal',
       iban: 'IBAN',
+      tags: 'Tags',
       notes: 'Notes',
-      notesHint: 'Astuce : utilisez #important, #pending ou #partner pour des tags visuels.',
+      tagsHint: 'Utilisez des tags pour identifier rapidement la priorite et le statut de relation.',
+      notesHint: 'Ajoutez du contexte metier, des notes de paiement ou un historique de negociation.',
       cancel: 'Annuler',
       saving: 'Enregistrement...',
       saveSupplier: 'Enregistrer le fournisseur',
@@ -231,6 +255,7 @@ export default function SuppliersPage() {
     country: '',
     vatNumber: '',
     iban: '',
+    tags: [] as SupplierTag[],
     notes: '',
   });
 
@@ -347,6 +372,7 @@ export default function SuppliersPage() {
           country: form.country || undefined,
           vatNumber: form.vatNumber || undefined,
           iban: form.iban || undefined,
+          tags: form.tags,
           notes: form.notes || undefined,
         }),
       });
@@ -369,6 +395,7 @@ export default function SuppliersPage() {
         country: '',
         vatNumber: '',
         iban: '',
+        tags: [],
         notes: '',
       });
       setPagination((prev) => ({ ...prev, page: 1 }));
@@ -437,11 +464,9 @@ export default function SuppliersPage() {
                 <Label htmlFor="supplier-country">{t.country}</Label>
                 <Input id="supplier-country" value={form.country} onChange={(e) => setForm((p) => ({ ...p, country: e.target.value }))} />
               </div>
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label htmlFor="supplier-vat">{t.vat}</Label>
-                  <Input id="supplier-vat" value={form.vatNumber} onChange={(e) => setForm((p) => ({ ...p, vatNumber: e.target.value }))} />
-                </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="supplier-vat">{t.vat}</Label>
+                <Input id="supplier-vat" value={form.vatNumber} onChange={(e) => setForm((p) => ({ ...p, vatNumber: e.target.value }))} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="supplier-iban">{t.iban}</Label>
@@ -451,6 +476,34 @@ export default function SuppliersPage() {
                   value={form.iban}
                   onChange={(e) => setForm((p) => ({ ...p, iban: e.target.value }))}
                 />
+              </div>
+              <div className="space-y-1.5">
+                <Label>{t.tags}</Label>
+                <div className="flex flex-wrap gap-2">
+                  {SUPPLIER_TAGS.map((tag) => {
+                    const active = form.tags.includes(tag);
+                    return (
+                      <Button
+                        key={tag}
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setForm((prev) => ({
+                            ...prev,
+                            tags: prev.tags.includes(tag)
+                              ? prev.tags.filter((item) => item !== tag)
+                              : [...prev.tags, tag],
+                          }));
+                        }}
+                        className={`h-8 rounded-full px-3 text-xs ${active ? tagBadgeClass(tag) : ''}`}
+                      >
+                        {tag === 'important' ? t.tagImportant : tag === 'pending' ? t.tagPending : t.tagPartner}
+                      </Button>
+                    );
+                  })}
+                </div>
+                <p className="text-xs text-muted-foreground">{t.tagsHint}</p>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="supplier-notes">{t.notes}</Label>
@@ -599,7 +652,7 @@ export default function SuppliersPage() {
                 </TableHeader>
                 <TableBody>
                   {suppliers.map((supplier) => {
-                    const tags = extractSupplierTags(supplier.notes);
+                    const tags = getSupplierTags(supplier);
                     return (
                       <TableRow key={supplier._id}>
                         <TableCell>
@@ -625,13 +678,7 @@ export default function SuppliersPage() {
                               tags.map((tag) => (
                                 <span
                                   key={`${supplier._id}-${tag}`}
-                                  className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                                    tag === 'important'
-                                      ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
-                                      : tag === 'pending'
-                                        ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
-                                        : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
-                                  }`}
+                                  className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${tagBadgeClass(tag)}`}
                                 >
                                   {tag === 'important' ? t.tagImportant : tag === 'pending' ? t.tagPending : t.tagPartner}
                                 </span>
@@ -648,7 +695,7 @@ export default function SuppliersPage() {
           ) : (
             <div data-tour-suppliers-grid className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
               {suppliers.map((supplier) => {
-                const tags = extractSupplierTags(supplier.notes);
+                const tags = getSupplierTags(supplier);
 
                 return (
                   <Link
@@ -680,13 +727,7 @@ export default function SuppliersPage() {
                           {tags.map((tag) => (
                             <span
                               key={`${supplier._id}-card-${tag}`}
-                              className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                                tag === 'important'
-                                  ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
-                                  : tag === 'pending'
-                                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
-                                    : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
-                              }`}
+                              className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${tagBadgeClass(tag)}`}
                             >
                               {tag === 'important' ? t.tagImportant : tag === 'pending' ? t.tagPending : t.tagPartner}
                             </span>

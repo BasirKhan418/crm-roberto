@@ -12,6 +12,7 @@ export interface SupplierRecord {
   fullName: string;
   contactName?: string | null;
   category: 'materials' | 'logistics' | 'services' | 'technology' | 'other';
+  tags?: Array<'important' | 'pending' | 'partner'>;
   email?: string | null;
   phone?: string | null;
   address?: string | null;

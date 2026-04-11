@@ -23,6 +23,12 @@ const updatableOptionalEmail = z.preprocess(
 );
 
 const supplierCategorySchema = z.enum(['materials', 'logistics', 'services', 'technology', 'other']);
+const supplierTagSchema = z.enum(['important', 'pending', 'partner']);
+
+const optionalSupplierTags = z.preprocess(
+  (val) => (Array.isArray(val) ? val : undefined),
+  z.array(supplierTagSchema).max(3).optional()
+).transform((tags) => (tags ? Array.from(new Set(tags)) : undefined));
 
 export const createSupplierSchema = z.object({
   fullName: z.string().trim().min(1, i18nKey('validation.supplierNameRequired')),
@@ -38,6 +44,7 @@ export const createSupplierSchema = z.object({
   vatNumber: optionalText,
   iban: optionalText,
   notes: optionalText,
+  tags: optionalSupplierTags,
 });
 
 export const updateSupplierSchema = z.object({
@@ -54,6 +61,7 @@ export const updateSupplierSchema = z.object({
   vatNumber: updatableOptionalText,
   iban: updatableOptionalText,
   notes: updatableOptionalText,
+  tags: optionalSupplierTags,
 }).refine((data) => Object.keys(data).length > 0, {
   message: i18nKey('validation.updateAtLeastOneField'),
 });

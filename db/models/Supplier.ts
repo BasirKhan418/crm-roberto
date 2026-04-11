@@ -91,6 +91,15 @@ const SupplierSchema = new mongoose.Schema(
       trim: true,
       default: null,
     },
+
+    tags: {
+      type: [String],
+      enum: {
+        values: ['important', 'pending', 'partner'],
+        message: 'Invalid supplier tag',
+      },
+      default: [],
+    },
   },
   { timestamps: true }
 );
@@ -108,6 +117,7 @@ SupplierSchema.index({
 
 SupplierSchema.index({ user: 1, createdAt: -1 });
 SupplierSchema.index({ user: 1, category: 1, createdAt: -1 });
+SupplierSchema.index({ user: 1, tags: 1, createdAt: -1 });
 
 
 SupplierSchema.virtual("timelineNotes", {
