@@ -94,16 +94,45 @@ const TOUR_BY_ROUTE: Record<string, (locale: Locale) => TourStep[]> = {
     { element: '[data-tour-catalogue-table]', title: locale === 'fr' ? 'Table catalogue' : 'Catalogue table', description: locale === 'fr' ? 'Modifiez ou supprimez vos éléments depuis cette table.' : 'Edit or delete your items from this table.' },
   ],
   '/quotes': (locale) => [
-    { element: '[data-tour-quotes-header]', title: locale === 'fr' ? 'Gestion devis' : 'Quote management', description: locale === 'fr' ? 'Suivez le cycle complet de vos devis.' : 'Track the complete lifecycle of your quotes.' },
-    { element: '[data-tour-new-quote]', title: locale === 'fr' ? 'Nouveau devis' : 'New quote', description: locale === 'fr' ? 'Créez un devis rapidement.' : 'Create a quote quickly.' },
-    { element: '[data-tour-quotes-filters]', title: locale === 'fr' ? 'Filtres devis' : 'Quote filters', description: locale === 'fr' ? 'Filtrez par statut et recherchez par client/numéro.' : 'Filter by status and search by client/number.' },
     {
-      element: '[data-tour-quotes-table]',
-      title: locale === 'fr' ? 'Table des devis' : 'Quotes table',
+      element: '[data-tour-quotes-header]',
+      title: locale === 'fr' ? 'Etape 1 - Espace devis' : 'Step 1 - Quote workspace',
       description:
         locale === 'fr'
-          ? 'Ici vous voyez tous les devis et toutes les actions rapides. Ouvrez un devis, puis utilisez les actions détaillées: voir, modifier, PDF, dupliquer, envoyer, historique et convertir en facture quand éligible.'
-          : 'This is your quotes table with all quick actions. Open any quote, then use detailed actions: view, edit, PDF, duplicate, send, history, and convert to invoice when eligible.',
+          ? 'Commencez ici: cette page centralise le suivi complet de vos devis.'
+          : 'Start here: this page centralizes your full quote workflow.',
+    },
+    {
+      element: '[data-tour-new-quote]',
+      title: locale === 'fr' ? 'Etape 2 - Nouveau devis' : 'Step 2 - New quote',
+      description:
+        locale === 'fr'
+          ? 'Créez rapidement un devis quand vous démarrez une nouvelle opportunité.'
+          : 'Create a quote quickly when starting a new opportunity.',
+    },
+    {
+      element: '[data-tour-quotes-filters]',
+      title: locale === 'fr' ? 'Etape 3 - Filtrer la liste' : 'Step 3 - Filter the list',
+      description:
+        locale === 'fr'
+          ? 'Affinez la vue par statut et recherchez par client ou numéro de devis.'
+          : 'Narrow results by status and search by client or quote number.',
+    },
+    {
+      element: '[data-tour-quotes-columns]',
+      title: locale === 'fr' ? 'Etape 4 - Personnaliser les colonnes' : 'Step 4 - Customize columns',
+      description:
+        locale === 'fr'
+          ? 'Ouvrez Colonnes, cochez les colonnes à afficher, puis cliquez sur Appliquer. Votre vue personnalisée est conservée.'
+          : 'Open Columns, select which columns to show, then click Apply. Your custom view is saved.',
+    },
+    {
+      element: '[data-tour-quotes-table]',
+      title: locale === 'fr' ? 'Etape 5 - Table des devis' : 'Step 5 - Quotes table',
+      description:
+        locale === 'fr'
+          ? 'Utilisez cette table avec les colonnes choisies pour ouvrir un devis et lancer les actions: voir, modifier, PDF, dupliquer, envoyer, historique et conversion en facture si éligible.'
+          : 'Use this table with your chosen columns to open quotes and run actions: view, edit, PDF, duplicate, send, history, and convert to invoice when eligible.',
     },
   ],
   '/quotes/new': (locale) => [
@@ -154,16 +183,45 @@ const TOUR_BY_ROUTE: Record<string, (locale: Locale) => TourStep[]> = {
     { element: '[data-tour-quote-document]', title: locale === 'fr' ? 'Document devis' : 'Quote document', description: locale === 'fr' ? 'Détails client, lignes et totaux du devis.' : 'Client info, line items, and totals.' },
   ],
   '/invoices': (locale) => [
-    { element: '[data-tour-invoices-header]', title: locale === 'fr' ? 'Gestion factures' : 'Invoice management', description: locale === 'fr' ? 'Suivez statut de paiement et échéances.' : 'Track payment status and due dates.' },
-    { element: '[data-tour-new-invoice]', title: locale === 'fr' ? 'Nouvelle facture' : 'New invoice', description: locale === 'fr' ? 'Créez une facture manuelle ou depuis un devis.' : 'Create an invoice manually or from a quote.' },
-    { element: '[data-tour-invoices-filters]', title: locale === 'fr' ? 'Filtres factures' : 'Invoice filters', description: locale === 'fr' ? 'Filtrez impayé, payé, retard, acompte.' : 'Filter unpaid, paid, overdue, or deposit-paid.' },
     {
-      element: '[data-tour-invoices-table]',
-      title: locale === 'fr' ? 'Table factures' : 'Invoice table',
+      element: '[data-tour-invoices-header]',
+      title: locale === 'fr' ? 'Etape 1 - Espace factures' : 'Step 1 - Invoice workspace',
       description:
         locale === 'fr'
-          ? 'Depuis cette table vous gérez tout: ouvrir, modifier (si éligible), envoyer au client, télécharger PDF, supprimer, marquer payée, et solder une facture avec acompte.'
-          : 'From this table you can manage everything: open, edit (when eligible), send to client, download PDF, delete, mark as paid, and mark remaining balance paid for deposit invoices.',
+          ? 'Commencez ici: suivez les paiements, les retards et les échéances en un seul endroit.'
+          : 'Start here: track payments, overdue items, and due dates in one place.',
+    },
+    {
+      element: '[data-tour-new-invoice]',
+      title: locale === 'fr' ? 'Etape 2 - Nouvelle facture' : 'Step 2 - New invoice',
+      description:
+        locale === 'fr'
+          ? 'Créez une facture manuelle ou générez-la depuis un devis converti.'
+          : 'Create an invoice manually or generate it from a converted quote.',
+    },
+    {
+      element: '[data-tour-invoices-filters]',
+      title: locale === 'fr' ? 'Etape 3 - Filtrer la liste' : 'Step 3 - Filter the list',
+      description:
+        locale === 'fr'
+          ? 'Filtrez rapidement les factures impayées, partiellement payées, payées ou en retard.'
+          : 'Quickly filter unpaid, partially paid, paid, or overdue invoices.',
+    },
+    {
+      element: '[data-tour-invoices-columns]',
+      title: locale === 'fr' ? 'Etape 4 - Personnaliser les colonnes' : 'Step 4 - Customize columns',
+      description:
+        locale === 'fr'
+          ? 'Ouvrez Colonnes, sélectionnez les informations utiles (montant payé, restant, progression, etc.), puis cliquez sur Appliquer.'
+          : 'Open Columns, select the fields you need (amount paid, remaining amount, progress, etc.), then click Apply.',
+    },
+    {
+      element: '[data-tour-invoices-table]',
+      title: locale === 'fr' ? 'Etape 5 - Table factures' : 'Step 5 - Invoice table',
+      description:
+        locale === 'fr'
+          ? 'Dans cette table personnalisée, gérez chaque facture: ouvrir, modifier (si éligible), envoyer, PDF, suppression, marquage payé et solde des acomptes.'
+          : 'In this customized table, manage each invoice: open, edit (when eligible), send, PDF, delete, mark as paid, and settle deposit balances.',
     },
   ],
   '/invoices/new': (locale) => [

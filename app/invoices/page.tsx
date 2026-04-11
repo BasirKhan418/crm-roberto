@@ -409,7 +409,7 @@ function InvoicesPageContent() {
               }}
             >
               <DropdownMenuTrigger asChild>
-                <Button type="button" variant="outline" className="h-9 w-full sm:w-auto">{t.columns}</Button>
+                <Button data-tour-invoices-columns type="button" variant="outline" className="h-9 w-full sm:w-auto">{t.columns}</Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-52">
                 <DropdownMenuLabel>{t.visibleColumns}</DropdownMenuLabel>

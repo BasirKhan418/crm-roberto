@@ -57,7 +57,7 @@ const messages = {
       priceIncludingTaxNonNegative: 'Price including tax cannot be negative',
       invalidUserId: 'Invalid user ID',
       invalidPhone:
-        'Invalid phone number. Accepted formats: +352 XXX XXX (Luxembourg), +33 X XX XX XX XX (France), or local number',
+        'Invalid phone number. Accepted formats include international numbers like +352 or 00352, and local numbers.',
       companyNameRequired: 'Company name is required',
       firstNameRequired: 'First name is required',
       lastNameRequired: 'Last name is required',
@@ -279,7 +279,7 @@ const messages = {
       priceIncludingTaxNonNegative: 'Le prix TTC ne peut pas être négatif',
       invalidUserId: 'Identifiant utilisateur invalide',
       invalidPhone:
-        'Numéro de téléphone invalide. Formats acceptés : +352 XXX XXX (Luxembourg), +33 X XX XX XX XX (France) ou numéro local',
+        'Numero de telephone invalide. Formats acceptes : numeros internationaux comme +352 ou 00352, et numeros locaux.',
       companyNameRequired: "Le nom de l'entreprise est requis",
       firstNameRequired: 'Le prénom est requis',
       lastNameRequired: 'Le nom est requis',

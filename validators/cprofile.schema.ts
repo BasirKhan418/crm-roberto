@@ -9,10 +9,19 @@ const objectIdSchema = z
 const phoneSchema = z
   .string()
   .trim()
-  .regex(
-    /^(\+352[\s.-]?\d{3}[\s.-]?\d{3}[\s.-]?\d{0,3}|\+33[\s.-]?\d[\s.-]?\d{2}[\s.-]?\d{2}[\s.-]?\d{2}[\s.-]?\d{2}|0\d[\s.-]?\d{2}[\s.-]?\d{2}[\s.-]?\d{2}[\s.-]?\d{2}|\d{6,12})$/,
-    i18nKey('validation.invalidPhone')
-  );
+  .refine((value) => {
+    if (!value) {
+      return false;
+    }
+
+    const allowedPattern = /^(?:\+|00)?[0-9][0-9\s().-]*$/;
+    if (!allowedPattern.test(value)) {
+      return false;
+    }
+
+    const digitsOnly = value.replace(/\D/g, '');
+    return digitsOnly.length >= 6 && digitsOnly.length <= 15;
+  }, i18nKey('validation.invalidPhone'));
 
 const emailSchema = z
   .string()
