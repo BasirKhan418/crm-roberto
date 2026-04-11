@@ -1,5 +1,5 @@
 import { NextResponse,NextRequest } from "next/server";
-import jwt from "jsonwebtoken";
+import jwt, { TokenExpiredError } from "jsonwebtoken";
 import argon2 from "argon2";
 import { buildValidationError } from "@/utils/api/validation";
 import { resetPasswordSchema } from "@/validators/forgot.schema";
@@ -26,8 +26,11 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json(updateResult, { status: updateResult.success ? 200 : 400 });
 
         }
-        catch{
-            return NextResponse.json({ message: "Invalid or expired session,Please request a new one", success: false },{ status: 400 });
+        catch(error){
+            if (error instanceof TokenExpiredError) {
+                return NextResponse.json({ message: "Your reset session has expired. Please request a new reset code.", success: false },{ status: 400 });
+            }
+            return NextResponse.json({ message: "Invalid reset session. Please request a new one.", success: false },{ status: 400 });
         }
         
     }

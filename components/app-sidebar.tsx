@@ -4,11 +4,9 @@ import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
-import { NavUser } from "@/components/nav-user"
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarGroup,
   SidebarGroupLabel,
   SidebarHeader,
@@ -16,9 +14,8 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { Building2Icon, FileTextIcon, LayoutDashboard, LayoutDashboardIcon, LogOutIcon, NotebookPenIcon, PackageSearchIcon, ReceiptTextIcon, TruckIcon, UsersIcon } from "lucide-react"
+import { Building2Icon, FileTextIcon, LayoutDashboard, LayoutDashboardIcon, NotebookPenIcon, PackageSearchIcon, ReceiptTextIcon, TruckIcon, UsersIcon } from "lucide-react"
 import { useLocale } from "@/components/providers/locale-provider"
-import { useAuthMe } from "@/hooks/useAuthMe"
 import { useInvoicesActionCount } from "@/hooks/useInvoicesActionCount"
 import { useQuotesActionCount } from "@/hooks/useQuotesActionCount"
 
@@ -39,10 +36,6 @@ const sidebarMessages = {
     workspace: "Workspace",
     preferences: "Preferences",
     language: "Language",
-    session: "Session",
-    logout: "Logout",
-    userFallback: "User",
-    noEmail: "No email",
     badges: {
       declined: (count: number) => `${count} declined — mark as reviewed`,
       pendingInvoice: (count: number) => `${count} to invoice`,
@@ -66,10 +59,6 @@ const sidebarMessages = {
     workspace: "Espace de travail",
     preferences: "Préférences",
     language: "Langue",
-    session: "Session",
-    logout: "Déconnexion",
-    userFallback: "Utilisateur",
-    noEmail: "Aucun e-mail",
     badges: {
       declined: (count: number) => `${count} refusé(s) — à marquer comme traité`,
       pendingInvoice: (count: number) => `${count} à facturer`,
@@ -92,7 +81,6 @@ const sidebarMessages = {
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname()
-  const { user } = useAuthMe()
   const { locale } = useLocale()
   const t = sidebarMessages[locale]
   const { unacknowledgedRejectedCount, pendingInvoiceCount } = useQuotesActionCount()
@@ -192,30 +180,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             ))}
           </SidebarMenu>
         </SidebarGroup>
-       
-        <SidebarGroup className="mt-auto pt-0">
-          <SidebarGroupLabel>{t.session}</SidebarGroupLabel>
-          <SidebarMenu className="px-2 pb-2">
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild className="h-10 mt-2 bg-transparent text-(--color-text-danger) hover:bg-transparent hover:text-(--color-text-danger)">
-                <Link href="/logout">
-                  <LogOutIcon />
-                  <span>{t.logout}</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter>
-        <NavUser
-          user={{
-            name: user?.name ?? t.userFallback,
-            email: user?.email ?? t.noEmail,
-            avatar: "",
-          }}
-        />
-      </SidebarFooter>
     </Sidebar>
   )
 }

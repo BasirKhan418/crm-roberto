@@ -1,8 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -93,6 +93,7 @@ const forgotMessages = {
 
 export default function ForgotPasswordPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { locale } = useLocale()
   const t = forgotMessages[locale]
   const [step, setStep] = useState<Step>("email")
@@ -100,6 +101,7 @@ export default function ForgotPasswordPage() {
   const [userEmail, setUserEmail] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [token, setToken] = useState("")
+  const didHandleDeepLinkRef = useRef(false)
 
   const emailForm = useForm<{ email: string }>({
     resolver: zodResolver(emailSchema),
@@ -194,6 +196,52 @@ export default function ForgotPasswordPage() {
       toast.error(t.toastRequestError)
     }
   }
+
+  useEffect(() => {
+    if (didHandleDeepLinkRef.current) {
+      return
+    }
+
+    const emailFromLink = searchParams.get("email")?.trim() ?? ""
+    const otpFromLink = searchParams.get("otp")?.trim() ?? ""
+
+    if (!emailFromLink || !otpFromLink) {
+      return
+    }
+
+    didHandleDeepLinkRef.current = true
+    setUserEmail(emailFromLink)
+    setStep("otp")
+    setOtpValue("otp", otpFromLink)
+
+    void (async () => {
+      setIsLoading(true)
+      try {
+        const response = await fetch("/api/forgot", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ email: emailFromLink, status: "verify", otp: otpFromLink, locale }),
+        })
+
+        const result = await response.json()
+        if (!result.success) {
+          setIsLoading(false)
+          toast.error(resolveTranslatedText(locale, result.message, t.toastRequestError))
+          return
+        }
+
+        setToken(result.token)
+        setStep("reset")
+        setIsLoading(false)
+        toast.success(resolveTranslatedText(locale, result.message, t.toastOtpVerified))
+      } catch {
+        setIsLoading(false)
+        toast.error(t.toastRequestError)
+      }
+    })()
+  }, [locale, searchParams, setOtpValue, t.toastOtpVerified, t.toastRequestError])
 
   return (
     <div className="space-y-8">

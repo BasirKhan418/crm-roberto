@@ -104,6 +104,8 @@ type InvoiceListQueryResult = {
   date: Date;
   dueDate?: Date | null;
   status: string;
+  totalExcludingTax: number;
+  totalVat: number;
   totalIncludingTax: number;
   depositPercentage?: number | null;
   depositAmount?: number | null;
@@ -252,7 +254,7 @@ export async function GET(request: NextRequest) {
     const [items, total] = await Promise.all([
       Invoice.find(query)
         .select(
-          '_id invoiceNumber quoteId quoteNumber date dueDate status totalIncludingTax depositPercentage depositAmount clientId clientSnapshot.fullName clientSnapshot.email'
+          '_id invoiceNumber quoteId quoteNumber date dueDate status totalExcludingTax totalVat totalIncludingTax depositPercentage depositAmount clientId clientSnapshot.fullName clientSnapshot.email'
         )
         .sort(sortSpec)
         .skip(skip)

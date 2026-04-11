@@ -41,6 +41,8 @@ export interface QuoteListItem {
     email?: string | null;
   };
   date: string;
+  totalExcludingTax?: number;
+  totalVat?: number;
   totalIncludingTax: number;
   status: QuoteStatus;
   signedStatus?: 'not_signed' | 'signed';

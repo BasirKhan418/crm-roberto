@@ -32,7 +32,14 @@ export async function POST(request: NextRequest) {
             if (!result.success) {
                 return NextResponse.json({ message: result.message, success: false },{ status: 429 });
             }
-            SendForgotPasswordEmail({ email, otp: generatedOtp, locale });
+
+            const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
+            const resetUrl = `${appBaseUrl}/forgot-password?email=${encodeURIComponent(email)}&otp=${encodeURIComponent(generatedOtp)}`;
+            const emailSendResult = await SendForgotPasswordEmail({ email, otp: generatedOtp, locale, resetUrl });
+            if (!emailSendResult.success) {
+                return NextResponse.json({ message: "Failed to send reset email. Please try again.", success: false }, { status: 500 });
+            }
+
             return NextResponse.json({ message: "If that email is registered, a reset code has been sent.", success: true },{ status: 200 });
         }
         //handle otp verification for forgot password

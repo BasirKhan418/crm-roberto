@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 
@@ -30,6 +30,7 @@ import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import FinancialTotalsBar from '@/components/ui/FinancialTotalsBar';
 
 function QuotesPageContent() {
   const COLUMN_STORAGE_KEY = 'crm.quote.visibleColumns.v1';
@@ -113,6 +114,11 @@ function QuotesPageContent() {
       total: 'total',
       previous: 'Previous',
       next: 'Next',
+      numberOfDocuments: 'Number of documents',
+      totalHT: 'Total HT',
+      totalTVA: 'Total TVA',
+      totalTTC: 'Total TTC',
+      totalAccepted: 'Total accepted',
       actionRejected: (n: number) => `${n} quote${n === 1 ? '' : 's'} declined — follow up or revise`,
       actionRejectedHint: 'Disappears when you mark each declined quote as “Reviewed”',
       actionAccepted: (n: number) => `${n} quote${n === 1 ? '' : 's'} accepted — ready to invoice`,
@@ -185,6 +191,11 @@ function QuotesPageContent() {
       total: 'au total',
       previous: 'Précédent',
       next: 'Suivant',
+      numberOfDocuments: 'Nombre de documents',
+      totalHT: 'Total HT',
+      totalTVA: 'Total TVA',
+      totalTTC: 'Total TTC',
+      totalAccepted: 'Total accepte',
       actionRejected: (n: number) => `${n} devis refusé${n === 1 ? '' : 's'} par le client — à relancer ou réviser`,
       actionRejectedHint: 'Disparaît lorsque vous marquez chaque devis refusé comme « Traité »',
       actionAccepted: (n: number) => `${n} devis accepté${n === 1 ? '' : 's'} — prêt${n === 1 ? '' : 's'} à facturer`,
@@ -446,6 +457,24 @@ function QuotesPageContent() {
   const currentFilterLabel =
     status === 'all' ? t.tabAll : status === 'draft' ? t.tabDraft : status === 'sent' ? t.tabSent : status === 'accepted' ? t.tabAccepted : t.tabRejected;
 
+  const quoteMetrics = useMemo(() => {
+    const totalHT = quotes.reduce((sum, quote) => sum + Math.max(0, Math.round(quote.totalExcludingTax ?? 0)), 0);
+    const totalTVA = quotes.reduce((sum, quote) => sum + Math.max(0, Math.round(quote.totalVat ?? 0)), 0);
+    const totalTTC = quotes.reduce((sum, quote) => sum + Math.max(0, Math.round(quote.totalIncludingTax ?? 0)), 0);
+    const totalAccepted = quotes.reduce(
+      (sum, quote) => sum + (quote.status === 'accepted' ? Math.max(0, Math.round(quote.totalIncludingTax ?? 0)) : 0),
+      0
+    );
+
+    return [
+      { key: 'doc-count', label: t.numberOfDocuments, value: quotes.length, kind: 'count' as const },
+      { key: 'total-ht', label: t.totalHT, value: totalHT, kind: 'currency' as const },
+      { key: 'total-tva', label: t.totalTVA, value: totalTVA, kind: 'currency' as const },
+      { key: 'total-ttc', label: t.totalTTC, value: totalTTC, kind: 'currency' as const },
+      { key: 'total-accepted', label: t.totalAccepted, value: totalAccepted, kind: 'currency' as const, tone: 'success' as const },
+    ];
+  }, [quotes, t.numberOfDocuments, t.totalAccepted, t.totalHT, t.totalTTC, t.totalTVA]);
+
   return (
     <CrmShell title={t.shellTitle}>
       <section className="space-y-5">
@@ -650,6 +679,10 @@ function QuotesPageContent() {
               duplicatingId={duplicatingId}
               acknowledgingId={acknowledgingId}
             />
+            </div>
+
+            <div data-tour-quotes-totals>
+              <FinancialTotalsBar metrics={quoteMetrics} locale={locale as 'en' | 'fr'} />
             </div>
 
             <div className="flex flex-col gap-2 rounded-lg border border-border/70 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">

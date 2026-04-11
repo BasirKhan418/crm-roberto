@@ -27,6 +27,8 @@ export interface QuoteListItemRecord {
   invoiceId?: string | null;
   rejectionAcknowledgedAt?: Date | null;
   statusChangedAt: Date | null;
+  totalExcludingTax: number;
+  totalVat: number;
   totalIncludingTax: number;
   clientId: string;
   subject?: string | null;
@@ -65,6 +67,8 @@ interface QuoteListQueryRecord {
   rejectionAcknowledgedAt?: Date | null;
   signedAt?: Date | null;
   updatedAt?: Date | null;
+  totalExcludingTax: number;
+  totalVat: number;
   totalIncludingTax: number;
   clientId: mongoose.Types.ObjectId | string;
   clientSnapshot: {
@@ -467,7 +471,7 @@ export const listQuotes = async (
     .sort(sortOptions)
     .skip(skip)
     .limit(limit)
-    .select('_id quoteNumber date status signedStatus convertedToInvoice invoiceId rejectionAcknowledgedAt signedAt updatedAt clientId clientSnapshot.fullName clientSnapshot.email totalIncludingTax statusHistory.to statusHistory.changedAt subject')
+    .select('_id quoteNumber date status signedStatus convertedToInvoice invoiceId rejectionAcknowledgedAt signedAt updatedAt clientId clientSnapshot.fullName clientSnapshot.email totalExcludingTax totalVat totalIncludingTax statusHistory.to statusHistory.changedAt subject')
     .lean();
 
   const items = (quotes as (QuoteListQueryRecord & { subject?: string | null })[]).map((quote) => {
@@ -487,6 +491,8 @@ export const listQuotes = async (
       updatedAt: quote.updatedAt,
       date: quote.date,
     }),
+    totalExcludingTax: Math.max(0, Math.round(quote.totalExcludingTax ?? 0)),
+    totalVat: Math.max(0, Math.round(quote.totalVat ?? 0)),
     totalIncludingTax: quote.totalIncludingTax,
     clientId: String(quote.clientId),
     subject: (quote as { subject?: string | null }).subject ?? null,

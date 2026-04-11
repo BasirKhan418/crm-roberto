@@ -14,6 +14,8 @@ export interface InvoiceListItem {
   date: string;
   dueDate?: string | null;
   status: InvoiceStatus;
+  totalExcludingTax?: number;
+  totalVat?: number;
   totalIncludingTax: number;
   depositPercentage?: number;
   depositAmount?: number | null;

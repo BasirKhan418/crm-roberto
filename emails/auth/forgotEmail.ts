@@ -7,6 +7,7 @@ interface SendOtpEmailParams {
   email: string;
   otp: string;
   locale?: Locale;
+  resetUrl?: string;
 }
 
 const t = {
@@ -34,7 +35,7 @@ const t = {
   },
 };
 
-export const SendForgotPasswordEmail = async ({ email, otp, locale = 'fr' }: SendOtpEmailParams) => {
+export const SendForgotPasswordEmail = async ({ email, otp, locale = 'fr', resetUrl }: SendOtpEmailParams) => {
   try {
     const emailTransporter = await ConnectEmailClient();
 
@@ -65,11 +66,18 @@ export const SendForgotPasswordEmail = async ({ email, otp, locale = 'fr' }: Sen
           </table>
 
           <p style="margin:0 0 12px;font-size:13px;font-weight:600;color:#374151;">${labels.expiry}</p>
+          ${resetUrl ? `
+          <p style="margin:0 0 14px;font-size:13px;color:#374151;line-height:1.6;">
+            <a href="${resetUrl}" style="display:inline-block;padding:10px 14px;background:#1a2e44;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:600;">
+              ${locale === 'fr' ? 'Continuer la réinitialisation' : 'Continue reset'}
+            </a>
+          </p>
+          ` : ''}
           <p style="margin:0;font-size:13px;color:#6b7280;">${labels.ignore}</p>
     `;
 
     await emailTransporter.sendMail({
-      from: `"CRM" <${process.env.EMAIL_USER_V2}>`,
+      from: `"CRM" <${process.env.EMAIL_USER_V2 || process.env.EMAIL_USER}>`,
       to: email,
       subject: labels.subject,
       html: authEmailLayout({ title: labels.subject, locale, content }),

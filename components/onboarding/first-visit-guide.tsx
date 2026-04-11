@@ -72,10 +72,17 @@ const TOUR_BY_ROUTE: Record<string, (locale: Locale) => TourStep[]> = {
     { element: '[data-tour-supplier-timeline]', title: locale === 'fr' ? 'Timeline fournisseur' : 'Supplier timeline', description: locale === 'fr' ? 'Historique des notes et suivis.' : 'History of notes and follow-ups.' },
   ],
   '/catalogue': (locale) => [
-    { element: '[data-tour-catalogue-header]', title: locale === 'fr' ? 'Produits & services' : 'Products & services', description: locale === 'fr' ? 'Gérez vos éléments réutilisables pour devis/factures.' : 'Manage reusable items for quotes/invoices.' },
+    {
+      element: '[data-tour-catalogue-header]',
+      title: locale === 'fr' ? 'Etape 1 - Produits et services' : 'Step 1 - Products and services',
+      description:
+        locale === 'fr'
+          ? 'Cette page centralise vos produits et services reutilisables pour devis et factures.'
+          : 'This page centralizes reusable products and services for quotes and invoices.',
+    },
     {
       element: '[data-tour-catalogue-quick-add]',
-      title: locale === 'fr' ? 'Ajout rapide' : 'Quick add',
+      title: locale === 'fr' ? 'Etape 2 - Ajout rapide' : 'Step 2 - Quick add',
       description:
         locale === 'fr'
           ? 'Ajoutez rapidement un produit/service réutilisable (nom, prix HT, type) sans ouvrir la modale.'
@@ -83,15 +90,30 @@ const TOUR_BY_ROUTE: Record<string, (locale: Locale) => TourStep[]> = {
     },
     {
       element: '[data-tour-catalogue-new-item]',
-      title: locale === 'fr' ? 'Formulaire complet' : 'Full form',
+      title: locale === 'fr' ? 'Etape 3 - Formulaire complet' : 'Step 3 - Full form',
       description:
         locale === 'fr'
           ? 'Utilisez ce bouton si vous avez besoin de plus de détails (description, pièce jointe, TVA personnalisée).'
           : 'Use this button when you need advanced fields (description, attachment, custom VAT).',
     },
-    { element: '[data-tour-catalogue-search]', title: locale === 'fr' ? 'Recherche catalogue' : 'Catalogue search', description: locale === 'fr' ? 'Filtrez et retrouvez rapidement un élément.' : 'Filter and find items quickly.' },
-    { element: '[data-tour-catalogue-filters]', title: locale === 'fr' ? 'Filtres et tri' : 'Filters and sorting', description: locale === 'fr' ? 'Filtrez par type et triez par nom, prix ou date.' : 'Filter by type and sort by name, price, or date.' },
-    { element: '[data-tour-catalogue-table]', title: locale === 'fr' ? 'Table catalogue' : 'Catalogue table', description: locale === 'fr' ? 'Modifiez ou supprimez vos éléments depuis cette table.' : 'Edit or delete your items from this table.' },
+    {
+      element: '[data-tour-catalogue-search]',
+      title: locale === 'fr' ? 'Etape 4 - Recherche' : 'Step 4 - Search',
+      description: locale === 'fr' ? 'Retrouvez vite un element par nom ou description.' : 'Find any item quickly by name or description.',
+    },
+    {
+      element: '[data-tour-catalogue-filters]',
+      title: locale === 'fr' ? 'Etape 5 - Filtres et tri' : 'Step 5 - Filters and sorting',
+      description: locale === 'fr' ? 'Filtrez par type et triez par nom, prix ou date.' : 'Filter by type and sort by name, price, or date.',
+    },
+    {
+      element: '[data-tour-catalogue-table]',
+      title: locale === 'fr' ? 'Etape 6 - Table catalogue' : 'Step 6 - Catalogue table',
+      description:
+        locale === 'fr'
+          ? 'Gerez vos produits/services depuis cette table: modifier, supprimer et reutiliser dans vos documents.'
+          : 'Manage products/services from this table: edit, delete, and reuse in documents.',
+    },
   ],
   '/quotes': (locale) => [
     {
@@ -133,6 +155,14 @@ const TOUR_BY_ROUTE: Record<string, (locale: Locale) => TourStep[]> = {
         locale === 'fr'
           ? 'Utilisez cette table avec les colonnes choisies pour ouvrir un devis et lancer les actions: voir, modifier, PDF, dupliquer, envoyer, historique et conversion en facture si éligible.'
           : 'Use this table with your chosen columns to open quotes and run actions: view, edit, PDF, duplicate, send, history, and convert to invoice when eligible.',
+    },
+    {
+      element: '[data-tour-quotes-totals]',
+      title: locale === 'fr' ? 'Etape 6 - Totaux visibles' : 'Step 6 - Visible totals',
+      description:
+        locale === 'fr'
+          ? 'Ce resume calcule uniquement les devis affiches (page, filtres et recherche en cours): nombre, total HT, TVA, TTC et total accepte.'
+          : 'This summary calculates only visible quotes (current page, filters, and search): count, subtotal, VAT, grand total, and accepted total.',
     },
   ],
   '/quotes/new': (locale) => [
@@ -223,6 +253,14 @@ const TOUR_BY_ROUTE: Record<string, (locale: Locale) => TourStep[]> = {
           ? 'Dans cette table personnalisée, gérez chaque facture: ouvrir, modifier (si éligible), envoyer, PDF, suppression, marquage payé et solde des acomptes.'
           : 'In this customized table, manage each invoice: open, edit (when eligible), send, PDF, delete, mark as paid, and settle deposit balances.',
     },
+    {
+      element: '[data-tour-invoices-totals]',
+      title: locale === 'fr' ? 'Etape 6 - Totaux visibles' : 'Step 6 - Visible totals',
+      description:
+        locale === 'fr'
+          ? 'Ce resume calcule uniquement les factures affichees (page, filtres et recherche en cours): nombre, total HT, TVA, TTC, total paye et total restant.'
+          : 'This summary calculates only visible invoices (current page, filters, and search): count, subtotal, VAT, grand total, total paid, and total due.',
+    },
   ],
   '/invoices/new': (locale) => [
     {
@@ -303,16 +341,48 @@ const TOUR_BY_ROUTE: Record<string, (locale: Locale) => TourStep[]> = {
   ],
   '/notes': (locale) => [
     {
+      element: '[data-tour-notes-header]',
+      title: locale === 'fr' ? 'Etape 1 - Espace notes' : 'Step 1 - Notes workspace',
+      description:
+        locale === 'fr'
+          ? 'Cette page centralise vos notes de suivi liees aux clients et fournisseurs.'
+          : 'This page centralizes follow-up notes linked to clients and suppliers.',
+    },
+    {
       element: '[data-tour-notes-add]',
-      title: locale === 'fr' ? 'Créer une note' : 'Create a note',
+      title: locale === 'fr' ? 'Etape 2 - Creer une note' : 'Step 2 - Create a note',
       description:
         locale === 'fr'
           ? 'Utilisez ce bouton pour ajouter une nouvelle note et la lier à un client ou un fournisseur.'
           : 'Use this button to create a new note and link it to a client or supplier.',
     },
     {
+      element: '[data-tour-notes-search]',
+      title: locale === 'fr' ? 'Etape 3 - Recherche' : 'Step 3 - Search',
+      description:
+        locale === 'fr'
+          ? 'Retrouvez rapidement une note par contenu, client, fournisseur ou objet associe.'
+          : 'Find a note quickly by content, client, supplier, or linked subject.',
+    },
+    {
+      element: '[data-tour-notes-filter]',
+      title: locale === 'fr' ? 'Etape 4 - Filtres' : 'Step 4 - Filters',
+      description:
+        locale === 'fr'
+          ? 'Filtrez les notes selon leur statut pour vous concentrer sur les actions a traiter.'
+          : 'Filter notes by status to focus on the actions that need attention.',
+    },
+    {
+      element: '[data-tour-notes-list]',
+      title: locale === 'fr' ? 'Etape 5 - Liste des notes' : 'Step 5 - Notes list',
+      description:
+        locale === 'fr'
+          ? 'Parcourez les cartes de notes et ouvrez les actions rapides pour modifier, supprimer ou marquer terminee.'
+          : 'Browse note cards and use quick actions to edit, delete, or mark done.',
+    },
+    {
       element: '[data-tour-notes-panel]',
-      title: locale === 'fr' ? 'Table des notes' : 'Notes table',
+      title: locale === 'fr' ? 'Etape 6 - Panneau principal' : 'Step 6 - Main panel',
       description:
         locale === 'fr'
           ? 'Ici vous gérez toutes les notes: consulter, modifier, supprimer, marquer un suivi terminé, et ouvrir le client/fournisseur lié.'
@@ -322,6 +392,9 @@ const TOUR_BY_ROUTE: Record<string, (locale: Locale) => TourStep[]> = {
 };
 
 const TOUR_STORAGE_KEY_BY_ROUTE: Partial<Record<string, string>> = {
+  '/catalogue': '/catalogue:v2',
+  '/quotes': '/quotes:v2',
+  '/invoices': '/invoices:v2',
   '/notes': '/notes:v2',
 };
 

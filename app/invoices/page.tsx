@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
@@ -31,6 +31,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useInvoices, type InvoiceListItem, type InvoiceStatusFilter } from '@/hooks/useInvoices';
 import { useInvoicesActionCount } from '@/hooks/useInvoicesActionCount';
+import FinancialTotalsBar from '@/components/ui/FinancialTotalsBar';
 
 function InvoicesPageContent() {
   const COLUMN_STORAGE_KEY = 'crm.invoice.visibleColumns.v1';
@@ -114,6 +115,12 @@ function InvoicesPageContent() {
       total: 'total',
       previous: 'Previous',
       next: 'Next',
+      numberOfDocuments: 'Number of documents',
+      totalHT: 'Total HT',
+      totalTVA: 'Total TVA',
+      totalTTC: 'Total TTC',
+      totalPaid: 'Total paid',
+      totalDue: 'Total due',
       actionOverdue: (n: number) => `${n} invoice${n === 1 ? '' : 's'} overdue — collect now`,
       actionOverdueHint: 'Disappears when invoice is paid',
       actionInitialPaid: (n: number) => `${n} invoice${n === 1 ? '' : 's'} partially paid — remaining balance due`,
@@ -185,6 +192,12 @@ function InvoicesPageContent() {
       total: 'au total',
       previous: 'Précédent',
       next: 'Suivant',
+      numberOfDocuments: 'Nombre de documents',
+      totalHT: 'Total HT',
+      totalTVA: 'Total TVA',
+      totalTTC: 'Total TTC',
+      totalPaid: 'Total paye',
+      totalDue: 'Total reste',
       actionOverdue: (n: number) => `${n} facture${n === 1 ? '' : 's'} en retard — encaissez maintenant`,
       actionOverdueHint: 'Disparaît lorsque la facture est marquée comme payée',
       actionInitialPaid: (n: number) => `${n} facture${n === 1 ? '' : 's'} partiellement payée(s)`,
@@ -404,6 +417,33 @@ function InvoicesPageContent() {
             ? t.tabPaid
             : t.tabOverdue;
 
+  const invoiceMetrics = useMemo(() => {
+    const totalHT = invoices.reduce((sum, invoice) => sum + Math.max(0, Math.round(invoice.totalExcludingTax ?? 0)), 0);
+    const totalTVA = invoices.reduce((sum, invoice) => sum + Math.max(0, Math.round(invoice.totalVat ?? 0)), 0);
+    const totalTTC = invoices.reduce((sum, invoice) => sum + Math.max(0, Math.round(invoice.totalIncludingTax ?? 0)), 0);
+    const totalPaid = invoices.reduce((sum, invoice) => sum + Math.max(0, Math.round(invoice.amountPaid ?? 0)), 0);
+    const totalDue = invoices.reduce(
+      (sum, invoice) =>
+        sum +
+        Math.max(
+          0,
+          Math.round(
+            invoice.remainingAmount ?? Math.max(0, Math.round(invoice.totalIncludingTax ?? 0) - Math.round(invoice.amountPaid ?? 0))
+          )
+        ),
+      0
+    );
+
+    return [
+      { key: 'doc-count', label: t.numberOfDocuments, value: invoices.length, kind: 'count' as const },
+      { key: 'total-ht', label: t.totalHT, value: totalHT, kind: 'currency' as const },
+      { key: 'total-tva', label: t.totalTVA, value: totalTVA, kind: 'currency' as const },
+      { key: 'total-ttc', label: t.totalTTC, value: totalTTC, kind: 'currency' as const },
+      { key: 'total-paid', label: t.totalPaid, value: totalPaid, kind: 'currency' as const, tone: 'success' as const },
+      { key: 'total-due', label: t.totalDue, value: totalDue, kind: 'currency' as const, tone: 'danger' as const },
+    ];
+  }, [invoices, t.numberOfDocuments, t.totalDue, t.totalHT, t.totalPaid, t.totalTTC, t.totalTVA]);
+
   return (
     <CrmShell title={t.shellTitle}>
       <section className="space-y-5">
@@ -600,6 +640,10 @@ function InvoicesPageContent() {
               }}
               locale={locale as 'en' | 'fr'}
             />
+            </div>
+
+            <div data-tour-invoices-totals>
+              <FinancialTotalsBar metrics={invoiceMetrics} locale={locale as 'en' | 'fr'} />
             </div>
 
             <div className="flex flex-col gap-2 rounded-lg border border-border/70 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
