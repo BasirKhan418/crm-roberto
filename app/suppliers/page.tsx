@@ -320,7 +320,7 @@ export default function SuppliersPage() {
     <CrmShell title={t.shellTitle}>
 
       {/* Page header */}
-      <div data-tour-suppliers-header className="flex flex-col gap-3 border-b border-border/60 pb-5 md:flex-row md:items-end md:justify-between">
+      <div data-tour-suppliers-header className="flex flex-col gap-3 pb-2 md:flex-row md:items-end md:justify-between">
         <div>
           <h1 className="font-heading text-2xl font-bold tracking-tight">{t.heading}</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">{t.subtitle}</p>
@@ -400,7 +400,7 @@ export default function SuppliersPage() {
 
       {/* Stat bar */}
       {!loading && !error ? (
-        <div className="flex items-center gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 dark:border-primary/30 dark:bg-primary/10">
+        <div className="flex items-center gap-3 rounded-xl bg-primary/8 px-4 py-3 dark:bg-primary/15">
           <div className="flex size-9 items-center justify-center rounded-full bg-primary">
             <Truck className="size-4 text-white" strokeWidth={2} />
           </div>
@@ -412,17 +412,17 @@ export default function SuppliersPage() {
       ) : null}
 
       {/* Search */}
-      <div className="space-y-3">
-      <div className="relative w-full max-w-md">
-        <SearchIcon className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
-        <Input
-          data-tour-suppliers-search
-          className="pl-8"
-          placeholder={t.search}
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-        />
-      </div>
+      <div className="space-y-3 rounded-xl bg-card/60 p-3 sm:p-4">
+        <div className="relative w-full sm:max-w-md">
+          <SearchIcon className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
+          <Input
+            data-tour-suppliers-search
+            className="h-10 pl-8"
+            placeholder={t.search}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+          />
+        </div>
       </div>
 
       {/* Error */}
@@ -432,7 +432,7 @@ export default function SuppliersPage() {
       {loading ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, idx) => (
-            <div key={idx} className="space-y-3 rounded-2xl border border-border/70 p-5">
+            <div key={idx} className="space-y-3 rounded-2xl bg-card p-4 sm:p-5">
               <div className="flex items-center gap-3">
                 <Skeleton className="size-11 shrink-0 rounded-full" />
                 <div className="flex-1 space-y-1.5">
@@ -449,12 +449,12 @@ export default function SuppliersPage() {
         <EmptyState message={t.empty} />
       ) : (
         <>
-          <div data-tour-suppliers-grid className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div data-tour-suppliers-grid className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {suppliers.map((supplier) => (
               <Link
                 key={supplier._id}
                 href={`/suppliers/${supplier._id}`}
-                className="group relative flex flex-col gap-4 rounded-2xl border border-border/70 bg-card p-5 shadow-sm transition-all hover:border-primary/40 hover:shadow-md dark:hover:border-primary/50"
+                className="group relative flex flex-col gap-4 rounded-2xl bg-card p-4 shadow-sm transition-all hover:shadow-md sm:p-5"
               >
                 {/* Avatar + name */}
                 <div className="flex items-start gap-3">
@@ -473,7 +473,7 @@ export default function SuppliersPage() {
                     ) : (
                       <p className="mt-0.5 text-xs text-muted-foreground/50">{t.noData}</p>
                     )}
-                    <p className="mt-1 inline-flex w-fit rounded-full border border-border/70 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                    <p className="mt-1 inline-flex w-fit rounded-full bg-background px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                       {getCategoryLabel(supplier.category)}
                     </p>
                   </div>
@@ -502,7 +502,7 @@ export default function SuppliersPage() {
                 </div>
 
                 {/* Footer */}
-                <div className="flex items-center justify-between border-t border-border/50 pt-3">
+                <div className="flex items-center justify-between pt-3">
                   <p className="text-[11px] text-muted-foreground/60">
                     {new Date(supplier.createdAt).toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
                   </p>

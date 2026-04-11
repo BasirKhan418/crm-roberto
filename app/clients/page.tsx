@@ -167,7 +167,7 @@ export default function ClientsPage() {
   return (
     <CrmShell title={t.shellTitle}>
       {/* Page header */}
-      <div data-tour-clients-header className="flex flex-col gap-3 border-b border-border/60 pb-5 md:flex-row md:items-end md:justify-between">
+      <div data-tour-clients-header className="flex flex-col gap-3 pb-2 md:flex-row md:items-end md:justify-between">
         <div>
           <h1 className="font-heading text-2xl font-bold tracking-tight">{t.heading}</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">{t.subtitle}</p>
@@ -181,7 +181,7 @@ export default function ClientsPage() {
 
       {/* Stat bar */}
       {!loading && !error ? (
-        <div className="flex w-fit items-center gap-4 rounded-xl border border-primary/20 bg-primary/5 px-5 py-3.5 dark:border-primary/30 dark:bg-primary/10">
+        <div className="flex w-fit items-center gap-4 rounded-xl bg-primary/8 px-5 py-3.5 dark:bg-primary/15">
           <div className="flex size-10 items-center justify-center rounded-full bg-primary shadow-sm">
             <Users className="size-4 text-white" strokeWidth={2.5} />
           </div>
@@ -193,12 +193,12 @@ export default function ClientsPage() {
       ) : null}
 
       {/* Search + filters row */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="relative flex-1 max-w-md">
+      <div className="space-y-3 rounded-xl bg-card/60 p-3 sm:p-4">
+        <div className="relative w-full sm:max-w-md">
           <SearchIcon className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
           <Input
             data-tour-clients-search
-            className="pl-8"
+            className="h-10 pl-8"
             placeholder={t.search}
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
@@ -211,7 +211,7 @@ export default function ClientsPage() {
           />
         </div>
         {/* Type filter pills */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-0.5">
+        <div className="flex flex-wrap items-center gap-2">
           {(['all', 'company', 'individual'] as const).map((type) => {
             const active = typeFilter === type;
             return (
@@ -222,14 +222,14 @@ export default function ClientsPage() {
                   setTypeFilter(type);
                   setPagination((prev) => ({ ...prev, page: 1 }));
                 }}
-                className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-all ${
+                className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-all sm:text-sm ${
                   active
                     ? type === 'company'
-                      ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm'
+                      ? 'bg-indigo-600 text-white shadow-sm'
                       : type === 'individual'
-                      ? 'border-emerald-600 bg-emerald-600 text-white shadow-sm'
-                      : 'border-primary bg-primary text-primary-foreground shadow-sm'
-                    : 'border-border bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground'
+                      ? 'bg-emerald-600 text-white shadow-sm'
+                      : 'bg-primary text-primary-foreground shadow-sm'
+                    : 'bg-background text-muted-foreground hover:bg-muted hover:text-foreground'
                 }`}
               >
                 {type === 'company' && <Building2 className="size-3" />}
@@ -248,7 +248,7 @@ export default function ClientsPage() {
       {loading ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, idx) => (
-            <div key={idx} className="rounded-2xl border border-border/70 p-5 space-y-3">
+            <div key={idx} className="space-y-3 rounded-2xl bg-card p-4 sm:p-5">
               <div className="flex items-center gap-3">
                 <Skeleton className="size-11 rounded-full shrink-0" />
                 <div className="space-y-1.5 flex-1">
@@ -265,12 +265,12 @@ export default function ClientsPage() {
         <EmptyState message={t.empty} />
       ) : (
         <>
-          <div data-tour-clients-grid className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div data-tour-clients-grid className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {clients.map((client) => (
               <Link
                 key={client._id}
                 href={`/clients/${client._id}`}
-                className="group relative flex flex-col overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md dark:hover:border-primary/50"
+                className="group relative flex flex-col overflow-hidden rounded-2xl bg-card shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
               >
                 {/* Colored top accent strip by client type */}
                 <div className={`h-1.5 w-full ${client.clientType === 'individual' ? 'bg-emerald-500' : 'bg-indigo-500'}`} />
@@ -344,7 +344,7 @@ export default function ClientsPage() {
                   ) : null}
 
                   {/* Footer */}
-                  <div className="flex items-center justify-between border-t border-border/50 pt-3">
+                  <div className="flex items-center justify-between pt-3">
                     <p className="text-[11px] text-muted-foreground/60">
                       {new Date(client.createdAt).toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
                     </p>
@@ -358,14 +358,15 @@ export default function ClientsPage() {
           </div>
 
           {/* Pagination */}
-          <div className="flex items-center justify-between border-t border-border/60 pt-4">
+          <div className="flex flex-col gap-3 pt-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs text-muted-foreground">
               {t.page} {pagination.page} {t.of} {Math.max(pagination.totalPages, 1)} — {pagination.total} {t.total}
             </p>
-            <div className="flex gap-2">
+            <div className="flex w-full gap-2 sm:w-auto">
               <Button
                 variant="outline"
                 size="sm"
+                className="flex-1 sm:flex-none"
                 disabled={pagination.page <= 1}
                 onClick={() => setPagination((prev) => ({ ...prev, page: prev.page - 1 }))}
               >
@@ -374,6 +375,7 @@ export default function ClientsPage() {
               <Button
                 variant="outline"
                 size="sm"
+                className="flex-1 sm:flex-none"
                 disabled={pagination.totalPages === 0 || pagination.page >= pagination.totalPages}
                 onClick={() => setPagination((prev) => ({ ...prev, page: prev.page + 1 }))}
               >

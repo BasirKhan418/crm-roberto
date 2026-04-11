@@ -43,6 +43,11 @@ interface SmartActionsData {
       quoteNumber: string;
       clientId: string;
     } | null;
+    items: Array<{
+      _id: string;
+      quoteNumber: string;
+      clientId: string;
+    }>;
   };
   inactiveClients: {
     count: number;
@@ -240,19 +245,19 @@ function SmartActionRow({
   const toneClass = getSmartToneClasses(tone);
 
   return (
-    <div className={`rounded-2xl border p-3 transition-colors ${toneClass.row}`}>
-      <div className="flex flex-col items-center gap-3 text-center sm:flex-row sm:items-center sm:justify-between sm:text-left">
-        <div className="flex min-w-0 items-start justify-center gap-3 sm:justify-start">
+    <div className={`rounded-xl border p-2.5 transition-colors sm:p-3 ${toneClass.row}`}>
+      <div className="flex flex-col gap-2.5 text-left sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-start gap-3">
           <div className={`mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl ${toneClass.icon}`}>
             <Icon className="size-4.5" strokeWidth={1.9} />
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-foreground sm:truncate">{title}</p>
-            <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
+            <p className="text-sm font-semibold text-foreground wrap-break-word">{title}</p>
+            <p className="mt-0.5 text-xs leading-5 text-muted-foreground wrap-break-word">{description}</p>
           </div>
         </div>
 
-        <div className="flex w-full shrink-0 items-center justify-center sm:w-auto sm:justify-end sm:pl-3">
+        <div className="flex w-full shrink-0 items-center justify-start sm:w-auto sm:justify-end sm:pl-3">
           <Button
             type="button"
             size="sm"
@@ -276,29 +281,27 @@ export default function PriorityActionsPanel({
 }: PriorityActionsPanelProps) {
   const router = useRouter();
   const [isFollowUpModalOpen, setIsFollowUpModalOpen] = useState(false);
-  const [isInvoiceConfirmOpen, setIsInvoiceConfirmOpen] = useState(false);
+  const [isInvoicePickerOpen, setIsInvoicePickerOpen] = useState(false);
   const [isReminderConfirmOpen, setIsReminderConfirmOpen] = useState(false);
   const [smartActionsData, setSmartActionsData] = useState<SmartActionsData | null>(null);
   const [smartActionsLoading, setSmartActionsLoading] = useState(true);
   const [actionLoadingKey, setActionLoadingKey] = useState<string | null>(null);
+  const [selectedAcceptedQuoteId, setSelectedAcceptedQuoteId] = useState<string>('');
   const { locale } = useLocale();
 
   const t = {
     en: {
-      kicker: 'Priority actions',
-      title: 'Handle urgent work first',
-      subtitle: 'Overdue notes and the next follow-ups are surfaced before the rest of the dashboard.',
+      title: 'Smart Actions',
+      subtitle: 'One focused block for urgent tasks, follow-ups, opportunities, and alerts.',
+      urgentTasks: 'Urgent tasks',
+      followUps: 'Follow-ups',
+      opportunities: 'Opportunities',
+      alerts: 'Alerts',
+      nextAction: 'Next action date',
+      noNextAction: 'No next action pending',
       unknown: 'Unknown record',
-      noPriority: 'No urgent follow-ups right now. Use a quick action to move the pipeline forward.',
+      noPriority: 'No urgent items right now.',
       addNote: 'Add Note',
-      addNoteDescription: 'Capture a follow-up or internal task before it slips.',
-      createQuote: 'Create Quote',
-      createQuoteDescription: 'Start a new quote directly from the dashboard.',
-      createInvoice: 'Create Invoice',
-      createInvoiceDescription: 'Open the invoice workspace to prepare billing.',
-      overdueBadge: (count: number) => `${count} overdue`,
-      dueTodayBadge: (count: number) => `${count} today`,
-      smartActionsTitle: 'Smart Actions',
       quotesNeedFollowUp: (count: number) => `${count} quotes need follow-up`,
       noQuotesNeedFollowUp: 'No sent quotes need follow-up',
       followUpDescription: 'Sent quotes older than 7 days and still waiting for client response.',
@@ -307,11 +310,11 @@ export default function PriorityActionsPanel({
       acceptedNotInvoiced: (count: number) => `${count} accepted quotes not invoiced`,
       noAcceptedNotInvoiced: 'No accepted quotes waiting for invoicing',
       acceptedNotInvoicedDescription: 'Turn accepted work into invoices and keep cash flow moving.',
-      createInvoiceActionButton: 'Create invoice',
+      createInvoiceActionButton: 'Choose quote',
       reviewAcceptedQuotesAction: 'Review quotes',
-      confirmInvoiceTitle: 'Create invoice from accepted quote?',
-      confirmInvoiceDescription: (quoteNumber: string) =>
-        `This will create a new invoice draft for quote ${quoteNumber} immediately. Continue only if you are ready to bill this accepted work.`,
+      pickInvoiceTitle: 'Choose quote to convert',
+      pickInvoiceDescription: 'Select one accepted quote and confirm. No automatic bulk conversion is performed.',
+      selectedQuoteLabel: 'Selected quote',
       confirmInvoiceCancel: 'Cancel',
       confirmInvoiceAction: 'Create invoice',
       confirmInvoicePending: 'Creating...',
@@ -345,20 +348,17 @@ export default function PriorityActionsPanel({
       inDays: (count: number) => `In ${count}d`,
     },
     fr: {
-      kicker: 'Actions prioritaires',
-      title: "Traitez l'urgent en premier",
-      subtitle: 'Les notes en retard et les prochains suivis apparaissent avant le reste du tableau de bord.',
+      title: 'Actions intelligentes',
+      subtitle: 'Un bloc unique pour les urgences, suivis, opportunités et alertes.',
+      urgentTasks: 'Taches urgentes',
+      followUps: 'Suivis',
+      opportunities: 'Opportunites',
+      alerts: 'Alertes',
+      nextAction: 'Prochaine date d\'action',
+      noNextAction: 'Aucune action a venir',
       unknown: '\u00c9l\u00e9ment inconnu',
-      noPriority: 'Aucun suivi urgent pour le moment. Utilisez une action rapide pour faire avancer le pipeline.',
+      noPriority: 'Aucun element urgent pour le moment.',
       addNote: 'Ajouter une note',
-      addNoteDescription: "Capturez un suivi ou une t\u00e2che interne avant qu'il ne disparaisse.",
-      createQuote: 'Cr\u00e9er un devis',
-      createQuoteDescription: 'D\u00e9marrez un nouveau devis directement depuis le tableau de bord.',
-      createInvoice: 'Cr\u00e9er une facture',
-      createInvoiceDescription: "Ouvrez l'espace factures pour pr\u00e9parer la facturation.",
-      overdueBadge: (count: number) => `${count} en retard`,
-      dueTodayBadge: (count: number) => `${count} aujourd'hui`,
-      smartActionsTitle: 'Actions intelligentes',
       quotesNeedFollowUp: (count: number) => `${count} devis \u00e0 relancer`,
       noQuotesNeedFollowUp: 'Aucun devis envoy\u00e9 \u00e0 relancer',
       followUpDescription: 'Devis envoy\u00e9s depuis plus de 7 jours sans r\u00e9ponse client.',
@@ -367,11 +367,11 @@ export default function PriorityActionsPanel({
       acceptedNotInvoiced: (count: number) => `${count} devis accept\u00e9s non factur\u00e9s`,
       noAcceptedNotInvoiced: 'Aucun devis accept\u00e9 en attente de facturation',
       acceptedNotInvoicedDescription: "Transformez les devis accept\u00e9s en factures pour acc\u00e9l\u00e9rer l'encaissement.",
-      createInvoiceActionButton: 'Cr\u00e9er facture',
+      createInvoiceActionButton: 'Choisir devis',
       reviewAcceptedQuotesAction: 'Voir devis',
-      confirmInvoiceTitle: 'Cr\u00e9er une facture depuis ce devis accept\u00e9 ?',
-      confirmInvoiceDescription: (quoteNumber: string) =>
-        `Cette action va cr\u00e9er imm\u00e9diatement un brouillon de facture pour le devis ${quoteNumber}. Continuez seulement si vous \u00eates pr\u00eat \u00e0 facturer ce travail accept\u00e9.`,
+      pickInvoiceTitle: 'Choisir le devis a convertir',
+      pickInvoiceDescription: 'Selectionnez un devis accepte puis confirmez. Aucune conversion automatique en masse.',
+      selectedQuoteLabel: 'Devis selectionne',
       confirmInvoiceCancel: 'Annuler',
       confirmInvoiceAction: 'Cr\u00e9er facture',
       confirmInvoicePending: 'Cr\u00e9ation...',
@@ -494,6 +494,7 @@ export default function PriorityActionsPanel({
   const followUpTarget = smartActionsData?.pendingQuoteFollowUps.target ?? null;
   const followUpCount = smartActionsData?.pendingQuoteFollowUps.count ?? 0;
   const acceptedTarget = smartActionsData?.acceptedNotInvoiced.target ?? null;
+  const acceptedItems = smartActionsData?.acceptedNotInvoiced.items ?? [];
   const acceptedCount = smartActionsData?.acceptedNotInvoiced.count ?? 0;
   const inactiveClientTarget = smartActionsData?.inactiveClients.target ?? null;
   const inactiveCount = smartActionsData?.inactiveClients.count ?? 0;
@@ -501,14 +502,25 @@ export default function PriorityActionsPanel({
   const overdueInvoiceCount = smartActionsData?.overdueInvoices.count ?? 0;
   const isAcceptedInvoiceLoading = actionLoadingKey === 'accepted-to-invoice';
 
+  useEffect(() => {
+    if (!acceptedItems.length) {
+      setSelectedAcceptedQuoteId('');
+      return;
+    }
+
+    if (!acceptedItems.some((item) => item._id === selectedAcceptedQuoteId)) {
+      setSelectedAcceptedQuoteId(acceptedItems[0]._id);
+    }
+  }, [acceptedItems, selectedAcceptedQuoteId]);
+
   function handleAcceptedInvoiceConfirm() {
-    if (!acceptedTarget || isAcceptedInvoiceLoading) {
+    if (!selectedAcceptedQuoteId || isAcceptedInvoiceLoading) {
       return;
     }
 
     void runSmartAction(
       'accepted-to-invoice',
-      { action: 'create-invoice-from-quote', quoteId: acceptedTarget._id },
+      { action: 'create-invoice-from-quote', quoteId: selectedAcceptedQuoteId },
       t.invoiceCreated,
       t.smartActionFailed
     );
@@ -552,12 +564,12 @@ export default function PriorityActionsPanel({
       buttonLabel: acceptedCount > 0 ? t.createInvoiceActionButton : t.reviewAcceptedQuotesAction,
       Icon: ReceiptTextIcon,
       onClick: () => {
-        if (!acceptedTarget) {
+        if (!acceptedItems.length) {
           router.push('/quotes?status=accepted');
           return;
         }
 
-        setIsInvoiceConfirmOpen(true);
+        setIsInvoicePickerOpen(true);
       },
       disabled: smartActionsLoading || isAcceptedInvoiceLoading,
     },
@@ -596,54 +608,36 @@ export default function PriorityActionsPanel({
     },
   ] as const;
 
+  const nextAction = priorityItems[0] ?? null;
+  const urgentItems = priorityItems.filter((item) => item.tone === 'overdue' || item.tone === 'today');
+  const scheduledItems = priorityItems.filter((item) => item.tone === 'tomorrow' || item.tone === 'upcoming');
+
   return (
     <>
-    <section className="grid gap-4 xl:grid-cols-[1.45fr_1fr]">
+    <section>
       <Card className="gap-0 overflow-hidden border border-foreground/10">
         <CardHeader className="border-b bg-slate-50 px-5 py-4 dark:bg-slate-900/40">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="space-y-1">
-              <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
-                {t.kicker}
-              </p>
-              <CardTitle className="text-lg font-semibold text-foreground">{t.title}</CardTitle>
-              <p className="max-w-2xl text-sm text-muted-foreground">{t.subtitle}</p>
-            </div>
-
-            {!loading && !showError ? (
-              <div className="flex items-center gap-2">
-                {overdueCount > 0 ? (
-                  <span className="rounded-full bg-red-600 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white">
-                    {t.overdueBadge(overdueCount)}
-                  </span>
-                ) : null}
-                {todayCount > 0 ? (
-                  <span className="rounded-full bg-emerald-600 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white">
-                    {t.dueTodayBadge(todayCount)}
-                  </span>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
+          <CardTitle className="text-lg font-semibold text-foreground">{t.title}</CardTitle>
+          <p className="text-sm text-muted-foreground">{t.subtitle}</p>
         </CardHeader>
 
-        <CardContent className="px-0 pt-0">
+        <CardContent className="space-y-4 p-4 sm:p-5">
           {showError ? (
-            <div className="p-5">
+            <div>
               <ErrorMessage message={error ?? undefined} />
             </div>
           ) : null}
 
-          {loading ? (
-            <div className="divide-y divide-border/60">
+          {loading && !showError ? (
+            <div className="space-y-2">
               {Array.from({ length: 4 }).map((_, index) => (
-                <div key={`priority-skeleton-${index}`} className="flex items-start gap-3 px-5 py-4">
+                <div key={`priority-skeleton-${index}`} className="flex items-start gap-3 rounded-xl border border-border/70 p-3">
                   <Skeleton className="size-9 shrink-0 rounded-2xl" />
                   <div className="min-w-0 flex-1 space-y-2">
                     <Skeleton className="h-4 w-40" />
                     <Skeleton className="h-3.5 w-52" />
                   </div>
-                  <div className="space-y-2 text-right">
+                  <div className="space-y-1 text-right">
                     <Skeleton className="ml-auto h-5 w-20 rounded-full" />
                     <Skeleton className="ml-auto h-3.5 w-14" />
                   </div>
@@ -652,86 +646,150 @@ export default function PriorityActionsPanel({
             </div>
           ) : null}
 
-          {!loading && !showError && priorityItems.length > 0 ? (
-            <div className="divide-y divide-border/60">
-              {priorityItems.map((priorityItem) => {
-                const linkedName = priorityItem.item.linkedId?.fullName ?? t.unknown;
+          {!loading && !showError ? (
+            <>
+              <div className="rounded-2xl border border-red-200/80 bg-red-50/70 p-3 dark:border-red-900/40 dark:bg-red-950/20">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-red-700 dark:text-red-300">{t.nextAction}</p>
+                {nextAction ? (
+                  <div className="mt-1 flex flex-wrap items-center gap-2 text-sm font-semibold text-red-800 dark:text-red-200">
+                    <span>{nextAction.item.title ?? t.addNote}</span>
+                    <span className={`rounded-full px-2 py-0.5 text-[11px] ${nextAction.badgeClass}`}>{nextAction.badge}</span>
+                    <span className="text-xs font-medium">{nextAction.dateLabel}</span>
+                  </div>
+                ) : (
+                  <p className="mt-1 text-sm text-red-700/90 dark:text-red-300">{t.noNextAction}</p>
+                )}
+              </div>
 
-                return (
-                  <Link
-                    key={priorityItem.item._id ?? `${priorityItem.item.title}-${priorityItem.timestamp}`}
-                    href={buildLinkedPath(priorityItem.item)}
-                    className="group flex items-start gap-3 px-5 py-4 transition-colors hover:bg-muted/30"
-                  >
-                    <div className={`mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-2xl ${priorityItem.iconBg}`}>
-                      <priorityItem.Icon className={`size-4.5 ${priorityItem.iconColor}`} strokeWidth={1.9} />
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-foreground">
-                        {priorityItem.item.title ?? t.addNote}
-                      </p>
-                      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                        <span className="truncate rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-foreground/75">
-                          {linkedName}
-                        </span>
-                        <span>{priorityItem.dateLabel}</span>
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="space-y-2 rounded-2xl bg-muted/20 p-2.5 sm:p-3">
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t.urgentTasks}</p>
+                  {urgentItems.length ? urgentItems.map((item) => (
+                    <Link key={item.item._id ?? `${item.timestamp}`} href={buildLinkedPath(item.item)} className="group flex items-start gap-2.5 rounded-xl bg-card p-2.5 shadow-xs transition-colors hover:bg-muted/40 sm:gap-3 sm:p-3">
+                      <div className={`mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-xl ${item.iconBg}`}>
+                        <item.Icon className={`size-4 ${item.iconColor}`} strokeWidth={1.9} />
                       </div>
-                    </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-foreground">{item.item.title ?? t.addNote}</p>
+                        <p className="text-xs text-muted-foreground">{item.item.linkedId?.fullName ?? t.unknown}</p>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${item.badgeClass}`}>{item.badge}</span>
+                        <ArrowRightIcon className="size-3.5 text-muted-foreground transition-transform group-hover:translate-x-0.5" strokeWidth={2} />
+                      </div>
+                    </Link>
+                  )) : <EmptyState message={t.noPriority} />}
+                </div>
 
-                    <div className="flex shrink-0 items-center gap-1.5 pl-2">
-                      <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${priorityItem.badgeClass}`}>
-                        {priorityItem.badge}
-                      </span>
-                      <ArrowRightIcon className="size-3.5 text-muted-foreground transition-transform group-hover:translate-x-0.5" strokeWidth={2} />
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          ) : null}
+                <div className="space-y-2 rounded-2xl bg-muted/20 p-2.5 sm:p-3">
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t.followUps}</p>
+                  <SmartActionRow
+                    title={followUpCount > 0 ? t.quotesNeedFollowUp(followUpCount) : t.noQuotesNeedFollowUp}
+                    description={t.followUpDescription}
+                    buttonLabel={followUpCount > 0 ? t.followUpAction : t.reviewQuotesAction}
+                    tone={followUpCount > 0 ? 'urgent' : 'neutral'}
+                    Icon={MailWarningIcon}
+                    onClick={() => {
+                      if (followUpTarget?.clientSnapshot?.email) {
+                        setIsFollowUpModalOpen(true);
+                        return;
+                      }
+                      router.push('/quotes');
+                    }}
+                    disabled={smartActionsLoading}
+                  />
+                  {scheduledItems.length ? scheduledItems.map((item) => (
+                    <Link key={item.item._id ?? `${item.timestamp}`} href={buildLinkedPath(item.item)} className="group flex items-center justify-between gap-2 rounded-xl bg-card px-2.5 py-2 text-xs shadow-xs sm:px-3">
+                      <span className="truncate font-medium text-foreground">{item.item.title ?? t.addNote}</span>
+                      <span className="text-muted-foreground">{item.dateLabel}</span>
+                    </Link>
+                  )) : null}
+                </div>
 
-          {!loading && !showError && priorityItems.length === 0 ? (
-            <div className="p-5">
-              <EmptyState message={t.noPriority} />
-            </div>
+                <div className="space-y-2 rounded-2xl bg-muted/20 p-2.5 sm:p-3">
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t.opportunities}</p>
+                  <SmartActionRow
+                    title={acceptedCount > 0 ? t.acceptedNotInvoiced(acceptedCount) : t.noAcceptedNotInvoiced}
+                    description={t.acceptedNotInvoicedDescription}
+                    buttonLabel={acceptedCount > 0 ? t.createInvoiceActionButton : t.reviewAcceptedQuotesAction}
+                    tone="medium"
+                    Icon={ReceiptTextIcon}
+                    onClick={() => {
+                      if (!acceptedItems.length) {
+                        router.push('/quotes?status=accepted');
+                        return;
+                      }
+                      setIsInvoicePickerOpen(true);
+                    }}
+                    disabled={smartActionsLoading || isAcceptedInvoiceLoading}
+                  />
+                  <SmartActionRow
+                    title={inactiveCount > 0 ? t.inactiveClients(inactiveCount) : t.noInactiveClients}
+                    description={t.inactiveClientsDescription}
+                    buttonLabel={inactiveCount > 0 ? t.contactClientActionButton : t.reviewClientsAction}
+                    tone="neutral"
+                    Icon={UserX2Icon}
+                    onClick={() => {
+                      if (!inactiveClientTarget) {
+                        router.push('/clients');
+                        return;
+                      }
+                      router.push(`/clients/${inactiveClientTarget._id}`);
+                    }}
+                    disabled={smartActionsLoading}
+                  />
+                </div>
+
+                <div className="space-y-2 rounded-2xl bg-muted/20 p-2.5 sm:p-3">
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t.alerts}</p>
+                  <SmartActionRow
+                    title={overdueInvoiceCount > 0 ? t.overdueInvoices(overdueInvoiceCount) : t.noOverdueInvoices}
+                    description={t.overdueInvoicesDescription}
+                    buttonLabel={overdueInvoiceCount > 0 ? t.sendReminderActionButton : t.reviewInvoicesAction}
+                    tone={overdueInvoiceCount > 0 ? 'urgent' : 'neutral'}
+                    Icon={FileTextIcon}
+                    onClick={() => {
+                      if (!overdueInvoiceTarget) {
+                        router.push('/invoices');
+                        return;
+                      }
+                      setIsReminderConfirmOpen(true);
+                    }}
+                    disabled={smartActionsLoading || actionLoadingKey === 'overdue-invoices'}
+                  />
+                </div>
+              </div>
+            </>
           ) : null}
         </CardContent>
       </Card>
-
-      <Card className="gap-0 overflow-hidden border border-foreground/10">
-        <CardHeader className="border-b bg-slate-50 px-5 py-4 dark:bg-slate-900/40">
-          <CardTitle className="text-lg font-semibold text-foreground">{t.smartActionsTitle}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3 p-4">
-          {smartActions.map((action) => (
-            <SmartActionRow
-              key={action.key}
-              title={action.title}
-              description={action.description}
-              buttonLabel={action.buttonLabel}
-              tone={action.tone}
-              Icon={action.Icon}
-              onClick={action.onClick}
-              disabled={action.disabled}
-            />
-          ))}
-        </CardContent>
-      </Card>
-
     </section>
 
-    {isInvoiceConfirmOpen ? (
+    {isInvoicePickerOpen ? (
       <BaseAddModal
-        title={t.confirmInvoiceTitle}
-        description={acceptedTarget ? t.confirmInvoiceDescription(acceptedTarget.quoteNumber) : t.acceptedNotInvoicedDescription}
-        onClose={() => setIsInvoiceConfirmOpen(false)}
+        title={t.pickInvoiceTitle}
+        description={t.pickInvoiceDescription}
+        onClose={() => setIsInvoicePickerOpen(false)}
       >
+        <div className="max-h-60 space-y-2 overflow-y-auto rounded-lg border border-border/70 p-2">
+          {acceptedItems.map((item) => (
+            <label key={item._id} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 hover:bg-muted/40">
+              <input
+                type="radio"
+                name="accepted-quote"
+                checked={selectedAcceptedQuoteId === item._id}
+                onChange={() => setSelectedAcceptedQuoteId(item._id)}
+              />
+              <span className="text-sm font-medium text-foreground">{item.quoteNumber}</span>
+            </label>
+          ))}
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">{t.selectedQuoteLabel}: {acceptedItems.find((item) => item._id === selectedAcceptedQuoteId)?.quoteNumber ?? '-'}</p>
         <div className="flex gap-2 pt-1">
-          <Button type="button" variant="outline" className="flex-1" disabled={isAcceptedInvoiceLoading} onClick={() => setIsInvoiceConfirmOpen(false)}>
+          <Button type="button" variant="outline" className="flex-1" disabled={isAcceptedInvoiceLoading} onClick={() => setIsInvoicePickerOpen(false)}>
             {t.confirmInvoiceCancel}
           </Button>
-          <Button type="button" className="flex-1" disabled={isAcceptedInvoiceLoading} onClick={() => { handleAcceptedInvoiceConfirm(); setIsInvoiceConfirmOpen(false); }}>
+          <Button type="button" className="flex-1" disabled={isAcceptedInvoiceLoading || !selectedAcceptedQuoteId} onClick={() => { handleAcceptedInvoiceConfirm(); setIsInvoicePickerOpen(false); }}>
             {isAcceptedInvoiceLoading ? t.confirmInvoicePending : t.confirmInvoiceAction}
           </Button>
         </div>

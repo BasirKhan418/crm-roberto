@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { UserPlus, Building2, PenLine, FileText, ReceiptText } from 'lucide-react';
+import { UserPlus, Building2, PenLine, FileText, ReceiptText, SlidersHorizontalIcon } from 'lucide-react';
 
 import AddClientModal from '@/components/modals/AddClientModal';
 import AddNoteModal from '@/components/modals/AddNoteModal';
@@ -15,9 +15,11 @@ type OpenModal = 'client' | 'supplier' | 'note' | 'quote' | 'invoice' | null;
 
 interface QuickAddButtonsProps {
   onSuccess?: () => void;
+  onCustomize?: () => void;
+  customizeLabel?: string;
 }
 
-export default function QuickAddButtons({ onSuccess }: QuickAddButtonsProps) {
+export default function QuickAddButtons({ onSuccess, onCustomize, customizeLabel }: QuickAddButtonsProps) {
   const [open, setOpen] = useState<OpenModal>(null);
   const { locale } = useLocale();
   const t = {
@@ -28,6 +30,19 @@ export default function QuickAddButtons({ onSuccess }: QuickAddButtonsProps) {
   return (
     <>
       <div className="flex w-full flex-wrap justify-center gap-2 lg:w-auto lg:justify-end">
+        {onCustomize ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-10 w-full basis-full justify-center gap-1.5 rounded-2xl border-0 bg-foreground px-4 text-sm text-background shadow-sm hover:bg-foreground hover:text-background sm:w-auto sm:min-w-44 sm:basis-auto"
+            onClick={onCustomize}
+          >
+            <SlidersHorizontalIcon className="size-3.5" strokeWidth={2} />
+            <span className="sm:hidden">{locale === 'fr' ? 'Personnaliser' : 'Customize'}</span>
+            <span className="hidden sm:inline">{customizeLabel ?? (locale === 'fr' ? 'Personnaliser' : 'Customize')}</span>
+          </Button>
+        ) : null}
         <Button
           type="button"
           variant="outline"

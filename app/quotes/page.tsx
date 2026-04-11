@@ -33,6 +33,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 function QuotesPageContent() {
   const COLUMN_STORAGE_KEY = 'crm.quote.visibleColumns.v1';
+  const VIEW_STORAGE_KEY = 'crm.quote.viewConfig.v1';
   const DEFAULT_VISIBLE_COLUMNS: Record<QuoteTableColumnKey, boolean> = {
     quoteNumber: true,
     client: true,
@@ -220,6 +221,50 @@ function QuotesPageContent() {
   } = useQuotesActionCount(pagination.total + quotes.length + Number(loading));
 
   const [acknowledgingId, setAcknowledgingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(VIEW_STORAGE_KEY);
+      if (!raw) {
+        return;
+      }
+
+      const parsed = JSON.parse(raw) as {
+        searchInput?: string;
+        status?: QuoteStatusFilter;
+        sort?: 'date' | 'amount';
+      };
+
+      const nextSearchInput = typeof parsed.searchInput === 'string' ? parsed.searchInput : '';
+      const nextStatus: QuoteStatusFilter =
+        parsed.status === 'draft' || parsed.status === 'sent' || parsed.status === 'accepted' || parsed.status === 'rejected'
+          ? parsed.status
+          : 'all';
+      const nextSort: 'date' | 'amount' = parsed.sort === 'amount' ? 'amount' : 'date';
+
+      setSearchInput(nextSearchInput);
+      setSearchDebounced(nextSearchInput.trim());
+      setStatus(nextStatus);
+      setSort(nextSort);
+    } catch {
+      // Ignore malformed persisted view config.
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        VIEW_STORAGE_KEY,
+        JSON.stringify({
+          searchInput,
+          status,
+          sort,
+        }),
+      );
+    } catch {
+      // Ignore storage errors.
+    }
+  }, [searchInput, sort, status]);
 
   async function handleAcknowledgeRejection(quote: QuoteListItem) {
     if (acknowledgingId) return;

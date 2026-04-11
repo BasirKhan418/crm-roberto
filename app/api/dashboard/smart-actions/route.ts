@@ -58,6 +58,7 @@ interface SmartActionsResponse {
   acceptedNotInvoiced: {
     count: number;
     target: AcceptedQuoteTarget | null;
+    items: AcceptedQuoteTarget[];
   };
   inactiveClients: {
     count: number;
@@ -224,6 +225,11 @@ async function buildSmartActions(userId: string): Promise<SmartActionsResponse> 
             clientId: String(acceptedNotInvoiced[0].clientId),
           }
         : null,
+      items: acceptedNotInvoiced.slice(0, 12).map((quote) => ({
+        _id: String(quote._id),
+        quoteNumber: quote.quoteNumber,
+        clientId: String(quote.clientId),
+      })),
     },
     inactiveClients: {
       count: inactiveClients.length,

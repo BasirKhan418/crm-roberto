@@ -34,6 +34,7 @@ import { useInvoicesActionCount } from '@/hooks/useInvoicesActionCount';
 
 function InvoicesPageContent() {
   const COLUMN_STORAGE_KEY = 'crm.invoice.visibleColumns.v1';
+  const VIEW_STORAGE_KEY = 'crm.invoice.viewConfig.v1';
   const DEFAULT_VISIBLE_COLUMNS: Record<InvoiceTableColumnKey, boolean> = {
     invoiceNumber: true,
     client: true,
@@ -212,6 +213,50 @@ function InvoicesPageContent() {
   const { allCount, unpaidCount, partialPaidCount, paidCount, overdueCount } = useInvoicesActionCount(
     pagination.total + invoices.length + Number(loading)
   );
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(VIEW_STORAGE_KEY);
+      if (!raw) {
+        return;
+      }
+
+      const parsed = JSON.parse(raw) as {
+        searchInput?: string;
+        status?: InvoiceStatusFilter;
+        sort?: 'date' | 'amount';
+      };
+
+      const nextSearchInput = typeof parsed.searchInput === 'string' ? parsed.searchInput : '';
+      const nextStatus: InvoiceStatusFilter =
+        parsed.status === 'unpaid' || parsed.status === 'partial_paid' || parsed.status === 'paid' || parsed.status === 'overdue'
+          ? parsed.status
+          : 'all';
+      const nextSort: 'date' | 'amount' = parsed.sort === 'amount' ? 'amount' : 'date';
+
+      setSearchInput(nextSearchInput);
+      setSearchDebounced(nextSearchInput.trim());
+      setStatus(nextStatus);
+      setSort(nextSort);
+    } catch {
+      // Ignore malformed persisted view config.
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        VIEW_STORAGE_KEY,
+        JSON.stringify({
+          searchInput,
+          status,
+          sort,
+        }),
+      );
+    } catch {
+      // Ignore storage errors.
+    }
+  }, [searchInput, sort, status]);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {

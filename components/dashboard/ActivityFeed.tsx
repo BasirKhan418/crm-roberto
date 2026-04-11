@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { Users, Package, StickyNote, FileText, Activity, ChevronLeft, ChevronRight, PlusIcon } from 'lucide-react';
+import { Users, Package, StickyNote, FileText, Activity, PlusIcon } from 'lucide-react';
 
 import AddNoteModal from '@/components/modals/AddNoteModal';
 import { Button } from '@/components/ui/button';
@@ -15,7 +15,6 @@ import {
   formatActivityRelativeTime,
   formatExactTimestamp,
   formatInvoiceDisplayNumber,
-  getActivityBadgeLabel,
   getActivityHeadline,
   translate,
 } from '@/lib/i18n/messages';
@@ -111,11 +110,7 @@ export default function ActivityFeed({ activity = [], loading = false, error = n
     addNote: locale === 'fr' ? 'Ajouter une note' : 'Add Note',
   };
   const items = Array.isArray(activity) ? activity : [];
-  const PAGE_SIZE = 5;
-  const [page, setPage] = useState(1);
-  const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
-  const safePage = Math.min(page, totalPages);
-  const pagedItems = items.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const pagedItems = items.slice(0, 5);
   const showError = Boolean(error) && items.length === 0;
 
   return (
@@ -190,11 +185,6 @@ export default function ActivityFeed({ activity = [], loading = false, error = n
                     ) : null}
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1">
-                    {badge ? (
-                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${badge.badgeClass}`}>
-                        {item.action ? getActivityBadgeLabel(locale, item.action) : null}
-                      </span>
-                    ) : null}
                     <span
                       className="text-[11px] text-muted-foreground"
                       title={formatExactTimestamp(locale, item.createdAt)}
@@ -223,31 +213,7 @@ export default function ActivityFeed({ activity = [], loading = false, error = n
           ) : null}
         </div>
 
-        {!loading && !showError && totalPages > 1 ? (
-          <div className="flex shrink-0 items-center justify-between border-t border-border/60 px-5 py-3">
-            <span className="text-[11px] text-muted-foreground">
-              {safePage} / {totalPages}
-            </span>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                disabled={safePage <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className="flex size-7 items-center justify-center rounded-md border border-border/60 text-muted-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <ChevronLeft className="size-3.5" />
-              </button>
-              <button
-                type="button"
-                disabled={safePage >= totalPages}
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                className="flex size-7 items-center justify-center rounded-md border border-border/60 text-muted-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <ChevronRight className="size-3.5" />
-              </button>
-            </div>
-          </div>
-        ) : null}
+        {items.length > 5 ? <div className="px-5 py-2 text-[11px] text-muted-foreground">+{items.length - 5} more items</div> : null}
       </CardContent>
       </Card>
       {isAddNoteOpen ? <AddNoteModal onClose={() => setIsAddNoteOpen(false)} onSuccess={onActionSuccess} /> : null}

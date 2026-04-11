@@ -47,12 +47,12 @@ export default function BaseAddModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overscroll-contain bg-black/35 px-3 pt-[calc(1rem+var(--app-safe-area-top))] pb-[calc(1rem+var(--app-safe-area-bottom))] backdrop-blur-[2px] sm:px-4 sm:pt-[calc(1.25rem+var(--app-safe-area-top))] sm:pb-[calc(1.25rem+var(--app-safe-area-bottom))]"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto overscroll-contain bg-black/35 px-3 pt-[calc(0.75rem+var(--app-safe-area-top))] pb-[calc(1rem+var(--app-safe-area-bottom))] backdrop-blur-[2px] sm:items-center sm:px-4 sm:pt-[calc(1.25rem+var(--app-safe-area-top))] sm:pb-[calc(1.25rem+var(--app-safe-area-bottom))]"
       onMouseDown={handleOverlayClick}
       role="presentation"
     >
       <div className={cn(
-        'mx-auto flex w-full max-w-md flex-col self-center max-h-[calc(100dvh-2rem-var(--app-safe-area-top)-var(--app-safe-area-bottom))] overflow-y-auto rounded-2xl border border-border/80 bg-background p-4 shadow-xl sm:max-h-[calc(100dvh-2.5rem-var(--app-safe-area-top)-var(--app-safe-area-bottom))] sm:p-5',
+        'mx-auto mt-1 flex w-full max-w-md flex-col self-start max-h-[calc(100dvh-2rem-var(--app-safe-area-top)-var(--app-safe-area-bottom))] overflow-y-auto rounded-2xl border border-border/80 bg-background p-4 shadow-xl sm:mt-0 sm:self-center sm:max-h-[calc(100dvh-2.5rem-var(--app-safe-area-top)-var(--app-safe-area-bottom))] sm:p-5',
         panelClassName
       )}>
           <Button

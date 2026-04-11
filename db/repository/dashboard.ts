@@ -1,6 +1,7 @@
 import ConnectDb from '@/db/connectDb';
 import ActivityLog from '@/db/models/Activity';
 import Client from '@/db/models/Client';
+import Invoice from '@/db/models/Invoice';
 import Note from '@/db/models/Note';
 import Quote from '@/db/models/Quote';
 import Supplier from '@/db/models/Supplier';
@@ -12,6 +13,11 @@ export interface DashboardStats {
   notesThisWeek: number;
   quotesThisMonth: number;
   acceptedQuotesValue: number;
+  overdueFollowUps: number;
+  overdueInvoices: number;
+  acceptedNotInvoiced: number;
+  unpaidInvoices: number;
+  nextActionDate: string | null;
 }
 
 export interface DashboardActivityItem {
@@ -98,7 +104,20 @@ async function hydrateFollowUps(userId: string, rows: DashboardFollowUpItem[]): 
 export const getDashboardStats = async (userId: string): Promise<DashboardStats> => {
   await ConnectDb();
 
-  const [totalClients, totalSuppliers, notesThisWeek, quotesThisMonth, acceptedTotals] = await Promise.all([
+  const now = new Date();
+
+  const [
+    totalClients,
+    totalSuppliers,
+    notesThisWeek,
+    quotesThisMonth,
+    acceptedTotals,
+    overdueFollowUps,
+    overdueInvoices,
+    acceptedNotInvoiced,
+    unpaidInvoices,
+    nextAction,
+  ] = await Promise.all([
     Client.countDocuments({ user: userId }),
     Supplier.countDocuments({ user: userId }),
     Note.countDocuments({ user: userId }),
@@ -117,9 +136,21 @@ export const getDashboardStats = async (userId: string): Promise<DashboardStats>
         },
       },
     ]),
+    Note.countDocuments({ user: userId, followUpDate: { $ne: null, $lt: now } }),
+    Invoice.countDocuments({ userId: new mongoose.Types.ObjectId(userId), dueDate: { $lt: now }, status: { $ne: 'paid' } }),
+    Quote.countDocuments({
+      user: userId,
+      status: 'accepted',
+      $or: [{ invoiceId: null }, { invoiceId: { $exists: false } }],
+    }),
+    Invoice.countDocuments({ userId: new mongoose.Types.ObjectId(userId), status: { $in: ['unpaid', 'partial_paid', 'overdue'] } }),
+    Note.findOne({ user: userId, followUpDate: { $ne: null } }).sort({ followUpDate: 1 }).select('followUpDate').lean(),
   ]);
 
   const acceptedQuotesValue = acceptedTotals[0]?.total ?? 0;
+  const nextActionDate = (nextAction as { followUpDate?: Date | null } | null)?.followUpDate
+    ? new Date((nextAction as { followUpDate: Date }).followUpDate).toISOString()
+    : null;
 
   return {
     totalClients,
@@ -127,6 +158,11 @@ export const getDashboardStats = async (userId: string): Promise<DashboardStats>
     notesThisWeek,
     quotesThisMonth,
     acceptedQuotesValue,
+    overdueFollowUps,
+    overdueInvoices,
+    acceptedNotInvoiced,
+    unpaidInvoices,
+    nextActionDate,
   };
 };
 

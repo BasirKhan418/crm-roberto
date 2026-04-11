@@ -306,7 +306,7 @@ export default function AddClientModal({
     setTitleSelection(value);
     setForm((prev) => ({
       ...prev,
-      title: value === 'Other' ? customTitle : value,
+      title: value === 'Other' ? (customTitle || (isTitlePreset(prev.title) ? '' : prev.title)) : value,
     }));
   }
 
@@ -445,6 +445,10 @@ export default function AddClientModal({
     }
   }
 
+  const showCustomTitleField =
+    form.clientType === 'individual' &&
+    (titleSelection === 'Other' || (form.title.trim().length > 0 && !isTitlePreset(form.title.trim())));
+
   return (
     <BaseAddModal
       title={isEditMode ? t.editTitle : t.addTitle}
@@ -502,7 +506,7 @@ export default function AddClientModal({
                 </SelectContent>
               </Select>
             </div>
-            {titleSelection === 'Other' ? (
+            {showCustomTitleField ? (
               <div className="space-y-1.5">
                 <FieldLabel text={t.customTitle} />
                 <Input
