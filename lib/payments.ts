@@ -47,13 +47,13 @@ const PAYMENT_METHOD_LABELS = {
 const PAYMENT_TYPE_LABELS = {
   en: {
     deposit: 'Deposit',
-    full: 'Full',
-    remaining_balance: 'Remaining balance',
+    full: 'Full payment',
+    remaining_balance: 'Partial payment',
   },
   fr: {
     deposit: 'Acompte',
-    full: 'Complet',
-    remaining_balance: 'Solde restant',
+    full: 'Paiement complet',
+    remaining_balance: 'Paiement partiel',
   },
 } as const;
 

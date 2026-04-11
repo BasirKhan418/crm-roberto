@@ -262,42 +262,42 @@ export async function GET(request: NextRequest) {
     ]);
 
     const depositTargetByInvoiceId = new Map<string, number>();
-    const depositInvoiceIds: mongoose.Types.ObjectId[] = [];
+    const paymentInvoiceIds: mongoose.Types.ObjectId[] = [];
 
     for (const invoice of items) {
+      paymentInvoiceIds.push(invoice._id);
+
       const depositTarget = getInvoiceDepositTarget(invoice);
       if (depositTarget <= 0) {
         continue;
       }
 
       depositTargetByInvoiceId.set(String(invoice._id), depositTarget);
-      depositInvoiceIds.push(invoice._id);
     }
 
     const depositPaidAtByInvoiceId = new Map<string, Date | null>();
+    const totalPaidByInvoiceId = new Map<string, number>();
 
-    if (depositInvoiceIds.length > 0) {
+    if (paymentInvoiceIds.length > 0) {
       const paymentTimeline = await Payment.find({
         userId: me.user.id,
-        invoiceId: { $in: depositInvoiceIds },
+        invoiceId: { $in: paymentInvoiceIds },
         status: 'succeeded',
       })
         .select('invoiceId amount paidAt createdAt')
         .sort({ paidAt: 1, createdAt: 1, _id: 1 })
         .lean<PaymentTimelineItem[]>();
 
-      const cumulativePaidByInvoiceId = new Map<string, number>();
-
       for (const payment of paymentTimeline) {
         const invoiceId = String(payment.invoiceId);
-        const depositTarget = depositTargetByInvoiceId.get(invoiceId);
+        const paymentAmount = Math.max(0, Math.round(payment.amount ?? 0));
+        const nextPaidAmount = (totalPaidByInvoiceId.get(invoiceId) ?? 0) + paymentAmount;
+        totalPaidByInvoiceId.set(invoiceId, nextPaidAmount);
 
+        const depositTarget = depositTargetByInvoiceId.get(invoiceId);
         if (!depositTarget || depositPaidAtByInvoiceId.has(invoiceId)) {
           continue;
         }
-
-        const nextPaidAmount = (cumulativePaidByInvoiceId.get(invoiceId) ?? 0) + Math.max(0, Math.round(payment.amount ?? 0));
-        cumulativePaidByInvoiceId.set(invoiceId, nextPaidAmount);
 
         if (nextPaidAmount >= depositTarget) {
           depositPaidAtByInvoiceId.set(invoiceId, payment.paidAt ?? payment.createdAt ?? null);
@@ -309,6 +309,11 @@ export async function GET(request: NextRequest) {
       const normalized = withComputedInvoiceStatus(invoice);
       const invoiceId = String(normalized._id);
       const depositTarget = depositTargetByInvoiceId.get(invoiceId) ?? 0;
+      const totalInvoiceAmount = Math.max(0, Math.round(normalized.totalIncludingTax ?? 0));
+      const amountPaid = Math.max(0, totalPaidByInvoiceId.get(invoiceId) ?? 0);
+      const remainingAmount = Math.max(0, totalInvoiceAmount - amountPaid);
+      const paymentProgressPercent =
+        totalInvoiceAmount > 0 ? Math.min(100, Math.round((amountPaid / totalInvoiceAmount) * 100)) : 0;
 
       return {
         ...normalized,
@@ -317,6 +322,9 @@ export async function GET(request: NextRequest) {
         clientId: String(normalized.clientId),
         depositAmount: depositTarget > 0 ? depositTarget : null,
         depositPaidAt: depositTarget > 0 ? depositPaidAtByInvoiceId.get(invoiceId) ?? null : null,
+        amountPaid,
+        remainingAmount,
+        paymentProgressPercent,
       };
     });
 

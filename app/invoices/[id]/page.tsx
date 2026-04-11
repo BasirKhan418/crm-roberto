@@ -170,8 +170,8 @@ export default function InvoiceDetailPage() {
       loadFailed: 'Failed to load invoice detail',
       notFound: 'Invoice not found',
       downloadFailed: 'Failed to download PDF',
-      paymentTypeFull: 'Full',
-      paymentTypeRemaining: 'Remaining balance',
+      paymentTypeFull: 'Full payment',
+      paymentTypeRemaining: 'Partial payment',
       noData: '-',
     },
     fr: {
@@ -229,8 +229,8 @@ export default function InvoiceDetailPage() {
       loadFailed: 'Impossible de charger le d\u00e9tail de la facture',
       notFound: 'Facture introuvable',
       downloadFailed: 'Impossible de t\u00e9l\u00e9charger le PDF',
-      paymentTypeFull: 'Complet',
-      paymentTypeRemaining: 'Solde restant',
+      paymentTypeFull: 'Paiement complet',
+      paymentTypeRemaining: 'Paiement partiel',
       noData: '-',
     },
   }[locale as Locale];

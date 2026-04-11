@@ -51,6 +51,9 @@ interface InvoiceTableProps {
     date: string;
     dueDate: string;
     totalIncludingTax: string;
+    amountPaid: string;
+    remainingAmount: string;
+    paymentProgress: string;
     depositAmount: string;
     depositPaymentDate: string;
     status: string;
@@ -85,6 +88,24 @@ export default function InvoiceTable({
   function hasDeposit(invoice: InvoiceListItem) {
     return typeof invoice.depositAmount === 'number' && invoice.depositAmount > 0;
   }
+
+  function getAmountPaid(invoice: InvoiceListItem) {
+    return Math.max(0, Math.round(invoice.amountPaid ?? 0));
+  }
+
+  function getRemainingAmount(invoice: InvoiceListItem) {
+    const total = Math.max(0, Math.round(invoice.totalIncludingTax ?? 0));
+    const fallback = Math.max(0, total - getAmountPaid(invoice));
+    return Math.max(0, Math.round(invoice.remainingAmount ?? fallback));
+  }
+
+  function getPaymentProgressPercent(invoice: InvoiceListItem) {
+    const total = Math.max(0, Math.round(invoice.totalIncludingTax ?? 0));
+    const fallback = total > 0 ? Math.min(100, Math.round((getAmountPaid(invoice) / total) * 100)) : 0;
+    return Math.min(100, Math.max(0, Math.round(invoice.paymentProgressPercent ?? fallback)));
+  }
+
+  const showDepositColumns = items.some((invoice) => hasDeposit(invoice) || Boolean(invoice.depositPaidAt));
 
   function renderPrimaryAction(invoice: InvoiceListItem, className?: string) {
     // unpaid → send
@@ -185,6 +206,9 @@ export default function InvoiceTable({
           : items.map((invoice) => {
               const displayInvoiceNumber = formatInvoiceDisplayNumber(locale, invoice.invoiceNumber);
               const showDepositSummary = hasDeposit(invoice) || Boolean(invoice.depositPaidAt);
+              const amountPaid = getAmountPaid(invoice);
+              const remainingAmount = getRemainingAmount(invoice);
+              const paymentProgressPercent = getPaymentProgressPercent(invoice);
 
               return (
                 <article
@@ -239,6 +263,31 @@ export default function InvoiceTable({
                     </div>
                   ) : null}
 
+                  <div className="mx-4 rounded-lg border border-border/60 bg-background/70 px-3 py-2">
+                    <div className="grid grid-cols-2 gap-3 text-[11px]">
+                      <div className="min-w-0">
+                        <p className="text-muted-foreground">{labels.amountPaid}</p>
+                        <PriceDisplay cents={amountPaid} locale={priceLocale} className="mt-1 block truncate text-sm font-semibold tabular-nums text-foreground" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-muted-foreground">{labels.remainingAmount}</p>
+                        <PriceDisplay cents={remainingAmount} locale={priceLocale} className="mt-1 block truncate text-sm font-semibold tabular-nums text-foreground" />
+                      </div>
+                    </div>
+                    <div className="mt-2">
+                      <div className="mb-1 flex items-center justify-between text-[10px] text-muted-foreground">
+                        <span>{labels.paymentProgress}</span>
+                        <span className="font-semibold text-foreground">{paymentProgressPercent}%</span>
+                      </div>
+                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted/70">
+                        <div
+                          className="h-full rounded-full bg-emerald-500 transition-[width] duration-500"
+                          style={{ width: `${paymentProgressPercent}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="flex items-center justify-between gap-3 px-4 pb-4.5 pt-3">
                     <PriceDisplay
                       cents={invoice.totalIncludingTax}
@@ -264,8 +313,11 @@ export default function InvoiceTable({
               <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.date}</TableHead>
               <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.dueDate}</TableHead>
               <TableHead className="h-11 text-right text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.totalIncludingTax}</TableHead>
-              <TableHead className="h-11 text-right text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.depositAmount}</TableHead>
-              <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.depositPaymentDate}</TableHead>
+              <TableHead className="h-11 text-right text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.amountPaid}</TableHead>
+              <TableHead className="h-11 text-right text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.remainingAmount}</TableHead>
+              <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.paymentProgress}</TableHead>
+              {showDepositColumns ? <TableHead className="h-11 text-right text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.depositAmount}</TableHead> : null}
+              {showDepositColumns ? <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.depositPaymentDate}</TableHead> : null}
               <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.status}</TableHead>
               <TableHead className="h-11 pr-4 text-right text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.quickActions}</TableHead>
             </TableRow>
@@ -279,8 +331,11 @@ export default function InvoiceTable({
                     <TableCell className="py-4"><Skeleton className="h-4 w-24" /></TableCell>
                     <TableCell className="py-4"><Skeleton className="h-4 w-24" /></TableCell>
                     <TableCell className="py-4"><Skeleton className="h-5 w-24" /></TableCell>
-                    <TableCell className="py-4"><Skeleton className="ml-auto h-5 w-20" /></TableCell>
-                    <TableCell className="py-4"><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell className="py-4"><Skeleton className="ml-auto h-5 w-24" /></TableCell>
+                    <TableCell className="py-4"><Skeleton className="ml-auto h-5 w-24" /></TableCell>
+                    <TableCell className="py-4"><Skeleton className="h-4 w-20" /></TableCell>
+                    {showDepositColumns ? <TableCell className="py-4"><Skeleton className="ml-auto h-5 w-20" /></TableCell> : null}
+                    {showDepositColumns ? <TableCell className="py-4"><Skeleton className="h-4 w-24" /></TableCell> : null}
                     <TableCell className="py-4"><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
                     <TableCell className="py-4 pr-4"><Skeleton className="ml-auto h-8 w-8" /></TableCell>
                   </TableRow>
@@ -288,6 +343,9 @@ export default function InvoiceTable({
               : items.map((invoice) => {
                   const displayInvoiceNumber = formatInvoiceDisplayNumber(locale, invoice.invoiceNumber);
                   const invoiceHasDeposit = hasDeposit(invoice);
+                  const amountPaid = getAmountPaid(invoice);
+                  const remainingAmount = getRemainingAmount(invoice);
+                  const paymentProgressPercent = getPaymentProgressPercent(invoice);
 
                   return (
                     <TableRow
@@ -325,17 +383,40 @@ export default function InvoiceTable({
                         <PriceDisplay cents={invoice.totalIncludingTax} locale={priceLocale} className="text-[15px] font-semibold tabular-nums text-foreground" />
                       </TableCell>
                       <TableCell className="py-4 align-middle text-right">
-                        {invoiceHasDeposit ? (
-                          <PriceDisplay cents={invoice.depositAmount ?? 0} locale={priceLocale} className="text-sm font-medium tabular-nums text-foreground" />
-                        ) : (
-                          <span className="text-sm text-muted-foreground">—</span>
-                        )}
+                        <PriceDisplay cents={amountPaid} locale={priceLocale} className="text-sm font-medium tabular-nums text-foreground" />
                       </TableCell>
-                      <TableCell className="py-4 align-middle text-sm">
-                        <span className={invoice.depositPaidAt ? 'font-medium text-foreground' : 'text-muted-foreground'}>
-                          {formatDate(invoice.depositPaidAt)}
-                        </span>
+                      <TableCell className="py-4 align-middle text-right">
+                        <PriceDisplay cents={remainingAmount} locale={priceLocale} className="text-sm font-semibold tabular-nums text-foreground" />
                       </TableCell>
+                      <TableCell className="py-4 align-middle">
+                        <div className="max-w-28">
+                          <div className="mb-1 flex items-center justify-between text-[11px]">
+                            <span className="text-muted-foreground">{paymentProgressPercent}%</span>
+                          </div>
+                          <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted/70">
+                            <div
+                              className="h-full rounded-full bg-emerald-500 transition-[width] duration-500"
+                              style={{ width: `${paymentProgressPercent}%` }}
+                            />
+                          </div>
+                        </div>
+                      </TableCell>
+                      {showDepositColumns ? (
+                        <TableCell className="py-4 align-middle text-right">
+                          {invoiceHasDeposit ? (
+                            <PriceDisplay cents={invoice.depositAmount ?? 0} locale={priceLocale} className="text-sm font-medium tabular-nums text-foreground" />
+                          ) : (
+                            <span className="text-sm text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                      ) : null}
+                      {showDepositColumns ? (
+                        <TableCell className="py-4 align-middle text-sm">
+                          <span className={invoice.depositPaidAt ? 'font-medium text-foreground' : 'text-muted-foreground'}>
+                            {formatDate(invoice.depositPaidAt)}
+                          </span>
+                        </TableCell>
+                      ) : null}
                       <TableCell className="py-4 align-middle">
                         <InvoiceStatusBadge status={invoice.status} locale={locale} />
                       </TableCell>
