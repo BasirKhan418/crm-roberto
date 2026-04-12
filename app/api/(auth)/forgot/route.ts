@@ -8,6 +8,16 @@ import { SendForgotPasswordEmail } from "@/emails/auth/forgotEmail";
 import { buildValidationError } from "@/utils/api/validation";
 import { forgotPasswordSchema } from "@/validators/forgot.schema";
 import { resolveLocaleFromRequest } from "@/lib/i18n/locale";
+
+export const runtime = 'nodejs';
+
+const maskEmail = (value: string) => {
+    const [local, domain] = value.split('@');
+    if (!domain) return 'invalid-email';
+    if (local.length <= 2) return `${local[0] ?? '*'}*@${domain}`;
+    return `${local.slice(0, 2)}***@${domain}`;
+};
+
 export async function POST(request: NextRequest) {
     try{
         const { email ,status,otp, locale: rawLocale } = await request.json() as {
@@ -26,6 +36,13 @@ export async function POST(request: NextRequest) {
             if(!userResult.success){
                 return NextResponse.json({ message: "If that email is registered, a reset code has been sent.", success: true },{ status: 200 });
             }
+
+            console.info('[forgot] request-received', {
+                email: maskEmail(email),
+                locale,
+                hasRegisteredUser: true,
+            });
+
             const generatedOtp = randomInt(100000, 1000000).toString(); // cryptographically secure
             const ttl = 5 * 60; 
             const result = await generateOtp(`forgot:${email}`, generatedOtp, ttl);
@@ -37,8 +54,18 @@ export async function POST(request: NextRequest) {
             const resetUrl = `${appBaseUrl}/forgot-password?email=${encodeURIComponent(email)}&otp=${encodeURIComponent(generatedOtp)}`;
             const emailSendResult = await SendForgotPasswordEmail({ email, otp: generatedOtp, locale, resetUrl });
             if (!emailSendResult.success) {
+                console.error('[forgot] email-send-failed', {
+                    email: maskEmail(email),
+                    locale,
+                    appBaseUrl,
+                });
                 return NextResponse.json({ message: "Failed to send reset email. Please try again.", success: false }, { status: 500 });
             }
+
+            console.info('[forgot] email-send-success', {
+                email: maskEmail(email),
+                locale,
+            });
 
             return NextResponse.json({ message: "If that email is registered, a reset code has been sent.", success: true },{ status: 200 });
         }
@@ -55,6 +82,7 @@ export async function POST(request: NextRequest) {
         
     }
     catch(error){
+        console.error('[forgot] unhandled-error', error);
         return NextResponse.json({ message: "Error occurred while processing forgot password request: "+error, success: false },{ status: 500 });
     }
 }

@@ -10,6 +10,13 @@ interface SendOtpEmailParams {
   resetUrl?: string;
 }
 
+const maskEmail = (value: string) => {
+  const [local, domain] = value.split('@');
+  if (!domain) return 'invalid-email';
+  if (local.length <= 2) return `${local[0] ?? '*'}*@${domain}`;
+  return `${local.slice(0, 2)}***@${domain}`;
+};
+
 const t = {
   en: {
     subject: 'Password reset code',
@@ -76,7 +83,8 @@ export const SendForgotPasswordEmail = async ({ email, otp, locale = 'fr', reset
           <p style="margin:0;font-size:13px;color:#6b7280;">${labels.ignore}</p>
     `;
 
-    await emailTransporter.sendMail({
+    const fromAddress = process.env.EMAIL_USER_V2 || process.env.EMAIL_USER;
+    const info = await emailTransporter.sendMail({
       from: `"CRM" <${process.env.EMAIL_USER_V2 || process.env.EMAIL_USER}>`,
       to: email,
       subject: labels.subject,
@@ -84,11 +92,31 @@ export const SendForgotPasswordEmail = async ({ email, otp, locale = 'fr', reset
       text: labels.plainText(otp),
     });
 
-    console.log(`OTP email sent successfully to ${email}`);
+    console.info('[email][forgot] send-success', {
+      to: maskEmail(email),
+      from: fromAddress ? maskEmail(fromAddress) : null,
+      locale,
+      messageId: info?.messageId ?? null,
+      response: info?.response ?? null,
+    });
     return { message: "OTP sent successfully", success: true };
 
   } catch (error) {
-    console.error("Error sending OTP email:", error);
+    const err = error as Error & {
+      code?: string;
+      command?: string;
+      responseCode?: number;
+      response?: string;
+    };
+
+    console.error('[email][forgot] send-failed', {
+      to: maskEmail(email),
+      locale,
+      code: err?.code ?? null,
+      command: err?.command ?? null,
+      responseCode: err?.responseCode ?? null,
+      response: err?.response ?? err?.message ?? String(error),
+    });
     return { message: "Error sending OTP email", error, success: false };
   }
 };
