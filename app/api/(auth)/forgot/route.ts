@@ -47,7 +47,27 @@ export async function POST(request: NextRequest) {
             const ttl = 5 * 60; 
             const result = await generateOtp(`forgot:${email}`, generatedOtp, ttl);
             if (!result.success) {
-                return NextResponse.json({ message: result.message, success: false },{ status: 429 });
+                const retryAfterSeconds = typeof (result as { retryAfterSeconds?: unknown }).retryAfterSeconds === 'number'
+                    ? (result as { retryAfterSeconds: number }).retryAfterSeconds
+                    : 5 * 60;
+
+                return NextResponse.json(
+                    {
+                        message: result.message,
+                        success: false,
+                        rateLimit: {
+                            maxRequests: 5,
+                            windowSeconds: 5 * 60,
+                            retryAfterSeconds,
+                        },
+                    },
+                    {
+                        status: 429,
+                        headers: {
+                            'Retry-After': String(retryAfterSeconds),
+                        },
+                    }
+                );
             }
 
             const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
