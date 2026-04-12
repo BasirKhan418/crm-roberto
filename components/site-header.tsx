@@ -185,12 +185,17 @@ export function SiteHeader({ title = "Documents" }: { title?: string }) {
           <NotificationsBell />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button type="button" variant="outline" className="h-9 max-w-56 gap-2 rounded-full px-2.5">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-9 w-9 gap-2 rounded-full px-0 sm:max-w-56 sm:px-2.5"
+                aria-label={userDisplayName}
+              >
                 <Avatar className="size-7 rounded-full">
                   <AvatarImage src="" alt={userDisplayName} />
                   <AvatarFallback className="text-xs">{userInitials}</AvatarFallback>
                 </Avatar>
-                <span className="truncate text-sm font-medium">{userDisplayName}</span>
+                <span className="hidden truncate text-sm font-medium sm:inline">{userDisplayName}</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-52">

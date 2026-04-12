@@ -8,7 +8,7 @@ import { useLocale } from "@/components/providers/locale-provider";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { formatActivityRelativeTime, getActivityHeadline } from "@/lib/i18n/messages";
+import { formatActivityRelativeTime, formatInvoiceDisplayNumber, getActivityHeadline } from "@/lib/i18n/messages";
 
 interface NotificationItem {
   _id: string;
@@ -216,24 +216,33 @@ function pickNotificationTitle(item: NotificationItem, locale: "en" | "fr"): str
   return t.viewUpdates;
 }
 
+function getNotificationEntityName(item: NotificationItem, locale: "en" | "fr"): string {
+  if (item.entityType === "invoice" && item.entityName) {
+    return formatInvoiceDisplayNumber(locale, item.entityName);
+  }
+
+  return item.entityName;
+}
+
 function buildNotificationDetails(item: NotificationItem, locale: "en" | "fr"): string {
   const t = bellMessages[locale];
   const headline = getActivityHeadline(locale, item.action);
+  const entityName = getNotificationEntityName(item, locale);
 
   if (item.action === "quote_status_changed") {
     const toStatus = getMetaString(item.metadata, "to");
     const fromStatus = getMetaString(item.metadata, "from");
     const targetLabel = getStatusLabel(locale, toStatus);
     const originLabel = getStatusLabel(locale, fromStatus);
-    return `${item.entityName} - ${originLabel} -> ${targetLabel}`;
+    return `${entityName} - ${originLabel} -> ${targetLabel}`;
   }
 
   if (item.action === "quote_sent") {
     const sentTo = getMetaString(item.metadata, "sentTo");
     if (sentTo) {
-      return `${item.entityName} - ${t.sentTo} ${sentTo}`;
+      return `${entityName} - ${t.sentTo} ${sentTo}`;
     }
-    return item.entityName || headline;
+    return entityName || headline;
   }
 
   if (item.action === "quote_client_replied") {
@@ -241,14 +250,14 @@ function buildNotificationDetails(item: NotificationItem, locale: "en" | "fr"): 
     const messagePreview = getMetaString(item.metadata, "messagePreview");
 
     if (clientName && messagePreview) {
-      return `${item.entityName} - ${t.fromClient} ${clientName} - ${messagePreview}`;
+      return `${entityName} - ${t.fromClient} ${clientName} - ${messagePreview}`;
     }
 
     if (clientName) {
-      return `${item.entityName} - ${t.fromClient} ${clientName}`;
+      return `${entityName} - ${t.fromClient} ${clientName}`;
     }
 
-    return item.entityName || headline;
+    return entityName || headline;
   }
 
   if (item.action === "invoice_created") {
@@ -256,18 +265,18 @@ function buildNotificationDetails(item: NotificationItem, locale: "en" | "fr"): 
     const quoteNumber = getMetaString(item.metadata, "quoteNumber");
 
     if (dueDateText && quoteNumber) {
-      return `${item.entityName} - ${t.invoiceDueOn} ${dueDateText} - ${t.fromQuote} ${quoteNumber}`;
+      return `${entityName} - ${t.invoiceDueOn} ${dueDateText} - ${t.fromQuote} ${quoteNumber}`;
     }
 
     if (dueDateText) {
-      return `${item.entityName} - ${t.invoiceDueOn} ${dueDateText}`;
+      return `${entityName} - ${t.invoiceDueOn} ${dueDateText}`;
     }
 
     if (quoteNumber) {
-      return `${item.entityName} - ${t.fromQuote} ${quoteNumber}`;
+      return `${entityName} - ${t.fromQuote} ${quoteNumber}`;
     }
 
-    return item.entityName || headline;
+    return entityName || headline;
   }
 
   if (item.action === 'invoice_payment_received') {
@@ -277,13 +286,13 @@ function buildNotificationDetails(item: NotificationItem, locale: "en" | "fr"): 
         style: 'currency',
         currency: 'EUR',
       }).format(amount / 100);
-      return `${item.entityName} - ${t.amountPaid} ${formatted}`;
+      return `${entityName} - ${t.amountPaid} ${formatted}`;
     }
 
-    return item.entityName || headline;
+    return entityName || headline;
   }
 
-  return item.entityName || headline;
+  return entityName || headline;
 }
 
 function pickIcon(item: NotificationItem) {
