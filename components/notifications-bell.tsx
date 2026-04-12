@@ -55,8 +55,12 @@ const bellMessages = {
     quoteUpdated: "Quote updated",
     quoteDeleted: "Quote deleted",
     invoicePaymentReceived: 'Payment received',
+    invoicePaymentUpdated: 'Payment corrected',
+    invoicePaymentDeleted: 'Payment removed',
     statusChanged: "Status updated",
     amountPaid: 'Amount paid',
+    amountCorrected: 'Corrected amount',
+    amountRemoved: 'Removed amount',
     invoiceDueOn: "Due on",
     sentTo: "Sent to",
     fromClient: "From",
@@ -87,8 +91,12 @@ const bellMessages = {
     quoteUpdated: "Devis mis à jour",
     quoteDeleted: "Devis supprimé",
     invoicePaymentReceived: 'Paiement reçu',
+    invoicePaymentUpdated: 'Paiement corrigé',
+    invoicePaymentDeleted: 'Paiement supprimé',
     statusChanged: "Statut mis à jour",
     amountPaid: 'Montant payé',
+    amountCorrected: 'Montant corrigé',
+    amountRemoved: 'Montant supprimé',
     invoiceDueOn: "Échéance le",
     sentTo: "Envoyé à",
     fromClient: "De la part de",
@@ -209,6 +217,14 @@ function pickNotificationTitle(item: NotificationItem, locale: "en" | "fr"): str
     return t.invoicePaymentReceived;
   }
 
+  if (item.action === 'invoice_payment_updated') {
+    return t.invoicePaymentUpdated;
+  }
+
+  if (item.action === 'invoice_payment_deleted') {
+    return t.invoicePaymentDeleted;
+  }
+
   if (item.action === "quote_deleted") {
     return t.quoteDeleted;
   }
@@ -292,11 +308,42 @@ function buildNotificationDetails(item: NotificationItem, locale: "en" | "fr"): 
     return entityName || headline;
   }
 
+  if (item.action === 'invoice_payment_updated') {
+    const amount = item.metadata?.amount;
+    if (typeof amount === 'number' && Number.isFinite(amount)) {
+      const formatted = new Intl.NumberFormat(locale === 'fr' ? 'fr-FR' : 'en-GB', {
+        style: 'currency',
+        currency: 'EUR',
+      }).format(amount / 100);
+      return `${entityName} - ${t.amountCorrected} ${formatted}`;
+    }
+
+    return entityName || headline;
+  }
+
+  if (item.action === 'invoice_payment_deleted') {
+    const amount = item.metadata?.amount;
+    if (typeof amount === 'number' && Number.isFinite(amount)) {
+      const formatted = new Intl.NumberFormat(locale === 'fr' ? 'fr-FR' : 'en-GB', {
+        style: 'currency',
+        currency: 'EUR',
+      }).format(amount / 100);
+      return `${entityName} - ${t.amountRemoved} ${formatted}`;
+    }
+
+    return entityName || headline;
+  }
+
   return entityName || headline;
 }
 
 function pickIcon(item: NotificationItem) {
-  if (item.action === "invoice_created" || item.action === 'invoice_payment_received') {
+  if (
+    item.action === "invoice_created"
+    || item.action === 'invoice_payment_received'
+    || item.action === 'invoice_payment_updated'
+    || item.action === 'invoice_payment_deleted'
+  ) {
     return FileText;
   }
 

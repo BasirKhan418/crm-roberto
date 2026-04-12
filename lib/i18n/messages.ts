@@ -124,6 +124,9 @@ const messages = {
         quote_deleted: 'Deleted',
         quote_client_replied: 'Client replied',
         quote_status_changed: 'Status changed',
+        invoice_payment_received: 'Payment received',
+        invoice_payment_updated: 'Payment updated',
+        invoice_payment_deleted: 'Payment deleted',
       },
       headlines: {
         client_created: 'Client added',
@@ -141,6 +144,10 @@ const messages = {
         quote_deleted: 'Quote deleted',
         quote_client_replied: 'Client replied to quote',
         quote_status_changed: 'Quote status changed',
+        invoice_created: 'Invoice created',
+        invoice_payment_received: 'Invoice payment received',
+        invoice_payment_updated: 'Invoice payment updated',
+        invoice_payment_deleted: 'Invoice payment deleted',
       },
       relative: {
         justNow: 'Just now',
@@ -346,6 +353,9 @@ const messages = {
         quote_deleted: 'Supprimé',
         quote_client_replied: 'Le client a répondu',
         quote_status_changed: 'Statut modifié',
+        invoice_payment_received: 'Paiement reçu',
+        invoice_payment_updated: 'Paiement modifié',
+        invoice_payment_deleted: 'Paiement supprimé',
       },
       headlines: {
         client_created: 'Client ajouté',
@@ -363,6 +373,10 @@ const messages = {
         quote_deleted: 'Devis supprimé',
         quote_client_replied: 'Le client a répondu au devis',
         quote_status_changed: 'Statut du devis modifié',
+        invoice_created: 'Facture créée',
+        invoice_payment_received: 'Paiement de facture reçu',
+        invoice_payment_updated: 'Paiement de facture modifié',
+        invoice_payment_deleted: 'Paiement de facture supprimé',
       },
       relative: {
         justNow: "À l'instant",

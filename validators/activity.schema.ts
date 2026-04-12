@@ -27,6 +27,8 @@ export const createActivitySchema = z.object({
     'quote_status_changed',
     'invoice_created',
     'invoice_payment_received',
+    'invoice_payment_updated',
+    'invoice_payment_deleted',
   ]),
   entityType: z.enum(['client', 'supplier', 'note', 'product', 'quote', 'invoice']),
   entityName: z.string().trim().min(1, i18nKey('validation.entityNameRequired')),

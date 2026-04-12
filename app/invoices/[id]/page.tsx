@@ -4,13 +4,24 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 
-import { CheckCircle2Icon, DownloadIcon, PencilIcon, ReceiptTextIcon, SendIcon } from 'lucide-react';
+import { CheckCircle2Icon, DownloadIcon, PencilIcon, ReceiptTextIcon, SendIcon, SquarePenIcon, Trash2Icon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import CrmShell from '@/components/crm-shell';
+import EditPaymentEntryModal from '@/components/invoices/EditPaymentEntryModal';
 import ManualPaymentModal, { type ManualPaymentType } from '@/components/invoices/ManualPaymentModal';
 import SendInvoiceModal from '@/components/invoices/SendInvoiceModal';
 import { useLocale } from '@/components/providers/locale-provider';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { formatInvoiceDisplayNumber, getInvoiceStatusLabel } from '@/lib/i18n/messages';
 import { getPaymentMethodLabel, getPaymentTypeLabel } from '@/lib/payments';
 import { computeQuoteLine } from '@/lib/quote-calculations';
@@ -77,6 +88,7 @@ interface PaymentHistoryItem {
   _id: string;
   amount: number;
   method: string;
+  source?: 'manual' | 'stripe';
   type: 'full' | 'remaining_balance' | 'deposit';
   status: 'pending' | 'succeeded' | 'failed';
   paidAt?: string | null;
@@ -125,6 +137,10 @@ export default function InvoiceDetailPage() {
       addingPayment: 'Saving payment...',
       paymentAdded: 'Payment added successfully',
       addPaymentFailed: 'Failed to add payment',
+      paymentUpdated: 'Payment entry updated',
+      paymentDeleted: 'Payment entry deleted',
+      paymentUpdateFailed: 'Failed to update payment entry',
+      paymentDeleteFailed: 'Failed to delete payment entry',
       invoice: 'Invoice',
       date: 'Date',
       dueDate: 'Due date',
@@ -160,6 +176,17 @@ export default function InvoiceDetailPage() {
       paymentAmount: 'Amount',
       paymentDate: 'Date',
       paymentType: 'Type',
+      paymentActions: 'Actions',
+      paymentSourceStripe: 'Stripe payment',
+      paymentSourceManual: 'Manual payment',
+      editPayment: 'Edit payment',
+      deletePayment: 'Delete payment',
+      stripeLocked: 'Stripe payments are locked',
+      noPaymentActions: 'No actions',
+      confirmDeleteTitle: 'Delete this payment entry?',
+      confirmDeleteDescription: 'This removes only the selected payment history row. Invoice and quote totals stay unchanged.',
+      confirmDeleteAction: 'Delete payment',
+      confirmDeleteCancel: 'Cancel',
       paymentTypeDeposit: 'Deposit',
       noPayments: 'No completed payments yet.',
       paymentActionTitle: 'Payment shortcut',
@@ -184,6 +211,10 @@ export default function InvoiceDetailPage() {
       addingPayment: 'Ajout du paiement...',
       paymentAdded: 'Paiement ajoute avec succes',
       addPaymentFailed: 'Impossible d\'ajouter le paiement',
+      paymentUpdated: 'Ligne de paiement modifiee',
+      paymentDeleted: 'Ligne de paiement supprimee',
+      paymentUpdateFailed: 'Impossible de modifier la ligne de paiement',
+      paymentDeleteFailed: 'Impossible de supprimer la ligne de paiement',
       invoice: 'Facture',
       date: 'Date',
       dueDate: '\u00c9ch\u00e9ance',
@@ -219,6 +250,17 @@ export default function InvoiceDetailPage() {
       paymentAmount: 'Montant',
       paymentDate: 'Date',
       paymentType: 'Type',
+      paymentActions: 'Actions',
+      paymentSourceStripe: 'Paiement Stripe',
+      paymentSourceManual: 'Paiement manuel',
+      editPayment: 'Modifier',
+      deletePayment: 'Supprimer',
+      stripeLocked: 'Paiement Stripe verrouille',
+      noPaymentActions: 'Aucune action',
+      confirmDeleteTitle: 'Supprimer cette ligne de paiement ?',
+      confirmDeleteDescription: 'Seule cette ligne d historique est supprimee. Les totaux facture/devis ne changent pas.',
+      confirmDeleteAction: 'Supprimer le paiement',
+      confirmDeleteCancel: 'Annuler',
       paymentTypeDeposit: 'Acompte',
       noPayments: 'Aucun paiement finalis\u00e9 pour le moment.',
       paymentActionTitle: 'Raccourci paiement',
@@ -243,6 +285,10 @@ export default function InvoiceDetailPage() {
   const [sendOpen, setSendOpen] = useState(false);
   const [manualPaymentOpen, setManualPaymentOpen] = useState(false);
   const [markingPaid, setMarkingPaid] = useState(false);
+  const [editingPayment, setEditingPayment] = useState<PaymentHistoryItem | null>(null);
+  const [deletingPayment, setDeletingPayment] = useState<PaymentHistoryItem | null>(null);
+  const [savingPaymentEdit, setSavingPaymentEdit] = useState(false);
+  const [deletingPaymentEntry, setDeletingPaymentEntry] = useState(false);
 
   const loadData = useCallback(async () => {
     if (!params?.id) {
@@ -342,6 +388,10 @@ export default function InvoiceDetailPage() {
     return getPaymentMethodLabel(method, locale as Locale);
   }
 
+  function isManualPaymentEntry(payment: PaymentHistoryItem): boolean {
+    return payment.source === 'manual';
+  }
+
   async function downloadPdf() {
     if (!invoice?._id) {
       return;
@@ -399,6 +449,68 @@ export default function InvoiceDetailPage() {
       toast.error(paidError instanceof Error ? paidError.message : t.addPaymentFailed);
     } finally {
       setMarkingPaid(false);
+    }
+  }
+
+  async function updatePaymentEntry(payload: { amount: number; method: string; customMethod?: string; paidAt: string }) {
+    if (!invoice?._id || !editingPayment || savingPaymentEdit) {
+      return;
+    }
+
+    setSavingPaymentEdit(true);
+    try {
+      const response = await fetch(`/api/invoices/${invoice._id}/payments`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          paymentId: editingPayment._id,
+          amount: payload.amount,
+          method: payload.method,
+          customMethod: payload.customMethod,
+          paidAt: payload.paidAt,
+        }),
+      });
+
+      const responsePayload = (await response.json()) as { success?: boolean; message?: string };
+      if (!response.ok || !responsePayload.success) {
+        throw new Error(responsePayload.message || t.paymentUpdateFailed);
+      }
+
+      toast.success(t.paymentUpdated);
+      setEditingPayment(null);
+      await loadData();
+    } catch (updateError) {
+      toast.error(updateError instanceof Error ? updateError.message : t.paymentUpdateFailed);
+    } finally {
+      setSavingPaymentEdit(false);
+    }
+  }
+
+  async function deletePaymentEntry() {
+    if (!invoice?._id || !deletingPayment || deletingPaymentEntry) {
+      return;
+    }
+
+    setDeletingPaymentEntry(true);
+    try {
+      const response = await fetch(`/api/invoices/${invoice._id}/payments`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paymentId: deletingPayment._id }),
+      });
+
+      const responsePayload = (await response.json()) as { success?: boolean; message?: string };
+      if (!response.ok || !responsePayload.success) {
+        throw new Error(responsePayload.message || t.paymentDeleteFailed);
+      }
+
+      toast.success(t.paymentDeleted);
+      setDeletingPayment(null);
+      await loadData();
+    } catch (deleteError) {
+      toast.error(deleteError instanceof Error ? deleteError.message : t.paymentDeleteFailed);
+    } finally {
+      setDeletingPaymentEntry(false);
     }
   }
 
@@ -612,13 +724,19 @@ export default function InvoiceDetailPage() {
                   <p className={`text-[11px] font-semibold uppercase tracking-wide ${canRecordPayment ? 'text-amber-900 dark:text-amber-300' : 'text-emerald-900 dark:text-emerald-300'}`}>
                     {canRecordPayment ? t.paymentActionTitle : t.paymentSettledTitle}
                   </p>
-                  <div className="mt-2 flex items-center justify-between gap-3">
+                  <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                     <div>
                       <p className="text-xs text-muted-foreground">{t.remaining}</p>
                       <PriceDisplay cents={remainingAmount} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="text-base font-semibold text-foreground" />
                     </div>
                     {canRecordPayment ? (
-                      <Button type="button" size="sm" className="shrink-0" onClick={() => setManualPaymentOpen(true)} disabled={markingPaid}>
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="h-9 w-full justify-center text-xs sm:h-8 sm:w-auto sm:text-sm"
+                        onClick={() => setManualPaymentOpen(true)}
+                        disabled={markingPaid}
+                      >
                         <CheckCircle2Icon className="size-3.5" />
                         {markingPaid ? t.addingPayment : t.addPayment}
                       </Button>
@@ -648,27 +766,104 @@ export default function InvoiceDetailPage() {
               {payments.length === 0 ? (
                 <p className="text-sm text-muted-foreground">{t.noPayments}</p>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full text-sm">
-                    <thead className="bg-secondary/30 text-muted-foreground">
-                      <tr>
-                        <th className="px-3 py-2 text-left font-medium">{t.paymentDate}</th>
-                        <th className="px-3 py-2 text-left font-medium">{t.paymentMethod}</th>
-                        <th className="px-3 py-2 text-left font-medium">{t.paymentType}</th>
-                        <th className="px-3 py-2 text-right font-medium">{t.paymentAmount}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {payments.map((payment) => (
-                        <tr key={payment._id} className="border-t border-border/60 odd:bg-background even:bg-secondary/10">
-                          <td className="px-3 py-2">{formatDateTime(payment.paidAt || payment.createdAt, locale as Locale)}</td>
-                          <td className="px-3 py-2">{payment.method ? paymentMethodLabel(payment.method) : t.noData}</td>
-                          <td className="px-3 py-2">{paymentTypeLabel(payment.type)}</td>
-                          <td className="px-3 py-2 text-right font-medium"><PriceDisplay cents={payment.amount} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} /></td>
+                <div className="space-y-3">
+                  <div className="grid gap-2 md:hidden">
+                    {payments.map((payment) => {
+                      const canMutate = isManualPaymentEntry(payment);
+
+                      return (
+                        <article
+                          key={payment._id}
+                          className={`rounded-xl border p-3 ${canMutate ? 'border-emerald-200/80 bg-linear-to-br from-white via-background to-emerald-50/40 dark:border-emerald-900/40 dark:from-background dark:to-emerald-950/10' : 'border-slate-200/80 bg-linear-to-br from-white via-background to-slate-100/60 dark:border-slate-700/70 dark:from-background dark:to-slate-900/40'}`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <p className="text-xs text-muted-foreground">{t.paymentDate}</p>
+                              <p className="text-sm font-medium">{formatDateTime(payment.paidAt || payment.createdAt, locale as Locale)}</p>
+                            </div>
+                            <PriceDisplay cents={payment.amount} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="text-base font-semibold" />
+                          </div>
+
+                          <div className="mt-2 grid grid-cols-2 gap-2 text-xs sm:text-sm">
+                            <div>
+                              <p className="text-muted-foreground">{t.paymentMethod}</p>
+                              <p className="font-medium">{payment.method ? paymentMethodLabel(payment.method) : t.noData}</p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">{t.paymentType}</p>
+                              <p className="font-medium">{paymentTypeLabel(payment.type)}</p>
+                            </div>
+                          </div>
+
+                          <div className="mt-2 flex items-center justify-between gap-2">
+                            <p className="text-[11px] text-muted-foreground">{canMutate ? t.paymentSourceManual : t.paymentSourceStripe}</p>
+                            {!canMutate ? (
+                              <p className="text-[11px] text-muted-foreground">{t.stripeLocked}</p>
+                            ) : null}
+                          </div>
+
+                          {canMutate ? (
+                            <div className="mt-2 grid grid-cols-2 gap-2">
+                              <Button type="button" size="sm" variant="outline" className="h-8 min-w-0 px-2 text-xs" onClick={() => setEditingPayment(payment)}>
+                                <SquarePenIcon className="size-3.5" />
+                                {t.editPayment}
+                              </Button>
+                              <Button type="button" size="sm" variant="outline" className="h-8 min-w-0 px-2 text-xs text-destructive hover:text-destructive" onClick={() => setDeletingPayment(payment)}>
+                                <Trash2Icon className="size-3.5" />
+                                {t.deletePayment}
+                              </Button>
+                            </div>
+                          ) : null}
+                        </article>
+                      );
+                    })}
+                  </div>
+
+                  <div className="hidden overflow-x-auto md:block">
+                    <table className="min-w-full text-sm">
+                      <thead className="bg-secondary/30 text-muted-foreground">
+                        <tr>
+                          <th className="px-3 py-2 text-left font-medium">{t.paymentDate}</th>
+                          <th className="px-3 py-2 text-left font-medium">{t.paymentMethod}</th>
+                          <th className="px-3 py-2 text-left font-medium">{t.paymentType}</th>
+                          <th className="px-3 py-2 text-right font-medium">{t.paymentAmount}</th>
+                          <th className="px-3 py-2 text-right font-medium">{t.paymentActions}</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {payments.map((payment) => {
+                          const canMutate = isManualPaymentEntry(payment);
+
+                          return (
+                            <tr key={payment._id} className="border-t border-border/60 odd:bg-background even:bg-secondary/10">
+                              <td className="px-3 py-2">{formatDateTime(payment.paidAt || payment.createdAt, locale as Locale)}</td>
+                              <td className="px-3 py-2">{payment.method ? paymentMethodLabel(payment.method) : t.noData}</td>
+                              <td className="px-3 py-2">{paymentTypeLabel(payment.type)}</td>
+                              <td className="px-3 py-2 text-right font-medium"><PriceDisplay cents={payment.amount} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} /></td>
+                              <td className="px-3 py-2">
+                                <div className="flex justify-end gap-1.5">
+                                  {canMutate ? (
+                                    <>
+                                      <Button type="button" variant="outline" size="sm" className="h-8" onClick={() => setEditingPayment(payment)}>
+                                        <SquarePenIcon className="size-3.5" />
+                                        {t.editPayment}
+                                      </Button>
+                                      <Button type="button" variant="outline" size="sm" className="h-8 text-destructive hover:text-destructive" onClick={() => setDeletingPayment(payment)}>
+                                        <Trash2Icon className="size-3.5" />
+                                        {t.deletePayment}
+                                      </Button>
+                                    </>
+                                  ) : (
+                                    <p className="text-xs text-muted-foreground">{t.stripeLocked}</p>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
             </section>
@@ -711,6 +906,47 @@ export default function InvoiceDetailPage() {
           }}
         />
       ) : null}
+
+      {invoice && editingPayment ? (
+        <EditPaymentEntryModal
+          open={Boolean(editingPayment)}
+          onOpenChange={(nextOpen) => {
+            if (!nextOpen) {
+              setEditingPayment(null);
+            }
+          }}
+          loading={savingPaymentEdit}
+          locale={locale as 'en' | 'fr'}
+          amount={editingPayment.amount}
+          method={editingPayment.method}
+          paidAt={editingPayment.paidAt ?? editingPayment.createdAt}
+          remainingBaseAmount={Math.max(0, remainingAmount + editingPayment.amount)}
+          onConfirm={updatePaymentEntry}
+        />
+      ) : null}
+
+      <AlertDialog open={Boolean(deletingPayment)} onOpenChange={(nextOpen) => {
+        if (!nextOpen) {
+          setDeletingPayment(null);
+        }
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t.confirmDeleteTitle}</AlertDialogTitle>
+            <AlertDialogDescription>{t.confirmDeleteDescription}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel asChild>
+              <Button type="button" variant="outline" disabled={deletingPaymentEntry}>{t.confirmDeleteCancel}</Button>
+            </AlertDialogCancel>
+            <AlertDialogAction asChild>
+              <Button type="button" variant="destructive" disabled={deletingPaymentEntry} onClick={deletePaymentEntry}>
+                {t.confirmDeleteAction}
+              </Button>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </CrmShell>
   );
 }

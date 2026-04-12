@@ -92,6 +92,8 @@ const ACTION_BADGE: Record<string, ActionBadge> = {
   quote_status_changed: { badgeClass: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
   invoice_created: { badgeClass: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' },
   invoice_payment_received: { badgeClass: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' },
+  invoice_payment_updated: { badgeClass: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
+  invoice_payment_deleted: { badgeClass: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300' },
 };
 
 interface ActivityFeedProps {

@@ -85,6 +85,7 @@ export async function POST(req: NextRequest) {
                 : 'full',
           status: 'succeeded',
           method: session.payment_method_types?.[0] ?? 'card',
+          source: 'stripe',
           paidAt: new Date(),
         });
         paymentInserted = true;

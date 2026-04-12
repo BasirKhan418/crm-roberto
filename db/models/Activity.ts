@@ -34,6 +34,8 @@ const ActivityLogSchema = new mongoose.Schema(
         "quote_duplicated",
         "invoice_created",
         "invoice_payment_received",
+        "invoice_payment_updated",
+        "invoice_payment_deleted",
       ],
     },
 

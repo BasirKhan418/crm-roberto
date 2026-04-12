@@ -2,6 +2,7 @@ import mongoose, { type InferSchemaType, type Model } from "mongoose";
 
 export const PAYMENT_TYPE = ["deposit", "full", "remaining_balance"] as const;
 export const PAYMENT_STATUS = ["pending", "succeeded", "failed"] as const;
+export const PAYMENT_SOURCE = ["stripe", "manual"] as const;
 
 const PaymentSchema = new mongoose.Schema(
   {
@@ -56,6 +57,16 @@ const PaymentSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
+    },
+    source: {
+      type: String,
+      required: true,
+      enum: {
+        values: PAYMENT_SOURCE,
+        message: "Source must be stripe or manual",
+      },
+      default: "stripe",
+      index: true,
     },
     paidAt: {
       type: Date,
