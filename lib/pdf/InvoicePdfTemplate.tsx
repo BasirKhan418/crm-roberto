@@ -285,6 +285,8 @@ const styles = StyleSheet.create({
   infoRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
     paddingVertical: 2.5,
   },
   infoRowLast: {
@@ -556,6 +558,22 @@ function splitAddressLines(address?: string | null): { line1: string; line2: str
   };
 }
 
+function combineAddressLines(lines: { line1: string; line2: string }): string {
+  if (lines.line1 === '-' && lines.line2 === '-') {
+    return '-';
+  }
+
+  if (lines.line2 === '-') {
+    return lines.line1;
+  }
+
+  if (lines.line1 === '-') {
+    return lines.line2;
+  }
+
+  return `${lines.line1}\n${lines.line2}`;
+}
+
 function formatLongDate(dateValue: string | Date | null | undefined, locale: 'en' | 'fr'): string {
   if (!dateValue) {
     return '-';
@@ -649,10 +667,11 @@ export function InvoicePdfTemplate({ invoice, company, paymentUrl = null, locale
   const statusPresentation = getStatusPresentation(invoice.status, t);
   const issuerAddress = splitAddressLines(company?.address);
   const clientAddress = splitAddressLines(invoice.clientSnapshot.address);
+  const issuerAddressCombined = combineAddressLines(issuerAddress);
+  const clientAddressCombined = combineAddressLines(clientAddress);
   const issuerRows = compactValueRows([
     { value: company?.companyName || company?.ownerName, always: true },
-    { value: issuerAddress.line1, always: true },
-    { value: issuerAddress.line2, always: true },
+    { value: issuerAddressCombined, always: true },
     { value: company?.phone, always: true },
     { value: company?.businessEmail, always: true },
     { value: company?.bankName, always: true },
@@ -660,8 +679,7 @@ export function InvoicePdfTemplate({ invoice, company, paymentUrl = null, locale
   ]);
   const clientRows = compactValueRows([
     { value: invoice.clientSnapshot.fullName, always: true },
-    { value: clientAddress.line1, always: true },
-    { value: clientAddress.line2, always: true },
+    { value: clientAddressCombined, always: true },
     { value: invoice.clientSnapshot.phone },
     { value: invoice.clientSnapshot.email },
   ]);

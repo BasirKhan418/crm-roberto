@@ -283,6 +283,8 @@ const styles = StyleSheet.create({
   infoRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
     paddingVertical: 3,
   },
   infoRowLast: {
@@ -574,6 +576,22 @@ function splitAddressLines(address?: string | null): { line1: string; line2: str
   };
 }
 
+function combineAddressLines(lines: { line1: string; line2: string }): string {
+  if (lines.line1 === '-' && lines.line2 === '-') {
+    return '-';
+  }
+
+  if (lines.line2 === '-') {
+    return lines.line1;
+  }
+
+  if (lines.line1 === '-') {
+    return lines.line2;
+  }
+
+  return `${lines.line1}\n${lines.line2}`;
+}
+
 export function QuotePdfTemplate({ quote, company, locale = 'en' }: QuotePdfTemplateProps) {
   const t = translations[locale];
   const isSigned = quote.signedStatus === 'signed';
@@ -582,10 +600,11 @@ export function QuotePdfTemplate({ quote, company, locale = 'en' }: QuotePdfTemp
   const signatureDataUrl = isSigned ? quote.signatureDataUrl ?? null : null;
   const issuerAddress = splitAddressLines(company?.address);
   const clientAddress = splitAddressLines(quote.clientSnapshot.address);
+  const issuerAddressCombined = combineAddressLines(issuerAddress);
+  const clientAddressCombined = combineAddressLines(clientAddress);
   const issuerRows = compactValueRows([
     { value: company?.companyName, always: true },
-    { value: issuerAddress.line1, always: true },
-    { value: issuerAddress.line2, always: true },
+    { value: issuerAddressCombined, always: true },
     { value: company?.phone, always: true },
     { value: company?.businessEmail, always: true },
     { value: company?.bankName, always: true },
@@ -593,8 +612,7 @@ export function QuotePdfTemplate({ quote, company, locale = 'en' }: QuotePdfTemp
   ]);
   const clientRows = compactValueRows([
     { value: quote.clientSnapshot.fullName, always: true },
-    { value: clientAddress.line1, always: true },
-    { value: clientAddress.line2, always: true },
+    { value: clientAddressCombined, always: true },
     { value: quote.clientSnapshot.phone },
     { value: quote.clientSnapshot.email },
   ]);
