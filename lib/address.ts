@@ -6,6 +6,17 @@ export interface AddressDetails {
   country?: string | null;
 }
 
+/** Minimal client snapshot shape used across PDF/send API routes. */
+export interface ClientSnapshotAddressFields {
+  fullName: string;
+  companyName?: string | null;
+  address?: string | null;
+  addressDetails?: AddressDetails | null;
+  email?: string | null;
+  phone?: string | null;
+  vatNumber?: string | null;
+}
+
 /**
  * Returns true if the addressDetails object has at least one non-empty field.
  */
@@ -29,4 +40,29 @@ export function formatStructuredAddress(details?: AddressDetails | null): string
 
   const combined = [line1, line2].filter(Boolean).join(', ');
   return combined || null;
+}
+
+/**
+ * Extracts address fields from a raw Mongoose document's clientSnapshot,
+ * returning a typed ClientSnapshotAddressFields object.
+ */
+export function extractClientSnapshot(raw: unknown): ClientSnapshotAddressFields {
+  const s = raw as {
+    fullName?: string;
+    companyName?: string | null;
+    address?: string | null;
+    addressDetails?: AddressDetails | null;
+    email?: string | null;
+    phone?: string | null;
+    vatNumber?: string | null;
+  };
+  return {
+    fullName: s?.fullName ?? 'Client',
+    companyName: s?.companyName ?? null,
+    address: s?.address ?? null,
+    addressDetails: s?.addressDetails ?? null,
+    email: s?.email ?? null,
+    phone: s?.phone ?? null,
+    vatNumber: s?.vatNumber ?? null,
+  };
 }

@@ -9,6 +9,7 @@ import Invoice from '@/db/models/Invoice';
 import Payment from '@/db/models/Payment';
 import StripeConnect from '@/db/models/StripeConnect';
 import { getCompanyProfileByUserId } from '@/db/repository/cprofile';
+import { extractClientSnapshot } from '@/lib/address';
 import { sendInvoice } from '@/lib/email';
 import { resolveLocaleFromRequest } from '@/lib/i18n/locale';
 import { InvoicePdfTemplate } from '@/lib/pdf/InvoicePdfTemplate';
@@ -200,15 +201,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           quoteNumber: invoice.quoteNumber ?? null,
           date: invoice.date,
           dueDate: invoice.dueDate ?? null,
-          clientSnapshot: {
-            fullName: invoice.clientSnapshot?.fullName ?? 'Client',
-            companyName: invoice.clientSnapshot?.companyName ?? null,
-            address: invoice.clientSnapshot?.address ?? null,
-            addressDetails: (invoice.clientSnapshot as { addressDetails?: { streetNumber?: string | null; streetName?: string | null; postalCode?: string | null; city?: string | null; country?: string | null } | null })?.addressDetails ?? null,
-            email: invoice.clientSnapshot?.email ?? null,
-            phone: invoice.clientSnapshot?.phone ?? null,
-            vatNumber: invoice.clientSnapshot?.vatNumber ?? null,
-          },
+          clientSnapshot: extractClientSnapshot(invoice.clientSnapshot),
           lineItems: computedLineItems,
           totalExcludingTaxBeforeDiscount,
           totalDiscountExcludingTax,

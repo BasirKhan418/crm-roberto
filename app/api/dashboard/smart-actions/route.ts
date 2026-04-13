@@ -9,6 +9,7 @@ import Invoice from '@/db/models/Invoice';
 import Note from '@/db/models/Note';
 import Quote from '@/db/models/Quote';
 import { getCompanyProfileByUserId } from '@/db/repository/cprofile';
+import { extractClientSnapshot } from '@/lib/address';
 import { sendInvoice } from '@/lib/email';
 import { resolveLocaleFromRequest } from '@/lib/i18n/locale';
 import { InvoicePdfTemplate } from '@/lib/pdf/InvoicePdfTemplate';
@@ -492,15 +493,7 @@ async function sendInvoiceReminder(userId: string, invoiceId: string, locale: Lo
       quoteNumber: invoiceDoc.quoteNumber ?? null,
       date: invoiceDoc.date ?? new Date(),
       dueDate: invoiceDoc.dueDate ?? null,
-      clientSnapshot: {
-        fullName: invoiceDoc.clientSnapshot.fullName,
-        companyName: invoiceDoc.clientSnapshot.companyName ?? null,
-        address: invoiceDoc.clientSnapshot.address ?? null,
-        addressDetails: (invoiceDoc.clientSnapshot as { addressDetails?: { streetNumber?: string | null; streetName?: string | null; postalCode?: string | null; city?: string | null; country?: string | null } | null })?.addressDetails ?? null,
-        email: invoiceDoc.clientSnapshot.email ?? null,
-        phone: invoiceDoc.clientSnapshot.phone ?? null,
-        vatNumber: invoiceDoc.clientSnapshot.vatNumber ?? null,
-      },
+      clientSnapshot: extractClientSnapshot(invoiceDoc.clientSnapshot),
       lineItems: invoiceDoc.lineItems,
       totalExcludingTaxBeforeDiscount,
       totalDiscountExcludingTax,

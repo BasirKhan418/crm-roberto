@@ -7,6 +7,7 @@ import { getCompanyProfileByUserId } from '@/db/repository/cprofile';
 import { getQuoteById, updateQuoteStatusById } from '@/db/repository/quote';
 import { createActivityLog } from '@/db/repository/activity';
 import { sendQuoteEmail } from '@/lib/email';
+import { extractClientSnapshot } from '@/lib/address';
 import { computeQuoteLine } from '@/lib/quote-calculations';
 import { QuotePdfTemplate } from '@/lib/pdf/QuotePdfTemplate';
 import { buildSignUrl, generateSignToken, generateTokenExpiry } from '@/lib/tokens';
@@ -115,15 +116,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       quoteNumber: quote.quoteNumber,
       date: quote.date,
       status: quote.status,
-      clientSnapshot: {
-        fullName: quote.clientSnapshot.fullName,
-        companyName: quote.clientSnapshot.companyName ?? null,
-        address: quote.clientSnapshot.address ?? null,
-        addressDetails: (quote.clientSnapshot as { addressDetails?: { streetNumber?: string | null; streetName?: string | null; postalCode?: string | null; city?: string | null; country?: string | null } | null }).addressDetails ?? null,
-        email: quote.clientSnapshot.email ?? null,
-        phone: quote.clientSnapshot.phone ?? null,
-        vatNumber: quote.clientSnapshot.vatNumber ?? null,
-      },
+      clientSnapshot: extractClientSnapshot(quote.clientSnapshot),
       lineItems,
       totalExcludingTaxBeforeDiscount: derivedTotals.totalExcludingTaxBeforeDiscount,
       totalDiscountExcludingTax: derivedTotals.totalDiscountExcludingTax,
