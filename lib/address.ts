@@ -28,7 +28,7 @@ export function hasStructuredAddress(details?: AddressDetails | null): boolean {
 /**
  * Formats structured address fields into a single display string.
  * Line 1: street number + street name
- * Line 2: postal code + city + country
+ * Line 2: postal code + city, country
  */
 export function formatStructuredAddress(details?: AddressDetails | null): string | null {
   if (!hasStructuredAddress(details)) return null;
@@ -36,7 +36,10 @@ export function formatStructuredAddress(details?: AddressDetails | null): string
   const streetParts = [details!.streetNumber, details!.streetName].map((p) => (p ?? '').trim()).filter(Boolean);
   const line1 = streetParts.join(' ');
   const line2Parts = [details!.postalCode, details!.city, details!.country].map((p) => (p ?? '').trim()).filter(Boolean);
-  const line2 = line2Parts.join(' ');
+  // Format: "postal code city, country" (comma between city and country)
+  const line2 = line2Parts.length >= 2
+    ? `${line2Parts.slice(0, -1).join(' ')}, ${line2Parts[line2Parts.length - 1]}`
+    : line2Parts.join(' ');
 
   const combined = [line1, line2].filter(Boolean).join(', ');
   return combined || null;

@@ -563,9 +563,19 @@ function compactValueRows(fields: Array<{ value?: string | null; always?: boolea
 }
 
 /**
+ * Formats address line2 parts as "postal city, country"
+ * (all but the last joined with space, last part appended with ", ").
+ */
+function formatLine2Parts(parts: string[]): string {
+  if (parts.length === 0) return '-';
+  if (parts.length === 1) return parts[0];
+  return `${parts.slice(0, -1).join(' ')}, ${parts[parts.length - 1]}`;
+}
+
+/**
  * Splits an address into exactly two display lines:
  *   line1 = street number + street name  (e.g. "15 Rue de l'Industrie")
- *   line2 = postal code + city [+ country]  (e.g. "L-8069 Bertrange Luxembourg")
+ *   line2 = postal code + city [+ country]  (e.g. "L-8069 Bertrange, Luxembourg")
  *
  * The address stored in DB is expected to use newlines (\n) as the primary
  * separator between logical lines.  A comma is treated as an in-line separator
@@ -574,7 +584,7 @@ function compactValueRows(fields: Array<{ value?: string | null; always?: boolea
  * Rules:
  *  - Split on \n first; if that yields only one part, fall back to splitting on commas.
  *  - First part  → line1  (street number + name, already on the same token)
- *  - Remaining parts joined with a space → line2  (postal code + city + country)
+ *  - Remaining parts formatted as "postal city, country" → line2
  */
 function splitAddressLines(address?: string | null): { line1: string; line2: string } {
   if (!hasContent(address)) {
@@ -609,15 +619,15 @@ function splitAddressLines(address?: string | null): { line1: string; line2: str
   if (parts.length >= 2 && streetNumberPattern.test(parts[0])) {
     return {
       line1: `${parts[0]} ${parts[1]}`,
-      line2: parts.length > 2 ? parts.slice(2).join(' ') : '-',
+      line2: parts.length > 2 ? formatLine2Parts(parts.slice(2)) : '-',
     };
   }
 
   // line1 = first part (street number + name already together)
-  // line2 = all remaining parts joined with a space (postal code + city + country)
+  // line2 = "postal city, country"
   return {
     line1: parts[0],
-    line2: parts.slice(1).join(' '),
+    line2: formatLine2Parts(parts.slice(1)),
   };
 }
 
@@ -640,7 +650,7 @@ function combineAddressLines(lines: { line1: string; line2: string }): string {
 /**
  * Formats a structured address (from separate fields) into a combined display string.
  * Line 1: street number + street name
- * Line 2: postal code + city + country
+ * Line 2: postal code + city, country
  */
 function formatStructuredAddressPdf(details?: QuoteAddressDetails | null): string {
   if (!hasStructuredAddress(details)) return '-';
@@ -648,8 +658,8 @@ function formatStructuredAddressPdf(details?: QuoteAddressDetails | null): strin
   const streetParts = [addressDetails.streetNumber, addressDetails.streetName].map((p) => (p ?? '').trim()).filter(Boolean);
   const line1 = streetParts.join(' ');
   const line2Parts = [addressDetails.postalCode, addressDetails.city, addressDetails.country].map((p) => (p ?? '').trim()).filter(Boolean);
-  const line2 = line2Parts.join(' ');
-  const combined = [line1, line2].filter(Boolean).join('\n');
+  const line2 = formatLine2Parts(line2Parts);
+  const combined = [line1, line2 === '-' ? '' : line2].filter(Boolean).join('\n');
   return combined || '-';
 }
 
