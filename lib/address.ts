@@ -35,10 +35,11 @@ export function formatStructuredAddress(details?: AddressDetails | null): string
 
   const streetParts = [details!.streetNumber, details!.streetName].map((p) => (p ?? '').trim()).filter(Boolean);
   const line1 = streetParts.join(' ');
-  const line2Parts = [details!.postalCode, details!.city, details!.country].map((p) => (p ?? '').trim()).filter(Boolean);
-  const line2 = line2Parts.join(' ');
+  const cityPostal = [details!.postalCode, details!.city].map((p) => (p ?? '').trim()).filter(Boolean).join(' ');
+  const country = (details!.country ?? '').trim();
+  const line2 = cityPostal && country ? `${cityPostal}, ${country}` : (cityPostal || country);
 
-  const combined = [line1, line2].filter(Boolean).join(', ');
+  const combined = [line1, line2].filter(Boolean).join('\n');
   return combined || null;
 }
 

@@ -30,6 +30,7 @@ import {
 import { Button } from '@/components/ui/button';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import { Skeleton } from '@/components/ui/skeleton';
+import { formatStructuredAddress, hasStructuredAddress } from '@/lib/address';
 
 type Locale = 'en' | 'fr';
 
@@ -46,6 +47,13 @@ interface QuoteDetail {
     fullName: string;
     companyName?: string | null;
     address?: string | null;
+    addressDetails?: {
+      streetNumber?: string | null;
+      streetName?: string | null;
+      postalCode?: string | null;
+      city?: string | null;
+      country?: string | null;
+    } | null;
     email?: string | null;
     phone?: string | null;
     vatNumber?: string | null;
@@ -95,6 +103,11 @@ interface CompanyProfile {
   companyName?: string;
   ownerName?: string;
   address?: string;
+  streetNumber?: string | null;
+  streetName?: string | null;
+  postalCode?: string | null;
+  city?: string | null;
+  country?: string | null;
   phone?: string;
   businessEmail?: string;
   vatNumber?: string;
@@ -837,7 +850,7 @@ export default function QuoteDetailPage() {
                   <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{t.owner}</dt><dd className="text-right font-medium">{company?.ownerName || t.noData}</dd></div>
                   <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{t.phone}</dt><dd className="text-right font-medium">{company?.phone || t.noData}</dd></div>
                   <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{t.email}</dt><dd className="text-right font-medium">{company?.businessEmail || t.noData}</dd></div>
-                  <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{t.address}</dt><dd className="text-right font-medium">{company?.address || t.noData}</dd></div>
+                  <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{t.address}</dt><dd className="text-right font-medium whitespace-pre-line">{(hasStructuredAddress(company) ? formatStructuredAddress(company) : company?.address) || t.noData}</dd></div>
                   <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{t.vat}</dt><dd className="text-right font-medium">{company?.vatNumber || t.noData}</dd></div>
                 </dl>
               </section>
@@ -849,7 +862,7 @@ export default function QuoteDetailPage() {
                   <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{translate(locale, 'common.company')}</dt><dd className="text-right font-medium">{quote.clientSnapshot.companyName || t.noData}</dd></div>
                   <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{t.phone}</dt><dd className="text-right font-medium">{quote.clientSnapshot.phone || t.noData}</dd></div>
                   <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{t.email}</dt><dd className="text-right font-medium">{quote.clientSnapshot.email || t.noData}</dd></div>
-                  <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{t.address}</dt><dd className="text-right font-medium">{quote.clientSnapshot.address || t.noData}</dd></div>
+                  <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{t.address}</dt><dd className="text-right font-medium whitespace-pre-line">{(hasStructuredAddress(quote.clientSnapshot.addressDetails) ? formatStructuredAddress(quote.clientSnapshot.addressDetails) : quote.clientSnapshot.address) || t.noData}</dd></div>
                   <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{t.vat}</dt><dd className="text-right font-medium">{quote.clientSnapshot.vatNumber || t.noData}</dd></div>
                 </dl>
               </section>

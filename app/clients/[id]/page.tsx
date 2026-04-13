@@ -56,7 +56,7 @@ import { Label } from '@/components/ui/label';
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { hasStructuredAddress } from '@/lib/address';
+import { hasStructuredAddress, formatStructuredAddress } from '@/lib/address';
 
 
 interface ClientRecord {
@@ -880,15 +880,11 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                         <InfoRow label={t.mobilePhone} value={client.mobilePhone} />
                       </>
                     )}
-                    <InfoRow label={t.streetNumber} value={client.addressDetails?.streetNumber} />
-                    <InfoRow label={t.streetName} value={client.addressDetails?.streetName} />
-                    <InfoRow label={t.postalCode} value={client.addressDetails?.postalCode} />
-                    <InfoRow label={t.city} value={client.addressDetails?.city} />
-                    <InfoRow label={t.country} value={client.addressDetails?.country} />
-                    {!hasStructuredAddress(client.addressDetails) && client.address
-                      ? <InfoRow label={t.address} value={client.address} />
-                      : null}
-                  </CardContent>
+                    {hasStructuredAddress(client.addressDetails)
+                      ? <InfoRow label={t.address} value={formatStructuredAddress(client.addressDetails)} multiline />
+                      : client.address
+                      ? <InfoRow label={t.address} value={client.address} multiline />
+                      : null}                  </CardContent>
                 </Card>
 
                 {/* Billing */}
@@ -1324,11 +1320,11 @@ function TabTriggerStyled({ value, children, badge }: { value: string; children:
   );
 }
 
-function InfoRow({ label, value }: { label: string; value?: string | null }) {
+function InfoRow({ label, value, multiline }: { label: string; value?: string | null; multiline?: boolean }) {
   return (
     <div className="flex items-start gap-3 border-b border-border/30 py-1.5 last:border-0">
       <span className="w-24 shrink-0 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/60">{label}</span>
-      <span className="min-w-0 flex-1 wrap-break-word text-sm">{value || <span className="text-muted-foreground/30">—</span>}</span>
+      <span className={`min-w-0 flex-1 wrap-break-word text-sm${multiline ? ' whitespace-pre-line' : ''}`}>{value || <span className="text-muted-foreground/30">—</span>}</span>
     </div>
   );
 }
