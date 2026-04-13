@@ -585,6 +585,16 @@ function splitAddressLines(address?: string | null): { line1: string; line2: str
     return { line1: parts[0], line2: '-' };
   }
 
+  // If the first part looks like a standalone street number (e.g. "15", "15A", "15bis"),
+  // merge it with the next part (street name) so they appear on the same line.
+  const streetNumberPattern = /^\d+[a-zA-Z]*$/;
+  if (parts.length >= 2 && streetNumberPattern.test(parts[0])) {
+    return {
+      line1: `${parts[0]} ${parts[1]}`,
+      line2: parts.length > 2 ? parts.slice(2).join(' ') : '-',
+    };
+  }
+
   // line1 = first part (street number + name already together)
   // line2 = all remaining parts joined with a space (postal code + city + country)
   return {
@@ -615,8 +625,14 @@ function combineAddressLines(lines: { line1: string; line2: string }): string {
  * Line 2: postal code + city + country
  */
 function formatStructuredAddressPdf(details?: InvoiceAddressDetails | null): string {
-  const result = formatStructuredAddress(details);
-  return result ?? '-';
+  if (!hasStructuredAddress(details)) return '-';
+  const addressDetails = details!;
+  const streetParts = [addressDetails.streetNumber, addressDetails.streetName].map((p) => (p ?? '').trim()).filter(Boolean);
+  const line1 = streetParts.join(' ');
+  const line2Parts = [addressDetails.postalCode, addressDetails.city, addressDetails.country].map((p) => (p ?? '').trim()).filter(Boolean);
+  const line2 = line2Parts.join(' ');
+  const combined = [line1, line2].filter(Boolean).join('\n');
+  return combined || '-';
 }
 
 /**
