@@ -283,11 +283,7 @@ const styles = StyleSheet.create({
   infoRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
     paddingVertical: 3,
-    gap: 10,
   },
   infoRowLast: {
     borderBottomWidth: 0,
@@ -300,6 +296,12 @@ const styles = StyleSheet.create({
   infoValue: {
     width: '72%',
     textAlign: 'right',
+    color: '#0f172a',
+    fontSize: 10,
+  },
+  infoValueFull: {
+    width: '100%',
+    textAlign: 'left',
     color: '#0f172a',
     fontSize: 10,
   },
@@ -492,6 +494,15 @@ const styles = StyleSheet.create({
     color: '#64748b',
     textAlign: 'center',
   },
+  footerLegal: {
+    marginTop: 4,
+    fontSize: 8,
+    color: '#111827',
+    textAlign: 'center',
+  },
+  footerLabel: {
+    fontWeight: 700,
+  },
 });
 
 function formatDate(dateValue: string | Date): string {
@@ -529,6 +540,16 @@ function notEmpty(value?: string | null): string {
   return value && value.trim() ? value : '-';
 }
 
+function hasContent(value?: string | null): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+function compactValueRows(fields: Array<{ value?: string | null; always?: boolean }>): string[] {
+  return fields
+    .filter((field) => field.always || hasContent(field.value))
+    .map((field) => (field.always ? notEmpty(field.value) : field.value!.trim()));
+}
+
 function splitAddressLines(address?: string | null): { line1: string; line2: string } {
   if (!address || !address.trim()) {
     return { line1: '-', line2: '-' };
@@ -560,6 +581,23 @@ export function QuotePdfTemplate({ quote, company, locale = 'en' }: QuotePdfTemp
   const signedDate = isSigned && quote.signedAt ? formatDate(quote.signedAt) : '';
   const signatureDataUrl = isSigned ? quote.signatureDataUrl ?? null : null;
   const issuerAddress = splitAddressLines(company?.address);
+  const clientAddress = splitAddressLines(quote.clientSnapshot.address);
+  const issuerRows = compactValueRows([
+    { value: company?.companyName, always: true },
+    { value: issuerAddress.line1, always: true },
+    { value: issuerAddress.line2, always: true },
+    { value: company?.phone, always: true },
+    { value: company?.businessEmail, always: true },
+    { value: company?.bankName, always: true },
+    { value: company?.iban, always: true },
+  ]);
+  const clientRows = compactValueRows([
+    { value: quote.clientSnapshot.fullName, always: true },
+    { value: clientAddress.line1, always: true },
+    { value: clientAddress.line2, always: true },
+    { value: quote.clientSnapshot.phone },
+    { value: quote.clientSnapshot.email },
+  ]);
 
   return (
     <Document>
@@ -594,62 +632,26 @@ export function QuotePdfTemplate({ quote, company, locale = 'en' }: QuotePdfTemp
           <View style={styles.partyRow}>
             <View style={styles.partyBox}>
               <Text style={styles.sectionTitle}>{t.issuerInfo}</Text>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoKey}>{t.company}</Text>
-                <Text style={styles.infoValue}>{notEmpty(company?.companyName)}</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoKey}>{t.addressLine1}</Text>
-                <Text style={styles.infoValue}>{issuerAddress.line1}</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoKey}>{t.addressLine2}</Text>
-                <Text style={styles.infoValue}>{issuerAddress.line2}</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoKey}>{t.phone}</Text>
-                <Text style={styles.infoValue}>{notEmpty(company?.phone)}</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoKey}>{t.email}</Text>
-                <Text style={styles.infoValue}>{notEmpty(company?.businessEmail)}</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoKey}>{t.bankName}</Text>
-                <Text style={styles.infoValue}>{notEmpty(company?.bankName)}</Text>
-              </View>
-              <View style={[styles.infoRow, styles.infoRowLast]}>
-                <Text style={styles.infoKey}>{t.iban}</Text>
-                <Text style={styles.infoValue}>{notEmpty(company?.iban)}</Text>
-              </View>
+              {issuerRows.map((value, index) => (
+                <View
+                  key={`issuer-${index}`}
+                  style={index === issuerRows.length - 1 ? [styles.infoRow, styles.infoRowLast] : styles.infoRow}
+                >
+                  <Text style={styles.infoValueFull}>{value}</Text>
+                </View>
+              ))}
             </View>
 
             <View style={styles.partyBox}>
               <Text style={styles.sectionTitle}>{t.clientInfo}</Text>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoKey}>{t.name}</Text>
-                <Text style={styles.infoValue}>{notEmpty(quote.clientSnapshot.fullName)}</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoKey}>{t.company}</Text>
-                <Text style={styles.infoValue}>{notEmpty(quote.clientSnapshot.companyName)}</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoKey}>{t.phone}</Text>
-                <Text style={styles.infoValue}>{notEmpty(quote.clientSnapshot.phone)}</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoKey}>{t.email}</Text>
-                <Text style={styles.infoValue}>{notEmpty(quote.clientSnapshot.email)}</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoKey}>{t.address}</Text>
-                <Text style={styles.infoValue}>{notEmpty(quote.clientSnapshot.address)}</Text>
-              </View>
-              <View style={[styles.infoRow, styles.infoRowLast]}>
-                <Text style={styles.infoKey}>{t.vat}</Text>
-                <Text style={styles.infoValue}>{notEmpty(quote.clientSnapshot.vatNumber)}</Text>
-              </View>
+              {clientRows.map((value, index) => (
+                <View
+                  key={`client-${index}`}
+                  style={index === clientRows.length - 1 ? [styles.infoRow, styles.infoRowLast] : styles.infoRow}
+                >
+                  <Text style={styles.infoValueFull}>{value}</Text>
+                </View>
+              ))}
             </View>
           </View>
         </View>
@@ -763,9 +765,22 @@ export function QuotePdfTemplate({ quote, company, locale = 'en' }: QuotePdfTemp
           </View>
         </View>
 
-        <Text style={styles.footer}>
-          {`${t.footerValidity} ${quote.validityDays ?? 30} ${t.footerDays} | ${t.vat}: ${notEmpty(company?.vatNumber)} | ${t.matricule}: ${notEmpty(company?.matriculeNumber)} | ${t.rcs}: ${notEmpty(company?.rcsNumber)} | ${t.businessAuthorization}: ${notEmpty(company?.businessAuthorizationNumber)}`}
-        </Text>
+        <View style={styles.footer}>
+          <Text>{`${t.footerValidity} ${quote.validityDays ?? 30} ${t.footerDays}`}</Text>
+          <Text style={styles.footerLegal}>
+            <Text style={styles.footerLabel}>{`${t.vat}: `}</Text>
+            <Text>{notEmpty(company?.vatNumber)}</Text>
+            <Text>{' - '}</Text>
+            <Text style={styles.footerLabel}>{`${t.matricule}: `}</Text>
+            <Text>{notEmpty(company?.matriculeNumber)}</Text>
+            <Text>{' - '}</Text>
+            <Text style={styles.footerLabel}>{`${t.rcs}: `}</Text>
+            <Text>{notEmpty(company?.rcsNumber)}</Text>
+            <Text>{' - '}</Text>
+            <Text style={styles.footerLabel}>{`${t.businessAuthorization}: `}</Text>
+            <Text>{notEmpty(company?.businessAuthorizationNumber)}</Text>
+          </Text>
+        </View>
       </Page>
     </Document>
   );

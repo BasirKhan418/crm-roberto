@@ -285,11 +285,7 @@ const styles = StyleSheet.create({
   infoRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
     paddingVertical: 2.5,
-    gap: 10,
   },
   infoRowLast: {
     borderBottomWidth: 0,
@@ -302,6 +298,12 @@ const styles = StyleSheet.create({
   infoValue: {
     width: '68%',
     textAlign: 'right',
+    color: '#0f172a',
+    fontSize: 9.5,
+  },
+  infoValueFull: {
+    width: '100%',
+    textAlign: 'left',
     color: '#0f172a',
     fontSize: 9.5,
   },
@@ -494,6 +496,10 @@ const styles = StyleSheet.create({
     color: '#64748b',
     textAlign: 'center',
   },
+  footerLabel: {
+    fontWeight: 700,
+    color: '#111827',
+  },
 });
 
 function notEmpty(value?: string | null): string {
@@ -504,13 +510,10 @@ function hasContent(value?: string | null): value is string {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
-function compactInfoRows(fields: Array<{ label: string; value?: string | null; always?: boolean }>) {
+function compactValueRows(fields: Array<{ value?: string | null; always?: boolean }>) {
   return fields
     .filter((field) => field.always || hasContent(field.value))
-    .map((field) => ({
-      label: field.label,
-      value: field.always ? notEmpty(field.value) : field.value!.trim(),
-    }));
+    .map((field) => (field.always ? notEmpty(field.value) : field.value!.trim()));
 }
 
 function formatDate(dateValue: string | Date | null | undefined): string {
@@ -645,22 +648,22 @@ export function InvoicePdfTemplate({ invoice, company, paymentUrl = null, locale
   const remainingAmount = Math.max(0, invoice.totalIncludingTax - totalPaidAmount);
   const statusPresentation = getStatusPresentation(invoice.status, t);
   const issuerAddress = splitAddressLines(company?.address);
-  const issuerRows = compactInfoRows([
-    { label: t.company, value: company?.companyName || company?.ownerName, always: true },
-    { label: t.addressLine1, value: issuerAddress.line1, always: true },
-    { label: t.addressLine2, value: issuerAddress.line2, always: true },
-    { label: t.phone, value: company?.phone, always: true },
-    { label: t.email, value: company?.businessEmail, always: true },
-    { label: t.bankName, value: company?.bankName, always: true },
-    { label: t.iban, value: company?.iban, always: true },
+  const clientAddress = splitAddressLines(invoice.clientSnapshot.address);
+  const issuerRows = compactValueRows([
+    { value: company?.companyName || company?.ownerName, always: true },
+    { value: issuerAddress.line1, always: true },
+    { value: issuerAddress.line2, always: true },
+    { value: company?.phone, always: true },
+    { value: company?.businessEmail, always: true },
+    { value: company?.bankName, always: true },
+    { value: company?.iban, always: true },
   ]);
-  const clientRows = compactInfoRows([
-    { label: t.name, value: invoice.clientSnapshot.fullName, always: true },
-    { label: t.company, value: invoice.clientSnapshot.companyName },
-    { label: t.phone, value: invoice.clientSnapshot.phone },
-    { label: t.email, value: invoice.clientSnapshot.email },
-    { label: t.address, value: invoice.clientSnapshot.address },
-    { label: t.vat, value: invoice.clientSnapshot.vatNumber },
+  const clientRows = compactValueRows([
+    { value: invoice.clientSnapshot.fullName, always: true },
+    { value: clientAddress.line1, always: true },
+    { value: clientAddress.line2, always: true },
+    { value: invoice.clientSnapshot.phone },
+    { value: invoice.clientSnapshot.email },
   ]);
 
   return (
@@ -698,11 +701,10 @@ export function InvoicePdfTemplate({ invoice, company, paymentUrl = null, locale
               <Text style={styles.sectionTitle}>{t.issuerInfo}</Text>
               {issuerRows.map((row, index) => (
                 <View
-                  key={`${row.label}-${index}`}
+                  key={`issuer-${index}`}
                   style={index === issuerRows.length - 1 ? [styles.infoRow, styles.infoRowLast] : styles.infoRow}
                 >
-                  <Text style={styles.infoKey}>{row.label}</Text>
-                  <Text style={styles.infoValue}>{row.value}</Text>
+                  <Text style={styles.infoValueFull}>{row}</Text>
                 </View>
               ))}
             </View>
@@ -711,11 +713,10 @@ export function InvoicePdfTemplate({ invoice, company, paymentUrl = null, locale
               <Text style={styles.sectionTitle}>{t.clientInfo}</Text>
               {clientRows.map((row, index) => (
                 <View
-                  key={`${row.label}-${index}`}
+                  key={`client-${index}`}
                   style={index === clientRows.length - 1 ? [styles.infoRow, styles.infoRowLast] : styles.infoRow}
                 >
-                  <Text style={styles.infoKey}>{row.label}</Text>
-                  <Text style={styles.infoValue}>{row.value}</Text>
+                  <Text style={styles.infoValueFull}>{row}</Text>
                 </View>
               ))}
             </View>
@@ -850,7 +851,17 @@ export function InvoicePdfTemplate({ invoice, company, paymentUrl = null, locale
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>
-            {`${t.vat}: ${notEmpty(company?.vatNumber)} | ${t.matricule}: ${notEmpty(company?.matriculeNumber)} | ${t.rcs}: ${notEmpty(company?.rcsNumber)} | ${t.businessAuthorization}: ${notEmpty(company?.businessAuthorizationNumber)}`}
+            <Text style={styles.footerLabel}>{`${t.vat}: `}</Text>
+            <Text>{notEmpty(company?.vatNumber)}</Text>
+            <Text>{' - '}</Text>
+            <Text style={styles.footerLabel}>{`${t.matricule}: `}</Text>
+            <Text>{notEmpty(company?.matriculeNumber)}</Text>
+            <Text>{' - '}</Text>
+            <Text style={styles.footerLabel}>{`${t.rcs}: `}</Text>
+            <Text>{notEmpty(company?.rcsNumber)}</Text>
+            <Text>{' - '}</Text>
+            <Text style={styles.footerLabel}>{`${t.businessAuthorization}: `}</Text>
+            <Text>{notEmpty(company?.businessAuthorizationNumber)}</Text>
           </Text>
         </View>
       </Page>
