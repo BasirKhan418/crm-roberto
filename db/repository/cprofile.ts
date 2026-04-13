@@ -2,10 +2,13 @@ import ConnectDb from "../connectDb";
 import CompanyProfile from "../models/CompanyProfile";
 import { CreateCompanyProfileDTO, UpdateCompanyProfileDTO } from "../../validators/cprofile.schema";
 import User from "../models/User";
-export const createCompanyProfile = async (data:CreateCompanyProfileDTO) => {
+import { formatStructuredAddress } from "@/lib/address";
+
+export const createCompanyProfile = async (data: CreateCompanyProfileDTO) => {
     try{
          await ConnectDb();
-        const newProfile = new CompanyProfile(data);
+        const address = formatStructuredAddress(data) ?? undefined;
+        const newProfile = new CompanyProfile({ ...data, ...(address ? { address } : {}) });
         await newProfile.save();
         await User.findByIdAndUpdate(data.user, { isOnboardingComplete: true });
         return { message: "Company profile created successfully", success: true, profile: newProfile };
@@ -34,9 +37,13 @@ export const getCompanyProfileByUserId = async (userId: string) => {
 export const updateCompanyProfileByUserId = async (userId: string, data: UpdateCompanyProfileDTO) => {
     try {
         await ConnectDb();
+        const hasAddressField = 'streetNumber' in data || 'streetName' in data || 'postalCode' in data || 'city' in data || 'country' in data;
+        const updateData = hasAddressField
+          ? { ...data, address: formatStructuredAddress(data) }
+          : data;
         const profile = await CompanyProfile.findOneAndUpdate(
             { user: userId },
-            data,
+            updateData,
             { new: true, runValidators: true }
         ).lean();
 

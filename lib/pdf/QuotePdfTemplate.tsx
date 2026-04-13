@@ -6,16 +6,25 @@ import {
   Text,
   View,
 } from '@react-pdf/renderer';
+import { formatStructuredAddress, hasStructuredAddress } from '@/lib/address';
+import type { AddressDetails as SharedAddressDetails } from '@/lib/address';
 
 type QuoteStatus = 'draft' | 'sent' | 'accepted' | 'refused' | 'rejected';
+
+interface QuoteAddressDetails extends SharedAddressDetails {}
 
 interface CompanyData {
   companyName?: string;
   ownerName?: string;
-  address?: string;
-  phone?: string;
-  businessEmail?: string;
-  vatNumber?: string;
+  address?: string | null;
+  streetNumber?: string | null;
+  streetName?: string | null;
+  postalCode?: string | null;
+  city?: string | null;
+  country?: string | null;
+  phone?: string | null;
+  businessEmail?: string | null;
+  vatNumber?: string | null;
   rcsNumber?: string | null;
   businessAuthorizationNumber?: string | null;
   matriculeNumber?: string | null;
@@ -47,6 +56,7 @@ interface QuoteData {
     fullName: string;
     companyName?: string | null;
     address?: string | null;
+    addressDetails?: QuoteAddressDetails | null;
     email?: string | null;
     phone?: string | null;
     vatNumber?: string | null;
@@ -617,19 +627,43 @@ function combineAddressLines(lines: { line1: string; line2: string }): string {
   return `${lines.line1}\n${lines.line2}`;
 }
 
+/**
+ * Formats a structured address (from separate fields) into a combined display string.
+ * Line 1: street number + street name
+ * Line 2: postal code + city + country
+ */
+function formatStructuredAddressPdf(details?: QuoteAddressDetails | null): string {
+  const result = formatStructuredAddress(details);
+  return result ?? '-';
+}
+
+/**
+ * Returns a formatted address string from either structured fields or a legacy single-string address.
+ */
+function resolveAddressDisplay(details?: QuoteAddressDetails | null, legacyAddress?: string | null): string {
+  if (hasStructuredAddress(details)) {
+    return formatStructuredAddressPdf(details);
+  }
+  return combineAddressLines(splitAddressLines(legacyAddress));
+}
+
 export function QuotePdfTemplate({ quote, company, locale = 'en' }: QuotePdfTemplateProps) {
   const t = translations[locale];
   const isSigned = quote.signedStatus === 'signed';
   const signedClientName = isSigned ? notEmpty(quote.clientSnapshot.fullName) : '';
   const signedDate = isSigned && quote.signedAt ? formatDate(quote.signedAt) : '';
   const signatureDataUrl = isSigned ? quote.signatureDataUrl ?? null : null;
-  const issuerAddress = splitAddressLines(company?.address);
-  const clientAddress = splitAddressLines(quote.clientSnapshot.address);
-  const issuerAddressCombined = combineAddressLines(issuerAddress);
-  const clientAddressCombined = combineAddressLines(clientAddress);
+  const issuerAddressDetails = company
+    ? { streetNumber: company.streetNumber, streetName: company.streetName, postalCode: company.postalCode, city: company.city, country: company.country }
+    : null;
+  const issuerAddress = resolveAddressDisplay(issuerAddressDetails, company?.address);
+  const clientAddress = resolveAddressDisplay(
+    quote.clientSnapshot.addressDetails,
+    quote.clientSnapshot.address
+  );
   const issuerRows = compactValueRows([
     { value: company?.companyName, always: true },
-    { value: issuerAddressCombined, always: true },
+    { value: issuerAddress, always: true },
     { value: company?.phone, always: true },
     { value: company?.businessEmail, always: true },
     { value: company?.bankName, always: true },
@@ -637,7 +671,7 @@ export function QuotePdfTemplate({ quote, company, locale = 'en' }: QuotePdfTemp
   ]);
   const clientRows = compactValueRows([
     { value: quote.clientSnapshot.fullName, always: true },
-    { value: clientAddressCombined, always: true },
+    { value: clientAddress, always: true },
     { value: quote.clientSnapshot.phone },
     { value: quote.clientSnapshot.email },
   ]);

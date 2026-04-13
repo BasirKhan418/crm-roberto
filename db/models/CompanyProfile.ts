@@ -26,10 +26,35 @@ const CompanyProfileSchema = new mongoose.Schema({
       trim: true,
     },
  
+    streetNumber: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    streetName: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    postalCode: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    city: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    country: {
+      type: String,
+      trim: true,
+      default: null,
+    },
     address: {
       type: String,
-      required: [true, 'Address is required'],
       trim: true,
+      default: null,
     },
     vatNumber: {
       type: String,

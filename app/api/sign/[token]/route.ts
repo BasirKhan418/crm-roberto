@@ -36,7 +36,7 @@ type QuoteDocument = NonNullable<Awaited<ReturnType<typeof findQuoteByToken>>>;
 
 async function buildQuotePayload(quote: QuoteDocument) {
   const companyProfile = await CompanyProfile.findOne({ user: quote.user })
-    .select({ companyName: 1, ownerName: 1, logoUrl: 1, address: 1, phone: 1, businessEmail: 1, vatNumber: 1 })
+    .select({ companyName: 1, ownerName: 1, logoUrl: 1, address: 1, streetNumber: 1, streetName: 1, postalCode: 1, city: 1, country: 1, phone: 1, businessEmail: 1, vatNumber: 1 })
     .lean();
 
   const companyName =
@@ -50,6 +50,11 @@ async function buildQuotePayload(quote: QuoteDocument) {
       companyName,
       logoUrl,
       address: (companyProfile?.address as string | undefined) || null,
+      streetNumber: (companyProfile?.streetNumber as string | null | undefined) ?? null,
+      streetName: (companyProfile?.streetName as string | null | undefined) ?? null,
+      postalCode: (companyProfile?.postalCode as string | null | undefined) ?? null,
+      city: (companyProfile?.city as string | null | undefined) ?? null,
+      country: (companyProfile?.country as string | null | undefined) ?? null,
       phone: (companyProfile?.phone as string | undefined) || null,
       email: (companyProfile?.businessEmail as string | undefined) || null,
       vatNumber: (companyProfile?.vatNumber as string | undefined) || null,

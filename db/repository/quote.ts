@@ -4,6 +4,7 @@ import Quote from '@/db/models/Quote';
 import QuoteSequence from '../models/QuoteSequence';
 import mongoose from 'mongoose';
 import { computeQuoteLine, computeQuoteTotalsFromComputedLines } from '@/lib/quote-calculations';
+import type { AddressDetails } from '@/lib/address';
 import type { CreateQuoteDTO, UpdateQuoteDTO, UpdateQuoteStatusDTO } from '@/validators/quote.schema';
 
 export type QuoteStatus = 'draft' | 'sent' | 'accepted' | 'refused' | 'rejected';
@@ -83,6 +84,7 @@ interface ClientSnapshotRecord {
   email?: string | null;
   phone?: string | null;
   address?: string | null;
+  addressDetails?: AddressDetails | null;
   companyName?: string | null;
   vatNumber?: string | null;
 }
@@ -550,13 +552,24 @@ async function getClientSnapshot(userId: string, clientId: string): Promise<Clie
     return null;
   }
 
+  const c = client as {
+    fullName: string;
+    email?: string | null;
+    phone?: string | null;
+    address?: string | null;
+    addressDetails?: AddressDetails | null;
+    companyName?: string | null;
+    vatNumber?: string | null;
+  };
+
   return {
-    fullName: (client as { fullName: string }).fullName,
-    email: (client as { email?: string | null }).email ?? null,
-    phone: (client as { phone?: string | null }).phone ?? null,
-    address: (client as { address?: string | null }).address ?? null,
-    companyName: (client as { companyName?: string | null }).companyName ?? null,
-    vatNumber: (client as { vatNumber?: string | null }).vatNumber ?? null,
+    fullName: c.fullName,
+    email: c.email ?? null,
+    phone: c.phone ?? null,
+    address: c.address ?? null,
+    addressDetails: c.addressDetails ?? null,
+    companyName: c.companyName ?? null,
+    vatNumber: c.vatNumber ?? null,
   };
 }
 

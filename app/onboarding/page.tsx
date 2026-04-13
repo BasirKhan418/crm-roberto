@@ -44,7 +44,12 @@ const onboardingMessages = {
     bankName: "Bank name",
     legalIdentifier: "Additional legal identifier",
     hqAddress: "HQ Address",
-    hqHint: "Include building and floor numbers for document accuracy.",
+    streetNumber: "Street number",
+    streetName: "Street name",
+    postalCode: "Postal code",
+    city: "City",
+    country: "Country",
+    hqHint: "Fill in your address fields for document accuracy.",
     agreementBody:
       "By completing this setup, you acknowledge that the data provided will be used for official document generation and internal reporting.",
     agreementHint: "Agreement is required to initialize the executive protocol.",
@@ -93,7 +98,12 @@ const onboardingMessages = {
     bankName: "Banque",
     legalIdentifier: "Identifiant l\u00e9gal suppl\u00e9mentaire",
     hqAddress: "Adresse du si\u00e8ge",
-    hqHint: "Incluez le b\u00e2timent et l'\u00e9tage pour une meilleure pr\u00e9cision documentaire.",
+    streetNumber: "Numéro de rue",
+    streetName: "Nom de rue",
+    postalCode: "Code postal",
+    city: "Ville",
+    country: "Pays",
+    hqHint: "Renseignez vos champs d'adresse pour une meilleure précision documentaire.",
     agreementBody:
       "En finalisant cette configuration, vous reconnaissez que les donn\u00e9es fournies seront utilis\u00e9es pour la g\u00e9n\u00e9ration de documents officiels et les rapports internes.",
     agreementHint: "L'accord est requis pour initialiser le protocole executive.",
@@ -147,7 +157,11 @@ export default function IdentitySetupPage() {
     iban: "",
     bankName: "",
     legalIdentifier: "",
-    address: "",
+    streetNumber: "",
+    streetName: "",
+    postalCode: "",
+    city: "",
+    country: "",
   })
 
   const loadDraftFromLocalStorage = () => {
@@ -237,7 +251,11 @@ export default function IdentitySetupPage() {
         iban: formData.iban.trim(),
         bankName: formData.bankName.trim(),
         legalIdentifier: formData.legalIdentifier.trim(),
-        address: formData.address.trim(),
+        streetNumber: formData.streetNumber.trim(),
+        streetName: formData.streetName.trim(),
+        postalCode: formData.postalCode.trim(),
+        city: formData.city.trim(),
+        country: formData.country.trim(),
         locale,
       }
 
@@ -458,17 +476,41 @@ export default function IdentitySetupPage() {
 
               <div className="space-y-1.5 sm:col-span-2">
                 <Label className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
-                  {t.hqAddress} <span className="text-red-500">*</span>
+                  {t.hqAddress}
                 </Label>
-                <Input
-                  placeholder="123 Editorial Way, Suite 400, New York, NY"
-                  value={formData.address}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, address: e.target.value }))
-                  }
-                  className="h-9 bg-zinc-50 border-zinc-200 text-zinc-900 rounded-lg focus-visible:ring-2 focus-visible:ring-[#001e3c]/20 focus-visible:border-[#001e3c] transition-all placeholder:text-zinc-300 text-base md:text-sm"
-                />
                 <p className="text-xs text-zinc-400">{t.hqHint}</p>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <Input
+                    placeholder={t.streetNumber}
+                    value={formData.streetNumber}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, streetNumber: e.target.value }))}
+                    className="h-9 bg-zinc-50 border-zinc-200 text-zinc-900 rounded-lg focus-visible:ring-2 focus-visible:ring-[#001e3c]/20 focus-visible:border-[#001e3c] transition-all placeholder:text-zinc-300 text-base md:text-sm"
+                  />
+                  <Input
+                    placeholder={t.streetName}
+                    value={formData.streetName}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, streetName: e.target.value }))}
+                    className="h-9 bg-zinc-50 border-zinc-200 text-zinc-900 rounded-lg focus-visible:ring-2 focus-visible:ring-[#001e3c]/20 focus-visible:border-[#001e3c] transition-all placeholder:text-zinc-300 text-base md:text-sm"
+                  />
+                  <Input
+                    placeholder={t.postalCode}
+                    value={formData.postalCode}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, postalCode: e.target.value }))}
+                    className="h-9 bg-zinc-50 border-zinc-200 text-zinc-900 rounded-lg focus-visible:ring-2 focus-visible:ring-[#001e3c]/20 focus-visible:border-[#001e3c] transition-all placeholder:text-zinc-300 text-base md:text-sm"
+                  />
+                  <Input
+                    placeholder={t.city}
+                    value={formData.city}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, city: e.target.value }))}
+                    className="h-9 bg-zinc-50 border-zinc-200 text-zinc-900 rounded-lg focus-visible:ring-2 focus-visible:ring-[#001e3c]/20 focus-visible:border-[#001e3c] transition-all placeholder:text-zinc-300 text-base md:text-sm"
+                  />
+                  <Input
+                    placeholder={t.country}
+                    value={formData.country}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, country: e.target.value }))}
+                    className="h-9 bg-zinc-50 border-zinc-200 text-zinc-900 rounded-lg focus-visible:ring-2 focus-visible:ring-[#001e3c]/20 focus-visible:border-[#001e3c] transition-all placeholder:text-zinc-300 text-base md:text-sm sm:col-span-2"
+                  />
+                </div>
               </div>
             </div>
 

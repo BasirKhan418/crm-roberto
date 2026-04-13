@@ -63,7 +63,8 @@ interface AddClientModalProps {
     additionalDescription?: string | null;
     billingAddress?: string | null;
     addressDetails?: {
-      street?: string | null;
+      streetNumber?: string | null;
+      streetName?: string | null;
       postalCode?: string | null;
       city?: string | null;
       country?: string | null;
@@ -92,7 +93,8 @@ interface AddClientModalProps {
     mobilePhone?: string | null;
     additionalDescription?: string | null;
     addressDetails?: {
-      street?: string | null;
+      streetNumber?: string | null;
+      streetName?: string | null;
       postalCode?: string | null;
       city?: string | null;
       country?: string | null;
@@ -123,7 +125,8 @@ interface AddClientModalProps {
     additionalDescription?: string | null;
     billingAddress?: string | null;
     addressDetails?: {
-      street?: string | null;
+      streetNumber?: string | null;
+      streetName?: string | null;
       postalCode?: string | null;
       city?: string | null;
       country?: string | null;
@@ -172,6 +175,8 @@ export default function AddClientModal({
       businessAuthorizationNumber: 'Business Authorization Number',
       matriculeNumber: 'Matricule Number',
       street: 'Street',
+      streetNumber: 'Street Number',
+      streetName: 'Street Name',
       postalCode: 'Postal Code',
       city: 'City',
       country: 'Country',
@@ -217,6 +222,8 @@ export default function AddClientModal({
       businessAuthorizationNumber: 'Num\u00e9ro autorisation commerciale',
       matriculeNumber: 'Matricule',
       street: 'Rue',
+      streetNumber: 'Numéro de rue',
+      streetName: 'Nom de rue',
       postalCode: 'Code postal',
       city: 'Ville',
       country: 'Pays',
@@ -248,7 +255,8 @@ export default function AddClientModal({
     rcsNumber: '',
     businessAuthorizationNumber: '',
     matriculeNumber: '',
-    street: '',
+    streetNumber: '',
+    streetName: '',
     postalCode: '',
     city: '',
     country: '',
@@ -287,7 +295,8 @@ export default function AddClientModal({
       rcsNumber: initialData.rcsNumber || '',
       businessAuthorizationNumber: initialData.businessAuthorizationNumber || '',
       matriculeNumber: initialData.matriculeNumber || '',
-      street: initialData.addressDetails?.street || '',
+      streetNumber: initialData.addressDetails?.streetNumber || '',
+      streetName: initialData.addressDetails?.streetName || '',
       postalCode: initialData.addressDetails?.postalCode || '',
       city: initialData.addressDetails?.city || '',
       country: initialData.addressDetails?.country || '',
@@ -365,7 +374,8 @@ export default function AddClientModal({
           form.clientType === 'company' ? valueOr(form.businessAuthorizationNumber, emptyValue) : emptyValue,
         matriculeNumber: form.clientType === 'company' ? valueOr(form.matriculeNumber, emptyValue) : emptyValue,
         addressDetails: {
-          street: valueOr(form.street, emptyValue),
+          streetNumber: valueOr(form.streetNumber, emptyValue),
+          streetName: valueOr(form.streetName, emptyValue),
           postalCode: valueOr(form.postalCode, emptyValue),
           city: valueOr(form.city, emptyValue),
           country: valueOr(form.country, emptyValue),
@@ -417,7 +427,8 @@ export default function AddClientModal({
           mobilePhone?: string | null;
           additionalDescription?: string | null;
           addressDetails?: {
-            street?: string | null;
+            streetNumber?: string | null;
+            streetName?: string | null;
             postalCode?: string | null;
             city?: string | null;
             country?: string | null;
@@ -526,12 +537,11 @@ export default function AddClientModal({
         {form.clientType ? (
           <>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="space-y-1.5"><FieldLabel text={t.street} /><Input value={form.street} onChange={(e) => setForm((p) => ({ ...p, street: e.target.value }))} /></div>
+              <div className="space-y-1.5"><FieldLabel text={t.streetNumber} /><Input value={form.streetNumber} onChange={(e) => setForm((p) => ({ ...p, streetNumber: e.target.value }))} /></div>
+              <div className="space-y-1.5"><FieldLabel text={t.streetName} /><Input value={form.streetName} onChange={(e) => setForm((p) => ({ ...p, streetName: e.target.value }))} /></div>
               <div className="space-y-1.5"><FieldLabel text={t.postalCode} /><Input value={form.postalCode} onChange={(e) => setForm((p) => ({ ...p, postalCode: e.target.value }))} /></div>
-            </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-1.5"><FieldLabel text={t.city} /><Input value={form.city} onChange={(e) => setForm((p) => ({ ...p, city: e.target.value }))} /></div>
-              <div className="space-y-1.5"><FieldLabel text={t.country} /><Input value={form.country} onChange={(e) => setForm((p) => ({ ...p, country: e.target.value }))} /></div>
+              <div className="space-y-1.5 sm:col-span-2"><FieldLabel text={t.country} /><Input value={form.country} onChange={(e) => setForm((p) => ({ ...p, country: e.target.value }))} /></div>
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-1.5"><FieldLabel text={t.bankName} /><Input value={form.bankName} onChange={(e) => setForm((p) => ({ ...p, bankName: e.target.value }))} /></div>

@@ -26,7 +26,8 @@ export const clientTypeSchema = z.enum(['company', 'individual']);
 
 const addressCreateSchema = z
   .object({
-    street: optionalText,
+    streetNumber: optionalText,
+    streetName: optionalText,
     postalCode: optionalText,
     city: optionalText,
     country: optionalText,
@@ -35,7 +36,8 @@ const addressCreateSchema = z
 
 const addressUpdateSchema = z
   .object({
-    street: updatableOptionalText,
+    streetNumber: updatableOptionalText,
+    streetName: updatableOptionalText,
     postalCode: updatableOptionalText,
     city: updatableOptionalText,
     country: updatableOptionalText,

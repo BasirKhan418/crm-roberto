@@ -6,6 +6,7 @@ import type { DocumentProps } from '@react-pdf/renderer';
 import QuoteSignature from '@/db/models/QuoteSignature';
 import { getCompanyProfileByUserId } from '@/db/repository/cprofile';
 import { getQuoteById } from '@/db/repository/quote';
+import { extractClientSnapshot } from '@/lib/address';
 import { computeQuoteLine } from '@/lib/quote-calculations';
 import { QuotePdfTemplate } from '@/lib/pdf/QuotePdfTemplate';
 import { resolveLocaleFromRequest } from '@/lib/i18n/locale';
@@ -94,14 +95,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       quoteNumber: quote.quoteNumber,
       date: quote.date,
       status: quote.status,
-      clientSnapshot: {
-        fullName: quote.clientSnapshot.fullName,
-        companyName: quote.clientSnapshot.companyName ?? null,
-        address: quote.clientSnapshot.address ?? null,
-        email: quote.clientSnapshot.email ?? null,
-        phone: quote.clientSnapshot.phone ?? null,
-        vatNumber: quote.clientSnapshot.vatNumber ?? null,
-      },
+      clientSnapshot: extractClientSnapshot(quote.clientSnapshot),
       lineItems,
       totalExcludingTaxBeforeDiscount: derivedTotals.totalExcludingTaxBeforeDiscount,
       totalDiscountExcludingTax: derivedTotals.totalDiscountExcludingTax,
@@ -120,7 +114,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       ? {
           companyName: (company.companyName as string) || '',
           ownerName: (company.ownerName as string) || '',
-          address: (company.address as string) || '',
+          address: (company.address as string | null) ?? null,
+          streetNumber: (company.streetNumber as string | null) ?? null,
+          streetName: (company.streetName as string | null) ?? null,
+          postalCode: (company.postalCode as string | null) ?? null,
+          city: (company.city as string | null) ?? null,
+          country: (company.country as string | null) ?? null,
           phone: (company.phone as string) || '',
           businessEmail: (company.businessEmail as string) || '',
           vatNumber: (company.vatNumber as string) || '',

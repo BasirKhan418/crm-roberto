@@ -454,7 +454,7 @@ export async function POST(request: NextRequest) {
     }
 
     const client = await Client.findOne({ _id: parsed.data.clientId, user: userId })
-      .select('fullName email billingEmail phone address companyName vatNumber')
+      .select('fullName email billingEmail phone address addressDetails companyName vatNumber')
       .lean<{
         _id: mongoose.Types.ObjectId;
         fullName: string;
@@ -462,6 +462,13 @@ export async function POST(request: NextRequest) {
         billingEmail?: string | null;
         phone?: string | null;
         address?: string | null;
+        addressDetails?: {
+          streetNumber?: string | null;
+          streetName?: string | null;
+          postalCode?: string | null;
+          city?: string | null;
+          country?: string | null;
+        } | null;
         companyName?: string | null;
         vatNumber?: string | null;
       } | null>();
@@ -510,6 +517,7 @@ export async function POST(request: NextRequest) {
             email: client.billingEmail ?? client.email ?? null,
             phone: client.phone ?? null,
             address: client.address ?? null,
+            addressDetails: client.addressDetails ?? null,
             companyName: client.companyName ?? null,
             vatNumber: client.vatNumber ?? null,
           },

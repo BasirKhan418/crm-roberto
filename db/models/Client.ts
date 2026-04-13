@@ -2,7 +2,8 @@ import mongoose from "mongoose";
 
 const AddressDetailsSchema = new mongoose.Schema(
   {
-    street: { type: String, trim: true, default: null },
+    streetNumber: { type: String, trim: true, default: null },
+    streetName: { type: String, trim: true, default: null },
     postalCode: { type: String, trim: true, default: null },
     city: { type: String, trim: true, default: null },
     country: { type: String, trim: true, default: null },

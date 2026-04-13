@@ -9,6 +9,7 @@ import Invoice from '@/db/models/Invoice';
 import Note from '@/db/models/Note';
 import Quote from '@/db/models/Quote';
 import { getCompanyProfileByUserId } from '@/db/repository/cprofile';
+import { extractClientSnapshot } from '@/lib/address';
 import { sendInvoice } from '@/lib/email';
 import { resolveLocaleFromRequest } from '@/lib/i18n/locale';
 import { InvoicePdfTemplate } from '@/lib/pdf/InvoicePdfTemplate';
@@ -464,6 +465,11 @@ async function sendInvoiceReminder(userId: string, invoiceId: string, locale: Lo
         companyName?: string | null;
         ownerName?: string | null;
         address?: string | null;
+        streetNumber?: string | null;
+        streetName?: string | null;
+        postalCode?: string | null;
+        city?: string | null;
+        country?: string | null;
         phone?: string | null;
         businessEmail?: string | null;
         vatNumber?: string | null;
@@ -487,14 +493,7 @@ async function sendInvoiceReminder(userId: string, invoiceId: string, locale: Lo
       quoteNumber: invoiceDoc.quoteNumber ?? null,
       date: invoiceDoc.date ?? new Date(),
       dueDate: invoiceDoc.dueDate ?? null,
-      clientSnapshot: {
-        fullName: invoiceDoc.clientSnapshot.fullName,
-        companyName: invoiceDoc.clientSnapshot.companyName ?? null,
-        address: invoiceDoc.clientSnapshot.address ?? null,
-        email: invoiceDoc.clientSnapshot.email ?? null,
-        phone: invoiceDoc.clientSnapshot.phone ?? null,
-        vatNumber: invoiceDoc.clientSnapshot.vatNumber ?? null,
-      },
+      clientSnapshot: extractClientSnapshot(invoiceDoc.clientSnapshot),
       lineItems: invoiceDoc.lineItems,
       totalExcludingTaxBeforeDiscount,
       totalDiscountExcludingTax,
@@ -509,6 +508,11 @@ async function sendInvoiceReminder(userId: string, invoiceId: string, locale: Lo
           companyName: profile.companyName ?? profile.ownerName ?? 'CRM',
           ownerName: profile.ownerName ?? null,
           address: profile.address ?? null,
+          streetNumber: profile.streetNumber ?? null,
+          streetName: profile.streetName ?? null,
+          postalCode: profile.postalCode ?? null,
+          city: profile.city ?? null,
+          country: profile.country ?? null,
           phone: profile.phone ?? null,
           businessEmail: profile.businessEmail ?? null,
           vatNumber: profile.vatNumber ?? null,

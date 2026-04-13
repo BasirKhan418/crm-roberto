@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import CrmShell from '@/components/crm-shell';
 import { useLocale } from '@/components/providers/locale-provider';
 import { resolveTranslatedError } from '@/lib/i18n/messages';
+import { hasStructuredAddress } from '@/lib/address';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,6 +37,8 @@ interface SupplierRecord {
   tags?: Array<'important' | 'pending' | 'partner'>;
   email?: string | null;
   phone?: string | null;
+  streetNumber?: string | null;
+  streetName?: string | null;
   address?: string | null;
   postalCode?: string | null;
   city?: string | null;
@@ -98,7 +101,9 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
       profileSubtitle: 'Supplier profile and relationship details.',
       email: 'Email',
       phone: 'Phone',
-      address: 'Address',
+      address: 'Legacy address',
+      streetNumber: 'Street number',
+      streetName: 'Street name',
       contactName: 'Contact name',
       postalCode: 'Postal code',
       city: 'City',
@@ -162,7 +167,9 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
       profileSubtitle: 'Profil fournisseur et d\u00e9tails de la relation.',
       email: 'E-mail',
       phone: 'T\u00e9l\u00e9phone',
-      address: 'Adresse',
+      address: 'Adresse (ancien)',
+      streetNumber: 'Numéro de rue',
+      streetName: 'Nom de rue',
       contactName: 'Nom du contact',
       postalCode: 'Code postal',
       city: 'Ville',
@@ -232,6 +239,8 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
     category: 'other' as SupplierRecord['category'],
     email: '',
     phone: '',
+    streetNumber: '',
+    streetName: '',
     address: '',
     postalCode: '',
     city: '',
@@ -275,6 +284,8 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
         category: data.data.supplier.category || 'other',
         email: data.data.supplier.email || '',
         phone: data.data.supplier.phone || '',
+        streetNumber: data.data.supplier.streetNumber || '',
+        streetName: data.data.supplier.streetName || '',
         address: data.data.supplier.address || '',
         postalCode: data.data.supplier.postalCode || '',
         city: data.data.supplier.city || '',
@@ -465,7 +476,12 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
             <CardContent className="space-y-2 pt-4 text-sm">
               <p><span className="text-muted-foreground">{t.email}:</span> {supplier.email || '-'}</p>
               <p><span className="text-muted-foreground">{t.phone}:</span> {supplier.phone || '-'}</p>
-              <p><span className="text-muted-foreground">{t.address}:</span> {supplier.address || '-'}</p>
+              <p><span className="text-muted-foreground">{t.streetNumber}:</span> {supplier.streetNumber || '-'}</p>
+              {(() => {
+                const structured = hasStructuredAddress({ streetNumber: supplier.streetNumber, streetName: supplier.streetName, postalCode: supplier.postalCode, city: supplier.city, country: supplier.country });
+                const displayStreetName = supplier.streetName || (!structured ? supplier.address : null) || '-';
+                return <p><span className="text-muted-foreground">{t.streetName}:</span> {displayStreetName}</p>;
+              })()}
               <p><span className="text-muted-foreground">{t.contactName}:</span> {supplier.contactName || '-'}</p>
               <p><span className="text-muted-foreground">{t.postalCode}:</span> {supplier.postalCode || '-'}</p>
               <p><span className="text-muted-foreground">{t.city}:</span> {supplier.city || '-'}</p>
@@ -528,8 +544,12 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
                         <Input id="supplier-edit-phone" value={editForm.phone} onChange={(e) => setEditForm((p) => ({ ...p, phone: e.target.value }))} />
                       </div>
                       <div className="space-y-1.5">
-                        <Label htmlFor="supplier-edit-address">{t.address}</Label>
-                        <Input id="supplier-edit-address" value={editForm.address} onChange={(e) => setEditForm((p) => ({ ...p, address: e.target.value }))} />
+                        <Label htmlFor="supplier-edit-street-number">{t.streetNumber}</Label>
+                        <Input id="supplier-edit-street-number" value={editForm.streetNumber} onChange={(e) => setEditForm((p) => ({ ...p, streetNumber: e.target.value }))} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="supplier-edit-street-name">{t.streetName}</Label>
+                        <Input id="supplier-edit-street-name" value={editForm.streetName} onChange={(e) => setEditForm((p) => ({ ...p, streetName: e.target.value }))} />
                       </div>
                       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         <div className="space-y-1.5">
