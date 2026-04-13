@@ -884,6 +884,9 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                     <InfoRow label={t.postalCode} value={client.addressDetails?.postalCode} />
                     <InfoRow label={t.city} value={client.addressDetails?.city} />
                     <InfoRow label={t.country} value={client.addressDetails?.country} />
+                    {!client.addressDetails?.streetNumber && !client.addressDetails?.streetName && !client.addressDetails?.postalCode && !client.addressDetails?.city && !client.addressDetails?.country && client.address
+                      ? <InfoRow label={t.address} value={client.address} />
+                      : null}
                   </CardContent>
                 </Card>
 

@@ -1316,7 +1316,10 @@ export default function SignPage() {
                 >
                   <div className="space-y-1">
                     <DetailRow label={t.company} value={companyName} />
-                    {formatSignPageAddress({ streetNumber: quote.company?.streetNumber, streetName: quote.company?.streetName, postalCode: quote.company?.postalCode, city: quote.company?.city, country: quote.company?.country }, quote.company?.address) ? <DetailRow label={t.address} value={formatSignPageAddress({ streetNumber: quote.company?.streetNumber, streetName: quote.company?.streetName, postalCode: quote.company?.postalCode, city: quote.company?.city, country: quote.company?.country }, quote.company?.address)} /> : null}
+                    {(() => {
+                      const addr = formatSignPageAddress({ streetNumber: quote.company?.streetNumber, streetName: quote.company?.streetName, postalCode: quote.company?.postalCode, city: quote.company?.city, country: quote.company?.country }, quote.company?.address);
+                      return addr ? <DetailRow label={t.address} value={addr} /> : null;
+                    })()}
                     {quote.company?.phone ? <DetailRow label={t.phone} value={quote.company.phone} /> : null}
                     {quote.company?.email ? <DetailRow label={t.email} value={quote.company.email} /> : null}
                     {quote.company?.vatNumber ? <DetailRow label={t.vat} value={quote.company.vatNumber} /> : null}
@@ -1333,7 +1336,10 @@ export default function SignPage() {
                     {quote.clientSnapshot.companyName ? <DetailRow label={t.company} value={quote.clientSnapshot.companyName} /> : null}
                     {quote.clientSnapshot.phone ? <DetailRow label={t.phone} value={quote.clientSnapshot.phone} /> : null}
                     {quote.clientSnapshot.email ? <DetailRow label={t.email} value={quote.clientSnapshot.email} /> : null}
-                    {formatSignPageAddress(quote.clientSnapshot.addressDetails, quote.clientSnapshot.address) ? <DetailRow label={t.address} value={formatSignPageAddress(quote.clientSnapshot.addressDetails, quote.clientSnapshot.address)} /> : null}
+                    {(() => {
+                      const addr = formatSignPageAddress(quote.clientSnapshot.addressDetails, quote.clientSnapshot.address);
+                      return addr ? <DetailRow label={t.address} value={addr} /> : null;
+                    })()}
                   </div>
                 </DisclosureSection>
               </div>

@@ -29,8 +29,9 @@ export default function AddSupplierModal({ onClose, onSuccess }: AddSupplierModa
       contactName: 'Contact name',
       email: 'Email',
       phone: 'Phone',
-      address: 'Street name',
+      address: 'Legacy address',
       streetNumber: 'Street number',
+      streetName: 'Street name',
       postalCode: 'Postal code',
       city: 'City',
       country: 'Country',
@@ -51,8 +52,9 @@ export default function AddSupplierModal({ onClose, onSuccess }: AddSupplierModa
       contactName: 'Nom du contact',
       email: 'E-mail',
       phone: 'Téléphone',
-      address: 'Nom de rue',
+      address: 'Adresse (ancien)',
       streetNumber: 'Numéro de rue',
+      streetName: 'Nom de rue',
       postalCode: 'Code postal',
       city: 'Ville',
       country: 'Pays',
@@ -72,7 +74,7 @@ export default function AddSupplierModal({ onClose, onSuccess }: AddSupplierModa
     email: '',
     phone: '',
     streetNumber: '',
-    address: '',
+    streetName: '',
     postalCode: '',
     city: '',
     country: '',
@@ -98,7 +100,7 @@ export default function AddSupplierModal({ onClose, onSuccess }: AddSupplierModa
           email: form.email || undefined,
           phone: form.phone || undefined,
           streetNumber: form.streetNumber || undefined,
-          address: form.address || undefined,
+          streetName: form.streetName || undefined,
           postalCode: form.postalCode || undefined,
           city: form.city || undefined,
           country: form.country || undefined,
@@ -151,8 +153,8 @@ export default function AddSupplierModal({ onClose, onSuccess }: AddSupplierModa
           <Input value={form.streetNumber} onChange={(e) => setForm((p) => ({ ...p, streetNumber: e.target.value }))} />
         </div>
         <div className="space-y-1.5">
-          <Label>{t.address}</Label>
-          <Input value={form.address} onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))} />
+          <Label>{t.streetName}</Label>
+          <Input value={form.streetName} onChange={(e) => setForm((p) => ({ ...p, streetName: e.target.value }))} />
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="space-y-1.5">

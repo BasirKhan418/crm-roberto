@@ -616,8 +616,7 @@ function combineAddressLines(lines: { line1: string; line2: string }): string {
 /**
  * Formats a structured address (from separate fields) into a combined display string.
  * Line 1: street number + street name
- * Line 2: postal code + city
- * Line 3: country (appended to line 2 if present)
+ * Line 2: postal code + city + country
  */
 function formatStructuredAddress(details?: InvoiceAddressDetails | null): string {
   if (!details) {
