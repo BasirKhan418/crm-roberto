@@ -3,10 +3,23 @@ import { Document, Image, Link, Page, StyleSheet, Text, View } from '@react-pdf/
 import { formatInvoiceDisplayNumber } from '@/lib/i18n/messages';
 import { getPaymentMethodLabel, getPaymentTypeLabel } from '@/lib/payments';
 
+interface InvoiceAddressDetails {
+  streetNumber?: string | null;
+  streetName?: string | null;
+  postalCode?: string | null;
+  city?: string | null;
+  country?: string | null;
+}
+
 interface InvoiceCompanyData {
   companyName?: string | null;
   ownerName?: string | null;
   address?: string | null;
+  streetNumber?: string | null;
+  streetName?: string | null;
+  postalCode?: string | null;
+  city?: string | null;
+  country?: string | null;
   phone?: string | null;
   businessEmail?: string | null;
   vatNumber?: string | null;
@@ -47,6 +60,7 @@ interface InvoiceData {
     fullName: string;
     companyName?: string | null;
     address?: string | null;
+    addressDetails?: InvoiceAddressDetails | null;
     email?: string | null;
     phone?: string | null;
     vatNumber?: string | null;
@@ -599,6 +613,37 @@ function combineAddressLines(lines: { line1: string; line2: string }): string {
   return `${lines.line1}\n${lines.line2}`;
 }
 
+/**
+ * Formats a structured address (from separate fields) into a combined display string.
+ * Line 1: street number + street name
+ * Line 2: postal code + city
+ * Line 3: country (appended to line 2 if present)
+ */
+function formatStructuredAddress(details?: InvoiceAddressDetails | null): string {
+  if (!details) {
+    return '-';
+  }
+
+  const streetParts = [details.streetNumber, details.streetName].map((p) => (p ?? '').trim()).filter(Boolean);
+  const line1 = streetParts.join(' ');
+  const line2Parts = [details.postalCode, details.city, details.country].map((p) => (p ?? '').trim()).filter(Boolean);
+  const line2 = line2Parts.join(' ');
+
+  const combined = [line1, line2].filter(Boolean).join('\n');
+  return combined || '-';
+}
+
+/**
+ * Returns a formatted address string from either structured fields or a legacy single-string address.
+ */
+function resolveAddressDisplay(details?: InvoiceAddressDetails | null, legacyAddress?: string | null): string {
+  if (details && (details.streetNumber || details.streetName || details.postalCode || details.city || details.country)) {
+    return formatStructuredAddress(details);
+  }
+  const lines = combineAddressLines(splitAddressLines(legacyAddress));
+  return lines;
+}
+
 function formatLongDate(dateValue: string | Date | null | undefined, locale: 'en' | 'fr'): string {
   if (!dateValue) {
     return '-';
@@ -690,13 +735,17 @@ export function InvoicePdfTemplate({ invoice, company, paymentUrl = null, locale
   const totalPaidAmount = payments.reduce((sum, payment) => sum + Math.max(0, Math.round(payment.amount || 0)), 0);
   const remainingAmount = Math.max(0, invoice.totalIncludingTax - totalPaidAmount);
   const statusPresentation = getStatusPresentation(invoice.status, t);
-  const issuerAddress = splitAddressLines(company?.address);
-  const clientAddress = splitAddressLines(invoice.clientSnapshot.address);
-  const issuerAddressCombined = combineAddressLines(issuerAddress);
-  const clientAddressCombined = combineAddressLines(clientAddress);
+  const issuerAddress = resolveAddressDisplay(
+    company ? { streetNumber: company.streetNumber, streetName: company.streetName, postalCode: company.postalCode, city: company.city, country: company.country } : null,
+    company?.address
+  );
+  const clientAddress = resolveAddressDisplay(
+    invoice.clientSnapshot.addressDetails,
+    invoice.clientSnapshot.address
+  );
   const issuerRows = compactValueRows([
     { value: company?.companyName || company?.ownerName, always: true },
-    { value: issuerAddressCombined, always: true },
+    { value: issuerAddress, always: true },
     { value: company?.phone, always: true },
     { value: company?.businessEmail, always: true },
     { value: company?.bankName, always: true },
@@ -704,7 +753,7 @@ export function InvoicePdfTemplate({ invoice, company, paymentUrl = null, locale
   ]);
   const clientRows = compactValueRows([
     { value: invoice.clientSnapshot.fullName, always: true },
-    { value: clientAddressCombined, always: true },
+    { value: clientAddress, always: true },
     { value: invoice.clientSnapshot.phone },
     { value: invoice.clientSnapshot.email },
   ]);

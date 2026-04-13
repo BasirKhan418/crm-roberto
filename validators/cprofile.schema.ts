@@ -54,10 +54,11 @@ const companyProfileFieldsSchema = z.object({
 
   businessEmail: emailSchema,
 
-  address: z
-    .string()
-    .trim()
-    .min(1, i18nKey('validation.addressRequired')),
+  streetNumber: optionalText,
+  streetName: optionalText,
+  postalCode: optionalText,
+  city: optionalText,
+  country: optionalText,
 
   vatNumber: z
     .string()

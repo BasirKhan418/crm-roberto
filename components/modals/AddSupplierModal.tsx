@@ -29,7 +29,8 @@ export default function AddSupplierModal({ onClose, onSuccess }: AddSupplierModa
       contactName: 'Contact name',
       email: 'Email',
       phone: 'Phone',
-      address: 'Address',
+      address: 'Street name',
+      streetNumber: 'Street number',
       postalCode: 'Postal code',
       city: 'City',
       country: 'Country',
@@ -50,7 +51,8 @@ export default function AddSupplierModal({ onClose, onSuccess }: AddSupplierModa
       contactName: 'Nom du contact',
       email: 'E-mail',
       phone: 'Téléphone',
-      address: 'Adresse',
+      address: 'Nom de rue',
+      streetNumber: 'Numéro de rue',
       postalCode: 'Code postal',
       city: 'Ville',
       country: 'Pays',
@@ -69,6 +71,7 @@ export default function AddSupplierModal({ onClose, onSuccess }: AddSupplierModa
     contactName: '',
     email: '',
     phone: '',
+    streetNumber: '',
     address: '',
     postalCode: '',
     city: '',
@@ -94,6 +97,7 @@ export default function AddSupplierModal({ onClose, onSuccess }: AddSupplierModa
           contactName: form.contactName || undefined,
           email: form.email || undefined,
           phone: form.phone || undefined,
+          streetNumber: form.streetNumber || undefined,
           address: form.address || undefined,
           postalCode: form.postalCode || undefined,
           city: form.city || undefined,
@@ -141,6 +145,10 @@ export default function AddSupplierModal({ onClose, onSuccess }: AddSupplierModa
         <div className="space-y-1.5">
           <Label>{t.phone}</Label>
           <Input value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} />
+        </div>
+        <div className="space-y-1.5">
+          <Label>{t.streetNumber}</Label>
+          <Input value={form.streetNumber} onChange={(e) => setForm((p) => ({ ...p, streetNumber: e.target.value }))} />
         </div>
         <div className="space-y-1.5">
           <Label>{t.address}</Label>

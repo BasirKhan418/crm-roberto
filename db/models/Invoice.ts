@@ -77,12 +77,24 @@ const InvoiceLineItemSchema = new mongoose.Schema(
   { _id: true }
 );
 
+const InvoiceAddressDetailsSchema = new mongoose.Schema(
+  {
+    streetNumber: { type: String, default: null },
+    streetName: { type: String, default: null },
+    postalCode: { type: String, default: null },
+    city: { type: String, default: null },
+    country: { type: String, default: null },
+  },
+  { _id: false }
+);
+
 const InvoiceClientSnapshotSchema = new mongoose.Schema(
   {
     fullName: { type: String, required: true },
     email: { type: String, default: null },
     phone: { type: String, default: null },
     address: { type: String, default: null },
+    addressDetails: { type: InvoiceAddressDetailsSchema, default: null },
     companyName: { type: String, default: null },
     vatNumber: { type: String, default: null },
   },

@@ -36,6 +36,7 @@ interface SupplierRecord {
   tags?: Array<'important' | 'pending' | 'partner'>;
   email?: string | null;
   phone?: string | null;
+  streetNumber?: string | null;
   address?: string | null;
   postalCode?: string | null;
   city?: string | null;
@@ -98,7 +99,8 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
       profileSubtitle: 'Supplier profile and relationship details.',
       email: 'Email',
       phone: 'Phone',
-      address: 'Address',
+      address: 'Street name',
+      streetNumber: 'Street number',
       contactName: 'Contact name',
       postalCode: 'Postal code',
       city: 'City',
@@ -162,7 +164,8 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
       profileSubtitle: 'Profil fournisseur et d\u00e9tails de la relation.',
       email: 'E-mail',
       phone: 'T\u00e9l\u00e9phone',
-      address: 'Adresse',
+      address: 'Nom de rue',
+      streetNumber: 'Numéro de rue',
       contactName: 'Nom du contact',
       postalCode: 'Code postal',
       city: 'Ville',
@@ -232,6 +235,7 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
     category: 'other' as SupplierRecord['category'],
     email: '',
     phone: '',
+    streetNumber: '',
     address: '',
     postalCode: '',
     city: '',
@@ -275,6 +279,7 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
         category: data.data.supplier.category || 'other',
         email: data.data.supplier.email || '',
         phone: data.data.supplier.phone || '',
+        streetNumber: data.data.supplier.streetNumber || '',
         address: data.data.supplier.address || '',
         postalCode: data.data.supplier.postalCode || '',
         city: data.data.supplier.city || '',
@@ -465,6 +470,7 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
             <CardContent className="space-y-2 pt-4 text-sm">
               <p><span className="text-muted-foreground">{t.email}:</span> {supplier.email || '-'}</p>
               <p><span className="text-muted-foreground">{t.phone}:</span> {supplier.phone || '-'}</p>
+              <p><span className="text-muted-foreground">{t.streetNumber}:</span> {supplier.streetNumber || '-'}</p>
               <p><span className="text-muted-foreground">{t.address}:</span> {supplier.address || '-'}</p>
               <p><span className="text-muted-foreground">{t.contactName}:</span> {supplier.contactName || '-'}</p>
               <p><span className="text-muted-foreground">{t.postalCode}:</span> {supplier.postalCode || '-'}</p>
@@ -526,6 +532,10 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
                       <div className="space-y-1.5">
                         <Label htmlFor="supplier-edit-phone">{t.phone}</Label>
                         <Input id="supplier-edit-phone" value={editForm.phone} onChange={(e) => setEditForm((p) => ({ ...p, phone: e.target.value }))} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="supplier-edit-street-number">{t.streetNumber}</Label>
+                        <Input id="supplier-edit-street-number" value={editForm.streetNumber} onChange={(e) => setEditForm((p) => ({ ...p, streetNumber: e.target.value }))} />
                       </div>
                       <div className="space-y-1.5">
                         <Label htmlFor="supplier-edit-address">{t.address}</Label>

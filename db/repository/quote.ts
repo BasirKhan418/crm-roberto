@@ -83,6 +83,13 @@ interface ClientSnapshotRecord {
   email?: string | null;
   phone?: string | null;
   address?: string | null;
+  addressDetails?: {
+    streetNumber?: string | null;
+    streetName?: string | null;
+    postalCode?: string | null;
+    city?: string | null;
+    country?: string | null;
+  } | null;
   companyName?: string | null;
   vatNumber?: string | null;
 }
@@ -555,6 +562,7 @@ async function getClientSnapshot(userId: string, clientId: string): Promise<Clie
     email: (client as { email?: string | null }).email ?? null,
     phone: (client as { phone?: string | null }).phone ?? null,
     address: (client as { address?: string | null }).address ?? null,
+    addressDetails: (client as { addressDetails?: { streetNumber?: string | null; streetName?: string | null; postalCode?: string | null; city?: string | null; country?: string | null } | null }).addressDetails ?? null,
     companyName: (client as { companyName?: string | null }).companyName ?? null,
     vatNumber: (client as { vatNumber?: string | null }).vatNumber ?? null,
   };

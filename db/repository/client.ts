@@ -20,7 +20,8 @@ export interface ClientRecord {
   phone?: string | null;
   address?: string | null;
   addressDetails?: {
-    street?: string | null;
+    streetNumber?: string | null;
+    streetName?: string | null;
     postalCode?: string | null;
     city?: string | null;
     country?: string | null;
@@ -79,7 +80,8 @@ function isValidObjectId(value: string): boolean {
 }
 
 function formatAddress(details?: {
-  street?: string | null;
+  streetNumber?: string | null;
+  streetName?: string | null;
   postalCode?: string | null;
   city?: string | null;
   country?: string | null;
@@ -88,7 +90,8 @@ function formatAddress(details?: {
     return null;
   }
 
-  const line1 = (details.street ?? '').trim();
+  const streetParts = [details.streetNumber, details.streetName].map((p) => (p ?? '').trim()).filter(Boolean);
+  const line1 = streetParts.join(' ');
   const line2 = [details.postalCode, details.city].map((part) => (part ?? '').trim()).filter(Boolean).join(' ');
   const country = (details.country ?? '').trim();
   const combined = [line1, line2, country].filter(Boolean).join(', ');

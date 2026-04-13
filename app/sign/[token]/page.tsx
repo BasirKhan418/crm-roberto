@@ -20,6 +20,11 @@ interface SignQuotePayload {
     companyName: string;
     logoUrl: string | null;
     address?: string | null;
+    streetNumber?: string | null;
+    streetName?: string | null;
+    postalCode?: string | null;
+    city?: string | null;
+    country?: string | null;
     phone?: string | null;
     email?: string | null;
     vatNumber?: string | null;
@@ -32,6 +37,13 @@ interface SignQuotePayload {
     email?: string | null;
     phone?: string | null;
     address?: string | null;
+    addressDetails?: {
+      streetNumber?: string | null;
+      streetName?: string | null;
+      postalCode?: string | null;
+      city?: string | null;
+      country?: string | null;
+    } | null;
   };
   lineItems?: Array<{
     _id?: string;
@@ -56,6 +68,19 @@ interface SignQuotePayload {
 type SignQuoteApiPayload = Partial<SignQuotePayload> & { error?: string; companyName?: string };
 
 type SignError = 'not_found' | 'expired' | 'already_signed' | 'link_no_longer_valid' | 'unknown';
+
+function formatSignPageAddress(
+  details?: { streetNumber?: string | null; streetName?: string | null; postalCode?: string | null; city?: string | null; country?: string | null } | null,
+  legacyAddress?: string | null
+): string | null {
+  if (details && (details.streetNumber || details.streetName || details.postalCode || details.city || details.country)) {
+    const streetParts = [details.streetNumber, details.streetName].map((p) => (p ?? '').trim()).filter(Boolean);
+    const line2Parts = [details.postalCode, details.city, details.country].map((p) => (p ?? '').trim()).filter(Boolean);
+    const parts = [...(streetParts.length ? [streetParts.join(' ')] : []), ...(line2Parts.length ? [line2Parts.join(' ')] : [])];
+    return parts.join(', ') || null;
+  }
+  return legacyAddress || null;
+}
 
 function DisclosureSection({
   title,
@@ -1291,7 +1316,7 @@ export default function SignPage() {
                 >
                   <div className="space-y-1">
                     <DetailRow label={t.company} value={companyName} />
-                    {quote.company?.address ? <DetailRow label={t.address} value={quote.company.address} /> : null}
+                    {formatSignPageAddress({ streetNumber: quote.company?.streetNumber, streetName: quote.company?.streetName, postalCode: quote.company?.postalCode, city: quote.company?.city, country: quote.company?.country }, quote.company?.address) ? <DetailRow label={t.address} value={formatSignPageAddress({ streetNumber: quote.company?.streetNumber, streetName: quote.company?.streetName, postalCode: quote.company?.postalCode, city: quote.company?.city, country: quote.company?.country }, quote.company?.address)} /> : null}
                     {quote.company?.phone ? <DetailRow label={t.phone} value={quote.company.phone} /> : null}
                     {quote.company?.email ? <DetailRow label={t.email} value={quote.company.email} /> : null}
                     {quote.company?.vatNumber ? <DetailRow label={t.vat} value={quote.company.vatNumber} /> : null}
@@ -1308,7 +1333,7 @@ export default function SignPage() {
                     {quote.clientSnapshot.companyName ? <DetailRow label={t.company} value={quote.clientSnapshot.companyName} /> : null}
                     {quote.clientSnapshot.phone ? <DetailRow label={t.phone} value={quote.clientSnapshot.phone} /> : null}
                     {quote.clientSnapshot.email ? <DetailRow label={t.email} value={quote.clientSnapshot.email} /> : null}
-                    {quote.clientSnapshot.address ? <DetailRow label={t.address} value={quote.clientSnapshot.address} /> : null}
+                    {formatSignPageAddress(quote.clientSnapshot.addressDetails, quote.clientSnapshot.address) ? <DetailRow label={t.address} value={formatSignPageAddress(quote.clientSnapshot.addressDetails, quote.clientSnapshot.address)} /> : null}
                   </div>
                 </DisclosureSection>
               </div>

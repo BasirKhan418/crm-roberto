@@ -464,6 +464,11 @@ async function sendInvoiceReminder(userId: string, invoiceId: string, locale: Lo
         companyName?: string | null;
         ownerName?: string | null;
         address?: string | null;
+        streetNumber?: string | null;
+        streetName?: string | null;
+        postalCode?: string | null;
+        city?: string | null;
+        country?: string | null;
         phone?: string | null;
         businessEmail?: string | null;
         vatNumber?: string | null;
@@ -491,6 +496,7 @@ async function sendInvoiceReminder(userId: string, invoiceId: string, locale: Lo
         fullName: invoiceDoc.clientSnapshot.fullName,
         companyName: invoiceDoc.clientSnapshot.companyName ?? null,
         address: invoiceDoc.clientSnapshot.address ?? null,
+        addressDetails: (invoiceDoc.clientSnapshot as { addressDetails?: { streetNumber?: string | null; streetName?: string | null; postalCode?: string | null; city?: string | null; country?: string | null } | null })?.addressDetails ?? null,
         email: invoiceDoc.clientSnapshot.email ?? null,
         phone: invoiceDoc.clientSnapshot.phone ?? null,
         vatNumber: invoiceDoc.clientSnapshot.vatNumber ?? null,
@@ -509,6 +515,11 @@ async function sendInvoiceReminder(userId: string, invoiceId: string, locale: Lo
           companyName: profile.companyName ?? profile.ownerName ?? 'CRM',
           ownerName: profile.ownerName ?? null,
           address: profile.address ?? null,
+          streetNumber: profile.streetNumber ?? null,
+          streetName: profile.streetName ?? null,
+          postalCode: profile.postalCode ?? null,
+          city: profile.city ?? null,
+          country: profile.country ?? null,
           phone: profile.phone ?? null,
           businessEmail: profile.businessEmail ?? null,
           vatNumber: profile.vatNumber ?? null,

@@ -33,7 +33,11 @@ interface ProfileForm {
   ownerName: string;
   phone: string;
   businessEmail: string;
-  address: string;
+  streetNumber: string;
+  streetName: string;
+  postalCode: string;
+  city: string;
+  country: string;
   vatNumber: string;
   rcsNumber: string;
   businessAuthorizationNumber: string;
@@ -51,7 +55,11 @@ const emptyForm: ProfileForm = {
   ownerName: '',
   phone: '',
   businessEmail: '',
-  address: '',
+  streetNumber: '',
+  streetName: '',
+  postalCode: '',
+  city: '',
+  country: '',
   vatNumber: '',
   rcsNumber: '',
   businessAuthorizationNumber: '',
@@ -83,6 +91,11 @@ export default function ProfilePage() {
       phone: 'Phone',
       businessEmail: 'Business email',
       address: 'Address',
+      streetNumber: 'Street number',
+      streetName: 'Street name',
+      postalCode: 'Postal code',
+      city: 'City',
+      country: 'Country',
       vat: 'VAT number',
       rcsNumber: 'RCS number',
       businessAuthorizationNumber: 'Business authorization number',
@@ -145,6 +158,11 @@ export default function ProfilePage() {
       phone: 'T\u00e9l\u00e9phone',
       businessEmail: 'E-mail professionnel',
       address: 'Adresse',
+      streetNumber: 'Numéro de rue',
+      streetName: 'Nom de rue',
+      postalCode: 'Code postal',
+      city: 'Ville',
+      country: 'Pays',
       vat: 'Num\u00e9ro de TVA',
       rcsNumber: 'Num\u00e9ro RCS',
       businessAuthorizationNumber: "Num\u00e9ro d'autorisation d'\u00e9tablissement",
@@ -254,7 +272,11 @@ export default function ProfilePage() {
           ownerName: data.profile?.ownerName || '',
           phone: data.profile?.phone || '',
           businessEmail: data.profile?.businessEmail || '',
-          address: data.profile?.address || '',
+          streetNumber: (data.profile as Partial<ProfileForm> & { streetNumber?: string })?.streetNumber || '',
+          streetName: (data.profile as Partial<ProfileForm> & { streetName?: string })?.streetName || '',
+          postalCode: (data.profile as Partial<ProfileForm> & { postalCode?: string })?.postalCode || '',
+          city: (data.profile as Partial<ProfileForm> & { city?: string })?.city || '',
+          country: (data.profile as Partial<ProfileForm> & { country?: string })?.country || '',
           vatNumber: data.profile?.vatNumber || '',
           rcsNumber: data.profile?.rcsNumber || '',
           businessAuthorizationNumber: data.profile?.businessAuthorizationNumber || '',
@@ -611,9 +633,25 @@ export default function ProfilePage() {
                 <Label>{t.businessEmail}</Label>
                 <Input type="email" value={form.businessEmail} onChange={(e) => setForm((p) => ({ ...p, businessEmail: e.target.value }))} />
               </div>
-              <div className="space-y-1.5 md:col-span-2">
-                <Label>{t.address}</Label>
-                <Input value={form.address} onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))} />
+              <div className="space-y-1.5">
+                <Label>{t.streetNumber}</Label>
+                <Input value={form.streetNumber} onChange={(e) => setForm((p) => ({ ...p, streetNumber: e.target.value }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>{t.streetName}</Label>
+                <Input value={form.streetName} onChange={(e) => setForm((p) => ({ ...p, streetName: e.target.value }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>{t.postalCode}</Label>
+                <Input value={form.postalCode} onChange={(e) => setForm((p) => ({ ...p, postalCode: e.target.value }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>{t.city}</Label>
+                <Input value={form.city} onChange={(e) => setForm((p) => ({ ...p, city: e.target.value }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>{t.country}</Label>
+                <Input value={form.country} onChange={(e) => setForm((p) => ({ ...p, country: e.target.value }))} />
               </div>
               <div data-tour-profile-legal-fields className="grid grid-cols-1 gap-3 md:col-span-2 md:grid-cols-2">
                 <div className="space-y-1.5">

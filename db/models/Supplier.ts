@@ -44,6 +44,12 @@ const SupplierSchema = new mongoose.Schema(
       default: null,
     },
 
+    streetNumber: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+
     address: {
       type: String,
       trim: true,

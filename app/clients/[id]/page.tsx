@@ -69,7 +69,8 @@ interface ClientRecord {
   phone?: string | null;
   address?: string | null;
   addressDetails?: {
-    street?: string | null;
+    streetNumber?: string | null;
+    streetName?: string | null;
     postalCode?: string | null;
     city?: string | null;
     country?: string | null;
@@ -227,6 +228,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       businessAuthorizationNumber: 'Business Authorization Number',
       matriculeNumber: 'Matricule Number',
       street: 'Street',
+      streetNumber: 'Street Number',
+      streetName: 'Street Name',
       postalCode: 'Postal Code',
       city: 'City',
       country: 'Country',
@@ -353,6 +356,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       businessAuthorizationNumber: 'Num\u00e9ro autorisation commerciale',
       matriculeNumber: 'Matricule',
       street: 'Rue',
+      streetNumber: 'Numéro de rue',
+      streetName: 'Nom de rue',
       postalCode: 'Code postal',
       city: 'Ville',
       country: 'Pays',
@@ -874,7 +879,11 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                         <InfoRow label={t.mobilePhone} value={client.mobilePhone} />
                       </>
                     )}
-                    <InfoRow label={t.address} value={client.address} />
+                    <InfoRow label={t.streetNumber} value={client.addressDetails?.streetNumber} />
+                    <InfoRow label={t.streetName} value={client.addressDetails?.streetName} />
+                    <InfoRow label={t.postalCode} value={client.addressDetails?.postalCode} />
+                    <InfoRow label={t.city} value={client.addressDetails?.city} />
+                    <InfoRow label={t.country} value={client.addressDetails?.country} />
                   </CardContent>
                 </Card>
 

@@ -49,6 +49,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
           companyName?: string | null;
           ownerName?: string | null;
           address?: string | null;
+          streetNumber?: string | null;
+          streetName?: string | null;
+          postalCode?: string | null;
+          city?: string | null;
+          country?: string | null;
           phone?: string | null;
           businessEmail?: string | null;
           vatNumber?: string | null;
@@ -108,6 +113,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
           fullName: invoice.clientSnapshot?.fullName ?? 'Client',
           companyName: invoice.clientSnapshot?.companyName ?? null,
           address: invoice.clientSnapshot?.address ?? null,
+          addressDetails: (invoice.clientSnapshot as { addressDetails?: { streetNumber?: string | null; streetName?: string | null; postalCode?: string | null; city?: string | null; country?: string | null } | null })?.addressDetails ?? null,
           email: invoice.clientSnapshot?.email ?? null,
           phone: invoice.clientSnapshot?.phone ?? null,
           vatNumber: invoice.clientSnapshot?.vatNumber ?? null,
@@ -133,6 +139,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
             companyName: profile.companyName ?? profile.ownerName ?? 'CRM',
             ownerName: profile.ownerName ?? null,
             address: profile.address ?? null,
+            streetNumber: profile.streetNumber ?? null,
+            streetName: profile.streetName ?? null,
+            postalCode: profile.postalCode ?? null,
+            city: profile.city ?? null,
+            country: profile.country ?? null,
             phone: profile.phone ?? null,
             businessEmail: profile.businessEmail ?? null,
             vatNumber: profile.vatNumber ?? null,

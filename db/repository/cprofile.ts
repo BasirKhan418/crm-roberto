@@ -2,10 +2,28 @@ import ConnectDb from "../connectDb";
 import CompanyProfile from "../models/CompanyProfile";
 import { CreateCompanyProfileDTO, UpdateCompanyProfileDTO } from "../../validators/cprofile.schema";
 import User from "../models/User";
-export const createCompanyProfile = async (data:CreateCompanyProfileDTO) => {
+
+function formatCompanyAddress(data: {
+  streetNumber?: string | null;
+  streetName?: string | null;
+  postalCode?: string | null;
+  city?: string | null;
+  country?: string | null;
+}): string | null {
+  const streetParts = [data.streetNumber, data.streetName].map((p) => (p ?? '').trim()).filter(Boolean);
+  const line1 = streetParts.join(' ');
+  const line2Parts = [data.postalCode, data.city].map((p) => (p ?? '').trim()).filter(Boolean);
+  const line2 = line2Parts.join(' ');
+  const country = (data.country ?? '').trim();
+  const combined = [line1, line2, country].filter(Boolean).join(', ');
+  return combined || null;
+}
+
+export const createCompanyProfile = async (data: CreateCompanyProfileDTO) => {
     try{
          await ConnectDb();
-        const newProfile = new CompanyProfile(data);
+        const address = formatCompanyAddress(data);
+        const newProfile = new CompanyProfile({ ...data, ...(address !== null ? { address } : {}) });
         await newProfile.save();
         await User.findByIdAndUpdate(data.user, { isOnboardingComplete: true });
         return { message: "Company profile created successfully", success: true, profile: newProfile };
@@ -34,9 +52,13 @@ export const getCompanyProfileByUserId = async (userId: string) => {
 export const updateCompanyProfileByUserId = async (userId: string, data: UpdateCompanyProfileDTO) => {
     try {
         await ConnectDb();
+        const hasAddressField = 'streetNumber' in data || 'streetName' in data || 'postalCode' in data || 'city' in data || 'country' in data;
+        const updateData = hasAddressField
+          ? { ...data, address: formatCompanyAddress(data) }
+          : data;
         const profile = await CompanyProfile.findOneAndUpdate(
             { user: userId },
-            data,
+            updateData,
             { new: true, runValidators: true }
         ).lean();
 
