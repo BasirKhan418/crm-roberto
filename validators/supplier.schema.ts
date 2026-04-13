@@ -38,6 +38,7 @@ export const createSupplierSchema = z.object({
   phone: optionalText,
   streetNumber: optionalText,
   streetName: optionalText,
+  // Legacy field kept for backward compatibility with existing supplier records
   address: optionalText,
   postalCode: optionalText,
   city: optionalText,
@@ -57,6 +58,7 @@ export const updateSupplierSchema = z.object({
   phone: updatableOptionalText,
   streetNumber: updatableOptionalText,
   streetName: updatableOptionalText,
+  // Legacy field kept for backward compatibility with existing supplier records
   address: updatableOptionalText,
   postalCode: updatableOptionalText,
   city: updatableOptionalText,

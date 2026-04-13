@@ -56,6 +56,7 @@ import { Label } from '@/components/ui/label';
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { hasStructuredAddress } from '@/lib/address';
 
 
 interface ClientRecord {
@@ -884,7 +885,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                     <InfoRow label={t.postalCode} value={client.addressDetails?.postalCode} />
                     <InfoRow label={t.city} value={client.addressDetails?.city} />
                     <InfoRow label={t.country} value={client.addressDetails?.country} />
-                    {!client.addressDetails?.streetNumber && !client.addressDetails?.streetName && !client.addressDetails?.postalCode && !client.addressDetails?.city && !client.addressDetails?.country && client.address
+                    {!hasStructuredAddress(client.addressDetails) && client.address
                       ? <InfoRow label={t.address} value={client.address} />
                       : null}
                   </CardContent>

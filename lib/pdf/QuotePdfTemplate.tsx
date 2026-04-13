@@ -6,16 +6,12 @@ import {
   Text,
   View,
 } from '@react-pdf/renderer';
+import { formatStructuredAddress, hasStructuredAddress } from '@/lib/address';
+import type { AddressDetails as SharedAddressDetails } from '@/lib/address';
 
 type QuoteStatus = 'draft' | 'sent' | 'accepted' | 'refused' | 'rejected';
 
-interface QuoteAddressDetails {
-  streetNumber?: string | null;
-  streetName?: string | null;
-  postalCode?: string | null;
-  city?: string | null;
-  country?: string | null;
-}
+interface QuoteAddressDetails extends SharedAddressDetails {}
 
 interface CompanyData {
   companyName?: string;
@@ -636,26 +632,17 @@ function combineAddressLines(lines: { line1: string; line2: string }): string {
  * Line 1: street number + street name
  * Line 2: postal code + city + country
  */
-function formatStructuredAddress(details?: QuoteAddressDetails | null): string {
-  if (!details) {
-    return '-';
-  }
-
-  const streetParts = [details.streetNumber, details.streetName].map((p) => (p ?? '').trim()).filter(Boolean);
-  const line1 = streetParts.join(' ');
-  const line2Parts = [details.postalCode, details.city, details.country].map((p) => (p ?? '').trim()).filter(Boolean);
-  const line2 = line2Parts.join(' ');
-
-  const combined = [line1, line2].filter(Boolean).join('\n');
-  return combined || '-';
+function formatStructuredAddressPdf(details?: QuoteAddressDetails | null): string {
+  const result = formatStructuredAddress(details);
+  return result ?? '-';
 }
 
 /**
  * Returns a formatted address string from either structured fields or a legacy single-string address.
  */
 function resolveAddressDisplay(details?: QuoteAddressDetails | null, legacyAddress?: string | null): string {
-  if (details && (details.streetNumber || details.streetName || details.postalCode || details.city || details.country)) {
-    return formatStructuredAddress(details);
+  if (hasStructuredAddress(details)) {
+    return formatStructuredAddressPdf(details);
   }
   return combineAddressLines(splitAddressLines(legacyAddress));
 }

@@ -476,7 +476,7 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
               <p><span className="text-muted-foreground">{t.email}:</span> {supplier.email || '-'}</p>
               <p><span className="text-muted-foreground">{t.phone}:</span> {supplier.phone || '-'}</p>
               <p><span className="text-muted-foreground">{t.streetNumber}:</span> {supplier.streetNumber || '-'}</p>
-              <p><span className="text-muted-foreground">{t.streetName}:</span> {supplier.streetName || supplier.address || '-'}</p>
+              <p><span className="text-muted-foreground">{t.streetName}:</span> {supplier.streetName || (!supplier.streetNumber && !supplier.postalCode && !supplier.city && !supplier.country ? supplier.address : null) || '-'}</p>
               <p><span className="text-muted-foreground">{t.contactName}:</span> {supplier.contactName || '-'}</p>
               <p><span className="text-muted-foreground">{t.postalCode}:</span> {supplier.postalCode || '-'}</p>
               <p><span className="text-muted-foreground">{t.city}:</span> {supplier.city || '-'}</p>

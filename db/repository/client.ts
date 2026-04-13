@@ -9,6 +9,7 @@ import Quote from '@/db/models/Quote';
 import type { CreateClientDTO, UpdateClientDTO } from '@/validators/client.schema';
 import type { ListQueryOptions, PaginationMeta } from '@/utils/api/query';
 import { buildPagination } from '@/utils/api/query';
+import { formatStructuredAddress } from '@/lib/address';
 
 export type ClientLastQuoteStatus = 'draft' | 'sent' | 'accepted' | 'refused' | 'rejected';
 
@@ -79,25 +80,6 @@ function isValidObjectId(value: string): boolean {
   return mongoose.Types.ObjectId.isValid(value);
 }
 
-function formatAddress(details?: {
-  streetNumber?: string | null;
-  streetName?: string | null;
-  postalCode?: string | null;
-  city?: string | null;
-  country?: string | null;
-} | null): string | null {
-  if (!details) {
-    return null;
-  }
-
-  const streetParts = [details.streetNumber, details.streetName].map((p) => (p ?? '').trim()).filter(Boolean);
-  const line1 = streetParts.join(' ');
-  const line2 = [details.postalCode, details.city].map((part) => (part ?? '').trim()).filter(Boolean).join(' ');
-  const country = (details.country ?? '').trim();
-  const combined = [line1, line2, country].filter(Boolean).join(', ');
-  return combined || null;
-}
-
 function normalizeClientPayload(
   payload: Partial<CreateClientDTO & UpdateClientDTO>,
   mode: 'create' | 'update'
@@ -133,7 +115,7 @@ function normalizeClientPayload(
   if (mode === 'create' || 'addressDetails' in payload || 'address' in payload) {
     const addressDetails = payload.addressDetails ?? null;
     next.addressDetails = addressDetails;
-    next.address = payload.address ?? formatAddress(addressDetails);
+    next.address = payload.address ?? formatStructuredAddress(addressDetails);
   }
 
   if (mode === 'create' || 'responsibleEmail' in payload || 'email' in payload) {

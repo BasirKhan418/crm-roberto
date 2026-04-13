@@ -2,14 +2,10 @@ import { Document, Image, Link, Page, StyleSheet, Text, View } from '@react-pdf/
 
 import { formatInvoiceDisplayNumber } from '@/lib/i18n/messages';
 import { getPaymentMethodLabel, getPaymentTypeLabel } from '@/lib/payments';
+import { formatStructuredAddress, hasStructuredAddress } from '@/lib/address';
+import type { AddressDetails as SharedAddressDetails } from '@/lib/address';
 
-interface InvoiceAddressDetails {
-  streetNumber?: string | null;
-  streetName?: string | null;
-  postalCode?: string | null;
-  city?: string | null;
-  country?: string | null;
-}
+interface InvoiceAddressDetails extends SharedAddressDetails {}
 
 interface InvoiceCompanyData {
   companyName?: string | null;
@@ -618,26 +614,17 @@ function combineAddressLines(lines: { line1: string; line2: string }): string {
  * Line 1: street number + street name
  * Line 2: postal code + city + country
  */
-function formatStructuredAddress(details?: InvoiceAddressDetails | null): string {
-  if (!details) {
-    return '-';
-  }
-
-  const streetParts = [details.streetNumber, details.streetName].map((p) => (p ?? '').trim()).filter(Boolean);
-  const line1 = streetParts.join(' ');
-  const line2Parts = [details.postalCode, details.city, details.country].map((p) => (p ?? '').trim()).filter(Boolean);
-  const line2 = line2Parts.join(' ');
-
-  const combined = [line1, line2].filter(Boolean).join('\n');
-  return combined || '-';
+function formatStructuredAddressPdf(details?: InvoiceAddressDetails | null): string {
+  const result = formatStructuredAddress(details);
+  return result ?? '-';
 }
 
 /**
  * Returns a formatted address string from either structured fields or a legacy single-string address.
  */
 function resolveAddressDisplay(details?: InvoiceAddressDetails | null, legacyAddress?: string | null): string {
-  if (details && (details.streetNumber || details.streetName || details.postalCode || details.city || details.country)) {
-    return formatStructuredAddress(details);
+  if (hasStructuredAddress(details)) {
+    return formatStructuredAddressPdf(details);
   }
   const lines = combineAddressLines(splitAddressLines(legacyAddress));
   return lines;

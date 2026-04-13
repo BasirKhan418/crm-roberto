@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { useLocale } from '@/components/providers/locale-provider';
 import SignatureCanvas from '@/components/sign/SignatureCanvas';
 import { PriceDisplay } from '@/components/ui/PriceDisplay';
+import { formatStructuredAddress as formatAddr } from '@/lib/address';
 
 interface SignQuotePayload {
   state?: 'ready' | 'already_signed' | 'rejected';
@@ -73,12 +74,8 @@ function formatSignPageAddress(
   details?: { streetNumber?: string | null; streetName?: string | null; postalCode?: string | null; city?: string | null; country?: string | null } | null,
   legacyAddress?: string | null
 ): string | null {
-  if (details && (details.streetNumber || details.streetName || details.postalCode || details.city || details.country)) {
-    const streetParts = [details.streetNumber, details.streetName].map((p) => (p ?? '').trim()).filter(Boolean);
-    const line2Parts = [details.postalCode, details.city, details.country].map((p) => (p ?? '').trim()).filter(Boolean);
-    const parts = [...(streetParts.length ? [streetParts.join(' ')] : []), ...(line2Parts.length ? [line2Parts.join(' ')] : [])];
-    return parts.join(', ') || null;
-  }
+  const structured = formatAddr(details);
+  if (structured) return structured;
   return legacyAddress || null;
 }
 
