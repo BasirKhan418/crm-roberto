@@ -83,6 +83,8 @@ const translations = {
     phone: 'Phone',
     email: 'Email',
     address: 'Address',
+    addressLine1: 'Address line 1',
+    addressLine2: 'Address line 2',
     vat: 'VAT',
     rcs: 'RCS',
     businessAuthorization: 'Business auth.',
@@ -129,6 +131,8 @@ const translations = {
     phone: 'T\u00e9l\u00e9phone',
     email: 'E-mail',
     address: 'Adresse',
+    addressLine1: 'Adresse ligne 1',
+    addressLine2: 'Adresse ligne 2',
     vat: 'TVA',
     rcs: 'RCS',
     businessAuthorization: 'Autorisation d\'établissement',
@@ -525,12 +529,37 @@ function notEmpty(value?: string | null): string {
   return value && value.trim() ? value : '-';
 }
 
+function splitAddressLines(address?: string | null): { line1: string; line2: string } {
+  if (!address || !address.trim()) {
+    return { line1: '-', line2: '-' };
+  }
+
+  const parts = address
+    .split(/[\n,]+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (parts.length === 0) {
+    return { line1: '-', line2: '-' };
+  }
+
+  if (parts.length === 1) {
+    return { line1: parts[0], line2: '-' };
+  }
+
+  return {
+    line1: parts[0],
+    line2: parts.slice(1).join(', '),
+  };
+}
+
 export function QuotePdfTemplate({ quote, company, locale = 'en' }: QuotePdfTemplateProps) {
   const t = translations[locale];
   const isSigned = quote.signedStatus === 'signed';
   const signedClientName = isSigned ? notEmpty(quote.clientSnapshot.fullName) : '';
   const signedDate = isSigned && quote.signedAt ? formatDate(quote.signedAt) : '';
   const signatureDataUrl = isSigned ? quote.signatureDataUrl ?? null : null;
+  const issuerAddress = splitAddressLines(company?.address);
 
   return (
     <Document>
@@ -570,8 +599,12 @@ export function QuotePdfTemplate({ quote, company, locale = 'en' }: QuotePdfTemp
                 <Text style={styles.infoValue}>{notEmpty(company?.companyName)}</Text>
               </View>
               <View style={styles.infoRow}>
-                <Text style={styles.infoKey}>{t.address}</Text>
-                <Text style={styles.infoValue}>{notEmpty(company?.address)}</Text>
+                <Text style={styles.infoKey}>{t.addressLine1}</Text>
+                <Text style={styles.infoValue}>{issuerAddress.line1}</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoKey}>{t.addressLine2}</Text>
+                <Text style={styles.infoValue}>{issuerAddress.line2}</Text>
               </View>
               <View style={styles.infoRow}>
                 <Text style={styles.infoKey}>{t.phone}</Text>
@@ -582,32 +615,12 @@ export function QuotePdfTemplate({ quote, company, locale = 'en' }: QuotePdfTemp
                 <Text style={styles.infoValue}>{notEmpty(company?.businessEmail)}</Text>
               </View>
               <View style={styles.infoRow}>
-                <Text style={styles.infoKey}>{t.vat}</Text>
-                <Text style={styles.infoValue}>{notEmpty(company?.vatNumber)}</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoKey}>{t.rcs}</Text>
-                <Text style={styles.infoValue}>{notEmpty(company?.rcsNumber)}</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoKey}>{t.businessAuthorization}</Text>
-                <Text style={styles.infoValue}>{notEmpty(company?.businessAuthorizationNumber)}</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoKey}>{t.matricule}</Text>
-                <Text style={styles.infoValue}>{notEmpty(company?.matriculeNumber)}</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoKey}>{t.iban}</Text>
-                <Text style={styles.infoValue}>{notEmpty(company?.iban)}</Text>
-              </View>
-              <View style={styles.infoRow}>
                 <Text style={styles.infoKey}>{t.bankName}</Text>
                 <Text style={styles.infoValue}>{notEmpty(company?.bankName)}</Text>
               </View>
               <View style={[styles.infoRow, styles.infoRowLast]}>
-                <Text style={styles.infoKey}>{t.legalIdentifier}</Text>
-                <Text style={styles.infoValue}>{notEmpty(company?.legalIdentifier)}</Text>
+                <Text style={styles.infoKey}>{t.iban}</Text>
+                <Text style={styles.infoValue}>{notEmpty(company?.iban)}</Text>
               </View>
             </View>
 
@@ -751,7 +764,7 @@ export function QuotePdfTemplate({ quote, company, locale = 'en' }: QuotePdfTemp
         </View>
 
         <Text style={styles.footer}>
-          {`${t.footerValidity} ${quote.validityDays ?? 30} ${t.footerDays}`}
+          {`${t.footerValidity} ${quote.validityDays ?? 30} ${t.footerDays} | ${t.vat}: ${notEmpty(company?.vatNumber)} | ${t.matricule}: ${notEmpty(company?.matriculeNumber)} | ${t.rcs}: ${notEmpty(company?.rcsNumber)} | ${t.businessAuthorization}: ${notEmpty(company?.businessAuthorizationNumber)}`}
         </Text>
       </Page>
     </Document>

@@ -15,9 +15,16 @@ interface ClientPickerProps {
   onChange: (clientId: string) => void;
   onClientSelected: (client: ClientOption | null) => void;
   compact?: boolean;
+  emailDisplayMode?: 'default' | 'billing-first';
 }
 
-export default function ClientPicker({ value, onChange, onClientSelected, compact = false }: ClientPickerProps) {
+export default function ClientPicker({
+  value,
+  onChange,
+  onClientSelected,
+  compact = false,
+  emailDisplayMode = 'default',
+}: ClientPickerProps) {
   const { locale } = useLocale();
   const t = {
     en: {
@@ -139,6 +146,11 @@ export default function ClientPicker({ value, onChange, onClientSelected, compac
   }
 
   const selectedClient = useMemo(() => clients.find((client) => client._id === value) || null, [clients, value]);
+  const selectedClientEmail = selectedClient
+    ? emailDisplayMode === 'billing-first'
+      ? selectedClient.billingEmail || selectedClient.email
+      : selectedClient.email || selectedClient.billingEmail
+    : null;
   const inputValue = selectedClient ? (isOpen ? search : selectedClient.fullName) : search;
 
   const filtered = useMemo(() => {
@@ -366,7 +378,7 @@ export default function ClientPicker({ value, onChange, onClientSelected, compac
                 </div>
                 <div className="grid grid-cols-[90px_minmax(0,1fr)] gap-2">
                   <p className="text-muted-foreground">{t.email}</p>
-                  <p className="min-w-0 font-medium break-all">{selectedClient.email || t.emptyField}</p>
+                  <p className="min-w-0 font-medium break-all">{selectedClientEmail || t.emptyField}</p>
                 </div>
                 <div className="grid grid-cols-[90px_minmax(0,1fr)] gap-2">
                   <p className="text-muted-foreground">{t.address}</p>
@@ -441,7 +453,7 @@ export default function ClientPicker({ value, onChange, onClientSelected, compac
                   </div>
                   <div className="grid grid-cols-[90px_minmax(0,1fr)] gap-2">
                     <p className="text-muted-foreground">{t.email}</p>
-                    <p className="min-w-0 break-all font-medium">{selectedClient.email || t.emptyField}</p>
+                    <p className="min-w-0 break-all font-medium">{selectedClientEmail || t.emptyField}</p>
                   </div>
                   <div className="grid grid-cols-[90px_minmax(0,1fr)] gap-2">
                     <p className="text-muted-foreground">{t.address}</p>

@@ -82,6 +82,8 @@ const translations = {
     phone: 'Phone',
     email: 'Email',
     address: 'Address',
+    addressLine1: 'Address line 1',
+    addressLine2: 'Address line 2',
     vat: 'VAT',
     rcs: 'RCS',
     businessAuthorization: 'Business auth.',
@@ -135,6 +137,8 @@ const translations = {
     phone: 'T\u00e9l\u00e9phone',
     email: 'E-mail',
     address: 'Adresse',
+    addressLine1: 'Adresse ligne 1',
+    addressLine2: 'Adresse ligne 2',
     vat: 'TVA',
     rcs: 'RCS',
     businessAuthorization: 'Autorisation d\'établissement',
@@ -479,6 +483,17 @@ const styles = StyleSheet.create({
   notesText: {
     lineHeight: 1.4,
   },
+  footer: {
+    marginTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
+    paddingTop: 6,
+  },
+  footerText: {
+    fontSize: 8,
+    color: '#64748b',
+    textAlign: 'center',
+  },
 });
 
 function notEmpty(value?: string | null): string {
@@ -512,6 +527,30 @@ function formatDate(dateValue: string | Date | null | undefined): string {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const year = String(date.getFullYear());
   return `${day}/${month}/${year}`;
+}
+
+function splitAddressLines(address?: string | null): { line1: string; line2: string } {
+  if (!hasContent(address)) {
+    return { line1: '-', line2: '-' };
+  }
+
+  const parts = address
+    .split(/[\n,]+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (parts.length === 0) {
+    return { line1: '-', line2: '-' };
+  }
+
+  if (parts.length === 1) {
+    return { line1: parts[0], line2: '-' };
+  }
+
+  return {
+    line1: parts[0],
+    line2: parts.slice(1).join(', '),
+  };
 }
 
 function formatLongDate(dateValue: string | Date | null | undefined, locale: 'en' | 'fr'): string {
@@ -605,18 +644,15 @@ export function InvoicePdfTemplate({ invoice, company, paymentUrl = null, locale
   const totalPaidAmount = payments.reduce((sum, payment) => sum + Math.max(0, Math.round(payment.amount || 0)), 0);
   const remainingAmount = Math.max(0, invoice.totalIncludingTax - totalPaidAmount);
   const statusPresentation = getStatusPresentation(invoice.status, t);
+  const issuerAddress = splitAddressLines(company?.address);
   const issuerRows = compactInfoRows([
     { label: t.company, value: company?.companyName || company?.ownerName, always: true },
-    { label: t.address, value: company?.address },
-    { label: t.phone, value: company?.phone },
-    { label: t.email, value: company?.businessEmail },
-    { label: t.vat, value: company?.vatNumber },
-    { label: t.rcs, value: company?.rcsNumber },
-    { label: t.businessAuthorization, value: company?.businessAuthorizationNumber },
-    { label: t.matricule, value: company?.matriculeNumber },
-    { label: t.iban, value: company?.iban },
-    { label: t.bankName, value: company?.bankName },
-    { label: t.legalIdentifier, value: company?.legalIdentifier },
+    { label: t.addressLine1, value: issuerAddress.line1, always: true },
+    { label: t.addressLine2, value: issuerAddress.line2, always: true },
+    { label: t.phone, value: company?.phone, always: true },
+    { label: t.email, value: company?.businessEmail, always: true },
+    { label: t.bankName, value: company?.bankName, always: true },
+    { label: t.iban, value: company?.iban, always: true },
   ]);
   const clientRows = compactInfoRows([
     { label: t.name, value: invoice.clientSnapshot.fullName, always: true },
@@ -811,6 +847,12 @@ export function InvoicePdfTemplate({ invoice, company, paymentUrl = null, locale
             </Text>
           </View>
         ) : null}
+
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>
+            {`${t.vat}: ${notEmpty(company?.vatNumber)} | ${t.matricule}: ${notEmpty(company?.matriculeNumber)} | ${t.rcs}: ${notEmpty(company?.rcsNumber)} | ${t.businessAuthorization}: ${notEmpty(company?.businessAuthorizationNumber)}`}
+          </Text>
+        </View>
       </Page>
     </Document>
   );

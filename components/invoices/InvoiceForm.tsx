@@ -290,7 +290,12 @@ export default function InvoiceForm({ defaultClientId, defaultQuoteId, defaultDu
                 {t.client}
                 <span className="text-xs font-normal text-muted-foreground">— {t.step1}</span>
               </h2>
-              <ClientPicker value={clientId} onChange={setClientId} onClientSelected={() => undefined} />
+              <ClientPicker
+                value={clientId}
+                onChange={setClientId}
+                onClientSelected={() => undefined}
+                emailDisplayMode="billing-first"
+              />
               {errors.clientId ? <p className="mt-2 text-xs text-destructive">{errors.clientId}</p> : null}
             </section>
           ) : null}

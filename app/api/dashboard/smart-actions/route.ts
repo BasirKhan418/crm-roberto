@@ -389,7 +389,7 @@ async function sendInvoiceReminder(userId: string, invoiceId: string, locale: Lo
 
   const invoice = await Invoice.findOne({ _id: invoiceId, userId: toObjectId(userId) })
     .select(
-      '_id invoiceNumber quoteNumber date dueDate status lineItems totalExcludingTax totalVat totalIncludingTax depositPercentage notes stripePaymentLinkId stripeDepositLinkId clientSnapshot'
+      '_id invoiceNumber quoteNumber date dueDate status lineItems totalExcludingTax totalVat totalIncludingTax depositPercentage notes stripePaymentLinkId stripeDepositLinkId clientId clientSnapshot'
     )
     .lean();
 
@@ -399,6 +399,7 @@ async function sendInvoiceReminder(userId: string, invoiceId: string, locale: Lo
 
   const invoiceDoc = invoice as {
     _id: mongoose.Types.ObjectId;
+    clientId: mongoose.Types.ObjectId;
     invoiceNumber: string;
     quoteNumber?: string | null;
     date?: Date | null;
@@ -434,7 +435,11 @@ async function sendInvoiceReminder(userId: string, invoiceId: string, locale: Lo
     return { ok: false, status: 400, message: 'Invoice is already paid' };
   }
 
-  const recipient = invoiceDoc.clientSnapshot.email?.trim();
+  const clientDoc = await Client.findOne({ _id: invoiceDoc.clientId, user: toObjectId(userId) })
+    .select('billingEmail')
+    .lean<{ billingEmail?: string | null } | null>();
+
+  const recipient = clientDoc?.billingEmail?.trim() || invoiceDoc.clientSnapshot.email?.trim();
   if (!recipient) {
     return { ok: false, status: 400, message: 'Client email is required for reminder' };
   }

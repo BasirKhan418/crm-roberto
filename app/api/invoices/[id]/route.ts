@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import { NextRequest, NextResponse } from 'next/server';
 
 import ConnectDb from '@/db/connectDb';
+import Client from '@/db/models/Client';
 import Invoice from '@/db/models/Invoice';
 import Payment from '@/db/models/Payment';
 import Quote from '@/db/models/Quote';
@@ -50,11 +51,15 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     }
 
     const normalized = withComputedInvoiceStatus(invoice);
+    const client = await Client.findOne({ _id: normalized.clientId, user: me.user.id })
+      .select('billingEmail')
+      .lean<{ billingEmail?: string | null } | null>();
 
     return NextResponse.json({
       success: true,
       data: {
         ...normalized,
+        clientBillingEmail: client?.billingEmail ?? null,
         _id: String(normalized._id),
         quoteId: normalized.quoteId ? String(normalized.quoteId) : null,
         clientId: String(normalized.clientId),
@@ -124,10 +129,15 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     const normalized = withComputedInvoiceStatus(updated);
+    const client = await Client.findOne({ _id: normalized.clientId, user: me.user.id })
+      .select('billingEmail')
+      .lean<{ billingEmail?: string | null } | null>();
+
     return NextResponse.json({
       success: true,
       data: {
         ...normalized,
+        clientBillingEmail: client?.billingEmail ?? null,
         _id: String(normalized._id),
         quoteId: normalized.quoteId ? String(normalized.quoteId) : null,
         clientId: String(normalized.clientId),

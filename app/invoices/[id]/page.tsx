@@ -45,6 +45,7 @@ interface CompanyProfile {
 
 interface InvoiceDetail {
   _id: string;
+  clientBillingEmail?: string | null;
   invoiceNumber: string;
   quoteId?: string | null;
   quoteNumber?: string | null;
@@ -884,7 +885,7 @@ export default function InvoiceDetailPage() {
           onOpenChange={setSendOpen}
           invoiceId={invoice._id}
           invoiceNumber={invoice.invoiceNumber}
-          clientEmail={invoice.clientSnapshot.email}
+          clientEmail={invoice.clientBillingEmail ?? invoice.clientSnapshot.email}
           clientName={invoice.clientSnapshot.fullName}
           companyName={company?.companyName ?? company?.ownerName ?? null}
           locale={locale as 'en' | 'fr'}

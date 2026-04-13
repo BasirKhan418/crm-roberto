@@ -386,6 +386,12 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ message: 'This quote has already been converted to an invoice' }, { status: 409 });
       }
 
+      const sourceClient = await Client.findOne({ _id: quote.clientId, user: userId })
+        .select('billingEmail email')
+        .lean<{ billingEmail?: string | null; email?: string | null } | null>();
+
+      const preferredInvoiceEmail = sourceClient?.billingEmail ?? sourceClient?.email ?? quote.clientSnapshot.email ?? null;
+
       const currentYear = new Date().getFullYear();
       const invoice = await createInvoiceWithUniqueNumber(userId, currentYear, (invoiceNumber) => ({
             userId,
@@ -396,7 +402,10 @@ export async function POST(request: NextRequest) {
             dueDate: parsed.data.dueDate ?? null,
             status: 'unpaid',
             clientId: quote.clientId,
-            clientSnapshot: quote.clientSnapshot,
+            clientSnapshot: {
+              ...quote.clientSnapshot,
+              email: preferredInvoiceEmail,
+            },
             lineItems: quote.lineItems,
             totalExcludingTax: quote.totalExcludingTax,
             totalVat: quote.totalVat,
@@ -445,11 +454,12 @@ export async function POST(request: NextRequest) {
     }
 
     const client = await Client.findOne({ _id: parsed.data.clientId, user: userId })
-      .select('fullName email phone address companyName vatNumber')
+      .select('fullName email billingEmail phone address companyName vatNumber')
       .lean<{
         _id: mongoose.Types.ObjectId;
         fullName: string;
         email?: string | null;
+        billingEmail?: string | null;
         phone?: string | null;
         address?: string | null;
         companyName?: string | null;
@@ -497,7 +507,7 @@ export async function POST(request: NextRequest) {
           clientId: client._id,
           clientSnapshot: {
             fullName: client.fullName,
-            email: client.email ?? null,
+            email: client.billingEmail ?? client.email ?? null,
             phone: client.phone ?? null,
             address: client.address ?? null,
             companyName: client.companyName ?? null,

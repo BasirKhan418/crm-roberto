@@ -4,6 +4,7 @@ import ConnectDb from "@/db/connectDb";
 import CompanyProfile from "@/db/models/CompanyProfile";
 import Quote from "@/db/models/Quote";
 import QuoteSignature from "@/db/models/QuoteSignature";
+import { createActivityLog } from '@/db/repository/activity';
 import User from "@/db/models/User";
 import { sendQuoteRejectionNotification } from "@/lib/email";
 import { buildQuoteConversation } from '@/lib/quote-conversation';
@@ -282,6 +283,22 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     changedAt: signedAt,
   });
   await quote.save();
+
+  try {
+    await createActivityLog(String(quote.user), {
+      action: 'quote_status_changed',
+      entityType: 'quote',
+      entityName: quote.quoteNumber,
+      entityId: String(quote._id),
+      metadata: {
+        from: previousStatus,
+        to: 'accepted',
+        source: 'client_signature',
+      },
+    });
+  } catch {
+    // Notification failure must not block the signature confirmation flow.
+  }
 
   return NextResponse.json({ message: "Quote signed successfully", signedAt: signedAt.toISOString() });
 }

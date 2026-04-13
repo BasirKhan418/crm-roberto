@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import React from 'react';
 
 import ConnectDb from '@/db/connectDb';
+import Client from '@/db/models/Client';
 import Invoice from '@/db/models/Invoice';
 import Payment from '@/db/models/Payment';
 import StripeConnect from '@/db/models/StripeConnect';
@@ -61,7 +62,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     const invoice = await Invoice.findOne({ _id: id, userId: me.user.id })
       .select(
-        '_id userId invoiceNumber quoteNumber date dueDate status lineItems totalExcludingTax totalVat totalIncludingTax depositPercentage notes paymentToken paymentTokenExpiry clientSnapshot'
+        '_id userId clientId invoiceNumber quoteNumber date dueDate status lineItems totalExcludingTax totalVat totalIncludingTax depositPercentage notes paymentToken paymentTokenExpiry clientSnapshot'
       )
       .lean();
 
@@ -73,10 +74,24 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, message: 'Cannot send a paid invoice' }, { status: 403 });
     }
 
-    const recipientEmail =
-      typeof email === 'string' && email.trim()
-        ? email.trim()
-        : invoice.clientSnapshot?.email?.trim() ?? '';
+    const clientDoc = await Client.findOne({ _id: invoice.clientId, user: me.user.id })
+      .select('billingEmail')
+      .lean<{ billingEmail?: string | null } | null>();
+
+    const billingEmail = clientDoc?.billingEmail?.trim() ?? '';
+    const snapshotEmail = invoice.clientSnapshot?.email?.trim() ?? '';
+    const providedEmail = typeof email === 'string' && email.trim() ? email.trim() : '';
+
+    let recipientEmail = billingEmail || snapshotEmail;
+
+    if (providedEmail) {
+      const providedLower = providedEmail.toLowerCase();
+      const snapshotLower = snapshotEmail.toLowerCase();
+      const billingLower = billingEmail.toLowerCase();
+
+      const isLegacyDefaultSnapshot = Boolean(billingEmail) && providedLower === snapshotLower && providedLower !== billingLower;
+      recipientEmail = isLegacyDefaultSnapshot ? billingEmail : providedEmail;
+    }
 
     if (!recipientEmail) {
       return NextResponse.json({ success: false, message: 'Client email is required' }, { status: 400 });
