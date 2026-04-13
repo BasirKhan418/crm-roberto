@@ -653,10 +653,10 @@ export function QuotePdfTemplate({ quote, company, locale = 'en' }: QuotePdfTemp
   const signedClientName = isSigned ? notEmpty(quote.clientSnapshot.fullName) : '';
   const signedDate = isSigned && quote.signedAt ? formatDate(quote.signedAt) : '';
   const signatureDataUrl = isSigned ? quote.signatureDataUrl ?? null : null;
-  const issuerAddress = resolveAddressDisplay(
-    company ? { streetNumber: company.streetNumber, streetName: company.streetName, postalCode: company.postalCode, city: company.city, country: company.country } : null,
-    company?.address
-  );
+  const issuerAddressDetails = company
+    ? { streetNumber: company.streetNumber, streetName: company.streetName, postalCode: company.postalCode, city: company.city, country: company.country }
+    : null;
+  const issuerAddress = resolveAddressDisplay(issuerAddressDetails, company?.address);
   const clientAddress = resolveAddressDisplay(
     quote.clientSnapshot.addressDetails,
     quote.clientSnapshot.address

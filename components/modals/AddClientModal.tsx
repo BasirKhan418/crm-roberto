@@ -539,12 +539,10 @@ export default function AddClientModal({
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-1.5"><FieldLabel text={t.streetNumber} /><Input value={form.streetNumber} onChange={(e) => setForm((p) => ({ ...p, streetNumber: e.target.value }))} /></div>
               <div className="space-y-1.5"><FieldLabel text={t.streetName} /><Input value={form.streetName} onChange={(e) => setForm((p) => ({ ...p, streetName: e.target.value }))} /></div>
-            </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-1.5"><FieldLabel text={t.postalCode} /><Input value={form.postalCode} onChange={(e) => setForm((p) => ({ ...p, postalCode: e.target.value }))} /></div>
               <div className="space-y-1.5"><FieldLabel text={t.city} /><Input value={form.city} onChange={(e) => setForm((p) => ({ ...p, city: e.target.value }))} /></div>
+              <div className="space-y-1.5 sm:col-span-2"><FieldLabel text={t.country} /><Input value={form.country} onChange={(e) => setForm((p) => ({ ...p, country: e.target.value }))} /></div>
             </div>
-            <div className="space-y-1.5"><FieldLabel text={t.country} /><Input value={form.country} onChange={(e) => setForm((p) => ({ ...p, country: e.target.value }))} /></div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-1.5"><FieldLabel text={t.bankName} /><Input value={form.bankName} onChange={(e) => setForm((p) => ({ ...p, bankName: e.target.value }))} /></div>
               <div className="space-y-1.5"><FieldLabel text={t.iban} /><Input value={form.iban} onChange={(e) => setForm((p) => ({ ...p, iban: e.target.value }))} /></div>

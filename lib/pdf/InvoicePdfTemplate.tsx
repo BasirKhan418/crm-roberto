@@ -721,10 +721,10 @@ export function InvoicePdfTemplate({ invoice, company, paymentUrl = null, locale
   const totalPaidAmount = payments.reduce((sum, payment) => sum + Math.max(0, Math.round(payment.amount || 0)), 0);
   const remainingAmount = Math.max(0, invoice.totalIncludingTax - totalPaidAmount);
   const statusPresentation = getStatusPresentation(invoice.status, t);
-  const issuerAddress = resolveAddressDisplay(
-    company ? { streetNumber: company.streetNumber, streetName: company.streetName, postalCode: company.postalCode, city: company.city, country: company.country } : null,
-    company?.address
-  );
+  const issuerAddressDetails = company
+    ? { streetNumber: company.streetNumber, streetName: company.streetName, postalCode: company.postalCode, city: company.city, country: company.country }
+    : null;
+  const issuerAddress = resolveAddressDisplay(issuerAddressDetails, company?.address);
   const clientAddress = resolveAddressDisplay(
     invoice.clientSnapshot.addressDetails,
     invoice.clientSnapshot.address

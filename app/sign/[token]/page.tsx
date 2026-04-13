@@ -477,6 +477,15 @@ export default function SignPage() {
   }, [token]);
 
   const companyName = quote?.company?.companyName || t.ourCompany;
+  const companyAddressDisplay = formatSignPageAddress(
+    quote?.company
+      ? { streetNumber: quote.company.streetNumber, streetName: quote.company.streetName, postalCode: quote.company.postalCode, city: quote.company.city, country: quote.company.country }
+      : null,
+    quote?.company?.address
+  );
+  const clientAddressDisplay = quote
+    ? formatSignPageAddress(quote.clientSnapshot?.addressDetails, quote.clientSnapshot?.address)
+    : null;
   const locale = appLocale === 'fr' ? 'fr-FR' : 'en-GB';
 
   const formattedDate = useMemo(() => {
@@ -1313,10 +1322,7 @@ export default function SignPage() {
                 >
                   <div className="space-y-1">
                     <DetailRow label={t.company} value={companyName} />
-                    {(() => {
-                      const addr = formatSignPageAddress({ streetNumber: quote.company?.streetNumber, streetName: quote.company?.streetName, postalCode: quote.company?.postalCode, city: quote.company?.city, country: quote.company?.country }, quote.company?.address);
-                      return addr ? <DetailRow label={t.address} value={addr} /> : null;
-                    })()}
+                    {companyAddressDisplay ? <DetailRow label={t.address} value={companyAddressDisplay} /> : null}
                     {quote.company?.phone ? <DetailRow label={t.phone} value={quote.company.phone} /> : null}
                     {quote.company?.email ? <DetailRow label={t.email} value={quote.company.email} /> : null}
                     {quote.company?.vatNumber ? <DetailRow label={t.vat} value={quote.company.vatNumber} /> : null}
@@ -1333,10 +1339,7 @@ export default function SignPage() {
                     {quote.clientSnapshot.companyName ? <DetailRow label={t.company} value={quote.clientSnapshot.companyName} /> : null}
                     {quote.clientSnapshot.phone ? <DetailRow label={t.phone} value={quote.clientSnapshot.phone} /> : null}
                     {quote.clientSnapshot.email ? <DetailRow label={t.email} value={quote.clientSnapshot.email} /> : null}
-                    {(() => {
-                      const addr = formatSignPageAddress(quote.clientSnapshot.addressDetails, quote.clientSnapshot.address);
-                      return addr ? <DetailRow label={t.address} value={addr} /> : null;
-                    })()}
+                    {clientAddressDisplay ? <DetailRow label={t.address} value={clientAddressDisplay} /> : null}
                   </div>
                 </DisclosureSection>
               </div>

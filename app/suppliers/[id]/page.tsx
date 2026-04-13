@@ -477,7 +477,11 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
               <p><span className="text-muted-foreground">{t.email}:</span> {supplier.email || '-'}</p>
               <p><span className="text-muted-foreground">{t.phone}:</span> {supplier.phone || '-'}</p>
               <p><span className="text-muted-foreground">{t.streetNumber}:</span> {supplier.streetNumber || '-'}</p>
-              <p><span className="text-muted-foreground">{t.streetName}:</span> {supplier.streetName || (!hasStructuredAddress({ streetNumber: supplier.streetNumber, streetName: supplier.streetName, postalCode: supplier.postalCode, city: supplier.city, country: supplier.country }) ? supplier.address : null) || '-'}</p>
+              {(() => {
+                const structured = hasStructuredAddress({ streetNumber: supplier.streetNumber, streetName: supplier.streetName, postalCode: supplier.postalCode, city: supplier.city, country: supplier.country });
+                const displayStreetName = supplier.streetName || (!structured ? supplier.address : null) || '-';
+                return <p><span className="text-muted-foreground">{t.streetName}:</span> {displayStreetName}</p>;
+              })()}
               <p><span className="text-muted-foreground">{t.contactName}:</span> {supplier.contactName || '-'}</p>
               <p><span className="text-muted-foreground">{t.postalCode}:</span> {supplier.postalCode || '-'}</p>
               <p><span className="text-muted-foreground">{t.city}:</span> {supplier.city || '-'}</p>
