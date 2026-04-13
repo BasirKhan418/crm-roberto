@@ -629,8 +629,9 @@ function formatStructuredAddressPdf(details?: InvoiceAddressDetails | null): str
   const addressDetails = details!;
   const streetParts = [addressDetails.streetNumber, addressDetails.streetName].map((p) => (p ?? '').trim()).filter(Boolean);
   const line1 = streetParts.join(' ');
-  const line2Parts = [addressDetails.postalCode, addressDetails.city, addressDetails.country].map((p) => (p ?? '').trim()).filter(Boolean);
-  const line2 = line2Parts.join(' ');
+  const cityPostal = [addressDetails.postalCode, addressDetails.city].map((p) => (p ?? '').trim()).filter(Boolean).join(' ');
+  const country = (addressDetails.country ?? '').trim();
+  const line2 = cityPostal && country ? `${cityPostal}, ${country}` : (cityPostal || country);
   const combined = [line1, line2].filter(Boolean).join('\n');
   return combined || '-';
 }
