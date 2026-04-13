@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import CrmShell from '@/components/crm-shell';
 import { useLocale } from '@/components/providers/locale-provider';
 import { resolveTranslatedError } from '@/lib/i18n/messages';
-import { hasStructuredAddress } from '@/lib/address';
+import { getStructuredAddressLines } from '@/lib/address';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -476,16 +476,18 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
             <CardContent className="space-y-2 pt-4 text-sm">
               <p><span className="text-muted-foreground">{t.email}:</span> {supplier.email || '-'}</p>
               <p><span className="text-muted-foreground">{t.phone}:</span> {supplier.phone || '-'}</p>
-              <p><span className="text-muted-foreground">{t.streetNumber}:</span> {supplier.streetNumber || '-'}</p>
               {(() => {
-                const structured = hasStructuredAddress({ streetNumber: supplier.streetNumber, streetName: supplier.streetName, postalCode: supplier.postalCode, city: supplier.city, country: supplier.country });
-                const displayStreetName = supplier.streetName || (!structured ? supplier.address : null) || '-';
-                return <p><span className="text-muted-foreground">{t.streetName}:</span> {displayStreetName}</p>;
+                const lines = getStructuredAddressLines({ streetNumber: supplier.streetNumber, streetName: supplier.streetName, postalCode: supplier.postalCode, city: supplier.city, country: supplier.country });
+                if (lines) return (
+                  <p>
+                    <span className="text-muted-foreground">{t.address}:</span>{' '}
+                    {lines.line1 && <span className="block pl-1">{lines.line1}</span>}
+                    {lines.line2 && <span className="block pl-1">{lines.line2}</span>}
+                  </p>
+                );
+                return supplier.address ? <p><span className="text-muted-foreground">{t.address}:</span> {supplier.address}</p> : null;
               })()}
               <p><span className="text-muted-foreground">{t.contactName}:</span> {supplier.contactName || '-'}</p>
-              <p><span className="text-muted-foreground">{t.postalCode}:</span> {supplier.postalCode || '-'}</p>
-              <p><span className="text-muted-foreground">{t.city}:</span> {supplier.city || '-'}</p>
-              <p><span className="text-muted-foreground">{t.country}:</span> {supplier.country || '-'}</p>
               <p><span className="text-muted-foreground">{t.category}:</span> {
                 supplier.category === 'materials'
                   ? t.materials

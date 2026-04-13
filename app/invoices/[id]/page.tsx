@@ -30,6 +30,7 @@ import { PriceDisplay } from '@/components/ui/PriceDisplay';
 import { Button } from '@/components/ui/button';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import { Skeleton } from '@/components/ui/skeleton';
+import { getStructuredAddressLines } from '@/lib/address';
 
 type Locale = 'en' | 'fr';
 
@@ -37,6 +38,11 @@ interface CompanyProfile {
   companyName?: string;
   ownerName?: string;
   address?: string;
+  streetNumber?: string | null;
+  streetName?: string | null;
+  postalCode?: string | null;
+  city?: string | null;
+  country?: string | null;
   phone?: string;
   businessEmail?: string;
   vatNumber?: string;
@@ -64,6 +70,13 @@ interface InvoiceDetail {
     fullName: string;
     companyName?: string | null;
     address?: string | null;
+    addressDetails?: {
+      streetNumber?: string | null;
+      streetName?: string | null;
+      postalCode?: string | null;
+      city?: string | null;
+      country?: string | null;
+    } | null;
     email?: string | null;
     phone?: string | null;
     vatNumber?: string | null;
@@ -616,7 +629,7 @@ export default function InvoiceDetailPage() {
                   <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{t.owner}</dt><dd className="text-right font-medium">{company?.ownerName || t.noData}</dd></div>
                   <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{t.phone}</dt><dd className="text-right font-medium">{company?.phone || t.noData}</dd></div>
                   <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{t.email}</dt><dd className="text-right font-medium">{company?.businessEmail || t.noData}</dd></div>
-                  <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{t.address}</dt><dd className="text-right font-medium">{company?.address || t.noData}</dd></div>
+                  <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{t.address}</dt><dd className="text-right font-medium">{(() => { const lines = getStructuredAddressLines({ streetNumber: company?.streetNumber, streetName: company?.streetName, postalCode: company?.postalCode, city: company?.city, country: company?.country }); if (lines) return <>{lines.line1 && <p>{lines.line1}</p>}{lines.line2 && <p>{lines.line2}</p>}</>; return company?.address || t.noData; })()}</dd></div>
                   <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{t.vat}</dt><dd className="text-right font-medium">{company?.vatNumber || t.noData}</dd></div>
                 </dl>
               </section>
@@ -628,7 +641,7 @@ export default function InvoiceDetailPage() {
                   <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Company</dt><dd className="text-right font-medium">{invoice.clientSnapshot.companyName || t.noData}</dd></div>
                   <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{t.phone}</dt><dd className="text-right font-medium">{invoice.clientSnapshot.phone || t.noData}</dd></div>
                   <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{t.email}</dt><dd className="text-right font-medium">{invoice.clientSnapshot.email || t.noData}</dd></div>
-                  <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{t.address}</dt><dd className="text-right font-medium">{invoice.clientSnapshot.address || t.noData}</dd></div>
+                  <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{t.address}</dt><dd className="text-right font-medium">{(() => { const lines = getStructuredAddressLines(invoice.clientSnapshot.addressDetails); if (lines) return <>{lines.line1 && <p>{lines.line1}</p>}{lines.line2 && <p>{lines.line2}</p>}</>; return invoice.clientSnapshot.address || t.noData; })()}</dd></div>
                   <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{t.vat}</dt><dd className="text-right font-medium">{invoice.clientSnapshot.vatNumber || t.noData}</dd></div>
                 </dl>
               </section>

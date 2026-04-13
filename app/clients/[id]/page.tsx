@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 
 import {
@@ -56,7 +56,7 @@ import { Label } from '@/components/ui/label';
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { hasStructuredAddress } from '@/lib/address';
+import { getStructuredAddressLines } from '@/lib/address';
 
 
 interface ClientRecord {
@@ -880,14 +880,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                         <InfoRow label={t.mobilePhone} value={client.mobilePhone} />
                       </>
                     )}
-                    <InfoRow label={t.streetNumber} value={client.addressDetails?.streetNumber} />
-                    <InfoRow label={t.streetName} value={client.addressDetails?.streetName} />
-                    <InfoRow label={t.postalCode} value={client.addressDetails?.postalCode} />
-                    <InfoRow label={t.city} value={client.addressDetails?.city} />
-                    <InfoRow label={t.country} value={client.addressDetails?.country} />
-                    {!hasStructuredAddress(client.addressDetails) && client.address
-                      ? <InfoRow label={t.address} value={client.address} />
-                      : null}
+                    <InfoRow label={t.address} value={(() => { const lines = getStructuredAddressLines(client.addressDetails); if (lines) return <>{lines.line1 && <p>{lines.line1}</p>}{lines.line2 && <p>{lines.line2}</p>}</>; return client.address || null; })()} />
                   </CardContent>
                 </Card>
 
@@ -1324,7 +1317,7 @@ function TabTriggerStyled({ value, children, badge }: { value: string; children:
   );
 }
 
-function InfoRow({ label, value }: { label: string; value?: string | null }) {
+function InfoRow({ label, value }: { label: string; value?: string | null | ReactNode }) {
   return (
     <div className="flex items-start gap-3 border-b border-border/30 py-1.5 last:border-0">
       <span className="w-24 shrink-0 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/60">{label}</span>

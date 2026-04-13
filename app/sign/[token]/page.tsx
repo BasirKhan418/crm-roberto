@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import { useLocale } from '@/components/providers/locale-provider';
 import SignatureCanvas from '@/components/sign/SignatureCanvas';
 import { PriceDisplay } from '@/components/ui/PriceDisplay';
-import { formatStructuredAddress as formatAddr } from '@/lib/address';
+import { getStructuredAddressLines } from '@/lib/address';
 
 interface SignQuotePayload {
   state?: 'ready' | 'already_signed' | 'rejected';
@@ -69,15 +69,6 @@ interface SignQuotePayload {
 type SignQuoteApiPayload = Partial<SignQuotePayload> & { error?: string; companyName?: string };
 
 type SignError = 'not_found' | 'expired' | 'already_signed' | 'link_no_longer_valid' | 'unknown';
-
-function formatSignPageAddress(
-  details?: { streetNumber?: string | null; streetName?: string | null; postalCode?: string | null; city?: string | null; country?: string | null } | null,
-  legacyAddress?: string | null
-): string | null {
-  const structured = formatAddr(details);
-  if (structured) return structured;
-  return legacyAddress || null;
-}
 
 function DisclosureSection({
   title,
@@ -477,14 +468,13 @@ export default function SignPage() {
   }, [token]);
 
   const companyName = quote?.company?.companyName || t.ourCompany;
-  const companyAddressDisplay = formatSignPageAddress(
+  const companyAddressLines = getStructuredAddressLines(
     quote?.company
       ? { streetNumber: quote.company.streetNumber, streetName: quote.company.streetName, postalCode: quote.company.postalCode, city: quote.company.city, country: quote.company.country }
-      : null,
-    quote?.company?.address
-  );
-  const clientAddressDisplay = quote
-    ? formatSignPageAddress(quote.clientSnapshot?.addressDetails, quote.clientSnapshot?.address)
+      : null
+  ) ?? (quote?.company?.address ? { line1: quote.company.address, line2: '' } : null);
+  const clientAddressLines = quote
+    ? (getStructuredAddressLines(quote.clientSnapshot?.addressDetails) ?? (quote.clientSnapshot?.address ? { line1: quote.clientSnapshot.address, line2: '' } : null))
     : null;
   const locale = appLocale === 'fr' ? 'fr-FR' : 'en-GB';
 
@@ -1322,7 +1312,7 @@ export default function SignPage() {
                 >
                   <div className="space-y-1">
                     <DetailRow label={t.company} value={companyName} />
-                    {companyAddressDisplay ? <DetailRow label={t.address} value={companyAddressDisplay} /> : null}
+                    {companyAddressLines ? <DetailRow label={t.address} value={<>{companyAddressLines.line1 && <span className="block">{companyAddressLines.line1}</span>}{companyAddressLines.line2 && <span className="block">{companyAddressLines.line2}</span>}</>} /> : null}
                     {quote.company?.phone ? <DetailRow label={t.phone} value={quote.company.phone} /> : null}
                     {quote.company?.email ? <DetailRow label={t.email} value={quote.company.email} /> : null}
                     {quote.company?.vatNumber ? <DetailRow label={t.vat} value={quote.company.vatNumber} /> : null}
@@ -1339,7 +1329,7 @@ export default function SignPage() {
                     {quote.clientSnapshot.companyName ? <DetailRow label={t.company} value={quote.clientSnapshot.companyName} /> : null}
                     {quote.clientSnapshot.phone ? <DetailRow label={t.phone} value={quote.clientSnapshot.phone} /> : null}
                     {quote.clientSnapshot.email ? <DetailRow label={t.email} value={quote.clientSnapshot.email} /> : null}
-                    {clientAddressDisplay ? <DetailRow label={t.address} value={clientAddressDisplay} /> : null}
+                    {clientAddressLines ? <DetailRow label={t.address} value={<>{clientAddressLines.line1 && <span className="block">{clientAddressLines.line1}</span>}{clientAddressLines.line2 && <span className="block">{clientAddressLines.line2}</span>}</>} /> : null}
                   </div>
                 </DisclosureSection>
               </div>

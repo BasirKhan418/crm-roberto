@@ -14,6 +14,7 @@ import QuoteHistoryBar from '@/components/quotes/QuoteHistoryBar';
 import SendQuoteModal from '@/components/quotes/SendQuoteModal';
 import StatusChanger from '@/components/quotes/StatusChanger';
 import { formatInvoiceDisplayNumber, getQuoteStatusLabel, resolveTranslatedError, translate } from '@/lib/i18n/messages';
+import { getStructuredAddressLines } from '@/lib/address';
 import { computeQuoteLine } from '@/lib/quote-calculations';
 import { PriceDisplay } from '@/components/ui/PriceDisplay';
 import { StatusBadge, type QuoteStatus } from '@/components/ui/StatusBadge';
@@ -46,6 +47,13 @@ interface QuoteDetail {
     fullName: string;
     companyName?: string | null;
     address?: string | null;
+    addressDetails?: {
+      streetNumber?: string | null;
+      streetName?: string | null;
+      postalCode?: string | null;
+      city?: string | null;
+      country?: string | null;
+    } | null;
     email?: string | null;
     phone?: string | null;
     vatNumber?: string | null;
@@ -95,6 +103,11 @@ interface CompanyProfile {
   companyName?: string;
   ownerName?: string;
   address?: string;
+  streetNumber?: string | null;
+  streetName?: string | null;
+  postalCode?: string | null;
+  city?: string | null;
+  country?: string | null;
   phone?: string;
   businessEmail?: string;
   vatNumber?: string;
@@ -837,7 +850,7 @@ export default function QuoteDetailPage() {
                   <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{t.owner}</dt><dd className="text-right font-medium">{company?.ownerName || t.noData}</dd></div>
                   <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{t.phone}</dt><dd className="text-right font-medium">{company?.phone || t.noData}</dd></div>
                   <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{t.email}</dt><dd className="text-right font-medium">{company?.businessEmail || t.noData}</dd></div>
-                  <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{t.address}</dt><dd className="text-right font-medium">{company?.address || t.noData}</dd></div>
+                  <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{t.address}</dt><dd className="text-right font-medium">{(() => { const lines = getStructuredAddressLines({ streetNumber: company?.streetNumber, streetName: company?.streetName, postalCode: company?.postalCode, city: company?.city, country: company?.country }); if (lines) return <>{lines.line1 && <p>{lines.line1}</p>}{lines.line2 && <p>{lines.line2}</p>}</>; return company?.address || t.noData; })()}</dd></div>
                   <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{t.vat}</dt><dd className="text-right font-medium">{company?.vatNumber || t.noData}</dd></div>
                 </dl>
               </section>
@@ -849,7 +862,7 @@ export default function QuoteDetailPage() {
                   <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{translate(locale, 'common.company')}</dt><dd className="text-right font-medium">{quote.clientSnapshot.companyName || t.noData}</dd></div>
                   <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{t.phone}</dt><dd className="text-right font-medium">{quote.clientSnapshot.phone || t.noData}</dd></div>
                   <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{t.email}</dt><dd className="text-right font-medium">{quote.clientSnapshot.email || t.noData}</dd></div>
-                  <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{t.address}</dt><dd className="text-right font-medium">{quote.clientSnapshot.address || t.noData}</dd></div>
+                  <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{t.address}</dt><dd className="text-right font-medium">{(() => { const lines = getStructuredAddressLines(quote.clientSnapshot.addressDetails); if (lines) return <>{lines.line1 && <p>{lines.line1}</p>}{lines.line2 && <p>{lines.line2}</p>}</>; return quote.clientSnapshot.address || t.noData; })()}</dd></div>
                   <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{t.vat}</dt><dd className="text-right font-medium">{quote.clientSnapshot.vatNumber || t.noData}</dd></div>
                 </dl>
               </section>
