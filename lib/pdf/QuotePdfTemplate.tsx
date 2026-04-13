@@ -552,15 +552,38 @@ function compactValueRows(fields: Array<{ value?: string | null; always?: boolea
     .map((field) => (field.always ? notEmpty(field.value) : field.value!.trim()));
 }
 
+/**
+ * Splits an address into exactly two display lines:
+ *   line1 = street number + street name  (e.g. "15 Rue de l'Industrie")
+ *   line2 = postal code + city [+ country]  (e.g. "L-8069 Bertrange Luxembourg")
+ *
+ * The address stored in DB is expected to use newlines (\n) as the primary
+ * separator between logical lines.  A comma is treated as an in-line separator
+ * only when there is no newline present at all (legacy single-line format).
+ *
+ * Rules:
+ *  - Split on \n first; if that yields only one part, fall back to splitting on commas.
+ *  - First part  → line1  (street number + name, already on the same token)
+ *  - Remaining parts joined with a space → line2  (postal code + city + country)
+ */
 function splitAddressLines(address?: string | null): { line1: string; line2: string } {
-  if (!address || !address.trim()) {
+  if (!hasContent(address)) {
     return { line1: '-', line2: '-' };
   }
 
-  const parts = address
-    .split(/[\n,]+/)
-    .map((part) => part.trim())
+  // Primary split: newline characters
+  let parts = address!
+    .split('\n')
+    .map((p) => p.trim())
     .filter(Boolean);
+
+  // Fallback: comma split only when there are no newlines at all
+  if (parts.length <= 1) {
+    parts = address!
+      .split(',')
+      .map((p) => p.trim())
+      .filter(Boolean);
+  }
 
   if (parts.length === 0) {
     return { line1: '-', line2: '-' };
@@ -570,9 +593,11 @@ function splitAddressLines(address?: string | null): { line1: string; line2: str
     return { line1: parts[0], line2: '-' };
   }
 
+  // line1 = first part (street number + name already together)
+  // line2 = all remaining parts joined with a space (postal code + city + country)
   return {
     line1: parts[0],
-    line2: parts.slice(1).join(', '),
+    line2: parts.slice(1).join(' '),
   };
 }
 
