@@ -1,0 +1,444 @@
+"use client"
+
+import { useEffect, useRef, useState } from "react"
+import Link from "next/link"
+import { useRouter, useSearchParams } from "next/navigation"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import * as z from "zod"
+import { 
+  Loader2,
+  CheckCircle2,
+  Eye,
+  EyeOff
+} from "lucide-react"
+
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { useLocale } from "@/components/providers/locale-provider"
+import { createI18nKey as i18nKey, resolveTranslatedText, translate } from "@/lib/i18n/messages"
+import { cn } from "@/lib/utils"
+import {toast} from "sonner"
+const emailSchema = z.object({
+  email: z.string().email(i18nKey('validation.enterValidBusinessEmail')),
+})
+
+const otpSchema = z.object({
+  otp: z.string().length(6, i18nKey('validation.otpExact6')),
+})
+
+const resetPasswordSchema = z.object({
+  password: z.string().min(8, i18nKey('validation.passwordMin8')),
+  confirmPassword: z.string().min(1, i18nKey('validation.confirmPasswordPrompt')),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: i18nKey('validation.passwordsDoNotMatch'),
+  path: ["confirmPassword"],
+})
+
+type Step = "email" | "otp" | "reset" | "completed"
+
+const forgotMessages = {
+  en: {
+    emailTitle: "Reset Password",
+    otpTitle: "Verify OTP",
+    resetTitle: "New Password",
+    completedTitle: "Success!",
+    emailSubtitle: "Enter your email to receive a reset code.",
+    resetSubtitle: "Set a strong password for your account.",
+    completedSubtitle: "Your password has been reset successfully.",
+    emailLabel: "Email Address",
+    sendCode: "Send Code",
+    otpLabel: "6-Digit Verification Code",
+    verifyCode: "Verify Code",
+    backToEmail: "Back to email",
+    newPassword: "New Password",
+    confirmPassword: "Confirm Password",
+    resetButton: "Reset Password",
+    goToLogin: "Go to Login",
+    rememberPrompt: "Remember your password?",
+    loginCta: "Login",
+    otpSentTo: "We've sent a 6-digit code to",
+    toastEmailSent: "Reset email sent successfully! Please check your inbox for the OTP.",
+    toastOtpVerified: "OTP verified successfully! Please set your new password.",
+    toastPasswordReset: "Your password has been reset successfully! You can now log in.",
+    toastRequestError: "An error occurred while processing your request.",
+  },
+  fr: {
+    emailTitle: "R\u00e9initialiser le mot de passe",
+    otpTitle: "V\u00e9rifier le code",
+    resetTitle: "Nouveau mot de passe",
+    completedTitle: "Succ\u00e8s\u00a0!",
+    emailSubtitle: "Entrez votre e-mail pour recevoir un code de r\u00e9initialisation.",
+    resetSubtitle: "D\u00e9finissez un mot de passe s\u00e9curis\u00e9 pour votre compte.",
+    completedSubtitle: "Votre mot de passe a \u00e9t\u00e9 r\u00e9initialis\u00e9 avec succ\u00e8s.",
+    emailLabel: "Adresse e-mail",
+    sendCode: "Envoyer le code",
+    otpLabel: "Code de v\u00e9rification \u00e0 6 chiffres",
+    verifyCode: "V\u00e9rifier le code",
+    backToEmail: "Retour \u00e0 l'e-mail",
+    newPassword: "Nouveau mot de passe",
+    confirmPassword: "Confirmer le mot de passe",
+    resetButton: "R\u00e9initialiser le mot de passe",
+    goToLogin: "Aller \u00e0 la connexion",
+    rememberPrompt: "Vous vous souvenez du mot de passe\u00a0?",
+    loginCta: "Connexion",
+    otpSentTo: "Nous avons envoy\u00e9 un code \u00e0 6 chiffres \u00e0",
+    toastEmailSent: "E-mail de r\u00e9initialisation envoy\u00e9 avec succ\u00e8s\u00a0! Veuillez v\u00e9rifier votre bo\u00eete de r\u00e9ception.",
+    toastOtpVerified: "Code OTP v\u00e9rifi\u00e9 avec succ\u00e8s\u00a0! Veuillez d\u00e9finir votre nouveau mot de passe.",
+    toastPasswordReset: "Votre mot de passe a \u00e9t\u00e9 r\u00e9initialis\u00e9 avec succ\u00e8s\u00a0! Vous pouvez maintenant vous connecter.",
+    toastRequestError: "Une erreur s'est produite lors du traitement de votre demande.",
+  },
+} as const
+
+export default function ForgotPasswordPage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const { locale } = useLocale()
+  const t = forgotMessages[locale]
+  const [step, setStep] = useState<Step>("email")
+  const [isLoading, setIsLoading] = useState(false)
+  const [userEmail, setUserEmail] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
+  const [token, setToken] = useState("")
+  const didHandleDeepLinkRef = useRef(false)
+
+  const emailForm = useForm<{ email: string }>({
+    resolver: zodResolver(emailSchema),
+  })
+
+  const otpForm = useForm<{ otp: string }>({
+    resolver: zodResolver(otpSchema),
+  })
+
+  const { setValue: setOtpValue } = otpForm;
+
+  const resetForm = useForm<z.infer<typeof resetPasswordSchema>>({
+    resolver: zodResolver(resetPasswordSchema),
+  })
+
+  async function onEmailSubmit(data: { email: string }) {
+    setIsLoading(true)
+    try{
+      const response = await fetch("/api/forgot", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email: data.email, status: "forgot", locale }),
+      })
+      const result = await response.json()
+      setIsLoading(false)
+      if (!result.success) {
+        toast.error(resolveTranslatedText(locale, result.message, t.toastRequestError));
+      } else {
+        setUserEmail(data.email)
+        toast.success(resolveTranslatedText(locale, result.message, t.toastEmailSent))
+        setStep("otp")
+      }
+
+    }
+    catch{
+      setIsLoading(false)
+      toast.error(t.toastRequestError)
+    }
+  }
+
+  async function onOtpSubmit(data: { otp: string }) {
+    setIsLoading(true)
+    try{
+      const response = await fetch("/api/forgot", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email: userEmail, status: "verify", otp: data.otp, locale }),
+      })
+      const result = await response.json()
+      setIsLoading(false)
+      if (!result.success) {
+        toast.error(resolveTranslatedText(locale, result.message, t.toastRequestError));
+      }
+        else {
+          setToken(result.token)
+          toast.success(resolveTranslatedText(locale, result.message, t.toastOtpVerified))
+          setStep("reset")
+        }
+    }
+    catch{
+      setIsLoading(false)
+      toast.error(t.toastRequestError)
+    }
+  }
+
+  async function onResetSubmit(data: z.infer<typeof resetPasswordSchema>) {
+    setIsLoading(true)
+    try{
+      const response = await fetch("/api/reset", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email: userEmail, password: data.password, token }),
+      })
+      const result = await response.json()
+      setIsLoading(false)
+      if (!result.success) {
+        toast.error(resolveTranslatedText(locale, result.message, t.toastRequestError));
+      }
+        else {          
+          toast.success(resolveTranslatedText(locale, result.message, t.toastPasswordReset))
+          setStep("completed")
+        }
+    }
+    catch{
+      setIsLoading(false)
+      toast.error(t.toastRequestError)
+    }
+  }
+
+  useEffect(() => {
+    if (didHandleDeepLinkRef.current) {
+      return
+    }
+
+    const emailFromLink = searchParams.get("email")?.trim() ?? ""
+    const otpFromLink = searchParams.get("otp")?.trim() ?? ""
+
+    if (!emailFromLink || !otpFromLink) {
+      return
+    }
+
+    didHandleDeepLinkRef.current = true
+    setUserEmail(emailFromLink)
+    setStep("otp")
+    setOtpValue("otp", otpFromLink)
+
+    void (async () => {
+      setIsLoading(true)
+      try {
+        const response = await fetch("/api/forgot", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ email: emailFromLink, status: "verify", otp: otpFromLink, locale }),
+        })
+
+        const result = await response.json()
+        if (!result.success) {
+          setIsLoading(false)
+          toast.error(resolveTranslatedText(locale, result.message, t.toastRequestError))
+          return
+        }
+
+        setToken(result.token)
+        setStep("reset")
+        setIsLoading(false)
+        toast.success(resolveTranslatedText(locale, result.message, t.toastOtpVerified))
+      } catch {
+        setIsLoading(false)
+        toast.error(t.toastRequestError)
+      }
+    })()
+  }, [locale, searchParams, setOtpValue, t.toastOtpVerified, t.toastRequestError])
+
+  return (
+    <div className="space-y-8">
+      {/* Heading */}
+      <div className="space-y-1.5">
+        <h1 className="font-heading text-3xl font-semibold tracking-tight text-zinc-900">
+          {step === "email" && t.emailTitle}
+          {step === "otp" && t.otpTitle}
+          {step === "reset" && t.resetTitle}
+          {step === "completed" && t.completedTitle}
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          {step === "email" && t.emailSubtitle}
+          {step === "otp" && `${t.otpSentTo} ${userEmail}`}
+          {step === "reset" && t.resetSubtitle}
+          {step === "completed" && t.completedSubtitle}
+        </p>
+      </div>
+
+      {step === "email" && (
+        <form onSubmit={emailForm.handleSubmit(onEmailSubmit)} className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="email" className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+              {t.emailLabel}
+            </Label>
+            <Input
+              id="email"
+              type="email"
+              placeholder="name@company.com"
+              autoComplete="email"
+              className={cn(
+                "h-11 bg-zinc-50 border-zinc-200 text-zinc-900 rounded-lg focus-visible:ring-2 focus-visible:ring-[#001e3c]/20 focus-visible:border-[#001e3c] transition-all placeholder:text-zinc-300",
+                emailForm.formState.errors.email && "border-red-400 focus-visible:ring-red-200 focus-visible:border-red-400"
+              )}
+              {...emailForm.register("email")}
+            />
+            {emailForm.formState.errors.email && (
+              <p className="text-xs font-medium text-red-600">{resolveTranslatedText(locale, emailForm.formState.errors.email.message)}</p>
+            )}
+          </div>
+          <Button
+            className="w-full h-11 bg-[#001e3c] hover:bg-[#002b54] text-white rounded-lg text-sm font-semibold transition-all active:scale-[0.98] shadow-sm"
+            type="submit"
+            disabled={isLoading}
+          >
+            {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : t.sendCode}
+          </Button>
+        </form>
+      )}
+
+      {step === "otp" && (
+        <form onSubmit={otpForm.handleSubmit(onOtpSubmit)} className="space-y-6">
+          <div className="space-y-3">
+            <Label className="text-xs font-semibold uppercase tracking-wider text-zinc-500 block text-center">
+              {t.otpLabel}
+            </Label>
+            <div className="flex justify-center gap-2.5">
+              {[0, 1, 2, 3, 4, 5].map((index) => (
+                <input
+                  key={index}
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={1}
+                  className={cn(
+                    "w-11 h-12 text-center text-lg font-bold text-zinc-900 border rounded-lg bg-zinc-50 focus:bg-white focus:border-[#001e3c] focus:ring-2 focus:ring-[#001e3c]/20 focus:outline-none transition-all",
+                    otpForm.formState.errors.otp ? "border-red-400" : "border-zinc-200"
+                  )}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/[^0-9]/g, "");
+                    e.target.value = value;
+                    if (value && index < 5) {
+                      const nextInput = (e.target as HTMLInputElement).parentElement?.children[index + 1] as HTMLInputElement;
+                      nextInput?.focus();
+                    }
+                    const parent = (e.target as HTMLInputElement).parentElement;
+                    if (parent) {
+                      const inputs = Array.from(parent.querySelectorAll("input")) as HTMLInputElement[];
+                      const otpValue = inputs.map((i) => i.value).join("");
+                      setOtpValue("otp", otpValue);
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Backspace" && !(e.target as HTMLInputElement).value && index > 0) {
+                      const prevInput = (e.target as HTMLFormElement).parentElement?.children[index - 1] as HTMLInputElement;
+                      prevInput?.focus();
+                    }
+                  }}
+                />
+              ))}
+            </div>
+            <input type="hidden" {...otpForm.register("otp")} />
+            {otpForm.formState.errors.otp && (
+              <p className="text-xs font-medium text-red-600 text-center">{resolveTranslatedText(locale, otpForm.formState.errors.otp.message)}</p>
+            )}
+          </div>
+          <Button
+            className="w-full h-11 bg-[#001e3c] hover:bg-[#002b54] text-white rounded-lg text-sm font-semibold transition-all active:scale-[0.98] shadow-sm"
+            type="submit"
+            disabled={isLoading}
+          >
+            {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : t.verifyCode}
+          </Button>
+          <button
+            type="button"
+            onClick={() => setStep("email")}
+            className="w-full text-center text-xs font-semibold text-zinc-500 hover:text-[#001e3c] transition-colors"
+          >
+            {t.backToEmail}
+          </button>
+        </form>
+      )}
+
+      {step === "reset" && (
+        <form onSubmit={resetForm.handleSubmit(onResetSubmit)} className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="password" className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+              {t.newPassword}
+            </Label>
+            <div className="relative">
+              <Input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                placeholder="••••••••"
+                autoComplete="new-password"
+                className={cn(
+                  "h-11 bg-zinc-50 border-zinc-200 text-zinc-900 rounded-lg focus-visible:ring-2 focus-visible:ring-[#001e3c]/20 focus-visible:border-[#001e3c] transition-all placeholder:text-zinc-300 pr-10",
+                  resetForm.formState.errors.password && "border-red-400 focus-visible:ring-red-200 focus-visible:border-red-400"
+                )}
+                {...resetForm.register("password")}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 transition-colors"
+                aria-label={showPassword ? translate(locale, 'common.hidePassword') : translate(locale, 'common.showPassword')}
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+            {resetForm.formState.errors.password && (
+              <p className="text-xs font-medium text-red-600">{resolveTranslatedText(locale, resetForm.formState.errors.password.message)}</p>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="confirmPassword" className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+              {t.confirmPassword}
+            </Label>
+            <Input
+              id="confirmPassword"
+              type={showPassword ? "text" : "password"}
+              placeholder="••••••••"
+              autoComplete="new-password"
+              className={cn(
+                "h-11 bg-zinc-50 border-zinc-200 text-zinc-900 rounded-lg focus-visible:ring-2 focus-visible:ring-[#001e3c]/20 focus-visible:border-[#001e3c] transition-all placeholder:text-zinc-300",
+                resetForm.formState.errors.confirmPassword && "border-red-400 focus-visible:ring-red-200 focus-visible:border-red-400"
+              )}
+              {...resetForm.register("confirmPassword")}
+            />
+            {resetForm.formState.errors.confirmPassword && (
+              <p className="text-xs font-medium text-red-600">{resolveTranslatedText(locale, resetForm.formState.errors.confirmPassword.message)}</p>
+            )}
+          </div>
+
+          <Button
+            className="w-full h-11 bg-[#001e3c] hover:bg-[#002b54] text-white rounded-lg text-sm font-semibold transition-all active:scale-[0.98] shadow-sm"
+            type="submit"
+            disabled={isLoading}
+          >
+            {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : t.resetButton}
+          </Button>
+        </form>
+      )}
+
+      {step === "completed" && (
+        <div className="space-y-6 pt-2">
+          <div className="flex flex-col items-center gap-4 py-6">
+            <div className="h-16 w-16 bg-green-50 rounded-full flex items-center justify-center border border-green-100">
+              <CheckCircle2 className="h-8 w-8 text-green-600" />
+            </div>
+          </div>
+          <Button
+            onClick={() => router.push("/login")}
+            className="w-full h-11 bg-[#001e3c] hover:bg-[#002b54] text-white rounded-lg text-sm font-semibold transition-all active:scale-[0.98] shadow-sm"
+          >
+            {t.goToLogin}
+          </Button>
+        </div>
+      )}
+
+      <p className="text-center text-sm text-zinc-500">
+        {t.rememberPrompt}{" "}
+        <Link href="/login" className="font-semibold text-[#001e3c] hover:underline underline-offset-4">
+          {t.loginCta}
+        </Link>
+      </p>
+    </div>
+  )
+}
+        
