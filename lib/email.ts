@@ -68,6 +68,17 @@ interface SendPaymentReceiptParams extends BaseSendParams {
   locale?: TranslationLocale;
 }
 
+export interface SendReminderParams extends BaseSendParams {
+  invoiceNumber: string;
+  subject: string;
+  htmlBody: string;
+  locale?: TranslationLocale;
+}
+
+export interface SendFormalNoticeParams extends SendReminderParams {
+  legalNoticePdfBuffer: Buffer;
+}
+
 function escapeHtml(text: string): string {
   return text
     .replace(/&/g, "&amp;")
@@ -237,6 +248,32 @@ async function sendDocumentEmail({
           },
         ]
       : [],
+  });
+}
+
+function plainTextFromHtmlBody(htmlBody: string): string {
+  return htmlBody
+    .replace(/<br\s*\/?\s*>/gi, '\n')
+    .replace(/<[^>]*>/g, '')
+    .trim();
+}
+
+function buildReminderEmailHtml({
+  params,
+  locale,
+}: {
+  params: SendReminderParams;
+  locale: TranslationLocale;
+}): string {
+  return buildDocumentEmailTemplate({
+    subject: params.subject,
+    companyName: params.companyName,
+    clientName: params.clientName,
+    documentLabel: translate(locale, 'email.sendInvoice.documentLabel'),
+    documentNumber: formatInvoiceDisplayNumber(locale, params.invoiceNumber),
+    details: [],
+    messageBody: params.htmlBody,
+    locale,
   });
 }
 
@@ -453,6 +490,70 @@ export async function sendInvoice({
     companyName,
     attachmentFilename: `${displayInvoiceNumber}.pdf`,
     pdfBuffer,
+  });
+}
+
+export async function sendInvoiceReminder(params: SendReminderParams): Promise<void> {
+  const locale = params.locale ?? 'en';
+  const html = buildReminderEmailHtml({ params, locale });
+  const text = plainTextFromHtmlBody(params.htmlBody);
+
+  const emailTransporter = await ConnectEmailClient();
+  if (!emailTransporter) {
+    throw new Error('Failed to connect to email service');
+  }
+
+  await emailTransporter.sendMail({
+    from: `"${params.companyName || 'CRM'}" <${process.env.EMAIL_USER_V2 || process.env.EMAIL_USER}>`,
+    to: params.to,
+    subject: params.subject,
+    html,
+    text,
+    attachments: params.pdfBuffer
+      ? [
+          {
+            filename: `${formatInvoiceDisplayNumber(locale, params.invoiceNumber)}.pdf`,
+            content: params.pdfBuffer,
+            contentType: 'application/pdf',
+          },
+        ]
+      : [],
+  });
+}
+
+export async function sendFormalNotice(params: SendFormalNoticeParams): Promise<void> {
+  const locale = params.locale ?? 'en';
+
+  if (!params.pdfBuffer) {
+    throw new Error('Invoice PDF is required for formal notice email');
+  }
+
+  const html = buildReminderEmailHtml({ params, locale });
+  const text = plainTextFromHtmlBody(params.htmlBody);
+
+  const emailTransporter = await ConnectEmailClient();
+  if (!emailTransporter) {
+    throw new Error('Failed to connect to email service');
+  }
+
+  await emailTransporter.sendMail({
+    from: `"${params.companyName || 'CRM'}" <${process.env.EMAIL_USER_V2 || process.env.EMAIL_USER}>`,
+    to: params.to,
+    subject: params.subject,
+    html,
+    text,
+    attachments: [
+      {
+        filename: `${formatInvoiceDisplayNumber(locale, params.invoiceNumber)}.pdf`,
+        content: params.pdfBuffer,
+        contentType: 'application/pdf',
+      },
+      {
+        filename: `${formatInvoiceDisplayNumber(locale, params.invoiceNumber)}-formal-notice.pdf`,
+        content: params.legalNoticePdfBuffer,
+        contentType: 'application/pdf',
+      },
+    ],
   });
 }
 
