@@ -202,8 +202,23 @@ function normalizeSettings(input?: Partial<ReminderSettingsData>): ReminderSetti
   };
 }
 
-function hasValidOffsets(offsets: ReminderSettingsData['offsets']) {
-  return offsets.soft < offsets.medium && offsets.medium < offsets.firm && offsets.firm <= offsets.formalNotice;
+function hasValidOffsets(
+  offsets?: Partial<ReminderSettingsData['offsets']> | null
+) {
+  if (!offsets) {
+    return false;
+  }
+
+  const soft = Number(offsets.soft);
+  const medium = Number(offsets.medium);
+  const firm = Number(offsets.firm);
+  const formalNotice = Number(offsets.formalNotice);
+
+  if (![soft, medium, firm, formalNotice].every(Number.isFinite)) {
+    return false;
+  }
+
+  return soft < medium && medium < firm && firm <= formalNotice;
 }
 
 function CollapsibleSectionCard({
@@ -277,7 +292,7 @@ export default function ReminderSettingsPage() {
 
   useEffect(() => {
     if (settings) {
-      setDraft(settings);
+      setDraft(normalizeSettings(settings));
     }
   }, [settings]);
 
