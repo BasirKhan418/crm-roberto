@@ -6,7 +6,6 @@ import useSWR from 'swr';
 import { ChevronDownIcon, Loader2Icon } from 'lucide-react';
 import { toast } from 'sonner';
 
-import CrmShell from '@/components/crm-shell';
 import { useLocale } from '@/components/providers/locale-provider';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -406,101 +405,94 @@ export default function ReminderSettingsPage() {
 
   if (authLoading || isLoading) {
     return (
-      <CrmShell title={t('reminders.settings.title')}>
-        <Card>
-          <CardContent className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
-            <Loader2Icon className="size-4 animate-spin" />
-            {t('reminders.settings.loading')}
-          </CardContent>
-        </Card>
-      </CrmShell>
+      <Card>
+        <CardContent className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
+          <Loader2Icon className="size-4 animate-spin" />
+          {t('reminders.settings.loading')}
+        </CardContent>
+      </Card>
     );
   }
 
   if (!user) {
     return (
-      <CrmShell title={t('reminders.settings.title')}>
-        <Card>
-          <CardContent className="py-8 text-sm text-muted-foreground">{t('reminders.settings.authRequired')}</CardContent>
-        </Card>
-      </CrmShell>
+      <Card>
+        <CardContent className="py-8 text-sm text-muted-foreground">{t('reminders.settings.authRequired')}</CardContent>
+      </Card>
     );
   }
 
   if (settingsError) {
     return (
-      <CrmShell title={t('reminders.settings.title')}>
-        <Card>
-          <CardContent className="space-y-3 py-8">
-            <p className="text-sm text-destructive">{resolveTranslatedError(locale, settingsError, t('reminders.settings.loadFailed'))}</p>
-            <Button type="button" onClick={() => void mutate()}>
-              {t('reminders.settings.retry')}
-            </Button>
-          </CardContent>
-        </Card>
-      </CrmShell>
+      <Card>
+        <CardContent className="space-y-3 py-8">
+          <p className="text-sm text-destructive">{resolveTranslatedError(locale, settingsError, t('reminders.settings.loadFailed'))}</p>
+          <Button type="button" onClick={() => void mutate()}>
+            {t('reminders.settings.retry')}
+          </Button>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <CrmShell title={t('reminders.settings.title')}>
-      <div className="space-y-4">
-        <div className="space-y-1">
-          <h1 className="font-heading text-2xl font-semibold tracking-tight">{t('reminders.settings.title')}</h1>
-          <p className="text-sm text-muted-foreground">{t('reminders.settings.description')}</p>
+    <div className="space-y-4">
+      <div className="space-y-1">
+        <h2 className="font-heading text-xl font-semibold tracking-tight">{t('reminders.settings.title')}</h2>
+        <p className="text-sm text-muted-foreground">{t('reminders.settings.description')}</p>
+      </div>
+
+      <CollapsibleSectionCard
+        title={t('reminders.settings.offsets')}
+        description={t('reminders.settings.timing.description')}
+        open={openSections.timing}
+        onToggle={() => toggleSection('timing')}
+      >
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          {LEVELS.map((level) => (
+            <div key={level} className="space-y-2">
+              <Label htmlFor={`offset-${level}`}>{t(`reminders.settings.timing.fields.${level}`)}</Label>
+              <Input
+                id={`offset-${level}`}
+                type="number"
+                min={1}
+                value={draft.offsets[level]}
+                onChange={(event) => {
+                  const next = Number(event.target.value);
+                  if (!Number.isFinite(next)) {
+                    return;
+                  }
+                  setDraft((prev) => ({
+                    ...prev,
+                    offsets: {
+                      ...prev.offsets,
+                      [level]: next,
+                    },
+                  }));
+                }}
+              />
+            </div>
+          ))}
         </div>
 
-        <CollapsibleSectionCard
-          title={t('reminders.settings.offsets')}
-          description={t('reminders.settings.timing.description')}
-          open={openSections.timing}
-          onToggle={() => toggleSection('timing')}
-        >
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {LEVELS.map((level) => (
-              <div key={level} className="space-y-2">
-                <Label htmlFor={`offset-${level}`}>{t(`reminders.settings.timing.fields.${level}`)}</Label>
-                <Input
-                  id={`offset-${level}`}
-                  type="number"
-                  min={1}
-                  value={draft.offsets[level]}
-                  onChange={(event) => {
-                    const next = Number(event.target.value);
-                    if (!Number.isFinite(next)) {
-                      return;
-                    }
-                    setDraft((prev) => ({
-                      ...prev,
-                      offsets: {
-                        ...prev.offsets,
-                        [level]: next,
-                      },
-                    }));
-                  }}
-                />
-              </div>
-            ))}
-          </div>
+        <p className={cn('text-xs', timingInvalid ? 'text-destructive' : 'text-muted-foreground')}>
+          {t('reminders.settings.timing.validationRule')}
+        </p>
 
-          <p className={cn('text-xs', timingInvalid ? 'text-destructive' : 'text-muted-foreground')}>
-            {t('reminders.settings.timing.validationRule')}
-          </p>
+        <Button type="button" disabled={timingSaving} onClick={() => void handleSaveTiming()}>
+          {timingSaving ? <Loader2Icon className="size-4 animate-spin" /> : null}
+          {timingSaving ? t('reminders.settings.common.saving') : t('reminders.settings.timing.saveButton')}
+        </Button>
+      </CollapsibleSectionCard>
 
-          <Button type="button" disabled={timingSaving} onClick={() => void handleSaveTiming()}>
-            {timingSaving ? <Loader2Icon className="size-4 animate-spin" /> : null}
-            {timingSaving ? t('reminders.settings.common.saving') : t('reminders.settings.timing.saveButton')}
-          </Button>
-        </CollapsibleSectionCard>
-
-        <CollapsibleSectionCard
-          title={t('reminders.settings.templatesTitle')}
-          description={t('reminders.settings.templatesSectionDescription')}
-          open={openSections.templates}
-          onToggle={() => toggleSection('templates')}
-        >
-          <div className="space-y-4">
-            {LEVELS.map((level) => {
+      <CollapsibleSectionCard
+        title={t('reminders.settings.templatesTitle')}
+        description={t('reminders.settings.templatesSectionDescription')}
+        open={openSections.templates}
+        onToggle={() => toggleSection('templates')}
+      >
+        <div className="space-y-4">
+          {LEVELS.map((level) => {
               const activeLocale = templateTabs[level];
               const activeTemplate = draft.templates[activeLocale][level];
 
@@ -633,17 +625,17 @@ export default function ReminderSettingsPage() {
                   </CardContent>
                 </Card>
               );
-            })}
-          </div>
-        </CollapsibleSectionCard>
+          })}
+        </div>
+      </CollapsibleSectionCard>
 
-        <CollapsibleSectionCard
-          title={t('reminders.settings.lateFee')}
-          description={t('reminders.settings.lateFees.description')}
-          open={openSections.lateFees}
-          onToggle={() => toggleSection('lateFees')}
-        >
-          <div className="space-y-4">
+      <CollapsibleSectionCard
+        title={t('reminders.settings.lateFee')}
+        description={t('reminders.settings.lateFees.description')}
+        open={openSections.lateFees}
+        onToggle={() => toggleSection('lateFees')}
+      >
+        <div className="space-y-4">
             <div className="flex items-center justify-between rounded-lg border p-3">
               <div className="space-y-0.5">
                 <p className="text-sm font-medium">{t('reminders.settings.lateFees.enable')}</p>
@@ -752,20 +744,20 @@ export default function ReminderSettingsPage() {
               </>
             ) : null}
 
-            <Button type="button" disabled={lateFeeSaving} onClick={() => void handleSaveLateFees()}>
-              {lateFeeSaving ? <Loader2Icon className="size-4 animate-spin" /> : null}
-              {lateFeeSaving ? t('reminders.settings.common.saving') : t('reminders.settings.lateFees.saveButton')}
-            </Button>
-          </div>
-        </CollapsibleSectionCard>
+          <Button type="button" disabled={lateFeeSaving} onClick={() => void handleSaveLateFees()}>
+            {lateFeeSaving ? <Loader2Icon className="size-4 animate-spin" /> : null}
+            {lateFeeSaving ? t('reminders.settings.common.saving') : t('reminders.settings.lateFees.saveButton')}
+          </Button>
+        </div>
+      </CollapsibleSectionCard>
 
-        <CollapsibleSectionCard
-          title={t('reminders.settings.legalNotice')}
-          description={t('reminders.settings.legalNoticeSection.description')}
-          open={openSections.legalNotice}
-          onToggle={() => toggleSection('legalNotice')}
-        >
-          <div className="space-y-4">
+      <CollapsibleSectionCard
+        title={t('reminders.settings.legalNotice')}
+        description={t('reminders.settings.legalNoticeSection.description')}
+        open={openSections.legalNotice}
+        onToggle={() => toggleSection('legalNotice')}
+      >
+        <div className="space-y-4">
             <div className="space-y-2">
               <Label>{t('reminders.settings.legalNoticeSection.delay')}</Label>
               <RadioGroup
@@ -829,13 +821,12 @@ export default function ReminderSettingsPage() {
               />
             </div>
 
-            <Button type="button" disabled={legalNoticeSaving} onClick={() => void handleSaveLegalNotice()}>
-              {legalNoticeSaving ? <Loader2Icon className="size-4 animate-spin" /> : null}
-              {legalNoticeSaving ? t('reminders.settings.common.saving') : t('reminders.settings.legalNoticeSection.saveButton')}
-            </Button>
-          </div>
-        </CollapsibleSectionCard>
-      </div>
-    </CrmShell>
+          <Button type="button" disabled={legalNoticeSaving} onClick={() => void handleSaveLegalNotice()}>
+            {legalNoticeSaving ? <Loader2Icon className="size-4 animate-spin" /> : null}
+            {legalNoticeSaving ? t('reminders.settings.common.saving') : t('reminders.settings.legalNoticeSection.saveButton')}
+          </Button>
+        </div>
+      </CollapsibleSectionCard>
+    </div>
   );
 }

@@ -6,7 +6,6 @@ import Link from 'next/link';
 import { CheckCircle2Icon, CircleDashedIcon, CreditCardIcon, Loader2Icon, Link2OffIcon, PlugZapIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
-import CrmShell from '@/components/crm-shell';
 import { useLocale } from '@/components/providers/locale-provider';
 import { resolveTranslatedError } from '@/lib/i18n/messages';
 import { Badge } from '@/components/ui/badge';
@@ -210,7 +209,7 @@ export default function StripeSettingsPage() {
   }
 
   return (
-    <CrmShell title={t.shellTitle}>
+    <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <Button asChild variant="ghost" className="h-10">
           <Link href="/profile">{t.backToProfile}</Link>
@@ -333,6 +332,6 @@ export default function StripeSettingsPage() {
           ) : null}
         </CardFooter>
       </Card>
-    </CrmShell>
+    </div>
   );
 }

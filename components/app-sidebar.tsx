@@ -14,7 +14,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { Building2Icon, FileTextIcon, LayoutDashboard, LayoutDashboardIcon, NotebookPenIcon, PackageSearchIcon, ReceiptTextIcon, TruckIcon, UsersIcon } from "lucide-react"
+import { Building2Icon, FileTextIcon, LayoutDashboard, LayoutDashboardIcon, NotebookPenIcon, PackageSearchIcon, ReceiptTextIcon, SettingsIcon, TruckIcon, UsersIcon } from "lucide-react"
 import { useLocale } from "@/components/providers/locale-provider"
 import { useInvoicesActionCount } from "@/hooks/useInvoicesActionCount"
 import { useQuotesActionCount } from "@/hooks/useQuotesActionCount"
@@ -27,6 +27,7 @@ const navItems = [
   { key: "quotes", url: "/quotes", icon: <ReceiptTextIcon /> },
   { key: "invoices", url: "/invoices", icon: <FileTextIcon /> },
   { key: "notes", url: "/notes", icon: <NotebookPenIcon /> },
+  { key: "settings", url: "/settings", icon: <SettingsIcon /> },
   { key: "companyProfile", url: "/profile", icon: <Building2Icon /> },
 ] as const
 
@@ -50,6 +51,7 @@ const sidebarMessages = {
       catalogue: "Products & Services",
       quotes: "Quotes",
       notes: "Notes",
+      settings: "Settings",
       invoices: "Invoices",
       companyProfile: "Company profile",
     },
@@ -73,6 +75,7 @@ const sidebarMessages = {
       catalogue: "Produits & Services",
       quotes: "Devis",
       notes: "Notes",
+      settings: "Paramètres",
       invoices: "Factures",
       companyProfile: "Profil d'entreprise",
     },
