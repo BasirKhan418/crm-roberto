@@ -2,10 +2,10 @@ import { Document, Image, Link, Page, StyleSheet, Text, View } from '@react-pdf/
 
 import { formatInvoiceDisplayNumber } from '@/lib/i18n/messages';
 import { getPaymentMethodLabel, getPaymentTypeLabel } from '@/lib/payments';
-import { formatStructuredAddress, hasStructuredAddress } from '@/lib/address';
+import { hasStructuredAddress } from '@/lib/address';
 import type { AddressDetails as SharedAddressDetails } from '@/lib/address';
 
-interface InvoiceAddressDetails extends SharedAddressDetails {}
+type InvoiceAddressDetails = SharedAddressDetails;
 
 interface InvoiceCompanyData {
   companyName?: string | null;
@@ -67,6 +67,7 @@ interface InvoiceData {
   totalExcludingTax: number;
   totalVat: number;
   totalIncludingTax: number;
+  lateFeeAmountCents?: number;
   depositPercentage?: number;
   notes?: string | null;
   payments?: InvoicePaymentItem[];
@@ -112,6 +113,7 @@ const translations = {
     totalDiscount: 'Discount',
     totalNet: 'Total excl. tax (net)',
     totalVat: 'VAT',
+    lateFees: 'Late fees',
     totalIncl: 'Total incl. tax',
     paymentSummary: 'Payment summary',
     paymentStatus: 'Payment status',
@@ -167,6 +169,7 @@ const translations = {
     totalDiscount: 'Remise',
     totalNet: 'Total HT (net)',
     totalVat: 'TVA',
+    lateFees: 'Penalites de retard',
     totalIncl: 'Total TTC',
     paymentSummary: 'R\u00e9sum\u00e9 des paiements',
     paymentStatus: 'Statut de paiement',
@@ -735,8 +738,10 @@ export function InvoicePdfTemplate({ invoice, company, paymentUrl = null, locale
   const t = translations[locale];
   const displayInvoiceNumber = formatInvoiceDisplayNumber(locale, invoice.invoiceNumber);
   const payments = invoice.payments ?? [];
+  const lateFeeAmount = Math.max(0, Math.round(invoice.lateFeeAmountCents ?? 0));
+  const grandTotalWithLateFees = invoice.totalIncludingTax + lateFeeAmount;
   const totalPaidAmount = payments.reduce((sum, payment) => sum + Math.max(0, Math.round(payment.amount || 0)), 0);
-  const remainingAmount = Math.max(0, invoice.totalIncludingTax - totalPaidAmount);
+  const remainingAmount = Math.max(0, grandTotalWithLateFees - totalPaidAmount);
   const statusPresentation = getStatusPresentation(invoice.status, t);
   const issuerAddressDetails = company
     ? { streetNumber: company.streetNumber, streetName: company.streetName, postalCode: company.postalCode, city: company.city, country: company.country }
@@ -906,9 +911,15 @@ export function InvoicePdfTemplate({ invoice, company, paymentUrl = null, locale
               <Text style={styles.totalLabel}>{t.totalVat}</Text>
               <Text style={styles.totalValue}>{formatPrice(invoice.totalVat)}</Text>
             </View>
+            {lateFeeAmount > 0 ? (
+              <View style={styles.totalRow}>
+                <Text style={styles.totalLabel}>{t.lateFees}</Text>
+                <Text style={styles.totalValue}>{formatPrice(lateFeeAmount)}</Text>
+              </View>
+            ) : null}
             <View style={[styles.totalRow, styles.grandTotal]}>
               <Text style={styles.totalLabel}>{t.totalIncl}</Text>
-              <Text style={styles.totalValue}>{formatPrice(invoice.totalIncludingTax)}</Text>
+              <Text style={styles.totalValue}>{formatPrice(grandTotalWithLateFees)}</Text>
             </View>
           </View>
         </View>

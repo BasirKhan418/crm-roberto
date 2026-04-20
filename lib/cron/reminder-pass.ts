@@ -8,7 +8,8 @@ import Payment from '@/db/models/Payment';
 import ReminderLog from '@/db/models/ReminderLog';
 import ReminderSettings from '@/db/models/ReminderSettings';
 import { createActivityLog } from '@/db/repository/activity';
-import { sendInvoiceReminder } from '@/lib/email';
+import { sendFormalNotice, sendInvoiceReminder } from '@/lib/email';
+import { buildInvoicePayUrl, isTokenExpired } from '@/lib/tokens';
 import {
   buildBodyPreview,
   buildFallbackReminderSubject,
@@ -21,6 +22,14 @@ import {
   normalizeOffsets,
   type ReminderLevel,
 } from '@/lib/reminders/core';
+import {
+  normalizeReminderLocale,
+  renderInvoicePdfForReminder,
+  renderLegalNoticePdfForReminder,
+  type CompanyProfileForReminder,
+  type InvoiceForPdf,
+  type PaymentHistoryItem,
+} from '@/lib/reminders/formal-notice';
 import { buildReminderVars, substituteVariables } from '@/lib/reminders/substitute-variables';
 
 import { acquireLock, releaseLock } from './redis-lock';
@@ -40,11 +49,35 @@ type InvoiceReminderCandidate = {
   dueDate?: Date | null;
   status: 'unpaid' | 'partial_paid' | 'paid' | 'overdue';
   totalIncludingTax?: number | null;
+  totalExcludingTax?: number | null;
+  totalVat?: number | null;
+  quoteNumber?: string | null;
+  depositPercentage?: number | null;
+  notes?: string | null;
+  lineItems?: Array<{
+    name: string;
+    quantity: number;
+    baseUnitPriceExcludingTax: number;
+    discountPercentage: number;
+    discountAmountExcludingTax: number;
+    vatRate: number;
+    totalExcludingTax: number;
+  }>;
   paymentToken?: string | null;
   paymentTokenExpiry?: Date | null;
   clientSnapshot?: {
     fullName?: string | null;
     email?: string | null;
+    phone?: string | null;
+    companyName?: string | null;
+    address?: string | null;
+    addressDetails?: {
+      streetNumber?: string | null;
+      streetName?: string | null;
+      postalCode?: string | null;
+      city?: string | null;
+      country?: string | null;
+    } | null;
   } | null;
   reminderState?: {
     level?: number | null;
@@ -65,15 +98,12 @@ type SettingsLike = {
     value?: number;
     applyFrom?: 'medium' | 'firm' | 'formalNotice';
   };
+  legalNotice?: {
+    delayDays?: 8 | 15;
+    includeInterestClause?: boolean;
+    customFooter?: string | null;
+  };
 };
-
-function normalizeLocale(locale: unknown): 'en' | 'fr' {
-  if (typeof locale === 'string' && locale.toLowerCase().startsWith('en')) {
-    return 'en';
-  }
-
-  return 'fr';
-}
 
 function buildSkipLog(args: {
   userId: mongoose.Types.ObjectId;
@@ -98,6 +128,31 @@ function buildSkipLog(args: {
     sentAt: new Date(),
     pdfAttached: false,
   });
+}
+
+async function loadPaymentHistory(invoiceId: mongoose.Types.ObjectId, userId: mongoose.Types.ObjectId): Promise<PaymentHistoryItem[]> {
+  const payments = await Payment.find({
+    invoiceId,
+    userId,
+    status: 'succeeded',
+  })
+    .sort({ paidAt: -1, createdAt: -1 })
+    .select('amount method type paidAt createdAt')
+    .lean<Array<{
+      amount: number;
+      method: string;
+      type: 'deposit' | 'full' | 'remaining_balance';
+      paidAt?: Date | null;
+      createdAt?: Date | null;
+    }>>();
+
+  return payments.map((item) => ({
+    amount: item.amount,
+    method: item.method,
+    type: item.type,
+    paidAt: item.paidAt ?? null,
+    createdAt: item.createdAt ?? null,
+  }));
 }
 
 async function loadPaidTotals(invoiceIds: mongoose.Types.ObjectId[]): Promise<Map<string, number>> {
@@ -169,7 +224,8 @@ export async function runReminderPass(): Promise<ReminderPassTotals> {
 
   const now = new Date();
   const settingsCache = new Map<string, SettingsLike>();
-  const profileCache = new Map<string, { companyName?: string | null; ownerName?: string | null; locale?: string | null } | null>();
+  const profileCache = new Map<string, CompanyProfileForReminder | null>();
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || '';
 
   let lastId: mongoose.Types.ObjectId | null = null;
 
@@ -191,7 +247,7 @@ export async function runReminderPass(): Promise<ReminderPassTotals> {
       .sort({ _id: 1 })
       .limit(100)
       .select(
-        '_id userId invoiceNumber date dueDate status totalIncludingTax paymentToken paymentTokenExpiry clientSnapshot reminderState'
+        '_id userId invoiceNumber quoteNumber date dueDate status lineItems totalExcludingTax totalVat totalIncludingTax depositPercentage notes paymentToken paymentTokenExpiry clientSnapshot reminderState'
       )
       .lean<InvoiceReminderCandidate[]>();
 
@@ -242,19 +298,6 @@ export async function runReminderPass(): Promise<ReminderPassTotals> {
         continue;
       }
 
-      if (targetLevel === 4) {
-        await buildSkipLog({
-          userId: invoice.userId,
-          invoiceId: invoice._id,
-          level: 4,
-          reason: 'formal_notice_deferred',
-          invoiceNumber: invoice.invoiceNumber,
-          recipientEmail: invoice.clientSnapshot?.email || '',
-        });
-        totals.skipped += 1;
-        continue;
-      }
-
       const lockKey = `reminder:${String(invoice._id)}:${targetLevel}`;
       const lockAcquired = await acquireLock(lockKey, 600);
       if (!lockAcquired) {
@@ -266,13 +309,13 @@ export async function runReminderPass(): Promise<ReminderPassTotals> {
         let companyProfile = profileCache.get(userId);
         if (companyProfile === undefined) {
           const loadedProfile = await CompanyProfile.findOne({ user: invoice.userId })
-            .select('companyName ownerName locale')
-            .lean<{ companyName?: string | null; ownerName?: string | null; locale?: string | null } | null>();
+            .select('companyName ownerName locale address streetNumber streetName postalCode city country phone businessEmail vatNumber rcsNumber businessAuthorizationNumber matriculeNumber iban bankName legalIdentifier logoUrl')
+            .lean<CompanyProfileForReminder | null>();
           companyProfile = loadedProfile;
           profileCache.set(userId, companyProfile);
         }
 
-        const locale = normalizeLocale(companyProfile?.locale);
+        const locale = normalizeReminderLocale(companyProfile?.locale);
         const levelKey = getReminderLevelKey(targetLevel);
         const template = settings.templates?.[locale]?.[levelKey] ?? settings.templates?.fr?.[levelKey] ?? settings.templates?.en?.[levelKey];
 
@@ -297,60 +340,201 @@ export async function runReminderPass(): Promise<ReminderPassTotals> {
         const subject = substituteVariables(template?.subject || buildFallbackReminderSubject(targetLevel, invoice.invoiceNumber), vars);
         const renderedBody = substituteVariables(template?.body || '', vars);
 
-        await sendInvoiceReminder({
-          to: recipientEmail,
-          clientName: invoice.clientSnapshot?.fullName || 'Client',
-          companyName: companyProfile?.companyName || companyProfile?.ownerName || 'CRM',
-          invoiceNumber: invoice.invoiceNumber,
-          subject,
-          htmlBody: renderedBody,
-          locale,
-        });
+        if (targetLevel === 4) {
+          const delayDays = settings.legalNotice?.delayDays === 15 ? 15 : 8;
+          const includeInterestClause = settings.legalNotice?.includeInterestClause !== false;
+          const customFooter = settings.legalNotice?.customFooter ?? null;
+          const legalNoticeDate = new Date();
+          const paymentUrl =
+            appUrl &&
+            typeof invoice.paymentToken === 'string' &&
+            invoice.paymentToken.trim() &&
+            !isTokenExpired(invoice.paymentTokenExpiry ?? null)
+              ? buildInvoicePayUrl(invoice.paymentToken.trim(), appUrl)
+              : null;
 
-        const nextScheduledAt = computeNextScheduledAt(invoice.dueDate, targetLevel, offsets);
+          const invoicePdfBuffer = await renderInvoicePdfForReminder({
+            invoice: {
+              _id: invoice._id,
+              invoiceNumber: invoice.invoiceNumber,
+              quoteNumber: invoice.quoteNumber ?? null,
+              date: invoice.date ?? null,
+              dueDate: invoice.dueDate ?? null,
+              status: invoice.status,
+              lineItems: invoice.lineItems ?? [],
+              totalExcludingTax: Math.max(0, Math.round(invoice.totalExcludingTax ?? 0)),
+              totalVat: Math.max(0, Math.round(invoice.totalVat ?? 0)),
+              totalIncludingTax: Math.max(0, Math.round(invoice.totalIncludingTax ?? 0)),
+              depositPercentage: invoice.depositPercentage ?? 100,
+              notes: invoice.notes ?? null,
+              clientSnapshot: {
+                fullName: invoice.clientSnapshot?.fullName || 'Client',
+                companyName: invoice.clientSnapshot?.companyName ?? null,
+                email: invoice.clientSnapshot?.email ?? null,
+                phone: invoice.clientSnapshot?.phone ?? null,
+                address: invoice.clientSnapshot?.address ?? null,
+                addressDetails: invoice.clientSnapshot?.addressDetails ?? null,
+              },
+            } satisfies InvoiceForPdf,
+            companyProfile,
+            locale,
+            paymentUrl,
+            lateFeeAmountCents: lateFeeAmount,
+            payments: await loadPaymentHistory(invoice._id, invoice.userId),
+          });
 
-        await Invoice.updateOne(
-          { _id: invoice._id, userId: invoice.userId },
-          {
-            $set: {
-              'reminderState.level': targetLevel,
-              'reminderState.lastSentAt': now,
-              'reminderState.nextScheduledAt': nextScheduledAt,
-              'reminderState.isPaused': false,
-              'reminderState.lateFeeAmount': lateFeeAmount,
-            },
-          }
-        );
+          const formalVars = {
+            ...vars,
+            legalDeadline: dayjs(legalNoticeDate).add(delayDays, 'day').format('DD/MM/YYYY'),
+          };
+          const formalBody = substituteVariables(template?.body || '', formalVars);
+          const formalSubject = substituteVariables(
+            template?.subject || buildFallbackReminderSubject(targetLevel, invoice.invoiceNumber),
+            formalVars
+          );
 
-        await ReminderLog.create({
-          userId: invoice.userId,
-          invoiceId: invoice._id,
-          level: targetLevel,
-          channel: 'email',
-          status: 'sent',
-          skippedReason: null,
-          subject,
-          bodyPreview: buildBodyPreview(renderedBody),
-          recipientEmail,
-          lateFeeAmount,
-          error: null,
-          sentAt: now,
-          pdfAttached: false,
-        });
+          const legalNoticeResult = await renderLegalNoticePdfForReminder({
+            invoice: {
+              _id: invoice._id,
+              invoiceNumber: invoice.invoiceNumber,
+              quoteNumber: invoice.quoteNumber ?? null,
+              date: invoice.date ?? null,
+              dueDate: invoice.dueDate ?? null,
+              status: invoice.status,
+              lineItems: invoice.lineItems ?? [],
+              totalExcludingTax: Math.max(0, Math.round(invoice.totalExcludingTax ?? 0)),
+              totalVat: Math.max(0, Math.round(invoice.totalVat ?? 0)),
+              totalIncludingTax: Math.max(0, Math.round(invoice.totalIncludingTax ?? 0)),
+              depositPercentage: invoice.depositPercentage ?? 100,
+              notes: invoice.notes ?? null,
+              clientSnapshot: {
+                fullName: invoice.clientSnapshot?.fullName || 'Client',
+                companyName: invoice.clientSnapshot?.companyName ?? null,
+                email: invoice.clientSnapshot?.email ?? null,
+                phone: invoice.clientSnapshot?.phone ?? null,
+                address: invoice.clientSnapshot?.address ?? null,
+                addressDetails: invoice.clientSnapshot?.addressDetails ?? null,
+              },
+            } satisfies InvoiceForPdf,
+            companyProfile,
+            locale,
+            remainingAmountCents: remainingAmount,
+            lateFeeAmountCents: lateFeeAmount,
+            legalNoticeDate,
+            delayDays,
+            includeInterestClause,
+            customFooter,
+          });
 
-        await createActivityLog(userId, {
-          action: 'invoice_reminder_sent',
-          entityType: 'invoice',
-          entityName: invoice.invoiceNumber,
-          entityId: String(invoice._id),
-          metadata: {
-            level: targetLevel,
+          await sendFormalNotice({
+            to: recipientEmail,
+            clientName: invoice.clientSnapshot?.fullName || 'Client',
+            companyName: companyProfile?.companyName || companyProfile?.ownerName || 'CRM',
+            invoiceNumber: invoice.invoiceNumber,
+            subject: formalSubject,
+            htmlBody: formalBody,
+            pdfBuffer: invoicePdfBuffer,
+            legalNoticePdfBuffer: legalNoticeResult.pdfBuffer,
+            locale,
+          });
+
+          await Invoice.updateOne(
+            { _id: invoice._id, userId: invoice.userId },
+            {
+              $set: {
+                'reminderState.level': 4,
+                'reminderState.lastSentAt': legalNoticeDate,
+                'reminderState.nextScheduledAt': null,
+                'reminderState.isPaused': false,
+                'reminderState.lateFeeAmount': lateFeeAmount,
+                'reminderState.formalNoticeSentAt': legalNoticeDate,
+                'reminderState.formalNoticeDeadline': legalNoticeResult.legalDeadline,
+              },
+            }
+          );
+
+          await ReminderLog.create({
+            userId: invoice.userId,
+            invoiceId: invoice._id,
+            level: 4,
             channel: 'email',
+            status: 'sent',
+            skippedReason: null,
+            subject: formalSubject,
+            bodyPreview: buildBodyPreview(formalBody),
             recipientEmail,
             lateFeeAmount,
-            sentAt: dayjs(now).toISOString(),
-          },
-        });
+            error: null,
+            sentAt: legalNoticeDate,
+            pdfAttached: true,
+          });
+
+          await createActivityLog(userId, {
+            action: 'invoice_formal_notice_sent',
+            entityType: 'invoice',
+            entityName: invoice.invoiceNumber,
+            entityId: String(invoice._id),
+            metadata: {
+              deadline: legalNoticeResult.legalDeadline.toISOString(),
+              lateFeeAmount,
+            },
+          });
+        } else {
+          await sendInvoiceReminder({
+            to: recipientEmail,
+            clientName: invoice.clientSnapshot?.fullName || 'Client',
+            companyName: companyProfile?.companyName || companyProfile?.ownerName || 'CRM',
+            invoiceNumber: invoice.invoiceNumber,
+            subject,
+            htmlBody: renderedBody,
+            locale,
+          });
+
+          const nextScheduledAt = computeNextScheduledAt(invoice.dueDate, targetLevel, offsets);
+
+          await Invoice.updateOne(
+            { _id: invoice._id, userId: invoice.userId },
+            {
+              $set: {
+                'reminderState.level': targetLevel,
+                'reminderState.lastSentAt': now,
+                'reminderState.nextScheduledAt': nextScheduledAt,
+                'reminderState.isPaused': false,
+                'reminderState.lateFeeAmount': lateFeeAmount,
+              },
+            }
+          );
+
+          await ReminderLog.create({
+            userId: invoice.userId,
+            invoiceId: invoice._id,
+            level: targetLevel,
+            channel: 'email',
+            status: 'sent',
+            skippedReason: null,
+            subject,
+            bodyPreview: buildBodyPreview(renderedBody),
+            recipientEmail,
+            lateFeeAmount,
+            error: null,
+            sentAt: now,
+            pdfAttached: false,
+          });
+
+          await createActivityLog(userId, {
+            action: 'invoice_reminder_sent',
+            entityType: 'invoice',
+            entityName: invoice.invoiceNumber,
+            entityId: String(invoice._id),
+            metadata: {
+              level: targetLevel,
+              channel: 'email',
+              recipientEmail,
+              lateFeeAmount,
+              sentAt: dayjs(now).toISOString(),
+            },
+          });
+        }
 
         totals.sent += 1;
       } catch (error) {
