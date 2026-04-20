@@ -14,6 +14,16 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
+const DEFAULT_REMINDER_STATE = {
+  level: 0,
+  lastSentAt: null,
+  nextScheduledAt: null,
+  isPaused: false,
+  lateFeeAmount: 0,
+  formalNoticeSentAt: null,
+  formalNoticeDeadline: null,
+};
+
 export async function POST(_request: NextRequest, { params }: RouteParams) {
   try {
     const me = await getMe(true);
@@ -27,6 +37,15 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
     }
 
     await ConnectDb();
+
+    await Invoice.updateOne(
+      {
+        _id: id,
+        userId: me.user.id,
+        $or: [{ reminderState: null }, { reminderState: { $exists: false } }],
+      },
+      { $set: { reminderState: DEFAULT_REMINDER_STATE } }
+    );
 
     const invoice = await Invoice.findOne({ _id: id, userId: me.user.id })
       .select('_id invoiceNumber dueDate clientSnapshot reminderState')

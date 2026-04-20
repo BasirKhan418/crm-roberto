@@ -37,6 +37,7 @@ const ActivityLogSchema = new mongoose.Schema(
         "invoice_payment_updated",
         "invoice_payment_deleted",
         "invoice_reminder_sent",
+        "invoice_reminder_skipped",
         "invoice_reminder_paused",
         "invoice_reminder_resumed",
         "invoice_formal_notice_sent",

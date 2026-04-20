@@ -39,6 +39,16 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
+const DEFAULT_REMINDER_STATE = {
+  level: 0,
+  lastSentAt: null,
+  nextScheduledAt: null,
+  isPaused: false,
+  lateFeeAmount: 0,
+  formalNoticeSentAt: null,
+  formalNoticeDeadline: null,
+};
+
 type InvoiceForReminder = {
   _id: mongoose.Types.ObjectId;
   userId: mongoose.Types.ObjectId;
@@ -124,6 +134,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (!invoice) {
       return NextResponse.json({ success: false, message: 'Invoice not found' }, { status: 404 });
     }
+
+    await Invoice.updateOne(
+      {
+        _id: invoice._id,
+        userId: me.user.id,
+        $or: [{ reminderState: null }, { reminderState: { $exists: false } }],
+      },
+      { $set: { reminderState: DEFAULT_REMINDER_STATE } }
+    );
 
     if (invoice.status === 'paid') {
       return NextResponse.json({ success: false, message: 'Invoice is already paid' }, { status: 400 });

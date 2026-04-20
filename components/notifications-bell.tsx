@@ -107,6 +107,11 @@ export function NotificationsBell() {
   const [activeTab, setActiveTab] = useState<NotificationsTab>('unread');
 
   const isMountedRef = useRef(true);
+  const activeTabRef = useRef<NotificationsTab>('unread');
+
+  useEffect(() => {
+    activeTabRef.current = activeTab;
+  }, [activeTab]);
 
   const fetchNotifications = useCallback(async () => {
     setLoading(true);
@@ -115,7 +120,7 @@ export function NotificationsBell() {
         sortBy: 'createdAt',
         sortOrder: 'desc',
         limit: '10',
-        isRead: activeTab === 'read' ? 'true' : 'false',
+        isRead: activeTabRef.current === 'read' ? 'true' : 'false',
       });
 
       const response = await fetch(`/api/activity?${params.toString()}`, { cache: 'no-store' });
@@ -132,7 +137,7 @@ export function NotificationsBell() {
         setLoading(false);
       }
     }
-  }, [activeTab]);
+  }, []);
 
   useEffect(() => {
     isMountedRef.current = true;
