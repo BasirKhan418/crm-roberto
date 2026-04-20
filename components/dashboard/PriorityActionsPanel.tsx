@@ -2,9 +2,9 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { AlertTriangleIcon, ArrowRightIcon, CalendarCheckIcon, CalendarClockIcon, Clock3Icon, FileTextIcon, MailWarningIcon, ReceiptTextIcon, UserX2Icon } from 'lucide-react';
+import { AlertTriangleIcon, ArrowRightIcon, CalendarCheckIcon, CalendarClockIcon, Clock3Icon, FileTextIcon, Loader2Icon, MailWarningIcon, MoreHorizontalIcon, ReceiptTextIcon, RepeatIcon, UserX2Icon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import SendQuoteModal from '@/components/quotes/SendQuoteModal';
@@ -12,6 +12,7 @@ import { useLocale } from '@/components/providers/locale-provider';
 import BaseAddModal from '@/components/modals/BaseAddModal';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import EmptyState from '@/components/ui/EmptyState';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -62,11 +63,35 @@ interface SmartActionsData {
     target: {
       _id: string;
       invoiceNumber: string;
+      status: 'unpaid' | 'overdue';
+      dueDate?: string | null;
+      reminderState?: {
+        level?: number | null;
+      };
+      recurrence?: {
+        isActive?: boolean;
+      };
       clientSnapshot: {
         fullName: string;
         email?: string | null;
       };
     } | null;
+    items: Array<{
+      _id: string;
+      invoiceNumber: string;
+      status: 'unpaid' | 'overdue';
+      dueDate?: string | null;
+      reminderState?: {
+        level?: number | null;
+      };
+      recurrence?: {
+        isActive?: boolean;
+      };
+      clientSnapshot: {
+        fullName: string;
+        email?: string | null;
+      };
+    }>;
   };
 }
 
@@ -286,6 +311,7 @@ export default function PriorityActionsPanel({
   const [smartActionsData, setSmartActionsData] = useState<SmartActionsData | null>(null);
   const [smartActionsLoading, setSmartActionsLoading] = useState(true);
   const [actionLoadingKey, setActionLoadingKey] = useState<string | null>(null);
+  const [invoiceRowLoadingId, setInvoiceRowLoadingId] = useState<string | null>(null);
   const [selectedAcceptedQuoteId, setSelectedAcceptedQuoteId] = useState<string>('');
   const { locale } = useLocale();
 
@@ -334,6 +360,16 @@ export default function PriorityActionsPanel({
       overdueInvoicesDescription: 'Past due date and still not fully paid.',
       sendReminderActionButton: 'Send reminder',
       reviewInvoicesAction: 'Review invoices',
+      invoiceRowsTitle: 'Invoices needing action',
+      rowActionSendReminder: 'Send reminder',
+      rowActionGenerateRecurrence: 'Generate recurrence',
+      rowActionViewInvoice: 'View invoice',
+      rowActionFailed: 'Failed to process invoice action',
+      rowActionReminderSuccess: 'Reminder sent',
+      rowActionRecurrenceSuccess: 'Recurrence generated',
+      statusUnpaid: 'Unpaid',
+      statusPartial: 'Partial paid',
+      statusOverdue: 'Overdue',
       invoiceCreated: 'Invoice created from accepted quote',
       invoiceReminderSent: 'Invoice reminder sent',
       smartActionFailed: 'Smart action failed',
@@ -391,6 +427,16 @@ export default function PriorityActionsPanel({
       overdueInvoicesDescription: "Date d'\u00e9ch\u00e9ance d\u00e9pass\u00e9e et facture non r\u00e9gl\u00e9e.",
       sendReminderActionButton: 'Envoyer rappel',
       reviewInvoicesAction: 'Voir factures',
+      invoiceRowsTitle: 'Factures a traiter',
+      rowActionSendReminder: 'Envoyer relance',
+      rowActionGenerateRecurrence: 'Generer recurrence',
+      rowActionViewInvoice: 'Voir facture',
+      rowActionFailed: "Impossible d'executer l'action facture",
+      rowActionReminderSuccess: 'Relance envoyee',
+      rowActionRecurrenceSuccess: 'Recurrence generee',
+      statusUnpaid: 'Impayee',
+      statusPartial: 'Partiellement payee',
+      statusOverdue: 'En retard',
       invoiceCreated: 'Facture cr\u00e9\u00e9e depuis le devis accept\u00e9',
       invoiceReminderSent: 'Rappel de facture envoy\u00e9',
       smartActionFailed: "Impossible d'ex\u00e9cuter l'action",
@@ -406,6 +452,20 @@ export default function PriorityActionsPanel({
     },
   }[locale];
 
+  const refreshSmartActions = useCallback(async (signal?: AbortSignal) => {
+    const response = await fetch('/api/dashboard/smart-actions', {
+      cache: 'no-store',
+      signal,
+    });
+
+    const payload = (await response.json()) as SmartActionsResponse;
+    if (!response.ok || !payload.success) {
+      throw new Error(payload.message || t.smartActionFailed);
+    }
+
+    setSmartActionsData(payload.data ?? null);
+  }, [t.smartActionFailed]);
+
   useEffect(() => {
     const controller = new AbortController();
 
@@ -413,17 +473,7 @@ export default function PriorityActionsPanel({
       setSmartActionsLoading(true);
 
       try {
-        const response = await fetch('/api/dashboard/smart-actions', {
-          cache: 'no-store',
-          signal: controller.signal,
-        });
-
-        const payload = (await response.json()) as SmartActionsResponse;
-        if (!response.ok || !payload.success) {
-          throw new Error(payload.message || t.smartActionFailed);
-        }
-
-        setSmartActionsData(payload.data ?? null);
+        await refreshSmartActions(controller.signal);
       } catch {
         if (!controller.signal.aborted) {
           setSmartActionsData(null);
@@ -438,7 +488,7 @@ export default function PriorityActionsPanel({
     loadSmartActions();
 
     return () => controller.abort();
-  }, [onActionSuccess, t.smartActionFailed]);
+  }, [onActionSuccess, refreshSmartActions]);
 
   async function runSmartAction(
     actionKey: string,
@@ -462,16 +512,66 @@ export default function PriorityActionsPanel({
       toast.success(successMessage);
       onActionSuccess?.();
 
-      const refresh = await fetch('/api/dashboard/smart-actions', { cache: 'no-store' });
-      const refreshPayload = (await refresh.json()) as SmartActionsResponse;
-      if (refresh.ok && refreshPayload.success) {
-        setSmartActionsData(refreshPayload.data ?? null);
-      }
+      await refreshSmartActions();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : fallbackError);
     } finally {
       setActionLoadingKey(null);
     }
+  }
+
+  function getNextReminderLevel(level: number | null | undefined): 1 | 2 | 3 {
+    const normalized = Number.isFinite(level) ? Math.max(0, Math.min(4, Math.round(Number(level)))) : 0;
+
+    if (normalized <= 0) {
+      return 1;
+    }
+
+    if (normalized === 1) {
+      return 2;
+    }
+
+    return 3;
+  }
+
+  async function runInvoiceRowAction(
+    invoice: NonNullable<SmartActionsData['overdueInvoices']['items']>[number],
+    action: 'send-reminder' | 'generate-recurrence'
+  ) {
+    setInvoiceRowLoadingId(invoice._id);
+
+    try {
+      const response =
+        action === 'send-reminder'
+          ? await fetch(`/api/invoices/${invoice._id}/reminders/send`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ level: getNextReminderLevel(invoice.reminderState?.level), locale }),
+            })
+          : await fetch(`/api/invoices/${invoice._id}/recurrence/generate`, { method: 'POST' });
+
+      const payload = (await response.json().catch(() => null)) as { success?: boolean; message?: string } | null;
+
+      if (!response.ok || !payload?.success) {
+        throw new Error(payload?.message || t.rowActionFailed);
+      }
+
+      toast.success(action === 'send-reminder' ? t.rowActionReminderSuccess : t.rowActionRecurrenceSuccess);
+      onActionSuccess?.();
+      await refreshSmartActions();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t.rowActionFailed);
+    } finally {
+      setInvoiceRowLoadingId(null);
+    }
+  }
+
+  function getInvoiceStatusLabel(status: 'unpaid' | 'overdue') {
+    if (status === 'overdue') {
+      return t.statusOverdue;
+    }
+
+    return t.statusUnpaid;
   }
 
   const priorityItems = useMemo(() => {
@@ -488,18 +588,16 @@ export default function PriorityActionsPanel({
       .slice(0, 4);
   }, [followUps, locale, t]);
 
-  const overdueCount = priorityItems.filter((item) => item.tone === 'overdue').length;
-  const todayCount = priorityItems.filter((item) => item.tone === 'today').length;
   const showError = Boolean(error) && priorityItems.length === 0;
   const followUpTarget = smartActionsData?.pendingQuoteFollowUps.target ?? null;
   const followUpCount = smartActionsData?.pendingQuoteFollowUps.count ?? 0;
-  const acceptedTarget = smartActionsData?.acceptedNotInvoiced.target ?? null;
-  const acceptedItems = smartActionsData?.acceptedNotInvoiced.items ?? [];
+  const acceptedItems = useMemo(() => smartActionsData?.acceptedNotInvoiced.items ?? [], [smartActionsData?.acceptedNotInvoiced.items]);
   const acceptedCount = smartActionsData?.acceptedNotInvoiced.count ?? 0;
   const inactiveClientTarget = smartActionsData?.inactiveClients.target ?? null;
   const inactiveCount = smartActionsData?.inactiveClients.count ?? 0;
   const overdueInvoiceTarget = smartActionsData?.overdueInvoices.target ?? null;
   const overdueInvoiceCount = smartActionsData?.overdueInvoices.count ?? 0;
+  const overdueInvoiceItems = smartActionsData?.overdueInvoices.items ?? [];
   const isAcceptedInvoiceLoading = actionLoadingKey === 'accepted-to-invoice';
 
   useEffect(() => {
@@ -538,75 +636,6 @@ export default function PriorityActionsPanel({
       t.smartActionFailed
     );
   }
-
-  const smartActions = [
-    {
-      key: 'follow-up-quotes',
-      tone: followUpCount > 0 ? ('urgent' as const) : ('neutral' as const),
-      title: followUpCount > 0 ? t.quotesNeedFollowUp(followUpCount) : t.noQuotesNeedFollowUp,
-      description: t.followUpDescription,
-      buttonLabel: followUpCount > 0 ? t.followUpAction : t.reviewQuotesAction,
-      Icon: MailWarningIcon,
-      onClick: () => {
-        if (followUpTarget?.clientSnapshot?.email) {
-          setIsFollowUpModalOpen(true);
-          return;
-        }
-        router.push('/quotes');
-      },
-      disabled: smartActionsLoading,
-    },
-    {
-      key: 'accepted-to-invoice',
-      tone: 'medium' as const,
-      title: acceptedCount > 0 ? t.acceptedNotInvoiced(acceptedCount) : t.noAcceptedNotInvoiced,
-      description: t.acceptedNotInvoicedDescription,
-      buttonLabel: acceptedCount > 0 ? t.createInvoiceActionButton : t.reviewAcceptedQuotesAction,
-      Icon: ReceiptTextIcon,
-      onClick: () => {
-        if (!acceptedItems.length) {
-          router.push('/quotes?status=accepted');
-          return;
-        }
-
-        setIsInvoicePickerOpen(true);
-      },
-      disabled: smartActionsLoading || isAcceptedInvoiceLoading,
-    },
-    {
-      key: 'inactive-clients',
-      tone: 'neutral' as const,
-      title: inactiveCount > 0 ? t.inactiveClients(inactiveCount) : t.noInactiveClients,
-      description: t.inactiveClientsDescription,
-      buttonLabel: inactiveCount > 0 ? t.contactClientActionButton : t.reviewClientsAction,
-      Icon: UserX2Icon,
-      onClick: () => {
-        if (!inactiveClientTarget) {
-          router.push('/clients');
-          return;
-        }
-        router.push(`/clients/${inactiveClientTarget._id}`);
-      },
-      disabled: smartActionsLoading,
-    },
-    {
-      key: 'overdue-invoices',
-      tone: overdueInvoiceCount > 0 ? ('urgent' as const) : ('neutral' as const),
-      title: overdueInvoiceCount > 0 ? t.overdueInvoices(overdueInvoiceCount) : t.noOverdueInvoices,
-      description: t.overdueInvoicesDescription,
-      buttonLabel: overdueInvoiceCount > 0 ? t.sendReminderActionButton : t.reviewInvoicesAction,
-      Icon: FileTextIcon,
-      onClick: () => {
-        if (!overdueInvoiceTarget) {
-          router.push('/invoices');
-          return;
-        }
-
-        setIsReminderConfirmOpen(true);
-      },
-      disabled: smartActionsLoading || actionLoadingKey === 'overdue-invoices',
-    },
-  ] as const;
 
   const nextAction = priorityItems[0] ?? null;
   const urgentItems = priorityItems.filter((item) => item.tone === 'overdue' || item.tone === 'today');
@@ -760,6 +789,52 @@ export default function PriorityActionsPanel({
                       }}
                       disabled={smartActionsLoading || actionLoadingKey === 'overdue-invoices'}
                     />
+
+                    {overdueInvoiceItems.length > 0 ? (
+                      <div className="rounded-xl border border-border/60 bg-background/70 p-2.5 sm:p-3">
+                        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t.invoiceRowsTitle}</p>
+                        <div className="space-y-2">
+                          {overdueInvoiceItems.map((invoice) => {
+                            const rowLoading = invoiceRowLoadingId === invoice._id;
+
+                            return (
+                              <div key={invoice._id} className="flex items-center justify-between gap-2 rounded-lg border border-border/60 bg-card px-2.5 py-2">
+                                <div className="min-w-0">
+                                  <p className="truncate text-sm font-medium text-foreground">{invoice.invoiceNumber}</p>
+                                  <p className="truncate text-xs text-muted-foreground">
+                                    {invoice.clientSnapshot.fullName} · {getInvoiceStatusLabel(invoice.status)}
+                                  </p>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  {rowLoading ? <Loader2Icon className="size-4 animate-spin text-muted-foreground" /> : null}
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button type="button" variant="outline" size="icon" className="size-7" disabled={rowLoading}>
+                                        <MoreHorizontalIcon className="size-4" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="w-44">
+                                      <DropdownMenuItem onSelect={() => void runInvoiceRowAction(invoice, 'send-reminder')}>
+                                        {t.rowActionSendReminder}
+                                      </DropdownMenuItem>
+                                      {invoice.recurrence?.isActive ? (
+                                        <DropdownMenuItem onSelect={() => void runInvoiceRowAction(invoice, 'generate-recurrence')}>
+                                          <RepeatIcon className="size-4" />
+                                          {t.rowActionGenerateRecurrence}
+                                        </DropdownMenuItem>
+                                      ) : null}
+                                      <DropdownMenuItem onSelect={() => router.push(`/invoices/${invoice._id}`)}>
+                                        {t.rowActionViewInvoice}
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               </div>

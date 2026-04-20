@@ -10,6 +10,7 @@ import { InvoiceStatusBadge } from '@/components/ui/InvoiceStatusBadge';
 import { formatInvoiceDisplayNumber } from '@/lib/i18n/messages';
 import { PriceDisplay } from '@/components/ui/PriceDisplay';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -71,6 +72,9 @@ interface InvoiceTableProps {
   onDelete: (invoice: InvoiceListItem) => void;
   onDownload: (invoice: InvoiceListItem) => Promise<void>;
   onSend: (invoice: InvoiceListItem) => void;
+  selectedInvoiceIds?: string[];
+  onToggleInvoiceSelection?: (invoiceId: string, checked: boolean) => void;
+  onToggleSelectAllVisible?: (checked: boolean) => void;
 }
 
 export type InvoiceTableColumnKey =
@@ -96,6 +100,9 @@ export default function InvoiceTable({
   onDelete,
   onDownload,
   onSend,
+  selectedInvoiceIds = [],
+  onToggleInvoiceSelection,
+  onToggleSelectAllVisible,
 }: InvoiceTableProps) {
   const router = useRouter();
   const priceLocale = locale === 'fr' ? 'fr-FR' : 'en-GB';
@@ -122,6 +129,9 @@ export default function InvoiceTable({
 
   const showDepositColumns = items.some((invoice) => hasDeposit(invoice) || Boolean(invoice.depositPaidAt));
   const isVisible = (column: InvoiceTableColumnKey) => visibleColumns?.[column] !== false;
+  const selectionEnabled = typeof onToggleInvoiceSelection === 'function';
+  const selectedIdsSet = new Set(selectedInvoiceIds);
+  const allVisibleSelected = items.length > 0 && items.every((invoice) => selectedIdsSet.has(invoice._id));
 
   function renderPrimaryAction(invoice: InvoiceListItem, className?: string) {
     // unpaid → send
@@ -237,6 +247,14 @@ export default function InvoiceTable({
                   onClick={() => router.push(`/invoices/${invoice._id}`)}
                 >
                   <div className="flex items-start justify-between gap-3 px-4 pt-4.5">
+                    {selectionEnabled ? (
+                      <Checkbox
+                        checked={selectedIdsSet.has(invoice._id)}
+                        onCheckedChange={(checked) => onToggleInvoiceSelection?.(invoice._id, Boolean(checked))}
+                        onClick={(event) => event.stopPropagation()}
+                        aria-label={`Select ${displayInvoiceNumber}`}
+                      />
+                    ) : null}
                     <div className="min-w-0">
                       {isVisible('client') ? (
                         <Link
@@ -345,6 +363,15 @@ export default function InvoiceTable({
         <Table className="min-w-280">
           <TableHeader>
             <TableRow className="hover:bg-transparent">
+              {selectionEnabled ? (
+                <TableHead className="h-11 w-10 pl-4">
+                  <Checkbox
+                    checked={allVisibleSelected}
+                    onCheckedChange={(checked) => onToggleSelectAllVisible?.(Boolean(checked))}
+                    aria-label={locale === 'fr' ? 'Tout selectionner' : 'Select all visible'}
+                  />
+                </TableHead>
+              ) : null}
               <TableHead className="h-11 pl-5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.invoiceNumber}</TableHead>
               {isVisible('client') ? <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.client}</TableHead> : null}
               {isVisible('date') ? <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.date}</TableHead> : null}
@@ -363,6 +390,7 @@ export default function InvoiceTable({
             {loading
               ? Array.from({ length: 6 }).map((_, idx) => (
                   <TableRow key={`invoice-skeleton-${idx}`}>
+                    {selectionEnabled ? <TableCell className="py-4 pl-4"><Skeleton className="h-4 w-4 rounded" /></TableCell> : null}
                     <TableCell className="py-4 pl-5"><Skeleton className="h-4 w-28" /></TableCell>
                     {isVisible('client') ? <TableCell className="py-4"><Skeleton className="h-4 w-28" /></TableCell> : null}
                     {isVisible('date') ? <TableCell className="py-4"><Skeleton className="h-4 w-24" /></TableCell> : null}
@@ -391,6 +419,15 @@ export default function InvoiceTable({
                       style={{ backgroundColor: STATUS_ROW_BG[invoice.status] }}
                       onClick={() => router.push(`/invoices/${invoice._id}`)}
                     >
+                      {selectionEnabled ? (
+                        <TableCell className="py-4 pl-4 align-middle" onClick={(event) => event.stopPropagation()}>
+                          <Checkbox
+                            checked={selectedIdsSet.has(invoice._id)}
+                            onCheckedChange={(checked) => onToggleInvoiceSelection?.(invoice._id, Boolean(checked))}
+                            aria-label={`Select ${displayInvoiceNumber}`}
+                          />
+                        </TableCell>
+                      ) : null}
                       <TableCell
                         className="py-4 pl-5 align-middle"
                         style={{ borderLeft: `3px solid ${STATUS_ACCENT[invoice.status]}` }}

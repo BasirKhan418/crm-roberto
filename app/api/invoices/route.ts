@@ -109,6 +109,12 @@ type InvoiceListQueryResult = {
   totalIncludingTax: number;
   depositPercentage?: number | null;
   depositAmount?: number | null;
+  recurrence?: {
+    isActive?: boolean;
+  } | null;
+  reminderState?: {
+    level?: number | null;
+  } | null;
   clientId: mongoose.Types.ObjectId;
   clientSnapshot: {
     fullName: string;
@@ -254,7 +260,7 @@ export async function GET(request: NextRequest) {
     const [items, total] = await Promise.all([
       Invoice.find(query)
         .select(
-          '_id invoiceNumber quoteId quoteNumber date dueDate status totalExcludingTax totalVat totalIncludingTax depositPercentage depositAmount clientId clientSnapshot.fullName clientSnapshot.email'
+          '_id invoiceNumber quoteId quoteNumber date dueDate status totalExcludingTax totalVat totalIncludingTax depositPercentage depositAmount recurrence.isActive reminderState.level clientId clientSnapshot.fullName clientSnapshot.email'
         )
         .sort(sortSpec)
         .skip(skip)
@@ -324,6 +330,14 @@ export async function GET(request: NextRequest) {
         clientId: String(normalized.clientId),
         depositAmount: depositTarget > 0 ? depositTarget : null,
         depositPaidAt: depositTarget > 0 ? depositPaidAtByInvoiceId.get(invoiceId) ?? null : null,
+        recurrence: {
+          isActive: normalized.recurrence?.isActive === true,
+        },
+        reminderState: {
+          level: Number.isFinite(normalized.reminderState?.level)
+            ? Math.max(0, Math.min(4, Math.round(Number(normalized.reminderState?.level))))
+            : 0,
+        },
         amountPaid,
         remainingAmount,
         paymentProgressPercent,

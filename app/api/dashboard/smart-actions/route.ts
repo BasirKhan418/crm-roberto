@@ -45,6 +45,14 @@ interface InactiveClientTarget {
 interface OverdueInvoiceTarget {
   _id: string;
   invoiceNumber: string;
+  status: 'unpaid' | 'overdue';
+  dueDate?: string | null;
+  reminderState?: {
+    level?: number | null;
+  };
+  recurrence?: {
+    isActive?: boolean;
+  };
   clientSnapshot: {
     fullName: string;
     email?: string | null;
@@ -68,6 +76,7 @@ interface SmartActionsResponse {
   overdueInvoices: {
     count: number;
     target: OverdueInvoiceTarget | null;
+    items: OverdueInvoiceTarget[];
   };
 }
 
@@ -129,11 +138,10 @@ async function buildSmartActions(userId: string): Promise<SmartActionsResponse> 
       .lean(),
     Invoice.find({
       userId: userObjectId,
-      dueDate: { $ne: null, $lt: new Date(now) },
-      status: { $ne: 'paid' },
+      status: { $in: ['unpaid', 'overdue'] },
     })
-      .sort({ dueDate: 1 })
-      .select('_id invoiceNumber clientSnapshot.fullName clientSnapshot.email dueDate status')
+      .sort({ dueDate: 1, createdAt: -1 })
+      .select('_id invoiceNumber clientSnapshot.fullName clientSnapshot.email dueDate status recurrence.isActive reminderState.level')
       .lean(),
     Client.find({ user: userId })
       .select('_id fullName email createdAt updatedAt')
@@ -200,6 +208,14 @@ async function buildSmartActions(userId: string): Promise<SmartActionsResponse> 
   const overdueInvoices = overdueInvoicesRaw as Array<{
     _id: mongoose.Types.ObjectId;
     invoiceNumber: string;
+    status: 'unpaid' | 'overdue';
+    dueDate?: Date | null;
+    reminderState?: {
+      level?: number | null;
+    } | null;
+    recurrence?: {
+      isActive?: boolean;
+    } | null;
     clientSnapshot: { fullName: string; email?: string | null };
   }>;
 
@@ -248,12 +264,40 @@ async function buildSmartActions(userId: string): Promise<SmartActionsResponse> 
         ? {
             _id: String(overdueInvoices[0]._id),
             invoiceNumber: overdueInvoices[0].invoiceNumber,
+            status: overdueInvoices[0].status,
+            dueDate: overdueInvoices[0].dueDate ? new Date(overdueInvoices[0].dueDate).toISOString() : null,
+            recurrence: {
+              isActive: overdueInvoices[0].recurrence?.isActive === true,
+            },
+            reminderState: {
+              level: Number.isFinite(overdueInvoices[0].reminderState?.level)
+                ? Math.max(0, Math.min(4, Math.round(Number(overdueInvoices[0].reminderState?.level))))
+                : 0,
+            },
             clientSnapshot: {
               fullName: overdueInvoices[0].clientSnapshot?.fullName ?? 'Client',
               email: overdueInvoices[0].clientSnapshot?.email ?? null,
             },
           }
         : null,
+      items: overdueInvoices.slice(0, 8).map((invoice) => ({
+        _id: String(invoice._id),
+        invoiceNumber: invoice.invoiceNumber,
+        status: invoice.status,
+        dueDate: invoice.dueDate ? new Date(invoice.dueDate).toISOString() : null,
+        recurrence: {
+          isActive: invoice.recurrence?.isActive === true,
+        },
+        reminderState: {
+          level: Number.isFinite(invoice.reminderState?.level)
+            ? Math.max(0, Math.min(4, Math.round(Number(invoice.reminderState?.level))))
+            : 0,
+        },
+        clientSnapshot: {
+          fullName: invoice.clientSnapshot?.fullName ?? 'Client',
+          email: invoice.clientSnapshot?.email ?? null,
+        },
+      })),
     },
   };
 }

@@ -4,7 +4,7 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-import { PlusIcon, SearchIcon } from 'lucide-react';
+import { Loader2Icon, PlusIcon, SearchIcon, SendIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import InvoiceTable, { type InvoiceTableColumnKey } from '@/components/invoices/InvoiceTable';
@@ -23,12 +23,15 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import EmptyState from '@/components/ui/EmptyState';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useInvoices, type InvoiceListItem, type InvoiceStatusFilter } from '@/hooks/useInvoices';
 import { useInvoicesActionCount } from '@/hooks/useInvoicesActionCount';
 import FinancialTotalsBar from '@/components/ui/FinancialTotalsBar';
@@ -222,6 +225,16 @@ function InvoicesPageContent() {
   const [deleteTarget, setDeleteTarget] = useState<InvoiceListItem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [sendTarget, setSendTarget] = useState<InvoiceListItem | null>(null);
+  const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<string[]>([]);
+  const [bulkReminderOpen, setBulkReminderOpen] = useState(false);
+  const [bulkReminderMode, setBulkReminderMode] = useState<'auto' | '1' | '2' | '3'>('auto');
+  const [bulkSending, setBulkSending] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number; success: number; failed: number }>({
+    done: 0,
+    total: 0,
+    success: 0,
+    failed: 0,
+  });
   const { invoices, pagination, loading, error, refetch } = useInvoices(status, searchDebounced, sort, page, limit);
   const { allCount, unpaidCount, partialPaidCount, paidCount, overdueCount } = useInvoicesActionCount(
     pagination.total + invoices.length + Number(loading)
@@ -282,6 +295,10 @@ function InvoicesPageContent() {
   useEffect(() => {
     setPage(1);
   }, [searchDebounced, status, sort]);
+
+  useEffect(() => {
+    setSelectedInvoiceIds((prev) => prev.filter((id) => invoices.some((invoice) => invoice._id === id)));
+  }, [invoices]);
 
   useEffect(() => {
     if (loading) {
@@ -443,6 +460,84 @@ function InvoicesPageContent() {
       { key: 'total-due', label: t.totalDue, value: totalDue, kind: 'currency' as const, tone: 'danger' as const },
     ];
   }, [invoices, t.numberOfDocuments, t.totalDue, t.totalHT, t.totalPaid, t.totalTTC, t.totalTVA]);
+
+  const selectedInvoices = useMemo(
+    () => invoices.filter((invoice) => selectedInvoiceIds.includes(invoice._id)),
+    [invoices, selectedInvoiceIds]
+  );
+
+  function getNextReminderLevel(level: number | null | undefined): 1 | 2 | 3 {
+    const normalized = Number.isFinite(level) ? Math.max(0, Math.min(4, Math.round(Number(level)))) : 0;
+
+    if (normalized <= 0) {
+      return 1;
+    }
+
+    if (normalized === 1) {
+      return 2;
+    }
+
+    return 3;
+  }
+
+  function resolveBulkReminderLevel(invoice: InvoiceListItem): 1 | 2 | 3 {
+    if (bulkReminderMode === '1' || bulkReminderMode === '2' || bulkReminderMode === '3') {
+      return Number(bulkReminderMode) as 1 | 2 | 3;
+    }
+
+    return getNextReminderLevel(invoice.reminderState?.level);
+  }
+
+  async function sendReminderToSelectedSequentially() {
+    if (selectedInvoices.length === 0 || bulkSending) {
+      return;
+    }
+
+    setBulkSending(true);
+    setBulkProgress({ done: 0, total: selectedInvoices.length, success: 0, failed: 0 });
+
+    let success = 0;
+    let failed = 0;
+
+    for (let index = 0; index < selectedInvoices.length; index += 1) {
+      const invoice = selectedInvoices[index];
+      const level = resolveBulkReminderLevel(invoice);
+
+      try {
+        const response = await fetch(`/api/invoices/${invoice._id}/reminders/send`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ level, locale }),
+        });
+
+        const payload = (await response.json().catch(() => null)) as { success?: boolean; message?: string } | null;
+        if (!response.ok || !payload?.success) {
+          throw new Error(payload?.message || 'Failed to send reminder');
+        }
+
+        success += 1;
+      } catch {
+        failed += 1;
+      } finally {
+        setBulkProgress({ done: index + 1, total: selectedInvoices.length, success, failed });
+      }
+    }
+
+    if (failed === 0) {
+      toast.success(locale === 'fr' ? 'Relances envoyees' : 'Reminders sent');
+    } else {
+      toast.error(
+        locale === 'fr'
+          ? `${success} reussie(s), ${failed} echec(s)`
+          : `${success} succeeded, ${failed} failed`
+      );
+    }
+
+    setBulkSending(false);
+    setBulkReminderOpen(false);
+    setSelectedInvoiceIds([]);
+    await refetch();
+  }
 
   return (
     <CrmShell title={t.shellTitle}>
@@ -617,6 +712,30 @@ function InvoicesPageContent() {
               onDelete={setDeleteTarget}
               onDownload={handleDownloadPdf}
               onSend={setSendTarget}
+              selectedInvoiceIds={selectedInvoiceIds}
+              onToggleInvoiceSelection={(invoiceId, checked) => {
+                setSelectedInvoiceIds((prev) => {
+                  if (checked) {
+                    return prev.includes(invoiceId) ? prev : [...prev, invoiceId];
+                  }
+
+                  return prev.filter((id) => id !== invoiceId);
+                });
+              }}
+              onToggleSelectAllVisible={(checked) => {
+                setSelectedInvoiceIds((prev) => {
+                  if (checked) {
+                    const next = new Set(prev);
+                    for (const invoice of invoices) {
+                      next.add(invoice._id);
+                    }
+                    return Array.from(next);
+                  }
+
+                  const visibleIds = new Set(invoices.map((invoice) => invoice._id));
+                  return prev.filter((id) => !visibleIds.has(id));
+                });
+              }}
               visibleColumns={visibleColumns}
               labels={{
                 invoiceNumber: t.invoiceNumber,
@@ -668,6 +787,123 @@ function InvoicesPageContent() {
           </>
         )}
       </section>
+
+      {selectedInvoiceIds.length > 0 ? (
+        <div className="fixed right-4 bottom-4 left-4 z-40 rounded-xl border border-border/70 bg-card/95 p-3 shadow-lg backdrop-blur sm:left-auto sm:min-w-105">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm font-medium text-foreground">
+              {locale === 'fr'
+                ? `${selectedInvoiceIds.length} facture(s) selectionnee(s)`
+                : `${selectedInvoiceIds.length} invoice(s) selected`}
+            </p>
+            <div className="flex items-center gap-2">
+              <Button type="button" size="sm" onClick={() => setBulkReminderOpen(true)} disabled={bulkSending}>
+                <SendIcon className="size-4" />
+                {locale === 'fr' ? 'Envoyer relance' : 'Send reminder to selected'}
+              </Button>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span>
+                      <Button type="button" size="sm" variant="outline" disabled>
+                        {locale === 'fr' ? 'Exporter selection' : 'Export selected'}
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Coming soon</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <Button type="button" size="sm" variant="ghost" onClick={() => setSelectedInvoiceIds([])} disabled={bulkSending}>
+                {locale === 'fr' ? 'Effacer' : 'Clear'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      <Dialog
+        open={bulkReminderOpen}
+        onOpenChange={(nextOpen) => {
+          if (!bulkSending) {
+            setBulkReminderOpen(nextOpen);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{locale === 'fr' ? 'Envoyer des relances' : 'Send reminder to selected'}</DialogTitle>
+            <DialogDescription>
+              {locale === 'fr'
+                ? 'Choisissez le niveau a envoyer, puis lancement en sequence pour eviter les limites SMTP.'
+                : 'Choose reminder level, then send sequentially to avoid SMTP rate limits.'}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <RadioGroup
+              value={bulkReminderMode}
+              onValueChange={(value) => {
+                const nextValue = value === '1' || value === '2' || value === '3' ? value : 'auto';
+                setBulkReminderMode(nextValue);
+              }}
+              className="space-y-2"
+            >
+              <label className="flex items-center gap-2 rounded-md border border-border/60 p-2 text-sm">
+                <RadioGroupItem value="auto" />
+                {locale === 'fr' ? 'Niveau auto (suivant logique par facture)' : 'Auto next logical level per invoice'}
+              </label>
+              <label className="flex items-center gap-2 rounded-md border border-border/60 p-2 text-sm">
+                <RadioGroupItem value="1" />
+                {locale === 'fr' ? 'Niveau 1 - relance amicale' : 'Level 1 - soft reminder'}
+              </label>
+              <label className="flex items-center gap-2 rounded-md border border-border/60 p-2 text-sm">
+                <RadioGroupItem value="2" />
+                {locale === 'fr' ? 'Niveau 2 - relance intermediaire' : 'Level 2 - medium reminder'}
+              </label>
+              <label className="flex items-center gap-2 rounded-md border border-border/60 p-2 text-sm">
+                <RadioGroupItem value="3" />
+                {locale === 'fr' ? 'Niveau 3 - relance ferme' : 'Level 3 - firm reminder'}
+              </label>
+            </RadioGroup>
+
+            {bulkSending ? (
+              <div className="rounded-md border border-border/60 bg-muted/20 p-3 text-sm">
+                <div className="flex items-center gap-2">
+                  <Loader2Icon className="size-4 animate-spin" />
+                  <span>
+                    {locale === 'fr'
+                      ? `${bulkProgress.done}/${bulkProgress.total} traitees`
+                      : `${bulkProgress.done}/${bulkProgress.total} processed`}
+                  </span>
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {locale === 'fr'
+                    ? `Succes: ${bulkProgress.success} · Echecs: ${bulkProgress.failed}`
+                    : `Success: ${bulkProgress.success} · Failed: ${bulkProgress.failed}`}
+                </p>
+              </div>
+            ) : null}
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setBulkReminderOpen(false)} disabled={bulkSending}>
+              {locale === 'fr' ? 'Annuler' : 'Cancel'}
+            </Button>
+            <Button type="button" onClick={() => void sendReminderToSelectedSequentially()} disabled={bulkSending || selectedInvoices.length === 0}>
+              {bulkSending ? <Loader2Icon className="size-4 animate-spin" /> : null}
+              {bulkSending
+                ? locale === 'fr'
+                  ? 'Envoi...'
+                  : 'Sending...'
+                : locale === 'fr'
+                  ? 'Lancer l\'envoi'
+                  : 'Start sending'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(next) => (!next ? setDeleteTarget(null) : undefined)}>
         <AlertDialogContent>

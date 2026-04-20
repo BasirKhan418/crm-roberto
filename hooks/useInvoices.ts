@@ -23,6 +23,12 @@ export interface InvoiceListItem {
   amountPaid?: number;
   remainingAmount?: number;
   paymentProgressPercent?: number;
+  recurrence?: {
+    isActive?: boolean;
+  };
+  reminderState?: {
+    level?: number | null;
+  };
   clientId: string;
   clientSnapshot: {
     fullName: string;
