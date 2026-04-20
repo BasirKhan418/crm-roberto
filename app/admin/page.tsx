@@ -346,7 +346,7 @@ export default function AdminPage() {
       </div>
 
       {/* Users table */}
-      <Card className="overflow-hidden">
+      <Card className="overflow-hidden pt-0">
         <CardHeader className="border-b bg-muted/30 px-5 py-4">
           <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
             <CardTitle className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">

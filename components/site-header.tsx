@@ -187,14 +187,16 @@ export function SiteHeader({ title = "Documents" }: { title?: string }) {
             <DropdownMenuTrigger asChild>
               <Button
                 type="button"
-                variant="outline"
-                className="h-9 w-9 gap-2 rounded-full px-0 sm:max-w-56 sm:px-2.5"
+                variant="ghost"
+                className="h-10 w-10 rounded-full border border-border bg-background p-0 hover:bg-muted sm:w-auto sm:max-w-56 sm:justify-start sm:gap-2 sm:px-2.5"
                 aria-label={userDisplayName}
               >
-                <Avatar className="size-7 rounded-full">
-                  <AvatarImage src="" alt={userDisplayName} />
-                  <AvatarFallback className="text-xs">{userInitials}</AvatarFallback>
-                </Avatar>
+                <span className="grid size-8 shrink-0 place-items-center rounded-full border border-border/70 bg-background">
+                  <Avatar className="size-6 rounded-full">
+                    <AvatarImage src={user?.avatar || undefined} alt={userDisplayName} />
+                    <AvatarFallback className="text-[11px] font-semibold">{userInitials}</AvatarFallback>
+                  </Avatar>
+                </span>
                 <span className="hidden truncate text-sm font-medium sm:inline">{userDisplayName}</span>
               </Button>
             </DropdownMenuTrigger>

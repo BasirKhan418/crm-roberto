@@ -644,7 +644,7 @@ export default function PriorityActionsPanel({
   return (
     <>
     <section>
-      <Card className="gap-0 overflow-hidden border border-foreground/10">
+      <Card className="gap-0 overflow-hidden border border-foreground/10 pt-0">
         <CardHeader className="border-b bg-slate-50 px-5 py-4 dark:bg-slate-900/40">
           <CardTitle className="text-lg font-semibold text-foreground">{t.title}</CardTitle>
           <p className="text-sm text-muted-foreground">{t.subtitle}</p>

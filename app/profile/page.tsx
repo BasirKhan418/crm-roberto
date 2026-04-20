@@ -533,7 +533,7 @@ export default function ProfilePage() {
         </CardContent>
       </Card>
 
-      <Card id="stripe-payments" data-tour-profile-stripe-card className="scroll-mt-20 overflow-hidden border-primary/20 bg-linear-to-br from-sky-50/70 via-background to-indigo-50/40 dark:from-sky-950/20 dark:to-indigo-950/20">
+      <Card id="stripe-payments" data-tour-profile-stripe-card className="scroll-mt-20 overflow-hidden border-primary/20 bg-linear-to-br from-sky-50/70 via-background to-indigo-50/40 pt-0 dark:from-sky-950/20 dark:to-indigo-950/20">
         <CardHeader className="border-b">
           <CardTitle>{t.stripeTitle}</CardTitle>
           <p className="text-sm text-muted-foreground">{t.stripeSubtitle}</p>
