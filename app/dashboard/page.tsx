@@ -4,10 +4,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { ArrowDownIcon, ArrowUpIcon } from 'lucide-react';
 
 import ActivityFeed from '@/components/dashboard/ActivityFeed';
+import CollectionWidget from '@/components/dashboard/CollectionWidget';
 import PriorityActionsPanel from '@/components/dashboard/PriorityActionsPanel';
 import QuickAddButtons from '@/components/dashboard/QuickAddButtons';
 import RecentQuotes from '@/components/dashboard/RecentQuotes';
 import StatCards from '@/components/dashboard/StatCards';
+import UpcomingRecurrencesWidget from '@/components/dashboard/UpcomingRecurrencesWidget';
 import CrmShell from '@/components/crm-shell';
 import BaseAddModal from '@/components/modals/BaseAddModal';
 import { useLocale } from '@/components/providers/locale-provider';
@@ -245,6 +247,9 @@ export default function DashboardPage() {
             </div>
           );
         })}
+
+        <CollectionWidget />
+        <UpcomingRecurrencesWidget />
       </section>
 
       {isCustomizeOpen ? (
