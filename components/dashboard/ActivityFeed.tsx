@@ -72,35 +72,6 @@ const DEFAULT_ENTITY = {
   labelColor: 'text-slate-600 dark:text-slate-400',
 };
 
-type ActionBadge = { badgeClass: string };
-
-const ACTION_BADGE: Record<string, ActionBadge> = {
-  client_created: { badgeClass: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' },
-  client_updated: { badgeClass: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300' },
-  client_deleted: { badgeClass: 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300' },
-  supplier_created: { badgeClass: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' },
-  supplier_updated: { badgeClass: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300' },
-  supplier_deleted: { badgeClass: 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300' },
-  note_created: { badgeClass: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' },
-  note_updated: { badgeClass: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300' },
-  note_deleted: { badgeClass: 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300' },
-  quote_created: { badgeClass: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' },
-  quote_duplicated: { badgeClass: 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300' },
-  quote_updated: { badgeClass: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300' },
-  quote_deleted: { badgeClass: 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300' },
-  quote_client_replied: { badgeClass: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
-  quote_status_changed: { badgeClass: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
-  invoice_created: { badgeClass: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' },
-  invoice_reminder_sent: { badgeClass: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
-  invoice_reminder_skipped: { badgeClass: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300' },
-  invoice_formal_notice_sent: { badgeClass: 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300' },
-  invoice_recurrence_generated: { badgeClass: 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300' },
-  invoice_recurrence_due: { badgeClass: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300' },
-  invoice_payment_received: { badgeClass: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' },
-  invoice_payment_updated: { badgeClass: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
-  invoice_payment_deleted: { badgeClass: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300' },
-};
-
 interface ActivityFeedProps {
   activity?: ActivityItem[];
   loading?: boolean;
