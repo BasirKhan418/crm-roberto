@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 
 import { useLocale } from '@/components/providers/locale-provider';
 import { PriceDisplay } from '@/components/ui/PriceDisplay';
@@ -18,10 +19,32 @@ interface PaymentLinkData {
   canPay: boolean;
 }
 
+type PaymentChoice = 'full' | 'partial';
+
+function parseEurosToCents(value: string): number | null {
+  const normalized = value.replace(',', '.').trim();
+  if (!normalized) {
+    return null;
+  }
+
+  const parsed = Number(normalized);
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+
+  return Math.round(parsed * 100);
+}
+
+function centsToEurosInput(cents: number): string {
+  return (Math.max(0, cents) / 100).toFixed(2);
+}
+
 export default function PayByTokenPage() {
   const params = useParams<{ token: string }>();
+  const searchParams = useSearchParams();
   const token = params?.token;
   const { locale } = useLocale();
+  const status = searchParams.get('status');
 
   const t = {
     en: {
@@ -33,11 +56,20 @@ export default function PayByTokenPage() {
       total: 'Total',
       paid: 'Paid',
       remaining: 'Remaining',
-      payDeposit: 'Pay deposit',
-      payTwenty: 'Pay 20%',
-      payThirty: 'Pay 30%',
-      payRemaining: 'Pay remaining',
+      paymentType: 'Payment type',
+      paymentTypeFull: 'Full payment',
+      paymentTypePartial: 'Partial payment',
+      amountPaid: 'Amount to pay (EUR)',
+      amountHint: 'Enter how much you want to pay now.',
+      amountInvalid: 'Enter a valid amount greater than 0.',
+      amountTooHigh: 'Amount cannot exceed remaining balance.',
+      partialMustBeLess: 'For full settlement, choose Full payment.',
+      remainingAfter: 'Remaining after this payment',
+      modeOnline: 'Mode: Online (Stripe)',
+      payNow: 'Pay with Stripe',
       fullyPaid: 'This invoice is fully paid.',
+      paymentSuccess: 'Payment started successfully. Confirmation may take a few seconds.',
+      paymentCancelled: 'Payment was cancelled. You can try again.',
       redirecting: 'Redirecting...',
       createPaymentFailed: 'Could not create payment link',
     },
@@ -50,11 +82,20 @@ export default function PayByTokenPage() {
       total: 'Total',
       paid: 'Payé',
       remaining: 'Reste',
-      payDeposit: "Payer l'acompte",
-      payTwenty: 'Payer 20%',
-      payThirty: 'Payer 30%',
-      payRemaining: 'Payer le reste',
+      paymentType: 'Type de paiement',
+      paymentTypeFull: 'Paiement complet',
+      paymentTypePartial: 'Paiement partiel',
+      amountPaid: 'Montant a payer (EUR)',
+      amountHint: 'Entrez le montant a payer maintenant.',
+      amountInvalid: 'Entrez un montant valide superieur a 0.',
+      amountTooHigh: 'Le montant ne peut pas depasser le reste.',
+      partialMustBeLess: 'Pour solder la facture, choisissez Paiement complet.',
+      remainingAfter: 'Reste apres ce paiement',
+      modeOnline: 'Mode : En ligne (Stripe)',
+      payNow: 'Payer avec Stripe',
       fullyPaid: 'Cette facture est entièrement réglée.',
+      paymentSuccess: 'Paiement lance avec succes. La confirmation peut prendre quelques secondes.',
+      paymentCancelled: 'Paiement annule. Vous pouvez reessayer.',
       redirecting: 'Redirection...',
       createPaymentFailed: 'Impossible de créer le lien de paiement',
     },
@@ -63,6 +104,17 @@ export default function PayByTokenPage() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
   const [data, setData] = useState<PaymentLinkData | null>(null);
+  const [paymentType, setPaymentType] = useState<PaymentChoice>('full');
+  const [amountInput, setAmountInput] = useState('');
+
+  useEffect(() => {
+    if (!data) {
+      return;
+    }
+
+    setAmountInput(centsToEurosInput(data.remainingAmount));
+    setPaymentType('full');
+  }, [data]);
 
   useEffect(() => {
     if (!token) {
@@ -95,6 +147,52 @@ export default function PayByTokenPage() {
 
   const priceLocale = useMemo(() => (locale === 'fr' ? 'fr-FR' : 'en-GB'), [locale]);
 
+  const selectedAmountCents = useMemo(() => {
+    if (!data) {
+      return 0;
+    }
+
+    if (paymentType === 'full') {
+      return data.remainingAmount;
+    }
+
+    const parsed = parseEurosToCents(amountInput);
+    return parsed ?? 0;
+  }, [amountInput, data, paymentType]);
+
+  const amountError = useMemo(() => {
+    if (!data || !data.canPay) {
+      return null;
+    }
+
+    if (paymentType === 'full') {
+      return null;
+    }
+
+    const parsed = parseEurosToCents(amountInput);
+    if (parsed === null || parsed <= 0) {
+      return t.amountInvalid;
+    }
+
+    if (parsed > data.remainingAmount) {
+      return t.amountTooHigh;
+    }
+
+    if (parsed >= data.remainingAmount) {
+      return t.partialMustBeLess;
+    }
+
+    return null;
+  }, [amountInput, data, paymentType, t.amountInvalid, t.amountTooHigh, t.partialMustBeLess]);
+
+  const remainingAfterPayment = useMemo(() => {
+    if (!data) {
+      return 0;
+    }
+
+    return Math.max(0, data.remainingAmount - selectedAmountCents);
+  }, [data, selectedAmountCents]);
+
   if (loading) {
     return <main className="mx-auto max-w-2xl p-6 text-sm text-muted-foreground">{t.loading}</main>;
   }
@@ -108,37 +206,93 @@ export default function PayByTokenPage() {
     );
   }
 
-  const quick20 = Math.min(data.remainingAmount, Math.round(data.totalAmount * 0.2));
-  const quick30 = Math.min(data.remainingAmount, Math.round(data.totalAmount * 0.3));
   const displayInvoiceNumber = formatInvoiceDisplayNumber(locale, data.invoiceNumber);
+  const canSubmit = data.canPay && selectedAmountCents > 0 && !amountError;
+
+  const statusBanner =
+    status === 'success'
+      ? { text: t.paymentSuccess, className: 'border-emerald-200 bg-emerald-50 text-emerald-700' }
+      : status === 'cancelled'
+        ? { text: t.paymentCancelled, className: 'border-amber-200 bg-amber-50 text-amber-700' }
+        : null;
 
   return (
     <main className="mx-auto max-w-2xl p-6">
       <h1 className="text-2xl font-semibold">{t.invoiceLabel} {displayInvoiceNumber}</h1>
       <p className="mt-2 text-sm text-muted-foreground">{t.secureHosted}</p>
 
+      {statusBanner ? <p className={`mt-4 rounded-lg border px-3 py-2 text-sm ${statusBanner.className}`}>{statusBanner.text}</p> : null}
+
       <section className="mt-5 rounded-xl border border-border/70 bg-card p-4">
-        <p className="text-sm">
-          {t.total}: <PriceDisplay cents={data.totalAmount} locale={priceLocale} className="font-semibold" />
-          {' · '}
-          {t.paid}: <PriceDisplay cents={data.totalPaid} locale={priceLocale} className="font-medium" />
-          {' · '}
-          {t.remaining}: <PriceDisplay cents={data.remainingAmount} locale={priceLocale} className="font-medium" />
-        </p>
+        <div className="rounded-lg border border-border/60 bg-muted/20 p-3 text-sm">
+          <p>
+            {t.total}: <PriceDisplay cents={data.totalAmount} locale={priceLocale} className="font-semibold" />
+          </p>
+          <p>
+            {t.paid}: <PriceDisplay cents={data.totalPaid} locale={priceLocale} className="font-semibold" />
+          </p>
+          <p>
+            {t.remaining}: <PriceDisplay cents={data.remainingAmount} locale={priceLocale} className="font-semibold" />
+          </p>
+        </div>
 
         {data.canPay && token ? (
-          <div className="mt-4 flex flex-wrap gap-2">
-            {data.depositAmount > 0 && data.totalPaid === 0 && data.depositAmount <= data.remainingAmount ? (
-              <TokenPayButton token={token} type="deposit" amountCents={data.depositAmount} label={t.payDeposit} loadingLabel={t.redirecting} errorMessage={t.createPaymentFailed} />
-            ) : null}
+          <div className="mt-4 space-y-4">
+            <div className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-700">{t.modeOnline}</div>
 
-            {quick20 > 0 && quick20 < data.remainingAmount ? (
-              <TokenPayButton token={token} type="full" amountCents={quick20} label={t.payTwenty} loadingLabel={t.redirecting} errorMessage={t.createPaymentFailed} />
-            ) : null}
-            {quick30 > 0 && quick30 < data.remainingAmount ? (
-              <TokenPayButton token={token} type="full" amountCents={quick30} label={t.payThirty} loadingLabel={t.redirecting} errorMessage={t.createPaymentFailed} />
-            ) : null}
-            <TokenPayButton token={token} type="full" amountCents={data.remainingAmount} label={t.payRemaining} loadingLabel={t.redirecting} errorMessage={t.createPaymentFailed} />
+            <div className="space-y-1">
+              <label htmlFor="payment-type" className="text-sm font-medium">{t.paymentType}</label>
+              <select
+                id="payment-type"
+                value={paymentType}
+                onChange={(event) => {
+                  const nextType = event.target.value === 'partial' ? 'partial' : 'full';
+                  setPaymentType(nextType);
+                  if (nextType === 'full') {
+                    setAmountInput(centsToEurosInput(data.remainingAmount));
+                  } else if (amountInput === '' || parseEurosToCents(amountInput) === data.remainingAmount) {
+                    setAmountInput('');
+                  }
+                }}
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <option value="full">{t.paymentTypeFull}</option>
+                <option value="partial">{t.paymentTypePartial}</option>
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label htmlFor="amount-input" className="text-sm font-medium">{t.amountPaid}</label>
+              <input
+                id="amount-input"
+                type="number"
+                inputMode="decimal"
+                min="0.01"
+                step="0.01"
+                max={centsToEurosInput(data.remainingAmount)}
+                value={paymentType === 'full' ? centsToEurosInput(data.remainingAmount) : amountInput}
+                onChange={(event) => setAmountInput(event.target.value)}
+                disabled={paymentType === 'full'}
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+              />
+              <p className="text-xs text-muted-foreground">{t.amountHint}</p>
+              {amountError ? <p className="text-xs text-destructive">{amountError}</p> : null}
+            </div>
+
+            <p className="text-sm text-muted-foreground">
+              {t.remainingAfter}:{' '}
+              <PriceDisplay cents={remainingAfterPayment} locale={priceLocale} className="font-semibold text-foreground" />
+            </p>
+
+            <TokenPayButton
+              token={token}
+              type={paymentType}
+              amountCents={selectedAmountCents}
+              disabled={!canSubmit}
+              label={t.payNow}
+              loadingLabel={t.redirecting}
+              errorMessage={t.createPaymentFailed}
+            />
           </div>
         ) : (
           <p className="mt-4 text-sm text-emerald-700">{t.fullyPaid}</p>
@@ -152,13 +306,15 @@ function TokenPayButton({
   token,
   type,
   amountCents,
+  disabled,
   label,
   loadingLabel,
   errorMessage,
 }: {
   token: string;
-  type: 'full' | 'deposit';
+  type: 'full' | 'partial';
   amountCents: number;
+  disabled: boolean;
   label: string;
   loadingLabel: string;
   errorMessage: string;
@@ -183,6 +339,8 @@ function TokenPayButton({
         return;
       }
       alert(payload?.message || errorMessage);
+    } catch {
+      alert(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -192,7 +350,7 @@ function TokenPayButton({
     <button
       type="button"
       onClick={handleClick}
-      disabled={loading}
+      disabled={loading || disabled}
       className="inline-flex h-9 items-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground disabled:opacity-60"
     >
       {loading ? loadingLabel : label}

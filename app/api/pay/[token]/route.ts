@@ -10,7 +10,7 @@ import { isTokenExpired } from '@/lib/tokens';
 
 export const runtime = 'nodejs';
 
-type CheckoutType = 'full' | 'deposit';
+type CheckoutType = 'full' | 'partial' | 'deposit';
 
 interface RouteParams {
   params: Promise<{ token: string }>;
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         ? body.idempotencyKey.trim().slice(0, 120)
         : null;
 
-    if (paymentType !== 'full' && paymentType !== 'deposit') {
+    if (paymentType !== 'full' && paymentType !== 'partial' && paymentType !== 'deposit') {
       return NextResponse.json({ message: 'Invalid payment type' }, { status: 400 });
     }
 
@@ -125,7 +125,21 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     const configuredDeposit = Math.max(0, Math.round(invoice.depositAmount ?? 0));
-    const defaultAmount = paymentType === 'deposit' ? Math.min(configuredDeposit, remainingAmount) : remainingAmount;
+    const defaultAmount =
+      paymentType === 'deposit'
+        ? Math.min(configuredDeposit, remainingAmount)
+        : paymentType === 'full'
+          ? remainingAmount
+          : 0;
+
+    if (paymentType === 'partial' && requestedAmount === null) {
+      return NextResponse.json({ message: 'Partial payment amount is required' }, { status: 400 });
+    }
+
+    if (paymentType === 'full' && requestedAmount !== null && requestedAmount !== remainingAmount) {
+      return NextResponse.json({ message: 'Full payment must match remaining balance' }, { status: 422 });
+    }
+
     const amount = requestedAmount ?? defaultAmount;
 
     if (requestedAmount !== null && requestedAmount > remainingAmount) {
@@ -134,6 +148,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     if (amount <= 0) {
       return NextResponse.json({ message: 'Invoice amount must be greater than zero' }, { status: 422 });
+    }
+
+    if (paymentType === 'partial' && amount >= remainingAmount) {
+      return NextResponse.json({ message: 'Partial payment must be less than remaining balance' }, { status: 422 });
     }
 
     const isSettlingAll = amount >= remainingAmount;
