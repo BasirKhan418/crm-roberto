@@ -23,13 +23,14 @@ const templatesPatchSchema = z
   })
   .partial();
 
-export const reminderOffsetsSchema = z
-  .object({
-    soft: z.number().positive(),
-    medium: z.number().positive(),
-    firm: z.number().positive(),
-    formalNotice: z.number().positive(),
-  })
+const reminderOffsetsBaseSchema = z.object({
+  soft: z.number().positive(),
+  medium: z.number().positive(),
+  firm: z.number().positive(),
+  formalNotice: z.number().positive(),
+});
+
+export const reminderOffsetsSchema = reminderOffsetsBaseSchema
   .refine((data) => data.soft < data.medium, {
     message: 'Soft offset must be less than medium offset',
     path: ['soft'],
@@ -81,7 +82,7 @@ export const reminderChannelsSchema = z.object({
 
 export const updateReminderSettingsSchema = z
   .object({
-    offsets: reminderOffsetsSchema.partial().optional(),
+    offsets: reminderOffsetsBaseSchema.partial().optional(),
     templates: templatesPatchSchema.optional(),
     lateFee: reminderLateFeeSchema.optional(),
     legalNotice: reminderLegalNoticeSchema.optional(),
