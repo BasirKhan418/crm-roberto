@@ -96,9 +96,12 @@ export default function ForgotPasswordPage() {
   const searchParams = useSearchParams()
   const { locale } = useLocale()
   const t = forgotMessages[locale]
-  const [step, setStep] = useState<Step>("email")
-  const [isLoading, setIsLoading] = useState(false)
-  const [userEmail, setUserEmail] = useState("")
+  const emailFromLink = searchParams.get("email")?.trim() ?? ""
+  const otpFromLink = searchParams.get("otp")?.trim() ?? ""
+  const hasDeepLinkOtp = Boolean(emailFromLink && otpFromLink)
+  const [step, setStep] = useState<Step>(() => (hasDeepLinkOtp ? "otp" : "email"))
+  const [isLoading, setIsLoading] = useState(() => hasDeepLinkOtp)
+  const [userEmail, setUserEmail] = useState(() => emailFromLink)
   const [showPassword, setShowPassword] = useState(false)
   const [token, setToken] = useState("")
   const didHandleDeepLinkRef = useRef(false)
@@ -109,9 +112,11 @@ export default function ForgotPasswordPage() {
 
   const otpForm = useForm<{ otp: string }>({
     resolver: zodResolver(otpSchema),
+    defaultValues: {
+      otp: otpFromLink,
+    },
   })
-
-  const { setValue: setOtpValue } = otpForm;
+  const { setValue: setOtpValue } = otpForm
 
   const resetForm = useForm<z.infer<typeof resetPasswordSchema>>({
     resolver: zodResolver(resetPasswordSchema),
@@ -202,20 +207,13 @@ export default function ForgotPasswordPage() {
       return
     }
 
-    const emailFromLink = searchParams.get("email")?.trim() ?? ""
-    const otpFromLink = searchParams.get("otp")?.trim() ?? ""
-
     if (!emailFromLink || !otpFromLink) {
       return
     }
 
     didHandleDeepLinkRef.current = true
-    setUserEmail(emailFromLink)
-    setStep("otp")
-    setOtpValue("otp", otpFromLink)
 
     void (async () => {
-      setIsLoading(true)
       try {
         const response = await fetch("/api/forgot", {
           method: "POST",
@@ -241,7 +239,7 @@ export default function ForgotPasswordPage() {
         toast.error(t.toastRequestError)
       }
     })()
-  }, [locale, searchParams, setOtpValue, t.toastOtpVerified, t.toastRequestError])
+  }, [emailFromLink, locale, otpFromLink, t.toastOtpVerified, t.toastRequestError])
 
   return (
     <div className="space-y-8">

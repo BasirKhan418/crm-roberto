@@ -6,12 +6,12 @@ import {
   Text,
   View,
 } from '@react-pdf/renderer';
-import { formatStructuredAddress, hasStructuredAddress } from '@/lib/address';
+import { hasStructuredAddress } from '@/lib/address';
 import type { AddressDetails as SharedAddressDetails } from '@/lib/address';
 
 type QuoteStatus = 'draft' | 'sent' | 'accepted' | 'refused' | 'rejected';
 
-interface QuoteAddressDetails extends SharedAddressDetails {}
+type QuoteAddressDetails = SharedAddressDetails;
 
 interface CompanyData {
   companyName?: string;

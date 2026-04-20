@@ -9,7 +9,6 @@ import AddClientModal from '@/components/modals/AddClientModal';
 import { useLocale } from '@/components/providers/locale-provider';
 import { useClients, type ClientOption } from '@/hooks/useClients';
 import { Input } from '@/components/ui/input';
-import { formatStructuredAddress, hasStructuredAddress } from '@/lib/address';
 
 interface ClientPickerProps {
   value: string;

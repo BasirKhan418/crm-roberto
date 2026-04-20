@@ -9,7 +9,7 @@ import { ArrowLeftIcon, CircleUserRoundIcon, KeyRoundIcon, LayoutDashboardIcon, 
 import { LanguageThemeToggle } from "@/components/language-theme-toggle"
 import { NotificationsBell } from "@/components/notifications-bell"
 import { useLocale } from "@/components/providers/locale-provider"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -193,7 +193,6 @@ export function SiteHeader({ title = "Documents" }: { title?: string }) {
               >
                 <span className="grid size-8 shrink-0 place-items-center rounded-full border border-border/70 bg-background">
                   <Avatar className="size-6 rounded-full">
-                    <AvatarImage src={user?.avatar || undefined} alt={userDisplayName} />
                     <AvatarFallback className="text-[11px] font-semibold">{userInitials}</AvatarFallback>
                   </Avatar>
                 </span>
