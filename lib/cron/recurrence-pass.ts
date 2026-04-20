@@ -4,8 +4,6 @@ export interface RecurrencePassTotals {
   skipped: number;
 }
 
-import mongoose from 'mongoose';
-
 import ConnectDb from '@/db/connectDb';
 import CompanyProfile from '@/db/models/CompanyProfile';
 import Invoice from '@/db/models/Invoice';
@@ -179,6 +177,8 @@ export async function runRecurrencePass(): Promise<RecurrencePassTotals> {
         invoiceDetailUrl,
         companyName,
       });
+
+      totals.skipped += 1;
     } catch {
       totals.skipped += 1;
     } finally {
