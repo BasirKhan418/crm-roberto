@@ -7,6 +7,7 @@ export interface RecurrencePassTotals {
 import ConnectDb from '@/db/connectDb';
 import CompanyProfile from '@/db/models/CompanyProfile';
 import Invoice from '@/db/models/Invoice';
+import Notification from '@/db/models/Notification';
 import ReminderSettings from '@/db/models/ReminderSettings';
 import User from '@/db/models/User';
 import { createActivityLog } from '@/db/repository/activity';
@@ -149,6 +150,15 @@ export async function runRecurrencePass(): Promise<RecurrencePassTotals> {
           },
         });
 
+        await Notification.create({
+          userId: invoice.userId,
+          type: 'recurrence_generated',
+          title: `Recurrence generated - ${invoice.invoiceNumber}`,
+          message: `Generated invoice ${newInvoice.invoiceNumber} from recurrence`,
+          invoiceId: invoice._id,
+          invoiceNumber: invoice.invoiceNumber,
+        });
+
         totals.generated += 1;
         continue;
       }
@@ -176,6 +186,27 @@ export async function runRecurrencePass(): Promise<RecurrencePassTotals> {
         invoiceNumber: invoice.invoiceNumber,
         invoiceDetailUrl,
         companyName,
+      });
+
+      await createActivityLog(userId, {
+        action: 'invoice_recurrence_due',
+        entityType: 'invoice',
+        entityName: invoice.invoiceNumber,
+        entityId: String(invoice._id),
+        metadata: {
+          channel: 'email',
+          recipientEmail: ownerEmail,
+          invoiceDetailUrl,
+        },
+      });
+
+      await Notification.create({
+        userId: invoice.userId,
+        type: 'recurrence_due',
+        title: `Recurrence due - ${invoice.invoiceNumber}`,
+        message: `Recurrence due and owner notified at ${ownerEmail}`,
+        invoiceId: invoice._id,
+        invoiceNumber: invoice.invoiceNumber,
       });
 
       totals.skipped += 1;

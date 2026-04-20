@@ -36,6 +36,7 @@ export const createActivitySchema = z.object({
     'invoice_recurrence_created',
     'invoice_recurrence_stopped',
     'invoice_recurrence_generated',
+    'invoice_recurrence_due',
   ]),
   entityType: z.enum(['client', 'supplier', 'note', 'product', 'quote', 'invoice', 'reminder', 'recurrence']),
   entityName: z.string().trim().min(1, i18nKey('validation.entityNameRequired')),

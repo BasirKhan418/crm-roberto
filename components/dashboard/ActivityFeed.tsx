@@ -91,6 +91,10 @@ const ACTION_BADGE: Record<string, ActionBadge> = {
   quote_client_replied: { badgeClass: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
   quote_status_changed: { badgeClass: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
   invoice_created: { badgeClass: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' },
+  invoice_reminder_sent: { badgeClass: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
+  invoice_formal_notice_sent: { badgeClass: 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300' },
+  invoice_recurrence_generated: { badgeClass: 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300' },
+  invoice_recurrence_due: { badgeClass: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300' },
   invoice_payment_received: { badgeClass: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' },
   invoice_payment_updated: { badgeClass: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
   invoice_payment_deleted: { badgeClass: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300' },
@@ -159,7 +163,6 @@ export default function ActivityFeed({ activity = [], loading = false, error = n
           {!loading &&
             pagedItems.map((item, index) => {
               const entityCfg = ENTITY_CONFIG[item.entityType as keyof typeof ENTITY_CONFIG] ?? DEFAULT_ENTITY;
-              const badge = item.action ? ACTION_BADGE[item.action] : null;
               const headline = item.action
                 ? getActivityHeadline(locale, item.action)
                 : translate(locale, 'activity.fallbackHeadline');

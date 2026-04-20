@@ -4,6 +4,7 @@ import mongoose from 'mongoose';
 import ConnectDb from '@/db/connectDb';
 import CompanyProfile from '@/db/models/CompanyProfile';
 import Invoice from '@/db/models/Invoice';
+import Notification from '@/db/models/Notification';
 import Payment from '@/db/models/Payment';
 import ReminderLog from '@/db/models/ReminderLog';
 import ReminderSettings from '@/db/models/ReminderSettings';
@@ -479,6 +480,15 @@ export async function runReminderPass(): Promise<ReminderPassTotals> {
               lateFeeAmount,
             },
           });
+
+          await Notification.create({
+            userId: invoice.userId,
+            type: 'formal_notice_sent',
+            title: `Formal notice sent - ${invoice.invoiceNumber}`,
+            message: `Formal notice sent to ${recipientEmail}`,
+            invoiceId: invoice._id,
+            invoiceNumber: invoice.invoiceNumber,
+          });
         } else {
           await sendInvoiceReminder({
             to: recipientEmail,
@@ -533,6 +543,15 @@ export async function runReminderPass(): Promise<ReminderPassTotals> {
               lateFeeAmount,
               sentAt: dayjs(now).toISOString(),
             },
+          });
+
+          await Notification.create({
+            userId: invoice.userId,
+            type: 'reminder_sent',
+            title: `Reminder sent - ${invoice.invoiceNumber}`,
+            message: `Level ${targetLevel} reminder sent to ${recipientEmail}`,
+            invoiceId: invoice._id,
+            invoiceNumber: invoice.invoiceNumber,
           });
         }
 
