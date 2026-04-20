@@ -60,7 +60,10 @@ const SAMPLE_VARIABLES: Record<string, string> = {
 };
 
 function replaceTemplateVariables(template: string): string {
-  return template.replace(/\{\{(\w+)\}\}/g, (_full, variable: string) => SAMPLE_VARIABLES[variable] ?? '');
+  return template.replace(/\{\{\s*([a-zA-Z][\w]*)\s*\}\}|\{\s*([a-zA-Z][\w]*)\s*\}/g, (_full, variableA: string, variableB: string) => {
+    const variable = variableA || variableB;
+    return SAMPLE_VARIABLES[variable] ?? '';
+  });
 }
 
 function mapLevelToKey(level: ReminderLevel): ReminderLevelKey {

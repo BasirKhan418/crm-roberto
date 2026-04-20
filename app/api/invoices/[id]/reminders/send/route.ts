@@ -190,13 +190,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
     ).templates?.[locale]?.[levelKey];
 
-    const baseSubject = parsed.data.subject?.trim()
+    const subjectTemplate = parsed.data.subject?.trim()
       ? parsed.data.subject.trim()
-      : substituteVariables(template?.subject || buildFallbackReminderSubject(level, invoice.invoiceNumber), vars);
+      : template?.subject || buildFallbackReminderSubject(level, invoice.invoiceNumber);
 
-    const baseRenderedBody = parsed.data.body?.trim()
+    const bodyTemplate = parsed.data.body?.trim()
       ? parsed.data.body.trim()
-      : substituteVariables(template?.body || '', vars);
+      : template?.body || '';
 
     const recipientEmail = invoice.clientSnapshot?.email?.trim() || '';
     if (!recipientEmail) {
@@ -258,8 +258,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         legalDeadline: dayjs(legalDeadline).format('DD/MM/YYYY'),
       };
 
-      const subject = substituteVariables(baseSubject, legalVars);
-      const renderedBody = substituteVariables(baseRenderedBody, legalVars);
+      const subject = substituteVariables(subjectTemplate, legalVars);
+      const renderedBody = substituteVariables(bodyTemplate, legalVars);
 
       const legalNoticeResult = await renderLegalNoticePdfForReminder({
         invoice: {
@@ -348,8 +348,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         },
       });
     } else {
-      const subject = baseSubject;
-      const renderedBody = baseRenderedBody;
+      const subject = substituteVariables(subjectTemplate, vars);
+      const renderedBody = substituteVariables(bodyTemplate, vars);
 
       await sendInvoiceReminder({
         to: recipientEmail,

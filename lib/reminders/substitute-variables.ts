@@ -91,7 +91,8 @@ function resolvePaidAmount(invoice: InvoiceLike): number {
 }
 
 export function substituteVariables(template: string, vars: ReminderVariables): string {
-  return template.replace(/\{\{(\w+)\}\}/g, (_, key: string) => {
+  return template.replace(/\{\{\s*([a-zA-Z][\w]*)\s*\}\}|\{\s*([a-zA-Z][\w]*)\s*\}/g, (_full, keyA: string, keyB: string) => {
+    const key = keyA || keyB;
     const value = vars[key as keyof ReminderVariables];
     return value === undefined || value === null ? '' : String(value);
   });
