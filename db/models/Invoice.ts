@@ -101,6 +101,97 @@ const InvoiceClientSnapshotSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const InvoiceReminderStateSchema = new mongoose.Schema(
+  {
+    level: {
+      type: Number,
+      min: 0,
+      max: 4,
+      default: 0,
+    },
+    lastSentAt: {
+      type: Date,
+      default: null,
+    },
+    nextScheduledAt: {
+      type: Date,
+      default: null,
+    },
+    isPaused: {
+      type: Boolean,
+      default: false,
+    },
+    lateFeeAmount: {
+      type: Number,
+      min: 0,
+      default: 0,
+    },
+    formalNoticeSentAt: {
+      type: Date,
+      default: null,
+    },
+    formalNoticeDeadline: {
+      type: Date,
+      default: null,
+    },
+  },
+  { _id: false }
+);
+
+const InvoiceRecurrenceSchema = new mongoose.Schema(
+  {
+    isActive: {
+      type: Boolean,
+      default: false,
+    },
+    frequency: {
+      type: String,
+      enum: ["monthly", "quarterly", "yearly", "custom"],
+      default: null,
+    },
+    customIntervalDays: {
+      type: Number,
+      min: 1,
+      default: null,
+    },
+    nextOccurrenceAt: {
+      type: Date,
+      default: null,
+    },
+    lastGeneratedAt: {
+      type: Date,
+      default: null,
+    },
+    lastGeneratedInvoiceId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Invoice",
+      default: null,
+    },
+    endDate: {
+      type: Date,
+      default: null,
+    },
+    stoppedAt: {
+      type: Date,
+      default: null,
+    },
+    stoppedReason: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    autoGenerate: {
+      type: Boolean,
+      default: false,
+    },
+    autoSend: {
+      type: Boolean,
+      default: false,
+    },
+  },
+  { _id: false }
+);
+
 const InvoiceSchema = new mongoose.Schema(
   {
     invoiceNumber: {
@@ -212,6 +303,14 @@ const InvoiceSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    reminderState: {
+      type: InvoiceReminderStateSchema,
+      default: null,
+    },
+    recurrence: {
+      type: InvoiceRecurrenceSchema,
+      default: null,
+    },
   },
   { timestamps: true }
 );
@@ -226,6 +325,8 @@ InvoiceSchema.index({ userId: 1, invoiceNumber: 1 }, { unique: true, name: "uniq
 InvoiceSchema.index({ userId: 1, createdAt: -1 });
 InvoiceSchema.index({ userId: 1, status: 1 });
 InvoiceSchema.index({ userId: 1, quoteId: 1 });
+InvoiceSchema.index({ "reminderState.nextScheduledAt": 1 }, { sparse: true });
+InvoiceSchema.index({ "recurrence.nextOccurrenceAt": 1 }, { sparse: true });
 InvoiceSchema.index(
   { paymentToken: 1 },
   {

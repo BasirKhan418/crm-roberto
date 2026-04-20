@@ -36,12 +36,19 @@ const ActivityLogSchema = new mongoose.Schema(
         "invoice_payment_received",
         "invoice_payment_updated",
         "invoice_payment_deleted",
+        "invoice_reminder_sent",
+        "invoice_reminder_paused",
+        "invoice_reminder_resumed",
+        "invoice_formal_notice_sent",
+        "invoice_recurrence_created",
+        "invoice_recurrence_stopped",
+        "invoice_recurrence_generated",
       ],
     },
 
     entityType: {
       type: String,
-      enum: ["client", "supplier", "note", "product", "quote", "invoice"],
+      enum: ["client", "supplier", "note", "product", "quote", "invoice", "reminder", "recurrence"],
       required: true,
     },
 

@@ -231,6 +231,62 @@ const messages = {
           'Hello {name},\n\nPayment received for invoice {invoiceNumber}.\nAmount: {amount}\nMethod: {paymentMethod}\nPaid at: {paidAt}',
       },
     },
+    reminders: {
+      settings: {
+        title: 'Reminder Settings',
+        offsets: 'Timing',
+        templates: 'Email Templates',
+        lateFee: 'Late Fees',
+        legalNotice: 'Legal Notice',
+        resetSection: 'Reset to defaults',
+      },
+      levels: {
+        soft: 'Soft reminder',
+        medium: 'Medium reminder',
+        firm: 'Firm reminder',
+        formalNotice: 'Formal notice',
+      },
+      status: {
+        notStarted: 'Not started',
+        paused: 'Paused',
+        softSent: 'Soft sent',
+        mediumSent: 'Medium sent',
+        firmSent: 'Firm sent',
+        formalNoticeSent: 'Formal notice sent',
+      },
+      actions: {
+        sendNow: 'Send reminder now',
+        pause: 'Pause reminders',
+        resume: 'Resume reminders',
+        downloadNotice: 'Download legal notice',
+        skipNext: 'Skip next reminder',
+      },
+      history: {
+        title: 'Reminder history',
+      },
+      nextScheduled: 'Next reminder in {days} days',
+    },
+    recurring: {
+      card: {
+        title: 'Recurrence',
+        empty: 'Make this invoice recurring',
+      },
+      frequency: {
+        monthly: 'Monthly',
+        quarterly: 'Quarterly',
+        yearly: 'Yearly',
+        custom: 'Custom',
+      },
+      actions: {
+        generate: 'Generate next invoice',
+        stop: 'Stop recurrence',
+        stopReason: 'Reason (optional)',
+      },
+      autoGenerate: 'Auto-generate next invoice',
+      autoSend: 'Auto-send to client',
+      nextOccurrence: 'Next occurrence',
+      lastGenerated: 'Last generated',
+    },
   },
   fr: {
     common: {
@@ -459,6 +515,62 @@ const messages = {
         textBody:
           'Bonjour {name},\n\nPaiement reçu pour la facture {invoiceNumber}.\nMontant : {amount}\nMéthode : {paymentMethod}\nPayé le : {paidAt}',
       },
+    },
+    reminders: {
+      settings: {
+        title: 'Paramètres de relance',
+        offsets: 'Délais',
+        templates: "Modèles d'e-mail",
+        lateFee: 'Pénalités de retard',
+        legalNotice: 'Mise en demeure',
+        resetSection: 'Réinitialiser',
+      },
+      levels: {
+        soft: 'Rappel amical',
+        medium: 'Rappel ferme',
+        firm: 'Dernier rappel',
+        formalNotice: 'Mise en demeure',
+      },
+      status: {
+        notStarted: 'Non démarré',
+        paused: 'En pause',
+        softSent: 'Rappel amical envoyé',
+        mediumSent: 'Rappel ferme envoyé',
+        firmSent: 'Dernier rappel envoyé',
+        formalNoticeSent: 'Mise en demeure envoyée',
+      },
+      actions: {
+        sendNow: 'Envoyer maintenant',
+        pause: 'Mettre en pause',
+        resume: 'Reprendre',
+        downloadNotice: 'Télécharger la mise en demeure',
+        skipNext: 'Ignorer le prochain rappel',
+      },
+      history: {
+        title: 'Historique des relances',
+      },
+      nextScheduled: 'Prochain rappel dans {days} jours',
+    },
+    recurring: {
+      card: {
+        title: 'Récurrence',
+        empty: 'Rendre cette facture récurrente',
+      },
+      frequency: {
+        monthly: 'Mensuel',
+        quarterly: 'Trimestriel',
+        yearly: 'Annuel',
+        custom: 'Personnalisé',
+      },
+      actions: {
+        generate: 'Générer la prochaine facture',
+        stop: 'Arrêter la récurrence',
+        stopReason: 'Raison (optionnel)',
+      },
+      autoGenerate: 'Générer automatiquement',
+      autoSend: 'Envoyer automatiquement au client',
+      nextOccurrence: 'Prochaine échéance',
+      lastGenerated: 'Dernière génération',
     },
   },
 } as const;
