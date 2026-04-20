@@ -8,8 +8,10 @@ import { CheckCircle2Icon, DownloadIcon, PencilIcon, ReceiptTextIcon, SendIcon, 
 import { toast } from 'sonner';
 
 import CrmShell from '@/components/crm-shell';
+import CollectionTab from '@/components/invoices/CollectionTab';
 import EditPaymentEntryModal from '@/components/invoices/EditPaymentEntryModal';
 import ManualPaymentModal, { type ManualPaymentType } from '@/components/invoices/ManualPaymentModal';
+import RecurrenceCard from '@/components/invoices/RecurrenceCard';
 import SendInvoiceModal from '@/components/invoices/SendInvoiceModal';
 import { useLocale } from '@/components/providers/locale-provider';
 import {
@@ -22,7 +24,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { formatInvoiceDisplayNumber, getInvoiceStatusLabel } from '@/lib/i18n/messages';
+import { formatInvoiceDisplayNumber, getInvoiceStatusLabel, translate } from '@/lib/i18n/messages';
 import { getPaymentMethodLabel, getPaymentTypeLabel } from '@/lib/payments';
 import { computeQuoteLine } from '@/lib/quote-calculations';
 import { InvoiceStatusBadge, type InvoiceStatus } from '@/components/ui/InvoiceStatusBadge';
@@ -30,6 +32,7 @@ import { PriceDisplay } from '@/components/ui/PriceDisplay';
 import { Button } from '@/components/ui/button';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { formatStructuredAddress, hasStructuredAddress } from '@/lib/address';
 
 type Locale = 'en' | 'fr';
@@ -96,6 +99,28 @@ interface InvoiceDetail {
     vatAmount: number;
     totalIncludingTax: number;
   }>;
+  reminderState?: {
+    level?: number | null;
+    lastSentAt?: string | null;
+    nextScheduledAt?: string | null;
+    isPaused?: boolean;
+    lateFeeAmount?: number;
+    formalNoticeSentAt?: string | null;
+    formalNoticeDeadline?: string | null;
+  } | null;
+  recurrence?: {
+    isActive?: boolean;
+    frequency?: 'monthly' | 'quarterly' | 'yearly' | 'custom' | null;
+    customIntervalDays?: number | null;
+    nextOccurrenceAt?: string | null;
+    lastGeneratedAt?: string | null;
+    lastGeneratedInvoiceId?: string | null;
+    endDate?: string | null;
+    stoppedAt?: string | null;
+    stoppedReason?: string | null;
+    autoGenerate?: boolean;
+    autoSend?: boolean;
+  } | null;
 }
 
 interface PaymentHistoryItem {
@@ -725,162 +750,188 @@ export default function InvoiceDetailPage() {
               </div>
             </section>
 
-            <section className="mb-4 rounded-xl border border-border/70 bg-card p-4">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                <div>
-                  <h2 className="font-heading text-base font-semibold">{t.paymentSummary}</h2>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {canRecordPayment ? t.paymentActionDescription : t.paymentSettledDescription}
-                  </p>
-                </div>
+            <Tabs defaultValue="payments" className="mb-4 gap-3">
+              <TabsList>
+                <TabsTrigger value="payments">{translate(locale as Locale, 'invoices.tabs.payments')}</TabsTrigger>
+                <TabsTrigger value="collection">{translate(locale as Locale, 'reminders.collection.tab')}</TabsTrigger>
+              </TabsList>
 
-                <div className={`rounded-xl border px-3.5 py-3 lg:w-full lg:max-w-sm ${canRecordPayment ? 'border-amber-200 bg-amber-50/70 dark:border-amber-900/40 dark:bg-amber-950/20' : 'border-emerald-200 bg-emerald-50/70 dark:border-emerald-900/40 dark:bg-emerald-950/20'}`}>
-                  <p className={`text-[11px] font-semibold uppercase tracking-wide ${canRecordPayment ? 'text-amber-900 dark:text-amber-300' : 'text-emerald-900 dark:text-emerald-300'}`}>
-                    {canRecordPayment ? t.paymentActionTitle : t.paymentSettledTitle}
-                  </p>
-                  <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+              <TabsContent value="payments" className="space-y-4">
+                <RecurrenceCard
+                  invoiceId={invoice._id}
+                  locale={locale as Locale}
+                  invoiceDueDate={invoice.dueDate}
+                  recurrence={invoice.recurrence}
+                  onInvoiceRefresh={loadData}
+                />
+
+                <section className="rounded-xl border border-border/70 bg-card p-4">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div>
-                      <p className="text-xs text-muted-foreground">{t.remaining}</p>
-                      <PriceDisplay cents={remainingAmount} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="text-base font-semibold text-foreground" />
+                      <h2 className="font-heading text-base font-semibold">{t.paymentSummary}</h2>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {canRecordPayment ? t.paymentActionDescription : t.paymentSettledDescription}
+                      </p>
                     </div>
-                    {canRecordPayment ? (
-                      <Button
-                        type="button"
-                        size="sm"
-                        className="h-9 w-full justify-center text-xs sm:h-8 sm:w-auto sm:text-sm"
-                        onClick={() => setManualPaymentOpen(true)}
-                        disabled={markingPaid}
-                      >
-                        <CheckCircle2Icon className="size-3.5" />
-                        {markingPaid ? t.addingPayment : t.addPayment}
-                      </Button>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
 
-              <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                <div className="rounded-xl border border-border/60 bg-background px-3 py-3">
-                  <p className="text-xs text-muted-foreground">{t.totalInvoiceAmount}</p>
-                  <PriceDisplay cents={invoice.totalIncludingTax} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="mt-1 text-base font-semibold text-foreground" />
-                </div>
-                <div className="rounded-xl border border-border/60 bg-background px-3 py-3">
-                  <p className="text-xs text-muted-foreground">{t.totalPaid}</p>
-                  <PriceDisplay cents={totalPaidAmount} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="mt-1 text-base font-semibold text-foreground" />
-                </div>
-                <div className="rounded-xl border border-border/60 bg-background px-3 py-3">
-                  <p className="text-xs text-muted-foreground">{t.remaining}</p>
-                  <PriceDisplay cents={remainingAmount} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="mt-1 text-base font-semibold text-foreground" />
-                </div>
-              </div>
-            </section>
-
-            <section className="mb-4 rounded-xl border border-border/70 bg-card p-4">
-              <h2 className="mb-2 font-heading text-base font-semibold">{t.paymentHistory}</h2>
-              {payments.length === 0 ? (
-                <p className="text-sm text-muted-foreground">{t.noPayments}</p>
-              ) : (
-                <div className="space-y-3">
-                  <div className="grid gap-2 md:hidden">
-                    {payments.map((payment) => {
-                      const canMutate = isManualPaymentEntry(payment);
-
-                      return (
-                        <article
-                          key={payment._id}
-                          className={`rounded-xl border p-3 ${canMutate ? 'border-emerald-200/80 bg-linear-to-br from-white via-background to-emerald-50/40 dark:border-emerald-900/40 dark:from-background dark:to-emerald-950/10' : 'border-slate-200/80 bg-linear-to-br from-white via-background to-slate-100/60 dark:border-slate-700/70 dark:from-background dark:to-slate-900/40'}`}
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <div>
-                              <p className="text-xs text-muted-foreground">{t.paymentDate}</p>
-                              <p className="text-sm font-medium">{formatDateTime(payment.paidAt || payment.createdAt, locale as Locale)}</p>
-                            </div>
-                            <PriceDisplay cents={payment.amount} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="text-base font-semibold" />
-                          </div>
-
-                          <div className="mt-2 grid grid-cols-2 gap-2 text-xs sm:text-sm">
-                            <div>
-                              <p className="text-muted-foreground">{t.paymentMethod}</p>
-                              <p className="font-medium">{payment.method ? paymentMethodLabel(payment.method) : t.noData}</p>
-                            </div>
-                            <div>
-                              <p className="text-muted-foreground">{t.paymentType}</p>
-                              <p className="font-medium">{paymentTypeLabel(payment.type)}</p>
-                            </div>
-                          </div>
-
-                          <div className="mt-2 flex items-center justify-between gap-2">
-                            <p className="text-[11px] text-muted-foreground">{canMutate ? t.paymentSourceManual : t.paymentSourceStripe}</p>
-                            {!canMutate ? (
-                              <p className="text-[11px] text-muted-foreground">{t.stripeLocked}</p>
-                            ) : null}
-                          </div>
-
-                          {canMutate ? (
-                            <div className="mt-2 grid grid-cols-2 gap-2">
-                              <Button type="button" size="sm" variant="outline" className="h-8 min-w-0 px-2 text-xs" onClick={() => setEditingPayment(payment)}>
-                                <SquarePenIcon className="size-3.5" />
-                                {t.editPayment}
-                              </Button>
-                              <Button type="button" size="sm" variant="outline" className="h-8 min-w-0 px-2 text-xs text-destructive hover:text-destructive" onClick={() => setDeletingPayment(payment)}>
-                                <Trash2Icon className="size-3.5" />
-                                {t.deletePayment}
-                              </Button>
-                            </div>
-                          ) : null}
-                        </article>
-                      );
-                    })}
+                    <div className={`rounded-xl border px-3.5 py-3 lg:w-full lg:max-w-sm ${canRecordPayment ? 'border-amber-200 bg-amber-50/70 dark:border-amber-900/40 dark:bg-amber-950/20' : 'border-emerald-200 bg-emerald-50/70 dark:border-emerald-900/40 dark:bg-emerald-950/20'}`}>
+                      <p className={`text-[11px] font-semibold uppercase tracking-wide ${canRecordPayment ? 'text-amber-900 dark:text-amber-300' : 'text-emerald-900 dark:text-emerald-300'}`}>
+                        {canRecordPayment ? t.paymentActionTitle : t.paymentSettledTitle}
+                      </p>
+                      <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                        <div>
+                          <p className="text-xs text-muted-foreground">{t.remaining}</p>
+                          <PriceDisplay cents={remainingAmount} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="text-base font-semibold text-foreground" />
+                        </div>
+                        {canRecordPayment ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="h-9 w-full justify-center text-xs sm:h-8 sm:w-auto sm:text-sm"
+                            onClick={() => setManualPaymentOpen(true)}
+                            disabled={markingPaid}
+                          >
+                            <CheckCircle2Icon className="size-3.5" />
+                            {markingPaid ? t.addingPayment : t.addPayment}
+                          </Button>
+                        ) : null}
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="hidden overflow-x-auto md:block">
-                    <table className="min-w-full text-sm">
-                      <thead className="bg-secondary/30 text-muted-foreground">
-                        <tr>
-                          <th className="px-3 py-2 text-left font-medium">{t.paymentDate}</th>
-                          <th className="px-3 py-2 text-left font-medium">{t.paymentMethod}</th>
-                          <th className="px-3 py-2 text-left font-medium">{t.paymentType}</th>
-                          <th className="px-3 py-2 text-right font-medium">{t.paymentAmount}</th>
-                          <th className="px-3 py-2 text-right font-medium">{t.paymentActions}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                    <div className="rounded-xl border border-border/60 bg-background px-3 py-3">
+                      <p className="text-xs text-muted-foreground">{t.totalInvoiceAmount}</p>
+                      <PriceDisplay cents={invoice.totalIncludingTax} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="mt-1 text-base font-semibold text-foreground" />
+                    </div>
+                    <div className="rounded-xl border border-border/60 bg-background px-3 py-3">
+                      <p className="text-xs text-muted-foreground">{t.totalPaid}</p>
+                      <PriceDisplay cents={totalPaidAmount} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="mt-1 text-base font-semibold text-foreground" />
+                    </div>
+                    <div className="rounded-xl border border-border/60 bg-background px-3 py-3">
+                      <p className="text-xs text-muted-foreground">{t.remaining}</p>
+                      <PriceDisplay cents={remainingAmount} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="mt-1 text-base font-semibold text-foreground" />
+                    </div>
+                  </div>
+                </section>
+
+                <section className="rounded-xl border border-border/70 bg-card p-4">
+                  <h2 className="mb-2 font-heading text-base font-semibold">{t.paymentHistory}</h2>
+                  {payments.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">{t.noPayments}</p>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="grid gap-2 md:hidden">
                         {payments.map((payment) => {
                           const canMutate = isManualPaymentEntry(payment);
 
                           return (
-                            <tr key={payment._id} className="border-t border-border/60 odd:bg-background even:bg-secondary/10">
-                              <td className="px-3 py-2">{formatDateTime(payment.paidAt || payment.createdAt, locale as Locale)}</td>
-                              <td className="px-3 py-2">{payment.method ? paymentMethodLabel(payment.method) : t.noData}</td>
-                              <td className="px-3 py-2">{paymentTypeLabel(payment.type)}</td>
-                              <td className="px-3 py-2 text-right font-medium"><PriceDisplay cents={payment.amount} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} /></td>
-                              <td className="px-3 py-2">
-                                <div className="flex justify-end gap-1.5">
-                                  {canMutate ? (
-                                    <>
-                                      <Button type="button" variant="outline" size="sm" className="h-8" onClick={() => setEditingPayment(payment)}>
-                                        <SquarePenIcon className="size-3.5" />
-                                        {t.editPayment}
-                                      </Button>
-                                      <Button type="button" variant="outline" size="sm" className="h-8 text-destructive hover:text-destructive" onClick={() => setDeletingPayment(payment)}>
-                                        <Trash2Icon className="size-3.5" />
-                                        {t.deletePayment}
-                                      </Button>
-                                    </>
-                                  ) : (
-                                    <p className="text-xs text-muted-foreground">{t.stripeLocked}</p>
-                                  )}
+                            <article
+                              key={payment._id}
+                              className={`rounded-xl border p-3 ${canMutate ? 'border-emerald-200/80 bg-linear-to-br from-white via-background to-emerald-50/40 dark:border-emerald-900/40 dark:from-background dark:to-emerald-950/10' : 'border-slate-200/80 bg-linear-to-br from-white via-background to-slate-100/60 dark:border-slate-700/70 dark:from-background dark:to-slate-900/40'}`}
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <div>
+                                  <p className="text-xs text-muted-foreground">{t.paymentDate}</p>
+                                  <p className="text-sm font-medium">{formatDateTime(payment.paidAt || payment.createdAt, locale as Locale)}</p>
                                 </div>
-                              </td>
-                            </tr>
+                                <PriceDisplay cents={payment.amount} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="text-base font-semibold" />
+                              </div>
+
+                              <div className="mt-2 grid grid-cols-2 gap-2 text-xs sm:text-sm">
+                                <div>
+                                  <p className="text-muted-foreground">{t.paymentMethod}</p>
+                                  <p className="font-medium">{payment.method ? paymentMethodLabel(payment.method) : t.noData}</p>
+                                </div>
+                                <div>
+                                  <p className="text-muted-foreground">{t.paymentType}</p>
+                                  <p className="font-medium">{paymentTypeLabel(payment.type)}</p>
+                                </div>
+                              </div>
+
+                              <div className="mt-2 flex items-center justify-between gap-2">
+                                <p className="text-[11px] text-muted-foreground">{canMutate ? t.paymentSourceManual : t.paymentSourceStripe}</p>
+                                {!canMutate ? (
+                                  <p className="text-[11px] text-muted-foreground">{t.stripeLocked}</p>
+                                ) : null}
+                              </div>
+
+                              {canMutate ? (
+                                <div className="mt-2 grid grid-cols-2 gap-2">
+                                  <Button type="button" size="sm" variant="outline" className="h-8 min-w-0 px-2 text-xs" onClick={() => setEditingPayment(payment)}>
+                                    <SquarePenIcon className="size-3.5" />
+                                    {t.editPayment}
+                                  </Button>
+                                  <Button type="button" size="sm" variant="outline" className="h-8 min-w-0 px-2 text-xs text-destructive hover:text-destructive" onClick={() => setDeletingPayment(payment)}>
+                                    <Trash2Icon className="size-3.5" />
+                                    {t.deletePayment}
+                                  </Button>
+                                </div>
+                              ) : null}
+                            </article>
                           );
                         })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-            </section>
+                      </div>
+
+                      <div className="hidden overflow-x-auto md:block">
+                        <table className="min-w-full text-sm">
+                          <thead className="bg-secondary/30 text-muted-foreground">
+                            <tr>
+                              <th className="px-3 py-2 text-left font-medium">{t.paymentDate}</th>
+                              <th className="px-3 py-2 text-left font-medium">{t.paymentMethod}</th>
+                              <th className="px-3 py-2 text-left font-medium">{t.paymentType}</th>
+                              <th className="px-3 py-2 text-right font-medium">{t.paymentAmount}</th>
+                              <th className="px-3 py-2 text-right font-medium">{t.paymentActions}</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {payments.map((payment) => {
+                              const canMutate = isManualPaymentEntry(payment);
+
+                              return (
+                                <tr key={payment._id} className="border-t border-border/60 odd:bg-background even:bg-secondary/10">
+                                  <td className="px-3 py-2">{formatDateTime(payment.paidAt || payment.createdAt, locale as Locale)}</td>
+                                  <td className="px-3 py-2">{payment.method ? paymentMethodLabel(payment.method) : t.noData}</td>
+                                  <td className="px-3 py-2">{paymentTypeLabel(payment.type)}</td>
+                                  <td className="px-3 py-2 text-right font-medium"><PriceDisplay cents={payment.amount} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} /></td>
+                                  <td className="px-3 py-2">
+                                    <div className="flex justify-end gap-1.5">
+                                      {canMutate ? (
+                                        <>
+                                          <Button type="button" variant="outline" size="sm" className="h-8" onClick={() => setEditingPayment(payment)}>
+                                            <SquarePenIcon className="size-3.5" />
+                                            {t.editPayment}
+                                          </Button>
+                                          <Button type="button" variant="outline" size="sm" className="h-8 text-destructive hover:text-destructive" onClick={() => setDeletingPayment(payment)}>
+                                            <Trash2Icon className="size-3.5" />
+                                            {t.deletePayment}
+                                          </Button>
+                                        </>
+                                      ) : (
+                                        <p className="text-xs text-muted-foreground">{t.stripeLocked}</p>
+                                      )}
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </section>
+              </TabsContent>
+
+              <TabsContent value="collection">
+                <CollectionTab
+                  invoiceId={invoice._id}
+                  locale={locale as Locale}
+                  reminderState={invoice.reminderState}
+                  onInvoiceRefresh={loadData}
+                />
+              </TabsContent>
+            </Tabs>
 
             {invoice.notes ? (
               <section className="mb-4 rounded-xl border border-border/70 bg-card p-4">
