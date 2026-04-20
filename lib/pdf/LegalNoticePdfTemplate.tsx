@@ -224,7 +224,7 @@ function getNoLogoLabel(locale: 'en' | 'fr'): string {
   return locale === 'fr' ? 'AUCUN LOGO' : 'NO LOGO';
 }
 
-function getCityFromAddress(address?: string): string {
+function getCityFromAddress(address?: string | null): string {
   if (!address) {
     return '';
   }

@@ -194,7 +194,7 @@ export async function renderInvoicePdfForReminder({
         status: invoice.status,
         invoiceNumber: invoice.invoiceNumber,
         quoteNumber: invoice.quoteNumber ?? null,
-        date: invoice.date ?? null,
+        date: invoice.date ?? new Date(),
         dueDate: invoice.dueDate ?? null,
         clientSnapshot: extractClientSnapshot(invoice.clientSnapshot),
         lineItems: invoice.lineItems,

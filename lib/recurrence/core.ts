@@ -261,7 +261,7 @@ async function renderInvoicePdfForAutoSend({
         status: invoice.status,
         invoiceNumber: invoice.invoiceNumber,
         quoteNumber: invoice.quoteNumber ?? null,
-        date: invoice.date ?? null,
+        date: invoice.date ?? new Date(),
         dueDate: invoice.dueDate ?? null,
         clientSnapshot: invoice.clientSnapshot,
         lineItems: invoice.lineItems,

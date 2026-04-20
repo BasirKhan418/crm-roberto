@@ -63,7 +63,8 @@ export async function runRecurrencePass(): Promise<RecurrencePassTotals> {
   for (const invoice of invoices) {
     totals.processed += 1;
 
-    const nextOccurrenceAt = invoice.recurrence?.nextOccurrenceAt;
+    const recurrence = invoice.recurrence;
+    const nextOccurrenceAt = recurrence?.nextOccurrenceAt;
     if (!nextOccurrenceAt) {
       totals.skipped += 1;
       continue;
@@ -93,7 +94,7 @@ export async function runRecurrencePass(): Promise<RecurrencePassTotals> {
         companyCache.set(userId, loadedProfile);
       }
 
-      if (invoice.recurrence?.endDate && now > new Date(invoice.recurrence.endDate)) {
+      if (recurrence?.endDate && now > new Date(recurrence.endDate)) {
         await Invoice.updateOne(
           { _id: invoice._id, userId: invoice.userId },
           {
@@ -109,14 +110,14 @@ export async function runRecurrencePass(): Promise<RecurrencePassTotals> {
         continue;
       }
 
-      if (invoice.recurrence?.autoGenerate === true) {
+      if (recurrence?.autoGenerate === true) {
         const { newInvoice, nextOccurrenceAt: advancedNext } = await duplicateInvoiceForRecurrence({
           sourceInvoice: invoice,
           recurrence: {
-            frequency: invoice.recurrence.frequency || 'monthly',
-            customIntervalDays: invoice.recurrence.customIntervalDays ?? null,
-            nextOccurrenceAt: new Date(invoice.recurrence.nextOccurrenceAt),
-            endDate: invoice.recurrence.endDate ?? null,
+            frequency: recurrence.frequency || 'monthly',
+            customIntervalDays: recurrence.customIntervalDays ?? null,
+            nextOccurrenceAt: new Date(nextOccurrenceAt),
+            endDate: recurrence.endDate ?? null,
           },
         });
 
@@ -131,7 +132,7 @@ export async function runRecurrencePass(): Promise<RecurrencePassTotals> {
           }
         );
 
-        if (invoice.recurrence.autoSend === true) {
+        if (recurrence.autoSend === true) {
           await autoSendRecurringInvoiceToClient({
             invoice: newInvoice,
             userId,

@@ -41,12 +41,14 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, message: 'Invoice not found' }, { status: 404 });
     }
 
-    if (!sourceInvoice.recurrence?.isActive || !sourceInvoice.recurrence.nextOccurrenceAt) {
+    const recurrence = sourceInvoice.recurrence;
+    const recurrenceNextOccurrenceAt = recurrence?.nextOccurrenceAt;
+
+    if (!recurrence?.isActive || !recurrenceNextOccurrenceAt) {
       return NextResponse.json({ success: false, message: 'Recurrence is not active for this invoice' }, { status: 422 });
     }
 
-    const recurrence = sourceInvoice.recurrence;
-    const lockKey = `recurrence:${String(sourceInvoice._id)}:${new Date(recurrence.nextOccurrenceAt).toISOString()}`;
+    const lockKey = `recurrence:${String(sourceInvoice._id)}:${new Date(recurrenceNextOccurrenceAt).toISOString()}`;
     const lockAcquired = await acquireLock(lockKey, 600);
 
     if (!lockAcquired) {
@@ -59,7 +61,7 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
         recurrence: {
           frequency: recurrence.frequency || 'monthly',
           customIntervalDays: recurrence.customIntervalDays ?? null,
-          nextOccurrenceAt: new Date(recurrence.nextOccurrenceAt),
+          nextOccurrenceAt: new Date(recurrenceNextOccurrenceAt),
           endDate: recurrence.endDate ?? null,
         },
       });
