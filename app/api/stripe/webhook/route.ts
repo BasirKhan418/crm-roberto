@@ -9,6 +9,11 @@ import { stripe } from '@/lib/stripe';
 
 export const runtime = 'nodejs';
 
+const SUCCESSFUL_CHECKOUT_EVENTS = new Set<Stripe.Event.Type>([
+  'checkout.session.completed',
+  'checkout.session.async_payment_succeeded',
+]);
+
 function isDuplicateKeyError(error: unknown): boolean {
   if (!error || typeof error !== 'object') {
     return false;
@@ -40,7 +45,7 @@ export async function POST(req: NextRequest) {
 
   await ConnectDb();
 
-  if (event.type === 'checkout.session.completed') {
+  if (SUCCESSFUL_CHECKOUT_EVENTS.has(event.type)) {
     const session = event.data.object as Stripe.Checkout.Session;
     if (session.payment_status !== 'paid') {
       return NextResponse.json({ received: true });
