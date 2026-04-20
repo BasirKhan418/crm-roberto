@@ -17,18 +17,20 @@ import { Button } from '@/components/ui/button';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import { useDashboard } from '@/hooks/useDashboard';
 
-type DashboardBlockKey = 'smartActions' | 'stats' | 'activity' | 'recentQuotes';
+type DashboardBlockKey = 'smartActions' | 'stats' | 'collection' | 'activity' | 'recentQuotes';
 type DashboardPrefs = {
   order: DashboardBlockKey[];
   visible: Record<DashboardBlockKey, boolean>;
 };
 
-const DASHBOARD_PREFS_KEY = 'crm.dashboard.blocks.v2';
+const DASHBOARD_PREFS_KEY = 'crm.dashboard.blocks.v3';
 const LEGACY_DASHBOARD_PREFS_KEY = 'crm.dashboard.blocks.v1';
-const DEFAULT_BLOCK_ORDER: DashboardBlockKey[] = ['smartActions', 'stats', 'activity', 'recentQuotes'];
+const LEGACY_DASHBOARD_PREFS_KEY_V2 = 'crm.dashboard.blocks.v2';
+const DEFAULT_BLOCK_ORDER: DashboardBlockKey[] = ['smartActions', 'stats', 'collection', 'activity', 'recentQuotes'];
 const DEFAULT_BLOCK_VISIBILITY: Record<DashboardBlockKey, boolean> = {
   smartActions: true,
   stats: true,
+  collection: true,
   activity: true,
   recentQuotes: true,
 };
@@ -55,6 +57,7 @@ function normalizeDashboardPrefs(raw: unknown): DashboardPrefs {
   const visible: Record<DashboardBlockKey, boolean> = {
     smartActions: typeof visibleCandidate.smartActions === 'boolean' ? visibleCandidate.smartActions : DEFAULT_BLOCK_VISIBILITY.smartActions,
     stats: typeof visibleCandidate.stats === 'boolean' ? visibleCandidate.stats : DEFAULT_BLOCK_VISIBILITY.stats,
+    collection: typeof visibleCandidate.collection === 'boolean' ? visibleCandidate.collection : DEFAULT_BLOCK_VISIBILITY.collection,
     activity: typeof visibleCandidate.activity === 'boolean' ? visibleCandidate.activity : DEFAULT_BLOCK_VISIBILITY.activity,
     recentQuotes: typeof visibleCandidate.recentQuotes === 'boolean' ? visibleCandidate.recentQuotes : DEFAULT_BLOCK_VISIBILITY.recentQuotes,
   };
@@ -84,6 +87,7 @@ export default function DashboardPage() {
       moveDown: 'Move down',
       blockSmartActions: 'Smart Actions',
       blockStats: 'Top insights',
+      blockCollection: 'Collection',
       blockActivity: 'Recent Activity',
       blockRecentQuotes: 'Recent Quotes',
       sectionAria: 'Dashboard content',
@@ -101,6 +105,7 @@ export default function DashboardPage() {
       moveDown: 'Descendre',
       blockSmartActions: 'Actions intelligentes',
       blockStats: 'Indicateurs clés',
+      blockCollection: 'Recouvrement',
       blockActivity: 'Activité récente',
       blockRecentQuotes: 'Devis récents',
       sectionAria: 'Contenu du tableau de bord',
@@ -120,17 +125,19 @@ export default function DashboardPage() {
     () => ({
       smartActions: t.blockSmartActions,
       stats: t.blockStats,
+      collection: t.blockCollection,
       activity: t.blockActivity,
       recentQuotes: t.blockRecentQuotes,
     }),
-    [t.blockActivity, t.blockRecentQuotes, t.blockSmartActions, t.blockStats],
+    [t.blockActivity, t.blockCollection, t.blockRecentQuotes, t.blockSmartActions, t.blockStats],
   );
 
   useEffect(() => {
     try {
-      const rawV2 = window.localStorage.getItem(DASHBOARD_PREFS_KEY);
+      const rawV3 = window.localStorage.getItem(DASHBOARD_PREFS_KEY);
+      const rawV2 = window.localStorage.getItem(LEGACY_DASHBOARD_PREFS_KEY_V2);
       const rawV1 = window.localStorage.getItem(LEGACY_DASHBOARD_PREFS_KEY);
-      const raw = rawV2 ?? rawV1;
+      const raw = rawV3 ?? rawV2 ?? rawV1;
       if (!raw) return;
       const normalized = normalizeDashboardPrefs(JSON.parse(raw));
 
@@ -233,6 +240,14 @@ export default function DashboardPage() {
             );
           }
 
+          if (blockKey === 'collection') {
+            return (
+              <div key={blockKey} data-tour-dashboard-collection>
+                <CollectionWidget />
+              </div>
+            );
+          }
+
           if (blockKey === 'activity') {
             return (
               <div key={blockKey} data-tour-dashboard-activity>
@@ -248,7 +263,6 @@ export default function DashboardPage() {
           );
         })}
 
-        <CollectionWidget />
         <UpcomingRecurrencesWidget />
       </section>
 

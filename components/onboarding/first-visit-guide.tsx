@@ -44,6 +44,14 @@ const TOUR_BY_ROUTE: Record<string, (locale: Locale) => TourStep[]> = {
           ? 'Ces cartes montrent vos indicateurs principaux: clients, fournisseurs, notes, devis et revenu accepté.'
           : 'These cards show your main business stats: clients, suppliers, notes, quotes, and accepted revenue.',
     },
+    {
+      element: '[data-tour-dashboard-collection]',
+      title: locale === 'fr' ? 'Recouvrement' : 'Collection',
+      description:
+        locale === 'fr'
+          ? 'Suivez ici les niveaux de relance et les alertes de recouvrement en cours.'
+          : 'Track reminder levels and current collection alerts from this card.',
+    },
     { element: '[data-tour-dashboard-recent-quotes]', title: locale === 'fr' ? 'Devis récents' : 'Recent quotes', description: locale === 'fr' ? 'Ouvrez un devis et convertissez-le en facture quand il est accepté et signé.' : 'Open a quote and convert it to invoice once accepted and signed.' },
   ],
   '/clients': (locale) => [
@@ -307,6 +315,14 @@ const TOUR_BY_ROUTE: Record<string, (locale: Locale) => TourStep[]> = {
   '/invoices/[id]': (locale) => [
     { element: '[data-tour-invoice-detail-actions]', title: locale === 'fr' ? 'Actions facture' : 'Invoice actions', description: locale === 'fr' ? 'Envoyer, télécharger PDF, marquer payé.' : 'Send, download PDF, mark as paid.' },
     { element: '[data-tour-invoice-document]', title: locale === 'fr' ? 'Document facture' : 'Invoice document', description: locale === 'fr' ? 'Consultez informations, lignes, totaux et paiements.' : 'Review details, line items, totals, and payments.' },
+    {
+      element: '[data-tour-invoice-collection]',
+      title: locale === 'fr' ? 'Relances et recouvrement' : 'Reminders and collection',
+      description:
+        locale === 'fr'
+          ? 'Utilisez cet onglet pour envoyer des relances, mettre en pause/reprendre et suivre l\'historique de recouvrement.'
+          : 'Use this tab to send reminders, pause/resume flow, and review collection history.',
+    },
   ],
   '/profile': (locale) => [
     { element: '[data-tour-profile-company-card]', title: locale === 'fr' ? 'Profil entreprise' : 'Company profile', description: locale === 'fr' ? 'Mettez à jour vos informations société.' : 'Update your company information.' },

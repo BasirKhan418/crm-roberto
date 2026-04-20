@@ -923,7 +923,7 @@ export default function InvoiceDetailPage() {
                 </section>
               </TabsContent>
 
-              <TabsContent value="collection">
+              <TabsContent value="collection" data-tour-invoice-collection>
                 <CollectionTab
                   invoiceId={invoice._id}
                   locale={locale as Locale}
