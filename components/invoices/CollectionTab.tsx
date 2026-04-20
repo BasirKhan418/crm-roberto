@@ -47,6 +47,12 @@ interface ReminderLogsResponse {
 interface CollectionTabProps {
   invoiceId: string;
   locale: Locale;
+  clientName?: string | null;
+  invoiceNumber?: string | null;
+  dueDate?: string | Date | null;
+  invoiceDate?: string | Date | null;
+  amountDue?: number | null;
+  companyName?: string | null;
   reminderState?: ReminderState | null;
   onInvoiceRefresh: () => Promise<void> | void;
 }
@@ -129,7 +135,18 @@ const fetcher = async (url: string): Promise<ReminderLogsResponse> => {
   return payload;
 };
 
-export default function CollectionTab({ invoiceId, locale, reminderState, onInvoiceRefresh }: CollectionTabProps) {
+export default function CollectionTab({
+  invoiceId,
+  locale,
+  clientName,
+  invoiceNumber,
+  dueDate,
+  invoiceDate,
+  amountDue,
+  companyName,
+  reminderState,
+  onInvoiceRefresh,
+}: CollectionTabProps) {
   const [showSendModal, setShowSendModal] = useState(false);
   const [updatingState, setUpdatingState] = useState(false);
 
@@ -340,6 +357,12 @@ export default function CollectionTab({ invoiceId, locale, reminderState, onInvo
         invoiceId={invoiceId}
         locale={locale}
         nextLevel={nextLevel}
+        clientName={clientName}
+        invoiceNumber={invoiceNumber}
+        dueDate={dueDate}
+        invoiceDate={invoiceDate}
+        amountDue={amountDue}
+        companyName={companyName}
         onSent={async () => {
           await Promise.resolve(onInvoiceRefresh());
           await mutate();

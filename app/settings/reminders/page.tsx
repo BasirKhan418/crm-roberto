@@ -44,6 +44,7 @@ interface ReminderSettingsData {
     en: ReminderLocaleTemplates;
     fr: ReminderLocaleTemplates;
   };
+  messageLocale: 'auto' | 'en' | 'fr';
   lateFee: {
     enabled: boolean;
     type: LateFeeType;
@@ -88,6 +89,7 @@ const DEFAULT_SETTINGS: ReminderSettingsData = {
       formalNotice: { subject: '', body: '' },
     },
   },
+  messageLocale: 'auto',
   lateFee: {
     enabled: false,
     type: 'percentage',
@@ -188,6 +190,7 @@ function normalizeSettings(input?: Partial<ReminderSettingsData>): ReminderSetti
         },
       },
     },
+    messageLocale: input?.messageLocale ?? DEFAULT_SETTINGS.messageLocale,
     lateFee: {
       enabled: input?.lateFee?.enabled ?? DEFAULT_SETTINGS.lateFee.enabled,
       type: input?.lateFee?.type ?? DEFAULT_SETTINGS.lateFee.type,
@@ -331,7 +334,7 @@ export default function ReminderSettingsPage() {
 
     setTimingSaving(true);
     try {
-      await patchSettings({ offsets: draft.offsets });
+      await patchSettings({ offsets: draft.offsets, messageLocale: draft.messageLocale });
       toast.success(t('reminders.settings.timing.savedToast'));
     } catch (error) {
       toast.error(resolveTranslatedError(locale, error, t('reminders.settings.saveFailedGeneric')));
@@ -493,6 +496,30 @@ export default function ReminderSettingsPage() {
         <p className={cn('text-xs', timingInvalid ? 'text-destructive' : 'text-muted-foreground')}>
           {t('reminders.settings.timing.validationRule')}
         </p>
+
+        <div className="space-y-2">
+          <Label>{t('reminders.settings.language.label')}</Label>
+          <Select
+            value={draft.messageLocale}
+            onValueChange={(value) => {
+              const nextLocale: 'auto' | 'en' | 'fr' = value === 'en' || value === 'fr' ? value : 'auto';
+              setDraft((prev) => ({
+                ...prev,
+                messageLocale: nextLocale,
+              }));
+            }}
+          >
+            <SelectTrigger className="h-10 w-full md:max-w-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="auto">{t('reminders.settings.language.auto')}</SelectItem>
+              <SelectItem value="en">{t('reminders.settings.language.english')}</SelectItem>
+              <SelectItem value="fr">{t('reminders.settings.language.french')}</SelectItem>
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">{t('reminders.settings.language.help')}</p>
+        </div>
 
         <Button type="button" disabled={timingSaving} onClick={() => void handleSaveTiming()}>
           {timingSaving ? <Loader2Icon className="size-4 animate-spin" /> : null}

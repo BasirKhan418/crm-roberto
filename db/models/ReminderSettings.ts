@@ -112,6 +112,11 @@ const ReminderSettingsSchema = new mongoose.Schema(
         fr: DEFAULT_TEMPLATES.fr,
       }),
     },
+    messageLocale: {
+      type: String,
+      enum: ['auto', 'en', 'fr'],
+      default: 'auto',
+    },
     lateFee: {
       type: new mongoose.Schema(
         {

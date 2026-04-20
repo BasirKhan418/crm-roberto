@@ -927,6 +927,12 @@ export default function InvoiceDetailPage() {
                 <CollectionTab
                   invoiceId={invoice._id}
                   locale={locale as Locale}
+                  clientName={invoice.clientSnapshot.fullName}
+                  invoiceNumber={invoice.invoiceNumber}
+                  dueDate={invoice.dueDate}
+                  invoiceDate={invoice.date}
+                  amountDue={remainingAmount}
+                  companyName={company?.companyName ?? company?.ownerName ?? null}
                   reminderState={invoice.reminderState}
                   onInvoiceRefresh={loadData}
                 />

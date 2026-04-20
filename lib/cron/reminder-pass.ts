@@ -88,6 +88,7 @@ type InvoiceReminderCandidate = {
 };
 
 type SettingsLike = {
+  messageLocale?: 'auto' | 'en' | 'fr';
   offsets?: { soft?: number; medium?: number; firm?: number; formalNotice?: number };
   templates?: {
     en?: Record<'soft' | 'medium' | 'firm' | 'formalNotice', { subject: string; body: string }>;
@@ -316,7 +317,10 @@ export async function runReminderPass(): Promise<ReminderPassTotals> {
           profileCache.set(userId, companyProfile);
         }
 
-        const locale = normalizeReminderLocale(companyProfile?.locale);
+        const locale =
+          settings.messageLocale === 'en' || settings.messageLocale === 'fr'
+            ? settings.messageLocale
+            : normalizeReminderLocale(companyProfile?.locale);
         const levelKey = getReminderLevelKey(targetLevel);
         const template = settings.templates?.[locale]?.[levelKey] ?? settings.templates?.fr?.[levelKey] ?? settings.templates?.en?.[levelKey];
 

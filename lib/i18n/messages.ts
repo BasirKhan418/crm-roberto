@@ -276,6 +276,13 @@ const messages = {
           saveButton: 'Save timing',
           savedToast: 'Timing settings saved',
         },
+        language: {
+          label: 'Reminder language',
+          auto: 'Use request/profile locale',
+          english: 'English',
+          french: 'French',
+          help: 'Pick a fixed language for reminders, or auto to follow current request/profile locale.',
+        },
         templatesSectionDescription: 'Edit reminder subjects and body content in both English and French.',
         templates: {
           cardDescription: 'Each template supports variables like {{clientName}} and {{invoiceNumber}}.',
@@ -709,6 +716,13 @@ const messages = {
           invalidToast: 'Les délais sont invalides. Ordre requis : soft < medium < firm <= mise en demeure.',
           saveButton: 'Enregistrer les délais',
           savedToast: 'Délais enregistrés',
+        },
+        language: {
+          label: 'Langue des relances',
+          auto: 'Utiliser la langue de la requête/profil',
+          english: 'Anglais',
+          french: 'Français',
+          help: 'Choisissez une langue fixe pour les relances, ou auto pour suivre la langue de la requête/profil.',
         },
         templatesSectionDescription: 'Modifiez les sujets et contenus des relances en anglais et en français.',
         templates: {

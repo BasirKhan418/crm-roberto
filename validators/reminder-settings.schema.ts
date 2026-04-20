@@ -84,6 +84,7 @@ export const updateReminderSettingsSchema = z
   .object({
     offsets: reminderOffsetsBaseSchema.partial().optional(),
     templates: templatesPatchSchema.optional(),
+    messageLocale: z.enum(['auto', 'en', 'fr']).optional(),
     lateFee: reminderLateFeeSchema.optional(),
     legalNotice: reminderLegalNoticeSchema.optional(),
     channels: reminderChannelsSchema.optional(),
@@ -92,6 +93,7 @@ export const updateReminderSettingsSchema = z
     (data) =>
       data.offsets !== undefined ||
       data.templates !== undefined ||
+      data.messageLocale !== undefined ||
       data.lateFee !== undefined ||
       data.legalNotice !== undefined ||
       data.channels !== undefined,

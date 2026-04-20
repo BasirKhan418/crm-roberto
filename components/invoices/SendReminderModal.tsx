@@ -31,6 +31,12 @@ interface SendReminderModalProps {
   invoiceId: string;
   locale: Locale;
   nextLevel: ReminderLevel;
+  clientName?: string | null;
+  invoiceNumber?: string | null;
+  dueDate?: string | Date | null;
+  invoiceDate?: string | Date | null;
+  amountDue?: number | null;
+  companyName?: string | null;
   onSent?: () => void;
 }
 
@@ -52,17 +58,35 @@ interface ReminderSettingsResponse {
   message?: string;
 }
 
-const SAMPLE_VARIABLES: Record<string, string> = {
-  clientName: 'Jean Dupont',
-  invoiceNumber: 'INV-2024-001',
-  amountDue: '1 234,00 €',
-  dueDate: '15/01/2025',
-};
+function formatDate(value: string | Date | null | undefined, locale: Locale): string {
+  if (!value) {
+    return '';
+  }
 
-function replaceTemplateVariables(template: string): string {
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) {
+    return '';
+  }
+
+  return new Intl.DateTimeFormat(locale === 'fr' ? 'fr-FR' : 'en-GB', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(date);
+}
+
+function formatAmount(cents: number | null | undefined, locale: Locale): string {
+  const normalized = Number.isFinite(cents) ? Number(cents) : 0;
+  return new Intl.NumberFormat(locale === 'fr' ? 'fr-FR' : 'en-GB', {
+    style: 'currency',
+    currency: 'EUR',
+  }).format(normalized / 100);
+}
+
+function replaceTemplateVariables(template: string, variables: Record<string, string>): string {
   return template.replace(/\{\{\s*([a-zA-Z][\w]*)\s*\}\}|\{\s*([a-zA-Z][\w]*)\s*\}/g, (_full, variableA: string, variableB: string) => {
     const variable = variableA || variableB;
-    return SAMPLE_VARIABLES[variable] ?? '';
+    return variables[variable] ?? '';
   });
 }
 
@@ -93,6 +117,12 @@ export default function SendReminderModal({
   invoiceId,
   locale,
   nextLevel,
+  clientName,
+  invoiceNumber,
+  dueDate,
+  invoiceDate,
+  amountDue,
+  companyName,
   onSent,
 }: SendReminderModalProps) {
   const [level, setLevel] = useState<ReminderLevel>(nextLevel);
@@ -109,6 +139,18 @@ export default function SendReminderModal({
     const selectedLocaleTemplates = locale === 'fr' ? settings?.data?.templates?.fr : settings?.data?.templates?.en;
     return selectedLocaleTemplates ?? null;
   }, [locale, settings?.data?.templates?.en, settings?.data?.templates?.fr]);
+
+  const previewVariables = useMemo<Record<string, string>>(
+    () => ({
+      clientName: clientName?.trim() || '-',
+      invoiceNumber: invoiceNumber?.trim() || '-',
+      amountDue: formatAmount(amountDue, locale),
+      dueDate: formatDate(dueDate, locale) || '-',
+      invoiceDate: formatDate(invoiceDate, locale) || '-',
+      companyName: companyName?.trim() || '-',
+    }),
+    [amountDue, clientName, companyName, dueDate, invoiceDate, invoiceNumber, locale]
+  );
 
   const applyTemplate = useCallback(
     (nextLevel: ReminderLevel) => {
@@ -151,6 +193,7 @@ export default function SendReminderModal({
           level,
           subject: subject.trim(),
           body: body.trim(),
+          locale,
         }),
       });
 
@@ -229,8 +272,8 @@ export default function SendReminderModal({
             <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
               {t('reminders.settings.templates.preview')}
             </p>
-            <p className="font-medium">{replaceTemplateVariables(subject)}</p>
-            <p className="mt-2 whitespace-pre-wrap text-muted-foreground">{replaceTemplateVariables(body)}</p>
+            <p className="font-medium">{replaceTemplateVariables(subject, previewVariables)}</p>
+            <p className="mt-2 whitespace-pre-wrap text-muted-foreground">{replaceTemplateVariables(body, previewVariables)}</p>
           </div>
         </div>
 
