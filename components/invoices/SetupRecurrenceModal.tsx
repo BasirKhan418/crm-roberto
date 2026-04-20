@@ -5,7 +5,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { Loader2Icon } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { computeNextOccurrence, type RecurrenceFrequency } from '@/lib/recurrence/core';
 import { resolveTranslatedError, translate } from '@/lib/i18n/messages';
 import { Button } from '@/components/ui/button';
 import {
@@ -22,6 +21,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
 
 type Locale = 'en' | 'fr';
+type RecurrenceFrequency = 'monthly' | 'quarterly' | 'yearly' | 'custom';
 
 interface RecurrenceState {
   frequency?: RecurrenceFrequency | null;
@@ -56,6 +56,28 @@ function normalizeInputDate(value?: string | Date | null): Date | null {
 
   const parsed = new Date(value);
   return Number.isFinite(parsed.getTime()) ? parsed : null;
+}
+
+function computeNextOccurrence(baseDate: Date, frequency: RecurrenceFrequency, customIntervalDays?: number | null): Date {
+  const result = new Date(baseDate);
+
+  if (frequency === 'monthly') {
+    result.setUTCMonth(result.getUTCMonth() + 1);
+    return result;
+  }
+
+  if (frequency === 'quarterly') {
+    result.setUTCMonth(result.getUTCMonth() + 3);
+    return result;
+  }
+
+  if (frequency === 'yearly') {
+    result.setUTCFullYear(result.getUTCFullYear() + 1);
+    return result;
+  }
+
+  result.setUTCDate(result.getUTCDate() + Math.max(1, Math.round(customIntervalDays ?? 1)));
+  return result;
 }
 
 function buildDefaultNextOccurrence(
