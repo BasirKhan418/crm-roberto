@@ -23,7 +23,7 @@ export const generateOtp = async (key: string, otp: string, ttl: number)=>{
             };
         }
 
-        const userOtpCount = await redisClient.incr(countKey);
+        await redisClient.incr(countKey);
         const countTtl = await redisClient.ttl(countKey);
 
         // Self-heal if TTL is missing (-1) or key is unexpectedly gone (-2).

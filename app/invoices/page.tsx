@@ -36,23 +36,23 @@ import { useInvoices, type InvoiceListItem, type InvoiceStatusFilter } from '@/h
 import { useInvoicesActionCount } from '@/hooks/useInvoicesActionCount';
 import FinancialTotalsBar from '@/components/ui/FinancialTotalsBar';
 
-function InvoicesPageContent() {
-  const COLUMN_STORAGE_KEY = 'crm.invoice.visibleColumns.v1';
-  const VIEW_STORAGE_KEY = 'crm.invoice.viewConfig.v1';
-  const DEFAULT_VISIBLE_COLUMNS: Record<InvoiceTableColumnKey, boolean> = {
-    invoiceNumber: true,
-    client: true,
-    date: true,
-    dueDate: true,
-    totalIncludingTax: true,
-    amountPaid: true,
-    remainingAmount: true,
-    paymentProgress: true,
-    depositAmount: true,
-    depositPaymentDate: true,
-    status: true,
-  };
+const COLUMN_STORAGE_KEY = 'crm.invoice.visibleColumns.v1';
+const VIEW_STORAGE_KEY = 'crm.invoice.viewConfig.v1';
+const DEFAULT_VISIBLE_COLUMNS: Record<InvoiceTableColumnKey, boolean> = {
+  invoiceNumber: true,
+  client: true,
+  date: true,
+  dueDate: true,
+  totalIncludingTax: true,
+  amountPaid: true,
+  remainingAmount: true,
+  paymentProgress: true,
+  depositAmount: true,
+  depositPaymentDate: true,
+  status: true,
+};
 
+function InvoicesPageContent() {
   const router = useRouter();
   const { locale } = useLocale();
   const t = {

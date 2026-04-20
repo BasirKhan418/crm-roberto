@@ -1,5 +1,5 @@
-const cron = require('node-cron');
-const dotenv = require('dotenv');
+import cron from 'node-cron';
+import dotenv from 'dotenv';
 
 // Load env for local/PM2 execution on EC2.
 dotenv.config({ path: '.env.local' });

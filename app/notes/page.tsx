@@ -507,7 +507,6 @@ export default function NotesPage() {
   const activeTabNotes = groupedNotes[activeTab];
   const activeTabTotalPages = Math.max(1, Math.ceil(activeTabNotes.length / TAB_PAGE_SIZE));
   const activeTabPage = Math.min(tabPageByStatus[activeTab], activeTabTotalPages);
-  const pagedActiveTabNotes = activeTabNotes.slice((activeTabPage - 1) * TAB_PAGE_SIZE, activeTabPage * TAB_PAGE_SIZE);
 
   function setTabPage(status: NoteStatus, page: number) {
     const total = Math.max(1, Math.ceil(groupedNotes[status].length / TAB_PAGE_SIZE));

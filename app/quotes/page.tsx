@@ -32,19 +32,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import FinancialTotalsBar from '@/components/ui/FinancialTotalsBar';
 
-function QuotesPageContent() {
-  const COLUMN_STORAGE_KEY = 'crm.quote.visibleColumns.v1';
-  const VIEW_STORAGE_KEY = 'crm.quote.viewConfig.v1';
-  const DEFAULT_VISIBLE_COLUMNS: Record<QuoteTableColumnKey, boolean> = {
-    quoteNumber: true,
-    client: true,
-    subject: true,
-    date: true,
-    totalIncludingTax: true,
-    status: true,
-    invoiceLink: true,
-  };
+const COLUMN_STORAGE_KEY = 'crm.quote.visibleColumns.v1';
+const VIEW_STORAGE_KEY = 'crm.quote.viewConfig.v1';
+const DEFAULT_VISIBLE_COLUMNS: Record<QuoteTableColumnKey, boolean> = {
+  quoteNumber: true,
+  client: true,
+  subject: true,
+  date: true,
+  totalIncludingTax: true,
+  status: true,
+  invoiceLink: true,
+};
 
+function QuotesPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { locale } = useLocale();
