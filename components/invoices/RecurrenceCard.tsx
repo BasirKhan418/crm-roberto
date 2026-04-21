@@ -64,6 +64,7 @@ interface RecurrenceCardProps {
   recurrence?: RecurrenceState | null;
   sourceInvoice?: SourceInvoiceSnapshot | null;
   onInvoiceRefresh: () => Promise<void> | void;
+  compact?: boolean;
 }
 
 function formatDate(value: string | Date | null | undefined, locale: Locale): string {
@@ -112,6 +113,7 @@ export default function RecurrenceCard({
   recurrence,
   sourceInvoice,
   onInvoiceRefresh,
+  compact = false,
 }: RecurrenceCardProps) {
   const t = (key: string, replacements?: Record<string, string | number | null | undefined>) =>
     translate(locale, key, replacements);
@@ -200,24 +202,43 @@ export default function RecurrenceCard({
   if (isNeverConfigured) {
     return (
       <>
-        <div className="flex flex-col gap-3 rounded-lg border border-dashed bg-muted/30 p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-start gap-3">
-            <div className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 text-primary">
-              <Repeat2Icon className="size-5" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className="bg-slate-100 text-slate-700">
-                  {t('recurring.status.inactive')}
-                </Badge>
+        {compact ? (
+          <div className="rounded-lg border border-dashed border-border/70 bg-muted/20 p-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+              <div className="min-w-0 space-y-1">
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="bg-slate-100 text-slate-700">
+                    {t('recurring.status.inactive')}
+                  </Badge>
+                </div>
+                <p className="text-sm text-muted-foreground">{t('recurring.card.empty')}</p>
               </div>
-              <p className="mt-1 text-sm text-muted-foreground">{t('recurring.card.empty')}</p>
+              <Button type="button" size="sm" className="h-8 w-full sm:w-auto" onClick={() => setShowSetupModal(true)}>
+                <Repeat2Icon className="size-3.5" />
+                {t('recurring.setupCta')}
+              </Button>
             </div>
           </div>
-          <Button type="button" className="w-full sm:w-auto" onClick={() => setShowSetupModal(true)}>
-            {t('recurring.setupCta')}
-          </Button>
-        </div>
+        ) : (
+          <div className="flex flex-col gap-3 rounded-lg border border-dashed bg-muted/30 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <div className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 text-primary">
+                <Repeat2Icon className="size-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="bg-slate-100 text-slate-700">
+                    {t('recurring.status.inactive')}
+                  </Badge>
+                </div>
+                <p className="mt-1 text-sm text-muted-foreground">{t('recurring.card.empty')}</p>
+              </div>
+            </div>
+            <Button type="button" className="w-full sm:w-auto" onClick={() => setShowSetupModal(true)}>
+              {t('recurring.setupCta')}
+            </Button>
+          </div>
+        )}
 
         {setupModalNode}
       </>
@@ -227,23 +248,47 @@ export default function RecurrenceCard({
   if (isStopped) {
     return (
       <>
-        <div className="space-y-3 rounded-lg border p-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline" className="bg-slate-100 text-slate-700">
-              {t('recurring.status.inactive')}
-            </Badge>
-            <p className="text-sm text-muted-foreground">
-              {t('recurring.stoppedOn', { date: formatDate(recurrence?.stoppedAt, locale) })}
-            </p>
+        {compact ? (
+          <div className="rounded-lg border border-border/70 bg-card p-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+              <div className="min-w-0 space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="outline" className="bg-slate-100 text-slate-700">
+                    {t('recurring.status.inactive')}
+                  </Badge>
+                  <p className="text-sm text-muted-foreground">
+                    {t('recurring.stoppedOn', { date: formatDate(recurrence?.stoppedAt, locale) })}
+                  </p>
+                </div>
+                {recurrence?.stoppedReason ? (
+                  <p className="text-sm text-muted-foreground">{recurrence.stoppedReason}</p>
+                ) : null}
+              </div>
+              <Button type="button" size="sm" className="h-8 w-full sm:w-auto" onClick={() => setShowSetupModal(true)}>
+                <RefreshCwIcon className="size-3.5" />
+                {t('recurring.restart')}
+              </Button>
+            </div>
           </div>
-          {recurrence?.stoppedReason ? (
-            <p className="text-sm text-muted-foreground">{recurrence.stoppedReason}</p>
-          ) : null}
-          <Button type="button" className="w-full sm:w-auto" onClick={() => setShowSetupModal(true)}>
-            <RefreshCwIcon className="size-4" />
-            {t('recurring.restart')}
-          </Button>
-        </div>
+        ) : (
+          <div className="space-y-3 rounded-lg border p-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="outline" className="bg-slate-100 text-slate-700">
+                {t('recurring.status.inactive')}
+              </Badge>
+              <p className="text-sm text-muted-foreground">
+                {t('recurring.stoppedOn', { date: formatDate(recurrence?.stoppedAt, locale) })}
+              </p>
+            </div>
+            {recurrence?.stoppedReason ? (
+              <p className="text-sm text-muted-foreground">{recurrence.stoppedReason}</p>
+            ) : null}
+            <Button type="button" className="w-full sm:w-auto" onClick={() => setShowSetupModal(true)}>
+              <RefreshCwIcon className="size-4" />
+              {t('recurring.restart')}
+            </Button>
+          </div>
+        )}
 
         {setupModalNode}
       </>
@@ -252,71 +297,115 @@ export default function RecurrenceCard({
 
   return (
     <>
-      <div className="space-y-4 rounded-lg border p-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
-          <div className="min-w-0 space-y-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300">
-                {t('recurring.status.active')}
-              </Badge>
-              <Badge variant="outline">{t(`recurring.frequency.${recurrence?.frequency ?? 'monthly'}`)}</Badge>
-              {hasCustomTemplate ? (
-                <Badge variant="outline" className="border-primary/30 text-primary">
-                  {t('recurring.status.customTemplate')}
+      {compact ? (
+        <div className="rounded-lg border border-border/70 bg-card p-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+            <div className="min-w-0 space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300">
+                  {t('recurring.status.active')}
                 </Badge>
+                <Badge variant="outline">{t(`recurring.frequency.${recurrence?.frequency ?? 'monthly'}`)}</Badge>
+                {hasCustomTemplate ? (
+                  <Badge variant="outline" className="border-primary/30 text-primary">
+                    {t('recurring.status.customTemplate')}
+                  </Badge>
+                ) : null}
+              </div>
+              <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                <CalendarClockIcon className="size-3.5 shrink-0" />
+                <span>{t('recurring.nextOccurrenceLabel', { date: formatDate(recurrence?.nextOccurrenceAt, locale) })}</span>
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {t('recurring.lastGenerated')}: {formatRelativeDate(recurrence?.lastGeneratedAt, locale)}
+              </p>
+              {!recurrence?.autoSend ? (
+                <p className="text-xs text-amber-800 dark:text-amber-200">{t('recurring.card.manualValidationNotice')}</p>
               ) : null}
             </div>
-            <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
-              <CalendarClockIcon className="size-3.5 shrink-0" />
-              <span>{t('recurring.nextOccurrenceLabel', { date: formatDate(recurrence?.nextOccurrenceAt, locale) })}</span>
-            </p>
-          </div>
-          <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
-            <Button type="button" variant="default" className="w-full sm:w-auto" disabled={generating} onClick={() => void generateNow()}>
-              {generating ? <Loader2Icon className="size-4 animate-spin" /> : null}
-              {t('recurring.generateNow')}
-            </Button>
-            <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => setShowSetupModal(true)}>
-              <PencilIcon className="size-4" />
-              {t('recurring.actions.edit')}
-            </Button>
-            <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => setShowStopDialog(true)}>
-              <PowerIcon className="size-4" />
-              {t('recurring.actions.disable')}
-            </Button>
+            <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
+              <Button type="button" size="sm" className="h-8 w-full sm:w-auto" disabled={generating} onClick={() => void generateNow()}>
+                {generating ? <Loader2Icon className="size-3.5 animate-spin" /> : null}
+                {t('recurring.generateNow')}
+              </Button>
+              <Button type="button" size="sm" variant="outline" className="h-8 w-full sm:w-auto" onClick={() => setShowSetupModal(true)}>
+                <PencilIcon className="size-3.5" />
+                {t('recurring.actions.edit')}
+              </Button>
+              <Button type="button" size="sm" variant="outline" className="h-8 w-full sm:w-auto" onClick={() => setShowStopDialog(true)}>
+                <PowerIcon className="size-3.5" />
+                {t('recurring.actions.disable')}
+              </Button>
+            </div>
           </div>
         </div>
+      ) : (
+        <div className="space-y-4 rounded-lg border p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+            <div className="min-w-0 space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300">
+                  {t('recurring.status.active')}
+                </Badge>
+                <Badge variant="outline">{t(`recurring.frequency.${recurrence?.frequency ?? 'monthly'}`)}</Badge>
+                {hasCustomTemplate ? (
+                  <Badge variant="outline" className="border-primary/30 text-primary">
+                    {t('recurring.status.customTemplate')}
+                  </Badge>
+                ) : null}
+              </div>
+              <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                <CalendarClockIcon className="size-3.5 shrink-0" />
+                <span>{t('recurring.nextOccurrenceLabel', { date: formatDate(recurrence?.nextOccurrenceAt, locale) })}</span>
+              </p>
+            </div>
+            <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
+              <Button type="button" variant="default" className="w-full sm:w-auto" disabled={generating} onClick={() => void generateNow()}>
+                {generating ? <Loader2Icon className="size-4 animate-spin" /> : null}
+                {t('recurring.generateNow')}
+              </Button>
+              <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => setShowSetupModal(true)}>
+                <PencilIcon className="size-4" />
+                {t('recurring.actions.edit')}
+              </Button>
+              <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => setShowStopDialog(true)}>
+                <PowerIcon className="size-4" />
+                {t('recurring.actions.disable')}
+              </Button>
+            </div>
+          </div>
 
-        <div className="grid grid-cols-1 gap-3 rounded-md bg-muted/30 p-3 sm:grid-cols-3 sm:gap-4">
-          <div className="min-w-0">
-            <p className="text-xs text-muted-foreground">{t('recurring.autoGenerate')}</p>
-            <p className={cn('text-sm font-medium', recurrence?.autoGenerate ? 'text-emerald-700 dark:text-emerald-400' : 'text-muted-foreground')}>
-              {recurrence?.autoGenerate ? t('common.on') : t('common.off')}
+          <div className="grid grid-cols-1 gap-3 rounded-md bg-muted/30 p-3 sm:grid-cols-3 sm:gap-4">
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">{t('recurring.autoGenerate')}</p>
+              <p className={cn('text-sm font-medium', recurrence?.autoGenerate ? 'text-emerald-700 dark:text-emerald-400' : 'text-muted-foreground')}>
+                {recurrence?.autoGenerate ? t('common.on') : t('common.off')}
+              </p>
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">{t('recurring.autoSend')}</p>
+              <p className={cn('text-sm font-medium', recurrence?.autoSend ? 'text-emerald-700 dark:text-emerald-400' : 'text-muted-foreground')}>
+                {recurrence?.autoSend ? t('common.on') : t('common.off')}
+              </p>
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">{t('recurring.lastGenerated')}</p>
+              <p className="text-sm font-medium">{formatRelativeDate(recurrence?.lastGeneratedAt, locale)}</p>
+              {recurrence?.lastGeneratedInvoiceId ? (
+                <Link href={`/invoices/${recurrence.lastGeneratedInvoiceId}`} className="text-xs text-primary hover:underline">
+                  {t('recurring.lastGeneratedInvoice')}
+                </Link>
+              ) : null}
+            </div>
+          </div>
+
+          {!recurrence?.autoSend ? (
+            <p className="rounded-md border border-amber-200 bg-amber-50/60 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-200">
+              {t('recurring.card.manualValidationNotice')}
             </p>
-          </div>
-          <div className="min-w-0">
-            <p className="text-xs text-muted-foreground">{t('recurring.autoSend')}</p>
-            <p className={cn('text-sm font-medium', recurrence?.autoSend ? 'text-emerald-700 dark:text-emerald-400' : 'text-muted-foreground')}>
-              {recurrence?.autoSend ? t('common.on') : t('common.off')}
-            </p>
-          </div>
-          <div className="min-w-0">
-            <p className="text-xs text-muted-foreground">{t('recurring.lastGenerated')}</p>
-            <p className="text-sm font-medium">{formatRelativeDate(recurrence?.lastGeneratedAt, locale)}</p>
-            {recurrence?.lastGeneratedInvoiceId ? (
-              <Link href={`/invoices/${recurrence.lastGeneratedInvoiceId}`} className="text-xs text-primary hover:underline">
-                {t('recurring.lastGeneratedInvoice')}
-              </Link>
-            ) : null}
-          </div>
+          ) : null}
         </div>
-
-        {!recurrence?.autoSend ? (
-          <p className="rounded-md border border-amber-200 bg-amber-50/60 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-200">
-            {t('recurring.card.manualValidationNotice')}
-          </p>
-        ) : null}
-      </div>
+      )}
 
       {setupModalNode}
 

@@ -17,7 +17,7 @@ import { Button } from '@/components/ui/button';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import { useDashboard } from '@/hooks/useDashboard';
 
-type DashboardBlockKey = 'smartActions' | 'stats' | 'collection' | 'activity' | 'recentQuotes';
+type DashboardBlockKey = 'smartActions' | 'stats' | 'collection' | 'activity' | 'recentQuotes' | 'recurrences';
 type DashboardPrefs = {
   order: DashboardBlockKey[];
   visible: Record<DashboardBlockKey, boolean>;
@@ -26,13 +26,14 @@ type DashboardPrefs = {
 const DASHBOARD_PREFS_KEY = 'crm.dashboard.blocks.v3';
 const LEGACY_DASHBOARD_PREFS_KEY = 'crm.dashboard.blocks.v1';
 const LEGACY_DASHBOARD_PREFS_KEY_V2 = 'crm.dashboard.blocks.v2';
-const DEFAULT_BLOCK_ORDER: DashboardBlockKey[] = ['smartActions', 'stats', 'collection', 'activity', 'recentQuotes'];
+const DEFAULT_BLOCK_ORDER: DashboardBlockKey[] = ['smartActions', 'stats', 'collection', 'activity', 'recentQuotes', 'recurrences'];
 const DEFAULT_BLOCK_VISIBILITY: Record<DashboardBlockKey, boolean> = {
   smartActions: true,
   stats: true,
   collection: true,
   activity: true,
   recentQuotes: true,
+  recurrences: true,
 };
 
 function normalizeDashboardPrefs(raw: unknown): DashboardPrefs {
@@ -60,6 +61,7 @@ function normalizeDashboardPrefs(raw: unknown): DashboardPrefs {
     collection: typeof visibleCandidate.collection === 'boolean' ? visibleCandidate.collection : DEFAULT_BLOCK_VISIBILITY.collection,
     activity: typeof visibleCandidate.activity === 'boolean' ? visibleCandidate.activity : DEFAULT_BLOCK_VISIBILITY.activity,
     recentQuotes: typeof visibleCandidate.recentQuotes === 'boolean' ? visibleCandidate.recentQuotes : DEFAULT_BLOCK_VISIBILITY.recentQuotes,
+    recurrences: typeof visibleCandidate.recurrences === 'boolean' ? visibleCandidate.recurrences : DEFAULT_BLOCK_VISIBILITY.recurrences,
   };
 
   return { order: normalizedOrder, visible };
@@ -90,6 +92,7 @@ export default function DashboardPage() {
       blockCollection: 'Collection',
       blockActivity: 'Recent Activity',
       blockRecentQuotes: 'Recent Quotes',
+      blockRecurrences: 'Upcoming Recurrences',
       sectionAria: 'Dashboard content',
     },
     fr: {
@@ -108,6 +111,7 @@ export default function DashboardPage() {
       blockCollection: 'Recouvrement',
       blockActivity: 'Activité récente',
       blockRecentQuotes: 'Devis récents',
+      blockRecurrences: 'Prochaines récurrences',
       sectionAria: 'Contenu du tableau de bord',
     },
   }[locale];
@@ -128,8 +132,9 @@ export default function DashboardPage() {
       collection: t.blockCollection,
       activity: t.blockActivity,
       recentQuotes: t.blockRecentQuotes,
+      recurrences: t.blockRecurrences,
     }),
-    [t.blockActivity, t.blockCollection, t.blockRecentQuotes, t.blockSmartActions, t.blockStats],
+    [t.blockActivity, t.blockCollection, t.blockRecurrences, t.blockRecentQuotes, t.blockSmartActions, t.blockStats],
   );
 
   useEffect(() => {
@@ -256,14 +261,16 @@ export default function DashboardPage() {
             );
           }
 
+          if (blockKey === 'recurrences') {
+            return <UpcomingRecurrencesWidget key={blockKey} />;
+          }
+
           return (
             <div key={blockKey} data-tour-dashboard-recent-quotes>
               <RecentQuotes refreshKey={statsRefreshKey} />
             </div>
           );
         })}
-
-        <UpcomingRecurrencesWidget />
       </section>
 
       {isCustomizeOpen ? (

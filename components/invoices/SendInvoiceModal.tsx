@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Image from 'next/image';
 
-import { AlertTriangleIcon, Loader2Icon, MailIcon, X } from 'lucide-react';
+import { AlertTriangleIcon, Loader2Icon, MailIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { formatInvoiceDisplayNumber, resolveTranslatedError } from '@/lib/i18n/messages';
@@ -239,18 +239,6 @@ export default function SendInvoiceModal({
               </div>
             </div>
           ) : null}
-
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          className="absolute top-3 right-3"
-          aria-label={t.cancel}
-          onClick={() => onOpenChange(false)}
-          disabled={sending}
-        >
-          <X className="size-4" />
-        </Button>
 
         {showStripeError ? (
           <>

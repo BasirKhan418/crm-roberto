@@ -609,6 +609,48 @@ export default function InvoiceDetailPage() {
             </div>
           </div>
 
+          <div className="grid gap-3 print:hidden lg:grid-cols-2">
+            <section className="space-y-2">
+              <header className="mb-2 flex flex-col gap-0.5">
+                <h2 className="font-heading text-sm font-semibold">{translate(locale as Locale, 'invoices.sections.recurrence')}</h2>
+                <p className="text-xs text-muted-foreground">{translate(locale as Locale, 'invoices.sections.recurrenceDescription')}</p>
+              </header>
+              <RecurrenceCard
+                compact
+                invoiceId={invoice._id}
+                locale={locale as Locale}
+                invoiceDueDate={invoice.dueDate}
+                recurrence={invoice.recurrence}
+                sourceInvoice={{
+                  lineItems: invoice.lineItems,
+                  depositPercentage: invoice.depositPercentage,
+                  notes: invoice.notes,
+                }}
+                onInvoiceRefresh={loadData}
+              />
+            </section>
+
+            <section data-tour-invoice-collection className="space-y-2">
+              <header className="mb-2 flex flex-col gap-0.5">
+                <h2 className="font-heading text-sm font-semibold">{translate(locale as Locale, 'invoices.sections.reminders')}</h2>
+                <p className="text-xs text-muted-foreground">{translate(locale as Locale, 'invoices.sections.remindersDescription')}</p>
+              </header>
+              <CollectionTab
+                layout="compact"
+                invoiceId={invoice._id}
+                locale={locale as Locale}
+                clientName={invoice.clientSnapshot.fullName}
+                invoiceNumber={invoice.invoiceNumber}
+                dueDate={invoice.dueDate}
+                invoiceDate={invoice.date}
+                amountDue={remainingAmount}
+                companyName={company?.companyName ?? company?.ownerName ?? null}
+                reminderState={invoice.reminderState}
+                onInvoiceRefresh={loadData}
+              />
+            </section>
+          </div>
+
           <article data-tour-invoice-document className="rounded-2xl border border-border/60 bg-white p-4 shadow-sm print:rounded-none print:border-0 print:p-0 print:shadow-none sm:p-6">
             <header className="mb-5 rounded-xl border border-border/60 bg-linear-to-b from-background to-secondary/15 p-4 sm:p-5">
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -898,46 +940,6 @@ export default function InvoiceDetailPage() {
                 </div>
               </section>
 
-              {/* Recurrence section */}
-              <section data-tour-invoice-recurrence>
-                <header className="mb-2 flex flex-col gap-1">
-                  <h2 className="font-heading text-base font-semibold">{translate(locale as Locale, 'invoices.sections.recurrence')}</h2>
-                  <p className="text-xs text-muted-foreground">{translate(locale as Locale, 'invoices.sections.recurrenceDescription')}</p>
-                </header>
-                <RecurrenceCard
-                  invoiceId={invoice._id}
-                  locale={locale as Locale}
-                  invoiceDueDate={invoice.dueDate}
-                  recurrence={invoice.recurrence}
-                  sourceInvoice={{
-                    lineItems: invoice.lineItems,
-                    depositPercentage: invoice.depositPercentage,
-                    notes: invoice.notes,
-                  }}
-                  onInvoiceRefresh={loadData}
-                />
-              </section>
-
-              {/* Reminders section */}
-              <section data-tour-invoice-collection>
-                <header className="mb-2 flex flex-col gap-1">
-                  <h2 className="font-heading text-base font-semibold">{translate(locale as Locale, 'invoices.sections.reminders')}</h2>
-                  <p className="text-xs text-muted-foreground">{translate(locale as Locale, 'invoices.sections.remindersDescription')}</p>
-                </header>
-                <CollectionTab
-                  invoiceId={invoice._id}
-                  locale={locale as Locale}
-                  clientName={invoice.clientSnapshot.fullName}
-                  invoiceNumber={invoice.invoiceNumber}
-                  dueDate={invoice.dueDate}
-                  invoiceDate={invoice.date}
-                  amountDue={remainingAmount}
-                  companyName={company?.companyName ?? company?.ownerName ?? null}
-                  reminderState={invoice.reminderState}
-                  onInvoiceRefresh={loadData}
-                />
-              </section>
-
               {/* Summary section */}
               <section className="rounded-xl border border-border/70 bg-card p-4">
                 <header className="mb-3 flex flex-col gap-1 border-b border-border/60 pb-3">
@@ -958,6 +960,22 @@ export default function InvoiceDetailPage() {
                     <PriceDisplay cents={remainingAmount} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="mt-1 text-base font-semibold text-foreground" />
                   </div>
                 </div>
+              </section>
+
+              <section className="print:hidden">
+                <CollectionTab
+                  layout="history"
+                  invoiceId={invoice._id}
+                  locale={locale as Locale}
+                  clientName={invoice.clientSnapshot.fullName}
+                  invoiceNumber={invoice.invoiceNumber}
+                  dueDate={invoice.dueDate}
+                  invoiceDate={invoice.date}
+                  amountDue={remainingAmount}
+                  companyName={company?.companyName ?? company?.ownerName ?? null}
+                  reminderState={invoice.reminderState}
+                  onInvoiceRefresh={loadData}
+                />
               </section>
             </div>
 

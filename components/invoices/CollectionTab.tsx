@@ -54,6 +54,7 @@ interface CollectionTabProps {
   companyName?: string | null;
   reminderState?: ReminderState | null;
   onInvoiceRefresh: () => Promise<void> | void;
+  layout?: 'full' | 'compact' | 'history';
 }
 
 const PAGE_SIZE = 10;
@@ -103,6 +104,7 @@ export default function CollectionTab({
   companyName,
   reminderState,
   onInvoiceRefresh,
+  layout = 'full',
 }: CollectionTabProps) {
   const [showSendModal, setShowSendModal] = useState(false);
   const [updatingState, setUpdatingState] = useState(false);
@@ -116,6 +118,9 @@ export default function CollectionTab({
   const currentLevel = Math.max(0, Math.min(4, Math.round(reminderState?.level ?? 0))) as ReminderLevel;
   const isDisabled = reminderState?.isPaused === true;
   const nextLevel = Math.max(1, Math.min(3, currentLevel + 1)) as 1 | 2 | 3;
+  const showControls = layout !== 'history';
+  const showHistory = layout !== 'compact';
+  const isCompact = layout === 'compact';
 
   const statusLabel = isDisabled
     ? t('reminders.simpleStatus.inactive')
@@ -144,6 +149,10 @@ export default function CollectionTab({
   }, [currentLevel, isDisabled, reminderState?.nextScheduledAt, t]);
 
   const getKey = (index: number, previousPageData: ReminderLogsResponse | null) => {
+    if (!showHistory) {
+      return null;
+    }
+
     if (previousPageData && previousPageData.pagination && index + 1 > previousPageData.pagination.totalPages) {
       return null;
     }
@@ -188,102 +197,143 @@ export default function CollectionTab({
     }
   }
 
-  return (
-    <div className="space-y-4">
-      <div className="space-y-4 rounded-lg border p-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
-          <div className="min-w-0 space-y-1">
-            <div className="flex items-center gap-2">
-              <Badge className={cn('border-0', statusBadgeClass)}>{statusLabel}</Badge>
-            </div>
-            <p className="text-sm text-muted-foreground">{nextScheduledLabel}</p>
+  const controlsNode = isCompact ? (
+    <div className="rounded-lg border border-border/70 bg-card p-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <div className="min-w-0 space-y-1">
+          <div className="flex items-center gap-2">
+            <Badge className={cn('border-0', statusBadgeClass)}>{statusLabel}</Badge>
           </div>
-          <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
-            <Button
-              type="button"
-              className="w-full sm:w-auto"
-              disabled={isDisabled || currentLevel >= 4}
-              onClick={() => setShowSendModal(true)}
-            >
-              <SendIcon className="size-4" />
-              {t('reminders.actions.sendNow')}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full sm:w-auto"
-              disabled={updatingState}
-              onClick={() => void toggleDisabled()}
-            >
-              {updatingState ? <Loader2Icon className="size-4 animate-spin" /> : <PowerIcon className="size-4" />}
-              {isDisabled ? t('reminders.simpleStatus.enable') : t('reminders.simpleStatus.disable')}
-            </Button>
-          </div>
+          <p className="text-sm text-muted-foreground">{nextScheduledLabel}</p>
+        </div>
+        <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
+          <Button
+            type="button"
+            size="sm"
+            className="h-8 w-full sm:w-auto"
+            disabled={isDisabled || currentLevel >= 4}
+            onClick={() => setShowSendModal(true)}
+          >
+            <SendIcon className="size-3.5" />
+            {t('reminders.actions.sendNow')}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-8 w-full sm:w-auto"
+            disabled={updatingState}
+            onClick={() => void toggleDisabled()}
+          >
+            {updatingState ? <Loader2Icon className="size-3.5 animate-spin" /> : <PowerIcon className="size-3.5" />}
+            {isDisabled ? t('reminders.simpleStatus.enable') : t('reminders.simpleStatus.disable')}
+          </Button>
         </div>
       </div>
-
-      <div className="space-y-4 rounded-lg border p-4">
-        <h3 className="text-sm font-semibold">{t('reminders.history.title')}</h3>
-        {isLoading ? <p className="text-sm text-muted-foreground">{t('reminders.collection.loadingHistory')}</p> : null}
-        {!isLoading && error ? <p className="text-sm text-destructive">{resolveTranslatedError(locale, error, t('reminders.collection.historyLoadFailed'))}</p> : null}
-
-        {!isLoading && !error && logs.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t('reminders.collection.noHistory')}</p>
-        ) : null}
-
-        {logs.length > 0 ? (
-          <ol className="space-y-4 border-l pl-4">
-            {logs.map((item) => {
-              const levelLabel =
-                item.level === 1
-                  ? t('reminders.levels.soft')
-                  : item.level === 2
-                    ? t('reminders.levels.medium')
-                    : item.level === 3
-                      ? t('reminders.levels.firm')
-                      : t('reminders.levels.formalNotice');
-
-              const statusDotClass =
-                item.status === 'sent'
-                  ? 'bg-emerald-500'
-                  : item.status === 'failed'
-                    ? 'bg-destructive'
-                    : 'bg-muted-foreground';
-
-              const historyStatusLabel =
-                item.status === 'sent'
-                  ? t('reminders.collection.historyStatus.sent')
-                  : item.status === 'failed'
-                    ? t('reminders.collection.historyStatus.failed')
-                    : t('reminders.collection.historyStatus.skipped');
-
-              return (
-                <li key={item._id} className="relative space-y-1">
-                  <span className={cn('absolute -left-[1.18rem] top-1.5 inline-flex size-2.5 rounded-full', statusDotClass)} />
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="outline">{levelLabel}</Badge>
-                    <span className="text-xs text-muted-foreground">{historyStatusLabel}</span>
-                  </div>
-                  <p className="text-sm font-medium text-foreground">{item.subject.slice(0, 60)}</p>
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                    <span className="inline-flex items-center gap-1">
-                      <MailIcon className="size-3.5" />
-                      {t('reminders.collection.viaEmail')}
-                    </span>
-                    <span>{computeRelativeDate(item.sentAt, locale)}</span>
-                  </div>
-                </li>
-              );
-            })}
-          </ol>
-        ) : null}
-
-        {hasMore ? (
-          <Button type="button" variant="outline" onClick={() => void setSize(size + 1)} disabled={isValidating}>
-            {isValidating ? t('reminders.collection.loadingMore') : t('reminders.collection.loadMore')}
+    </div>
+  ) : (
+    <div className="space-y-4 rounded-lg border p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+        <div className="min-w-0 space-y-1">
+          <div className="flex items-center gap-2">
+            <Badge className={cn('border-0', statusBadgeClass)}>{statusLabel}</Badge>
+          </div>
+          <p className="text-sm text-muted-foreground">{nextScheduledLabel}</p>
+        </div>
+        <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
+          <Button
+            type="button"
+            className="w-full sm:w-auto"
+            disabled={isDisabled || currentLevel >= 4}
+            onClick={() => setShowSendModal(true)}
+          >
+            <SendIcon className="size-4" />
+            {t('reminders.actions.sendNow')}
           </Button>
-        ) : null}
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full sm:w-auto"
+            disabled={updatingState}
+            onClick={() => void toggleDisabled()}
+          >
+            {updatingState ? <Loader2Icon className="size-4 animate-spin" /> : <PowerIcon className="size-4" />}
+            {isDisabled ? t('reminders.simpleStatus.enable') : t('reminders.simpleStatus.disable')}
+          </Button>
+        </div>
       </div>
+    </div>
+  );
+
+  const historyNode = (
+    <div className="space-y-4 rounded-lg border p-4">
+      <h3 className="text-sm font-semibold">{t('reminders.history.title')}</h3>
+      {isLoading ? <p className="text-sm text-muted-foreground">{t('reminders.collection.loadingHistory')}</p> : null}
+      {!isLoading && error ? <p className="text-sm text-destructive">{resolveTranslatedError(locale, error, t('reminders.collection.historyLoadFailed'))}</p> : null}
+
+      {!isLoading && !error && logs.length === 0 ? (
+        <p className="text-sm text-muted-foreground">{t('reminders.collection.noHistory')}</p>
+      ) : null}
+
+      {logs.length > 0 ? (
+        <ol className="space-y-4 border-l pl-4">
+          {logs.map((item) => {
+            const levelLabel =
+              item.level === 1
+                ? t('reminders.levels.soft')
+                : item.level === 2
+                  ? t('reminders.levels.medium')
+                  : item.level === 3
+                    ? t('reminders.levels.firm')
+                    : t('reminders.levels.formalNotice');
+
+            const statusDotClass =
+              item.status === 'sent'
+                ? 'bg-emerald-500'
+                : item.status === 'failed'
+                  ? 'bg-destructive'
+                  : 'bg-muted-foreground';
+
+            const historyStatusLabel =
+              item.status === 'sent'
+                ? t('reminders.collection.historyStatus.sent')
+                : item.status === 'failed'
+                  ? t('reminders.collection.historyStatus.failed')
+                  : t('reminders.collection.historyStatus.skipped');
+
+            return (
+              <li key={item._id} className="relative space-y-1">
+                <span className={cn('absolute -left-[1.18rem] top-1.5 inline-flex size-2.5 rounded-full', statusDotClass)} />
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="outline">{levelLabel}</Badge>
+                  <span className="text-xs text-muted-foreground">{historyStatusLabel}</span>
+                </div>
+                <p className="text-sm font-medium text-foreground">{item.subject.slice(0, 60)}</p>
+                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  <span className="inline-flex items-center gap-1">
+                    <MailIcon className="size-3.5" />
+                    {t('reminders.collection.viaEmail')}
+                  </span>
+                  <span>{computeRelativeDate(item.sentAt, locale)}</span>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+      ) : null}
+
+      {hasMore ? (
+        <Button type="button" variant="outline" onClick={() => void setSize(size + 1)} disabled={isValidating}>
+          {isValidating ? t('reminders.collection.loadingMore') : t('reminders.collection.loadMore')}
+        </Button>
+      ) : null}
+    </div>
+  );
+
+  return (
+    <div className={cn(showControls && showHistory && 'space-y-4')}>
+      {showControls ? controlsNode : null}
+      {showHistory ? historyNode : null}
 
       <SendReminderModal
         open={showSendModal}
