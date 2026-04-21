@@ -570,7 +570,7 @@ function InvoicesPageContent() {
         label: t.kpiAll,
         count: kpiData.all.count,
         amount: kpiData.all.totalTTC,
-        variant: 'slate',
+        variant: 'default',
         icon: 'file-text',
         active: status === 'all',
         onClick: () => setStatus('all'),

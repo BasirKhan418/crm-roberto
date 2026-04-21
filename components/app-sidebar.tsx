@@ -38,11 +38,12 @@ const sidebarMessages = {
     preferences: "Preferences",
     language: "Language",
     badges: {
-      declined: (count: number) => `${count} declined — mark as reviewed`,
-      pendingInvoice: (count: number) => `${count} to invoice`,
+      accepted: (count: number) => `${count} accepted`,
+      pending: (count: number) => `${count} pending`,
+      rejected: (count: number) => `${count} rejected`,
       overdue: (count: number) => `${count} overdue`,
-      partialPaid: (count: number) => `${count} partially paid`,
-      unpaid: (count: number) => `${count} unpaid`,
+      paymentPending: (count: number) => `${count} awaiting payment`,
+      paid: (count: number) => `${count} paid`,
     },
     nav: {
       dashboard: "Dashboard",
@@ -62,11 +63,12 @@ const sidebarMessages = {
     preferences: "Préférences",
     language: "Langue",
     badges: {
-      declined: (count: number) => `${count} refusé(s) — à marquer comme traité`,
-      pendingInvoice: (count: number) => `${count} à facturer`,
+      accepted: (count: number) => `${count} accepté(s)`,
+      pending: (count: number) => `${count} en attente`,
+      rejected: (count: number) => `${count} refusé(s)`,
       overdue: (count: number) => `${count} en retard`,
-      partialPaid: (count: number) => `${count} partiellement payée(s)`,
-      unpaid: (count: number) => `${count} impayé(e)(s)`,
+      paymentPending: (count: number) => `${count} en attente de paiement`,
+      paid: (count: number) => `${count} payée(s)`,
     },
     nav: {
       dashboard: "Tableau de bord",
@@ -86,8 +88,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname()
   const { locale } = useLocale()
   const t = sidebarMessages[locale]
-  const { unacknowledgedRejectedCount, pendingInvoiceCount } = useQuotesActionCount()
-  const { overdueCount, partialPaidCount, unpaidCount } = useInvoicesActionCount()
+  const { acceptedCount, draftCount, sentCount, rejectedCount } = useQuotesActionCount()
+  const { overdueCount, partialPaidCount, unpaidCount, paidCount } = useInvoicesActionCount()
+  const pendingQuoteCount = draftCount + sentCount
+  const pendingInvoiceCount = unpaidCount + partialPaidCount
+  const badgeClassName = "flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white"
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>
@@ -124,55 +129,64 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   <Link href={item.url}>
                     {item.icon}
                     <span>{t.nav[item.key]}</span>
-                    {item.key === "quotes" && (unacknowledgedRejectedCount > 0 || pendingInvoiceCount > 0) ? (
+                    {item.key === "quotes" && (acceptedCount > 0 || pendingQuoteCount > 0 || rejectedCount > 0) ? (
                       <span className="ml-auto flex items-center gap-1">
-                        {pendingInvoiceCount > 0 ? (
+                        {acceptedCount > 0 ? (
                           <span
-                            className="flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white"
+                            className={badgeClassName}
                             style={{ backgroundColor: 'var(--color-text-success)' }}
-                            title={t.badges.pendingInvoice(pendingInvoiceCount)}
+                            title={t.badges.accepted(acceptedCount)}
                           >
-                            {pendingInvoiceCount > 99 ? '99+' : pendingInvoiceCount}
+                            {acceptedCount > 99 ? '99+' : acceptedCount}
                           </span>
                         ) : null}
-                        {unacknowledgedRejectedCount > 0 ? (
+                        {pendingQuoteCount > 0 ? (
                           <span
-                            className="flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white"
-                            style={{ backgroundColor: 'var(--color-text-danger)' }}
-                            title={t.badges.declined(unacknowledgedRejectedCount)}
+                            className={badgeClassName}
+                            style={{ backgroundColor: '#f59e0b' }}
+                            title={t.badges.pending(pendingQuoteCount)}
                           >
-                            {unacknowledgedRejectedCount > 99 ? '99+' : unacknowledgedRejectedCount}
+                            {pendingQuoteCount > 99 ? '99+' : pendingQuoteCount}
+                          </span>
+                        ) : null}
+                        {rejectedCount > 0 ? (
+                          <span
+                            className={badgeClassName}
+                            style={{ backgroundColor: 'var(--color-text-danger)' }}
+                            title={t.badges.rejected(rejectedCount)}
+                          >
+                            {rejectedCount > 99 ? '99+' : rejectedCount}
                           </span>
                         ) : null}
                       </span>
                     ) : null}
-                    {item.key === "invoices" && (overdueCount > 0 || unpaidCount > 0 || partialPaidCount > 0) ? (
+                    {item.key === "invoices" && (overdueCount > 0 || pendingInvoiceCount > 0 || paidCount > 0) ? (
                       <span className="ml-auto flex items-center gap-1">
                         {overdueCount > 0 ? (
                           <span
-                            className="flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white"
+                            className={badgeClassName}
                             style={{ backgroundColor: '#b91c1c' }}
                             title={t.badges.overdue(overdueCount)}
                           >
                             {overdueCount > 99 ? '99+' : overdueCount}
                           </span>
                         ) : null}
-                        {unpaidCount > 0 ? (
+                        {pendingInvoiceCount > 0 ? (
                           <span
-                            className="flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white"
-                            style={{ backgroundColor: '#f43f5e' }}
-                            title={t.badges.unpaid(unpaidCount)}
+                            className={badgeClassName}
+                            style={{ backgroundColor: '#f59e0b' }}
+                            title={t.badges.paymentPending(pendingInvoiceCount)}
                           >
-                            {unpaidCount > 99 ? '99+' : unpaidCount}
+                            {pendingInvoiceCount > 99 ? '99+' : pendingInvoiceCount}
                           </span>
                         ) : null}
-                        {partialPaidCount > 0 ? (
+                        {paidCount > 0 ? (
                           <span
-                            className="flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white"
-                            style={{ backgroundColor: '#f59e0b' }}
-                            title={t.badges.partialPaid(partialPaidCount)}
+                            className={badgeClassName}
+                            style={{ backgroundColor: 'var(--color-text-success)' }}
+                            title={t.badges.paid(paidCount)}
                           >
-                            {partialPaidCount > 99 ? '99+' : partialPaidCount}
+                            {paidCount > 99 ? '99+' : paidCount}
                           </span>
                         ) : null}
                       </span>
