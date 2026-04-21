@@ -38,7 +38,18 @@ export async function GET() {
             },
           ],
           unpaid: [
-            { $match: { status: 'unpaid' } },
+            {
+              $match: {
+                status: 'unpaid',
+                // Exclude invoices already counted as overdue so the KPI
+                // buckets (unpaid / overdue) are mutually exclusive.
+                $or: [
+                  { dueDate: null },
+                  { dueDate: { $exists: false } },
+                  { dueDate: { $gte: now } },
+                ],
+              },
+            },
             {
               $group: {
                 _id: null,

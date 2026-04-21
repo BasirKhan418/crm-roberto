@@ -89,6 +89,12 @@ export function useInvoices(
       params.set('status', filter);
     }
 
+    // Keep unpaid / partial_paid filters mutually exclusive with overdue, so
+    // the list matches the sidebar badges and the "Overdue" tab.
+    if (filter === 'unpaid' || filter === 'partial_paid') {
+      params.set('excludeOverdue', 'true');
+    }
+
     const normalizedSearch = search.trim();
     if (normalizedSearch) {
       params.set('search', normalizedSearch);

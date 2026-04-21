@@ -245,6 +245,25 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Sidebar badges opt in to this flag so "unpaid" and "partial_paid" counts
+    // exclude invoices that are already surfaced in the "overdue" bucket,
+    // keeping the three badges mutually exclusive.
+    const excludeOverdueParam = request.nextUrl.searchParams.get('excludeOverdue');
+    if (
+      excludeOverdueParam === 'true' &&
+      (status === 'unpaid' || status === 'partial_paid')
+    ) {
+      query.$and = [
+        ...((query.$and as unknown[] | undefined) ?? []),
+        {
+          $and: [
+            { status: { $ne: 'overdue' } },
+            { $or: [{ dueDate: null }, { dueDate: { $exists: false } }, { dueDate: { $gte: now } }] },
+          ],
+        },
+      ];
+    }
+
     if (searchParam) {
       const normalizedInvoiceSearch = normalizeInvoiceNumberSearchTerm(searchParam);
       const invoiceNumberSearchTerms = Array.from(new Set([searchParam, normalizedInvoiceSearch]));

@@ -126,15 +126,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     <span>{t.nav[item.key]}</span>
                     {item.key === "quotes" && (unacknowledgedRejectedCount > 0 || pendingInvoiceCount > 0) ? (
                       <span className="ml-auto flex items-center gap-1">
-                        {unacknowledgedRejectedCount > 0 ? (
-                          <span
-                            className="flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white"
-                            style={{ backgroundColor: '#ea580c' }}
-                            title={t.badges.declined(unacknowledgedRejectedCount)}
-                          >
-                            {unacknowledgedRejectedCount > 99 ? '99+' : unacknowledgedRejectedCount}
-                          </span>
-                        ) : null}
                         {pendingInvoiceCount > 0 ? (
                           <span
                             className="flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white"
@@ -144,6 +135,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                             {pendingInvoiceCount > 99 ? '99+' : pendingInvoiceCount}
                           </span>
                         ) : null}
+                        {unacknowledgedRejectedCount > 0 ? (
+                          <span
+                            className="flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white"
+                            style={{ backgroundColor: 'var(--color-text-danger)' }}
+                            title={t.badges.declined(unacknowledgedRejectedCount)}
+                          >
+                            {unacknowledgedRejectedCount > 99 ? '99+' : unacknowledgedRejectedCount}
+                          </span>
+                        ) : null}
                       </span>
                     ) : null}
                     {item.key === "invoices" && (overdueCount > 0 || unpaidCount > 0 || partialPaidCount > 0) ? (
@@ -151,28 +151,28 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                         {overdueCount > 0 ? (
                           <span
                             className="flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white"
-                            style={{ backgroundColor: 'var(--color-text-danger)' }}
+                            style={{ backgroundColor: '#b91c1c' }}
                             title={t.badges.overdue(overdueCount)}
                           >
                             {overdueCount > 99 ? '99+' : overdueCount}
                           </span>
                         ) : null}
-                        {partialPaidCount > 0 ? (
-                          <span
-                            className="flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold"
-                            style={{ backgroundColor: '#f59e0b', color: '#ffffff' }}
-                            title={t.badges.partialPaid(partialPaidCount)}
-                          >
-                            {partialPaidCount > 99 ? '99+' : partialPaidCount}
-                          </span>
-                        ) : null}
                         {unpaidCount > 0 ? (
                           <span
                             className="flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white"
-                            style={{ backgroundColor: '#6366f1' }}
+                            style={{ backgroundColor: '#f43f5e' }}
                             title={t.badges.unpaid(unpaidCount)}
                           >
                             {unpaidCount > 99 ? '99+' : unpaidCount}
+                          </span>
+                        ) : null}
+                        {partialPaidCount > 0 ? (
+                          <span
+                            className="flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white"
+                            style={{ backgroundColor: '#f59e0b' }}
+                            title={t.badges.partialPaid(partialPaidCount)}
+                          >
+                            {partialPaidCount > 99 ? '99+' : partialPaidCount}
                           </span>
                         ) : null}
                       </span>
