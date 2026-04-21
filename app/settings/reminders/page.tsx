@@ -978,7 +978,7 @@ export default function ReminderSettingsPage({ embedded = false, lockedSection }
                         {pageChrome.smartFieldsButton}
                       </Button>
                     </DialogTrigger>
-                    <DialogContent>
+                    <DialogContent className="sm:max-w-2xl lg:max-w-3xl">
                       <DialogHeader>
                         <DialogTitle>{pageChrome.smartFieldsTitle}</DialogTitle>
                         <DialogDescription>{pageChrome.smartFieldsDescription}</DialogDescription>
@@ -993,7 +993,7 @@ export default function ReminderSettingsPage({ embedded = false, lockedSection }
                           <p className="mt-1 text-xs leading-5 text-muted-foreground">{pageChrome.smartFieldsRemoveHelpText}</p>
                         </div>
                       </div>
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                         {Object.entries(TEMPLATE_SAMPLE_VARIABLES).map(([name, value]) => (
                           <div key={name} className="rounded-xl border border-border/70 p-3">
                             <p className="text-sm font-medium">{pageChrome.smartFieldLabels[name as keyof typeof pageChrome.smartFieldLabels]}</p>
@@ -1002,48 +1002,48 @@ export default function ReminderSettingsPage({ embedded = false, lockedSection }
                               <Button
                                 type="button"
                                 variant="outline"
-                                className="w-full justify-between"
+                                className="h-auto w-full justify-between gap-2 whitespace-normal py-2 text-left"
                                 onClick={() => handleVariableAction('subject', name, 'add')}
                                 disabled={hasVariableToken(activeTemplate.subject, name)}
                               >
-                                <span>{pageChrome.addToSubject}</span>
-                                <span className="text-xs text-muted-foreground">
+                                <span className="min-w-0 flex-1 wrap-break-word">{pageChrome.addToSubject}</span>
+                                <span className="shrink-0 text-xs text-muted-foreground">
                                   {hasVariableToken(activeTemplate.subject, name) ? pageChrome.alreadyInSubject : pageChrome.notInSubject}
                                 </span>
                               </Button>
                               <Button
                                 type="button"
                                 variant="outline"
-                                className="w-full justify-between"
+                                className="h-auto w-full justify-between gap-2 whitespace-normal py-2 text-left"
                                 onClick={() => handleVariableAction('body', name, 'add')}
                                 disabled={hasVariableToken(activeTemplate.body, name)}
                               >
-                                <span>{pageChrome.addToBody}</span>
-                                <span className="text-xs text-muted-foreground">
+                                <span className="min-w-0 flex-1 wrap-break-word">{pageChrome.addToBody}</span>
+                                <span className="shrink-0 text-xs text-muted-foreground">
                                   {hasVariableToken(activeTemplate.body, name) ? pageChrome.alreadyInBody : pageChrome.notInBody}
                                 </span>
                               </Button>
                               <Button
                                 type="button"
                                 variant="ghost"
-                                className="w-full justify-between"
+                                className="h-auto w-full justify-between gap-2 whitespace-normal py-2 text-left"
                                 onClick={() => handleVariableAction('subject', name, 'remove')}
                                 disabled={!hasVariableToken(activeTemplate.subject, name)}
                               >
-                                <span>{pageChrome.removeFromSubject}</span>
-                                <span className="text-xs text-muted-foreground">
+                                <span className="min-w-0 flex-1 wrap-break-word">{pageChrome.removeFromSubject}</span>
+                                <span className="shrink-0 text-xs text-muted-foreground">
                                   {hasVariableToken(activeTemplate.subject, name) ? pageChrome.alreadyInSubject : pageChrome.notInSubject}
                                 </span>
                               </Button>
                               <Button
                                 type="button"
                                 variant="ghost"
-                                className="w-full justify-between"
+                                className="h-auto w-full justify-between gap-2 whitespace-normal py-2 text-left"
                                 onClick={() => handleVariableAction('body', name, 'remove')}
                                 disabled={!hasVariableToken(activeTemplate.body, name)}
                               >
-                                <span>{pageChrome.removeFromBody}</span>
-                                <span className="text-xs text-muted-foreground">
+                                <span className="min-w-0 flex-1 wrap-break-word">{pageChrome.removeFromBody}</span>
+                                <span className="shrink-0 text-xs text-muted-foreground">
                                   {hasVariableToken(activeTemplate.body, name) ? pageChrome.alreadyInBody : pageChrome.notInBody}
                                 </span>
                               </Button>
