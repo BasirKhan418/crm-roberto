@@ -13,6 +13,7 @@ import User from '@/db/models/User';
 import { createActivityLog } from '@/db/repository/activity';
 import {
   autoSendRecurringInvoiceToClient,
+  computeNextOccurrence,
   duplicateInvoiceForRecurrence,
   sendRecurrenceDueNotificationToOwner,
   type RecurrenceInvoiceLike,
@@ -118,6 +119,7 @@ export async function runRecurrencePass(): Promise<RecurrencePassTotals> {
             customIntervalDays: recurrence.customIntervalDays ?? null,
             nextOccurrenceAt: new Date(nextOccurrenceAt),
             endDate: recurrence.endDate ?? null,
+            template: recurrence.template ?? null,
           },
         });
 
@@ -188,6 +190,31 @@ export async function runRecurrencePass(): Promise<RecurrencePassTotals> {
         invoiceDetailUrl,
         companyName,
       });
+
+      const advancedNext = computeNextOccurrence(
+        new Date(nextOccurrenceAt),
+        (recurrence?.frequency as 'monthly' | 'quarterly' | 'yearly' | 'custom') || 'monthly',
+        recurrence?.customIntervalDays ?? null
+      );
+      const reachedEnd = recurrence?.endDate && advancedNext > new Date(recurrence.endDate);
+
+      await Invoice.updateOne(
+        { _id: invoice._id, userId: invoice.userId },
+        reachedEnd
+          ? {
+              $set: {
+                'recurrence.isActive': false,
+                'recurrence.stoppedAt': now,
+                'recurrence.stoppedReason': 'end_date_reached',
+                'recurrence.nextOccurrenceAt': null,
+              },
+            }
+          : {
+              $set: {
+                'recurrence.nextOccurrenceAt': advancedNext,
+              },
+            }
+      );
 
       await createActivityLog(userId, {
         action: 'invoice_recurrence_due',

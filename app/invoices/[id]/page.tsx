@@ -32,7 +32,6 @@ import { PriceDisplay } from '@/components/ui/PriceDisplay';
 import { Button } from '@/components/ui/button';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { formatStructuredAddress, hasStructuredAddress } from '@/lib/address';
 
 type Locale = 'en' | 'fr';
@@ -750,73 +749,49 @@ export default function InvoiceDetailPage() {
               </div>
             </section>
 
-            <Tabs defaultValue="payments" className="mb-4 gap-3">
-              <TabsList>
-                <TabsTrigger value="payments">{translate(locale as Locale, 'invoices.tabs.payments')}</TabsTrigger>
-                <TabsTrigger value="collection">{translate(locale as Locale, 'reminders.collection.tab')}</TabsTrigger>
-              </TabsList>
+            <div className="space-y-4">
+              {/* Payments section */}
+              <section className="rounded-xl border border-border/70 bg-card p-4" data-tour-invoice-payments>
+                <header className="mb-3 flex flex-col gap-1 border-b border-border/60 pb-3">
+                  <h2 className="font-heading text-base font-semibold">{translate(locale as Locale, 'invoices.sections.payments')}</h2>
+                  <p className="text-xs text-muted-foreground">{translate(locale as Locale, 'invoices.sections.paymentsDescription')}</p>
+                </header>
 
-              <TabsContent value="payments" className="space-y-4">
-                <RecurrenceCard
-                  invoiceId={invoice._id}
-                  locale={locale as Locale}
-                  invoiceDueDate={invoice.dueDate}
-                  recurrence={invoice.recurrence}
-                  onInvoiceRefresh={loadData}
-                />
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <h3 className="font-heading text-sm font-semibold">{t.paymentSummary}</h3>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {canRecordPayment ? t.paymentActionDescription : t.paymentSettledDescription}
+                    </p>
+                  </div>
 
-                <section className="rounded-xl border border-border/70 bg-card p-4">
-                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                    <div>
-                      <h2 className="font-heading text-base font-semibold">{t.paymentSummary}</h2>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        {canRecordPayment ? t.paymentActionDescription : t.paymentSettledDescription}
-                      </p>
-                    </div>
-
-                    <div className={`rounded-xl border px-3.5 py-3 lg:w-full lg:max-w-sm ${canRecordPayment ? 'border-amber-200 bg-amber-50/70 dark:border-amber-900/40 dark:bg-amber-950/20' : 'border-emerald-200 bg-emerald-50/70 dark:border-emerald-900/40 dark:bg-emerald-950/20'}`}>
-                      <p className={`text-[11px] font-semibold uppercase tracking-wide ${canRecordPayment ? 'text-amber-900 dark:text-amber-300' : 'text-emerald-900 dark:text-emerald-300'}`}>
-                        {canRecordPayment ? t.paymentActionTitle : t.paymentSettledTitle}
-                      </p>
-                      <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-                        <div>
-                          <p className="text-xs text-muted-foreground">{t.remaining}</p>
-                          <PriceDisplay cents={remainingAmount} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="text-base font-semibold text-foreground" />
-                        </div>
-                        {canRecordPayment ? (
-                          <Button
-                            type="button"
-                            size="sm"
-                            className="h-9 w-full justify-center text-xs sm:h-8 sm:w-auto sm:text-sm"
-                            onClick={() => setManualPaymentOpen(true)}
-                            disabled={markingPaid}
-                          >
-                            <CheckCircle2Icon className="size-3.5" />
-                            {markingPaid ? t.addingPayment : t.addPayment}
-                          </Button>
-                        ) : null}
+                  <div className={`rounded-xl border px-3.5 py-3 lg:w-full lg:max-w-sm ${canRecordPayment ? 'border-amber-200 bg-amber-50/70 dark:border-amber-900/40 dark:bg-amber-950/20' : 'border-emerald-200 bg-emerald-50/70 dark:border-emerald-900/40 dark:bg-emerald-950/20'}`}>
+                    <p className={`text-[11px] font-semibold uppercase tracking-wide ${canRecordPayment ? 'text-amber-900 dark:text-amber-300' : 'text-emerald-900 dark:text-emerald-300'}`}>
+                      {canRecordPayment ? t.paymentActionTitle : t.paymentSettledTitle}
+                    </p>
+                    <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                      <div>
+                        <p className="text-xs text-muted-foreground">{t.remaining}</p>
+                        <PriceDisplay cents={remainingAmount} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="text-base font-semibold text-foreground" />
                       </div>
+                      {canRecordPayment ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="h-9 w-full justify-center text-xs sm:h-8 sm:w-auto sm:text-sm"
+                          onClick={() => setManualPaymentOpen(true)}
+                          disabled={markingPaid}
+                        >
+                          <CheckCircle2Icon className="size-3.5" />
+                          {markingPaid ? t.addingPayment : t.addPayment}
+                        </Button>
+                      ) : null}
                     </div>
                   </div>
+                </div>
 
-                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                    <div className="rounded-xl border border-border/60 bg-background px-3 py-3">
-                      <p className="text-xs text-muted-foreground">{t.totalInvoiceAmount}</p>
-                      <PriceDisplay cents={invoice.totalIncludingTax} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="mt-1 text-base font-semibold text-foreground" />
-                    </div>
-                    <div className="rounded-xl border border-border/60 bg-background px-3 py-3">
-                      <p className="text-xs text-muted-foreground">{t.totalPaid}</p>
-                      <PriceDisplay cents={totalPaidAmount} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="mt-1 text-base font-semibold text-foreground" />
-                    </div>
-                    <div className="rounded-xl border border-border/60 bg-background px-3 py-3">
-                      <p className="text-xs text-muted-foreground">{t.remaining}</p>
-                      <PriceDisplay cents={remainingAmount} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="mt-1 text-base font-semibold text-foreground" />
-                    </div>
-                  </div>
-                </section>
-
-                <section className="rounded-xl border border-border/70 bg-card p-4">
-                  <h2 className="mb-2 font-heading text-base font-semibold">{t.paymentHistory}</h2>
+                <div className="mt-4">
+                  <h3 className="mb-2 font-heading text-sm font-semibold">{t.paymentHistory}</h3>
                   {payments.length === 0 ? (
                     <p className="text-sm text-muted-foreground">{t.noPayments}</p>
                   ) : (
@@ -920,10 +895,35 @@ export default function InvoiceDetailPage() {
                       </div>
                     </div>
                   )}
-                </section>
-              </TabsContent>
+                </div>
+              </section>
 
-              <TabsContent value="collection" data-tour-invoice-collection>
+              {/* Recurrence section */}
+              <section data-tour-invoice-recurrence>
+                <header className="mb-2 flex flex-col gap-1">
+                  <h2 className="font-heading text-base font-semibold">{translate(locale as Locale, 'invoices.sections.recurrence')}</h2>
+                  <p className="text-xs text-muted-foreground">{translate(locale as Locale, 'invoices.sections.recurrenceDescription')}</p>
+                </header>
+                <RecurrenceCard
+                  invoiceId={invoice._id}
+                  locale={locale as Locale}
+                  invoiceDueDate={invoice.dueDate}
+                  recurrence={invoice.recurrence}
+                  sourceInvoice={{
+                    lineItems: invoice.lineItems,
+                    depositPercentage: invoice.depositPercentage,
+                    notes: invoice.notes,
+                  }}
+                  onInvoiceRefresh={loadData}
+                />
+              </section>
+
+              {/* Reminders section */}
+              <section data-tour-invoice-collection>
+                <header className="mb-2 flex flex-col gap-1">
+                  <h2 className="font-heading text-base font-semibold">{translate(locale as Locale, 'invoices.sections.reminders')}</h2>
+                  <p className="text-xs text-muted-foreground">{translate(locale as Locale, 'invoices.sections.remindersDescription')}</p>
+                </header>
                 <CollectionTab
                   invoiceId={invoice._id}
                   locale={locale as Locale}
@@ -936,11 +936,33 @@ export default function InvoiceDetailPage() {
                   reminderState={invoice.reminderState}
                   onInvoiceRefresh={loadData}
                 />
-              </TabsContent>
-            </Tabs>
+              </section>
+
+              {/* Summary section */}
+              <section className="rounded-xl border border-border/70 bg-card p-4">
+                <header className="mb-3 flex flex-col gap-1 border-b border-border/60 pb-3">
+                  <h2 className="font-heading text-base font-semibold">{translate(locale as Locale, 'invoices.sections.summary')}</h2>
+                  <p className="text-xs text-muted-foreground">{translate(locale as Locale, 'invoices.sections.summaryDescription')}</p>
+                </header>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-xl border border-border/60 bg-background px-3 py-3">
+                    <p className="text-xs text-muted-foreground">{t.totalInvoiceAmount}</p>
+                    <PriceDisplay cents={invoice.totalIncludingTax} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="mt-1 text-base font-semibold text-foreground" />
+                  </div>
+                  <div className="rounded-xl border border-border/60 bg-background px-3 py-3">
+                    <p className="text-xs text-muted-foreground">{t.totalPaid}</p>
+                    <PriceDisplay cents={totalPaidAmount} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="mt-1 text-base font-semibold text-foreground" />
+                  </div>
+                  <div className="rounded-xl border border-border/60 bg-background px-3 py-3">
+                    <p className="text-xs text-muted-foreground">{t.remaining}</p>
+                    <PriceDisplay cents={remainingAmount} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="mt-1 text-base font-semibold text-foreground" />
+                  </div>
+                </div>
+              </section>
+            </div>
 
             {invoice.notes ? (
-              <section className="mb-4 rounded-xl border border-border/70 bg-card p-4">
+              <section className="mt-4 mb-4 rounded-xl border border-border/70 bg-card p-4">
                 <h2 className="mb-2 font-heading text-base font-semibold">{t.notes}</h2>
                 <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">{invoice.notes}</p>
               </section>

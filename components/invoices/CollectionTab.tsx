@@ -3,13 +3,12 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import useSWRInfinite from 'swr/infinite';
-import { MailIcon, PauseIcon, PlayIcon, SkipForwardIcon } from 'lucide-react';
+import { Loader2Icon, MailIcon, PowerIcon, SendIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import SendReminderModal from '@/components/invoices/SendReminderModal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { resolveTranslatedError, translate } from '@/lib/i18n/messages';
 import { cn } from '@/lib/utils';
 
@@ -82,48 +81,6 @@ function computeRelativeDate(value: string | Date | null | undefined, locale: Lo
   return locale === 'fr' ? `Il y a ${days} jours` : `${days} days ago`;
 }
 
-function getStatusTone(level: ReminderLevel, paused: boolean) {
-  if (paused) {
-    return {
-      labelKey: 'reminders.status.paused',
-      badgeClass: 'bg-slate-100 text-slate-700',
-    };
-  }
-
-  if (level <= 0) {
-    return {
-      labelKey: 'reminders.status.notStarted',
-      badgeClass: 'bg-gray-100 text-gray-700',
-    };
-  }
-
-  if (level === 1) {
-    return {
-      labelKey: 'reminders.status.softSent',
-      badgeClass: 'bg-yellow-100 text-yellow-700',
-    };
-  }
-
-  if (level === 2) {
-    return {
-      labelKey: 'reminders.status.mediumSent',
-      badgeClass: 'bg-orange-100 text-orange-700',
-    };
-  }
-
-  if (level === 3) {
-    return {
-      labelKey: 'reminders.status.firmSent',
-      badgeClass: 'bg-red-100 text-red-700',
-    };
-  }
-
-  return {
-    labelKey: 'reminders.status.formalNoticeSent',
-    badgeClass: 'bg-rose-100 text-rose-700',
-  };
-}
-
 const fetcher = async (url: string): Promise<ReminderLogsResponse> => {
   const response = await fetch(url, { cache: 'no-store' });
   const payload = (await response.json()) as ReminderLogsResponse;
@@ -157,15 +114,20 @@ export default function CollectionTab({
   );
 
   const currentLevel = Math.max(0, Math.min(4, Math.round(reminderState?.level ?? 0))) as ReminderLevel;
-  const isPaused = reminderState?.isPaused === true;
-
+  const isDisabled = reminderState?.isPaused === true;
   const nextLevel = Math.max(1, Math.min(3, currentLevel + 1)) as 1 | 2 | 3;
 
-  const statusTone = getStatusTone(currentLevel, isPaused);
+  const statusLabel = isDisabled
+    ? t('reminders.simpleStatus.inactive')
+    : t('reminders.simpleStatus.active');
+
+  const statusBadgeClass = isDisabled
+    ? 'bg-slate-100 text-slate-700'
+    : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300';
 
   const nextScheduledLabel = useMemo(() => {
-    if (isPaused) {
-      return t('reminders.status.paused');
+    if (isDisabled) {
+      return t('reminders.simpleStatus.disabledDescription');
     }
 
     if (currentLevel >= 4) {
@@ -179,7 +141,7 @@ export default function CollectionTab({
 
     const diffDays = Math.max(0, Math.ceil((nextDate.getTime() - Date.now()) / 86400000));
     return t('reminders.nextScheduled', { days: diffDays });
-  }, [currentLevel, isPaused, reminderState?.nextScheduledAt, t]);
+  }, [currentLevel, isDisabled, reminderState?.nextScheduledAt, t]);
 
   const getKey = (index: number, previousPageData: ReminderLogsResponse | null) => {
     if (previousPageData && previousPageData.pagination && index + 1 > previousPageData.pagination.totalPages) {
@@ -205,17 +167,18 @@ export default function CollectionTab({
   const pagination = data?.[data.length - 1]?.pagination;
   const hasMore = pagination ? size < pagination.totalPages : false;
 
-  async function runStateAction(url: string, successMessage: string) {
+  async function toggleDisabled() {
     setUpdatingState(true);
 
     try {
+      const url = `/api/invoices/${invoiceId}/reminders/${isDisabled ? 'resume' : 'pause'}`;
       const response = await fetch(url, { method: 'POST' });
       const payload = (await response.json()) as { success?: boolean; message?: string };
       if (!response.ok || !payload.success) {
         throw new Error(payload.message || t('reminders.collection.actionFailed'));
       }
 
-      toast.success(successMessage);
+      toast.success(isDisabled ? t('reminders.simpleStatus.enableSuccess') : t('reminders.simpleStatus.disableSuccess'));
       await Promise.resolve(onInvoiceRefresh());
       await mutate();
     } catch (actionError) {
@@ -225,131 +188,102 @@ export default function CollectionTab({
     }
   }
 
-  async function openLegalNoticePdf() {
-    window.open(`/api/invoices/${invoiceId}/reminders/legal-notice/pdf`, '_blank', 'noopener,noreferrer');
-  }
-
   return (
     <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('reminders.collection.title')}</CardTitle>
-          <CardDescription>{t('reminders.collection.description')}</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge className={cn('border-0', statusTone.badgeClass)}>{t(statusTone.labelKey)}</Badge>
+      <div className="space-y-4 rounded-lg border p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+          <div className="min-w-0 space-y-1">
+            <div className="flex items-center gap-2">
+              <Badge className={cn('border-0', statusBadgeClass)}>{statusLabel}</Badge>
+            </div>
             <p className="text-sm text-muted-foreground">{nextScheduledLabel}</p>
           </div>
-
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" onClick={() => setShowSendModal(true)}>
+          <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
+            <Button
+              type="button"
+              className="w-full sm:w-auto"
+              disabled={isDisabled || currentLevel >= 4}
+              onClick={() => setShowSendModal(true)}
+            >
+              <SendIcon className="size-4" />
               {t('reminders.actions.sendNow')}
             </Button>
-
             <Button
               type="button"
               variant="outline"
+              className="w-full sm:w-auto"
               disabled={updatingState}
-              onClick={() =>
-                void runStateAction(
-                  `/api/invoices/${invoiceId}/reminders/${isPaused ? 'resume' : 'pause'}`,
-                  isPaused ? t('reminders.collection.resumeSuccess') : t('reminders.collection.pauseSuccess')
-                )
-              }
+              onClick={() => void toggleDisabled()}
             >
-              {isPaused ? <PlayIcon className="size-4" /> : <PauseIcon className="size-4" />}
-              {isPaused ? t('reminders.actions.resume') : t('reminders.actions.pause')}
-            </Button>
-
-            <Button
-              type="button"
-              variant="outline"
-              disabled={updatingState || currentLevel >= 4}
-              onClick={() => void runStateAction(`/api/invoices/${invoiceId}/reminders/skip`, t('reminders.collection.skipSuccess'))}
-            >
-              <SkipForwardIcon className="size-4" />
-              {t('reminders.actions.skipNext')}
-            </Button>
-
-            <Button
-              type="button"
-              variant="outline"
-              disabled={currentLevel < 4}
-              onClick={() => void openLegalNoticePdf()}
-            >
-              {t('reminders.actions.downloadNotice')}
+              {updatingState ? <Loader2Icon className="size-4 animate-spin" /> : <PowerIcon className="size-4" />}
+              {isDisabled ? t('reminders.simpleStatus.enable') : t('reminders.simpleStatus.disable')}
             </Button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('reminders.history.title')}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {isLoading ? <p className="text-sm text-muted-foreground">{t('reminders.collection.loadingHistory')}</p> : null}
-          {!isLoading && error ? <p className="text-sm text-destructive">{resolveTranslatedError(locale, error, t('reminders.collection.historyLoadFailed'))}</p> : null}
+      <div className="space-y-4 rounded-lg border p-4">
+        <h3 className="text-sm font-semibold">{t('reminders.history.title')}</h3>
+        {isLoading ? <p className="text-sm text-muted-foreground">{t('reminders.collection.loadingHistory')}</p> : null}
+        {!isLoading && error ? <p className="text-sm text-destructive">{resolveTranslatedError(locale, error, t('reminders.collection.historyLoadFailed'))}</p> : null}
 
-          {!isLoading && !error && logs.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t('reminders.collection.noHistory')}</p>
-          ) : null}
+        {!isLoading && !error && logs.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{t('reminders.collection.noHistory')}</p>
+        ) : null}
 
-          {logs.length > 0 ? (
-            <ol className="space-y-4 border-l pl-4">
-              {logs.map((item) => {
-                const levelLabel =
-                  item.level === 1
-                    ? t('reminders.levels.soft')
-                    : item.level === 2
-                      ? t('reminders.levels.medium')
-                      : item.level === 3
-                        ? t('reminders.levels.firm')
-                        : t('reminders.levels.formalNotice');
+        {logs.length > 0 ? (
+          <ol className="space-y-4 border-l pl-4">
+            {logs.map((item) => {
+              const levelLabel =
+                item.level === 1
+                  ? t('reminders.levels.soft')
+                  : item.level === 2
+                    ? t('reminders.levels.medium')
+                    : item.level === 3
+                      ? t('reminders.levels.firm')
+                      : t('reminders.levels.formalNotice');
 
-                const statusDotClass =
-                  item.status === 'sent'
-                    ? 'bg-emerald-500'
-                    : item.status === 'failed'
-                      ? 'bg-destructive'
-                      : 'bg-muted-foreground';
+              const statusDotClass =
+                item.status === 'sent'
+                  ? 'bg-emerald-500'
+                  : item.status === 'failed'
+                    ? 'bg-destructive'
+                    : 'bg-muted-foreground';
 
-                const statusLabel =
-                  item.status === 'sent'
-                    ? t('reminders.collection.historyStatus.sent')
-                    : item.status === 'failed'
-                      ? t('reminders.collection.historyStatus.failed')
-                      : t('reminders.collection.historyStatus.skipped');
+              const historyStatusLabel =
+                item.status === 'sent'
+                  ? t('reminders.collection.historyStatus.sent')
+                  : item.status === 'failed'
+                    ? t('reminders.collection.historyStatus.failed')
+                    : t('reminders.collection.historyStatus.skipped');
 
-                return (
-                  <li key={item._id} className="relative space-y-1">
-                    <span className={cn('absolute -left-[1.18rem] top-1.5 inline-flex size-2.5 rounded-full', statusDotClass)} />
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="outline">{levelLabel}</Badge>
-                      <span className="text-xs text-muted-foreground">{statusLabel}</span>
-                    </div>
-                    <p className="text-sm font-medium text-foreground">{item.subject.slice(0, 60)}</p>
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                      <span className="inline-flex items-center gap-1">
-                        <MailIcon className="size-3.5" />
-                        {t('reminders.collection.viaEmail')}
-                      </span>
-                      <span>{computeRelativeDate(item.sentAt, locale)}</span>
-                    </div>
-                  </li>
-                );
-              })}
-            </ol>
-          ) : null}
+              return (
+                <li key={item._id} className="relative space-y-1">
+                  <span className={cn('absolute -left-[1.18rem] top-1.5 inline-flex size-2.5 rounded-full', statusDotClass)} />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="outline">{levelLabel}</Badge>
+                    <span className="text-xs text-muted-foreground">{historyStatusLabel}</span>
+                  </div>
+                  <p className="text-sm font-medium text-foreground">{item.subject.slice(0, 60)}</p>
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    <span className="inline-flex items-center gap-1">
+                      <MailIcon className="size-3.5" />
+                      {t('reminders.collection.viaEmail')}
+                    </span>
+                    <span>{computeRelativeDate(item.sentAt, locale)}</span>
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        ) : null}
 
-          {hasMore ? (
-            <Button type="button" variant="outline" onClick={() => void setSize(size + 1)} disabled={isValidating}>
-              {isValidating ? t('reminders.collection.loadingMore') : t('reminders.collection.loadMore')}
-            </Button>
-          ) : null}
-        </CardContent>
-      </Card>
+        {hasMore ? (
+          <Button type="button" variant="outline" onClick={() => void setSize(size + 1)} disabled={isValidating}>
+            {isValidating ? t('reminders.collection.loadingMore') : t('reminders.collection.loadMore')}
+          </Button>
+        ) : null}
+      </div>
 
       <SendReminderModal
         open={showSendModal}

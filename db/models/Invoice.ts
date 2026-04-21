@@ -138,6 +138,43 @@ const InvoiceReminderStateSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const InvoiceRecurrenceTemplateSchema = new mongoose.Schema(
+  {
+    lineItems: {
+      type: [InvoiceLineItemSchema],
+      default: undefined,
+    },
+    totalExcludingTax: {
+      type: Number,
+      min: 0,
+      default: null,
+    },
+    totalVat: {
+      type: Number,
+      min: 0,
+      default: null,
+    },
+    totalIncludingTax: {
+      type: Number,
+      min: 0,
+      default: null,
+    },
+    depositPercentage: {
+      type: Number,
+      min: 0,
+      max: 100,
+      default: null,
+    },
+    notes: {
+      type: String,
+      trim: true,
+      default: null,
+      maxlength: 2000,
+    },
+  },
+  { _id: false }
+);
+
 const InvoiceRecurrenceSchema = new mongoose.Schema(
   {
     isActive: {
@@ -187,6 +224,10 @@ const InvoiceRecurrenceSchema = new mongoose.Schema(
     autoSend: {
       type: Boolean,
       default: false,
+    },
+    template: {
+      type: InvoiceRecurrenceTemplateSchema,
+      default: null,
     },
   },
   { _id: false }

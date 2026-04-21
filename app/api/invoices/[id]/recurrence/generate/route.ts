@@ -63,6 +63,7 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
           customIntervalDays: recurrence.customIntervalDays ?? null,
           nextOccurrenceAt: new Date(recurrenceNextOccurrenceAt),
           endDate: recurrence.endDate ?? null,
+          template: recurrence.template ?? null,
         },
       });
 

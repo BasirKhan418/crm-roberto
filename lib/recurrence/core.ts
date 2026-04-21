@@ -13,10 +13,36 @@ import ConnectEmailClient from '@/emails/connectEmailClient';
 import { sendInvoice } from '@/lib/email';
 import { InvoicePdfTemplate } from '@/lib/pdf/InvoicePdfTemplate';
 import { nextInvoiceNumber } from '@/lib/price';
+import { computeQuoteLine, computeQuoteTotalsFromComputedLines } from '@/lib/quote-calculations';
 import { normalizeReminderLocale } from '@/lib/reminders/formal-notice';
 import { buildInvoicePayUrl, generatePaymentToken, generateTokenExpiry, isTokenExpired } from '@/lib/tokens';
 
 export type RecurrenceFrequency = 'monthly' | 'quarterly' | 'yearly' | 'custom';
+
+export interface RecurrenceTemplateLineItem {
+  productId?: string | mongoose.Types.ObjectId | null;
+  productImageUrl?: string | null;
+  name: string;
+  quantity: number;
+  baseUnitPriceExcludingTax: number;
+  unitPriceExcludingTax: number;
+  discountPercentage: number;
+  vatRate: number;
+  totalExcludingTaxBeforeDiscount?: number;
+  discountAmountExcludingTax?: number;
+  totalExcludingTax: number;
+  vatAmount?: number;
+  totalIncludingTax?: number;
+}
+
+export interface RecurrenceTemplate {
+  lineItems: RecurrenceTemplateLineItem[];
+  totalExcludingTax: number;
+  totalVat: number;
+  totalIncludingTax: number;
+  depositPercentage?: number | null;
+  notes?: string | null;
+}
 
 export interface RecurrenceInput {
   frequency: RecurrenceFrequency;
@@ -25,6 +51,7 @@ export interface RecurrenceInput {
   nextOccurrenceAt?: Date | null;
   autoGenerate?: boolean;
   autoSend?: boolean;
+  template?: RecurrenceTemplate | null;
 }
 
 export interface RecurrenceInvoiceLike {
@@ -85,6 +112,7 @@ export interface RecurrenceInvoiceLike {
     stoppedReason?: string | null;
     autoGenerate?: boolean;
     autoSend?: boolean;
+    template?: RecurrenceTemplate | null;
   } | null;
 }
 
@@ -128,11 +156,15 @@ export function normalizeRecurrencePayload(input: RecurrenceInput, invoiceDueDat
   autoSend: boolean;
   stoppedAt: null;
   stoppedReason: null;
+  template: RecurrenceTemplate | null;
 } {
   const dueDate = toDateOrNull(invoiceDueDate) ?? new Date();
   const customIntervalDays = input.frequency === 'custom' ? Math.max(1, Math.round(input.customIntervalDays ?? 1)) : null;
   const nextOccurrenceAt =
     toDateOrNull(input.nextOccurrenceAt) ?? computeNextOccurrence(dueDate, input.frequency, customIntervalDays);
+
+  const autoGenerate = input.autoGenerate === true;
+  const autoSend = autoGenerate && input.autoSend === true;
 
   return {
     isActive: true,
@@ -140,10 +172,11 @@ export function normalizeRecurrencePayload(input: RecurrenceInput, invoiceDueDat
     customIntervalDays,
     nextOccurrenceAt,
     endDate: toDateOrNull(input.endDate),
-    autoGenerate: input.autoGenerate === true,
-    autoSend: input.autoSend === true,
+    autoGenerate,
+    autoSend,
     stoppedAt: null,
     stoppedReason: null,
+    template: input.template ?? null,
   };
 }
 
@@ -199,6 +232,7 @@ export async function duplicateInvoiceForRecurrence({
     customIntervalDays?: number | null;
     nextOccurrenceAt: Date;
     endDate?: Date | null;
+    template?: RecurrenceTemplate | null;
   };
 }): Promise<DuplicateRecurrenceResult> {
   await ConnectDb();
@@ -207,6 +241,63 @@ export async function duplicateInvoiceForRecurrence({
   const userId = String(sourceInvoice.userId);
   const now = new Date();
   const nextDueDate = computeNextOccurrence(now, recurrence.frequency, recurrence.customIntervalDays);
+
+  const template = recurrence.template ?? null;
+  const hasTemplateLineItems = Array.isArray(template?.lineItems) && (template?.lineItems?.length ?? 0) > 0;
+
+  let lineItems: RecurrenceTemplateLineItem[];
+  let totalExcludingTax: number;
+  let totalVat: number;
+  let totalIncludingTax: number;
+
+  if (hasTemplateLineItems && template) {
+    const computedLines = template.lineItems.map((item) =>
+      computeQuoteLine({
+        quantity: item.quantity,
+        unitPriceExcludingTax: item.unitPriceExcludingTax,
+        baseUnitPriceExcludingTax: item.baseUnitPriceExcludingTax,
+        discountPercentage: item.discountPercentage,
+        vatRate: item.vatRate,
+      })
+    );
+
+    lineItems = template.lineItems.map((item, index) => {
+      const computed = computedLines[index];
+      return {
+        productId: item.productId ?? null,
+        productImageUrl: item.productImageUrl ?? null,
+        name: item.name,
+        quantity: computed.quantity,
+        unitPriceExcludingTax: computed.unitPriceExcludingTax,
+        baseUnitPriceExcludingTax: computed.baseUnitPriceExcludingTax,
+        discountPercentage: computed.discountPercentage,
+        vatRate: computed.vatRate,
+        totalExcludingTaxBeforeDiscount: computed.totalExcludingTaxBeforeDiscount,
+        discountAmountExcludingTax: computed.discountAmountExcludingTax,
+        totalExcludingTax: computed.totalExcludingTax,
+        vatAmount: computed.vatAmount,
+        totalIncludingTax: computed.totalIncludingTax,
+      };
+    });
+
+    const totals = computeQuoteTotalsFromComputedLines(computedLines);
+    totalExcludingTax = totals.totalExcludingTax;
+    totalVat = totals.totalVat;
+    totalIncludingTax = totals.totalIncludingTax;
+  } else {
+    lineItems = sourceInvoice.lineItems;
+    totalExcludingTax = sourceInvoice.totalExcludingTax;
+    totalVat = sourceInvoice.totalVat;
+    totalIncludingTax = sourceInvoice.totalIncludingTax;
+  }
+
+  const depositPercentage =
+    hasTemplateLineItems && typeof template?.depositPercentage === 'number'
+      ? Math.max(0, Math.min(100, template.depositPercentage))
+      : typeof sourceInvoice.depositPercentage === 'number'
+        ? sourceInvoice.depositPercentage
+        : 100;
+  const notes = hasTemplateLineItems && template?.notes !== undefined ? template.notes ?? null : sourceInvoice.notes ?? null;
 
   const newInvoice = await createInvoiceWithUniqueNumber(userId, now.getFullYear(), (invoiceNumber) => ({
     userId: sourceInvoice.userId,
@@ -218,12 +309,12 @@ export async function duplicateInvoiceForRecurrence({
     status: 'unpaid',
     clientId: sourceInvoice.clientId,
     clientSnapshot: sourceInvoice.clientSnapshot,
-    lineItems: sourceInvoice.lineItems,
-    totalExcludingTax: sourceInvoice.totalExcludingTax,
-    totalVat: sourceInvoice.totalVat,
-    totalIncludingTax: sourceInvoice.totalIncludingTax,
-    depositPercentage: typeof sourceInvoice.depositPercentage === 'number' ? sourceInvoice.depositPercentage : 100,
-    notes: sourceInvoice.notes ?? null,
+    lineItems,
+    totalExcludingTax,
+    totalVat,
+    totalIncludingTax,
+    depositPercentage,
+    notes,
     paymentToken: null,
     paymentTokenExpiry: null,
     reminderState: {

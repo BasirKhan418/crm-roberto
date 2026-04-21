@@ -52,6 +52,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         nextOccurrenceAt: parsed.data.nextOccurrenceAt ? new Date(parsed.data.nextOccurrenceAt) : null,
         autoGenerate: parsed.data.autoGenerate,
         autoSend: parsed.data.autoSend,
+        template: parsed.data.template ?? null,
       },
       invoice.dueDate ?? null
     );
