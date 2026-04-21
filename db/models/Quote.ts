@@ -295,14 +295,18 @@ const QuoteSchema = new mongoose.Schema(
       default: null,
     },
 
-    // Token preserved after rejection so the client can revisit their sign page
+    ownerHasUnread: {
+      type: Boolean,
+      default: true,
+      index: true,
+    },
+
     rejectedSignToken: {
       type: String,
       default: null,
       index: true,
     },
 
-    // Admin reply message stored after admin responds to a rejection
     adminReplyMessage: {
       type: String,
       trim: true,
@@ -310,7 +314,6 @@ const QuoteSchema = new mongoose.Schema(
       maxlength: [2000, "Admin reply cannot exceed 2000 characters"],
     },
 
-    // Back-and-forth conversation thread after a rejection (admin ↔ client)
     conversationMessages: {
       type: [
         {
@@ -362,21 +365,68 @@ QuoteSchema.index(
   { name: "quote_search_index" }
 );
 
+
+type PreNext = (err?: Error) => void;
+
+type PreFn = (
+  method: string | string[],
+  fn: (this: unknown, next: PreNext) => void
+) => void;
+const preHook = (QuoteSchema.pre as unknown as PreFn).bind(QuoteSchema);
+
+preHook("save", function (next) {
+  const doc = this as mongoose.HydratedDocument<QuoteDocument>;
+  if (doc.isNew) return next();
+  if (doc.isModified("ownerHasUnread")) return next();
+  const otherModified = doc.modifiedPaths().some((p) => p !== "ownerHasUnread");
+  if (otherModified) {
+    doc.ownerHasUnread = true;
+  }
+  next();
+});
+
+preHook(["updateOne", "findOneAndUpdate", "updateMany"], function (next) {
+  const query = this as mongoose.Query<unknown, QuoteDocument>;
+  const update = query.getUpdate() as Record<string, unknown> | null;
+  if (!update) {
+    next();
+    return;
+  }
+
+  const $set = (update.$set ?? {}) as Record<string, unknown>;
+  const hasExplicitFlag =
+    "ownerHasUnread" in update || "ownerHasUnread" in $set;
+
+  if (!hasExplicitFlag) {
+    update.$set = { ...$set, ownerHasUnread: true };
+    query.setUpdate(update);
+  }
+  next();
+});
+
 export type QuoteDocument = InferSchemaType<typeof QuoteSchema>;
 
-const existingQuoteModel = mongoose.models.Quote as Model<QuoteDocument> | undefined;
+const QUOTE_MODEL_VERSION = 2;
+
+type VersionedQuoteModel = Model<QuoteDocument> & { __ownerUnreadVersion?: number };
+
+const existingQuoteModel = mongoose.models.Quote as VersionedQuoteModel | undefined;
 
 if (
   existingQuoteModel &&
   (!existingQuoteModel.schema.path("rejectedSignToken") ||
     !existingQuoteModel.schema.path("adminReplyMessage") ||
-    !existingQuoteModel.schema.path("conversationMessages"))
+    !existingQuoteModel.schema.path("conversationMessages") ||
+    !existingQuoteModel.schema.path("ownerHasUnread") ||
+    existingQuoteModel.__ownerUnreadVersion !== QUOTE_MODEL_VERSION)
 ) {
-  delete (mongoose.models as Record<string, Model<QuoteDocument>>).Quote;
+  delete (mongoose.models as Record<string, VersionedQuoteModel>).Quote;
 }
 
 const QuoteModel =
-  (mongoose.models.Quote as Model<QuoteDocument>) ||
-  mongoose.model<QuoteDocument>("Quote", QuoteSchema);
+  ((mongoose.models.Quote as VersionedQuoteModel | undefined) ||
+    mongoose.model<QuoteDocument>("Quote", QuoteSchema)) as VersionedQuoteModel;
+
+QuoteModel.__ownerUnreadVersion = QUOTE_MODEL_VERSION;
 
 export default QuoteModel;

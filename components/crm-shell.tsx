@@ -32,7 +32,7 @@ export default function CrmShell({ title, children, contentClassName }: CrmShell
       return 'bg-white dark:bg-slate-950/20';
     }
     if (pathname.startsWith('/invoices')) {
-      return 'bg-[#fff1f1] dark:bg-slate-950/20';
+      return 'bg-white dark:bg-slate-950/20';
     }
     if (pathname.startsWith('/notes')) {
       return 'bg-[#f6f1ff] dark:bg-slate-950/20';

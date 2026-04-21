@@ -16,10 +16,24 @@ import {
 } from "@/components/ui/sidebar"
 import { Building2Icon, FileTextIcon, LayoutDashboard, LayoutDashboardIcon, NotebookPenIcon, PackageSearchIcon, ReceiptTextIcon, SettingsIcon, TruckIcon, UsersIcon } from "lucide-react"
 import { useLocale } from "@/components/providers/locale-provider"
-import { useInvoicesActionCount } from "@/hooks/useInvoicesActionCount"
-import { useQuotesActionCount } from "@/hooks/useQuotesActionCount"
+import { useSidebarBadges } from "@/hooks/useSidebarBadges"
 
-const navItems = [
+type NavKey =
+  | "dashboard"
+  | "clients"
+  | "suppliers"
+  | "catalogue"
+  | "quotes"
+  | "invoices"
+  | "notes"
+  | "settings"
+  | "companyProfile"
+
+const navItems: ReadonlyArray<{
+  key: NavKey
+  url: string
+  icon: React.ReactNode
+}> = [
   { key: "dashboard", url: "/dashboard", icon: <LayoutDashboardIcon /> },
   { key: "clients", url: "/clients", icon: <UsersIcon /> },
   { key: "suppliers", url: "/suppliers", icon: <TruckIcon /> },
@@ -29,21 +43,18 @@ const navItems = [
   { key: "notes", url: "/notes", icon: <NotebookPenIcon /> },
   { key: "settings", url: "/settings", icon: <SettingsIcon /> },
   { key: "companyProfile", url: "/profile", icon: <Building2Icon /> },
-] as const
+]
 
 const sidebarMessages = {
   en: {
     tagline: "Business context, always ready",
     workspace: "Workspace",
-    preferences: "Preferences",
-    language: "Language",
-    badges: {
-      accepted: (count: number) => `${count} accepted`,
-      pending: (count: number) => `${count} pending`,
-      rejected: (count: number) => `${count} rejected`,
-      overdue: (count: number) => `${count} overdue`,
-      paymentPending: (count: number) => `${count} awaiting payment`,
-      paid: (count: number) => `${count} paid`,
+    badgeTitles: {
+      accepted: (n: number) => `${n} new accepted`,
+      pending: (n: number) => `${n} new pending`,
+      rejected: (n: number) => `${n} new rejected`,
+      paid: (n: number) => `${n} new paid`,
+      overdue: (n: number) => `${n} new overdue`,
     },
     nav: {
       dashboard: "Dashboard",
@@ -60,15 +71,12 @@ const sidebarMessages = {
   fr: {
     tagline: "Contexte métier, toujours prêt",
     workspace: "Espace de travail",
-    preferences: "Préférences",
-    language: "Langue",
-    badges: {
-      accepted: (count: number) => `${count} accepté(s)`,
-      pending: (count: number) => `${count} en attente`,
-      rejected: (count: number) => `${count} refusé(s)`,
-      overdue: (count: number) => `${count} en retard`,
-      paymentPending: (count: number) => `${count} en attente de paiement`,
-      paid: (count: number) => `${count} payée(s)`,
+    badgeTitles: {
+      accepted: (n: number) => `${n} nouveau(x) accepté(s)`,
+      pending: (n: number) => `${n} nouveau(x) en attente`,
+      rejected: (n: number) => `${n} nouveau(x) refusé(s)`,
+      paid: (n: number) => `${n} nouvelle(s) payée(s)`,
+      overdue: (n: number) => `${n} nouvelle(s) en retard`,
     },
     nav: {
       dashboard: "Tableau de bord",
@@ -84,15 +92,32 @@ const sidebarMessages = {
   },
 } as const
 
+type BadgeTone = "green" | "orange" | "red"
+
+const BADGE_TONE_CLASSES: Record<BadgeTone, string> = {
+  green: "bg-emerald-500",
+  orange: "bg-amber-500",
+  red: "bg-red-600",
+}
+
+function StatusBadge({ count, tone, title }: { count: number; tone: BadgeTone; title: string }) {
+  if (count <= 0) return null
+  return (
+    <span
+      className={`flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white ${BADGE_TONE_CLASSES[tone]}`}
+      title={title}
+      aria-label={title}
+    >
+      {count > 99 ? "99+" : count}
+    </span>
+  )
+}
+
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname()
   const { locale } = useLocale()
   const t = sidebarMessages[locale]
-  const { acceptedCount, draftCount, sentCount, rejectedCount } = useQuotesActionCount()
-  const { overdueCount, partialPaidCount, unpaidCount, paidCount } = useInvoicesActionCount()
-  const pendingQuoteCount = draftCount + sentCount
-  const pendingInvoiceCount = unpaidCount + partialPaidCount
-  const badgeClassName = "flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white"
+  const { badges } = useSidebarBadges()
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>
@@ -119,82 +144,50 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <SidebarGroup className="pt-1">
           <SidebarGroupLabel>{t.workspace}</SidebarGroupLabel>
           <SidebarMenu className="px-2">
-            {navItems.map((item) => (
-              <SidebarMenuItem key={item.key}>
-                <SidebarMenuButton
-                  asChild
-                  isActive={pathname === item.url || pathname.startsWith(`${item.url}/`)}
-                  className="h-10 bg-transparent text-(--color-text-secondary) hover:bg-transparent hover:text-(--color-text-secondary) data-[active=true]:bg-(--color-background-info) data-[active=true]:text-(--color-text-info)"
-                >
-                  <Link href={item.url}>
-                    {item.icon}
-                    <span>{t.nav[item.key]}</span>
-                    {item.key === "quotes" && (acceptedCount > 0 || pendingQuoteCount > 0 || rejectedCount > 0) ? (
-                      <span className="ml-auto flex items-center gap-1">
-                        {acceptedCount > 0 ? (
-                          <span
-                            className={badgeClassName}
-                            style={{ backgroundColor: 'var(--color-text-success)' }}
-                            title={t.badges.accepted(acceptedCount)}
-                          >
-                            {acceptedCount > 99 ? '99+' : acceptedCount}
-                          </span>
-                        ) : null}
-                        {pendingQuoteCount > 0 ? (
-                          <span
-                            className={badgeClassName}
-                            style={{ backgroundColor: '#f59e0b' }}
-                            title={t.badges.pending(pendingQuoteCount)}
-                          >
-                            {pendingQuoteCount > 99 ? '99+' : pendingQuoteCount}
-                          </span>
-                        ) : null}
-                        {rejectedCount > 0 ? (
-                          <span
-                            className={badgeClassName}
-                            style={{ backgroundColor: 'var(--color-text-danger)' }}
-                            title={t.badges.rejected(rejectedCount)}
-                          >
-                            {rejectedCount > 99 ? '99+' : rejectedCount}
-                          </span>
-                        ) : null}
-                      </span>
-                    ) : null}
-                    {item.key === "invoices" && (overdueCount > 0 || pendingInvoiceCount > 0 || paidCount > 0) ? (
-                      <span className="ml-auto flex items-center gap-1">
-                        {overdueCount > 0 ? (
-                          <span
-                            className={badgeClassName}
-                            style={{ backgroundColor: '#b91c1c' }}
-                            title={t.badges.overdue(overdueCount)}
-                          >
-                            {overdueCount > 99 ? '99+' : overdueCount}
-                          </span>
-                        ) : null}
-                        {pendingInvoiceCount > 0 ? (
-                          <span
-                            className={badgeClassName}
-                            style={{ backgroundColor: '#f59e0b' }}
-                            title={t.badges.paymentPending(pendingInvoiceCount)}
-                          >
-                            {pendingInvoiceCount > 99 ? '99+' : pendingInvoiceCount}
-                          </span>
-                        ) : null}
-                        {paidCount > 0 ? (
-                          <span
-                            className={badgeClassName}
-                            style={{ backgroundColor: 'var(--color-text-success)' }}
-                            title={t.badges.paid(paidCount)}
-                          >
-                            {paidCount > 99 ? '99+' : paidCount}
-                          </span>
-                        ) : null}
-                      </span>
-                    ) : null}
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
+            {navItems.map((item) => {
+              const isActive = pathname === item.url || pathname.startsWith(`${item.url}/`)
+
+              let badgeNode: React.ReactNode = null
+              if (item.key === "quotes") {
+                const { accepted, pending, rejected } = badges.quotes
+                if (accepted + pending + rejected > 0) {
+                  badgeNode = (
+                    <span className="ml-auto flex items-center gap-1">
+                      <StatusBadge count={accepted} tone="green" title={t.badgeTitles.accepted(accepted)} />
+                      <StatusBadge count={pending} tone="orange" title={t.badgeTitles.pending(pending)} />
+                      <StatusBadge count={rejected} tone="red" title={t.badgeTitles.rejected(rejected)} />
+                    </span>
+                  )
+                }
+              } else if (item.key === "invoices") {
+                const { paid, pending, overdue } = badges.invoices
+                if (paid + pending + overdue > 0) {
+                  badgeNode = (
+                    <span className="ml-auto flex items-center gap-1">
+                      <StatusBadge count={paid} tone="green" title={t.badgeTitles.paid(paid)} />
+                      <StatusBadge count={pending} tone="orange" title={t.badgeTitles.pending(pending)} />
+                      <StatusBadge count={overdue} tone="red" title={t.badgeTitles.overdue(overdue)} />
+                    </span>
+                  )
+                }
+              }
+
+              return (
+                <SidebarMenuItem key={item.key}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isActive}
+                    className="h-10 bg-transparent text-(--color-text-secondary) hover:bg-transparent hover:text-(--color-text-secondary) data-[active=true]:bg-(--color-background-info) data-[active=true]:text-(--color-text-info)"
+                  >
+                    <Link href={item.url}>
+                      {item.icon}
+                      <span>{t.nav[item.key]}</span>
+                      {badgeNode}
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )
+            })}
           </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>

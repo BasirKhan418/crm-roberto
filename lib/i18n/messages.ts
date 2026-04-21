@@ -174,19 +174,28 @@ const messages = {
         quote_duplicated: 'Quote duplicated',
         quote_updated: 'Quote updated',
         quote_deleted: 'Quote deleted',
-        quote_client_replied: 'Client replied to quote',
-        quote_status_changed: 'Quote status changed',
+        quote_sent: 'Quote sent',
+        quote_client_replied: 'Client replied',
+        quote_status_changed: 'Quote status updated',
+        quote_status: {
+          draft: 'Quote moved to draft',
+          sent: 'Quote sent',
+          accepted: 'Quote accepted',
+          rejected: 'Quote declined',
+          expired: 'Quote expired',
+          cancelled: 'Quote cancelled',
+        },
         invoice_created: 'Invoice created',
-        invoice_reminder_sent: 'Invoice reminder sent',
-        invoice_reminder_skipped: 'Invoice reminder skipped',
-        invoice_reminder_paused: 'Invoice reminder paused',
-        invoice_reminder_resumed: 'Invoice reminder resumed',
-        invoice_formal_notice_sent: 'Formal notice sent for invoice',
+        invoice_reminder_sent: 'Reminder sent',
+        invoice_reminder_skipped: 'Reminder skipped',
+        invoice_reminder_paused: 'Reminders paused',
+        invoice_reminder_resumed: 'Reminders resumed',
+        invoice_formal_notice_sent: 'Formal notice sent',
         invoice_recurrence_generated: 'Recurring invoice generated',
-        invoice_recurrence_due: 'Recurring invoice is due',
-        invoice_payment_received: 'Invoice payment received',
-        invoice_payment_updated: 'Invoice payment updated',
-        invoice_payment_deleted: 'Invoice payment deleted',
+        invoice_recurrence_due: 'Recurring invoice due',
+        invoice_payment_received: 'Payment received',
+        invoice_payment_updated: 'Payment updated',
+        invoice_payment_deleted: 'Payment deleted',
       },
       relative: {
         justNow: 'Just now',
@@ -683,19 +692,28 @@ const messages = {
         quote_duplicated: 'Devis dupliqué',
         quote_updated: 'Devis mis à jour',
         quote_deleted: 'Devis supprimé',
-        quote_client_replied: 'Le client a répondu au devis',
-        quote_status_changed: 'Statut du devis modifié',
+        quote_sent: 'Devis envoyé',
+        quote_client_replied: 'Le client a répondu',
+        quote_status_changed: 'Statut du devis mis à jour',
+        quote_status: {
+          draft: 'Devis remis en brouillon',
+          sent: 'Devis envoyé',
+          accepted: 'Devis accepté',
+          rejected: 'Devis refusé',
+          expired: 'Devis expiré',
+          cancelled: 'Devis annulé',
+        },
         invoice_created: 'Facture créée',
-        invoice_reminder_sent: 'Relance de facture envoyée',
-        invoice_reminder_skipped: 'Relance de facture ignorée',
-        invoice_reminder_paused: 'Relance de facture mise en pause',
-        invoice_reminder_resumed: 'Relance de facture reprise',
-        invoice_formal_notice_sent: 'Mise en demeure de facture envoyée',
+        invoice_reminder_sent: 'Relance envoyée',
+        invoice_reminder_skipped: 'Relance ignorée',
+        invoice_reminder_paused: 'Relances mises en pause',
+        invoice_reminder_resumed: 'Relances reprises',
+        invoice_formal_notice_sent: 'Mise en demeure envoyée',
         invoice_recurrence_generated: 'Facture récurrente générée',
-        invoice_recurrence_due: 'Facture récurrente arrivée à échéance',
-        invoice_payment_received: 'Paiement de facture reçu',
-        invoice_payment_updated: 'Paiement de facture modifié',
-        invoice_payment_deleted: 'Paiement de facture supprimé',
+        invoice_recurrence_due: 'Facture récurrente à échéance',
+        invoice_payment_received: 'Paiement reçu',
+        invoice_payment_updated: 'Paiement modifié',
+        invoice_payment_deleted: 'Paiement supprimé',
       },
       relative: {
         justNow: "À l'instant",
@@ -1176,7 +1194,21 @@ export function getActivityBadgeLabel(locale: TranslationLocale, action: string)
   return getMessage(locale, `activity.badges.${action}`) ?? action;
 }
 
-export function getActivityHeadline(locale: TranslationLocale, action: string): string {
+export function getActivityHeadline(
+  locale: TranslationLocale,
+  action: string,
+  metadata?: Record<string, unknown> | null
+): string {
+  if (action === 'quote_status_changed' && metadata) {
+    const to = typeof metadata.to === 'string' ? metadata.to : null;
+    if (to) {
+      const specific = getMessage(locale, `activity.headlines.quote_status.${to}`);
+      if (specific) {
+        return specific;
+      }
+    }
+  }
+
   return getMessage(locale, `activity.headlines.${action}`)
     ?? translate(locale, 'activity.fallbackHeadline');
 }

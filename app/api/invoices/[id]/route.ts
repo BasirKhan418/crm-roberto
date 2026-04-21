@@ -50,6 +50,17 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, message: 'Invoice not found' }, { status: 404 });
     }
 
+    // Mark the invoice as read by the owner. Fire-and-forget. Explicitly
+    // setting `ownerHasUnread` tells the schema hook not to auto-flip it
+    // back to `true`.
+    Invoice.updateOne(
+      { _id: invoice._id, userId: me.user.id },
+      { $set: { ownerHasUnread: false } },
+      { timestamps: false, strict: false }
+    ).catch(() => {
+      // Silent: viewed-at tracking must not break the detail page.
+    });
+
     const normalized = withComputedInvoiceStatus(invoice);
     const client = await Client.findOne({ _id: normalized.clientId, user: me.user.id })
       .select('billingEmail')

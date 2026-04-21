@@ -107,6 +107,28 @@ export default function InvoiceTable({
   const router = useRouter();
   const priceLocale = locale === 'fr' ? 'fr-FR' : 'en-GB';
 
+  async function markInvoiceAsRead(invoice: InvoiceListItem) {
+    window.dispatchEvent(new CustomEvent('sidebar-badges:mark-read', { detail: { entityType: 'invoice', id: invoice._id } }));
+
+    try {
+      await fetch('/api/sidebar/mark-read', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entityType: 'invoice', id: invoice._id }),
+        keepalive: true,
+      });
+    } catch {
+      // Navigation should still work even if the sidebar sync fails.
+    }
+
+    window.dispatchEvent(new Event('sidebar-badges:refresh'));
+  }
+
+  async function openInvoice(invoice: InvoiceListItem) {
+    await markInvoiceAsRead(invoice);
+    router.push(`/invoices/${invoice._id}`);
+  }
+
   function hasDeposit(invoice: InvoiceListItem) {
     return typeof invoice.depositAmount === 'number' && invoice.depositAmount > 0;
   }
@@ -155,7 +177,14 @@ export default function InvoiceTable({
     // all other statuses → view
     return (
       <Button type="button" size="sm" className={`h-8 px-3 text-xs ${className ?? ''}`} asChild>
-        <Link href={`/invoices/${invoice._id}`}>
+        <Link
+          href={`/invoices/${invoice._id}`}
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            void openInvoice(invoice);
+          }}
+        >
           <EyeIcon className="size-3.5" />
           {labels.view}
         </Link>
@@ -176,7 +205,14 @@ export default function InvoiceTable({
         </DropdownMenuTrigger>
         <DropdownMenuContent align={align} className="w-52">
           <DropdownMenuItem asChild>
-            <Link href={`/invoices/${invoice._id}`}>
+            <Link
+              href={`/invoices/${invoice._id}`}
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                void openInvoice(invoice);
+              }}
+            >
               <EyeIcon className="size-4" />
               {labels.view}
             </Link>
@@ -244,7 +280,9 @@ export default function InvoiceTable({
                   key={invoice._id}
                   className="cursor-pointer rounded-xl border border-border/60 bg-card shadow-xs"
                   style={{ borderLeftWidth: '3px', borderLeftColor: STATUS_ACCENT[invoice.status], backgroundColor: STATUS_ROW_BG[invoice.status] }}
-                  onClick={() => router.push(`/invoices/${invoice._id}`)}
+                  onClick={() => {
+                    void openInvoice(invoice);
+                  }}
                 >
                   <div className="flex items-start justify-between gap-3 px-4 pt-4.5">
                     {selectionEnabled ? (
@@ -417,7 +455,9 @@ export default function InvoiceTable({
                       key={invoice._id}
                       className="group cursor-pointer border-b border-border/45 transition-colors last:border-0 hover:bg-muted/20"
                       style={{ backgroundColor: STATUS_ROW_BG[invoice.status] }}
-                      onClick={() => router.push(`/invoices/${invoice._id}`)}
+                      onClick={() => {
+                        void openInvoice(invoice);
+                      }}
                     >
                       {selectionEnabled ? (
                         <TableCell className="py-4 pl-4 align-middle" onClick={(event) => event.stopPropagation()}>
@@ -435,7 +475,11 @@ export default function InvoiceTable({
                         <Link
                           href={`/invoices/${invoice._id}`}
                           className="text-sm font-semibold text-foreground hover:text-(--color-text-info) hover:underline"
-                          onClick={(event) => event.stopPropagation()}
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            void openInvoice(invoice);
+                          }}
                         >
                           {displayInvoiceNumber}
                         </Link>

@@ -352,6 +352,12 @@ const InvoiceSchema = new mongoose.Schema(
       type: InvoiceRecurrenceSchema,
       default: null,
     },
+
+    ownerHasUnread: {
+      type: Boolean,
+      default: true,
+      index: true,
+    },
   },
   { timestamps: true }
 );
@@ -360,6 +366,44 @@ InvoiceSchema.pre("validate", function computeDepositAmount() {
   const percent = this.depositPercentage ?? 100;
   const total = this.totalIncludingTax ?? 0;
   this.depositAmount = Math.round(total * (percent / 100));
+});
+
+type PreNext = (err?: Error) => void;
+
+type PreFn = (
+  method: string | string[],
+  fn: (this: unknown, next: PreNext) => void
+) => void;
+const preInvoiceHook = (InvoiceSchema.pre as unknown as PreFn).bind(InvoiceSchema);
+
+preInvoiceHook("save", function (next) {
+  const doc = this as mongoose.HydratedDocument<InvoiceDocument>;
+  if (doc.isNew) return next();
+  if (doc.isModified("ownerHasUnread")) return next();
+  const otherModified = doc.modifiedPaths().some((p) => p !== "ownerHasUnread");
+  if (otherModified) {
+    doc.ownerHasUnread = true;
+  }
+  next();
+});
+
+preInvoiceHook(["updateOne", "findOneAndUpdate", "updateMany"], function (next) {
+  const query = this as mongoose.Query<unknown, InvoiceDocument>;
+  const update = query.getUpdate() as Record<string, unknown> | null;
+  if (!update) {
+    next();
+    return;
+  }
+
+  const $set = (update.$set ?? {}) as Record<string, unknown>;
+  const hasExplicitFlag =
+    "ownerHasUnread" in update || "ownerHasUnread" in $set;
+
+  if (!hasExplicitFlag) {
+    update.$set = { ...$set, ownerHasUnread: true };
+    query.setUpdate(update);
+  }
+  next();
 });
 
 InvoiceSchema.index({ userId: 1, invoiceNumber: 1 }, { unique: true, name: "unique_user_invoice_number" });
@@ -379,8 +423,24 @@ InvoiceSchema.index(
 
 export type InvoiceDocument = InferSchemaType<typeof InvoiceSchema>;
 
+const INVOICE_MODEL_VERSION = 2;
+
+type VersionedInvoiceModel = Model<InvoiceDocument> & { __ownerUnreadVersion?: number };
+
+const existingInvoiceModel = mongoose.models.Invoice as VersionedInvoiceModel | undefined;
+
+if (
+  existingInvoiceModel &&
+  (!existingInvoiceModel.schema.path("ownerHasUnread") ||
+    existingInvoiceModel.__ownerUnreadVersion !== INVOICE_MODEL_VERSION)
+) {
+  delete (mongoose.models as Record<string, VersionedInvoiceModel>).Invoice;
+}
+
 const InvoiceModel =
-  (mongoose.models.Invoice as Model<InvoiceDocument>) ||
-  mongoose.model<InvoiceDocument>("Invoice", InvoiceSchema);
+  ((mongoose.models.Invoice as VersionedInvoiceModel | undefined) ||
+    mongoose.model<InvoiceDocument>("Invoice", InvoiceSchema)) as VersionedInvoiceModel;
+
+InvoiceModel.__ownerUnreadVersion = INVOICE_MODEL_VERSION;
 
 export default InvoiceModel;

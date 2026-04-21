@@ -107,11 +107,6 @@ export function NotificationsBell() {
   const [activeTab, setActiveTab] = useState<NotificationsTab>('unread');
 
   const isMountedRef = useRef(true);
-  const activeTabRef = useRef<NotificationsTab>('unread');
-
-  useEffect(() => {
-    activeTabRef.current = activeTab;
-  }, [activeTab]);
 
   const fetchNotifications = useCallback(async () => {
     setLoading(true);
@@ -120,7 +115,7 @@ export function NotificationsBell() {
         sortBy: 'createdAt',
         sortOrder: 'desc',
         limit: '10',
-        isRead: activeTabRef.current === 'read' ? 'true' : 'false',
+        isRead: activeTab === 'read' ? 'true' : 'false',
       });
 
       const response = await fetch(`/api/activity?${params.toString()}`, { cache: 'no-store' });
@@ -137,7 +132,7 @@ export function NotificationsBell() {
         setLoading(false);
       }
     }
-  }, []);
+  }, [activeTab]);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -341,7 +336,7 @@ export function NotificationsBell() {
 
           {!loading
             ? items.map((item) => {
-                const headline = getActivityHeadline(locale, item.action);
+                const headline = getActivityHeadline(locale, item.action, item.metadata);
                 const entityName =
                   item.entityType === 'invoice' && item.entityName
                     ? formatInvoiceDisplayNumber(locale, item.entityName)

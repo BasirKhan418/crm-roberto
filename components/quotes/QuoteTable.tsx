@@ -101,6 +101,33 @@ export default function QuoteTable({ items, loading, visibleColumns, labels, loc
   const priceLocale = locale === 'fr' ? 'fr-FR' : 'en-GB';
   const isVisible = (column: QuoteTableColumnKey) => visibleColumns?.[column] !== false;
 
+  async function markSidebarItemAsRead(entityType: 'quote' | 'invoice', id: string) {
+    window.dispatchEvent(new CustomEvent('sidebar-badges:mark-read', { detail: { entityType, id } }));
+
+    try {
+      await fetch('/api/sidebar/mark-read', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entityType, id }),
+        keepalive: true,
+      });
+    } catch {
+      // Navigation should still work even if the sidebar sync fails.
+    }
+
+    window.dispatchEvent(new Event('sidebar-badges:refresh'));
+  }
+
+  async function openQuote(quote: QuoteListItem) {
+    await markSidebarItemAsRead('quote', quote._id);
+    router.push(`/quotes/${quote._id}`);
+  }
+
+  async function openInvoice(invoiceId: string) {
+    await markSidebarItemAsRead('invoice', invoiceId);
+    router.push(`/invoices/${invoiceId}`);
+  }
+
   function isNeedsReview(quote: QuoteListItem): boolean {
     return quote.status === 'rejected' && !quote.rejectionAcknowledgedAt;
   }
@@ -125,7 +152,14 @@ export default function QuoteTable({ items, loading, visibleColumns, labels, loc
 
     return (
       <Button type="button" size="sm" className={className} asChild>
-        <Link href={`/quotes/${quote._id}`}>
+        <Link
+          href={`/quotes/${quote._id}`}
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            void openQuote(quote);
+          }}
+        >
           <EyeIcon className="size-3.5" />
           {labels.view}
         </Link>
@@ -191,7 +225,14 @@ export default function QuoteTable({ items, loading, visibleColumns, labels, loc
 
           {isInvoiced && quote.invoiceId ? (
             <DropdownMenuItem asChild>
-              <Link href={`/invoices/${quote.invoiceId}`}>
+              <Link
+                href={`/invoices/${quote.invoiceId}`}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  void openInvoice(quote.invoiceId!);
+                }}
+              >
                 <FileTextIcon className="size-4" />
                 {labels.invoiced}
               </Link>
@@ -264,7 +305,9 @@ export default function QuoteTable({ items, loading, visibleColumns, labels, loc
                   borderLeftColor: STATUS_ACCENT[quote.status],
                   backgroundColor: isInvoiced ? 'rgba(16, 185, 129, 0.08)' : STATUS_ROW_BG[quote.status],
                 }}
-                onClick={() => router.push(`/quotes/${quote._id}`)}
+                onClick={() => {
+                  void openQuote(quote);
+                }}
               >
            
                 <div className="flex items-start justify-between gap-3 px-4 pt-4.5">
@@ -316,7 +359,16 @@ export default function QuoteTable({ items, loading, visibleColumns, labels, loc
                   <div className="flex items-center gap-1.5" onClick={(event) => event.stopPropagation()}>
                     {isVisible('invoiceLink') && isInvoiced && quote.invoiceId ? (
                       <Button type="button" variant="outline" size="sm" asChild>
-                        <Link href={`/invoices/${quote.invoiceId}`}>{labels.invoiced}</Link>
+                        <Link
+                          href={`/invoices/${quote.invoiceId}`}
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            void openInvoice(quote.invoiceId!);
+                          }}
+                        >
+                          {labels.invoiced}
+                        </Link>
                       </Button>
                     ) : null}
                     {renderPrimaryAction(quote, 'h-8 px-3 text-xs')}
@@ -370,7 +422,9 @@ export default function QuoteTable({ items, loading, visibleColumns, labels, loc
                     key={quote._id}
                     className="group cursor-pointer border-b border-border/45 transition-colors last:border-0 hover:bg-muted/20"
                     style={{ backgroundColor: isInvoiced ? 'rgba(16, 185, 129, 0.06)' : STATUS_ROW_BG[quote.status] }}
-                    onClick={() => router.push(`/quotes/${quote._id}`)}
+                    onClick={() => {
+                      void openQuote(quote);
+                    }}
                   >
                     {/* Client */}
                     {isVisible('client') ? (
@@ -461,7 +515,16 @@ export default function QuoteTable({ items, loading, visibleColumns, labels, loc
                       <TableCell className="py-4 align-middle text-sm">
                         {isInvoiced && quote.invoiceId ? (
                           <Button type="button" variant="outline" size="sm" asChild>
-                            <Link href={`/invoices/${quote.invoiceId}`}>{labels.invoiced}</Link>
+                            <Link
+                              href={`/invoices/${quote.invoiceId}`}
+                              onClick={(event) => {
+                                event.preventDefault();
+                                event.stopPropagation();
+                                void openInvoice(quote.invoiceId!);
+                              }}
+                            >
+                              {labels.invoiced}
+                            </Link>
                           </Button>
                         ) : (
                           <span className="text-muted-foreground">-</span>

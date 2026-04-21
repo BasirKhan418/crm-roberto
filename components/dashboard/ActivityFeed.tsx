@@ -136,7 +136,7 @@ export default function ActivityFeed({ activity = [], loading = false, error = n
             pagedItems.map((item, index) => {
               const entityCfg = ENTITY_CONFIG[item.entityType as keyof typeof ENTITY_CONFIG] ?? DEFAULT_ENTITY;
               const headline = item.action
-                ? getActivityHeadline(locale, item.action)
+                ? getActivityHeadline(locale, item.action, item.metadata)
                 : translate(locale, 'activity.fallbackHeadline');
               const entityName = item.entityType === 'invoice' && item.entityName
                 ? formatInvoiceDisplayNumber(locale, item.entityName)

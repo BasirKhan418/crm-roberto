@@ -357,7 +357,21 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   });
   await quote.save();
 
-  // Notify the admin asynchronously — do not block the client response
+  try {
+    await createActivityLog(String(quote.user), {
+      action: 'quote_status_changed',
+      entityType: 'quote',
+      entityName: quote.quoteNumber,
+      entityId: String(quote._id),
+      metadata: {
+        from: previousStatus,
+        to: 'rejected',
+        source: 'client_rejection',
+      },
+    });
+  } catch {
+  }
+
   (async () => {
     try {
       const adminUser = await User.findById(quote.user).select("email name").lean();
