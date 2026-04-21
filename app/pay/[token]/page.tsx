@@ -1,12 +1,16 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { useParams } from 'next/navigation';
-import { useSearchParams } from 'next/navigation';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import dynamic from 'next/dynamic';
+import Image from 'next/image';
+import { ShieldCheck, Lock, Wallet, ReceiptText, CreditCard, ArrowLeft, Loader2 } from 'lucide-react';
 
 import { useLocale } from '@/components/providers/locale-provider';
 import { PriceDisplay } from '@/components/ui/PriceDisplay';
 import { formatInvoiceDisplayNumber } from '@/lib/i18n/messages';
+
+const Lottie = dynamic(() => import('lottie-react'), { ssr: false });
 
 interface PaymentLinkData {
   invoiceId: string;
@@ -23,15 +27,9 @@ type PaymentChoice = 'full' | 'partial';
 
 function parseEurosToCents(value: string): number | null {
   const normalized = value.replace(',', '.').trim();
-  if (!normalized) {
-    return null;
-  }
-
+  if (!normalized) return null;
   const parsed = Number(normalized);
-  if (!Number.isFinite(parsed)) {
-    return null;
-  }
-
+  if (!Number.isFinite(parsed)) return null;
   return Math.round(parsed * 100);
 }
 
@@ -42,62 +40,79 @@ function centsToEurosInput(cents: number): string {
 export default function PayByTokenPage() {
   const params = useParams<{ token: string }>();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const token = params?.token;
   const { locale } = useLocale();
   const status = searchParams.get('status');
 
   const t = {
     en: {
-      invalidLink: 'Invalid payment link',
-      loading: 'Loading payment page...',
-      pageTitle: 'Payment link',
+      invalidLink: 'Invalid or expired payment link',
+      invalidLinkDesc: 'The link you followed is no longer valid. Please contact the sender to receive a new one.',
+      loading: 'Loading your payment…',
+      pageTitle: 'Secure payment',
       invoiceLabel: 'Invoice',
-      secureHosted: 'Secure payment hosted by Stripe.',
+      secureHosted: 'Payment securely processed by Stripe',
       total: 'Total',
-      paid: 'Paid',
-      remaining: 'Remaining',
-      paymentType: 'Payment type',
-      paymentTypeFull: 'Full payment',
-      paymentTypePartial: 'Partial payment',
-      amountPaid: 'Amount to pay (EUR)',
-      amountHint: 'Enter how much you want to pay now.',
+      paid: 'Already paid',
+      remaining: 'Amount due',
+      paymentType: 'How much would you like to pay?',
+      paymentTypeFull: 'Pay in full',
+      paymentTypeFullDesc: 'Settle the remaining balance',
+      paymentTypePartial: 'Pay a custom amount',
+      paymentTypePartialDesc: 'Enter a partial amount below',
+      amountPaid: 'Amount (EUR)',
+      amountHint: 'Enter the amount you want to pay now.',
       amountInvalid: 'Enter a valid amount greater than 0.',
-      amountTooHigh: 'Amount cannot exceed remaining balance.',
-      partialMustBeLess: 'For full settlement, choose Full payment.',
-      remainingAfter: 'Remaining after this payment',
-      modeOnline: 'Mode: Online (Stripe)',
-      payNow: 'Pay with Stripe',
-      fullyPaid: 'This invoice is fully paid.',
-      paymentSuccess: 'Payment started successfully. Confirmation may take a few seconds.',
-      paymentCancelled: 'Payment was cancelled. You can try again.',
-      redirecting: 'Redirecting...',
+      amountTooHigh: 'Amount cannot exceed amount due.',
+      partialMustBeLess: 'For full payment, choose "Pay in full".',
+      remainingAfter: 'Balance after this payment',
+      payNow: 'Pay securely',
+      fullyPaid: 'Invoice fully paid',
+      fullyPaidDesc: 'Thank you — there is nothing left to pay on this invoice.',
+      paymentSuccess: 'Payment successful',
+      paymentSuccessDesc: 'Thank you! Your payment is being confirmed. A receipt will be sent shortly.',
+      paymentCancelled: 'Payment cancelled',
+      paymentCancelledDesc: "The payment wasn't completed. You can safely try again whenever you're ready.",
+      redirecting: 'Redirecting to Stripe…',
       createPaymentFailed: 'Could not create payment link',
+      tryAgain: 'Try again',
+      backToPayment: 'Back to payment',
+      poweredBy: 'Powered by',
     },
     fr: {
-      invalidLink: 'Lien de paiement invalide',
-      loading: 'Chargement de la page de paiement...',
-      pageTitle: 'Lien de paiement',
+      invalidLink: 'Lien de paiement invalide ou expiré',
+      invalidLinkDesc: "Ce lien n'est plus valide. Contactez l'expéditeur pour en recevoir un nouveau.",
+      loading: 'Chargement du paiement…',
+      pageTitle: 'Paiement sécurisé',
       invoiceLabel: 'Facture',
-      secureHosted: 'Paiement sécurisé hébergé par Stripe.',
+      secureHosted: 'Paiement sécurisé par Stripe',
       total: 'Total',
-      paid: 'Payé',
-      remaining: 'Reste',
-      paymentType: 'Type de paiement',
-      paymentTypeFull: 'Paiement complet',
-      paymentTypePartial: 'Paiement partiel',
-      amountPaid: 'Montant a payer (EUR)',
-      amountHint: 'Entrez le montant a payer maintenant.',
-      amountInvalid: 'Entrez un montant valide superieur a 0.',
-      amountTooHigh: 'Le montant ne peut pas depasser le reste.',
-      partialMustBeLess: 'Pour solder la facture, choisissez Paiement complet.',
-      remainingAfter: 'Reste apres ce paiement',
-      modeOnline: 'Mode : En ligne (Stripe)',
-      payNow: 'Payer avec Stripe',
-      fullyPaid: 'Cette facture est entièrement réglée.',
-      paymentSuccess: 'Paiement lance avec succes. La confirmation peut prendre quelques secondes.',
-      paymentCancelled: 'Paiement annule. Vous pouvez reessayer.',
-      redirecting: 'Redirection...',
+      paid: 'Déjà payé',
+      remaining: 'Solde à régler',
+      paymentType: 'Combien souhaitez-vous payer ?',
+      paymentTypeFull: 'Paiement intégral',
+      paymentTypeFullDesc: 'Régler le solde restant',
+      paymentTypePartial: 'Montant personnalisé',
+      paymentTypePartialDesc: 'Saisissez un montant partiel ci-dessous',
+      amountPaid: 'Montant (EUR)',
+      amountHint: 'Saisissez le montant à payer maintenant.',
+      amountInvalid: 'Saisissez un montant valide supérieur à 0.',
+      amountTooHigh: 'Le montant ne peut pas dépasser le solde dû.',
+      partialMustBeLess: 'Pour solder la facture, choisissez « Paiement intégral ».',
+      remainingAfter: 'Solde après ce paiement',
+      payNow: 'Payer en toute sécurité',
+      fullyPaid: 'Facture entièrement réglée',
+      fullyPaidDesc: 'Merci — il ne reste rien à régler sur cette facture.',
+      paymentSuccess: 'Paiement réussi',
+      paymentSuccessDesc: 'Merci ! Votre paiement est en cours de confirmation. Un reçu vous sera envoyé sous peu.',
+      paymentCancelled: 'Paiement annulé',
+      paymentCancelledDesc: "Le paiement n'a pas été finalisé. Vous pouvez réessayer à tout moment.",
+      redirecting: 'Redirection vers Stripe…',
       createPaymentFailed: 'Impossible de créer le lien de paiement',
+      tryAgain: 'Réessayer',
+      backToPayment: 'Retour au paiement',
+      poweredBy: 'Propulsé par',
     },
   }[locale];
 
@@ -108,10 +123,7 @@ export default function PayByTokenPage() {
   const [amountInput, setAmountInput] = useState('');
 
   useEffect(() => {
-    if (!data) {
-      return;
-    }
-
+    if (!data) return;
     setAmountInput(centsToEurosInput(data.remainingAmount));
     setPaymentType('full');
   }, [data]);
@@ -148,60 +160,66 @@ export default function PayByTokenPage() {
   const priceLocale = useMemo(() => (locale === 'fr' ? 'fr-FR' : 'en-GB'), [locale]);
 
   const selectedAmountCents = useMemo(() => {
-    if (!data) {
-      return 0;
-    }
-
-    if (paymentType === 'full') {
-      return data.remainingAmount;
-    }
-
+    if (!data) return 0;
+    if (paymentType === 'full') return data.remainingAmount;
     const parsed = parseEurosToCents(amountInput);
     return parsed ?? 0;
   }, [amountInput, data, paymentType]);
 
   const amountError = useMemo(() => {
-    if (!data || !data.canPay) {
-      return null;
-    }
-
-    if (paymentType === 'full') {
-      return null;
-    }
-
+    if (!data || !data.canPay) return null;
+    if (paymentType === 'full') return null;
     const parsed = parseEurosToCents(amountInput);
-    if (parsed === null || parsed <= 0) {
-      return t.amountInvalid;
-    }
-
-    if (parsed > data.remainingAmount) {
-      return t.amountTooHigh;
-    }
-
-    if (parsed >= data.remainingAmount) {
-      return t.partialMustBeLess;
-    }
-
+    if (parsed === null || parsed <= 0) return t.amountInvalid;
+    if (parsed > data.remainingAmount) return t.amountTooHigh;
+    if (parsed >= data.remainingAmount) return t.partialMustBeLess;
     return null;
   }, [amountInput, data, paymentType, t.amountInvalid, t.amountTooHigh, t.partialMustBeLess]);
 
   const remainingAfterPayment = useMemo(() => {
-    if (!data) {
-      return 0;
-    }
-
+    if (!data) return 0;
     return Math.max(0, data.remainingAmount - selectedAmountCents);
   }, [data, selectedAmountCents]);
 
+  if (status === 'success') {
+    return (
+      <StatusScreen
+        variant="success"
+        title={t.paymentSuccess}
+        description={t.paymentSuccessDesc}
+        primaryLabel={t.backToPayment}
+        onPrimary={() => router.replace(`/pay/${token}`)}
+      />
+    );
+  }
+  if (status === 'cancelled') {
+    return (
+      <StatusScreen
+        variant="failed"
+        title={t.paymentCancelled}
+        description={t.paymentCancelledDesc}
+        primaryLabel={t.tryAgain}
+        onPrimary={() => router.replace(`/pay/${token}`)}
+      />
+    );
+  }
+
   if (loading) {
-    return <main className="mx-auto max-w-2xl p-6 text-sm text-muted-foreground">{t.loading}</main>;
+    return (
+      <main className="min-h-dvh flex flex-col items-center justify-center gap-4 bg-linear-to-b from-background via-background to-muted/40 px-6 text-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden />
+        <p className="text-sm text-muted-foreground">{t.loading}</p>
+      </main>
+    );
   }
 
   if (!data) {
     return (
-      <main className="mx-auto max-w-2xl p-6">
-        <h1 className="text-xl font-semibold">{t.pageTitle}</h1>
-        <p className="mt-2 text-sm text-destructive">{message || t.invalidLink}</p>
+      <main className="min-h-dvh flex flex-col items-center justify-center gap-4 bg-linear-to-b from-background via-background to-muted/40 px-6 text-center">
+        <div className="w-full max-w-sm rounded-2xl border border-destructive/30 bg-destructive/5 p-6">
+          <h1 className="text-lg font-semibold text-destructive">{t.invalidLink}</h1>
+          <p className="mt-2 text-sm text-destructive/80">{message || t.invalidLinkDesc}</p>
+        </div>
       </main>
     );
   }
@@ -209,96 +227,238 @@ export default function PayByTokenPage() {
   const displayInvoiceNumber = formatInvoiceDisplayNumber(locale, data.invoiceNumber);
   const canSubmit = data.canPay && selectedAmountCents > 0 && !amountError;
 
-  const statusBanner =
-    status === 'success'
-      ? { text: t.paymentSuccess, className: 'border-emerald-200 bg-emerald-50 text-emerald-700' }
-      : status === 'cancelled'
-        ? { text: t.paymentCancelled, className: 'border-amber-200 bg-amber-50 text-amber-700' }
-        : null;
-
   return (
-    <main className="mx-auto max-w-2xl p-6">
-      <h1 className="text-2xl font-semibold">{t.invoiceLabel} {displayInvoiceNumber}</h1>
-      <p className="mt-2 text-sm text-muted-foreground">{t.secureHosted}</p>
-
-      {statusBanner ? <p className={`mt-4 rounded-lg border px-3 py-2 text-sm ${statusBanner.className}`}>{statusBanner.text}</p> : null}
-
-      <section className="mt-5 rounded-xl border border-border/70 bg-card p-4">
-        <div className="rounded-lg border border-border/60 bg-muted/20 p-3 text-sm">
-          <p>
-            {t.total}: <PriceDisplay cents={data.totalAmount} locale={priceLocale} className="font-semibold" />
-          </p>
-          <p>
-            {t.paid}: <PriceDisplay cents={data.totalPaid} locale={priceLocale} className="font-semibold" />
-          </p>
-          <p>
-            {t.remaining}: <PriceDisplay cents={data.remainingAmount} locale={priceLocale} className="font-semibold" />
-          </p>
+    <main className="min-h-dvh bg-linear-to-b from-background via-background to-muted/30">
+      <header className="sticky top-0 z-10 border-b border-border/60 bg-background/80 backdrop-blur supports-backdrop-filter:bg-background/60">
+        <div className="mx-auto flex w-full max-w-2xl items-center justify-between px-4 py-3 sm:px-6">
+          <div className="flex items-center gap-2">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <ShieldCheck className="h-5 w-5" aria-hidden />
+            </div>
+            <div className="leading-tight">
+              <p className="text-sm font-semibold">{t.pageTitle}</p>
+              <p className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                <Lock className="h-3 w-3" aria-hidden /> {t.secureHosted}
+              </p>
+            </div>
+          </div>
+          <div className="hidden items-center gap-1.5 text-xs text-muted-foreground sm:flex">
+            <span>{t.poweredBy}</span>
+            <Image src="/stripe.png" alt="Stripe" width={44} height={18} className="h-4 w-auto object-contain" />
+          </div>
         </div>
+      </header>
+
+      <div className="mx-auto w-full max-w-2xl px-4 py-5 pb-28 sm:px-6 sm:py-8 sm:pb-10">
+        <section className="overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm">
+          <div className="flex items-center gap-2 border-b border-border/60 bg-muted/30 px-4 py-3 sm:px-5">
+            <ReceiptText className="h-4 w-4 text-muted-foreground" aria-hidden />
+            <p className="text-sm font-medium">
+              {t.invoiceLabel} <span className="text-muted-foreground">·</span>{' '}
+              <span className="font-semibold">{displayInvoiceNumber}</span>
+            </p>
+          </div>
+
+          <div className="px-4 py-4 sm:px-5 sm:py-5">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">{t.remaining}</p>
+            <PriceDisplay
+              cents={data.remainingAmount}
+              locale={priceLocale}
+              className="mt-1 block text-3xl font-bold tabular-nums text-foreground sm:text-4xl"
+            />
+
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <div className="rounded-xl bg-muted/40 px-3 py-2.5">
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{t.total}</p>
+                <PriceDisplay cents={data.totalAmount} locale={priceLocale} className="mt-0.5 block text-sm font-semibold tabular-nums" />
+              </div>
+              <div className="rounded-xl bg-emerald-500/10 px-3 py-2.5">
+                <p className="text-[11px] uppercase tracking-wide text-emerald-700 dark:text-emerald-400">{t.paid}</p>
+                <PriceDisplay
+                  cents={data.totalPaid}
+                  locale={priceLocale}
+                  className="mt-0.5 block text-sm font-semibold tabular-nums text-emerald-700 dark:text-emerald-400"
+                />
+              </div>
+            </div>
+          </div>
+        </section>
 
         {data.canPay && token ? (
-          <div className="mt-4 space-y-4">
-            <div className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-700">{t.modeOnline}</div>
+          <section className="mt-4 overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm">
+            <div className="px-4 py-4 sm:px-5 sm:py-5">
+              <div className="flex items-center gap-2">
+                <Wallet className="h-4 w-4 text-muted-foreground" aria-hidden />
+                <h2 className="text-sm font-semibold">{t.paymentType}</h2>
+              </div>
 
-            <div className="space-y-1">
-              <label htmlFor="payment-type" className="text-sm font-medium">{t.paymentType}</label>
-              <select
-                id="payment-type"
-                value={paymentType}
-                onChange={(event) => {
-                  const nextType = event.target.value === 'partial' ? 'partial' : 'full';
-                  setPaymentType(nextType);
-                  if (nextType === 'full') {
+              <div className="mt-3 grid gap-2" role="radiogroup">
+                <PaymentTypeOption
+                  active={paymentType === 'full'}
+                  title={t.paymentTypeFull}
+                  description={t.paymentTypeFullDesc}
+                  onClick={() => {
+                    setPaymentType('full');
                     setAmountInput(centsToEurosInput(data.remainingAmount));
-                  } else if (amountInput === '' || parseEurosToCents(amountInput) === data.remainingAmount) {
-                    setAmountInput('');
+                  }}
+                  right={
+                    <PriceDisplay
+                      cents={data.remainingAmount}
+                      locale={priceLocale}
+                      className="text-sm font-semibold tabular-nums"
+                    />
                   }
-                }}
-                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-              >
-                <option value="full">{t.paymentTypeFull}</option>
-                <option value="partial">{t.paymentTypePartial}</option>
-              </select>
+                />
+                <PaymentTypeOption
+                  active={paymentType === 'partial'}
+                  title={t.paymentTypePartial}
+                  description={t.paymentTypePartialDesc}
+                  onClick={() => {
+                    setPaymentType('partial');
+                    if (amountInput === '' || parseEurosToCents(amountInput) === data.remainingAmount) {
+                      setAmountInput('');
+                    }
+                  }}
+                />
+              </div>
+
+              <div className="mt-4">
+                <label htmlFor="amount-input" className="text-xs font-medium text-muted-foreground">
+                  {t.amountPaid}
+                </label>
+                <div
+                  className={`relative mt-1.5 flex items-center rounded-xl border bg-background transition-colors ${
+                    amountError
+                      ? 'border-destructive/60'
+                      : 'border-input focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20'
+                  } ${paymentType === 'full' ? 'opacity-70' : ''}`}
+                >
+                  <span className="select-none pl-3.5 pr-1 text-sm text-muted-foreground">€</span>
+                  <input
+                    id="amount-input"
+                    type="number"
+                    inputMode="decimal"
+                    min="0.01"
+                    step="0.01"
+                    max={centsToEurosInput(data.remainingAmount)}
+                    value={paymentType === 'full' ? centsToEurosInput(data.remainingAmount) : amountInput}
+                    onChange={(event) => setAmountInput(event.target.value)}
+                    disabled={paymentType === 'full'}
+                    className="h-12 w-full min-w-0 bg-transparent pr-3.5 text-base font-semibold tabular-nums outline-none disabled:cursor-not-allowed"
+                    placeholder="0.00"
+                  />
+                </div>
+                {amountError ? (
+                  <p className="mt-1.5 text-xs text-destructive">{amountError}</p>
+                ) : (
+                  <p className="mt-1.5 text-xs text-muted-foreground">{t.amountHint}</p>
+                )}
+              </div>
+
+              <div className="mt-4 flex items-center justify-between rounded-xl border border-dashed border-border/70 px-3 py-2.5">
+                <span className="text-xs text-muted-foreground">{t.remainingAfter}</span>
+                <PriceDisplay
+                  cents={remainingAfterPayment}
+                  locale={priceLocale}
+                  className="text-sm font-semibold tabular-nums"
+                />
+              </div>
             </div>
 
-            <div className="space-y-1">
-              <label htmlFor="amount-input" className="text-sm font-medium">{t.amountPaid}</label>
-              <input
-                id="amount-input"
-                type="number"
-                inputMode="decimal"
-                min="0.01"
-                step="0.01"
-                max={centsToEurosInput(data.remainingAmount)}
-                value={paymentType === 'full' ? centsToEurosInput(data.remainingAmount) : amountInput}
-                onChange={(event) => setAmountInput(event.target.value)}
-                disabled={paymentType === 'full'}
-                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+            <div className="hidden border-t border-border/60 bg-muted/20 px-5 py-4 sm:block">
+              <TokenPayButton
+                token={token}
+                type={paymentType}
+                amountCents={selectedAmountCents}
+                disabled={!canSubmit}
+                label={t.payNow}
+                loadingLabel={t.redirecting}
+                errorMessage={t.createPaymentFailed}
               />
-              <p className="text-xs text-muted-foreground">{t.amountHint}</p>
-              {amountError ? <p className="text-xs text-destructive">{amountError}</p> : null}
+              <p className="mt-2 flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
+                <Lock className="h-3 w-3" aria-hidden /> {t.secureHosted}
+              </p>
             </div>
+          </section>
+        ) : (
+          <section className="mt-4 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-5 text-center">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600">
+              <ShieldCheck className="h-6 w-6" aria-hidden />
+            </div>
+            <h3 className="mt-3 text-base font-semibold text-emerald-700 dark:text-emerald-400">{t.fullyPaid}</h3>
+            <p className="mt-1 text-sm text-emerald-700/80 dark:text-emerald-400/80">{t.fullyPaidDesc}</p>
+          </section>
+        )}
 
-            <p className="text-sm text-muted-foreground">
-              {t.remainingAfter}:{' '}
-              <PriceDisplay cents={remainingAfterPayment} locale={priceLocale} className="font-semibold text-foreground" />
-            </p>
+        <p className="mt-6 flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground sm:hidden">
+          <Lock className="h-3 w-3" aria-hidden /> {t.secureHosted}
+        </p>
+      </div>
 
-            <TokenPayButton
-              token={token}
-              type={paymentType}
-              amountCents={selectedAmountCents}
-              disabled={!canSubmit}
-              label={t.payNow}
-              loadingLabel={t.redirecting}
-              errorMessage={t.createPaymentFailed}
+      {data.canPay && token ? (
+        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border/70 bg-background/95 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-6px_20px_-10px_rgba(0,0,0,0.15)] backdrop-blur supports-backdrop-filter:bg-background/80 sm:hidden">
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <span className="text-xs text-muted-foreground">{t.amountPaid}</span>
+            <PriceDisplay
+              cents={selectedAmountCents}
+              locale={priceLocale}
+              className="text-base font-bold tabular-nums"
             />
           </div>
-        ) : (
-          <p className="mt-4 text-sm text-emerald-700">{t.fullyPaid}</p>
-        )}
-      </section>
+          <TokenPayButton
+            token={token}
+            type={paymentType}
+            amountCents={selectedAmountCents}
+            disabled={!canSubmit}
+            label={t.payNow}
+            loadingLabel={t.redirecting}
+            errorMessage={t.createPaymentFailed}
+          />
+        </div>
+      ) : null}
     </main>
+  );
+}
+
+function PaymentTypeOption({
+  active,
+  title,
+  description,
+  onClick,
+  right,
+}: {
+  active: boolean;
+  title: string;
+  description: string;
+  onClick: () => void;
+  right?: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={active}
+      onClick={onClick}
+      className={`group flex w-full items-center gap-3 rounded-xl border px-3.5 py-3 text-left transition-all ${
+        active
+          ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
+          : 'border-border/70 bg-background hover:border-border hover:bg-muted/40'
+      }`}
+    >
+      <span
+        className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors ${
+          active ? 'border-primary bg-primary' : 'border-border bg-background'
+        }`}
+        aria-hidden
+      >
+        {active ? <span className="h-2 w-2 rounded-full bg-primary-foreground" /> : null}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-semibold">{title}</span>
+        <span className="mt-0.5 block text-xs text-muted-foreground">{description}</span>
+      </span>
+      {right ? <span className="shrink-0">{right}</span> : null}
+    </button>
   );
 }
 
@@ -351,9 +511,85 @@ function TokenPayButton({
       type="button"
       onClick={handleClick}
       disabled={loading || disabled}
-      className="inline-flex h-9 items-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground disabled:opacity-60"
+      className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:brightness-105 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100"
     >
-      {loading ? loadingLabel : label}
+      {loading ? (
+        <>
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+          <span>{loadingLabel}</span>
+        </>
+      ) : (
+        <>
+          <CreditCard className="h-4 w-4" aria-hidden />
+          <span>{label}</span>
+        </>
+      )}
     </button>
+  );
+}
+
+function StatusScreen({
+  variant,
+  title,
+  description,
+  primaryLabel,
+  onPrimary,
+}: {
+  variant: 'success' | 'failed';
+  title: string;
+  description: string;
+  primaryLabel: string;
+  onPrimary: () => void;
+}) {
+  const [animationData, setAnimationData] = useState<unknown | null>(null);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    const url = variant === 'success' ? '/Payment Successful.json' : '/Payment Failed.json';
+    fetch(url)
+      .then((r) => r.json())
+      .then((json) => {
+        if (mountedRef.current) setAnimationData(json);
+      })
+      .catch(() => {});
+    return () => {
+      mountedRef.current = false;
+    };
+  }, [variant]);
+
+  const accent =
+    variant === 'success'
+      ? 'from-emerald-500/10 via-background to-background'
+      : 'from-rose-500/10 via-background to-background';
+  const ringColor = variant === 'success' ? 'ring-emerald-500/20' : 'ring-rose-500/20';
+  const titleColor =
+    variant === 'success' ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400';
+
+  return (
+    <main className={`flex min-h-dvh flex-col items-center justify-center bg-linear-to-b px-5 py-10 ${accent}`}>
+      <div className={`w-full max-w-md rounded-3xl border border-border/60 bg-card p-5 shadow-sm ring-1 sm:p-8 ${ringColor}`}>
+        <div className="mx-auto aspect-square w-full max-w-70">
+          {animationData ? (
+            <Lottie animationData={animationData} loop={variant === 'failed'} autoplay />
+          ) : (
+            <div className="flex h-full items-center justify-center">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-hidden />
+            </div>
+          )}
+        </div>
+        <h1 className={`mt-2 text-center text-xl font-bold sm:text-2xl ${titleColor}`}>{title}</h1>
+        <p className="mt-2 text-center text-sm text-muted-foreground">{description}</p>
+
+        <button
+          type="button"
+          onClick={onPrimary}
+          className="mt-6 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:brightness-105 active:scale-[0.99]"
+        >
+          <ArrowLeft className="h-4 w-4" aria-hidden />
+          <span>{primaryLabel}</span>
+        </button>
+      </div>
+    </main>
   );
 }

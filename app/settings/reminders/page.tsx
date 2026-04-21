@@ -9,6 +9,7 @@ import { AlertTriangleIcon, BellIcon, FileTextIcon, Loader2Icon, MailIcon } from
 import { toast } from 'sonner';
 
 import { useLocale } from '@/components/providers/locale-provider';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -118,6 +119,8 @@ const TEMPLATE_SAMPLE_VARIABLES: Record<string, string> = {
   legalDeadline: '30/01/2025',
 };
 
+const TEMPLATE_VARIABLE_PATTERN = /\{\{(\w+)\}\}/g;
+
 const DEFAULT_TEMPLATE_TAB: Record<ReminderLevel, ReminderLocale> = {
   soft: 'en',
   medium: 'en',
@@ -150,13 +153,30 @@ const reminderSettingsPageChrome = {
     legalNoticeEyebrow: 'Legal notice',
     legalNoticeSummary: 'Set the formal notice delay and any legal footer text.',
     templateLevelLabel: 'Which reminder email do you want to edit?',
-    templateLevelHelp: 'Pick the email step first, then choose the language.',
-    templateLocaleLabel: 'Language',
-    templateIntroTitle: 'Write the email in your own words',
-    templateIntroText: 'If you want, you can insert customer or invoice details automatically using smart fields.',
-    smartFieldsButton: 'Show smart fields',
-    smartFieldsTitle: 'Smart fields',
-    smartFieldsDescription: 'These fields fill in automatically when the reminder is sent.',
+    templateLevelHelp: 'Choose the reminder step and the language your customer will receive.',
+    templateLocaleLabel: 'Email language',
+    templateIntroTitle: 'What this email is for',
+    templateIntroText: 'Use this message for the selected reminder step. Customer and invoice details are filled in automatically for each send.',
+    smartFieldsButton: 'Add or remove automatic details',
+    smartFieldsTitle: 'Manage automatic details',
+    smartFieldsDescription: 'Use these buttons to add a detail to the end of the subject or message, or remove it from one of those areas.',
+    smartFieldsAddHelpTitle: 'What “add” does',
+    smartFieldsAddHelpText: 'Adds this detail to the end of the selected area so it is filled in automatically when the email is sent.',
+    smartFieldsRemoveHelpTitle: 'What “remove” does',
+    smartFieldsRemoveHelpText: 'Removes this detail from the selected area only. It does not change the customer or invoice data itself.',
+    addToSubject: 'Add to subject',
+    addToBody: 'Add to message',
+    removeFromSubject: 'Remove from subject',
+    removeFromBody: 'Remove from message',
+    alreadyInSubject: 'Already in subject',
+    alreadyInBody: 'Already in message',
+    notInSubject: 'Not in subject',
+    notInBody: 'Not in message',
+    templateFieldHelp: 'You can change the wording. Items in brackets are automatic and cannot be edited.',
+    automaticFieldsInlineTitle: 'Automatic details included',
+    automaticFieldsInlineText: 'These details are still sent with the email. Use the button below if you want to add one or remove one clearly.',
+    previewTitle: 'Customer preview',
+    previewText: 'Preview with sample customer and invoice details.',
     smartFieldLabels: {
       clientName: 'Customer name',
       companyName: 'Company name',
@@ -188,13 +208,30 @@ const reminderSettingsPageChrome = {
     legalNoticeEyebrow: 'Mise en demeure',
     legalNoticeSummary: 'Réglez le délai de mise en demeure et le texte juridique complémentaire.',
     templateLevelLabel: 'Quel e-mail de relance souhaitez-vous modifier ?',
-    templateLevelHelp: 'Choisissez d\'abord l\'étape, puis la langue.',
-    templateLocaleLabel: 'Langue',
-    templateIntroTitle: 'Rédigez l\'e-mail avec vos propres mots',
-    templateIntroText: 'Si besoin, vous pouvez insérer automatiquement les détails du client ou de la facture avec des champs intelligents.',
-    smartFieldsButton: 'Voir les champs intelligents',
-    smartFieldsTitle: 'Champs intelligents',
-    smartFieldsDescription: 'Ces champs se remplissent automatiquement lors de l\'envoi de la relance.',
+    templateLevelHelp: 'Choisissez l\'étape de relance et la langue que votre client recevra.',
+    templateLocaleLabel: 'Langue de l\'e-mail',
+    templateIntroTitle: 'A quoi sert cet e-mail',
+    templateIntroText: 'Ce message sera utilisé pour l\'étape de relance choisie. Les détails client et facture sont ajoutés automatiquement à chaque envoi.',
+    smartFieldsButton: 'Ajouter ou retirer des détails automatiques',
+    smartFieldsTitle: 'Gérer les détails automatiques',
+    smartFieldsDescription: 'Utilisez ces boutons pour ajouter un détail à la fin du sujet ou du message, ou le retirer de l\'une de ces zones.',
+    smartFieldsAddHelpTitle: 'Ce que fait “ajouter”',
+    smartFieldsAddHelpText: 'Ajoute ce détail à la fin de la zone choisie afin qu\'il soit rempli automatiquement lors de l\'envoi.',
+    smartFieldsRemoveHelpTitle: 'Ce que fait “retirer”',
+    smartFieldsRemoveHelpText: 'Retire ce détail de la zone choisie uniquement. Cela ne change pas les données client ou facture.',
+    addToSubject: 'Ajouter au sujet',
+    addToBody: 'Ajouter au message',
+    removeFromSubject: 'Retirer du sujet',
+    removeFromBody: 'Retirer du message',
+    alreadyInSubject: 'Déjà dans le sujet',
+    alreadyInBody: 'Déjà dans le message',
+    notInSubject: 'Absent du sujet',
+    notInBody: 'Absent du message',
+    templateFieldHelp: 'Vous pouvez modifier le texte. Les éléments entre crochets sont automatiques et ne peuvent pas être modifiés.',
+    automaticFieldsInlineTitle: 'Détails automatiques inclus',
+    automaticFieldsInlineText: 'Ces détails seront toujours envoyés dans l\'e-mail. Utilisez le bouton ci-dessous si vous voulez en ajouter un ou en retirer un clairement.',
+    previewTitle: 'Aperçu client',
+    previewText: 'Aperçu avec des exemples de client et de facture.',
     smartFieldLabels: {
       clientName: 'Nom du client',
       companyName: 'Nom de l\'entreprise',
@@ -216,9 +253,103 @@ function isSectionKey(value: string | null): value is SectionKey {
 }
 
 function replaceTemplateVariables(template: string): string {
-  return template.replace(/\{\{(\w+)\}\}/g, (_full, variable: string) => {
+  return template.replace(TEMPLATE_VARIABLE_PATTERN, (_full, variable: string) => {
     return TEMPLATE_SAMPLE_VARIABLES[variable] ?? '';
   });
+}
+
+function extractTemplateVariablesInOrder(template: string): string[] {
+  return Array.from(template.matchAll(TEMPLATE_VARIABLE_PATTERN), ([, variable]) => variable);
+}
+
+function buildLockedMarker(variable: string, labels: Record<string, string>): string {
+  return `[${labels[variable] ?? variable}]`;
+}
+
+function toEditableTemplate(template: string, labels: Record<string, string>): string {
+  return template.replace(TEMPLATE_VARIABLE_PATTERN, (_full, variable: string) => buildLockedMarker(variable, labels));
+}
+
+function countOccurrences(value: string, fragment: string): number {
+  if (!fragment) {
+    return 0;
+  }
+
+  let count = 0;
+  let cursor = 0;
+
+  while (cursor <= value.length) {
+    const index = value.indexOf(fragment, cursor);
+    if (index === -1) {
+      break;
+    }
+
+    count += 1;
+    cursor = index + fragment.length;
+  }
+
+  return count;
+}
+
+function rebuildTemplateFromEditable(
+  editableValue: string,
+  originalTemplate: string,
+  labels: Record<string, string>
+): string {
+  const variables = extractTemplateVariablesInOrder(originalTemplate);
+  if (variables.length === 0) {
+    return editableValue;
+  }
+
+  let remainder = editableValue;
+  let rebuilt = '';
+
+  for (const variable of variables) {
+    const marker = buildLockedMarker(variable, labels);
+    const markerIndex = remainder.indexOf(marker);
+
+    if (markerIndex === -1) {
+      return originalTemplate;
+    }
+
+    rebuilt += remainder.slice(0, markerIndex);
+    rebuilt += `{{${variable}}}`;
+    remainder = remainder.slice(markerIndex + marker.length);
+  }
+
+  return rebuilt + remainder;
+}
+
+function hasVariableToken(template: string, variable: string): boolean {
+  return template.includes(`{{${variable}}}`);
+}
+
+function addVariableToken(template: string, variable: string, field: 'subject' | 'body'): string {
+  const token = `{{${variable}}}`;
+  if (template.includes(token)) {
+    return template;
+  }
+
+  if (!template.trim()) {
+    return token;
+  }
+
+  if (field === 'subject') {
+    return `${template.trimEnd()} ${token}`;
+  }
+
+  return `${template.replace(/\s+$/u, '')}\n${token}`;
+}
+
+function removeVariableToken(template: string, variable: string, field: 'subject' | 'body'): string {
+  const token = `{{${variable}}}`;
+  const withoutToken = template.replaceAll(token, '');
+
+  if (field === 'subject') {
+    return withoutToken.replace(/\s{2,}/g, ' ').trim();
+  }
+
+  return withoutToken.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
 }
 
 function normalizeSettings(input?: Partial<ReminderSettingsData>): ReminderSettingsData {
@@ -370,7 +501,12 @@ function SettingsSectionCard({
   );
 }
 
-export default function ReminderSettingsPage() {
+interface ReminderSettingsPageProps {
+  embedded?: boolean;
+  lockedSection?: SectionKey;
+}
+
+export default function ReminderSettingsPage({ embedded = false, lockedSection }: ReminderSettingsPageProps = {}) {
   const searchParams = useSearchParams();
   const { locale } = useLocale();
   const { user, loading: authLoading } = useAuthMe();
@@ -414,11 +550,16 @@ export default function ReminderSettingsPage() {
   }, [settings]);
 
   useEffect(() => {
+    if (lockedSection) {
+      setActiveSection(lockedSection);
+      return;
+    }
+
     const sectionParam = searchParams.get('section');
     if (isSectionKey(sectionParam)) {
       setActiveSection(sectionParam);
     }
-  }, [searchParams]);
+  }, [lockedSection, searchParams]);
 
   const timingInvalid = useMemo(() => !hasValidOffsets(draft.offsets), [draft.offsets]);
 
@@ -569,47 +710,113 @@ export default function ReminderSettingsPage() {
 
   const activeTemplateLocale = templateTabs[activeTemplateLevel];
   const activeTemplate = draft.templates[activeTemplateLocale][activeTemplateLevel];
+  const editableSubject = toEditableTemplate(activeTemplate.subject, pageChrome.smartFieldLabels);
+  const editableBody = toEditableTemplate(activeTemplate.body, pageChrome.smartFieldLabels);
+  const activeTemplateVariables = Array.from(
+    new Set([
+      ...extractTemplateVariablesInOrder(activeTemplate.subject),
+      ...extractTemplateVariablesInOrder(activeTemplate.body),
+    ])
+  );
+
+  function handleTemplateFieldChange(field: 'subject' | 'body', nextValue: string) {
+    const originalValue = draft.templates[activeTemplateLocale][activeTemplateLevel][field];
+    const currentDisplayValue = toEditableTemplate(originalValue, pageChrome.smartFieldLabels);
+    const markers = extractTemplateVariablesInOrder(originalValue).map((variable) => buildLockedMarker(variable, pageChrome.smartFieldLabels));
+
+    const markerCountsAreStable = Array.from(new Set(markers)).every(
+      (marker) => countOccurrences(nextValue, marker) === countOccurrences(currentDisplayValue, marker)
+    );
+
+    if (!markerCountsAreStable) {
+      return;
+    }
+
+    const rebuiltValue = rebuildTemplateFromEditable(nextValue, originalValue, pageChrome.smartFieldLabels);
+
+    setDraft((prev) => ({
+      ...prev,
+      templates: {
+        ...prev.templates,
+        [activeTemplateLocale]: {
+          ...prev.templates[activeTemplateLocale],
+          [activeTemplateLevel]: {
+            ...prev.templates[activeTemplateLocale][activeTemplateLevel],
+            [field]: rebuiltValue,
+          },
+        },
+      },
+    }));
+  }
+
+  function handleVariableAction(field: 'subject' | 'body', variable: string, action: 'add' | 'remove') {
+    setDraft((prev) => {
+      const currentValue = prev.templates[activeTemplateLocale][activeTemplateLevel][field];
+      const nextValue =
+        action === 'add'
+          ? addVariableToken(currentValue, variable, field)
+          : removeVariableToken(currentValue, variable, field);
+
+      return {
+        ...prev,
+        templates: {
+          ...prev.templates,
+          [activeTemplateLocale]: {
+            ...prev.templates[activeTemplateLocale],
+            [activeTemplateLevel]: {
+              ...prev.templates[activeTemplateLocale][activeTemplateLevel],
+              [field]: nextValue,
+            },
+          },
+        },
+      };
+    });
+  }
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      <div className="space-y-1">
-        <h2 className="font-heading text-xl font-semibold tracking-tight">{t('reminders.settings.title')}</h2>
-        <p className="text-sm text-muted-foreground">{t('reminders.settings.description')}</p>
-      </div>
-
-      <div className="space-y-3 rounded-3xl border border-border/70 bg-linear-to-br from-background via-background to-muted/30 p-4 shadow-sm sm:p-5">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">{pageChrome.chooseSection}</p>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <SectionPickerButton
-            active={activeSection === 'timing'}
-            title={pageChrome.sections.timing}
-            description={pageChrome.timingSummary}
-            icon={<BellIcon className="size-4" />}
-            onClick={() => setActiveSection('timing')}
-          />
-          <SectionPickerButton
-            active={activeSection === 'templates'}
-            title={pageChrome.sections.templates}
-            description={pageChrome.templatesSummary}
-            icon={<MailIcon className="size-4" />}
-            onClick={() => setActiveSection('templates')}
-          />
-          <SectionPickerButton
-            active={activeSection === 'lateFees'}
-            title={pageChrome.sections.lateFees}
-            description={pageChrome.lateFeesSummary}
-            icon={<AlertTriangleIcon className="size-4" />}
-            onClick={() => setActiveSection('lateFees')}
-          />
-          <SectionPickerButton
-            active={activeSection === 'legalNotice'}
-            title={pageChrome.sections.legalNotice}
-            description={pageChrome.legalNoticeSummary}
-            icon={<FileTextIcon className="size-4" />}
-            onClick={() => setActiveSection('legalNotice')}
-          />
+      {!embedded ? (
+        <div className="space-y-1">
+          <h2 className="font-heading text-xl font-semibold tracking-tight">{t('reminders.settings.title')}</h2>
+          <p className="text-sm text-muted-foreground">{t('reminders.settings.description')}</p>
         </div>
-      </div>
+      ) : null}
+
+      {!lockedSection ? (
+        <div className="space-y-3 rounded-3xl border border-border/70 bg-linear-to-br from-background via-background to-muted/30 p-4 shadow-sm sm:p-5">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">{pageChrome.chooseSection}</p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <SectionPickerButton
+              active={activeSection === 'timing'}
+              title={pageChrome.sections.timing}
+              description={pageChrome.timingSummary}
+              icon={<BellIcon className="size-4" />}
+              onClick={() => setActiveSection('timing')}
+            />
+            <SectionPickerButton
+              active={activeSection === 'templates'}
+              title={pageChrome.sections.templates}
+              description={pageChrome.templatesSummary}
+              icon={<MailIcon className="size-4" />}
+              onClick={() => setActiveSection('templates')}
+            />
+            <SectionPickerButton
+              active={activeSection === 'lateFees'}
+              title={pageChrome.sections.lateFees}
+              description={pageChrome.lateFeesSummary}
+              icon={<AlertTriangleIcon className="size-4" />}
+              onClick={() => setActiveSection('lateFees')}
+            />
+            <SectionPickerButton
+              active={activeSection === 'legalNotice'}
+              title={pageChrome.sections.legalNotice}
+              description={pageChrome.legalNoticeSummary}
+              icon={<FileTextIcon className="size-4" />}
+              onClick={() => setActiveSection('legalNotice')}
+            />
+          </div>
+        </div>
+      ) : null}
 
       {activeSection === 'timing' ? (
         <SettingsSectionCard
@@ -687,160 +894,215 @@ export default function ReminderSettingsPage() {
           description={t('reminders.settings.templatesSectionDescription')}
           icon={<MailIcon className="size-5" />}
         >
-          <div className="space-y-4 rounded-2xl border border-border/70 bg-muted/15 p-4">
-            <div className="space-y-1">
-              <p className="text-sm font-medium">{pageChrome.templateIntroTitle}</p>
-              <p className="text-sm text-muted-foreground">{pageChrome.templateIntroText}</p>
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(18rem,0.8fr)]">
+            <div className="space-y-4">
+              <div className="space-y-4 rounded-2xl border border-border/70 bg-muted/15 p-4 sm:p-5">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">{pageChrome.templateIntroTitle}</p>
+                  <p className="text-sm text-muted-foreground">{pageChrome.templateIntroText}</p>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>{pageChrome.templateLevelLabel}</Label>
+                    <Select value={activeTemplateLevel} onValueChange={(value) => setActiveTemplateLevel((LEVELS.includes(value as ReminderLevel) ? value : 'soft') as ReminderLevel)}>
+                      <SelectTrigger className="h-11 w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {LEVELS.map((level) => (
+                          <SelectItem key={level} value={level}>
+                            {t(`reminders.levels.${level}`)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">{pageChrome.templateLevelHelp}</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>{pageChrome.templateLocaleLabel}</Label>
+                    <Select
+                      value={activeTemplateLocale}
+                      onValueChange={(value) => {
+                        const nextLocale: ReminderLocale = value === 'fr' ? 'fr' : 'en';
+                        setTemplateTabs((prev) => ({ ...prev, [activeTemplateLevel]: nextLocale }));
+                      }}
+                    >
+                      <SelectTrigger className="h-11 w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="en">{t('reminders.settings.templates.tab.en')}</SelectItem>
+                        <SelectItem value="fr">{t('reminders.settings.templates.tab.fr')}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2 rounded-2xl border border-border/70 bg-background p-4 sm:p-5">
+                <Label htmlFor="template-subject">{t('reminders.settings.templates.subject')}</Label>
+                <Input
+                  id="template-subject"
+                  value={editableSubject}
+                  onChange={(event) => handleTemplateFieldChange('subject', event.target.value)}
+                  placeholder={t('reminders.settings.templates.subjectPlaceholder')}
+                />
+                <p className="text-xs text-muted-foreground">{pageChrome.templateFieldHelp}</p>
+              </div>
+
+              <div className="space-y-2 rounded-2xl border border-border/70 bg-background p-4 sm:p-5">
+                <Label htmlFor="template-body">{t('reminders.settings.templates.body')}</Label>
+                <Textarea
+                  id="template-body"
+                  rows={12}
+                  value={editableBody}
+                  onChange={(event) => handleTemplateFieldChange('body', event.target.value)}
+                  placeholder={t('reminders.settings.templates.bodyPlaceholder')}
+                />
+                <p className="text-xs text-muted-foreground">{pageChrome.templateFieldHelp}</p>
+              </div>
             </div>
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button type="button" variant="outline" className="w-full sm:w-auto">
-                  {pageChrome.smartFieldsButton}
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>{pageChrome.smartFieldsTitle}</DialogTitle>
-                  <DialogDescription>{pageChrome.smartFieldsDescription}</DialogDescription>
-                </DialogHeader>
-                <div className="grid grid-cols-1 gap-2">
-                  {Object.entries(TEMPLATE_SAMPLE_VARIABLES).map(([name, value]) => (
-                    <div key={name} className="rounded-xl border border-border/70 p-3">
-                      <p className="text-sm font-medium">{pageChrome.smartFieldLabels[name as keyof typeof pageChrome.smartFieldLabels]}</p>
-                      <p className="text-xs text-muted-foreground">{`{{${name}}}`}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">{value}</p>
-                    </div>
+
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-border/70 bg-muted/15 p-4 sm:p-5">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">{pageChrome.automaticFieldsInlineTitle}</p>
+                    <p className="text-sm text-muted-foreground">{pageChrome.automaticFieldsInlineText}</p>
+                  </div>
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button type="button" variant="outline" className="w-full sm:w-auto">
+                        {pageChrome.smartFieldsButton}
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>{pageChrome.smartFieldsTitle}</DialogTitle>
+                        <DialogDescription>{pageChrome.smartFieldsDescription}</DialogDescription>
+                      </DialogHeader>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div className="rounded-xl border border-border/70 bg-muted/15 p-3">
+                          <p className="text-sm font-medium">{pageChrome.smartFieldsAddHelpTitle}</p>
+                          <p className="mt-1 text-xs leading-5 text-muted-foreground">{pageChrome.smartFieldsAddHelpText}</p>
+                        </div>
+                        <div className="rounded-xl border border-border/70 bg-muted/15 p-3">
+                          <p className="text-sm font-medium">{pageChrome.smartFieldsRemoveHelpTitle}</p>
+                          <p className="mt-1 text-xs leading-5 text-muted-foreground">{pageChrome.smartFieldsRemoveHelpText}</p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        {Object.entries(TEMPLATE_SAMPLE_VARIABLES).map(([name, value]) => (
+                          <div key={name} className="rounded-xl border border-border/70 p-3">
+                            <p className="text-sm font-medium">{pageChrome.smartFieldLabels[name as keyof typeof pageChrome.smartFieldLabels]}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">{value}</p>
+                            <div className="mt-3 grid grid-cols-1 gap-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className="w-full justify-between"
+                                onClick={() => handleVariableAction('subject', name, 'add')}
+                                disabled={hasVariableToken(activeTemplate.subject, name)}
+                              >
+                                <span>{pageChrome.addToSubject}</span>
+                                <span className="text-xs text-muted-foreground">
+                                  {hasVariableToken(activeTemplate.subject, name) ? pageChrome.alreadyInSubject : pageChrome.notInSubject}
+                                </span>
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className="w-full justify-between"
+                                onClick={() => handleVariableAction('body', name, 'add')}
+                                disabled={hasVariableToken(activeTemplate.body, name)}
+                              >
+                                <span>{pageChrome.addToBody}</span>
+                                <span className="text-xs text-muted-foreground">
+                                  {hasVariableToken(activeTemplate.body, name) ? pageChrome.alreadyInBody : pageChrome.notInBody}
+                                </span>
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                className="w-full justify-between"
+                                onClick={() => handleVariableAction('subject', name, 'remove')}
+                                disabled={!hasVariableToken(activeTemplate.subject, name)}
+                              >
+                                <span>{pageChrome.removeFromSubject}</span>
+                                <span className="text-xs text-muted-foreground">
+                                  {hasVariableToken(activeTemplate.subject, name) ? pageChrome.alreadyInSubject : pageChrome.notInSubject}
+                                </span>
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                className="w-full justify-between"
+                                onClick={() => handleVariableAction('body', name, 'remove')}
+                                disabled={!hasVariableToken(activeTemplate.body, name)}
+                              >
+                                <span>{pageChrome.removeFromBody}</span>
+                                <span className="text-xs text-muted-foreground">
+                                  {hasVariableToken(activeTemplate.body, name) ? pageChrome.alreadyInBody : pageChrome.notInBody}
+                                </span>
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {activeTemplateVariables.map((variable) => (
+                    <Badge key={variable} variant="outline" className="rounded-full px-3 py-1 text-xs">
+                      {pageChrome.smartFieldLabels[variable as keyof typeof pageChrome.smartFieldLabels] ?? variable}
+                    </Badge>
                   ))}
                 </div>
-              </DialogContent>
-            </Dialog>
-          </div>
+              </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>{pageChrome.templateLevelLabel}</Label>
-              <Select value={activeTemplateLevel} onValueChange={(value) => setActiveTemplateLevel((LEVELS.includes(value as ReminderLevel) ? value : 'soft') as ReminderLevel)}>
-                <SelectTrigger className="h-11 w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {LEVELS.map((level) => (
-                    <SelectItem key={level} value={level}>
-                      {t(`reminders.levels.${level}`)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">{pageChrome.templateLevelHelp}</p>
+              <div className="rounded-2xl border border-border/70 bg-background p-4 sm:p-5">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">{pageChrome.previewTitle}</p>
+                  <p className="text-sm text-muted-foreground">{pageChrome.previewText}</p>
+                </div>
+                <div className="mt-4 space-y-2 text-sm">
+                  <p>
+                    <span className="font-medium">{t('reminders.settings.templates.subject')}:</span>{' '}
+                    {replaceTemplateVariables(activeTemplate.subject)}
+                  </p>
+                  <p className="font-medium">{t('reminders.settings.templates.body')}:</p>
+                  <p className="whitespace-pre-wrap rounded-xl border border-border/70 bg-muted/15 p-3 text-sm">
+                    {replaceTemplateVariables(activeTemplate.body)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3 rounded-2xl border border-border/70 bg-background p-4 sm:p-5">
+                <Button
+                  type="button"
+                  className="w-full"
+                  onClick={() => void handleSaveTemplate(activeTemplateLevel)}
+                  disabled={templateSaving[activeTemplateLevel]}
+                >
+                  {templateSaving[activeTemplateLevel] ? <Loader2Icon className="size-4 animate-spin" /> : null}
+                  {templateSaving[activeTemplateLevel] ? t('reminders.settings.common.saving') : t('reminders.settings.templates.saveButton')}
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => void handleResetTemplates(activeTemplateLevel)}
+                  disabled={templateResetting[activeTemplateLevel]}
+                >
+                  {templateResetting[activeTemplateLevel] ? t('reminders.settings.common.resetting') : t('reminders.settings.templates.resetButton')}
+                </Button>
+              </div>
             </div>
-
-            <div className="space-y-2">
-              <Label>{pageChrome.templateLocaleLabel}</Label>
-              <Select
-                value={activeTemplateLocale}
-                onValueChange={(value) => {
-                  const nextLocale: ReminderLocale = value === 'fr' ? 'fr' : 'en';
-                  setTemplateTabs((prev) => ({ ...prev, [activeTemplateLevel]: nextLocale }));
-                }}
-              >
-                <SelectTrigger className="h-11 w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="en">{t('reminders.settings.templates.tab.en')}</SelectItem>
-                  <SelectItem value="fr">{t('reminders.settings.templates.tab.fr')}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="template-subject">{t('reminders.settings.templates.subject')}</Label>
-            <Input
-              id="template-subject"
-              value={draft.templates[activeTemplateLocale][activeTemplateLevel].subject}
-              onChange={(event) => {
-                const nextValue = event.target.value;
-                setDraft((prev) => ({
-                  ...prev,
-                  templates: {
-                    ...prev.templates,
-                    [activeTemplateLocale]: {
-                      ...prev.templates[activeTemplateLocale],
-                      [activeTemplateLevel]: {
-                        ...prev.templates[activeTemplateLocale][activeTemplateLevel],
-                        subject: nextValue,
-                      },
-                    },
-                  },
-                }));
-              }}
-              placeholder={t('reminders.settings.templates.subjectPlaceholder')}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="template-body">{t('reminders.settings.templates.body')}</Label>
-            <Textarea
-              id="template-body"
-              rows={12}
-              value={draft.templates[activeTemplateLocale][activeTemplateLevel].body}
-              onChange={(event) => {
-                const nextValue = event.target.value;
-                setDraft((prev) => ({
-                  ...prev,
-                  templates: {
-                    ...prev.templates,
-                    [activeTemplateLocale]: {
-                      ...prev.templates[activeTemplateLocale],
-                      [activeTemplateLevel]: {
-                        ...prev.templates[activeTemplateLocale][activeTemplateLevel],
-                        body: nextValue,
-                      },
-                    },
-                  },
-                }));
-              }}
-              placeholder={t('reminders.settings.templates.bodyPlaceholder')}
-            />
-          </div>
-
-          <div className="rounded-2xl border border-border/70 bg-muted/15 p-4">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              {t('reminders.settings.templates.preview')}
-            </p>
-            <div className="mt-3 space-y-2 text-sm">
-              <p>
-                <span className="font-medium">{t('reminders.settings.templates.subject')}:</span>{' '}
-                {replaceTemplateVariables(activeTemplate.subject)}
-              </p>
-              <p className="font-medium">{t('reminders.settings.templates.body')}:</p>
-              <p className="whitespace-pre-wrap rounded-xl border border-border/70 bg-background p-3 text-sm">
-                {replaceTemplateVariables(activeTemplate.body)}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-            <Button
-              type="button"
-              className="w-full sm:w-auto"
-              onClick={() => void handleSaveTemplate(activeTemplateLevel)}
-              disabled={templateSaving[activeTemplateLevel]}
-            >
-              {templateSaving[activeTemplateLevel] ? <Loader2Icon className="size-4 animate-spin" /> : null}
-              {templateSaving[activeTemplateLevel] ? t('reminders.settings.common.saving') : t('reminders.settings.templates.saveButton')}
-            </Button>
-
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full sm:w-auto"
-              onClick={() => void handleResetTemplates(activeTemplateLevel)}
-              disabled={templateResetting[activeTemplateLevel]}
-            >
-              {templateResetting[activeTemplateLevel] ? t('reminders.settings.common.resetting') : t('reminders.settings.templates.resetButton')}
-            </Button>
           </div>
         </SettingsSectionCard>
       ) : null}

@@ -283,9 +283,9 @@ const messages = {
           french: 'French',
           help: 'Pick a fixed language for reminders, or auto to follow current request/profile locale.',
         },
-        templatesSectionDescription: 'Edit reminder subjects and body content in both English and French.',
+        templatesSectionDescription: 'Adjust the email your customer receives for each reminder step.',
         templates: {
-          cardDescription: 'Each template supports variables like {{clientName}} and {{invoiceNumber}}.',
+          cardDescription: 'Customer and invoice details are added automatically when the email is sent.',
           tab: {
             en: 'EN',
             fr: 'FR',
@@ -724,9 +724,9 @@ const messages = {
           french: 'Français',
           help: 'Choisissez une langue fixe pour les relances, ou auto pour suivre la langue de la requête/profil.',
         },
-        templatesSectionDescription: 'Modifiez les sujets et contenus des relances en anglais et en français.',
+        templatesSectionDescription: 'Ajustez l\'e-mail que votre client reçoit pour chaque étape de relance.',
         templates: {
-          cardDescription: 'Chaque modèle supporte des variables comme {{clientName}} et {{invoiceNumber}}.',
+          cardDescription: 'Les détails client et facture sont ajoutés automatiquement lors de l\'envoi.',
           tab: {
             en: 'EN',
             fr: 'FR',

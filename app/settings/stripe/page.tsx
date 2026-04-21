@@ -19,7 +19,11 @@ type StripeConnectStatus = {
   onboardingComplete: boolean;
 };
 
-export default function StripeSettingsPage() {
+interface StripeSettingsPageProps {
+  embedded?: boolean;
+}
+
+export default function StripeSettingsPage({ embedded = false }: StripeSettingsPageProps = {}) {
   const { locale } = useLocale();
   const [status, setStatus] = useState<StripeConnectStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -210,11 +214,13 @@ export default function StripeSettingsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <Button asChild variant="ghost" className="h-10">
-          <Link href="/profile">{t.backToProfile}</Link>
-        </Button>
-      </div>
+      {!embedded ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <Button asChild variant="ghost" className="h-10">
+            <Link href="/profile">{t.backToProfile}</Link>
+          </Button>
+        </div>
+      ) : null}
 
       <Card className="overflow-hidden border-primary/20 bg-linear-to-br from-primary/5 via-background to-background">
         <CardContent className="pt-6">
