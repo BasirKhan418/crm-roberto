@@ -550,6 +550,7 @@ function QuotesPageContent() {
         count: kpiData.all.count,
         amount: kpiData.all.totalTTC,
         variant: 'default',
+        icon: 'file-text',
         active: status === 'all',
         onClick: () => setStatus('all'),
       },
@@ -558,7 +559,8 @@ function QuotesPageContent() {
         label: t.kpiAccepted,
         count: kpiData.accepted.count,
         amount: kpiData.accepted.totalTTC,
-        variant: 'green',
+        variant: 'green-bold',
+        icon: 'thumbs-up',
         active: status === 'accepted',
         onClick: () => setStatus('accepted'),
       },
@@ -567,7 +569,8 @@ function QuotesPageContent() {
         label: t.kpiPending,
         count: kpiData.pending.count,
         amount: kpiData.pending.totalTTC,
-        variant: 'orange',
+        variant: 'orange-bold',
+        icon: 'clock',
         active: status === 'pending',
         onClick: () => setStatus('pending'),
       },
@@ -576,7 +579,8 @@ function QuotesPageContent() {
         label: t.kpiRejected,
         count: kpiData.rejected.count,
         amount: kpiData.rejected.totalTTC,
-        variant: 'red',
+        variant: 'red-bold',
+        icon: 'thumbs-down',
         active: status === 'rejected',
         onClick: () => setStatus('rejected'),
       },
@@ -586,9 +590,9 @@ function QuotesPageContent() {
   const quoteKpiTotalsCards = useMemo<KpiCard[]>(() => {
     if (!kpiData) return [];
     return [
-      { key: 'kpi-ttc', label: t.kpiTotalTTC, amount: kpiData.totals.totalTTC, variant: 'default' },
-      { key: 'kpi-ht', label: t.kpiTotalHT, amount: kpiData.totals.totalHT, variant: 'default' },
-      { key: 'kpi-vat', label: t.kpiTotalVAT, amount: kpiData.totals.totalVat, variant: 'default' },
+      { key: 'kpi-ttc', label: t.kpiTotalTTC, amount: kpiData.totals.totalTTC, variant: 'default' as const, icon: 'dollar' as const },
+      { key: 'kpi-ht', label: t.kpiTotalHT, amount: kpiData.totals.totalHT, variant: 'default' as const, icon: 'bar-chart' as const },
+      { key: 'kpi-vat', label: t.kpiTotalVAT, amount: kpiData.totals.totalVat, variant: 'default' as const },
     ];
   }, [kpiData, t.kpiTotalHT, t.kpiTotalTTC, t.kpiTotalVAT]);
 
