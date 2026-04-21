@@ -430,7 +430,7 @@ export const getLastQuoteNumber = async (userId: string): Promise<string | null>
 export const listQuotes = async (
   userId: string,
   options: {
-    status?: QuoteStatus;
+    status?: QuoteStatus | 'pending';
     search?: string;
     sort?: 'date' | 'amount';
     page?: number;
@@ -448,7 +448,9 @@ export const listQuotes = async (
 
   if (options.status) {
     query.status =
-      options.status === 'rejected'
+      options.status === 'pending'
+        ? { $in: ['draft', 'sent'] }
+        : options.status === 'rejected'
         ? { $in: ['rejected', 'refused'] }
         : options.status;
   }

@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
     const limit = Number.isFinite(limitParam) ? Math.max(1, Math.min(100, limitParam)) : 10;
 
     const result = await listQuotes(me.user.id, {
-      status,
+      status: statusParam === 'pending' ? 'pending' : status,
       search: searchParam,
       sort,
       page,

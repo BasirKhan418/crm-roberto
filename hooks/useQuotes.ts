@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import type { QuoteListItem } from '@/components/quotes/QuoteTable';
 
-export type QuoteStatusFilter = 'all' | 'draft' | 'sent' | 'accepted' | 'rejected';
+export type QuoteStatusFilter = 'all' | 'pending' | 'draft' | 'sent' | 'accepted' | 'rejected';
 export type QuoteSort = 'date' | 'amount';
 
 interface QuotesApiResponse {

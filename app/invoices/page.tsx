@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import InvoiceTable, { type InvoiceTableColumnKey } from '@/components/invoices/InvoiceTable';
 import SendInvoiceModal from '@/components/invoices/SendInvoiceModal';
 import CrmShell from '@/components/crm-shell';
+import KpiCards, { type KpiCard } from '@/components/ui/KpiCards';
 import { useLocale } from '@/components/providers/locale-provider';
 import { formatInvoiceDisplayNumber } from '@/lib/i18n/messages';
 import {
@@ -148,6 +149,13 @@ function InvoicesPageContent() {
       bulkExport: 'Export selected',
       bulkDone: 'Reminders sent',
       bulkPartial: (success: number, failed: number) => `${success} succeeded, ${failed} failed`,
+      kpiUnpaid: 'Unpaid',
+      kpiPaid: 'Paid',
+      kpiOverdue: 'Overdue',
+      kpiAll: 'Total issued',
+      kpiTotalTTC: 'Total TTC',
+      kpiTotalHT: 'Total HT',
+      kpiTotalVAT: 'Total VAT',
     },
     fr: {
       shellTitle: 'Factures',
@@ -241,6 +249,13 @@ function InvoicesPageContent() {
       bulkExport: 'Exporter la sélection',
       bulkDone: 'Relances envoyées',
       bulkPartial: (success: number, failed: number) => `${success} réussie(s), ${failed} échec(s)`,
+      kpiUnpaid: 'Impayées',
+      kpiPaid: 'Payées',
+      kpiOverdue: 'En retard',
+      kpiAll: 'Total émis',
+      kpiTotalTTC: 'Total TTC',
+      kpiTotalHT: 'Total HT',
+      kpiTotalVAT: 'Total TVA',
     },
   }[locale];
 
@@ -271,6 +286,45 @@ function InvoicesPageContent() {
   const { allCount, unpaidCount, partialPaidCount, paidCount, overdueCount } = useInvoicesActionCount(
     pagination.total + invoices.length + Number(loading)
   );
+
+  // ── KPI data ──────────────────────────────────────────────────────────────
+  const [kpiData, setKpiData] = useState<{
+    all: { count: number; totalTTC: number };
+    unpaid: { count: number; totalTTC: number };
+    paid: { count: number; totalTTC: number };
+    overdue: { count: number; totalTTC: number };
+    totals: { totalHT: number; totalVat: number; totalTTC: number };
+  } | null>(null);
+  const [kpiLoading, setKpiLoading] = useState(true);
+
+  const invoiceKpiRefreshKey = useMemo(
+    () =>
+      `${pagination.total}:${loading ? '1' : '0'}:${invoices
+        .map((invoice) => `${invoice._id}:${invoice.status}:${invoice.totalIncludingTax}:${invoice.amountPaid ?? 0}:${invoice.remainingAmount ?? 0}`)
+        .join('|')}`,
+    [invoices, loading, pagination.total]
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchKpis() {
+      setKpiLoading(true);
+      try {
+        const res = await fetch('/api/invoices/kpis', { cache: 'no-store' });
+        if (!res.ok || cancelled) return;
+        const payload = await res.json() as { success?: boolean; data?: typeof kpiData };
+        if (!cancelled && payload.success && payload.data) {
+          setKpiData(payload.data);
+        }
+      } catch {
+        // Silently ignore
+      } finally {
+        if (!cancelled) setKpiLoading(false);
+      }
+    }
+    void fetchKpis();
+    return () => { cancelled = true; };
+  }, [invoiceKpiRefreshKey]);
 
   useEffect(() => {
     try {
@@ -498,6 +552,72 @@ function InvoicesPageContent() {
     [invoices, selectedInvoiceIds]
   );
 
+  const invoiceKpiCards = useMemo<KpiCard[]>(() => {
+    if (!kpiData) return [];
+    return [
+      {
+        key: 'kpi-unpaid',
+        label: t.kpiUnpaid,
+        count: kpiData.unpaid.count,
+        amount: kpiData.unpaid.totalTTC,
+        variant: 'red',
+        active: status === 'unpaid',
+        onClick: () => setStatus('unpaid'),
+      },
+      {
+        key: 'kpi-all',
+        label: t.kpiAll,
+        count: kpiData.all.count,
+        amount: kpiData.all.totalTTC,
+        variant: 'slate',
+        active: status === 'all',
+        onClick: () => setStatus('all'),
+      },
+      {
+        key: 'kpi-paid',
+        label: t.kpiPaid,
+        count: kpiData.paid.count,
+        amount: kpiData.paid.totalTTC,
+        variant: 'green',
+        active: status === 'paid',
+        onClick: () => setStatus('paid'),
+      },
+      {
+        key: 'kpi-overdue',
+        label: t.kpiOverdue,
+        count: kpiData.overdue.count,
+        amount: kpiData.overdue.totalTTC,
+        variant: 'red',
+        active: status === 'overdue',
+        onClick: () => setStatus('overdue'),
+      },
+    ];
+  }, [kpiData, status, t.kpiAll, t.kpiOverdue, t.kpiPaid, t.kpiUnpaid]);
+
+  const invoiceKpiTotalsCards = useMemo<KpiCard[]>(() => {
+    if (!kpiData) return [];
+    return [
+      {
+        key: 'kpi-ttc',
+        label: t.kpiTotalTTC,
+        amount: kpiData.totals.totalTTC,
+        variant: 'default',
+      },
+      {
+        key: 'kpi-ht',
+        label: t.kpiTotalHT,
+        amount: kpiData.totals.totalHT,
+        variant: 'default',
+      },
+      {
+        key: 'kpi-vat',
+        label: t.kpiTotalVAT,
+        amount: kpiData.totals.totalVat,
+        variant: 'default',
+      },
+    ];
+  }, [kpiData, t.kpiTotalHT, t.kpiTotalTTC, t.kpiTotalVAT]);
+
   function getNextReminderLevel(level: number | null | undefined): 1 | 2 | 3 {
     const normalized = Number.isFinite(level) ? Math.max(0, Math.min(4, Math.round(Number(level)))) : 0;
 
@@ -581,6 +701,12 @@ function InvoicesPageContent() {
               {t.newInvoice}
             </Link>
           </Button>
+        </div>
+
+        {/* ── KPI cards row 1: per-status ───────────────────────────────────── */}
+        <div className="space-y-3">
+          <KpiCards cards={invoiceKpiCards} locale={locale as 'en' | 'fr'} loading={kpiLoading} />
+          {!kpiLoading && invoiceKpiTotalsCards.length > 0 ? <KpiCards cards={invoiceKpiTotalsCards} locale={locale as 'en' | 'fr'} /> : null}
         </div>
 
         <div data-tour-invoices-filters className="space-y-3 rounded-xl border border-border/70 bg-card/40 p-3 sm:p-4">
