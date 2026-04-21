@@ -4,19 +4,24 @@ import type { ReactNode } from 'react';
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BellIcon, CreditCardIcon } from 'lucide-react';
+import { BellIcon, CreditCardIcon, LayoutGridIcon } from 'lucide-react';
 
 import CrmShell from '@/components/crm-shell';
 import { useLocale } from '@/components/providers/locale-provider';
 import { cn } from '@/lib/utils';
 
 type SettingsNavItem = {
-  key: 'reminders' | 'stripe';
+  key: 'overview' | 'reminders' | 'stripe';
   href: string;
   icon: ReactNode;
 };
 
 const settingsNavItems: SettingsNavItem[] = [
+  {
+    key: 'overview',
+    href: '/settings',
+    icon: <LayoutGridIcon className="size-4" />,
+  },
   {
     key: 'reminders',
     href: '/settings/reminders',
@@ -33,19 +38,21 @@ const settingsMessages = {
   en: {
     shellTitle: 'Settings',
     heading: 'Settings',
-    subtitle: 'Configure reminders, payments, and workspace behavior.',
+    subtitle: 'Organize payments, reminders, templates, and recurring invoice workflows in one place.',
     nav: {
+      overview: 'Overview',
       reminders: 'Reminders',
-      stripe: 'Stripe',
+      stripe: 'Payments',
     },
   },
   fr: {
     shellTitle: 'Paramètres',
     heading: 'Paramètres',
-    subtitle: 'Configurez les relances, les paiements et le comportement de l\'espace de travail.',
+    subtitle: 'Organisez les paiements, les relances, les modèles et les flux de facturation récurrente au même endroit.',
     nav: {
+      overview: 'Vue d\'ensemble',
       reminders: 'Relances',
-      stripe: 'Stripe',
+      stripe: 'Paiements',
     },
   },
 } as const;
@@ -65,7 +72,10 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
 
         <nav className="flex flex-wrap items-center gap-2" aria-label={t.heading}>
           {settingsNavItems.map((item) => {
-            const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+            const isActive =
+              item.href === '/settings'
+                ? pathname === '/settings'
+                : pathname === item.href || pathname.startsWith(`${item.href}/`);
             return (
               <Link
                 key={item.key}

@@ -1,21 +1,23 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 
 import useSWR from 'swr';
-import { ChevronDownIcon, Loader2Icon } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
+import { AlertTriangleIcon, BellIcon, FileTextIcon, Loader2Icon, MailIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { useLocale } from '@/components/providers/locale-provider';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuthMe } from '@/hooks/useAuthMe';
 import { resolveTranslatedError, translate } from '@/lib/i18n/messages';
@@ -25,6 +27,7 @@ type ReminderLevel = 'soft' | 'medium' | 'firm' | 'formalNotice';
 type ReminderLocale = 'en' | 'fr';
 type LateFeeType = 'fixed' | 'percentage';
 type LateFeeApplyFrom = 'medium' | 'firm' | 'formalNotice';
+type SectionKey = 'timing' | 'templates' | 'lateFees' | 'legalNotice';
 
 interface ReminderTemplateContent {
   subject: string;
@@ -63,8 +66,6 @@ interface ReminderSettingsApiResponse {
   message?: string;
   data?: Partial<ReminderSettingsData>;
 }
-
-type SectionKey = 'timing' | 'templates' | 'lateFees' | 'legalNotice';
 
 const LEVELS: ReminderLevel[] = ['soft', 'medium', 'firm', 'formalNotice'];
 
@@ -117,13 +118,6 @@ const TEMPLATE_SAMPLE_VARIABLES: Record<string, string> = {
   legalDeadline: '30/01/2025',
 };
 
-const DEFAULT_OPEN_SECTIONS: Record<SectionKey, boolean> = {
-  timing: true,
-  templates: true,
-  lateFees: false,
-  legalNotice: false,
-};
-
 const DEFAULT_TEMPLATE_TAB: Record<ReminderLevel, ReminderLocale> = {
   soft: 'en',
   medium: 'en',
@@ -137,6 +131,89 @@ const DEFAULT_LEVEL_LOADING_STATE: Record<ReminderLevel, boolean> = {
   firm: false,
   formalNotice: false,
 };
+
+const reminderSettingsPageChrome = {
+  en: {
+    chooseSection: 'Choose a section',
+    sections: {
+      timing: 'Reminder schedule',
+      templates: 'Email templates',
+      lateFees: 'Late fees',
+      legalNotice: 'Legal notice',
+    },
+    timingEyebrow: 'Reminder flow',
+    timingSummary: 'Set when each reminder is sent and which language should be used by default.',
+    templatesEyebrow: 'Email content',
+    templatesSummary: 'Edit one reminder email at a time in plain language.',
+    lateFeesEyebrow: 'Charges',
+    lateFeesSummary: 'Turn on optional overdue charges and define when they apply.',
+    legalNoticeEyebrow: 'Legal notice',
+    legalNoticeSummary: 'Set the formal notice delay and any legal footer text.',
+    templateLevelLabel: 'Which reminder email do you want to edit?',
+    templateLevelHelp: 'Pick the email step first, then choose the language.',
+    templateLocaleLabel: 'Language',
+    templateIntroTitle: 'Write the email in your own words',
+    templateIntroText: 'If you want, you can insert customer or invoice details automatically using smart fields.',
+    smartFieldsButton: 'Show smart fields',
+    smartFieldsTitle: 'Smart fields',
+    smartFieldsDescription: 'These fields fill in automatically when the reminder is sent.',
+    smartFieldLabels: {
+      clientName: 'Customer name',
+      companyName: 'Company name',
+      invoiceNumber: 'Invoice number',
+      invoiceDate: 'Invoice date',
+      dueDate: 'Due date',
+      daysOverdue: 'Days overdue',
+      amountDue: 'Amount due',
+      amountOriginal: 'Original amount',
+      lateFees: 'Late fees',
+      paymentLink: 'Payment link',
+      legalDeadline: 'Legal deadline',
+    },
+  },
+  fr: {
+    chooseSection: 'Choisissez une section',
+    sections: {
+      timing: 'Calendrier de relance',
+      templates: 'Modèles d\'e-mail',
+      lateFees: 'Pénalités',
+      legalNotice: 'Mise en demeure',
+    },
+    timingEyebrow: 'Flux de relance',
+    timingSummary: 'Définissez quand chaque relance est envoyée et la langue utilisée par défaut.',
+    templatesEyebrow: 'Contenu e-mail',
+    templatesSummary: 'Modifiez un e-mail de relance à la fois avec une interface plus simple.',
+    lateFeesEyebrow: 'Pénalités',
+    lateFeesSummary: 'Activez les pénalités de retard et définissez à partir de quand elles s\'appliquent.',
+    legalNoticeEyebrow: 'Mise en demeure',
+    legalNoticeSummary: 'Réglez le délai de mise en demeure et le texte juridique complémentaire.',
+    templateLevelLabel: 'Quel e-mail de relance souhaitez-vous modifier ?',
+    templateLevelHelp: 'Choisissez d\'abord l\'étape, puis la langue.',
+    templateLocaleLabel: 'Langue',
+    templateIntroTitle: 'Rédigez l\'e-mail avec vos propres mots',
+    templateIntroText: 'Si besoin, vous pouvez insérer automatiquement les détails du client ou de la facture avec des champs intelligents.',
+    smartFieldsButton: 'Voir les champs intelligents',
+    smartFieldsTitle: 'Champs intelligents',
+    smartFieldsDescription: 'Ces champs se remplissent automatiquement lors de l\'envoi de la relance.',
+    smartFieldLabels: {
+      clientName: 'Nom du client',
+      companyName: 'Nom de l\'entreprise',
+      invoiceNumber: 'Numéro de facture',
+      invoiceDate: 'Date de facture',
+      dueDate: 'Date d\'échéance',
+      daysOverdue: 'Jours de retard',
+      amountDue: 'Montant dû',
+      amountOriginal: 'Montant initial',
+      lateFees: 'Pénalités',
+      paymentLink: 'Lien de paiement',
+      legalDeadline: 'Date limite légale',
+    },
+  },
+} as const;
+
+function isSectionKey(value: string | null): value is SectionKey {
+  return value === 'timing' || value === 'templates' || value === 'lateFees' || value === 'legalNotice';
+}
 
 function replaceTemplateVariables(template: string): string {
   return template.replace(/\{\{(\w+)\}\}/g, (_full, variable: string) => {
@@ -224,56 +301,93 @@ function hasValidOffsets(
   return soft < medium && medium < firm && firm <= formalNotice;
 }
 
-function CollapsibleSectionCard({
+function SectionPickerButton({
+  active,
   title,
   description,
-  open,
-  onToggle,
-  children,
+  icon,
+  onClick,
 }: {
+  active: boolean;
   title: string;
   description: string;
-  open: boolean;
-  onToggle: () => void;
-  children: React.ReactNode;
+  icon: ReactNode;
+  onClick: () => void;
 }) {
   return (
-    <Card>
-      <CardHeader className="pb-4">
-        <button
-          type="button"
-          onClick={onToggle}
-          className="flex w-full items-start justify-between gap-3 text-left"
-          aria-expanded={open}
-        >
-          <div className="space-y-1">
-            <CardTitle className="text-lg">{title}</CardTitle>
-            <CardDescription>{description}</CardDescription>
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'rounded-2xl border p-4 text-left transition-colors',
+        active
+          ? 'border-primary/30 bg-primary/8 text-foreground'
+          : 'border-border/70 bg-background/90 hover:border-primary/30 hover:bg-primary/5'
+      )}
+    >
+      <div className="mb-3 inline-flex size-10 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
+        {icon}
+      </div>
+      <div className="space-y-1">
+        <p className="text-sm font-semibold text-foreground">{title}</p>
+        <p className="text-sm leading-6 text-muted-foreground">{description}</p>
+      </div>
+    </button>
+  );
+}
+
+function SettingsSectionCard({
+  eyebrow,
+  title,
+  description,
+  icon,
+  children,
+}: {
+  eyebrow: string;
+  title: string;
+  description: string;
+  icon: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <Card className="border-border/70 shadow-sm">
+      <CardHeader className="space-y-3 border-b border-border/60 bg-muted/15 p-5 pb-4 sm:space-y-4 sm:pb-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="inline-flex size-11 shrink-0 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary">
+              {icon}
+            </div>
+            <div className="space-y-1.5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">{eyebrow}</p>
+              <CardTitle className="text-xl">{title}</CardTitle>
+              <CardDescription className="max-w-3xl text-sm leading-6">{description}</CardDescription>
+            </div>
           </div>
-          <ChevronDownIcon className={cn('mt-1 size-5 shrink-0 text-muted-foreground transition-transform', open ? 'rotate-180' : '')} />
-        </button>
+        </div>
       </CardHeader>
-      {open ? <CardContent className="space-y-4">{children}</CardContent> : null}
+      <CardContent className="space-y-5 p-5 pt-5 sm:space-y-6">{children}</CardContent>
     </Card>
   );
 }
 
 export default function ReminderSettingsPage() {
+  const searchParams = useSearchParams();
   const { locale } = useLocale();
   const { user, loading: authLoading } = useAuthMe();
 
   const [draft, setDraft] = useState<ReminderSettingsData>(DEFAULT_SETTINGS);
-  const [openSections, setOpenSections] = useState<Record<SectionKey, boolean>>(DEFAULT_OPEN_SECTIONS);
-
+  const [activeSection, setActiveSection] = useState<SectionKey>('timing');
   const [timingSaving, setTimingSaving] = useState(false);
   const [templateSaving, setTemplateSaving] = useState<Record<ReminderLevel, boolean>>(DEFAULT_LEVEL_LOADING_STATE);
   const [templateResetting, setTemplateResetting] = useState<Record<ReminderLevel, boolean>>(DEFAULT_LEVEL_LOADING_STATE);
   const [templateTabs, setTemplateTabs] = useState<Record<ReminderLevel, ReminderLocale>>(DEFAULT_TEMPLATE_TAB);
+  const [activeTemplateLevel, setActiveTemplateLevel] = useState<ReminderLevel>('soft');
   const [lateFeeSaving, setLateFeeSaving] = useState(false);
   const [legalNoticeSaving, setLegalNoticeSaving] = useState(false);
 
   const t = (key: string, replacements?: Record<string, string | number | null | undefined>) =>
     translate(locale, key, replacements);
+  const pageChrome = reminderSettingsPageChrome[locale];
 
   const fetchSettings = async (url: string) => {
     const response = await fetch(url, { cache: 'no-store' });
@@ -299,14 +413,14 @@ export default function ReminderSettingsPage() {
     }
   }, [settings]);
 
-  const timingInvalid = useMemo(() => !hasValidOffsets(draft.offsets), [draft.offsets]);
+  useEffect(() => {
+    const sectionParam = searchParams.get('section');
+    if (isSectionKey(sectionParam)) {
+      setActiveSection(sectionParam);
+    }
+  }, [searchParams]);
 
-  function toggleSection(section: SectionKey) {
-    setOpenSections((prev) => ({
-      ...prev,
-      [section]: !prev[section],
-    }));
-  }
+  const timingInvalid = useMemo(() => !hasValidOffsets(draft.offsets), [draft.offsets]);
 
   async function patchSettings(patch: Record<string, unknown>) {
     const response = await fetch('/api/reminders/settings', {
@@ -453,232 +567,293 @@ export default function ReminderSettingsPage() {
     );
   }
 
+  const activeTemplateLocale = templateTabs[activeTemplateLevel];
+  const activeTemplate = draft.templates[activeTemplateLocale][activeTemplateLevel];
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-5 sm:space-y-6">
       <div className="space-y-1">
         <h2 className="font-heading text-xl font-semibold tracking-tight">{t('reminders.settings.title')}</h2>
         <p className="text-sm text-muted-foreground">{t('reminders.settings.description')}</p>
       </div>
 
-      <CollapsibleSectionCard
-        title={t('reminders.settings.offsets')}
-        description={t('reminders.settings.timing.description')}
-        open={openSections.timing}
-        onToggle={() => toggleSection('timing')}
-      >
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          {LEVELS.map((level) => (
-            <div key={level} className="space-y-2">
-              <Label htmlFor={`offset-${level}`}>{t(`reminders.settings.timing.fields.${level}`)}</Label>
-              <Input
-                id={`offset-${level}`}
-                type="number"
-                min={1}
-                value={draft.offsets[level]}
-                onChange={(event) => {
-                  const next = Number(event.target.value);
-                  if (!Number.isFinite(next)) {
-                    return;
-                  }
-                  setDraft((prev) => ({
-                    ...prev,
-                    offsets: {
-                      ...prev.offsets,
-                      [level]: next,
-                    },
-                  }));
-                }}
-              />
+      <div className="space-y-3 rounded-3xl border border-border/70 bg-linear-to-br from-background via-background to-muted/30 p-4 shadow-sm sm:p-5">
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">{pageChrome.chooseSection}</p>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <SectionPickerButton
+            active={activeSection === 'timing'}
+            title={pageChrome.sections.timing}
+            description={pageChrome.timingSummary}
+            icon={<BellIcon className="size-4" />}
+            onClick={() => setActiveSection('timing')}
+          />
+          <SectionPickerButton
+            active={activeSection === 'templates'}
+            title={pageChrome.sections.templates}
+            description={pageChrome.templatesSummary}
+            icon={<MailIcon className="size-4" />}
+            onClick={() => setActiveSection('templates')}
+          />
+          <SectionPickerButton
+            active={activeSection === 'lateFees'}
+            title={pageChrome.sections.lateFees}
+            description={pageChrome.lateFeesSummary}
+            icon={<AlertTriangleIcon className="size-4" />}
+            onClick={() => setActiveSection('lateFees')}
+          />
+          <SectionPickerButton
+            active={activeSection === 'legalNotice'}
+            title={pageChrome.sections.legalNotice}
+            description={pageChrome.legalNoticeSummary}
+            icon={<FileTextIcon className="size-4" />}
+            onClick={() => setActiveSection('legalNotice')}
+          />
+        </div>
+      </div>
+
+      {activeSection === 'timing' ? (
+        <SettingsSectionCard
+          eyebrow={pageChrome.timingEyebrow}
+          title={t('reminders.settings.offsets')}
+          description={t('reminders.settings.timing.description')}
+          icon={<BellIcon className="size-5" />}
+        >
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {LEVELS.map((level) => (
+              <div key={level} className="space-y-2">
+                <Label htmlFor={`offset-${level}`}>{t(`reminders.settings.timing.fields.${level}`)}</Label>
+                <Input
+                  id={`offset-${level}`}
+                  type="number"
+                  min={1}
+                  value={draft.offsets[level]}
+                  onChange={(event) => {
+                    const next = Number(event.target.value);
+                    if (!Number.isFinite(next)) {
+                      return;
+                    }
+                    setDraft((prev) => ({
+                      ...prev,
+                      offsets: {
+                        ...prev.offsets,
+                        [level]: next,
+                      },
+                    }));
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+
+          <p className={cn('text-xs', timingInvalid ? 'text-destructive' : 'text-muted-foreground')}>
+            {t('reminders.settings.timing.validationRule')}
+          </p>
+
+          <div className="space-y-2">
+            <Label>{t('reminders.settings.language.label')}</Label>
+            <Select
+              value={draft.messageLocale}
+              onValueChange={(value) => {
+                const nextLocale: 'auto' | 'en' | 'fr' = value === 'en' || value === 'fr' ? value : 'auto';
+                setDraft((prev) => ({
+                  ...prev,
+                  messageLocale: nextLocale,
+                }));
+              }}
+            >
+              <SelectTrigger className="h-11 w-full sm:max-w-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="auto">{t('reminders.settings.language.auto')}</SelectItem>
+                <SelectItem value="en">{t('reminders.settings.language.english')}</SelectItem>
+                <SelectItem value="fr">{t('reminders.settings.language.french')}</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">{t('reminders.settings.language.help')}</p>
+          </div>
+
+          <Button type="button" className="w-full sm:w-auto" disabled={timingSaving} onClick={() => void handleSaveTiming()}>
+            {timingSaving ? <Loader2Icon className="size-4 animate-spin" /> : null}
+            {timingSaving ? t('reminders.settings.common.saving') : t('reminders.settings.timing.saveButton')}
+          </Button>
+        </SettingsSectionCard>
+      ) : null}
+
+      {activeSection === 'templates' ? (
+        <SettingsSectionCard
+          eyebrow={pageChrome.templatesEyebrow}
+          title={t('reminders.settings.templatesTitle')}
+          description={t('reminders.settings.templatesSectionDescription')}
+          icon={<MailIcon className="size-5" />}
+        >
+          <div className="space-y-4 rounded-2xl border border-border/70 bg-muted/15 p-4">
+            <div className="space-y-1">
+              <p className="text-sm font-medium">{pageChrome.templateIntroTitle}</p>
+              <p className="text-sm text-muted-foreground">{pageChrome.templateIntroText}</p>
             </div>
-          ))}
-        </div>
-
-        <p className={cn('text-xs', timingInvalid ? 'text-destructive' : 'text-muted-foreground')}>
-          {t('reminders.settings.timing.validationRule')}
-        </p>
-
-        <div className="space-y-2">
-          <Label>{t('reminders.settings.language.label')}</Label>
-          <Select
-            value={draft.messageLocale}
-            onValueChange={(value) => {
-              const nextLocale: 'auto' | 'en' | 'fr' = value === 'en' || value === 'fr' ? value : 'auto';
-              setDraft((prev) => ({
-                ...prev,
-                messageLocale: nextLocale,
-              }));
-            }}
-          >
-            <SelectTrigger className="h-10 w-full md:max-w-sm">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="auto">{t('reminders.settings.language.auto')}</SelectItem>
-              <SelectItem value="en">{t('reminders.settings.language.english')}</SelectItem>
-              <SelectItem value="fr">{t('reminders.settings.language.french')}</SelectItem>
-            </SelectContent>
-          </Select>
-          <p className="text-xs text-muted-foreground">{t('reminders.settings.language.help')}</p>
-        </div>
-
-        <Button type="button" disabled={timingSaving} onClick={() => void handleSaveTiming()}>
-          {timingSaving ? <Loader2Icon className="size-4 animate-spin" /> : null}
-          {timingSaving ? t('reminders.settings.common.saving') : t('reminders.settings.timing.saveButton')}
-        </Button>
-      </CollapsibleSectionCard>
-
-      <CollapsibleSectionCard
-        title={t('reminders.settings.templatesTitle')}
-        description={t('reminders.settings.templatesSectionDescription')}
-        open={openSections.templates}
-        onToggle={() => toggleSection('templates')}
-      >
-        <div className="space-y-4">
-          {LEVELS.map((level) => {
-              const activeLocale = templateTabs[level];
-              const activeTemplate = draft.templates[activeLocale][level];
-
-              return (
-                <Card key={level} className="border-dashed">
-                  <CardHeader>
-                    <CardTitle className="text-base">{t(`reminders.levels.${level}`)}</CardTitle>
-                    <CardDescription>{t('reminders.settings.templates.cardDescription')}</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <Tabs
-                      value={activeLocale}
-                      onValueChange={(value) => {
-                        const nextLocale: ReminderLocale = value === 'fr' ? 'fr' : 'en';
-                        setTemplateTabs((prev) => ({ ...prev, [level]: nextLocale }));
-                      }}
-                    >
-                      <TabsList>
-                        <TabsTrigger value="en">{t('reminders.settings.templates.tab.en')}</TabsTrigger>
-                        <TabsTrigger value="fr">{t('reminders.settings.templates.tab.fr')}</TabsTrigger>
-                      </TabsList>
-
-                      {(['en', 'fr'] as ReminderLocale[]).map((templateLocale) => (
-                        <TabsContent key={`${level}-${templateLocale}`} value={templateLocale} className="space-y-4">
-                          <div className="space-y-2">
-                            <Label htmlFor={`${level}-${templateLocale}-subject`}>{t('reminders.settings.templates.subject')}</Label>
-                            <Input
-                              id={`${level}-${templateLocale}-subject`}
-                              value={draft.templates[templateLocale][level].subject}
-                              onChange={(event) => {
-                                const nextValue = event.target.value;
-                                setDraft((prev) => ({
-                                  ...prev,
-                                  templates: {
-                                    ...prev.templates,
-                                    [templateLocale]: {
-                                      ...prev.templates[templateLocale],
-                                      [level]: {
-                                        ...prev.templates[templateLocale][level],
-                                        subject: nextValue,
-                                      },
-                                    },
-                                  },
-                                }));
-                              }}
-                              placeholder={t('reminders.settings.templates.subjectPlaceholder')}
-                            />
-                          </div>
-
-                          <div className="space-y-2">
-                            <Label htmlFor={`${level}-${templateLocale}-body`}>{t('reminders.settings.templates.body')}</Label>
-                            <Textarea
-                              id={`${level}-${templateLocale}-body`}
-                              rows={8}
-                              value={draft.templates[templateLocale][level].body}
-                              onChange={(event) => {
-                                const nextValue = event.target.value;
-                                setDraft((prev) => ({
-                                  ...prev,
-                                  templates: {
-                                    ...prev.templates,
-                                    [templateLocale]: {
-                                      ...prev.templates[templateLocale],
-                                      [level]: {
-                                        ...prev.templates[templateLocale][level],
-                                        body: nextValue,
-                                      },
-                                    },
-                                  },
-                                }));
-                              }}
-                              placeholder={t('reminders.settings.templates.bodyPlaceholder')}
-                            />
-                          </div>
-                        </TabsContent>
-                      ))}
-                    </Tabs>
-
-                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                      <div className="space-y-2 rounded-lg border bg-muted/20 p-3">
-                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                          {t('reminders.settings.templates.preview')}
-                        </p>
-                        <div className="space-y-2 text-sm">
-                          <p>
-                            <span className="font-medium">{t('reminders.settings.templates.subject')}:</span>{' '}
-                            {replaceTemplateVariables(activeTemplate.subject)}
-                          </p>
-                          <p className="font-medium">{t('reminders.settings.templates.body')}:</p>
-                          <p className="whitespace-pre-wrap rounded-md border bg-background p-2 text-sm">
-                            {replaceTemplateVariables(activeTemplate.body)}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="space-y-2 rounded-lg border p-3">
-                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                          {t('reminders.settings.templates.sampleVariables')}
-                        </p>
-                        <div className="grid grid-cols-1 gap-1 text-xs text-muted-foreground">
-                          {Object.entries(TEMPLATE_SAMPLE_VARIABLES).map(([name, value]) => (
-                            <p key={`${level}-${name}`}>
-                              {`{{${name}}}`} = {value}
-                            </p>
-                          ))}
-                        </div>
-                      </div>
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button type="button" variant="outline" className="w-full sm:w-auto">
+                  {pageChrome.smartFieldsButton}
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>{pageChrome.smartFieldsTitle}</DialogTitle>
+                  <DialogDescription>{pageChrome.smartFieldsDescription}</DialogDescription>
+                </DialogHeader>
+                <div className="grid grid-cols-1 gap-2">
+                  {Object.entries(TEMPLATE_SAMPLE_VARIABLES).map(([name, value]) => (
+                    <div key={name} className="rounded-xl border border-border/70 p-3">
+                      <p className="text-sm font-medium">{pageChrome.smartFieldLabels[name as keyof typeof pageChrome.smartFieldLabels]}</p>
+                      <p className="text-xs text-muted-foreground">{`{{${name}}}`}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{value}</p>
                     </div>
+                  ))}
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
 
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Button
-                        type="button"
-                        onClick={() => void handleSaveTemplate(level)}
-                        disabled={templateSaving[level]}
-                      >
-                        {templateSaving[level] ? <Loader2Icon className="size-4 animate-spin" /> : null}
-                        {templateSaving[level] ? t('reminders.settings.common.saving') : t('reminders.settings.templates.saveButton')}
-                      </Button>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>{pageChrome.templateLevelLabel}</Label>
+              <Select value={activeTemplateLevel} onValueChange={(value) => setActiveTemplateLevel((LEVELS.includes(value as ReminderLevel) ? value : 'soft') as ReminderLevel)}>
+                <SelectTrigger className="h-11 w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {LEVELS.map((level) => (
+                    <SelectItem key={level} value={level}>
+                      {t(`reminders.levels.${level}`)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">{pageChrome.templateLevelHelp}</p>
+            </div>
 
-                      <Button
-                        type="button"
-                        variant="link"
-                        className="px-0"
-                        onClick={() => void handleResetTemplates(level)}
-                        disabled={templateResetting[level]}
-                      >
-                        {templateResetting[level] ? t('reminders.settings.common.resetting') : t('reminders.settings.templates.resetButton')}
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-          })}
-        </div>
-      </CollapsibleSectionCard>
+            <div className="space-y-2">
+              <Label>{pageChrome.templateLocaleLabel}</Label>
+              <Select
+                value={activeTemplateLocale}
+                onValueChange={(value) => {
+                  const nextLocale: ReminderLocale = value === 'fr' ? 'fr' : 'en';
+                  setTemplateTabs((prev) => ({ ...prev, [activeTemplateLevel]: nextLocale }));
+                }}
+              >
+                <SelectTrigger className="h-11 w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="en">{t('reminders.settings.templates.tab.en')}</SelectItem>
+                  <SelectItem value="fr">{t('reminders.settings.templates.tab.fr')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
 
-      <CollapsibleSectionCard
-        title={t('reminders.settings.lateFee')}
-        description={t('reminders.settings.lateFees.description')}
-        open={openSections.lateFees}
-        onToggle={() => toggleSection('lateFees')}
-      >
-        <div className="space-y-4">
-            <div className="flex items-center justify-between rounded-lg border p-3">
+          <div className="space-y-2">
+            <Label htmlFor="template-subject">{t('reminders.settings.templates.subject')}</Label>
+            <Input
+              id="template-subject"
+              value={draft.templates[activeTemplateLocale][activeTemplateLevel].subject}
+              onChange={(event) => {
+                const nextValue = event.target.value;
+                setDraft((prev) => ({
+                  ...prev,
+                  templates: {
+                    ...prev.templates,
+                    [activeTemplateLocale]: {
+                      ...prev.templates[activeTemplateLocale],
+                      [activeTemplateLevel]: {
+                        ...prev.templates[activeTemplateLocale][activeTemplateLevel],
+                        subject: nextValue,
+                      },
+                    },
+                  },
+                }));
+              }}
+              placeholder={t('reminders.settings.templates.subjectPlaceholder')}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="template-body">{t('reminders.settings.templates.body')}</Label>
+            <Textarea
+              id="template-body"
+              rows={12}
+              value={draft.templates[activeTemplateLocale][activeTemplateLevel].body}
+              onChange={(event) => {
+                const nextValue = event.target.value;
+                setDraft((prev) => ({
+                  ...prev,
+                  templates: {
+                    ...prev.templates,
+                    [activeTemplateLocale]: {
+                      ...prev.templates[activeTemplateLocale],
+                      [activeTemplateLevel]: {
+                        ...prev.templates[activeTemplateLocale][activeTemplateLevel],
+                        body: nextValue,
+                      },
+                    },
+                  },
+                }));
+              }}
+              placeholder={t('reminders.settings.templates.bodyPlaceholder')}
+            />
+          </div>
+
+          <div className="rounded-2xl border border-border/70 bg-muted/15 p-4">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              {t('reminders.settings.templates.preview')}
+            </p>
+            <div className="mt-3 space-y-2 text-sm">
+              <p>
+                <span className="font-medium">{t('reminders.settings.templates.subject')}:</span>{' '}
+                {replaceTemplateVariables(activeTemplate.subject)}
+              </p>
+              <p className="font-medium">{t('reminders.settings.templates.body')}:</p>
+              <p className="whitespace-pre-wrap rounded-xl border border-border/70 bg-background p-3 text-sm">
+                {replaceTemplateVariables(activeTemplate.body)}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+            <Button
+              type="button"
+              className="w-full sm:w-auto"
+              onClick={() => void handleSaveTemplate(activeTemplateLevel)}
+              disabled={templateSaving[activeTemplateLevel]}
+            >
+              {templateSaving[activeTemplateLevel] ? <Loader2Icon className="size-4 animate-spin" /> : null}
+              {templateSaving[activeTemplateLevel] ? t('reminders.settings.common.saving') : t('reminders.settings.templates.saveButton')}
+            </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full sm:w-auto"
+              onClick={() => void handleResetTemplates(activeTemplateLevel)}
+              disabled={templateResetting[activeTemplateLevel]}
+            >
+              {templateResetting[activeTemplateLevel] ? t('reminders.settings.common.resetting') : t('reminders.settings.templates.resetButton')}
+            </Button>
+          </div>
+        </SettingsSectionCard>
+      ) : null}
+
+      {activeSection === 'lateFees' ? (
+        <SettingsSectionCard
+          eyebrow={pageChrome.lateFeesEyebrow}
+          title={t('reminders.settings.lateFee')}
+          description={t('reminders.settings.lateFees.description')}
+          icon={<AlertTriangleIcon className="size-5" />}
+        >
+          <div className="space-y-4">
+            <div className="flex items-center justify-between gap-3 rounded-2xl border border-border/70 bg-muted/15 p-4">
               <div className="space-y-0.5">
                 <p className="text-sm font-medium">{t('reminders.settings.lateFees.enable')}</p>
                 <p className="text-xs text-muted-foreground">{t('reminders.settings.lateFees.enableHelp')}</p>
@@ -713,20 +888,20 @@ export default function ReminderSettingsPage() {
                         },
                       }));
                     }}
-                    className="grid grid-cols-1 gap-2 sm:grid-cols-2"
+                    className="grid grid-cols-1 gap-2"
                   >
-                    <Label className="flex items-center gap-2 rounded-lg border p-3 text-sm">
+                    <Label className="flex items-center gap-2 rounded-2xl border border-border/70 p-4 text-sm">
                       <RadioGroupItem value="fixed" />
                       {t('reminders.settings.lateFees.fixedAmount')}
                     </Label>
-                    <Label className="flex items-center gap-2 rounded-lg border p-3 text-sm">
+                    <Label className="flex items-center gap-2 rounded-2xl border border-border/70 p-4 text-sm">
                       <RadioGroupItem value="percentage" />
                       {t('reminders.settings.lateFees.percentage')}
                     </Label>
                   </RadioGroup>
                 </div>
 
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="late-fee-value">{t('reminders.settings.lateFees.value')}</Label>
                     <Input
@@ -772,7 +947,7 @@ export default function ReminderSettingsPage() {
                         }));
                       }}
                     >
-                      <SelectTrigger className="h-10 w-full">
+                      <SelectTrigger className="h-11 w-full">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -786,20 +961,22 @@ export default function ReminderSettingsPage() {
               </>
             ) : null}
 
-          <Button type="button" disabled={lateFeeSaving} onClick={() => void handleSaveLateFees()}>
-            {lateFeeSaving ? <Loader2Icon className="size-4 animate-spin" /> : null}
-            {lateFeeSaving ? t('reminders.settings.common.saving') : t('reminders.settings.lateFees.saveButton')}
-          </Button>
-        </div>
-      </CollapsibleSectionCard>
+            <Button type="button" className="w-full sm:w-auto" disabled={lateFeeSaving} onClick={() => void handleSaveLateFees()}>
+              {lateFeeSaving ? <Loader2Icon className="size-4 animate-spin" /> : null}
+              {lateFeeSaving ? t('reminders.settings.common.saving') : t('reminders.settings.lateFees.saveButton')}
+            </Button>
+          </div>
+        </SettingsSectionCard>
+      ) : null}
 
-      <CollapsibleSectionCard
-        title={t('reminders.settings.legalNotice')}
-        description={t('reminders.settings.legalNoticeSection.description')}
-        open={openSections.legalNotice}
-        onToggle={() => toggleSection('legalNotice')}
-      >
-        <div className="space-y-4">
+      {activeSection === 'legalNotice' ? (
+        <SettingsSectionCard
+          eyebrow={pageChrome.legalNoticeEyebrow}
+          title={t('reminders.settings.legalNotice')}
+          description={t('reminders.settings.legalNoticeSection.description')}
+          icon={<FileTextIcon className="size-5" />}
+        >
+          <div className="space-y-4">
             <div className="space-y-2">
               <Label>{t('reminders.settings.legalNoticeSection.delay')}</Label>
               <RadioGroup
@@ -814,20 +991,20 @@ export default function ReminderSettingsPage() {
                     },
                   }));
                 }}
-                className="grid grid-cols-1 gap-2 sm:grid-cols-2"
+                className="grid grid-cols-1 gap-2"
               >
-                <Label className="flex items-center gap-2 rounded-lg border p-3 text-sm">
+                <Label className="flex items-center gap-2 rounded-2xl border border-border/70 p-4 text-sm">
                   <RadioGroupItem value="8" />
                   {t('reminders.settings.legalNoticeSection.delay8')}
                 </Label>
-                <Label className="flex items-center gap-2 rounded-lg border p-3 text-sm">
+                <Label className="flex items-center gap-2 rounded-2xl border border-border/70 p-4 text-sm">
                   <RadioGroupItem value="15" />
                   {t('reminders.settings.legalNoticeSection.delay15')}
                 </Label>
               </RadioGroup>
             </div>
 
-            <Label className="flex items-center gap-2 rounded-lg border p-3 text-sm">
+            <Label className="flex items-center gap-2 rounded-2xl border border-border/70 bg-muted/15 p-4 text-sm">
               <Checkbox
                 checked={draft.legalNotice.includeInterestClause}
                 onCheckedChange={(checked) => {
@@ -863,12 +1040,13 @@ export default function ReminderSettingsPage() {
               />
             </div>
 
-          <Button type="button" disabled={legalNoticeSaving} onClick={() => void handleSaveLegalNotice()}>
-            {legalNoticeSaving ? <Loader2Icon className="size-4 animate-spin" /> : null}
-            {legalNoticeSaving ? t('reminders.settings.common.saving') : t('reminders.settings.legalNoticeSection.saveButton')}
-          </Button>
-        </div>
-      </CollapsibleSectionCard>
+            <Button type="button" className="w-full sm:w-auto" disabled={legalNoticeSaving} onClick={() => void handleSaveLegalNotice()}>
+              {legalNoticeSaving ? <Loader2Icon className="size-4 animate-spin" /> : null}
+              {legalNoticeSaving ? t('reminders.settings.common.saving') : t('reminders.settings.legalNoticeSection.saveButton')}
+            </Button>
+          </div>
+        </SettingsSectionCard>
+      ) : null}
     </div>
   );
 }
