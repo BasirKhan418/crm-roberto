@@ -77,6 +77,10 @@ const settingsCenterMessages = {
     walletTitle: 'Apple Pay & Google Pay',
     walletDescription: 'These payment methods are automatically offered to your clients when their device and browser support them — no extra setup needed.',
     walletBrowserNote: 'Availability depends on the client\'s device and browser.',
+    walletMethods: {
+      applePay: 'Apple Pay',
+      googlePay: 'Google Pay',
+    },
     paymentLinksTitle: 'Payment links on invoices',
     paymentLinksDescription: 'Each invoice gets a secure payment link your clients can click to pay immediately. Manage which invoices have this from the invoices list.',
     paymentLinksCta: 'View invoices',
@@ -147,6 +151,10 @@ const settingsCenterMessages = {
     walletTitle: 'Apple Pay & Google Pay',
     walletDescription: 'Ces moyens de paiement sont proposés automatiquement aux clients lorsque leur appareil et navigateur les prennent en charge — aucune configuration supplémentaire requise.',
     walletBrowserNote: 'La disponibilité dépend de l\'appareil et du navigateur du client.',
+    walletMethods: {
+      applePay: 'Apple Pay',
+      googlePay: 'Google Pay',
+    },
     paymentLinksTitle: 'Liens de paiement sur les factures',
     paymentLinksDescription: 'Chaque facture dispose d\'un lien de paiement sécurisé que vos clients peuvent utiliser pour régler immédiatement. Gérez cela depuis la liste des factures.',
     paymentLinksCta: 'Voir les factures',
@@ -389,11 +397,11 @@ export default function SettingsHomePage() {
               <div className="space-y-1.5">
                 <div className="flex items-center gap-2.5 rounded-lg border border-border/50 bg-muted/20 px-3 py-2">
                   <CheckCircle2Icon className="size-3.5 text-green-500" />
-                  <p className="text-sm font-medium">Apple Pay</p>
+                  <p className="text-sm font-medium">{t.walletMethods.applePay}</p>
                 </div>
                 <div className="flex items-center gap-2.5 rounded-lg border border-border/50 bg-muted/20 px-3 py-2">
                   <CheckCircle2Icon className="size-3.5 text-green-500" />
-                  <p className="text-sm font-medium">Google Pay</p>
+                  <p className="text-sm font-medium">{t.walletMethods.googlePay}</p>
                 </div>
                 <p className="pt-1 text-xs text-muted-foreground">{t.walletBrowserNote}</p>
               </div>
