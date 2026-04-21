@@ -490,7 +490,7 @@ function TokenPayButton({
         body: JSON.stringify({
           type,
           amount: amountCents,
-          idempotencyKey: `token-${token}-${type}-${amountCents}`,
+          idempotencyKey: `token-${token}-${type}-${amountCents}-v2`,
         }),
       });
       const payload = (await response.json().catch(() => null)) as { checkoutUrl?: string; message?: string } | null;
