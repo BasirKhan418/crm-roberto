@@ -152,7 +152,7 @@ function InvoicesPageContent() {
       kpiUnpaid: 'Unpaid',
       kpiPaid: 'Paid',
       kpiOverdue: 'Overdue',
-      kpiAll: 'Total issued',
+      kpiAll: 'Invoices issued',
       kpiTotalTTC: 'Total TTC',
       kpiTotalHT: 'Total HT',
       kpiTotalVAT: 'Total VAT',
@@ -605,21 +605,21 @@ function InvoicesPageContent() {
         key: 'kpi-ttc',
         label: t.kpiTotalTTC,
         amount: kpiData.totals.totalTTC,
-        variant: 'default',
+        variant: 'slate',
         icon: 'dollar',
       },
       {
         key: 'kpi-ht',
         label: t.kpiTotalHT,
         amount: kpiData.totals.totalHT,
-        variant: 'default',
+        variant: 'slate',
         icon: 'bar-chart',
       },
       {
         key: 'kpi-vat',
         label: t.kpiTotalVAT,
         amount: kpiData.totals.totalVat,
-        variant: 'default',
+        variant: 'slate',
       },
     ];
   }, [kpiData, t.kpiTotalHT, t.kpiTotalTTC, t.kpiTotalVAT]);
@@ -712,7 +712,7 @@ function InvoicesPageContent() {
         {/* ── KPI cards row 1: per-status ───────────────────────────────────── */}
         <div className="space-y-3">
           <KpiCards cards={invoiceKpiCards} locale={locale as 'en' | 'fr'} loading={kpiLoading} />
-          {!kpiLoading && invoiceKpiTotalsCards.length > 0 ? <KpiCards cards={invoiceKpiTotalsCards} locale={locale as 'en' | 'fr'} /> : null}
+          {!kpiLoading && invoiceKpiTotalsCards.length > 0 ? <KpiCards cards={invoiceKpiTotalsCards} locale={locale as 'en' | 'fr'} cols={3} /> : null}
         </div>
 
         <div data-tour-invoices-filters className="space-y-3 rounded-xl border border-border/70 bg-card/40 p-3 sm:p-4">

@@ -134,6 +134,7 @@ function QuotesPageContent() {
       kpiTotalTTC: 'Total TTC',
       kpiTotalHT: 'Total HT',
       kpiTotalVAT: 'Total VAT',
+      kpiConversionRate: (accepted: number, total: number, rate: number) => `${accepted} accepted / ${total} → ${rate}%`,
     },
     fr: {
       shellTitle: 'Devis',
@@ -219,6 +220,7 @@ function QuotesPageContent() {
       kpiTotalTTC: 'Total TTC',
       kpiTotalHT: 'Total HT',
       kpiTotalVAT: 'Total TVA',
+      kpiConversionRate: (accepted: number, total: number, rate: number) => `${accepted} acceptés / ${total} → ${rate}%`,
     },
   }[locale];
 
@@ -543,6 +545,10 @@ function QuotesPageContent() {
 
   const quoteKpiCards = useMemo<KpiCard[]>(() => {
     if (!kpiData) return [];
+    const conversionRate =
+      kpiData.all.count > 0
+        ? Math.round((kpiData.accepted.count / kpiData.all.count) * 100)
+        : 0;
     return [
       {
         key: 'kpi-all',
@@ -561,6 +567,7 @@ function QuotesPageContent() {
         amount: kpiData.accepted.totalTTC,
         variant: 'green-bold',
         icon: 'thumbs-up',
+        footnote: t.kpiConversionRate(kpiData.accepted.count, kpiData.all.count, conversionRate),
         active: status === 'accepted',
         onClick: () => setStatus('accepted'),
       },
@@ -585,14 +592,14 @@ function QuotesPageContent() {
         onClick: () => setStatus('rejected'),
       },
     ];
-  }, [kpiData, status, t.kpiAccepted, t.kpiAll, t.kpiPending, t.kpiRejected]);
+  }, [kpiData, status, t.kpiAccepted, t.kpiAll, t.kpiConversionRate, t.kpiPending, t.kpiRejected]);
 
   const quoteKpiTotalsCards = useMemo<KpiCard[]>(() => {
     if (!kpiData) return [];
     return [
-      { key: 'kpi-ttc', label: t.kpiTotalTTC, amount: kpiData.totals.totalTTC, variant: 'default' as const, icon: 'dollar' as const },
-      { key: 'kpi-ht', label: t.kpiTotalHT, amount: kpiData.totals.totalHT, variant: 'default' as const, icon: 'bar-chart' as const },
-      { key: 'kpi-vat', label: t.kpiTotalVAT, amount: kpiData.totals.totalVat, variant: 'default' as const },
+      { key: 'kpi-ttc', label: t.kpiTotalTTC, amount: kpiData.totals.totalTTC, variant: 'slate' as const, icon: 'dollar' as const },
+      { key: 'kpi-ht', label: t.kpiTotalHT, amount: kpiData.totals.totalHT, variant: 'slate' as const, icon: 'bar-chart' as const },
+      { key: 'kpi-vat', label: t.kpiTotalVAT, amount: kpiData.totals.totalVat, variant: 'slate' as const },
     ];
   }, [kpiData, t.kpiTotalHT, t.kpiTotalTTC, t.kpiTotalVAT]);
 
@@ -617,7 +624,7 @@ function QuotesPageContent() {
         {/* ── KPI cards ────────────────────────────────────────────────────── */}
         <div className="space-y-3">
           <KpiCards cards={quoteKpiCards} locale={locale as 'en' | 'fr'} loading={kpiLoading} />
-          {!kpiLoading && quoteKpiTotalsCards.length > 0 ? <KpiCards cards={quoteKpiTotalsCards} locale={locale as 'en' | 'fr'} /> : null}
+          {!kpiLoading && quoteKpiTotalsCards.length > 0 ? <KpiCards cards={quoteKpiTotalsCards} locale={locale as 'en' | 'fr'} cols={3} /> : null}
         </div>
 
         <div data-tour-quotes-filters className="space-y-3 rounded-xl border border-border/70 bg-card/40 p-3 sm:p-4">
