@@ -132,6 +132,22 @@ function InvoicesPageContent() {
       seeInitialPaid: 'See partially paid',
       markAsPaid: 'Add payment',
       markingAsPaid: 'Recording...',
+      bulkReminderTitle: 'Send reminder to selected',
+      bulkReminderDescription: 'Choose reminder level, then send sequentially to avoid SMTP rate limits.',
+      bulkLevelAuto: 'Auto — next logical level per invoice',
+      bulkLevel1: 'Level 1 — soft reminder',
+      bulkLevel2: 'Level 2 — medium reminder',
+      bulkLevel3: 'Level 3 — firm reminder',
+      bulkProcessed: (done: number, total: number) => `${done}/${total} processed`,
+      bulkSuccessFailed: (success: number, failed: number) => `Success: ${success} · Failed: ${failed}`,
+      bulkCancel: 'Cancel',
+      bulkSending: 'Sending...',
+      bulkStart: 'Start sending',
+      bulkSendButton: 'Send reminder to selected',
+      bulkClear: 'Clear',
+      bulkExport: 'Export selected',
+      bulkDone: 'Reminders sent',
+      bulkPartial: (success: number, failed: number) => `${success} succeeded, ${failed} failed`,
     },
     fr: {
       shellTitle: 'Factures',
@@ -209,6 +225,22 @@ function InvoicesPageContent() {
       seeInitialPaid: 'Voir paiements partiels',
       markAsPaid: 'Ajouter un paiement',
       markingAsPaid: 'Enregistrement...',
+      bulkReminderTitle: 'Envoyer des relances',
+      bulkReminderDescription: 'Choisissez le niveau à envoyer, puis lancez en séquence pour éviter les limites SMTP.',
+      bulkLevelAuto: 'Auto — prochain niveau logique par facture',
+      bulkLevel1: 'Niveau 1 — relance amicale',
+      bulkLevel2: 'Niveau 2 — relance intermédiaire',
+      bulkLevel3: 'Niveau 3 — relance ferme',
+      bulkProcessed: (done: number, total: number) => `${done}/${total} traitées`,
+      bulkSuccessFailed: (success: number, failed: number) => `Succès : ${success} · Échecs : ${failed}`,
+      bulkCancel: 'Annuler',
+      bulkSending: 'Envoi...',
+      bulkStart: 'Lancer l\'envoi',
+      bulkSendButton: 'Envoyer relance',
+      bulkClear: 'Effacer',
+      bulkExport: 'Exporter la sélection',
+      bulkDone: 'Relances envoyées',
+      bulkPartial: (success: number, failed: number) => `${success} réussie(s), ${failed} échec(s)`,
     },
   }[locale];
 
@@ -524,13 +556,9 @@ function InvoicesPageContent() {
     }
 
     if (failed === 0) {
-      toast.success(locale === 'fr' ? 'Relances envoyees' : 'Reminders sent');
+      toast.success(t.bulkDone);
     } else {
-      toast.error(
-        locale === 'fr'
-          ? `${success} reussie(s), ${failed} echec(s)`
-          : `${success} succeeded, ${failed} failed`
-      );
+      toast.error(t.bulkPartial(success, failed));
     }
 
     setBulkSending(false);
@@ -793,30 +821,30 @@ function InvoicesPageContent() {
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm font-medium text-foreground">
               {locale === 'fr'
-                ? `${selectedInvoiceIds.length} facture(s) selectionnee(s)`
+                ? `${selectedInvoiceIds.length} facture(s) sélectionnée(s)`
                 : `${selectedInvoiceIds.length} invoice(s) selected`}
             </p>
             <div className="flex items-center gap-2">
               <Button type="button" size="sm" onClick={() => setBulkReminderOpen(true)} disabled={bulkSending}>
                 <SendIcon className="size-4" />
-                {locale === 'fr' ? 'Envoyer relance' : 'Send reminder to selected'}
+                {t.bulkSendButton}
               </Button>
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span>
                       <Button type="button" size="sm" variant="outline" disabled>
-                        {locale === 'fr' ? 'Exporter selection' : 'Export selected'}
+                        {t.bulkExport}
                       </Button>
                     </span>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>Coming soon</p>
+                    <p>{locale === 'fr' ? 'Bientôt disponible' : 'Coming soon'}</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
               <Button type="button" size="sm" variant="ghost" onClick={() => setSelectedInvoiceIds([])} disabled={bulkSending}>
-                {locale === 'fr' ? 'Effacer' : 'Clear'}
+                {t.bulkClear}
               </Button>
             </div>
           </div>
@@ -833,12 +861,8 @@ function InvoicesPageContent() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{locale === 'fr' ? 'Envoyer des relances' : 'Send reminder to selected'}</DialogTitle>
-            <DialogDescription>
-              {locale === 'fr'
-                ? 'Choisissez le niveau a envoyer, puis lancement en sequence pour eviter les limites SMTP.'
-                : 'Choose reminder level, then send sequentially to avoid SMTP rate limits.'}
-            </DialogDescription>
+            <DialogTitle>{t.bulkReminderTitle}</DialogTitle>
+            <DialogDescription>{t.bulkReminderDescription}</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-3">
@@ -852,19 +876,19 @@ function InvoicesPageContent() {
             >
               <label className="flex items-center gap-2 rounded-md border border-border/60 p-2 text-sm">
                 <RadioGroupItem value="auto" />
-                {locale === 'fr' ? 'Niveau auto (suivant logique par facture)' : 'Auto next logical level per invoice'}
+                {t.bulkLevelAuto}
               </label>
               <label className="flex items-center gap-2 rounded-md border border-border/60 p-2 text-sm">
                 <RadioGroupItem value="1" />
-                {locale === 'fr' ? 'Niveau 1 - relance amicale' : 'Level 1 - soft reminder'}
+                {t.bulkLevel1}
               </label>
               <label className="flex items-center gap-2 rounded-md border border-border/60 p-2 text-sm">
                 <RadioGroupItem value="2" />
-                {locale === 'fr' ? 'Niveau 2 - relance intermediaire' : 'Level 2 - medium reminder'}
+                {t.bulkLevel2}
               </label>
               <label className="flex items-center gap-2 rounded-md border border-border/60 p-2 text-sm">
                 <RadioGroupItem value="3" />
-                {locale === 'fr' ? 'Niveau 3 - relance ferme' : 'Level 3 - firm reminder'}
+                {t.bulkLevel3}
               </label>
             </RadioGroup>
 
@@ -872,34 +896,20 @@ function InvoicesPageContent() {
               <div className="rounded-md border border-border/60 bg-muted/20 p-3 text-sm">
                 <div className="flex items-center gap-2">
                   <Loader2Icon className="size-4 animate-spin" />
-                  <span>
-                    {locale === 'fr'
-                      ? `${bulkProgress.done}/${bulkProgress.total} traitees`
-                      : `${bulkProgress.done}/${bulkProgress.total} processed`}
-                  </span>
+                  <span>{t.bulkProcessed(bulkProgress.done, bulkProgress.total)}</span>
                 </div>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  {locale === 'fr'
-                    ? `Succes: ${bulkProgress.success} · Echecs: ${bulkProgress.failed}`
-                    : `Success: ${bulkProgress.success} · Failed: ${bulkProgress.failed}`}
-                </p>
+                <p className="mt-2 text-xs text-muted-foreground">{t.bulkSuccessFailed(bulkProgress.success, bulkProgress.failed)}</p>
               </div>
             ) : null}
           </div>
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setBulkReminderOpen(false)} disabled={bulkSending}>
-              {locale === 'fr' ? 'Annuler' : 'Cancel'}
+              {t.bulkCancel}
             </Button>
             <Button type="button" onClick={() => void sendReminderToSelectedSequentially()} disabled={bulkSending || selectedInvoices.length === 0}>
               {bulkSending ? <Loader2Icon className="size-4 animate-spin" /> : null}
-              {bulkSending
-                ? locale === 'fr'
-                  ? 'Envoi...'
-                  : 'Sending...'
-                : locale === 'fr'
-                  ? 'Lancer l\'envoi'
-                  : 'Start sending'}
+              {bulkSending ? t.bulkSending : t.bulkStart}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -944,7 +954,7 @@ function InvoicesPageContent() {
 
 export default function InvoicesPage() {
   return (
-    <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Loading...</div>}>
+    <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Chargement...</div>}>
       <InvoicesPageContent />
     </Suspense>
   );

@@ -6,8 +6,10 @@ import { Loader2Icon, Repeat2Icon } from 'lucide-react';
 import { toast } from 'sonner';
 import useSWR from 'swr';
 
+import { useLocale } from '@/components/providers/locale-provider';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { translate } from '@/lib/i18n/messages';
 
 interface RecurrenceRow {
   id: string;
@@ -72,6 +74,7 @@ const fetcher = async (url: string): Promise<DashboardRemindersData> => {
 };
 
 export default function UpcomingRecurrencesWidget() {
+  const { locale } = useLocale();
   const { data, error, isLoading, mutate } = useSWR('/api/dashboard/reminders', fetcher);
   const [generatingId, setGeneratingId] = useState<string | null>(null);
 
@@ -88,13 +91,13 @@ export default function UpcomingRecurrencesWidget() {
       const payload = await parseActionResponse(response);
 
       if (!response.ok || !payload.success) {
-        throw new Error(payload.message || 'Failed to generate recurrence invoice');
+        throw new Error(payload.message || translate(locale, 'dashboard.recurrences.generateFailed'));
       }
 
-      toast.success('Recurrence generated successfully');
+      toast.success(translate(locale, 'dashboard.recurrences.generateSuccess'));
       await mutate();
     } catch (errorCaught) {
-      toast.error(errorCaught instanceof Error ? errorCaught.message : 'Failed to generate recurrence invoice');
+      toast.error(errorCaught instanceof Error ? errorCaught.message : translate(locale, 'dashboard.recurrences.generateFailed'));
     } finally {
       setGeneratingId(null);
     }
@@ -105,14 +108,14 @@ export default function UpcomingRecurrencesWidget() {
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
           <Repeat2Icon className="size-4 text-blue-600" />
-          Upcoming recurrences
+          {translate(locale, 'dashboard.recurrences.title')}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        {error ? <p className="text-sm text-destructive">Failed to load upcoming recurrences.</p> : null}
+        {error ? <p className="text-sm text-destructive">{translate(locale, 'dashboard.recurrences.loadFailed')}</p> : null}
 
         {!isLoading && !error && rows.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No recurrences due in the next 14 days</p>
+          <p className="text-sm text-muted-foreground">{translate(locale, 'dashboard.recurrences.empty')}</p>
         ) : null}
 
         {rows.map((item) => (
@@ -124,7 +127,7 @@ export default function UpcomingRecurrencesWidget() {
 
             <div className="flex items-center gap-2">
               <span className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">
-                due in {daysUntil(item.nextOccurrenceAt)} days
+                {translate(locale, 'dashboard.recurrences.dueIn', { days: daysUntil(item.nextOccurrenceAt) })}
               </span>
               <Button
                 type="button"
@@ -134,7 +137,7 @@ export default function UpcomingRecurrencesWidget() {
                 disabled={generatingId === item.id}
               >
                 {generatingId === item.id ? <Loader2Icon className="size-4 animate-spin" /> : null}
-                Generate
+                {translate(locale, 'dashboard.recurrences.generate')}
               </Button>
             </div>
           </div>

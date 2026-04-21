@@ -85,7 +85,7 @@ export default function ActivityFeed({ activity = [], loading = false, error = n
   const t = {
     title: translate(locale, 'activity.title'),
     empty: translate(locale, 'activity.empty'),
-    addNote: locale === 'fr' ? 'Ajouter une note' : 'Add Note',
+    addNote: locale === 'fr' ? 'Ajouter une note' : 'Add note',
   };
   const items = Array.isArray(activity) ? activity : [];
   const pagedItems = items.slice(0, 5);
@@ -190,7 +190,7 @@ export default function ActivityFeed({ activity = [], loading = false, error = n
           ) : null}
         </div>
 
-        {items.length > 5 ? <div className="px-5 py-2 text-[11px] text-muted-foreground">+{items.length - 5} more items</div> : null}
+        {items.length > 5 ? <div className="px-5 py-2 text-[11px] text-muted-foreground">{translate(locale, 'activity.moreItems', { count: items.length - 5 })}</div> : null}
       </CardContent>
       </Card>
       {isAddNoteOpen ? <AddNoteModal onClose={() => setIsAddNoteOpen(false)} onSuccess={onActionSuccess} /> : null}

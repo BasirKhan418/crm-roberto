@@ -3,7 +3,9 @@
 import { AlertTriangleIcon, BellIcon, PauseCircleIcon } from 'lucide-react';
 import useSWR from 'swr';
 
+import { useLocale } from '@/components/providers/locale-provider';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { translate } from '@/lib/i18n/messages';
 
 interface DashboardRemindersPayload {
   success?: boolean;
@@ -39,14 +41,15 @@ const fetcher = async (url: string) => {
 };
 
 export default function CollectionWidget() {
+  const { locale } = useLocale();
   const { data, error, isLoading } = useSWR('/api/dashboard/reminders', fetcher);
 
   const stats = [
-    { label: 'No reminder', value: data?.level0 ?? 0 },
-    { label: 'Soft', value: data?.level1 ?? 0 },
-    { label: 'Medium', value: data?.level2 ?? 0 },
-    { label: 'Firm', value: data?.level3 ?? 0 },
-    { label: 'Formal Notice', value: data?.level4 ?? 0 },
+    { label: translate(locale, 'dashboard.collection.noReminder'), value: data?.level0 ?? 0 },
+    { label: translate(locale, 'reminders.levels.soft'), value: data?.level1 ?? 0 },
+    { label: translate(locale, 'reminders.levels.medium'), value: data?.level2 ?? 0 },
+    { label: translate(locale, 'reminders.levels.firm'), value: data?.level3 ?? 0 },
+    { label: translate(locale, 'reminders.levels.formalNotice'), value: data?.level4 ?? 0 },
   ];
 
   return (
@@ -54,11 +57,11 @@ export default function CollectionWidget() {
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
           <AlertTriangleIcon className="size-4 text-amber-600" />
-          Collection
+          {translate(locale, 'dashboard.collection.title')}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {error ? <p className="text-sm text-destructive">Failed to load collection KPIs.</p> : null}
+        {error ? <p className="text-sm text-destructive">{translate(locale, 'dashboard.collection.loadFailed')}</p> : null}
 
         <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
           {stats.map((item) => (
@@ -72,14 +75,14 @@ export default function CollectionWidget() {
         {typeof data?.paused === 'number' ? (
           <div className="flex items-center gap-2 rounded-md border border-slate-300/80 bg-slate-50 px-3 py-2 text-sm text-slate-700">
             <PauseCircleIcon className="size-4" />
-            {data.paused} paused reminder flow(s)
+            {translate(locale, 'dashboard.collection.pausedFlows', { count: data.paused })}
           </div>
         ) : null}
 
         {(data?.overdueCount ?? 0) > 0 ? (
           <div className="flex items-center gap-2 rounded-md border border-red-300/80 bg-red-50 px-3 py-2 text-sm text-red-700">
             <BellIcon className="size-4" />
-            {data?.overdueCount} invoice(s) past formal notice deadline - action required
+            {translate(locale, 'dashboard.collection.overdueDeadline', { count: data?.overdueCount ?? 0 })}
           </div>
         ) : null}
       </CardContent>

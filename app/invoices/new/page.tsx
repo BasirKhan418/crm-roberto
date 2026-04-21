@@ -27,7 +27,7 @@ function NewInvoicePageContent() {
 
 export default function NewInvoicePage() {
   return (
-    <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Loading...</div>}>
+    <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Chargement...</div>}>
       <NewInvoicePageContent />
     </Suspense>
   );

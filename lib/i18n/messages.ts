@@ -15,6 +15,29 @@ const messages = {
       company: 'Company',
       on: 'On',
       off: 'Off',
+      loading: 'Loading...',
+    },
+    payment: {
+      linkFailed: 'Could not create payment link',
+      redirecting: 'Redirecting to payment...',
+    },
+    dashboard: {
+      collection: {
+        title: 'Collection',
+        loadFailed: 'Failed to load collection KPIs.',
+        noReminder: 'No reminder',
+        pausedFlows: '{count} paused reminder flow(s)',
+        overdueDeadline: '{count} invoice(s) past formal notice deadline — action required',
+      },
+      recurrences: {
+        title: 'Upcoming recurrences',
+        loadFailed: 'Failed to load upcoming recurrences.',
+        empty: 'No recurrences due in the next 14 days',
+        dueIn: 'due in {days} days',
+        generate: 'Generate',
+        generateSuccess: 'Recurrence generated successfully',
+        generateFailed: 'Failed to generate recurrence invoice',
+      },
     },
     validation: {
       invalidInput: 'Invalid input',
@@ -171,6 +194,7 @@ const messages = {
         hoursAgo: '{count}h ago',
         yesterday: 'Yesterday',
       },
+      moreItems: '+{count} more items',
     },
     notes: {
       followUpDone: 'Follow-up marked as done',
@@ -500,6 +524,29 @@ const messages = {
       company: 'Entreprise',
       on: 'Activé',
       off: 'Désactivé',
+      loading: 'Chargement...',
+    },
+    payment: {
+      linkFailed: 'Impossible de créer le lien de paiement',
+      redirecting: 'Redirection vers le paiement...',
+    },
+    dashboard: {
+      collection: {
+        title: 'Recouvrement',
+        loadFailed: 'Impossible de charger les indicateurs de recouvrement.',
+        noReminder: 'Sans relance',
+        pausedFlows: '{count} flux de relance en pause',
+        overdueDeadline: '{count} facture(s) dépassant l\'échéance de mise en demeure — action requise',
+      },
+      recurrences: {
+        title: 'Prochaines récurrences',
+        loadFailed: 'Impossible de charger les prochaines récurrences.',
+        empty: 'Aucune récurrence prévue dans les 14 prochains jours',
+        dueIn: 'dans {days} jours',
+        generate: 'Générer',
+        generateSuccess: 'Récurrence générée avec succès',
+        generateFailed: 'Impossible de générer la facture récurrente',
+      },
     },
     validation: {
       invalidInput: 'Saisie invalide',
@@ -656,6 +703,7 @@ const messages = {
         hoursAgo: 'Il y a {count} h',
         yesterday: 'Hier',
       },
+      moreItems: '+{count} élément(s) supplémentaire(s)',
     },
     notes: {
       followUpDone: 'Suivi marqué comme terminé',
