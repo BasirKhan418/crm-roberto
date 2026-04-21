@@ -7,12 +7,14 @@ import React from 'react';
 import ConnectDb from '@/db/connectDb';
 import CompanyProfile from '@/db/models/CompanyProfile';
 import Invoice from '@/db/models/Invoice';
+import StripeConnect from '@/db/models/StripeConnect';
 import { ensureInvoiceIndexes } from '@/db/repository/ensureInvoiceIndexes';
 import ConnectEmailClient from '@/emails/connectEmailClient';
 import { sendInvoice } from '@/lib/email';
 import { InvoicePdfTemplate } from '@/lib/pdf/InvoicePdfTemplate';
 import { nextInvoiceNumber } from '@/lib/price';
 import { normalizeReminderLocale } from '@/lib/reminders/formal-notice';
+import { buildInvoicePayUrl, generatePaymentToken, generateTokenExpiry, isTokenExpired } from '@/lib/tokens';
 
 export type RecurrenceFrequency = 'monthly' | 'quarterly' | 'yearly' | 'custom';
 
@@ -69,6 +71,8 @@ export interface RecurrenceInvoiceLike {
   totalIncludingTax: number;
   depositPercentage?: number | null;
   notes?: string | null;
+  paymentToken?: string | null;
+  paymentTokenExpiry?: Date | null;
   recurrence?: {
     isActive?: boolean;
     frequency?: RecurrenceFrequency | null;
@@ -250,10 +254,12 @@ async function renderInvoicePdfForAutoSend({
   invoice,
   companyProfile,
   locale,
+  paymentUrl,
 }: {
   invoice: RecurrenceInvoiceLike;
   companyProfile: Record<string, unknown> | null;
   locale: 'en' | 'fr';
+  paymentUrl: string | null;
 }): Promise<Buffer> {
   const createPdfDocument = (logoUrlOverride?: string | null) =>
     React.createElement(InvoicePdfTemplate, {
@@ -299,7 +305,7 @@ async function renderInvoicePdfForAutoSend({
             logoUrl: logoUrlOverride ?? ((companyProfile.logoUrl as string | null) ?? null),
           }
         : null,
-      paymentUrl: null,
+      paymentUrl,
       locale,
     }) as unknown as React.ReactElement<DocumentProps>;
 
@@ -328,6 +334,29 @@ export async function autoSendRecurringInvoiceToClient({
 
   const companyProfile = await CompanyProfile.findOne({ user: userId }).lean<Record<string, unknown> | null>();
   const locale = normalizeReminderLocale(companyProfile?.locale);
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || '';
+  const stripeConnect = await StripeConnect.findOne({ userId })
+    .select('onboardingComplete chargesEnabled')
+    .lean<{ onboardingComplete?: boolean; chargesEnabled?: boolean } | null>();
+  const stripeConnected = Boolean(stripeConnect?.onboardingComplete && stripeConnect?.chargesEnabled);
+
+  let paymentUrl: string | null = null;
+  if (stripeConnected && appUrl) {
+    let paymentToken = typeof invoice.paymentToken === 'string' && invoice.paymentToken.trim() ? invoice.paymentToken.trim() : '';
+    let paymentTokenExpiry = invoice.paymentTokenExpiry ?? null;
+
+    if (!paymentToken || isTokenExpired(paymentTokenExpiry)) {
+      paymentToken = generatePaymentToken();
+      paymentTokenExpiry = generateTokenExpiry(30);
+      await Invoice.updateOne(
+        { _id: invoice._id, userId },
+        { $set: { paymentToken, paymentTokenExpiry } }
+      );
+    }
+
+    paymentUrl = buildInvoicePayUrl(paymentToken, appUrl);
+  }
+
   const amount = new Intl.NumberFormat(locale === 'fr' ? 'fr-FR' : 'en-GB', {
     style: 'currency',
     currency: 'EUR',
@@ -337,19 +366,21 @@ export async function autoSendRecurringInvoiceToClient({
     invoice,
     companyProfile,
     locale,
+    paymentUrl,
   });
 
   await sendInvoice({
     to: recipient,
     clientName: invoice.clientSnapshot?.fullName || 'Client',
     invoiceNumber: invoice.invoiceNumber,
+    paymentUrl,
     amount,
     companyName:
       ((companyProfile?.companyName as string | null) ?? (companyProfile?.ownerName as string | null) ?? 'CRM') ||
       'CRM',
     pdfBuffer,
     locale,
-    includeOnlinePayment: false,
+    includeOnlinePayment: Boolean(paymentUrl),
   });
 }
 

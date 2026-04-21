@@ -18,6 +18,8 @@ export interface ReminderVariables {
 
 type Locale = 'en' | 'fr';
 
+const PAYMENT_LINK_VARIABLE_REGEX = /\{\{\s*paymentLink\s*\}\}|\{\s*paymentLink\s*\}/i;
+
 type InvoiceLike = {
   invoiceNumber?: string | null;
   date?: Date | string | null;
@@ -96,6 +98,33 @@ export function substituteVariables(template: string, vars: ReminderVariables): 
     const value = vars[key as keyof ReminderVariables];
     return value === undefined || value === null ? '' : String(value);
   });
+}
+
+export function templateIncludesPaymentLinkVariable(template: string): boolean {
+  return PAYMENT_LINK_VARIABLE_REGEX.test(template);
+}
+
+export function ensureReminderBodyHasPaymentLink({
+  renderedBody,
+  paymentLink,
+  locale,
+}: {
+  renderedBody: string;
+  paymentLink: string;
+  locale: Locale;
+}): string {
+  if (!paymentLink) {
+    return renderedBody;
+  }
+
+  if (renderedBody.includes(paymentLink)) {
+    return renderedBody;
+  }
+
+  const suffix = locale === 'fr' ? `Lien de paiement: ${paymentLink}` : `Payment link: ${paymentLink}`;
+  const trimmed = renderedBody.trim();
+
+  return trimmed ? `${trimmed}\n\n${suffix}` : suffix;
 }
 
 export function buildReminderVars(

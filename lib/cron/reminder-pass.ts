@@ -8,9 +8,10 @@ import Notification from '@/db/models/Notification';
 import Payment from '@/db/models/Payment';
 import ReminderLog from '@/db/models/ReminderLog';
 import ReminderSettings from '@/db/models/ReminderSettings';
+import StripeConnect from '@/db/models/StripeConnect';
 import { createActivityLog } from '@/db/repository/activity';
 import { sendFormalNotice, sendInvoiceReminder } from '@/lib/email';
-import { buildInvoicePayUrl, isTokenExpired } from '@/lib/tokens';
+import { buildInvoicePayUrl, generatePaymentToken, generateTokenExpiry, isTokenExpired } from '@/lib/tokens';
 import {
   buildBodyPreview,
   buildFallbackReminderSubject,
@@ -31,7 +32,7 @@ import {
   type InvoiceForPdf,
   type PaymentHistoryItem,
 } from '@/lib/reminders/formal-notice';
-import { buildReminderVars, substituteVariables } from '@/lib/reminders/substitute-variables';
+import { buildReminderVars, ensureReminderBodyHasPaymentLink, substituteVariables } from '@/lib/reminders/substitute-variables';
 
 import { acquireLock, releaseLock } from './redis-lock';
 
@@ -227,6 +228,7 @@ export async function runReminderPass(): Promise<ReminderPassTotals> {
   const now = new Date();
   const settingsCache = new Map<string, SettingsLike>();
   const profileCache = new Map<string, CompanyProfileForReminder | null>();
+  const stripeConnectedCache = new Map<string, boolean>();
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || '';
 
   let lastId: mongoose.Types.ObjectId | null = null;
@@ -327,6 +329,34 @@ export async function runReminderPass(): Promise<ReminderPassTotals> {
         const remainingAmount = Math.max(0, Math.round(invoice.totalIncludingTax ?? 0) - (paidMap.get(String(invoice._id)) ?? 0));
         const lateFeeAmount = computeLateFeeAmountCents(remainingAmount, targetLevel, settings.lateFee);
 
+        let stripeConnected = stripeConnectedCache.get(userId);
+        if (stripeConnected === undefined) {
+          const stripeConnect = await StripeConnect.findOne({ userId: invoice.userId })
+            .select('onboardingComplete chargesEnabled')
+            .lean<{ onboardingComplete?: boolean; chargesEnabled?: boolean } | null>();
+          stripeConnected = Boolean(stripeConnect?.onboardingComplete && stripeConnect?.chargesEnabled);
+          stripeConnectedCache.set(userId, stripeConnected);
+        }
+
+        let paymentLink = '';
+        if (stripeConnected && appUrl) {
+          let paymentToken = typeof invoice.paymentToken === 'string' && invoice.paymentToken.trim() ? invoice.paymentToken.trim() : '';
+          let paymentTokenExpiry = invoice.paymentTokenExpiry ?? null;
+
+          if (!paymentToken || isTokenExpired(paymentTokenExpiry)) {
+            paymentToken = generatePaymentToken();
+            paymentTokenExpiry = generateTokenExpiry(30);
+            await Invoice.updateOne(
+              { _id: invoice._id, userId: invoice.userId },
+              { $set: { paymentToken, paymentTokenExpiry } }
+            );
+            invoice.paymentToken = paymentToken;
+            invoice.paymentTokenExpiry = paymentTokenExpiry;
+          }
+
+          paymentLink = buildInvoicePayUrl(paymentToken, appUrl);
+        }
+
         const recipientEmail = invoice.clientSnapshot?.email?.trim() || '';
         if (!recipientEmail) {
           await buildSkipLog({
@@ -341,22 +371,27 @@ export async function runReminderPass(): Promise<ReminderPassTotals> {
           continue;
         }
 
-        const vars = mergeLateFeeIntoVariables(buildReminderVars(invoice, settings, companyProfile, locale), lateFeeAmount, locale);
+        const vars = mergeLateFeeIntoVariables(
+          {
+            ...buildReminderVars(invoice, settings, companyProfile, locale),
+            paymentLink,
+          },
+          lateFeeAmount,
+          locale
+        );
         const subject = substituteVariables(template?.subject || buildFallbackReminderSubject(targetLevel, invoice.invoiceNumber), vars);
-        const renderedBody = substituteVariables(template?.body || '', vars);
+        const renderedBody = ensureReminderBodyHasPaymentLink({
+          renderedBody: substituteVariables(template?.body || '', vars),
+          paymentLink: vars.paymentLink,
+          locale,
+        });
 
         if (targetLevel === 4) {
           const delayDays = settings.legalNotice?.delayDays === 15 ? 15 : 8;
           const includeInterestClause = settings.legalNotice?.includeInterestClause !== false;
           const customFooter = settings.legalNotice?.customFooter ?? null;
           const legalNoticeDate = new Date();
-          const paymentUrl =
-            appUrl &&
-            typeof invoice.paymentToken === 'string' &&
-            invoice.paymentToken.trim() &&
-            !isTokenExpired(invoice.paymentTokenExpiry ?? null)
-              ? buildInvoicePayUrl(invoice.paymentToken.trim(), appUrl)
-              : null;
+          const paymentUrl = vars.paymentLink || null;
 
           const invoicePdfBuffer = await renderInvoicePdfForReminder({
             invoice: {
@@ -392,7 +427,11 @@ export async function runReminderPass(): Promise<ReminderPassTotals> {
             ...vars,
             legalDeadline: dayjs(legalNoticeDate).add(delayDays, 'day').format('DD/MM/YYYY'),
           };
-          const formalBody = substituteVariables(template?.body || '', formalVars);
+          const formalBody = ensureReminderBodyHasPaymentLink({
+            renderedBody: substituteVariables(template?.body || '', formalVars),
+            paymentLink: vars.paymentLink,
+            locale,
+          });
           const formalSubject = substituteVariables(
             template?.subject || buildFallbackReminderSubject(targetLevel, invoice.invoiceNumber),
             formalVars

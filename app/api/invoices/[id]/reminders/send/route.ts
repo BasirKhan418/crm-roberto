@@ -8,6 +8,7 @@ import Invoice from '@/db/models/Invoice';
 import Payment from '@/db/models/Payment';
 import ReminderLog from '@/db/models/ReminderLog';
 import ReminderSettings from '@/db/models/ReminderSettings';
+import StripeConnect from '@/db/models/StripeConnect';
 import { createActivityLog } from '@/db/repository/activity';
 import { sendFormalNotice, sendInvoiceReminder } from '@/lib/email';
 import {
@@ -29,8 +30,8 @@ import {
   type InvoiceForPdf,
   type PaymentHistoryItem,
 } from '@/lib/reminders/formal-notice';
-import { buildReminderVars, substituteVariables } from '@/lib/reminders/substitute-variables';
-import { buildInvoicePayUrl, isTokenExpired } from '@/lib/tokens';
+import { buildReminderVars, ensureReminderBodyHasPaymentLink, substituteVariables } from '@/lib/reminders/substitute-variables';
+import { buildInvoicePayUrl, generatePaymentToken, generateTokenExpiry, isTokenExpired } from '@/lib/tokens';
 import { buildValidationError } from '@/utils/api/validation';
 import getMe from '@/utils/middlewares/useMe';
 import { sendReminderBodySchema } from '@/validators/reminder-actions.schema';
@@ -182,8 +183,34 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       (settings as { lateFee?: { enabled?: boolean; type?: 'fixed' | 'percentage'; value?: number; applyFrom?: 'medium' | 'firm' | 'formalNotice' } }).lateFee
     );
 
+    const stripeConnect = await StripeConnect.findOne({ userId: me.user.id })
+      .select('onboardingComplete chargesEnabled')
+      .lean<{ onboardingComplete?: boolean; chargesEnabled?: boolean } | null>();
+    const stripeConnected = Boolean(stripeConnect?.onboardingComplete && stripeConnect?.chargesEnabled);
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || '';
+
+    let paymentLink = '';
+    if (stripeConnected && appUrl) {
+      let paymentToken = typeof invoice.paymentToken === 'string' && invoice.paymentToken.trim() ? invoice.paymentToken.trim() : '';
+      let paymentTokenExpiry = invoice.paymentTokenExpiry ?? null;
+
+      if (!paymentToken || isTokenExpired(paymentTokenExpiry)) {
+        paymentToken = generatePaymentToken();
+        paymentTokenExpiry = generateTokenExpiry(30);
+        await Invoice.updateOne(
+          { _id: invoice._id, userId: me.user.id },
+          { $set: { paymentToken, paymentTokenExpiry } }
+        );
+      }
+
+      paymentLink = buildInvoicePayUrl(paymentToken, appUrl);
+    }
+
     const vars = mergeLateFeeIntoVariables(
-      buildReminderVars(invoice, settings, companyProfile, locale),
+      {
+        ...buildReminderVars(invoice, settings, companyProfile, locale),
+        paymentLink,
+      },
       lateFeeAmount,
       locale
     );
@@ -223,12 +250,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       const customFooter = legalNoticeSettings?.customFooter ?? null;
       const legalDeadline = computeLegalDeadline(now, delayDays);
       const paymentUrl =
-        (process.env.NEXT_PUBLIC_APP_URL || '') &&
-        typeof invoice.paymentToken === 'string' &&
-        invoice.paymentToken.trim() &&
-        !isTokenExpired(invoice.paymentTokenExpiry ?? null)
-          ? buildInvoicePayUrl(invoice.paymentToken.trim(), process.env.NEXT_PUBLIC_APP_URL || '')
-          : null;
+        vars.paymentLink || null;
 
       const invoicePdfBuffer = await renderInvoicePdfForReminder({
         invoice: {
@@ -266,7 +288,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       };
 
       const subject = substituteVariables(subjectTemplate, legalVars);
-      const renderedBody = substituteVariables(bodyTemplate, legalVars);
+      const renderedBody = ensureReminderBodyHasPaymentLink({
+        renderedBody: substituteVariables(bodyTemplate, legalVars),
+        paymentLink: vars.paymentLink,
+        locale,
+      });
 
       const legalNoticeResult = await renderLegalNoticePdfForReminder({
         invoice: {
@@ -356,7 +382,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       });
     } else {
       const subject = substituteVariables(subjectTemplate, vars);
-      const renderedBody = substituteVariables(bodyTemplate, vars);
+      const renderedBody = ensureReminderBodyHasPaymentLink({
+        renderedBody: substituteVariables(bodyTemplate, vars),
+        paymentLink: vars.paymentLink,
+        locale,
+      });
 
       await sendInvoiceReminder({
         to: recipientEmail,
