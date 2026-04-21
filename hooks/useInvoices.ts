@@ -55,6 +55,10 @@ interface InvoicesPagination {
   totalPages: number;
 }
 
+interface UseInvoicesOptions {
+  clientId?: string;
+}
+
 const initialPagination: InvoicesPagination = {
   page: 1,
   limit: 10,
@@ -67,7 +71,8 @@ export function useInvoices(
   search = '',
   sort: InvoiceSort = 'date',
   page = 1,
-  limit = 10
+  limit = 10,
+  options?: UseInvoicesOptions
 ) {
   const [invoices, setInvoices] = useState<InvoiceListItem[]>([]);
   const [pagination, setPagination] = useState<InvoicesPagination>(initialPagination);
@@ -89,8 +94,12 @@ export function useInvoices(
       params.set('search', normalizedSearch);
     }
 
+    if (options?.clientId) {
+      params.set('clientId', options.clientId);
+    }
+
     return params.toString();
-  }, [filter, search, sort, page, limit]);
+  }, [filter, search, sort, page, limit, options?.clientId]);
 
   const fetchInvoices = useCallback(async () => {
     setLoading(true);

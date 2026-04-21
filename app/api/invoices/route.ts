@@ -199,6 +199,7 @@ export async function GET(request: NextRequest) {
     const statusParam = request.nextUrl.searchParams.get('status');
     const searchParam = request.nextUrl.searchParams.get('search')?.trim();
     const sortParam = request.nextUrl.searchParams.get('sort');
+    const clientIdParam = request.nextUrl.searchParams.get('clientId')?.trim();
     const pageParam = Number(request.nextUrl.searchParams.get('page') ?? '1');
     const limitParam = Number(request.nextUrl.searchParams.get('limit') ?? '10');
 
@@ -217,8 +218,16 @@ export async function GET(request: NextRequest) {
     const limit = Number.isFinite(limitParam) ? Math.max(1, Math.min(100, limitParam)) : 10;
     const skip = (page - 1) * limit;
 
+    if (clientIdParam && !objectIdSchema.safeParse(clientIdParam).success) {
+      return NextResponse.json({ success: false, message: 'Invalid client id' }, { status: 400 });
+    }
+
     const now = new Date();
     const query: Record<string, unknown> = { userId: me.user.id };
+
+    if (clientIdParam) {
+      query.clientId = new mongoose.Types.ObjectId(clientIdParam);
+    }
 
     if (status) {
       if (status === 'overdue') {

@@ -30,6 +30,7 @@ import {
 import { toast } from 'sonner';
 
 import CrmShell from '@/components/crm-shell';
+import ClientInvoicesPanel from '@/components/clients/client-invoices-panel';
 import AddClientModal from '@/components/modals/AddClientModal';
 import SendQuoteModal from '@/components/quotes/SendQuoteModal';
 import QuoteStatusSummary from '@/components/quotes/QuoteStatusSummary';
@@ -200,6 +201,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       timeline: 'Timeline',
       notes: 'Notes & Tasks',
       interactions: 'Interactions',
+      invoicesTab: 'Invoices',
       attachments: 'Attachments',
       createQuote: 'Create Quote',
       createInvoice: 'Create Invoice',
@@ -328,6 +330,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       timeline: 'Chronologie',
       notes: 'Notes & T\u00e2ches',
       interactions: 'Interactions',
+      invoicesTab: 'Factures',
       attachments: 'Pi\u00e8ces jointes',
       createQuote: 'Cr\u00e9er un devis',
       createInvoice: 'Cr\u00e9er une facture',
@@ -931,6 +934,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                     <TabTriggerStyled value="timeline">{t.timeline}</TabTriggerStyled>
                     <TabTriggerStyled value="notes" badge={pendingNotes.length > 0 ? pendingNotes.length : undefined}>{t.notes}</TabTriggerStyled>
                     <TabTriggerStyled value="interactions" badge={interactions.length > 0 ? interactions.length : undefined}>{t.interactions}</TabTriggerStyled>
+                    <TabTriggerStyled value="invoices">{t.invoicesTab}</TabTriggerStyled>
                     <TabTriggerStyled value="quotes" badge={quotes.length > 0 ? quotes.length : undefined}>{t.quotesTab}</TabTriggerStyled>
                     <TabTriggerStyled value="attachments" badge={attachments.length > 0 ? attachments.length : undefined}>{t.attachments}</TabTriggerStyled>
                   </TabsList>
@@ -1048,6 +1052,11 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                         ))}
                     </div>
                   )}
+                </TabsContent>
+
+                {/* INVOICES */}
+                <TabsContent value="invoices" className="space-y-4">
+                  <ClientInvoicesPanel clientId={client._id} />
                 </TabsContent>
 
                 {/* QUOTES */}
