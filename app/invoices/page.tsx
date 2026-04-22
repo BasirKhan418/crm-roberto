@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 
 import InvoiceTable, { type InvoiceTableColumnKey } from '@/components/invoices/InvoiceTable';
 import SendInvoiceModal from '@/components/invoices/SendInvoiceModal';
+import SendReminderModal from '@/components/invoices/SendReminderModal';
 import CrmShell from '@/components/crm-shell';
 import KpiCards, { type KpiCard } from '@/components/ui/KpiCards';
 import { useLocale } from '@/components/providers/locale-provider';
@@ -107,6 +108,8 @@ function InvoicesPageContent() {
       view: 'View',
       edit: 'Edit',
       send: 'Send',
+      sendInvoice: 'Send invoice',
+      sendReminder: 'Send reminder',
       downloadPdf: 'Download PDF',
       delete: 'Delete',
       deleteTitle: 'Delete invoice?',
@@ -207,6 +210,8 @@ function InvoicesPageContent() {
       view: 'Voir',
       edit: 'Modifier',
       send: 'Envoyer',
+      sendInvoice: 'Envoyer facture',
+      sendReminder: 'Envoyer rappel',
       downloadPdf: 'Télécharger PDF',
       delete: 'Supprimer',
       deleteTitle: 'Supprimer la facture ?',
@@ -272,6 +277,7 @@ function InvoicesPageContent() {
   const [deleteTarget, setDeleteTarget] = useState<InvoiceListItem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [sendTarget, setSendTarget] = useState<InvoiceListItem | null>(null);
+  const [reminderTarget, setReminderTarget] = useState<InvoiceListItem | null>(null);
   const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<string[]>([]);
   const [bulkReminderOpen, setBulkReminderOpen] = useState(false);
   const [bulkReminderMode, setBulkReminderMode] = useState<'auto' | '1' | '2' | '3'>('auto');
@@ -624,7 +630,7 @@ function InvoicesPageContent() {
     ];
   }, [kpiData, t.kpiTotalHT, t.kpiTotalTTC, t.kpiTotalVAT]);
 
-  function getNextReminderLevel(level: number | null | undefined): 1 | 2 | 3 {
+  function getNextReminderLevel(level: number | null | undefined): 1 | 2 | 3 | 4 {
     const normalized = Number.isFinite(level) ? Math.max(0, Math.min(4, Math.round(Number(level)))) : 0;
 
     if (normalized <= 0) {
@@ -635,10 +641,14 @@ function InvoicesPageContent() {
       return 2;
     }
 
-    return 3;
+    if (normalized === 2) {
+      return 3;
+    }
+
+    return 4;
   }
 
-  function resolveBulkReminderLevel(invoice: InvoiceListItem): 1 | 2 | 3 {
+  function resolveBulkReminderLevel(invoice: InvoiceListItem): 1 | 2 | 3 | 4 {
     if (bulkReminderMode === '1' || bulkReminderMode === '2' || bulkReminderMode === '3') {
       return Number(bulkReminderMode) as 1 | 2 | 3;
     }
@@ -656,6 +666,7 @@ function InvoicesPageContent() {
 
     let success = 0;
     let failed = 0;
+    const failureMessages: string[] = [];
 
     for (let index = 0; index < selectedInvoices.length; index += 1) {
       const invoice = selectedInvoices[index];
@@ -674,8 +685,15 @@ function InvoicesPageContent() {
         }
 
         success += 1;
-      } catch {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(
+            new CustomEvent('reminder-logs:refresh', { detail: { invoiceId: invoice._id } })
+          );
+        }
+      } catch (err) {
         failed += 1;
+        const message = err instanceof Error ? err.message : String(err);
+        failureMessages.push(`${invoice.invoiceNumber}: ${message}`);
       } finally {
         setBulkProgress({ done: index + 1, total: selectedInvoices.length, success, failed });
       }
@@ -684,7 +702,9 @@ function InvoicesPageContent() {
     if (failed === 0) {
       toast.success(t.bulkDone);
     } else {
-      toast.error(t.bulkPartial(success, failed));
+      toast.error(t.bulkPartial(success, failed), {
+        description: failureMessages.slice(0, 5).join('\n'),
+      });
     }
 
     setBulkSending(false);
@@ -872,6 +892,7 @@ function InvoicesPageContent() {
               onDelete={setDeleteTarget}
               onDownload={handleDownloadPdf}
               onSend={setSendTarget}
+              onSendReminder={setReminderTarget}
               selectedInvoiceIds={selectedInvoiceIds}
               onToggleInvoiceSelection={(invoiceId, checked) => {
                 setSelectedInvoiceIds((prev) => {
@@ -914,6 +935,8 @@ function InvoicesPageContent() {
                 view: t.view,
                 edit: t.edit,
                 send: t.send,
+                sendInvoice: t.sendInvoice,
+                sendReminder: t.sendReminder,
                 downloadPdf: t.downloadPdf,
                 delete: t.delete,
               }}
@@ -1075,6 +1098,24 @@ function InvoicesPageContent() {
           clientEmail={sendTarget.clientSnapshot.email}
           clientName={sendTarget.clientSnapshot.fullName}
           locale={locale as 'en' | 'fr'}
+          onSent={() => {
+            refetch();
+          }}
+        />
+      ) : null}
+
+      {reminderTarget ? (
+        <SendReminderModal
+          open={Boolean(reminderTarget)}
+          onOpenChange={(next) => (!next ? setReminderTarget(null) : undefined)}
+          invoiceId={reminderTarget._id}
+          invoiceNumber={reminderTarget.invoiceNumber}
+          clientName={reminderTarget.clientSnapshot.fullName}
+          dueDate={reminderTarget.dueDate}
+          invoiceDate={reminderTarget.date}
+          amountDue={reminderTarget.remainingAmount ?? reminderTarget.totalIncludingTax}
+          locale={locale as 'en' | 'fr'}
+          nextLevel={getNextReminderLevel(reminderTarget.reminderState?.level)}
           onSent={() => {
             refetch();
           }}

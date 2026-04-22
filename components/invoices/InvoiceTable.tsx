@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-import { DownloadIcon, EllipsisVerticalIcon, EyeIcon, PencilIcon, SendIcon, Trash2Icon } from 'lucide-react';
+import { BellIcon, DownloadIcon, EllipsisVerticalIcon, EyeIcon, PencilIcon, SendIcon, Trash2Icon } from 'lucide-react';
 
 import type { InvoiceListItem } from '@/hooks/useInvoices';
 import { InvoiceStatusBadge } from '@/components/ui/InvoiceStatusBadge';
@@ -43,6 +43,61 @@ function getDueDateStyle(dueDate: string | null | undefined, status: string) {
   return { color: 'var(--color-text-secondary)' };
 }
 
+function ReminderStateBadge({
+  invoice,
+  locale,
+  compact,
+}: {
+  invoice: InvoiceListItem;
+  locale: 'en' | 'fr';
+  compact?: boolean;
+}) {
+  const level = Math.max(0, Math.min(4, Math.round(Number(invoice.reminderState?.level ?? 0))));
+  if (level <= 0 || invoice.status === 'paid') {
+    return null;
+  }
+
+  const lastSentAt = invoice.reminderState?.lastSentAt ?? null;
+  const isPaused = invoice.reminderState?.isPaused === true;
+
+  const dateLabel = lastSentAt
+    ? new Intl.DateTimeFormat(locale === 'fr' ? 'fr-FR' : 'en-GB', {
+        day: '2-digit',
+        month: '2-digit',
+      }).format(new Date(lastSentAt))
+    : null;
+
+  let label: string;
+  if (isPaused) {
+    label = locale === 'fr' ? 'Relances en pause' : 'Reminders paused';
+  } else if (level === 4) {
+    label = locale === 'fr' ? (dateLabel ? `Mise en demeure · ${dateLabel}` : 'Mise en demeure') : dateLabel ? `Formal notice · ${dateLabel}` : 'Formal notice';
+  } else {
+    const levelTxt = locale === 'fr' ? `Rappel ${level}` : `Reminder ${level}`;
+    label = dateLabel ? `${levelTxt} · ${dateLabel}` : levelTxt;
+  }
+
+  const tone = isPaused
+    ? 'bg-slate-100 text-slate-700 dark:bg-slate-800/60 dark:text-slate-300'
+    : level === 4
+      ? 'bg-red-100 text-red-800 dark:bg-red-950/40 dark:text-red-300'
+      : level === 3
+        ? 'bg-orange-100 text-orange-800 dark:bg-orange-950/40 dark:text-orange-300'
+        : level === 2
+          ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300'
+          : 'bg-sky-100 text-sky-800 dark:bg-sky-950/40 dark:text-sky-300';
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium ${tone} ${compact ? 'text-[10px]' : 'text-[11px]'}`}
+      title={label}
+    >
+      <BellIcon className={compact ? 'size-3' : 'size-3.5'} />
+      {label}
+    </span>
+  );
+}
+
 interface InvoiceTableProps {
   items: InvoiceListItem[];
   loading: boolean;
@@ -64,6 +119,8 @@ interface InvoiceTableProps {
     view: string;
     edit: string;
     send: string;
+    sendInvoice: string;
+    sendReminder: string;
     downloadPdf: string;
     delete: string;
   };
@@ -72,6 +129,7 @@ interface InvoiceTableProps {
   onDelete: (invoice: InvoiceListItem) => void;
   onDownload: (invoice: InvoiceListItem) => Promise<void>;
   onSend: (invoice: InvoiceListItem) => void;
+  onSendReminder?: (invoice: InvoiceListItem) => void;
   selectedInvoiceIds?: string[];
   onToggleInvoiceSelection?: (invoiceId: string, checked: boolean) => void;
   onToggleSelectAllVisible?: (checked: boolean) => void;
@@ -100,6 +158,7 @@ export default function InvoiceTable({
   onDelete,
   onDownload,
   onSend,
+  onSendReminder,
   selectedInvoiceIds = [],
   onToggleInvoiceSelection,
   onToggleSelectAllVisible,
@@ -156,7 +215,7 @@ export default function InvoiceTable({
   const allVisibleSelected = items.length > 0 && items.every((invoice) => selectedIdsSet.has(invoice._id));
 
   function renderPrimaryAction(invoice: InvoiceListItem, className?: string) {
-    // unpaid → send
+    // unpaid → send invoice
     if (invoice.status === 'unpaid') {
       return (
         <Button
@@ -169,7 +228,25 @@ export default function InvoiceTable({
           }}
         >
           <SendIcon className="size-3.5" />
-          {labels.send}
+          {labels.sendInvoice}
+        </Button>
+      );
+    }
+
+    // overdue or partial_paid → send reminder (Relancer)
+    if ((invoice.status === 'overdue' || invoice.status === 'partial_paid') && onSendReminder) {
+      return (
+        <Button
+          type="button"
+          size="sm"
+          className={`h-8 px-3 text-xs ${className ?? ''}`}
+          onClick={(event) => {
+            event.stopPropagation();
+            onSendReminder(invoice);
+          }}
+        >
+          <BellIcon className="size-3.5" />
+          {labels.sendReminder}
         </Button>
       );
     }
@@ -227,8 +304,14 @@ export default function InvoiceTable({
           ) : null}
           <DropdownMenuItem onSelect={() => onSend(invoice)}>
             <SendIcon className="size-4" />
-            {labels.send}
+            {labels.sendInvoice}
           </DropdownMenuItem>
+          {onSendReminder && invoice.status !== 'paid' ? (
+            <DropdownMenuItem onSelect={() => onSendReminder(invoice)}>
+              <BellIcon className="size-4" />
+              {labels.sendReminder}
+            </DropdownMenuItem>
+          ) : null}
           <DropdownMenuItem onSelect={() => void onDownload(invoice)}>
             <DownloadIcon className="size-4" />
             {labels.downloadPdf}
@@ -312,6 +395,7 @@ export default function InvoiceTable({
                     </div>
                     <div className="flex flex-col items-end gap-1.5 shrink-0">
                       {isVisible('status') ? <InvoiceStatusBadge status={invoice.status} locale={locale} className="mt-0.5" /> : null}
+                      <ReminderStateBadge invoice={invoice} locale={locale} compact />
                       {invoice.status === 'partial_paid' ? (
                         <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700 dark:bg-amber-950/30 dark:text-amber-400">
                           <span className="size-1.5 rounded-full bg-amber-500 animate-ping" />
@@ -549,7 +633,10 @@ export default function InvoiceTable({
                       ) : null}
                       {isVisible('status') ? (
                         <TableCell className="py-4 align-middle">
-                          <InvoiceStatusBadge status={invoice.status} locale={locale} />
+                          <div className="flex flex-col items-start gap-1">
+                            <InvoiceStatusBadge status={invoice.status} locale={locale} />
+                            <ReminderStateBadge invoice={invoice} locale={locale} />
+                          </div>
                         </TableCell>
                       ) : null}
                       <TableCell className="py-4 pr-4 align-middle">

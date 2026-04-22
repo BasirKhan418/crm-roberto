@@ -293,14 +293,22 @@ export async function runReminderPass(): Promise<ReminderPassTotals> {
       totals.processed += 1;
 
       if (invoice.status === 'paid') {
-        await buildSkipLog({
-          userId: invoice.userId,
-          invoiceId: invoice._id,
-          level: 1,
-          reason: 'invoice_paid',
-          invoiceNumber: invoice.invoiceNumber,
-          recipientEmail: invoice.clientSnapshot?.email || '',
-        });
+        const existingLevel = Math.max(
+          1,
+          Math.min(4, Math.round(Number(invoice.reminderState?.level ?? 0)) || 1)
+        ) as ReminderLevel;
+        try {
+          await buildSkipLog({
+            userId: invoice.userId,
+            invoiceId: invoice._id,
+            level: existingLevel,
+            reason: 'invoice_paid',
+            invoiceNumber: invoice.invoiceNumber,
+            recipientEmail: invoice.clientSnapshot?.email || '',
+          });
+        } catch (err) {
+          console.error('[reminder-pass] failed to write paid-skip log', err);
+        }
         totals.skipped += 1;
         continue;
       }

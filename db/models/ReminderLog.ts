@@ -26,7 +26,7 @@ const ReminderLogSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["sent", "failed", "skipped"],
+      enum: ["sent", "failed", "skipped", "paused", "resumed"],
       required: true,
     },
     skippedReason: {
@@ -36,7 +36,7 @@ const ReminderLogSchema = new mongoose.Schema(
     },
     subject: {
       type: String,
-      required: true,
+      default: "",
       trim: true,
     },
     bodyPreview: {
@@ -47,7 +47,7 @@ const ReminderLogSchema = new mongoose.Schema(
     },
     recipientEmail: {
       type: String,
-      required: true,
+      default: "",
       trim: true,
       lowercase: true,
     },

@@ -22,8 +22,8 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
 
 type Locale = 'en' | 'fr';
-type ReminderLevel = 1 | 2 | 3;
-type ReminderLevelKey = 'soft' | 'medium' | 'firm';
+type ReminderLevel = 1 | 2 | 3 | 4;
+type ReminderLevelKey = 'soft' | 'medium' | 'firm' | 'formalNotice';
 
 interface SendReminderModalProps {
   open: boolean;
@@ -97,7 +97,10 @@ function mapLevelToKey(level: ReminderLevel): ReminderLevelKey {
   if (level === 2) {
     return 'medium';
   }
-  return 'firm';
+  if (level === 3) {
+    return 'firm';
+  }
+  return 'formalNotice';
 }
 
 const fetcher = async (url: string): Promise<ReminderSettingsResponse> => {
@@ -229,10 +232,11 @@ export default function SendReminderModal({
             <RadioGroup
               value={String(level)}
               onValueChange={(value) => {
-                const nextLevelValue: ReminderLevel = value === '1' ? 1 : value === '2' ? 2 : 3;
+                const nextLevelValue: ReminderLevel =
+                  value === '1' ? 1 : value === '2' ? 2 : value === '3' ? 3 : 4;
                 setLevel(nextLevelValue);
               }}
-              className="grid grid-cols-1 gap-2 sm:grid-cols-3"
+              className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4"
             >
               <Label className="flex items-center gap-2 rounded-lg border p-3 text-sm">
                 <RadioGroupItem value="1" />
@@ -245,6 +249,10 @@ export default function SendReminderModal({
               <Label className="flex items-center gap-2 rounded-lg border p-3 text-sm">
                 <RadioGroupItem value="3" />
                 {t('reminders.levels.firm')}
+              </Label>
+              <Label className="flex items-center gap-2 rounded-lg border p-3 text-sm">
+                <RadioGroupItem value="4" />
+                {t('reminders.levels.formalNotice')}
               </Label>
             </RadioGroup>
           </div>

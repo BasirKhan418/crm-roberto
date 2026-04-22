@@ -28,6 +28,9 @@ export interface InvoiceListItem {
   };
   reminderState?: {
     level?: number | null;
+    lastSentAt?: string | null;
+    nextScheduledAt?: string | null;
+    isPaused?: boolean;
   };
   clientId: string;
   clientSnapshot: {

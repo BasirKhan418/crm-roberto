@@ -286,8 +286,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       const includeInterestClause = legalNoticeSettings?.includeInterestClause !== false;
       const customFooter = legalNoticeSettings?.customFooter ?? null;
       const legalDeadline = computeLegalDeadline(now, delayDays);
-      const paymentUrl =
-        vars.paymentLink || null;
 
       const legalVars = {
         ...vars,
@@ -313,17 +311,45 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         customFooter,
       });
 
-      await sendFormalNotice({
-        to: recipientEmail,
-        clientName: invoice.clientSnapshot?.fullName || 'Client',
-        companyName: companyProfile?.companyName || companyProfile?.ownerName || 'CRM',
-        invoiceNumber: invoice.invoiceNumber,
-        subject,
-        htmlBody: renderedBody,
-        pdfBuffer: invoicePdfBuffer,
-        legalNoticePdfBuffer: legalNoticeResult.pdfBuffer,
-        locale,
-      });
+      try {
+        await sendFormalNotice({
+          to: recipientEmail,
+          clientName: invoice.clientSnapshot?.fullName || 'Client',
+          companyName: companyProfile?.companyName || companyProfile?.ownerName || 'CRM',
+          invoiceNumber: invoice.invoiceNumber,
+          subject,
+          htmlBody: renderedBody,
+          pdfBuffer: invoicePdfBuffer,
+          legalNoticePdfBuffer: legalNoticeResult.pdfBuffer,
+          locale,
+        });
+      } catch (sendError) {
+        await ReminderLog.create({
+          userId: me.user.id,
+          invoiceId: invoice._id,
+          level: 4,
+          channel: 'email',
+          status: 'failed',
+          skippedReason: null,
+          subject,
+          bodyPreview: buildBodyPreview(renderedBody),
+          recipientEmail,
+          lateFeeAmount,
+          error: String(sendError).slice(0, 500),
+          sentAt: now,
+          pdfAttached: false,
+        });
+
+        await createActivityLog(me.user.id, {
+          action: 'invoice_reminder_failed',
+          entityType: 'invoice',
+          entityName: invoice.invoiceNumber,
+          entityId: String(invoice._id),
+          metadata: { level: 4, channel: 'email', recipientEmail, error: String(sendError).slice(0, 500) },
+        });
+
+        return NextResponse.json({ success: false, message: `Error sending formal notice: ${String(sendError)}` }, { status: 500 });
+      }
 
       await Invoice.updateOne(
         { _id: invoice._id, userId: me.user.id },
@@ -374,16 +400,44 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         locale,
       });
 
-      await sendInvoiceReminder({
-        to: recipientEmail,
-        clientName: invoice.clientSnapshot?.fullName || 'Client',
-        companyName: companyProfile?.companyName || companyProfile?.ownerName || 'CRM',
-        invoiceNumber: invoice.invoiceNumber,
-        subject,
-        htmlBody: renderedBody,
-        pdfBuffer: invoicePdfBuffer,
-        locale,
-      });
+      try {
+        await sendInvoiceReminder({
+          to: recipientEmail,
+          clientName: invoice.clientSnapshot?.fullName || 'Client',
+          companyName: companyProfile?.companyName || companyProfile?.ownerName || 'CRM',
+          invoiceNumber: invoice.invoiceNumber,
+          subject,
+          htmlBody: renderedBody,
+          pdfBuffer: invoicePdfBuffer,
+          locale,
+        });
+      } catch (sendError) {
+        await ReminderLog.create({
+          userId: me.user.id,
+          invoiceId: invoice._id,
+          level,
+          channel: 'email',
+          status: 'failed',
+          skippedReason: null,
+          subject,
+          bodyPreview: buildBodyPreview(renderedBody),
+          recipientEmail,
+          lateFeeAmount,
+          error: String(sendError).slice(0, 500),
+          sentAt: now,
+          pdfAttached: false,
+        });
+
+        await createActivityLog(me.user.id, {
+          action: 'invoice_reminder_failed',
+          entityType: 'invoice',
+          entityName: invoice.invoiceNumber,
+          entityId: String(invoice._id),
+          metadata: { level, channel: 'email', recipientEmail, error: String(sendError).slice(0, 500) },
+        });
+
+        return NextResponse.json({ success: false, message: `Error sending reminder: ${String(sendError)}` }, { status: 500 });
+      }
 
       const nextScheduledAt = computeNextScheduledAt(invoice.dueDate, level, offsets);
 

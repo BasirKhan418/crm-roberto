@@ -93,7 +93,6 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
       {
         $set: {
           'reminderState.level': skippedLevel,
-          'reminderState.lastSentAt': now,
           'reminderState.nextScheduledAt': nextScheduledAt,
           'reminderState.isPaused': false,
         },
@@ -105,7 +104,7 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, message: 'Invoice not found' }, { status: 404 });
     }
 
-    const recipientEmail = invoice.clientSnapshot?.email?.trim() || 'unknown@example.com';
+    const recipientEmail = invoice.clientSnapshot?.email?.trim() || '';
 
     const log = await ReminderLog.create({
       userId: me.user.id,
@@ -114,7 +113,7 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
       channel: 'email',
       status: 'skipped',
       skippedReason: 'Manually skipped from collection tab',
-      subject: `Skipped reminder level ${skippedLevel}`,
+      subject: '',
       bodyPreview: '',
       recipientEmail,
       lateFeeAmount: Math.max(0, Math.round(invoice.reminderState?.lateFeeAmount ?? 0)),

@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import ConnectDb from '@/db/connectDb';
 import Invoice from '@/db/models/Invoice';
+import ReminderLog from '@/db/models/ReminderLog';
 import ReminderSettings from '@/db/models/ReminderSettings';
 import { createActivityLog } from '@/db/repository/activity';
 import { normalizeOffsets } from '@/lib/reminders/core';
@@ -47,12 +48,13 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
     );
 
     const invoice = await Invoice.findOne({ _id: id, userId: me.user.id })
-      .select('_id invoiceNumber dueDate reminderState')
+      .select('_id invoiceNumber dueDate clientSnapshot reminderState')
       .lean<{
         _id: mongoose.Types.ObjectId;
         invoiceNumber: string;
         dueDate?: Date | null;
-        reminderState?: { level?: number | null } | null;
+        clientSnapshot?: { email?: string | null } | null;
+        reminderState?: { level?: number | null; lateFeeAmount?: number | null } | null;
       } | null>();
 
     if (!invoice) {
@@ -91,6 +93,28 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
     if (!updated) {
       return NextResponse.json({ success: false, message: 'Invoice not found' }, { status: 404 });
     }
+
+    const now = new Date();
+    const currentLevel = Math.max(
+      1,
+      Math.min(4, Math.round(Number(invoice.reminderState?.level ?? 0)) || 1)
+    ) as 1 | 2 | 3 | 4;
+
+    await ReminderLog.create({
+      userId: me.user.id,
+      invoiceId: invoice._id,
+      level: currentLevel,
+      channel: 'email',
+      status: 'resumed',
+      skippedReason: 'Resumed by user',
+      subject: '',
+      bodyPreview: '',
+      recipientEmail: invoice.clientSnapshot?.email?.trim() || '',
+      lateFeeAmount: Math.max(0, Math.round(Number(invoice.reminderState?.lateFeeAmount ?? 0))),
+      error: null,
+      sentAt: now,
+      pdfAttached: false,
+    });
 
     await createActivityLog(me.user.id, {
       action: 'invoice_reminder_resumed',

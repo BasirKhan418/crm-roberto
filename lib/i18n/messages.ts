@@ -397,8 +397,15 @@ const messages = {
       },
       history: {
         title: 'Reminder history',
+        pausedLine: 'Reminders paused at level {level}',
+        resumedLine: 'Reminders resumed at level {level}',
+        skippedLine: 'Reminder {level} skipped',
+        failedLine: 'Reminder {level} failed to send',
       },
       nextScheduled: 'Next reminder in {days} days',
+      reminderSent: 'Reminder {level} sent on {date}',
+      formalNoticeSent: 'Formal notice sent on {date}',
+      noReminderSent: 'No reminder sent yet',
       collection: {
         tab: 'Collection',
         title: 'Collection status',
@@ -419,6 +426,8 @@ const messages = {
           sent: 'sent',
           failed: 'failed',
           skipped: 'skipped',
+          paused: 'paused',
+          resumed: 'resumed',
         },
         sendModal: {
           title: 'Send reminder now',
@@ -916,8 +925,15 @@ const messages = {
       },
       history: {
         title: 'Historique des relances',
+        pausedLine: 'Relances mises en pause au niveau {level}',
+        resumedLine: 'Relances reprises au niveau {level}',
+        skippedLine: 'Relance {level} ignorée',
+        failedLine: 'Échec d\'envoi de la relance {level}',
       },
       nextScheduled: 'Prochain rappel dans {days} jours',
+      reminderSent: 'Rappel {level} envoyé le {date}',
+      formalNoticeSent: 'Mise en demeure envoyée le {date}',
+      noReminderSent: 'Aucun rappel envoyé pour le moment',
       collection: {
         tab: 'Relances',
         title: 'Suivi des relances',
@@ -938,6 +954,8 @@ const messages = {
           sent: 'envoyé',
           failed: 'échec',
           skipped: 'ignoré',
+          paused: 'mis en pause',
+          resumed: 'repris',
         },
         sendModal: {
           title: 'Envoyer une relance',

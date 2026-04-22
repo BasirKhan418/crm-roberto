@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import ConnectDb from '@/db/connectDb';
 import Invoice from '@/db/models/Invoice';
+import ReminderLog from '@/db/models/ReminderLog';
 import { createActivityLog } from '@/db/repository/activity';
 import getMe from '@/utils/middlewares/useMe';
 
@@ -57,6 +58,29 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
     if (!invoice) {
       return NextResponse.json({ success: false, message: 'Invoice not found' }, { status: 404 });
     }
+
+    const currentLevel = Math.max(
+      1,
+      Math.min(4, Math.round(Number(invoice.reminderState?.level ?? 0)) || 1)
+    ) as 1 | 2 | 3 | 4;
+
+    const now = new Date();
+
+    await ReminderLog.create({
+      userId: me.user.id,
+      invoiceId: invoice._id,
+      level: currentLevel,
+      channel: 'email',
+      status: 'paused',
+      skippedReason: 'Paused by user',
+      subject: '',
+      bodyPreview: '',
+      recipientEmail: invoice.clientSnapshot?.email?.trim() || '',
+      lateFeeAmount: Math.max(0, Math.round(Number(invoice.reminderState?.lateFeeAmount ?? 0))),
+      error: null,
+      sentAt: now,
+      pdfAttached: false,
+    });
 
     await createActivityLog(me.user.id, {
       action: 'invoice_reminder_paused',

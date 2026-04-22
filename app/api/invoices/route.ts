@@ -114,6 +114,9 @@ type InvoiceListQueryResult = {
   } | null;
   reminderState?: {
     level?: number | null;
+    lastSentAt?: Date | null;
+    nextScheduledAt?: Date | null;
+    isPaused?: boolean;
   } | null;
   clientId: mongoose.Types.ObjectId;
   clientSnapshot: {
@@ -288,7 +291,7 @@ export async function GET(request: NextRequest) {
     const [items, total] = await Promise.all([
       Invoice.find(query)
         .select(
-          '_id invoiceNumber quoteId quoteNumber date dueDate status totalExcludingTax totalVat totalIncludingTax depositPercentage depositAmount recurrence.isActive reminderState.level clientId clientSnapshot.fullName clientSnapshot.email'
+          '_id invoiceNumber quoteId quoteNumber date dueDate status totalExcludingTax totalVat totalIncludingTax depositPercentage depositAmount recurrence.isActive reminderState clientId clientSnapshot.fullName clientSnapshot.email'
         )
         .sort(sortSpec)
         .skip(skip)
@@ -365,6 +368,13 @@ export async function GET(request: NextRequest) {
           level: Number.isFinite(normalized.reminderState?.level)
             ? Math.max(0, Math.min(4, Math.round(Number(normalized.reminderState?.level))))
             : 0,
+          lastSentAt: normalized.reminderState?.lastSentAt
+            ? new Date(normalized.reminderState.lastSentAt).toISOString()
+            : null,
+          nextScheduledAt: normalized.reminderState?.nextScheduledAt
+            ? new Date(normalized.reminderState.nextScheduledAt).toISOString()
+            : null,
+          isPaused: normalized.reminderState?.isPaused === true,
         },
         amountPaid,
         remainingAmount,
