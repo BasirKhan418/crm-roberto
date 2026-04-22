@@ -8,7 +8,7 @@ import dayjs from 'dayjs';
 import { ChevronDownIcon, ChevronUpIcon, ExternalLinkIcon, InfoIcon, Loader2Icon, RotateCcwIcon, SendIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { getInvoiceDaysOverdue, isInvoiceDueOnOrBeforeToday } from '@/lib/invoices/overdue';
+import { getInvoiceDaysOverdue, getInvoiceDueDayOffset } from '@/lib/invoices/overdue';
 import { formatInvoiceDisplayNumber, resolveTranslatedError, translate } from '@/lib/i18n/messages';
 import {
   computeLateFeeAmountCents,
@@ -32,6 +32,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 type Locale = 'en' | 'fr';
 
@@ -298,6 +308,7 @@ export default function SendReminderModal({
   const [body, setBody] = useState('');
   const [previewOpen, setPreviewOpen] = useState(false);
   const [sending, setSending] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [subjectTouched, setSubjectTouched] = useState(false);
   const [bodyTouched, setBodyTouched] = useState(false);
 
@@ -330,7 +341,12 @@ export default function SendReminderModal({
   const currentStageConfig = normalizedLateFeeStages[mapLevelToKey(level)];
 
   const daysOverdue = useMemo(() => computeDaysOverdue(dueDate), [dueDate]);
-  const formalNoticeLocked = !isInvoiceDueOnOrBeforeToday(dueDate);
+  // Formal notice is always available. When the invoice is not yet overdue we surface a
+  // non-blocking warning so the user stays in control (parity with reminders 1–3).
+  const dueDayOffset = useMemo(() => getInvoiceDueDayOffset(dueDate), [dueDate]);
+  const isInvoiceOverdue = dueDayOffset !== null && dueDayOffset >= 0;
+  const daysUntilDue = dueDayOffset !== null && dueDayOffset < 0 ? Math.abs(dueDayOffset) : 0;
+  const showFormalNoticeNotOverdueWarning = level === 4 && !isInvoiceOverdue && dueDayOffset !== null;
 
   const legalDeadlineDate = useMemo(() => {
     if (level !== 4) {
@@ -413,14 +429,8 @@ export default function SendReminderModal({
       return;
     }
 
-    // Guard: never land on level 4 before the invoice due date is reached — the backend will
-    // reject it and the user should not be able to select it in the first place.
-    if (nextLevel === 4 && formalNoticeLocked) {
-      setLevel(3);
-      return;
-    }
     setLevel(nextLevel);
-  }, [formalNoticeLocked, nextLevel, open]);
+  }, [nextLevel, open]);
 
   // When modal opens or level/template set changes, load the template for the level,
   // but don't overwrite user edits made since the last template load.
@@ -445,12 +455,12 @@ export default function SendReminderModal({
       setSubjectTouched(false);
       setBodyTouched(false);
       setPreviewOpen(false);
+      setConfirmOpen(false);
     }
   }, [open]);
 
   const selectedTemplateExists = Boolean(templateByLevel?.[mapLevelToKey(level)]);
-  const levelIsInvalid = level === 4 && formalNoticeLocked;
-  const canSubmit = subject.trim().length > 0 && body.trim().length > 0 && !levelIsInvalid;
+  const canSubmit = subject.trim().length > 0 && body.trim().length > 0;
   const previewToggleLabel =
     locale === 'fr'
       ? previewOpen
@@ -460,25 +470,7 @@ export default function SendReminderModal({
         ? 'Hide preview'
         : 'Show preview';
 
-  async function handleSend() {
-    if (sending) {
-      return;
-    }
-
-    if (levelIsInvalid) {
-      toast.error(t('reminders.collection.sendModal.formalNoticeRequiresOverdue'));
-      return;
-    }
-
-    if (!subject.trim()) {
-      toast.error(t('reminders.collection.sendModal.subjectRequired'));
-      return;
-    }
-    if (!body.trim()) {
-      toast.error(t('reminders.collection.sendModal.bodyRequired'));
-      return;
-    }
-
+  async function performSend() {
     setSending(true);
 
     try {
@@ -506,6 +498,30 @@ export default function SendReminderModal({
     } finally {
       setSending(false);
     }
+  }
+
+  async function handleSend() {
+    if (sending) {
+      return;
+    }
+
+    if (!subject.trim()) {
+      toast.error(t('reminders.collection.sendModal.subjectRequired'));
+      return;
+    }
+    if (!body.trim()) {
+      toast.error(t('reminders.collection.sendModal.bodyRequired'));
+      return;
+    }
+
+    // Formal notice is always available, but when the invoice is not yet overdue we ask the
+    // user to confirm since this action is usually reserved for overdue invoices.
+    if (level === 4 && showFormalNoticeNotOverdueWarning) {
+      setConfirmOpen(true);
+      return;
+    }
+
+    await performSend();
   }
 
   function renderLateFeeBadge(levelValue: ReminderLevel) {
@@ -552,9 +568,6 @@ export default function SendReminderModal({
               onValueChange={(value) => {
                 const nextLevelValue: ReminderLevel =
                   value === '1' ? 1 : value === '2' ? 2 : value === '3' ? 3 : 4;
-                if (nextLevelValue === 4 && formalNoticeLocked) {
-                  return;
-                }
                 setLevel(nextLevelValue);
                 setSubjectTouched(false);
                 setBodyTouched(false);
@@ -562,22 +575,24 @@ export default function SendReminderModal({
               className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4"
             >
               {REMINDER_LEVELS.map((lvl) => {
-                const locked = lvl === 4 && formalNoticeLocked;
+                const notYetOverdue = lvl === 4 && !isInvoiceOverdue && dueDayOffset !== null;
                 return (
                   <Label
                     key={lvl}
-                    className={
-                      locked
-                        ? 'flex min-w-0 flex-wrap items-center gap-2 rounded-lg border border-dashed p-3 text-sm opacity-60 cursor-not-allowed'
-                        : 'flex min-w-0 flex-wrap items-center gap-2 rounded-lg border p-3 text-sm cursor-pointer'
+                    className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border p-3 text-sm cursor-pointer"
+                    title={
+                      notYetOverdue
+                        ? t('reminders.collection.sendModal.formalNoticeNotOverdueWarning', { days: daysUntilDue })
+                        : undefined
                     }
-                    title={locked ? t('reminders.collection.sendModal.formalNoticeRequiresOverdue') : undefined}
                   >
-                    <RadioGroupItem value={String(lvl)} className="shrink-0" disabled={locked} />
-                    <span className="min-w-0 flex-1">{t(`reminders.levels.${mapLevelToKey(lvl)}`)}</span>
-                    {locked ? (
-                      <span className="ml-auto text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                        {t('reminders.collection.sendModal.formalNoticeLockedShort')}
+                    <div className="flex min-w-0 flex-1 items-center gap-2">
+                      <RadioGroupItem value={String(lvl)} className="shrink-0" />
+                      <span className="min-w-0 flex-1">{t(`reminders.levels.${mapLevelToKey(lvl)}`)}</span>
+                    </div>
+                    {notYetOverdue ? (
+                      <span className="mt-0.5 basis-full text-[10px] font-medium uppercase tracking-wide text-amber-600 dark:text-amber-400">
+                        {t('reminders.collection.sendModal.formalNoticeNotOverdueShort')}
                       </span>
                     ) : (
                       renderLateFeeBadge(lvl)
@@ -586,9 +601,9 @@ export default function SendReminderModal({
                 );
               })}
             </RadioGroup>
-            {formalNoticeLocked ? (
-              <p className="text-[11px] text-muted-foreground">
-                {t('reminders.collection.sendModal.formalNoticeRequiresOverdue')}
+            {showFormalNoticeNotOverdueWarning ? (
+              <p className="text-[11px] text-amber-600 dark:text-amber-400">
+                {t('reminders.collection.sendModal.formalNoticeNotOverdueWarning', { days: daysUntilDue })}
               </p>
             ) : null}
           </div>
@@ -756,6 +771,31 @@ export default function SendReminderModal({
           </DialogFooter>
         </div>
       </DialogContent>
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('reminders.collection.sendModal.formalNoticeConfirmTitle')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('reminders.collection.sendModal.formalNoticeConfirmDescription', { days: daysUntilDue })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={sending}>
+              {t('reminders.collection.sendModal.formalNoticeConfirmCancel')}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={sending}
+              onClick={(event) => {
+                event.preventDefault();
+                setConfirmOpen(false);
+                void performSend();
+              }}
+            >
+              {t('reminders.collection.sendModal.formalNoticeConfirmSend')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

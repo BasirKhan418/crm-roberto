@@ -37,7 +37,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { useInvoices, type InvoiceListItem, type InvoiceStatusFilter } from '@/hooks/useInvoices';
 import { useInvoicesActionCount } from '@/hooks/useInvoicesActionCount';
 import FinancialTotalsBar from '@/components/ui/FinancialTotalsBar';
-import { isInvoiceDueOnOrBeforeToday } from '@/lib/invoices/overdue';
 
 const COLUMN_STORAGE_KEY = 'crm.invoice.visibleColumns.v1';
 const VIEW_STORAGE_KEY = 'crm.invoice.viewConfig.v1';
@@ -672,10 +671,8 @@ function InvoicesPageContent() {
     const eligibleInvoices = selectedInvoices.filter((invoice) => {
       if (invoice.status === 'paid') return false;
       if (!invoice.clientSnapshot?.email?.trim()) return false;
-      const resolvedLevel = resolveBulkReminderLevel(invoice);
-      if (resolvedLevel === 4) {
-        if (!isInvoiceDueOnOrBeforeToday(invoice.dueDate)) return false;
-      }
+      // Formal notice (level 4) is no longer gated by overdue status — behavior is consistent
+      // with reminders 1–3, and the UI surfaces a warning when not yet overdue.
       return true;
     });
 

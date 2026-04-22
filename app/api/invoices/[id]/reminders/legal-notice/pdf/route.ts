@@ -109,13 +109,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const remainingAmount = Math.max(0, Math.round(invoice.totalIncludingTax ?? 0) - totalPaid);
     const lateFeeAmount = Math.max(0, Math.round(invoice.reminderState?.lateFeeAmount ?? 0));
 
-    if (!invoice.dueDate || !isInvoiceDueOnOrBeforeToday(invoice.dueDate)) {
-      return NextResponse.json(
-        { success: false, message: 'Formal notice is only available for overdue invoices' },
-        { status: 400 }
-      );
-    }
-
+    // Formal notice PDF is always available; the UI surfaces a warning when the invoice is not
+    // yet overdue but the action is never blocked (parity with reminders 1–3).
     const legalNoticeSettings = settingsDoc?.legalNotice;
     const delayDays = legalNoticeSettings?.delayDays === 15 ? 15 : 8;
     const includeInterestClause = legalNoticeSettings?.includeInterestClause !== false;
