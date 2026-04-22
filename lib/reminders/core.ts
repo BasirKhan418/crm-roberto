@@ -12,12 +12,30 @@ type ReminderOffsets = {
   formalNotice: number;
 };
 
-type LateFeeConfig = {
+export type ReminderLateFeeType = 'fixed' | 'percentage';
+
+export type ReminderLateFeeStageConfig = {
   enabled?: boolean | null;
-  type?: 'fixed' | 'percentage' | null;
+  type?: ReminderLateFeeType | null;
   value?: number | null;
+};
+
+type NormalizedLateFeeStageConfig = {
+  enabled: boolean;
+  type: ReminderLateFeeType;
+  value: number;
+};
+
+type LegacyLateFeeConfig = ReminderLateFeeStageConfig & {
   applyFrom?: 'medium' | 'firm' | 'formalNotice' | null;
 };
+
+export type LateFeeConfig =
+  | (LegacyLateFeeConfig & {
+      stages?: Partial<Record<ReminderLevelKey, ReminderLateFeeStageConfig>> | null;
+    })
+  | null
+  | undefined;
 
 const LEVEL_TO_OFFSET_KEY: Record<number, keyof ReminderOffsets> = {
   1: 'soft',
@@ -38,6 +56,58 @@ const APPLY_FROM_LEVEL: Record<'medium' | 'firm' | 'formalNotice', ReminderLevel
   firm: 3,
   formalNotice: 4,
 };
+
+const DEFAULT_LATE_FEE_STAGE: NormalizedLateFeeStageConfig = {
+  enabled: false,
+  type: 'percentage',
+  value: 0,
+};
+
+function normalizeLateFeeStageConfig(stage?: ReminderLateFeeStageConfig | null): NormalizedLateFeeStageConfig {
+  return {
+    enabled: stage?.enabled === true,
+    type: stage?.type === 'fixed' ? 'fixed' : 'percentage',
+    value: Math.max(0, Number(stage?.value ?? 0)),
+  };
+}
+
+export function normalizeLateFeeStages(
+  lateFee?: LateFeeConfig
+): Record<ReminderLevelKey, NormalizedLateFeeStageConfig> {
+  const stages = lateFee?.stages;
+  if (stages) {
+    return {
+      soft: normalizeLateFeeStageConfig(stages.soft),
+      medium: normalizeLateFeeStageConfig(stages.medium),
+      firm: normalizeLateFeeStageConfig(stages.firm),
+      formalNotice: normalizeLateFeeStageConfig(stages.formalNotice),
+    };
+  }
+
+  const legacyEnabled = lateFee?.enabled === true;
+  const threshold = APPLY_FROM_LEVEL[lateFee?.applyFrom ?? 'formalNotice'];
+  const legacyType = lateFee?.type === 'fixed' ? 'fixed' : 'percentage';
+  const legacyValue = Math.max(0, Number(lateFee?.value ?? 0));
+
+  return {
+    soft: DEFAULT_LATE_FEE_STAGE,
+    medium: {
+      enabled: legacyEnabled && 2 >= threshold,
+      type: legacyType,
+      value: legacyValue,
+    },
+    firm: {
+      enabled: legacyEnabled && 3 >= threshold,
+      type: legacyType,
+      value: legacyValue,
+    },
+    formalNotice: {
+      enabled: legacyEnabled && 4 >= threshold,
+      type: legacyType,
+      value: legacyValue,
+    },
+  };
+}
 
 export function normalizeOffsets(offsets?: Partial<ReminderOffsets> | null): ReminderOffsets {
   return {
@@ -92,12 +162,7 @@ export function computeNextScheduledAt(
 }
 
 export function shouldApplyLateFee(level: ReminderLevel, lateFee?: LateFeeConfig | null): boolean {
-  if (!lateFee?.enabled) {
-    return false;
-  }
-
-  const threshold = APPLY_FROM_LEVEL[lateFee.applyFrom ?? 'formalNotice'];
-  return level >= threshold;
+  return normalizeLateFeeStages(lateFee)[getReminderLevelKey(level)].enabled;
 }
 
 export function computeLateFeeAmountCents(
@@ -105,13 +170,14 @@ export function computeLateFeeAmountCents(
   level: ReminderLevel,
   lateFee?: LateFeeConfig | null
 ): number {
-  if (!shouldApplyLateFee(level, lateFee)) {
+  const stageConfig = normalizeLateFeeStages(lateFee)[getReminderLevelKey(level)];
+  if (!stageConfig.enabled) {
     return 0;
   }
 
-  const value = Math.max(0, Number(lateFee?.value ?? 0));
+  const value = stageConfig.value;
 
-  if ((lateFee?.type ?? 'percentage') === 'fixed') {
+  if (stageConfig.type === 'fixed') {
     return Math.max(0, Math.round(value * 100));
   }
 

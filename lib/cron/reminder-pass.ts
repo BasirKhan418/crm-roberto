@@ -22,6 +22,7 @@ import {
   getTargetReminderLevel,
   mergeLateFeeIntoVariables,
   normalizeOffsets,
+  type LateFeeConfig,
   type ReminderLevel,
 } from '@/lib/reminders/core';
 import {
@@ -100,7 +101,8 @@ type SettingsLike = {
     type?: 'fixed' | 'percentage';
     value?: number;
     applyFrom?: 'medium' | 'firm' | 'formalNotice';
-  };
+    stages?: Partial<Record<'soft' | 'medium' | 'firm' | 'formalNotice', { enabled?: boolean; type?: 'fixed' | 'percentage'; value?: number }>>;
+  } | LateFeeConfig;
   legalNotice?: {
     delayDays?: 8 | 15;
     includeInterestClause?: boolean;
@@ -156,6 +158,31 @@ async function loadPaymentHistory(invoiceId: mongoose.Types.ObjectId, userId: mo
     paidAt: item.paidAt ?? null,
     createdAt: item.createdAt ?? null,
   }));
+}
+
+function toInvoicePdfInput(invoice: InvoiceReminderCandidate): InvoiceForPdf {
+  return {
+    _id: invoice._id,
+    invoiceNumber: invoice.invoiceNumber,
+    quoteNumber: invoice.quoteNumber ?? null,
+    date: invoice.date ?? null,
+    dueDate: invoice.dueDate ?? null,
+    status: invoice.status,
+    lineItems: invoice.lineItems ?? [],
+    totalExcludingTax: Math.max(0, Math.round(invoice.totalExcludingTax ?? 0)),
+    totalVat: Math.max(0, Math.round(invoice.totalVat ?? 0)),
+    totalIncludingTax: Math.max(0, Math.round(invoice.totalIncludingTax ?? 0)),
+    depositPercentage: invoice.depositPercentage ?? 100,
+    notes: invoice.notes ?? null,
+    clientSnapshot: {
+      fullName: invoice.clientSnapshot?.fullName || 'Client',
+      companyName: invoice.clientSnapshot?.companyName ?? null,
+      email: invoice.clientSnapshot?.email ?? null,
+      phone: invoice.clientSnapshot?.phone ?? null,
+      address: invoice.clientSnapshot?.address ?? null,
+      addressDetails: invoice.clientSnapshot?.addressDetails ?? null,
+    },
+  };
 }
 
 async function loadPaidTotals(invoiceIds: mongoose.Types.ObjectId[]): Promise<Map<string, number>> {
@@ -385,6 +412,15 @@ export async function runReminderPass(): Promise<ReminderPassTotals> {
           paymentLink: vars.paymentLink,
           locale,
         });
+        const invoicePdfInput = toInvoicePdfInput(invoice);
+        const invoicePdfBuffer = await renderInvoicePdfForReminder({
+          invoice: invoicePdfInput,
+          companyProfile,
+          locale,
+          paymentUrl: vars.paymentLink || null,
+          lateFeeAmountCents: lateFeeAmount,
+          payments: await loadPaymentHistory(invoice._id, invoice.userId),
+        });
 
         if (targetLevel === 4) {
           const delayDays = settings.legalNotice?.delayDays === 15 ? 15 : 8;
@@ -392,36 +428,6 @@ export async function runReminderPass(): Promise<ReminderPassTotals> {
           const customFooter = settings.legalNotice?.customFooter ?? null;
           const legalNoticeDate = new Date();
           const paymentUrl = vars.paymentLink || null;
-
-          const invoicePdfBuffer = await renderInvoicePdfForReminder({
-            invoice: {
-              _id: invoice._id,
-              invoiceNumber: invoice.invoiceNumber,
-              quoteNumber: invoice.quoteNumber ?? null,
-              date: invoice.date ?? null,
-              dueDate: invoice.dueDate ?? null,
-              status: invoice.status,
-              lineItems: invoice.lineItems ?? [],
-              totalExcludingTax: Math.max(0, Math.round(invoice.totalExcludingTax ?? 0)),
-              totalVat: Math.max(0, Math.round(invoice.totalVat ?? 0)),
-              totalIncludingTax: Math.max(0, Math.round(invoice.totalIncludingTax ?? 0)),
-              depositPercentage: invoice.depositPercentage ?? 100,
-              notes: invoice.notes ?? null,
-              clientSnapshot: {
-                fullName: invoice.clientSnapshot?.fullName || 'Client',
-                companyName: invoice.clientSnapshot?.companyName ?? null,
-                email: invoice.clientSnapshot?.email ?? null,
-                phone: invoice.clientSnapshot?.phone ?? null,
-                address: invoice.clientSnapshot?.address ?? null,
-                addressDetails: invoice.clientSnapshot?.addressDetails ?? null,
-              },
-            } satisfies InvoiceForPdf,
-            companyProfile,
-            locale,
-            paymentUrl,
-            lateFeeAmountCents: lateFeeAmount,
-            payments: await loadPaymentHistory(invoice._id, invoice.userId),
-          });
 
           const formalVars = {
             ...vars,
@@ -438,28 +444,7 @@ export async function runReminderPass(): Promise<ReminderPassTotals> {
           );
 
           const legalNoticeResult = await renderLegalNoticePdfForReminder({
-            invoice: {
-              _id: invoice._id,
-              invoiceNumber: invoice.invoiceNumber,
-              quoteNumber: invoice.quoteNumber ?? null,
-              date: invoice.date ?? null,
-              dueDate: invoice.dueDate ?? null,
-              status: invoice.status,
-              lineItems: invoice.lineItems ?? [],
-              totalExcludingTax: Math.max(0, Math.round(invoice.totalExcludingTax ?? 0)),
-              totalVat: Math.max(0, Math.round(invoice.totalVat ?? 0)),
-              totalIncludingTax: Math.max(0, Math.round(invoice.totalIncludingTax ?? 0)),
-              depositPercentage: invoice.depositPercentage ?? 100,
-              notes: invoice.notes ?? null,
-              clientSnapshot: {
-                fullName: invoice.clientSnapshot?.fullName || 'Client',
-                companyName: invoice.clientSnapshot?.companyName ?? null,
-                email: invoice.clientSnapshot?.email ?? null,
-                phone: invoice.clientSnapshot?.phone ?? null,
-                address: invoice.clientSnapshot?.address ?? null,
-                addressDetails: invoice.clientSnapshot?.addressDetails ?? null,
-              },
-            } satisfies InvoiceForPdf,
+            invoice: invoicePdfInput,
             companyProfile,
             locale,
             remainingAmountCents: remainingAmount,
@@ -540,6 +525,7 @@ export async function runReminderPass(): Promise<ReminderPassTotals> {
             invoiceNumber: invoice.invoiceNumber,
             subject,
             htmlBody: renderedBody,
+            pdfBuffer: invoicePdfBuffer,
             locale,
           });
 
@@ -571,7 +557,7 @@ export async function runReminderPass(): Promise<ReminderPassTotals> {
             lateFeeAmount,
             error: null,
             sentAt: now,
-            pdfAttached: false,
+            pdfAttached: true,
           });
 
           await createActivityLog(userId, {

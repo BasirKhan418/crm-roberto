@@ -339,9 +339,10 @@ const messages = {
           resetToast: 'Template reset to default: {level}',
         },
         lateFees: {
-          description: 'Set optional late fee rules applied on overdue invoices.',
+          description: 'Set optional late fee rules for each reminder stage.',
           enable: 'Enable late fees',
           enableHelp: 'When enabled, late fees are included in reminder context.',
+          stageHelp: 'Configure each reminder stage independently. Disabled stages add no penalty.',
           type: 'Type',
           fixedAmount: 'Fixed amount',
           percentage: 'Percentage',
@@ -857,9 +858,10 @@ const messages = {
           resetToast: 'Modèle réinitialisé : {level}',
         },
         lateFees: {
-          description: 'Définissez les règles de pénalités applicables aux factures en retard.',
+          description: 'Définissez les pénalités de retard pour chaque étape de relance.',
           enable: 'Activer les pénalités de retard',
           enableHelp: 'Quand activé, les pénalités sont incluses dans le contexte des relances.',
+          stageHelp: 'Configurez chaque étape de relance indépendamment. Les étapes désactivées n’ajoutent aucune pénalité.',
           type: 'Type',
           fixedAmount: 'Montant fixe',
           percentage: 'Pourcentage',

@@ -30,6 +30,20 @@ type LateFeeType = 'fixed' | 'percentage';
 type LateFeeApplyFrom = 'medium' | 'firm' | 'formalNotice';
 type SectionKey = 'timing' | 'templates' | 'lateFees' | 'legalNotice';
 
+interface ReminderLateFeeStageSettings {
+  enabled: boolean;
+  type: LateFeeType;
+  value: number;
+}
+
+interface ReminderLateFeeLegacySettings {
+  enabled?: boolean;
+  type?: LateFeeType;
+  value?: number;
+  applyFrom?: LateFeeApplyFrom;
+  stages?: Partial<Record<ReminderLevel, Partial<ReminderLateFeeStageSettings>>>;
+}
+
 interface ReminderTemplateContent {
   subject: string;
   body: string;
@@ -50,10 +64,7 @@ interface ReminderSettingsData {
   };
   messageLocale: 'auto' | 'en' | 'fr';
   lateFee: {
-    enabled: boolean;
-    type: LateFeeType;
-    value: number;
-    applyFrom: LateFeeApplyFrom;
+    stages: Record<ReminderLevel, ReminderLateFeeStageSettings>;
   };
   legalNotice: {
     delayDays: 8 | 15;
@@ -65,10 +76,31 @@ interface ReminderSettingsData {
 interface ReminderSettingsApiResponse {
   success: boolean;
   message?: string;
-  data?: Partial<ReminderSettingsData>;
+  data?: Partial<Omit<ReminderSettingsData, 'lateFee'>> & { lateFee?: ReminderLateFeeLegacySettings };
 }
 
+type ReminderSettingsInput = Partial<Omit<ReminderSettingsData, 'lateFee'>> & { lateFee?: ReminderLateFeeLegacySettings };
+
 const LEVELS: ReminderLevel[] = ['soft', 'medium', 'firm', 'formalNotice'];
+
+const LATE_FEE_LEVEL_ORDER: Record<ReminderLevel, 1 | 2 | 3 | 4> = {
+  soft: 1,
+  medium: 2,
+  firm: 3,
+  formalNotice: 4,
+};
+
+const LATE_FEE_APPLY_FROM_ORDER: Record<LateFeeApplyFrom, 2 | 3 | 4> = {
+  medium: 2,
+  firm: 3,
+  formalNotice: 4,
+};
+
+const DEFAULT_LATE_FEE_STAGE: ReminderLateFeeStageSettings = {
+  enabled: false,
+  type: 'percentage',
+  value: 0,
+};
 
 const DEFAULT_SETTINGS: ReminderSettingsData = {
   offsets: {
@@ -93,10 +125,12 @@ const DEFAULT_SETTINGS: ReminderSettingsData = {
   },
   messageLocale: 'auto',
   lateFee: {
-    enabled: false,
-    type: 'percentage',
-    value: 0,
-    applyFrom: 'formalNotice',
+    stages: {
+      soft: { ...DEFAULT_LATE_FEE_STAGE },
+      medium: { ...DEFAULT_LATE_FEE_STAGE },
+      firm: { ...DEFAULT_LATE_FEE_STAGE },
+      formalNotice: { ...DEFAULT_LATE_FEE_STAGE },
+    },
   },
   legalNotice: {
     delayDays: 8,
@@ -149,7 +183,7 @@ const reminderSettingsPageChrome = {
     templatesEyebrow: 'Email content',
     templatesSummary: 'Edit one reminder email at a time in plain language.',
     lateFeesEyebrow: 'Charges',
-    lateFeesSummary: 'Turn on optional overdue charges and define when they apply.',
+    lateFeesSummary: 'Configure overdue charges independently for each reminder step.',
     legalNoticeEyebrow: 'Legal notice',
     legalNoticeSummary: 'Set the formal notice delay and any legal footer text.',
     templateLevelLabel: 'Which reminder email do you want to edit?',
@@ -204,7 +238,7 @@ const reminderSettingsPageChrome = {
     templatesEyebrow: 'Contenu e-mail',
     templatesSummary: 'Modifiez un e-mail de relance à la fois avec une interface plus simple.',
     lateFeesEyebrow: 'Pénalités',
-    lateFeesSummary: 'Activez les pénalités de retard et définissez à partir de quand elles s\'appliquent.',
+    lateFeesSummary: 'Configurez les pénalités de retard indépendamment pour chaque étape de relance.',
     legalNoticeEyebrow: 'Mise en demeure',
     legalNoticeSummary: 'Réglez le délai de mise en demeure et le texte juridique complémentaire.',
     templateLevelLabel: 'Quel e-mail de relance souhaitez-vous modifier ?',
@@ -352,7 +386,37 @@ function removeVariableToken(template: string, variable: string, field: 'subject
   return withoutToken.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
 }
 
-function normalizeSettings(input?: Partial<ReminderSettingsData>): ReminderSettingsData {
+function normalizeSettings(input?: ReminderSettingsInput): ReminderSettingsData {
+  const legacyLateFee = input?.lateFee;
+  const lateFeeStages = legacyLateFee?.stages;
+  const legacyEnabled = legacyLateFee?.enabled === true;
+  const legacyType: LateFeeType = legacyLateFee?.type === 'fixed' ? 'fixed' : 'percentage';
+  const legacyValue = Math.max(0, Number(legacyLateFee?.value ?? 0));
+  const legacyThreshold = LATE_FEE_APPLY_FROM_ORDER[legacyLateFee?.applyFrom ?? 'formalNotice'];
+
+  const normalizeLateFeeStage = (
+    level: ReminderLevel,
+    explicitStage?: Partial<ReminderLateFeeStageSettings>
+  ): ReminderLateFeeStageSettings => {
+    if (lateFeeStages) {
+      return {
+        enabled: explicitStage?.enabled === true,
+        type: explicitStage?.type === 'fixed' ? 'fixed' : 'percentage',
+        value: Math.max(0, Number(explicitStage?.value ?? 0)),
+      };
+    }
+
+    if (level === 'soft') {
+      return { ...DEFAULT_LATE_FEE_STAGE };
+    }
+
+    return {
+      enabled: legacyEnabled && LATE_FEE_LEVEL_ORDER[level] >= legacyThreshold,
+      type: legacyType,
+      value: legacyValue,
+    };
+  };
+
   return {
     offsets: {
       soft: input?.offsets?.soft ?? DEFAULT_SETTINGS.offsets.soft,
@@ -400,10 +464,12 @@ function normalizeSettings(input?: Partial<ReminderSettingsData>): ReminderSetti
     },
     messageLocale: input?.messageLocale ?? DEFAULT_SETTINGS.messageLocale,
     lateFee: {
-      enabled: input?.lateFee?.enabled ?? DEFAULT_SETTINGS.lateFee.enabled,
-      type: input?.lateFee?.type ?? DEFAULT_SETTINGS.lateFee.type,
-      value: input?.lateFee?.value ?? DEFAULT_SETTINGS.lateFee.value,
-      applyFrom: input?.lateFee?.applyFrom ?? DEFAULT_SETTINGS.lateFee.applyFrom,
+      stages: {
+        soft: normalizeLateFeeStage('soft', lateFeeStages?.soft),
+        medium: normalizeLateFeeStage('medium', lateFeeStages?.medium),
+        firm: normalizeLateFeeStage('firm', lateFeeStages?.firm),
+        formalNotice: normalizeLateFeeStage('formalNotice', lateFeeStages?.formalNotice),
+      },
     },
     legalNotice: {
       delayDays: input?.legalNotice?.delayDays ?? DEFAULT_SETTINGS.legalNotice.delayDays,
@@ -1115,113 +1181,115 @@ export default function ReminderSettingsPage({ embedded = false, lockedSection }
           icon={<AlertTriangleIcon className="size-5" />}
         >
           <div className="space-y-4">
-            <div className="flex items-center justify-between gap-3 rounded-2xl border border-border/70 bg-muted/15 p-4">
-              <div className="space-y-0.5">
-                <p className="text-sm font-medium">{t('reminders.settings.lateFees.enable')}</p>
-                <p className="text-xs text-muted-foreground">{t('reminders.settings.lateFees.enableHelp')}</p>
-              </div>
-              <Switch
-                checked={draft.lateFee.enabled}
-                onCheckedChange={(checked) => {
-                  setDraft((prev) => ({
-                    ...prev,
-                    lateFee: {
-                      ...prev.lateFee,
-                      enabled: checked,
-                    },
-                  }));
-                }}
-              />
+            <div className="rounded-2xl border border-border/70 bg-muted/15 p-4">
+              <p className="text-sm text-muted-foreground">{t('reminders.settings.lateFees.stageHelp')}</p>
             </div>
 
-            {draft.lateFee.enabled ? (
-              <>
-                <div className="space-y-2">
-                  <Label>{t('reminders.settings.lateFees.type')}</Label>
-                  <RadioGroup
-                    value={draft.lateFee.type}
-                    onValueChange={(value) => {
-                      const nextType: LateFeeType = value === 'fixed' ? 'fixed' : 'percentage';
-                      setDraft((prev) => ({
-                        ...prev,
-                        lateFee: {
-                          ...prev.lateFee,
-                          type: nextType,
-                        },
-                      }));
-                    }}
-                    className="grid grid-cols-1 gap-2"
-                  >
-                    <Label className="flex items-center gap-2 rounded-2xl border border-border/70 p-4 text-sm">
-                      <RadioGroupItem value="fixed" />
-                      {t('reminders.settings.lateFees.fixedAmount')}
-                    </Label>
-                    <Label className="flex items-center gap-2 rounded-2xl border border-border/70 p-4 text-sm">
-                      <RadioGroupItem value="percentage" />
-                      {t('reminders.settings.lateFees.percentage')}
-                    </Label>
-                  </RadioGroup>
-                </div>
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+              {LEVELS.map((level) => {
+                const stage = draft.lateFee.stages[level];
 
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="late-fee-value">{t('reminders.settings.lateFees.value')}</Label>
-                    <Input
-                      id="late-fee-value"
-                      type="number"
-                      min={0}
-                      step="0.01"
-                      value={draft.lateFee.value}
-                      onChange={(event) => {
-                        const next = Number(event.target.value);
-                        if (!Number.isFinite(next)) {
-                          return;
-                        }
+                return (
+                  <div key={level} className="space-y-4 rounded-2xl border border-border/70 bg-background p-4 sm:p-5">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="space-y-0.5">
+                        <p className="text-sm font-medium">{t(`reminders.levels.${level}`)}</p>
+                        <p className="text-xs text-muted-foreground">{t('reminders.settings.lateFees.enable')}</p>
+                      </div>
+                      <Switch
+                        checked={stage.enabled}
+                        onCheckedChange={(checked) => {
+                          setDraft((prev) => ({
+                            ...prev,
+                            lateFee: {
+                              ...prev.lateFee,
+                              stages: {
+                                ...prev.lateFee.stages,
+                                [level]: {
+                                  ...prev.lateFee.stages[level],
+                                  enabled: checked,
+                                },
+                              },
+                            },
+                          }));
+                        }}
+                      />
+                    </div>
 
-                        setDraft((prev) => ({
-                          ...prev,
-                          lateFee: {
-                            ...prev.lateFee,
-                            value: next,
-                          },
-                        }));
-                      }}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      {draft.lateFee.type === 'fixed' ? t('reminders.settings.lateFees.valueHelpFixed') : t('reminders.settings.lateFees.valueHelpPercent')}
-                    </p>
+                    {stage.enabled ? (
+                      <>
+                        <div className="space-y-2">
+                          <Label>{t('reminders.settings.lateFees.type')}</Label>
+                          <RadioGroup
+                            value={stage.type}
+                            onValueChange={(value) => {
+                              const nextType: LateFeeType = value === 'fixed' ? 'fixed' : 'percentage';
+                              setDraft((prev) => ({
+                                ...prev,
+                                lateFee: {
+                                  ...prev.lateFee,
+                                  stages: {
+                                    ...prev.lateFee.stages,
+                                    [level]: {
+                                      ...prev.lateFee.stages[level],
+                                      type: nextType,
+                                    },
+                                  },
+                                },
+                              }));
+                            }}
+                            className="grid grid-cols-1 gap-2"
+                          >
+                            <Label className="flex items-center gap-2 rounded-2xl border border-border/70 p-4 text-sm">
+                              <RadioGroupItem value="fixed" />
+                              {t('reminders.settings.lateFees.fixedAmount')}
+                            </Label>
+                            <Label className="flex items-center gap-2 rounded-2xl border border-border/70 p-4 text-sm">
+                              <RadioGroupItem value="percentage" />
+                              {t('reminders.settings.lateFees.percentage')}
+                            </Label>
+                          </RadioGroup>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor={`late-fee-value-${level}`}>{t('reminders.settings.lateFees.value')}</Label>
+                          <Input
+                            id={`late-fee-value-${level}`}
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            value={stage.value}
+                            onChange={(event) => {
+                              const next = Number(event.target.value);
+                              if (!Number.isFinite(next)) {
+                                return;
+                              }
+
+                              setDraft((prev) => ({
+                                ...prev,
+                                lateFee: {
+                                  ...prev.lateFee,
+                                  stages: {
+                                    ...prev.lateFee.stages,
+                                    [level]: {
+                                      ...prev.lateFee.stages[level],
+                                      value: next,
+                                    },
+                                  },
+                                },
+                              }));
+                            }}
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            {stage.type === 'fixed' ? t('reminders.settings.lateFees.valueHelpFixed') : t('reminders.settings.lateFees.valueHelpPercent')}
+                          </p>
+                        </div>
+                      </>
+                    ) : null}
                   </div>
-
-                  <div className="space-y-2">
-                    <Label>{t('reminders.settings.lateFees.applyFrom')}</Label>
-                    <Select
-                      value={draft.lateFee.applyFrom}
-                      onValueChange={(value) => {
-                        const applyFrom: LateFeeApplyFrom =
-                          value === 'medium' || value === 'firm' || value === 'formalNotice' ? value : 'formalNotice';
-
-                        setDraft((prev) => ({
-                          ...prev,
-                          lateFee: {
-                            ...prev.lateFee,
-                            applyFrom,
-                          },
-                        }));
-                      }}
-                    >
-                      <SelectTrigger className="h-11 w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="medium">{t('reminders.levels.medium')}</SelectItem>
-                        <SelectItem value="firm">{t('reminders.levels.firm')}</SelectItem>
-                        <SelectItem value="formalNotice">{t('reminders.levels.formalNotice')}</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </>
-            ) : null}
+                );
+              })}
+            </div>
 
             <Button type="button" className="w-full sm:w-auto" disabled={lateFeeSaving} onClick={() => void handleSaveLateFees()}>
               {lateFeeSaving ? <Loader2Icon className="size-4 animate-spin" /> : null}

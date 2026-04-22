@@ -49,6 +49,39 @@ export const reminderLateFeeSchema = z.object({
   type: z.enum(['fixed', 'percentage']).optional(),
   value: nonNegativeNumber.optional(),
   applyFrom: z.enum(['medium', 'firm', 'formalNotice']).optional(),
+  stages: z
+    .object({
+      soft: z
+        .object({
+          enabled: z.boolean().optional(),
+          type: z.enum(['fixed', 'percentage']).optional(),
+          value: nonNegativeNumber.optional(),
+        })
+        .optional(),
+      medium: z
+        .object({
+          enabled: z.boolean().optional(),
+          type: z.enum(['fixed', 'percentage']).optional(),
+          value: nonNegativeNumber.optional(),
+        })
+        .optional(),
+      firm: z
+        .object({
+          enabled: z.boolean().optional(),
+          type: z.enum(['fixed', 'percentage']).optional(),
+          value: nonNegativeNumber.optional(),
+        })
+        .optional(),
+      formalNotice: z
+        .object({
+          enabled: z.boolean().optional(),
+          type: z.enum(['fixed', 'percentage']).optional(),
+          value: nonNegativeNumber.optional(),
+        })
+        .optional(),
+    })
+    .partial()
+    .optional(),
 });
 
 const emptyStringToNull = (value: unknown) => {

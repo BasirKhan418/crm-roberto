@@ -65,6 +65,19 @@ const ReminderLocaleTemplatesSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const ReminderLateFeeStageSchema = new mongoose.Schema(
+  {
+    enabled: { type: Boolean, default: false },
+    type: {
+      type: String,
+      enum: ["fixed", "percentage"],
+      default: "percentage",
+    },
+    value: { type: Number, default: 0, min: 0 },
+  },
+  { _id: false }
+);
+
 const ReminderSettingsSchema = new mongoose.Schema(
   {
     userId: {
@@ -132,6 +145,23 @@ const ReminderSettingsSchema = new mongoose.Schema(
             enum: ["medium", "firm", "formalNotice"],
             default: "formalNotice",
           },
+          stages: {
+            type: new mongoose.Schema(
+              {
+                soft: { type: ReminderLateFeeStageSchema, default: () => ({ enabled: false, type: "percentage", value: 0 }) },
+                medium: { type: ReminderLateFeeStageSchema, default: () => ({ enabled: false, type: "percentage", value: 0 }) },
+                firm: { type: ReminderLateFeeStageSchema, default: () => ({ enabled: false, type: "percentage", value: 0 }) },
+                formalNotice: { type: ReminderLateFeeStageSchema, default: () => ({ enabled: false, type: "percentage", value: 0 }) },
+              },
+              { _id: false }
+            ),
+            default: () => ({
+              soft: { enabled: false, type: "percentage", value: 0 },
+              medium: { enabled: false, type: "percentage", value: 0 },
+              firm: { enabled: false, type: "percentage", value: 0 },
+              formalNotice: { enabled: false, type: "percentage", value: 0 },
+            }),
+          },
         },
         { _id: false }
       ),
@@ -140,6 +170,12 @@ const ReminderSettingsSchema = new mongoose.Schema(
         type: "percentage",
         value: 0,
         applyFrom: "formalNotice",
+        stages: {
+          soft: { enabled: false, type: "percentage", value: 0 },
+          medium: { enabled: false, type: "percentage", value: 0 },
+          firm: { enabled: false, type: "percentage", value: 0 },
+          formalNotice: { enabled: false, type: "percentage", value: 0 },
+        },
       }),
     },
     legalNotice: {

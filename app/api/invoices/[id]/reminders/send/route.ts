@@ -19,6 +19,7 @@ import {
   getReminderLevelKey,
   mergeLateFeeIntoVariables,
   normalizeOffsets,
+  type LateFeeConfig,
   type ReminderLevel,
 } from '@/lib/reminders/core';
 import {
@@ -108,6 +109,31 @@ async function loadPaymentHistory(invoiceId: mongoose.Types.ObjectId, userId: st
   }));
 }
 
+function toInvoicePdfInput(invoice: InvoiceForReminder): InvoiceForPdf {
+  return {
+    _id: invoice._id,
+    invoiceNumber: invoice.invoiceNumber,
+    quoteNumber: invoice.quoteNumber ?? null,
+    date: invoice.date ?? null,
+    dueDate: invoice.dueDate ?? null,
+    status: invoice.status,
+    lineItems: invoice.lineItems ?? [],
+    totalExcludingTax: Math.max(0, Math.round(invoice.totalExcludingTax ?? 0)),
+    totalVat: Math.max(0, Math.round(invoice.totalVat ?? 0)),
+    totalIncludingTax: Math.max(0, Math.round(invoice.totalIncludingTax ?? 0)),
+    depositPercentage: invoice.depositPercentage ?? 100,
+    notes: invoice.notes ?? null,
+    clientSnapshot: {
+      fullName: invoice.clientSnapshot?.fullName || 'Client',
+      companyName: invoice.clientSnapshot?.companyName ?? null,
+      email: invoice.clientSnapshot?.email ?? null,
+      phone: invoice.clientSnapshot?.phone ?? null,
+      address: invoice.clientSnapshot?.address ?? null,
+      addressDetails: invoice.clientSnapshot?.addressDetails ?? null,
+    },
+  };
+}
+
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     const me = await getMe(true);
@@ -180,7 +206,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const lateFeeAmount = computeLateFeeAmountCents(
       remainingAmount,
       level,
-      (settings as { lateFee?: { enabled?: boolean; type?: 'fixed' | 'percentage'; value?: number; applyFrom?: 'medium' | 'firm' | 'formalNotice' } }).lateFee
+      (settings as { lateFee?: LateFeeConfig }).lateFee
     );
 
     const stripeConnect = await StripeConnect.findOne({ userId: me.user.id })
@@ -237,6 +263,17 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, message: 'Client email is required to send reminder' }, { status: 400 });
     }
 
+    const invoicePdfInput = toInvoicePdfInput(invoice);
+    const paymentHistory = await loadPaymentHistory(invoice._id, me.user.id);
+    const invoicePdfBuffer = await renderInvoicePdfForReminder({
+      invoice: invoicePdfInput,
+      companyProfile,
+      locale,
+      paymentUrl: vars.paymentLink || null,
+      lateFeeAmountCents: lateFeeAmount,
+      payments: paymentHistory,
+    });
+
     const now = new Date();
     let log;
 
@@ -252,36 +289,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       const paymentUrl =
         vars.paymentLink || null;
 
-      const invoicePdfBuffer = await renderInvoicePdfForReminder({
-        invoice: {
-          _id: invoice._id,
-          invoiceNumber: invoice.invoiceNumber,
-          quoteNumber: invoice.quoteNumber ?? null,
-          date: invoice.date ?? null,
-          dueDate: invoice.dueDate ?? null,
-          status: invoice.status,
-          lineItems: invoice.lineItems ?? [],
-          totalExcludingTax: Math.max(0, Math.round(invoice.totalExcludingTax ?? 0)),
-          totalVat: Math.max(0, Math.round(invoice.totalVat ?? 0)),
-          totalIncludingTax: Math.max(0, Math.round(invoice.totalIncludingTax ?? 0)),
-          depositPercentage: invoice.depositPercentage ?? 100,
-          notes: invoice.notes ?? null,
-          clientSnapshot: {
-            fullName: invoice.clientSnapshot?.fullName || 'Client',
-            companyName: invoice.clientSnapshot?.companyName ?? null,
-            email: invoice.clientSnapshot?.email ?? null,
-            phone: invoice.clientSnapshot?.phone ?? null,
-            address: invoice.clientSnapshot?.address ?? null,
-            addressDetails: invoice.clientSnapshot?.addressDetails ?? null,
-          },
-        } satisfies InvoiceForPdf,
-        companyProfile,
-        locale,
-        paymentUrl,
-        lateFeeAmountCents: lateFeeAmount,
-        payments: await loadPaymentHistory(invoice._id, me.user.id),
-      });
-
       const legalVars = {
         ...vars,
         legalDeadline: dayjs(legalDeadline).format('DD/MM/YYYY'),
@@ -295,28 +302,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       });
 
       const legalNoticeResult = await renderLegalNoticePdfForReminder({
-        invoice: {
-          _id: invoice._id,
-          invoiceNumber: invoice.invoiceNumber,
-          quoteNumber: invoice.quoteNumber ?? null,
-          date: invoice.date ?? null,
-          dueDate: invoice.dueDate ?? null,
-          status: invoice.status,
-          lineItems: invoice.lineItems ?? [],
-          totalExcludingTax: Math.max(0, Math.round(invoice.totalExcludingTax ?? 0)),
-          totalVat: Math.max(0, Math.round(invoice.totalVat ?? 0)),
-          totalIncludingTax: Math.max(0, Math.round(invoice.totalIncludingTax ?? 0)),
-          depositPercentage: invoice.depositPercentage ?? 100,
-          notes: invoice.notes ?? null,
-          clientSnapshot: {
-            fullName: invoice.clientSnapshot?.fullName || 'Client',
-            companyName: invoice.clientSnapshot?.companyName ?? null,
-            email: invoice.clientSnapshot?.email ?? null,
-            phone: invoice.clientSnapshot?.phone ?? null,
-            address: invoice.clientSnapshot?.address ?? null,
-            addressDetails: invoice.clientSnapshot?.addressDetails ?? null,
-          },
-        } satisfies InvoiceForPdf,
+        invoice: invoicePdfInput,
         companyProfile,
         locale,
         remainingAmountCents: remainingAmount,
@@ -395,6 +381,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         invoiceNumber: invoice.invoiceNumber,
         subject,
         htmlBody: renderedBody,
+        pdfBuffer: invoicePdfBuffer,
         locale,
       });
 
@@ -426,7 +413,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         lateFeeAmount,
         error: null,
         sentAt: now,
-        pdfAttached: false,
+        pdfAttached: true,
       });
 
       await createActivityLog(me.user.id, {

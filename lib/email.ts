@@ -75,7 +75,8 @@ export interface SendReminderParams extends BaseSendParams {
   locale?: TranslationLocale;
 }
 
-export interface SendFormalNoticeParams extends SendReminderParams {
+export interface SendFormalNoticeParams extends Omit<SendReminderParams, 'pdfBuffer'> {
+  pdfBuffer: Buffer;
   legalNoticePdfBuffer: Buffer;
 }
 
@@ -100,6 +101,7 @@ function buildDocumentEmailTemplate({
   ctaLabel,
   ctaUrl,
   ctaNote,
+  showPdfAttached = true,
 }: {
   subject: string;
   companyName: string;
@@ -112,6 +114,7 @@ function buildDocumentEmailTemplate({
   ctaLabel?: string;
   ctaUrl?: string;
   ctaNote?: string;
+  showPdfAttached?: boolean;
 }): string {
   const safeSubject = escapeHtml(subject);
   const safeCompanyName = escapeHtml(companyName || "CRM");
@@ -119,7 +122,7 @@ function buildDocumentEmailTemplate({
   const safeDocumentLabel = escapeHtml(documentLabel);
   const safeDocumentNumber = escapeHtml(documentNumber);
   const safeMessageBody = escapeHtml(messageBody).replace(/\n/g, "<br>");
-  const safePdfAttachedLabel = escapeHtml(translate(locale, 'email.pdfAttached'));
+  const safePdfAttachedLabel = showPdfAttached ? escapeHtml(translate(locale, 'email.pdfAttached')) : '';
 
   const rows = details
     .map(
@@ -181,7 +184,7 @@ function buildDocumentEmailTemplate({
           ${ctaBlock}
         </td>
       </tr>
-      <tr>
+      ${showPdfAttached ? `<tr>
         <td style="padding:0 28px 24px;">
           <table width="100%" style="background:#f6f7f9;border:1px solid #e2e5e9;">
             <tr>
@@ -189,7 +192,7 @@ function buildDocumentEmailTemplate({
             </tr>
           </table>
         </td>
-      </tr>
+      </tr>` : ''}
       <tr>
         <td style="background:#1a2e44;padding:16px 28px;color:#94a3b8;font-size:12px;">
           &copy; ${new Date().getFullYear()} ${safeCompanyName}
@@ -261,9 +264,11 @@ function plainTextFromHtmlBody(htmlBody: string): string {
 function buildReminderEmailHtml({
   params,
   locale,
+  showPdfAttached,
 }: {
   params: SendReminderParams;
   locale: TranslationLocale;
+  showPdfAttached?: boolean;
 }): string {
   return buildDocumentEmailTemplate({
     subject: params.subject,
@@ -274,6 +279,7 @@ function buildReminderEmailHtml({
     details: [],
     messageBody: params.htmlBody,
     locale,
+    showPdfAttached,
   });
 }
 
@@ -495,7 +501,7 @@ export async function sendInvoice({
 
 export async function sendInvoiceReminder(params: SendReminderParams): Promise<void> {
   const locale = params.locale ?? 'en';
-  const html = buildReminderEmailHtml({ params, locale });
+  const html = buildReminderEmailHtml({ params, locale, showPdfAttached: Boolean(params.pdfBuffer) });
   const text = plainTextFromHtmlBody(params.htmlBody);
 
   const emailTransporter = await ConnectEmailClient();
@@ -523,12 +529,7 @@ export async function sendInvoiceReminder(params: SendReminderParams): Promise<v
 
 export async function sendFormalNotice(params: SendFormalNoticeParams): Promise<void> {
   const locale = params.locale ?? 'en';
-
-  if (!params.pdfBuffer) {
-    throw new Error('Invoice PDF is required for formal notice email');
-  }
-
-  const html = buildReminderEmailHtml({ params, locale });
+  const html = buildReminderEmailHtml({ params, locale, showPdfAttached: true });
   const text = plainTextFromHtmlBody(params.htmlBody);
 
   const emailTransporter = await ConnectEmailClient();
