@@ -5,7 +5,7 @@ const DEFAULT_TEMPLATES = {
     soft: {
       subject: "Friendly reminder — invoice {{invoiceNumber}}",
       body:
-        "Hello {{clientName}},\n\nThis is a friendly reminder that invoice {{invoiceNumber}} dated {{invoiceDate}} was due on {{dueDate}}.\n\nAmount due: {{amountDue}}.\n\nIf payment has already been made, please ignore this message. Otherwise, you can use the following payment link: {{paymentLink}}\n\nThank you for your business.\n\nBest regards,\n{{companyName}}",
+        "Hello {{clientName}},\n\nThis is a friendly reminder that invoice {{invoiceNumber}} dated {{invoiceDate}} was due on {{dueDate}}.\n\nAmount due: {{amountDue}}.\nLate fees: {{lateFees}}\n\nIf payment has already been made, please ignore this message. Otherwise, you can use the following payment link: {{paymentLink}}\n\nThank you for your business.\n\nBest regards,\n{{companyName}}",
     },
     medium: {
       subject: "Payment follow-up - invoice {{invoiceNumber}}",
@@ -27,7 +27,7 @@ const DEFAULT_TEMPLATES = {
     soft: {
       subject: "Rappel amical - facture {{invoiceNumber}}",
       body:
-        "Bonjour {{clientName}},\n\nNous vous rappelons aimablement que la facture {{invoiceNumber}} du {{invoiceDate}} est arrivee a echeance le {{dueDate}}.\n\nMontant restant du: {{amountDue}}.\n\nSi le paiement a deja ete effectue, merci d'ignorer ce message. Sinon, vous pouvez regler ici : {{paymentLink}}\n\nCordialement,\n{{companyName}}",
+        "Bonjour {{clientName}},\n\nNous vous rappelons aimablement que la facture {{invoiceNumber}} du {{invoiceDate}} est arrivee a echeance le {{dueDate}}.\n\nMontant restant du: {{amountDue}}.\nPenalites de retard: {{lateFees}}\n\nSi le paiement a deja ete effectue, merci d'ignorer ce message. Sinon, vous pouvez regler ici : {{paymentLink}}\n\nCordialement,\n{{companyName}}",
     },
     medium: {
       subject: "Relance de paiement - facture {{invoiceNumber}}",
