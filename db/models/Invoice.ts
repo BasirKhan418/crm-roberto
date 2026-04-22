@@ -368,30 +368,26 @@ InvoiceSchema.pre("validate", function computeDepositAmount() {
   this.depositAmount = Math.round(total * (percent / 100));
 });
 
-type PreNext = (err?: Error) => void;
-
 type PreFn = (
   method: string | string[],
-  fn: (this: unknown, next: PreNext) => void
+  fn: (this: unknown) => void
 ) => void;
 const preInvoiceHook = (InvoiceSchema.pre as unknown as PreFn).bind(InvoiceSchema);
 
-preInvoiceHook("save", function (next) {
+preInvoiceHook("save", function () {
   const doc = this as mongoose.HydratedDocument<InvoiceDocument>;
-  if (doc.isNew) return next();
-  if (doc.isModified("ownerHasUnread")) return next();
+  if (doc.isNew) return;
+  if (doc.isModified("ownerHasUnread")) return;
   const otherModified = doc.modifiedPaths().some((p) => p !== "ownerHasUnread");
   if (otherModified) {
     doc.ownerHasUnread = true;
   }
-  next();
 });
 
-preInvoiceHook(["updateOne", "findOneAndUpdate", "updateMany"], function (next) {
+preInvoiceHook(["updateOne", "findOneAndUpdate", "updateMany"], function () {
   const query = this as mongoose.Query<unknown, InvoiceDocument>;
   const update = query.getUpdate() as Record<string, unknown> | null;
   if (!update) {
-    next();
     return;
   }
 
@@ -403,7 +399,6 @@ preInvoiceHook(["updateOne", "findOneAndUpdate", "updateMany"], function (next) 
     update.$set = { ...$set, ownerHasUnread: true };
     query.setUpdate(update);
   }
-  next();
 });
 
 InvoiceSchema.index({ userId: 1, invoiceNumber: 1 }, { unique: true, name: "unique_user_invoice_number" });
