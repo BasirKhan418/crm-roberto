@@ -95,15 +95,12 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
     }
 
     const now = new Date();
-    const currentLevel = Math.max(
-      1,
-      Math.min(4, Math.round(Number(invoice.reminderState?.level ?? 0)) || 1)
-    ) as 1 | 2 | 3 | 4;
+    const resumeLevel = Math.max(1, currentLevel || 1) as 1 | 2 | 3 | 4;
 
     await ReminderLog.create({
       userId: me.user.id,
       invoiceId: invoice._id,
-      level: currentLevel,
+      level: resumeLevel,
       channel: 'email',
       status: 'resumed',
       skippedReason: 'Resumed by user',
