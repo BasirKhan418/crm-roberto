@@ -76,6 +76,10 @@ const PaymentSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    receiptDispatchingAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );
@@ -86,7 +90,7 @@ PaymentSchema.index({ userId: 1, createdAt: -1 });
 
 export type PaymentDocument = InferSchemaType<typeof PaymentSchema>;
 
-const PAYMENT_MODEL_VERSION = 2;
+const PAYMENT_MODEL_VERSION = 3;
 
 type VersionedPaymentModel = Model<PaymentDocument> & { __schemaVersion?: number };
 
@@ -95,6 +99,7 @@ const existingPaymentModel = mongoose.models.Payment as VersionedPaymentModel | 
 if (
   existingPaymentModel &&
   (!existingPaymentModel.schema.path("receiptSentAt") ||
+    !existingPaymentModel.schema.path("receiptDispatchingAt") ||
     existingPaymentModel.__schemaVersion !== PAYMENT_MODEL_VERSION)
 ) {
   delete (mongoose.models as Record<string, VersionedPaymentModel>).Payment;

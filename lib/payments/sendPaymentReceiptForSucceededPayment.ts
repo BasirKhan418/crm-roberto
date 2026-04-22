@@ -35,6 +35,7 @@ type SucceededPaymentRecord = {
   paidAt?: Date | null;
   createdAt?: Date | null;
   receiptSentAt?: Date | null;
+  receiptDispatchingAt?: Date | null;
 };
 
 type InvoiceForPaymentReceipt = {
@@ -117,89 +118,125 @@ export async function sendPaymentReceiptForSucceededPayment({
 }): Promise<PaymentReceiptSendResult> {
   await ConnectDb();
 
-  const payment = await Payment.findById(paymentId)
-    .select('_id userId invoiceId amount method type status paidAt createdAt receiptSentAt')
+  const dispatchClaimedAt = new Date();
+  const staleDispatchThreshold = new Date(dispatchClaimedAt.getTime() - 5 * 60 * 1000);
+
+  const payment = await Payment.findOneAndUpdate(
+    {
+      _id: paymentId,
+      status: 'succeeded',
+      receiptSentAt: null,
+      $or: [{ receiptDispatchingAt: null }, { receiptDispatchingAt: { $lt: staleDispatchThreshold } }],
+    },
+    {
+      $set: { receiptDispatchingAt: dispatchClaimedAt },
+    },
+    { returnDocument: 'after' }
+  )
+    .select('_id userId invoiceId amount method type status paidAt createdAt receiptSentAt receiptDispatchingAt')
     .lean<SucceededPaymentRecord | null>();
 
-  if (!payment || payment.status !== 'succeeded') {
-    return { sent: false, reason: 'missing-payment' };
-  }
+  if (!payment) {
+    const existingPayment = await Payment.findById(paymentId)
+      .select('_id receiptSentAt receiptDispatchingAt status')
+      .lean<{ _id: mongoose.Types.ObjectId; receiptSentAt?: Date | null; receiptDispatchingAt?: Date | null; status?: string } | null>();
 
-  if (payment.receiptSentAt) {
+    if (!existingPayment || existingPayment.status !== 'succeeded') {
+      return { sent: false, reason: 'missing-payment' };
+    }
+
     return { sent: false, reason: 'already-sent' };
   }
 
-  const invoice = await Invoice.findOne({ _id: payment.invoiceId, userId: payment.userId })
-    .select(
-      '_id userId clientId invoiceNumber quoteNumber date dueDate status lineItems totalExcludingTax totalVat totalIncludingTax depositPercentage notes clientSnapshot'
-    )
-    .lean<InvoiceForPaymentReceipt | null>();
+  const claimedPayment = payment;
 
-  if (!invoice) {
-    return { sent: false, reason: 'missing-invoice' };
+  async function releaseDispatchLock() {
+    await Payment.updateOne(
+      { _id: claimedPayment._id, receiptDispatchingAt: dispatchClaimedAt, receiptSentAt: null },
+      { $set: { receiptDispatchingAt: null } }
+    );
   }
 
-  const [clientDoc, companyProfile, user, payments] = await Promise.all([
-    Client.findOne({ _id: invoice.clientId, user: payment.userId })
-      .select('billingEmail')
-      .lean<{ billingEmail?: string | null } | null>(),
-    CompanyProfile.findOne({ user: payment.userId })
-      .select('companyName ownerName locale address streetNumber streetName postalCode city country phone businessEmail vatNumber rcsNumber businessAuthorizationNumber matriculeNumber iban bankName legalIdentifier logoUrl')
-      .lean<CompanyProfileForReminder | null>(),
-    User.findById(payment.userId).select('locale').lean<{ locale?: string | null } | null>(),
-    Payment.find({ invoiceId: invoice._id, userId: payment.userId, status: 'succeeded' })
-      .sort({ paidAt: -1, createdAt: -1 })
-      .select('amount method type paidAt createdAt')
-      .lean<Array<{ amount: number; method: string; type: 'deposit' | 'full' | 'remaining_balance'; paidAt?: Date | null; createdAt?: Date | null }>>(),
-  ]);
+  try {
+    const invoice = await Invoice.findOne({ _id: claimedPayment.invoiceId, userId: claimedPayment.userId })
+      .select(
+        '_id userId clientId invoiceNumber quoteNumber date dueDate status lineItems totalExcludingTax totalVat totalIncludingTax depositPercentage notes clientSnapshot'
+      )
+      .lean<InvoiceForPaymentReceipt | null>();
 
-  const recipientEmail = resolveRecipientEmail(clientDoc?.billingEmail, invoice.clientSnapshot?.email);
-  if (!recipientEmail) {
-    return { sent: false, reason: 'missing-email' };
+    if (!invoice) {
+      await releaseDispatchLock();
+      return { sent: false, reason: 'missing-invoice' };
+    }
+
+    const [clientDoc, companyProfile, user, payments] = await Promise.all([
+      Client.findOne({ _id: invoice.clientId, user: claimedPayment.userId })
+        .select('billingEmail')
+        .lean<{ billingEmail?: string | null } | null>(),
+      CompanyProfile.findOne({ user: claimedPayment.userId })
+        .select('companyName ownerName locale address streetNumber streetName postalCode city country phone businessEmail vatNumber rcsNumber businessAuthorizationNumber matriculeNumber iban bankName legalIdentifier logoUrl')
+        .lean<CompanyProfileForReminder | null>(),
+      User.findById(claimedPayment.userId).select('locale').lean<{ locale?: string | null } | null>(),
+      Payment.find({ invoiceId: invoice._id, userId: claimedPayment.userId, status: 'succeeded' })
+        .sort({ paidAt: -1, createdAt: -1 })
+        .select('amount method type paidAt createdAt')
+        .lean<Array<{ amount: number; method: string; type: 'deposit' | 'full' | 'remaining_balance'; paidAt?: Date | null; createdAt?: Date | null }>>(),
+    ]);
+
+    const recipientEmail = resolveRecipientEmail(clientDoc?.billingEmail, invoice.clientSnapshot?.email);
+    if (!recipientEmail) {
+      await releaseDispatchLock();
+      return { sent: false, reason: 'missing-email' };
+    }
+
+    const locale = resolveReminderLocalePreference(user?.locale, companyProfile?.locale);
+    const paymentHistory: PaymentHistoryItem[] = payments.map((item) => ({
+      amount: item.amount,
+      method: item.method,
+      type: item.type,
+      paidAt: item.paidAt ?? null,
+      createdAt: item.createdAt ?? null,
+    }));
+
+    const invoiceTotal = Math.max(0, Math.round(invoice.totalIncludingTax ?? 0));
+    const totalPaid = paymentHistory.reduce((sum, item) => sum + Math.max(0, Math.round(item.amount ?? 0)), 0);
+    const remainingAmount = Math.max(0, invoiceTotal - totalPaid);
+
+    const pdfBuffer = await renderInvoicePdfForReminder({
+      invoice: toInvoicePdfInput(invoice),
+      companyProfile,
+      locale,
+      lateFeeAmountCents: 0,
+      payments: paymentHistory,
+    });
+
+    await sendPaymentReceipt({
+      to: recipientEmail,
+      clientName: invoice.clientSnapshot?.fullName || 'Client',
+      invoiceNumber: invoice.invoiceNumber,
+      amount: formatEurFromCents(claimedPayment.amount, locale),
+      paymentMethod: claimedPayment.method,
+      paymentType: claimedPayment.type,
+      paidAt: claimedPayment.paidAt ?? claimedPayment.createdAt ?? new Date(),
+      companyName: resolveCompanyDisplayName(companyProfile),
+      pdfBuffer,
+      locale,
+      invoiceTotal: formatEurFromCents(invoiceTotal, locale),
+      totalPaid: formatEurFromCents(totalPaid, locale),
+      remainingAmount: formatEurFromCents(remainingAmount, locale),
+      isFullyPaid: remainingAmount === 0,
+    });
+
+    await Payment.updateOne(
+      { _id: claimedPayment._id, receiptDispatchingAt: dispatchClaimedAt, receiptSentAt: null },
+      {
+        $set: { receiptSentAt: new Date(), receiptDispatchingAt: null },
+      }
+    );
+
+    return { sent: true };
+  } catch (error) {
+    await releaseDispatchLock();
+    throw error;
   }
-
-  const locale = resolveReminderLocalePreference(user?.locale, companyProfile?.locale);
-  const paymentHistory: PaymentHistoryItem[] = payments.map((item) => ({
-    amount: item.amount,
-    method: item.method,
-    type: item.type,
-    paidAt: item.paidAt ?? null,
-    createdAt: item.createdAt ?? null,
-  }));
-
-  const invoiceTotal = Math.max(0, Math.round(invoice.totalIncludingTax ?? 0));
-  const totalPaid = paymentHistory.reduce((sum, item) => sum + Math.max(0, Math.round(item.amount ?? 0)), 0);
-  const remainingAmount = Math.max(0, invoiceTotal - totalPaid);
-
-  const pdfBuffer = await renderInvoicePdfForReminder({
-    invoice: toInvoicePdfInput(invoice),
-    companyProfile,
-    locale,
-    lateFeeAmountCents: 0,
-    payments: paymentHistory,
-  });
-
-  await sendPaymentReceipt({
-    to: recipientEmail,
-    clientName: invoice.clientSnapshot?.fullName || 'Client',
-    invoiceNumber: invoice.invoiceNumber,
-    amount: formatEurFromCents(payment.amount, locale),
-    paymentMethod: payment.method,
-    paymentType: payment.type,
-    paidAt: payment.paidAt ?? payment.createdAt ?? new Date(),
-    companyName: resolveCompanyDisplayName(companyProfile),
-    pdfBuffer,
-    locale,
-    invoiceTotal: formatEurFromCents(invoiceTotal, locale),
-    totalPaid: formatEurFromCents(totalPaid, locale),
-    remainingAmount: formatEurFromCents(remainingAmount, locale),
-    isFullyPaid: remainingAmount === 0,
-  });
-
-  await Payment.updateOne(
-    { _id: payment._id, receiptSentAt: null },
-    { $set: { receiptSentAt: new Date() } }
-  );
-
-  return { sent: true };
 }

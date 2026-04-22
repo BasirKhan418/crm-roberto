@@ -640,6 +640,7 @@ export default function InvoiceDetailPage() {
                 layout="compact"
                 invoiceId={invoice._id}
                 locale={locale as Locale}
+                invoiceStatus={invoice.status}
                 clientName={invoice.clientSnapshot.fullName}
                 invoiceNumber={invoice.invoiceNumber}
                 dueDate={invoice.dueDate}
@@ -968,6 +969,7 @@ export default function InvoiceDetailPage() {
                   layout="history"
                   invoiceId={invoice._id}
                   locale={locale as Locale}
+                  invoiceStatus={invoice.status}
                   clientName={invoice.clientSnapshot.fullName}
                   invoiceNumber={invoice.invoiceNumber}
                   dueDate={invoice.dueDate}

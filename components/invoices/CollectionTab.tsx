@@ -48,6 +48,7 @@ interface ReminderLogsResponse {
 interface CollectionTabProps {
   invoiceId: string;
   locale: Locale;
+  invoiceStatus?: 'unpaid' | 'partial_paid' | 'paid' | 'overdue' | null;
   clientName?: string | null;
   invoiceNumber?: string | null;
   dueDate?: string | Date | null;
@@ -98,6 +99,7 @@ const fetcher = async (url: string): Promise<ReminderLogsResponse> => {
 export default function CollectionTab({
   invoiceId,
   locale,
+  invoiceStatus,
   clientName,
   invoiceNumber,
   dueDate,
@@ -148,6 +150,7 @@ export default function CollectionTab({
 
   const currentLevel = Math.max(0, Math.min(4, Math.round(reminderState?.level ?? 0))) as ReminderLevel;
   const isDisabled = reminderState?.isPaused === true;
+  const isInvoicePaid = invoiceStatus === 'paid';
   const nextLevel = Math.max(1, Math.min(4, currentLevel + 1)) as 1 | 2 | 3 | 4;
   const showControls = layout !== 'history';
   const showHistory = layout !== 'compact';
@@ -341,7 +344,7 @@ export default function CollectionTab({
             type="button"
             size="sm"
             className="h-8 w-full sm:w-auto"
-            disabled={isDisabled}
+            disabled={isDisabled || isInvoicePaid}
             onClick={() => setShowSendModal(true)}
           >
             <SendIcon className="size-3.5" />
@@ -392,7 +395,7 @@ export default function CollectionTab({
           <Button
             type="button"
             className="w-full sm:w-auto"
-            disabled={isDisabled}
+            disabled={isDisabled || isInvoicePaid}
             onClick={() => setShowSendModal(true)}
           >
             <SendIcon className="size-4" />

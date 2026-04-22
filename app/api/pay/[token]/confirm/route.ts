@@ -58,7 +58,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, message: 'Payment session not found' }, { status: 404 });
     }
 
-    const finalized = await finalizeStripeInvoiceCheckoutSession(session);
+    const finalized = await finalizeStripeInvoiceCheckoutSession(session, { sendReceipt: true });
     if (finalized.kind === 'not-paid') {
       return NextResponse.json({ success: false, message: 'Payment has not been completed yet' }, { status: 409 });
     }
