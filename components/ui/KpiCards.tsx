@@ -184,6 +184,8 @@ export default function KpiCards({ cards, locale, loading = false, cols = 4, ske
         const s = variantStyles[card.variant];
         const isClickable = Boolean(card.onClick);
         const IconComponent = card.icon ? ICONS[card.icon] : undefined;
+        const count = card.count;
+        const hasCount = card.count !== undefined;
 
         return (
           <button
@@ -210,11 +212,11 @@ export default function KpiCards({ cards, locale, loading = false, cols = 4, ske
               )}
             </div>
 
-            {/* Main value — always anchored to the same vertical zone */}
-            <div className="mt-2 flex flex-1 flex-col justify-end gap-1">
-              {card.count !== undefined && (
+            {/* Count cards stay bottom-weighted; amount-only totals are centered. */}
+            <div className={cn('mt-2 flex flex-1 flex-col gap-1', hasCount ? 'justify-end' : 'justify-center')}>
+              {count !== undefined && (
                 <p className={cn('text-4xl font-bold tabular-nums leading-none', s.value)}>
-                  {new Intl.NumberFormat(priceLocale).format(card.count)}
+                  {new Intl.NumberFormat(priceLocale).format(count)}
                 </p>
               )}
 
@@ -222,10 +224,11 @@ export default function KpiCards({ cards, locale, loading = false, cols = 4, ske
                 <PriceDisplay
                   cents={card.amount}
                   locale={priceLocale}
+                  compactAfterDigits={hasCount ? undefined : 8}
                   className={cn(
-                    card.count !== undefined
+                    hasCount
                       ? 'text-sm font-medium tabular-nums opacity-90'
-                      : 'text-3xl font-bold tabular-nums leading-none',
+                      : 'mx-auto block w-full text-center text-base font-bold leading-tight tracking-tight whitespace-nowrap tabular-nums sm:text-2xl',
                     s.value,
                   )}
                 />
