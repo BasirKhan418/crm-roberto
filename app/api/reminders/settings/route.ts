@@ -95,6 +95,13 @@ export const PATCH = async (request: NextRequest) => {
     }
 
     const setDoc = flattenForMongoSet(parsed.data as Record<string, unknown>);
+    if (parsed.data.lateFee?.stages !== undefined) {
+      setDoc['lateFee.enabled'] = false;
+      setDoc['lateFee.type'] = 'percentage';
+      setDoc['lateFee.value'] = 0;
+      setDoc['lateFee.applyFrom'] = 'formalNotice';
+    }
+
     if (Object.keys(setDoc).length === 0) {
       return NextResponse.json({ success: false, message: 'No valid fields provided for update' }, { status: 400 });
     }

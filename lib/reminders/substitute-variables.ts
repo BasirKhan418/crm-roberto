@@ -14,6 +14,7 @@ export interface ReminderVariables {
   lateFees: string;
   paymentLink: string;
   legalDeadline: string;
+  __amountDueCents?: number;
 }
 
 type Locale = 'en' | 'fr';
@@ -161,5 +162,6 @@ export function buildReminderVars(
     lateFees: '',
     paymentLink,
     legalDeadline: '',
+    __amountDueCents: amountDueCents,
   };
 }

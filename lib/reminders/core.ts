@@ -63,6 +63,8 @@ const DEFAULT_LATE_FEE_STAGE: NormalizedLateFeeStageConfig = {
   value: 0,
 };
 
+const REMINDER_LEVEL_KEYS: ReminderLevelKey[] = ['soft', 'medium', 'firm', 'formalNotice'];
+
 function normalizeLateFeeStageConfig(stage?: ReminderLateFeeStageConfig | null): NormalizedLateFeeStageConfig {
   return {
     enabled: stage?.enabled === true,
@@ -71,11 +73,26 @@ function normalizeLateFeeStageConfig(stage?: ReminderLateFeeStageConfig | null):
   };
 }
 
+function hasConfiguredLateFeeStages(stages?: Partial<Record<ReminderLevelKey, ReminderLateFeeStageConfig>> | null): boolean {
+  if (!stages) {
+    return false;
+  }
+
+  return REMINDER_LEVEL_KEYS.some((key) => {
+    const stage = stages[key];
+    if (!stage) {
+      return false;
+    }
+
+    return stage.enabled === true || Math.max(0, Number(stage.value ?? 0)) > 0;
+  });
+}
+
 export function normalizeLateFeeStages(
   lateFee?: LateFeeConfig
 ): Record<ReminderLevelKey, NormalizedLateFeeStageConfig> {
   const stages = lateFee?.stages;
-  if (stages) {
+  if (stages && hasConfiguredLateFeeStages(stages)) {
     return {
       soft: normalizeLateFeeStageConfig(stages.soft),
       medium: normalizeLateFeeStageConfig(stages.medium),
@@ -189,6 +206,10 @@ export function formatLateFeeText(amountCents: number, locale: 'en' | 'fr'): str
     return '';
   }
 
+  return formatCurrencyText(amountCents, locale);
+}
+
+function formatCurrencyText(amountCents: number, locale: 'en' | 'fr'): string {
   return new Intl.NumberFormat(locale === 'fr' ? 'fr-FR' : 'en-GB', {
     style: 'currency',
     currency: 'EUR',
@@ -227,8 +248,15 @@ export function buildBodyPreview(text: string): string {
 }
 
 export function mergeLateFeeIntoVariables(vars: ReminderVariables, lateFeeAmountCents: number, locale: 'en' | 'fr'): ReminderVariables {
+  const baseAmountDueCents =
+    typeof vars.__amountDueCents === 'number' ? Math.max(0, Math.round(vars.__amountDueCents)) : null;
+
   return {
     ...vars,
+    amountDue:
+      baseAmountDueCents === null
+        ? vars.amountDue
+        : formatCurrencyText(baseAmountDueCents + Math.max(0, lateFeeAmountCents), locale),
     lateFees: formatLateFeeText(lateFeeAmountCents, locale),
   };
 }
