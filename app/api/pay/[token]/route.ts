@@ -187,6 +187,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           invoiceId: String(invoice._id),
           paymentType: recordedPaymentType,
           paymentSource: 'invoice_token',
+          paymentToken: token,
         },
         success_url: `${appUrl}/pay/${token}?status=success&session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${appUrl}/pay/${token}?status=cancelled`,

@@ -134,7 +134,7 @@ export const updateSupplierById = async (
   }
 
   const updated = await Supplier.findOneAndUpdate({ _id: supplierId, user: userId }, payload, {
-    new: true,
+    returnDocument: 'after',
     runValidators: true,
   }).lean();
 

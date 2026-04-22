@@ -37,6 +37,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { useInvoices, type InvoiceListItem, type InvoiceStatusFilter } from '@/hooks/useInvoices';
 import { useInvoicesActionCount } from '@/hooks/useInvoicesActionCount';
 import FinancialTotalsBar from '@/components/ui/FinancialTotalsBar';
+import { isInvoiceDueOnOrBeforeToday } from '@/lib/invoices/overdue';
 
 const COLUMN_STORAGE_KEY = 'crm.invoice.visibleColumns.v1';
 const VIEW_STORAGE_KEY = 'crm.invoice.viewConfig.v1';
@@ -673,11 +674,7 @@ function InvoicesPageContent() {
       if (!invoice.clientSnapshot?.email?.trim()) return false;
       const resolvedLevel = resolveBulkReminderLevel(invoice);
       if (resolvedLevel === 4) {
-        if (!invoice.dueDate) return false;
-        const dueTime = new Date(invoice.dueDate).getTime();
-        if (!Number.isFinite(dueTime)) return false;
-        const daysOverdue = Math.floor((Date.now() - dueTime) / (24 * 60 * 60 * 1000));
-        if (daysOverdue <= 0) return false;
+        if (!isInvoiceDueOnOrBeforeToday(invoice.dueDate)) return false;
       }
       return true;
     });

@@ -44,7 +44,7 @@ export const updateCompanyProfileByUserId = async (userId: string, data: UpdateC
         const profile = await CompanyProfile.findOneAndUpdate(
             { user: userId },
             updateData,
-            { new: true, runValidators: true }
+          { returnDocument: 'after', runValidators: true }
         ).lean();
 
         if (!profile) {
@@ -69,7 +69,7 @@ export const updateCompanyLogoByUserId = async (
     const profile = await CompanyProfile.findOneAndUpdate(
       { user: userId },
       { logoUrl, logoKey },
-      { new: true }
+      { returnDocument: 'after' }
     ).lean();
 
     if (!profile) {

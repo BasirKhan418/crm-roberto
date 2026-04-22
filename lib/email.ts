@@ -1,7 +1,7 @@
 import ConnectEmailClient from "@/emails/connectEmailClient";
 import { getQuoteEmailTemplate } from "@/emails/quoteEmailTemplate";
 import { formatInvoiceDisplayNumber, getDocumentEmailLanguage, translate, type TranslationLocale } from '@/lib/i18n/messages';
-import { getPaymentMethodLabel } from '@/lib/payments';
+import { getPaymentMethodLabel, getPaymentTypeLabel, type StoredPaymentType } from '@/lib/payments';
 
 interface BaseSendParams {
   to: string;
@@ -64,7 +64,12 @@ interface SendPaymentReceiptParams extends BaseSendParams {
   invoiceNumber: string;
   amount: string;
   paymentMethod: string;
+  paymentType: StoredPaymentType;
   paidAt: Date | string;
+  invoiceTotal: string;
+  totalPaid: string;
+  remainingAmount: string;
+  isFullyPaid: boolean;
   locale?: TranslationLocale;
 }
 
@@ -206,14 +211,16 @@ function buildDocumentEmailTemplate({
 </html>`;
 }
 
-function formatDate(value: Date | string): string {
-  return new Intl.DateTimeFormat("en-GB", {
+function formatDateTime(value: Date | string, locale: TranslationLocale): string {
+  return new Intl.DateTimeFormat(locale === 'fr' ? 'fr-FR' : 'en-GB', {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-  }).format(new Date(value));
+  })
+    .format(new Date(value))
+    .replace(/[\u00a0\u202f]/g, ' ');
 }
 
 async function sendDocumentEmail({
@@ -723,15 +730,25 @@ export async function sendPaymentReceipt({
   invoiceNumber,
   amount,
   paymentMethod,
+  paymentType,
   paidAt,
   companyName,
   pdfBuffer,
+  invoiceTotal,
+  totalPaid,
+  remainingAmount,
+  isFullyPaid,
   locale = 'en',
 }: SendPaymentReceiptParams) {
   const displayInvoiceNumber = formatInvoiceDisplayNumber(locale, invoiceNumber);
   const localizedPaymentMethod = getPaymentMethodLabel(paymentMethod, locale);
+  const localizedPaymentType = getPaymentTypeLabel(paymentType, locale);
   const subject = translate(locale, 'email.paymentReceipt.subject', { invoiceNumber: displayInvoiceNumber });
-  const messageBody = translate(locale, 'email.paymentReceipt.messageBody');
+  const formattedPaidAt = formatDateTime(paidAt, locale);
+  const messageBody = translate(
+    locale,
+    isFullyPaid ? 'email.paymentReceipt.messageBodyFull' : 'email.paymentReceipt.messageBodyPartial'
+  );
 
   const html = buildDocumentEmailTemplate({
     subject,
@@ -741,8 +758,12 @@ export async function sendPaymentReceipt({
     documentNumber: displayInvoiceNumber,
     details: [
       { label: translate(locale, 'email.paymentReceipt.amountPaid'), value: amount },
+      { label: translate(locale, 'email.paymentReceipt.paymentType'), value: localizedPaymentType },
       { label: translate(locale, 'email.paymentReceipt.method'), value: localizedPaymentMethod },
-      { label: translate(locale, 'email.paymentReceipt.paidAt'), value: formatDate(paidAt) },
+      { label: translate(locale, 'email.paymentReceipt.paidAt'), value: formattedPaidAt },
+      { label: translate(locale, 'email.paymentReceipt.invoiceTotal'), value: invoiceTotal },
+      { label: translate(locale, 'email.paymentReceipt.totalPaid'), value: totalPaid },
+      { label: translate(locale, 'email.paymentReceipt.remainingAmount'), value: remainingAmount },
     ],
     messageBody,
     locale,
@@ -752,8 +773,12 @@ export async function sendPaymentReceipt({
     name: clientName,
     invoiceNumber: displayInvoiceNumber,
     amount,
+    paymentType: localizedPaymentType,
     paymentMethod: localizedPaymentMethod,
-    paidAt: formatDate(paidAt),
+    paidAt: formattedPaidAt,
+    invoiceTotal,
+    totalPaid,
+    remainingAmount,
   });
 
   return sendDocumentEmail({

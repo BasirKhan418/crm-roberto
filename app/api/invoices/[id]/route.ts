@@ -6,6 +6,7 @@ import Client from '@/db/models/Client';
 import Invoice from '@/db/models/Invoice';
 import Payment from '@/db/models/Payment';
 import Quote from '@/db/models/Quote';
+import { isInvoiceDueOnOrBeforeToday } from '@/lib/invoices/overdue';
 import { buildValidationError } from '@/utils/api/validation';
 import getMe from '@/utils/middlewares/useMe';
 import { updateInvoiceSchema } from '@/validators/invoice.schema';
@@ -15,12 +16,9 @@ interface RouteParams {
 }
 
 function withComputedInvoiceStatus<T extends { status: string; dueDate?: Date | string | null }>(invoice: T): T {
-  const dueDate = invoice.dueDate ? new Date(invoice.dueDate) : null;
-  const isPastDue = Boolean(dueDate && Number.isFinite(dueDate.getTime()) && dueDate.getTime() < Date.now());
-
   if (
     (invoice.status === 'unpaid' || invoice.status === 'partial_paid') &&
-    isPastDue
+    isInvoiceDueOnOrBeforeToday(invoice.dueDate)
   ) {
     return {
       ...invoice,
@@ -132,7 +130,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const updated = await Invoice.findOneAndUpdate(
       { _id: id, userId: me.user.id },
       payload,
-      { new: true, runValidators: true }
+      { returnDocument: 'after', runValidators: true }
     ).lean();
 
     if (!updated) {

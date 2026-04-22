@@ -5,6 +5,7 @@ import ConnectDb from '@/db/connectDb';
 import CompanyProfile from '@/db/models/CompanyProfile';
 import Invoice from '@/db/models/Invoice';
 import Payment from '@/db/models/Payment';
+import { isInvoiceDueOnOrBeforeToday } from '@/lib/invoices/overdue';
 import ReminderSettings from '@/db/models/ReminderSettings';
 import { formatInvoiceDisplayNumber } from '@/lib/i18n/messages';
 import {
@@ -108,11 +109,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const remainingAmount = Math.max(0, Math.round(invoice.totalIncludingTax ?? 0) - totalPaid);
     const lateFeeAmount = Math.max(0, Math.round(invoice.reminderState?.lateFeeAmount ?? 0));
 
-    const effectiveDaysOverdue = invoice.dueDate
-      ? Math.floor((new Date().setHours(0, 0, 0, 0) - new Date(invoice.dueDate).setHours(0, 0, 0, 0)) / 86400000)
-      : 0;
-
-    if (effectiveDaysOverdue <= 0) {
+    if (!invoice.dueDate || !isInvoiceDueOnOrBeforeToday(invoice.dueDate)) {
       return NextResponse.json(
         { success: false, message: 'Formal notice is only available for overdue invoices' },
         { status: 400 }

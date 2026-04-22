@@ -11,6 +11,7 @@ import ReminderSettings from '@/db/models/ReminderSettings';
 import StripeConnect from '@/db/models/StripeConnect';
 import { createActivityLog } from '@/db/repository/activity';
 import { sendFormalNotice, sendInvoiceReminder } from '@/lib/email';
+import { isInvoiceDueOnOrBeforeToday } from '@/lib/invoices/overdue';
 import {
   buildBodyPreview,
   buildFallbackReminderSubject,
@@ -278,11 +279,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     let log;
 
     if (level === 4) {
-      const daysOverdue = invoice.dueDate
-        ? dayjs().startOf('day').diff(dayjs(invoice.dueDate).startOf('day'), 'day')
-        : 0;
-
-      if (daysOverdue <= 0) {
+      if (!invoice.dueDate || !isInvoiceDueOnOrBeforeToday(invoice.dueDate)) {
         return NextResponse.json(
           { success: false, message: 'Formal notice can only be sent for an overdue invoice' },
           { status: 400 }

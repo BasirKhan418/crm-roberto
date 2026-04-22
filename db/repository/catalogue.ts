@@ -150,7 +150,7 @@ export const updateCatalogueItemById = async (
   };
 
   const updated = await CatalogueItem.findOneAndUpdate({ _id: itemId, user: userId }, nextPayload, {
-    new: true,
+    returnDocument: 'after',
     runValidators: true,
   }).lean();
 

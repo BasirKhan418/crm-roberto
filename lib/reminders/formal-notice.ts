@@ -6,6 +6,7 @@ import React from 'react';
 
 import { formatStructuredAddress, hasStructuredAddress } from '@/lib/address';
 import { extractClientSnapshot } from '@/lib/address';
+import { getInvoiceDaysOverdue, isInvoiceDueOnOrBeforeToday } from '@/lib/invoices/overdue';
 import { formatInvoiceDisplayNumber } from '@/lib/i18n/messages';
 import { InvoicePdfTemplate } from '@/lib/pdf/InvoicePdfTemplate';
 import { type LegalNoticePdfProps, renderLegalNoticePdf } from '@/lib/pdf/LegalNoticePdfTemplate';
@@ -272,11 +273,9 @@ export async function renderLegalNoticePdfForReminder({
   customFooter?: string | null;
 }): Promise<{ pdfBuffer: Buffer; legalDeadline: Date; props: LegalNoticePdfProps }> {
   const legalDeadline = computeLegalDeadline(legalNoticeDate, delayDays);
-  const daysOverdue = invoice.dueDate
-    ? dayjs().startOf('day').diff(dayjs(invoice.dueDate).startOf('day'), 'day')
-    : 0;
+  const daysOverdue = getInvoiceDaysOverdue(invoice.dueDate);
 
-  if (daysOverdue <= 0) {
+  if (!invoice.dueDate || !isInvoiceDueOnOrBeforeToday(invoice.dueDate)) {
     throw new Error('Formal notice requires an overdue invoice');
   }
 

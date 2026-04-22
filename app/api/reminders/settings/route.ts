@@ -122,7 +122,7 @@ export const PATCH = async (request: NextRequest) => {
       { userId: me.user.id },
       { $set: setDoc, $setOnInsert: { userId: me.user.id } },
       {
-        new: true,
+        returnDocument: 'after',
         upsert: true,
         setDefaultsOnInsert: true,
         runValidators: true,

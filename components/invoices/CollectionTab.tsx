@@ -341,7 +341,7 @@ export default function CollectionTab({
             type="button"
             size="sm"
             className="h-8 w-full sm:w-auto"
-            disabled={isDisabled || currentLevel >= 4}
+            disabled={isDisabled}
             onClick={() => setShowSendModal(true)}
           >
             <SendIcon className="size-3.5" />
@@ -392,7 +392,7 @@ export default function CollectionTab({
           <Button
             type="button"
             className="w-full sm:w-auto"
-            disabled={isDisabled || currentLevel >= 4}
+            disabled={isDisabled}
             onClick={() => setShowSendModal(true)}
           >
             <SendIcon className="size-4" />

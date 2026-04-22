@@ -5,7 +5,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import ConnectDb from '@/db/connectDb';
 import Invoice from '@/db/models/Invoice';
 import { createActivityLog } from '@/db/repository/activity';
+import { createI18nKey as i18nKey } from '@/lib/i18n/messages';
 import { normalizeRecurrencePayload } from '@/lib/recurrence/core';
+import { getRecurrenceScheduleValidationKey } from '@/lib/recurrence/validation';
 import { buildValidationError } from '@/utils/api/validation';
 import getMe from '@/utils/middlewares/useMe';
 import { stopRecurrenceSchema, upsertRecurrenceSchema } from '@/validators/recurrence.schema';
@@ -57,9 +59,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       invoice.dueDate ?? null
     );
 
-    if (recurrencePayload.endDate && recurrencePayload.nextOccurrenceAt > recurrencePayload.endDate) {
+    const scheduleValidationKey = getRecurrenceScheduleValidationKey({
+      nextOccurrenceAt: recurrencePayload.nextOccurrenceAt,
+      endDate: recurrencePayload.endDate,
+    });
+
+    if (scheduleValidationKey) {
       return NextResponse.json(
-        { success: false, message: 'nextOccurrenceAt cannot be after endDate' },
+        { success: false, message: i18nKey(scheduleValidationKey) },
         { status: 400 }
       );
     }
@@ -71,7 +78,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           recurrence: recurrencePayload,
         },
       },
-      { new: true, runValidators: true }
+      { returnDocument: 'after', runValidators: true }
     ).lean();
 
     if (!updated) {
@@ -128,7 +135,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
           'recurrence.nextOccurrenceAt': null,
         },
       },
-      { new: true, runValidators: true }
+      { returnDocument: 'after', runValidators: true }
     ).lean<{ _id: mongoose.Types.ObjectId; invoiceNumber: string } | null>();
 
     if (!updated) {

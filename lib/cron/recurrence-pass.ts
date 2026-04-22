@@ -123,13 +123,24 @@ export async function runRecurrencePass(): Promise<RecurrencePassTotals> {
           },
         });
 
+        const recurrenceStatusUpdate = advancedNext
+          ? {
+              'recurrence.nextOccurrenceAt': advancedNext,
+            }
+          : {
+              'recurrence.isActive': false,
+              'recurrence.stoppedAt': now,
+              'recurrence.stoppedReason': 'end_date_reached',
+              'recurrence.nextOccurrenceAt': null,
+            };
+
         await Invoice.updateOne(
           { _id: invoice._id, userId: invoice.userId },
           {
             $set: {
               'recurrence.lastGeneratedAt': now,
               'recurrence.lastGeneratedInvoiceId': newInvoice._id,
-              'recurrence.nextOccurrenceAt': advancedNext,
+              ...recurrenceStatusUpdate,
             },
           }
         );

@@ -150,7 +150,7 @@ export const updateActivityById = async (
   };
 
   const updated = await ActivityLog.findOneAndUpdate({ _id: activityId, user: userId }, normalizedPayload, {
-    new: true,
+    returnDocument: 'after',
     runValidators: true,
   }).lean();
 

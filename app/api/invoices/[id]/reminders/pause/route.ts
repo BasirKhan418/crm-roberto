@@ -52,7 +52,7 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
           'reminderState.nextScheduledAt': null,
         },
       },
-      { new: true, runValidators: true }
+      { returnDocument: 'after', runValidators: true }
     ).lean();
 
     if (!invoice) {

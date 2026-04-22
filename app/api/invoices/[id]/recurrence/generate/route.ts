@@ -44,8 +44,41 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
     const recurrence = sourceInvoice.recurrence;
     const recurrenceNextOccurrenceAt = recurrence?.nextOccurrenceAt;
 
-    if (!recurrence?.isActive || !recurrenceNextOccurrenceAt) {
+    if (recurrence?.isActive && !recurrenceNextOccurrenceAt) {
+      const stoppedAt = new Date();
+
+      await Invoice.updateOne(
+        { _id: sourceInvoice._id, userId: me.user.id },
+        {
+          $set: {
+            'recurrence.isActive': false,
+            'recurrence.stoppedAt': stoppedAt,
+            'recurrence.stoppedReason': recurrence.endDate ? 'end_date_reached' : 'schedule_unavailable',
+            'recurrence.nextOccurrenceAt': null,
+          },
+        }
+      );
+
+      return NextResponse.json(
+        {
+          success: false,
+          message: recurrence.endDate
+            ? 'Recurrence has ended for this invoice'
+            : 'Recurrence schedule is unavailable for this invoice',
+        },
+        { status: 422 }
+      );
+    }
+
+    if (!recurrence?.isActive) {
       return NextResponse.json({ success: false, message: 'Recurrence is not active for this invoice' }, { status: 422 });
+    }
+
+    if (!recurrenceNextOccurrenceAt) {
+      return NextResponse.json(
+        { success: false, message: 'Recurrence schedule is unavailable for this invoice' },
+        { status: 422 }
+      );
     }
 
     const lockKey = `recurrence:${String(sourceInvoice._id)}:${new Date(recurrenceNextOccurrenceAt).toISOString()}`;
@@ -67,13 +100,25 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
         },
       });
 
+      const generatedAt = new Date();
+      const recurrenceStatusUpdate = nextOccurrenceAt
+        ? {
+            'recurrence.nextOccurrenceAt': nextOccurrenceAt,
+          }
+        : {
+            'recurrence.isActive': false,
+            'recurrence.stoppedAt': generatedAt,
+            'recurrence.stoppedReason': 'end_date_reached',
+            'recurrence.nextOccurrenceAt': null,
+          };
+
       await Invoice.updateOne(
         { _id: sourceInvoice._id, userId: me.user.id },
         {
           $set: {
-            'recurrence.lastGeneratedAt': new Date(),
+            'recurrence.lastGeneratedAt': generatedAt,
             'recurrence.lastGeneratedInvoiceId': newInvoice._id,
-            'recurrence.nextOccurrenceAt': nextOccurrenceAt,
+            ...recurrenceStatusUpdate,
           },
         }
       );
@@ -94,7 +139,7 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
           sourceInvoiceId: String(sourceInvoice._id),
           newInvoiceId: String(newInvoice._id),
           newInvoiceNumber: newInvoice.invoiceNumber,
-          generatedAt: dayjs().toISOString(),
+          generatedAt: dayjs(generatedAt).toISOString(),
         },
       });
 

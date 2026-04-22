@@ -122,6 +122,22 @@ export interface DuplicateRecurrenceResult {
   nextOccurrenceAt: Date | null;
 }
 
+type CloneableRecurrenceLineItem = {
+  productId?: mongoose.Types.ObjectId | string | null;
+  productImageUrl?: string | null;
+  name: string;
+  quantity: number;
+  unitPriceExcludingTax?: number;
+  baseUnitPriceExcludingTax?: number;
+  discountPercentage?: number;
+  vatRate?: number;
+  totalExcludingTaxBeforeDiscount?: number;
+  discountAmountExcludingTax?: number;
+  totalExcludingTax?: number;
+  vatAmount?: number;
+  totalIncludingTax?: number;
+};
+
 function toDateOrNull(value?: string | Date | null): Date | null {
   if (!value) {
     return null;
@@ -129,6 +145,85 @@ function toDateOrNull(value?: string | Date | null): Date | null {
 
   const parsed = new Date(value);
   return Number.isFinite(parsed.getTime()) ? parsed : null;
+}
+
+function toObjectIdOrNull(value?: string | mongoose.Types.ObjectId | null): mongoose.Types.ObjectId | null {
+  if (!value) {
+    return null;
+  }
+
+  if (value instanceof mongoose.Types.ObjectId) {
+    return value;
+  }
+
+  return mongoose.Types.ObjectId.isValid(value) ? new mongoose.Types.ObjectId(value) : null;
+}
+
+function cloneLineItemsForNewInvoice(items: CloneableRecurrenceLineItem[]): RecurrenceInvoiceLike['lineItems'] {
+  return items.map((item) => {
+    const quantity = Math.max(1, Math.round(item.quantity));
+    const baseUnitPriceExcludingTax = Math.max(
+      0,
+      Math.round(item.baseUnitPriceExcludingTax ?? item.unitPriceExcludingTax ?? 0)
+    );
+    const unitPriceExcludingTax = Math.max(
+      0,
+      Math.round(item.unitPriceExcludingTax ?? item.baseUnitPriceExcludingTax ?? 0)
+    );
+    const discountPercentage = Math.max(0, Math.min(100, Number(item.discountPercentage) || 0));
+    const vatRate = Math.max(0, Math.min(100, Number(item.vatRate) || 0));
+    const totalExcludingTaxBeforeDiscount = Math.max(
+      0,
+      Math.round(item.totalExcludingTaxBeforeDiscount ?? baseUnitPriceExcludingTax * quantity)
+    );
+    const totalExcludingTax = Math.max(0, Math.round(item.totalExcludingTax ?? unitPriceExcludingTax * quantity));
+    const discountAmountExcludingTax = Math.max(
+      0,
+      Math.round(item.discountAmountExcludingTax ?? Math.max(0, totalExcludingTaxBeforeDiscount - totalExcludingTax))
+    );
+    const vatAmount = Math.max(0, Math.round(item.vatAmount ?? totalExcludingTax * (vatRate / 100)));
+    const totalIncludingTax = Math.max(0, Math.round(item.totalIncludingTax ?? totalExcludingTax + vatAmount));
+
+    return {
+      productId: toObjectIdOrNull(item.productId),
+      productImageUrl: item.productImageUrl ?? null,
+      name: item.name,
+      quantity,
+      unitPriceExcludingTax,
+      baseUnitPriceExcludingTax,
+      discountPercentage,
+      vatRate,
+      totalExcludingTaxBeforeDiscount,
+      discountAmountExcludingTax,
+      totalExcludingTax,
+      vatAmount,
+      totalIncludingTax,
+    };
+  });
+}
+
+function computeGeneratedInvoiceDates(sourceInvoice: RecurrenceInvoiceLike, scheduledDueDate: Date): {
+  invoiceDate: Date;
+  dueDate: Date | null;
+} {
+  const sourceDate = toDateOrNull(sourceInvoice.date);
+  const sourceDueDate = toDateOrNull(sourceInvoice.dueDate);
+  const normalizedScheduledDueDate = new Date(scheduledDueDate);
+
+  if (sourceDate && sourceDueDate) {
+    const issueLeadMs = sourceDueDate.getTime() - sourceDate.getTime();
+    if (issueLeadMs >= 0) {
+      return {
+        invoiceDate: new Date(normalizedScheduledDueDate.getTime() - issueLeadMs),
+        dueDate: normalizedScheduledDueDate,
+      };
+    }
+  }
+
+  return {
+    invoiceDate: normalizedScheduledDueDate,
+    dueDate: sourceDueDate ? normalizedScheduledDueDate : null,
+  };
 }
 
 export function computeNextOccurrence(baseDate: Date, frequency: RecurrenceFrequency, customIntervalDays?: number | null): Date {
@@ -219,8 +314,7 @@ export async function duplicateInvoiceForRecurrence({
   await ensureInvoiceIndexes();
 
   const userId = String(sourceInvoice.userId);
-  const now = new Date();
-  const nextDueDate = computeNextOccurrence(now, recurrence.frequency, recurrence.customIntervalDays);
+  const { invoiceDate, dueDate } = computeGeneratedInvoiceDates(sourceInvoice, recurrence.nextOccurrenceAt);
 
   const template = recurrence.template ?? null;
   const hasTemplateLineItems = Array.isArray(template?.lineItems) && (template?.lineItems?.length ?? 0) > 0;
@@ -265,7 +359,7 @@ export async function duplicateInvoiceForRecurrence({
     totalVat = totals.totalVat;
     totalIncludingTax = totals.totalIncludingTax;
   } else {
-    lineItems = sourceInvoice.lineItems;
+    lineItems = cloneLineItemsForNewInvoice(sourceInvoice.lineItems);
     totalExcludingTax = sourceInvoice.totalExcludingTax;
     totalVat = sourceInvoice.totalVat;
     totalIncludingTax = sourceInvoice.totalIncludingTax;
@@ -279,16 +373,21 @@ export async function duplicateInvoiceForRecurrence({
         : 100;
   const notes = hasTemplateLineItems && template?.notes !== undefined ? template.notes ?? null : sourceInvoice.notes ?? null;
 
-  const newInvoice = await createInvoiceWithUniqueNumber(userId, now.getFullYear(), (invoiceNumber) => ({
+  const newInvoice = await createInvoiceWithUniqueNumber(userId, invoiceDate.getFullYear(), (invoiceNumber) => ({
     userId: sourceInvoice.userId,
     invoiceNumber,
     quoteId: null,
     quoteNumber: null,
-    date: now,
-    dueDate: nextDueDate,
+    date: invoiceDate,
+    dueDate,
     status: 'unpaid',
     clientId: sourceInvoice.clientId,
-    clientSnapshot: sourceInvoice.clientSnapshot,
+    clientSnapshot: {
+      ...sourceInvoice.clientSnapshot,
+      addressDetails: sourceInvoice.clientSnapshot.addressDetails
+        ? { ...sourceInvoice.clientSnapshot.addressDetails }
+        : null,
+    },
     lineItems,
     totalExcludingTax,
     totalVat,

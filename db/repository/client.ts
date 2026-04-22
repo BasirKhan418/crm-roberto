@@ -313,7 +313,7 @@ export const updateClientById = async (
   const normalizedPayload = normalizeClientPayload(cleanPayload, 'update');
 
   const updated = await Client.findOneAndUpdate({ _id: clientId, user: userId }, { $set: normalizedPayload }, {
-    new: true,
+    returnDocument: 'after',
     runValidators: false,
   }).lean();
 

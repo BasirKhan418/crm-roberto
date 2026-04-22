@@ -9,6 +9,7 @@ import Payment from '@/db/models/Payment';
 import Quote from '@/db/models/Quote';
 import { createActivityLog } from '@/db/repository/activity';
 import { ensureInvoiceIndexes } from '@/db/repository/ensureInvoiceIndexes';
+import { getStartOfTomorrow, isInvoiceDueOnOrBeforeToday } from '@/lib/invoices/overdue';
 import { getNextInvoiceNumberForYear, isInvoiceNumberDuplicateError } from '@/lib/invoice-number';
 import { normalizeInvoiceNumberSearchTerm } from '@/lib/i18n/messages';
 import { computeQuoteLine, computeQuoteTotalsFromComputedLines } from '@/lib/quote-calculations';
@@ -148,14 +149,11 @@ async function createInvoiceWithUniqueNumber(
 }
 
 function withComputedInvoiceStatus<T extends { status: string; dueDate?: Date | string | null }>(invoice: T): T {
-  const dueDate = invoice.dueDate ? new Date(invoice.dueDate) : null;
-  const isPastDue = Boolean(dueDate && Number.isFinite(dueDate.getTime()) && dueDate.getTime() < Date.now());
-
   if (
     invoice.status === 'unpaid' ||
     invoice.status === 'partial_paid'
   ) {
-    if (!isPastDue) {
+    if (!isInvoiceDueOnOrBeforeToday(invoice.dueDate)) {
       return invoice;
     }
 
@@ -204,7 +202,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, message: 'Invalid client id' }, { status: 400 });
     }
 
-    const now = new Date();
+    const tomorrowStart = getStartOfTomorrow();
     const query: Record<string, unknown> = { userId: me.user.id };
 
     if (clientIdParam) {
@@ -217,7 +215,7 @@ export async function GET(request: NextRequest) {
           { status: 'overdue' },
           {
             status: { $in: ['unpaid', 'partial_paid'] },
-            dueDate: { $lt: now },
+                    dueDate: { $lt: tomorrowStart },
           },
         ];
       } else if (status === 'partial_paid') {
@@ -240,7 +238,7 @@ export async function GET(request: NextRequest) {
         {
           $and: [
             { status: { $ne: 'overdue' } },
-            { $or: [{ dueDate: null }, { dueDate: { $exists: false } }, { dueDate: { $gte: now } }] },
+            { $or: [{ dueDate: null }, { dueDate: { $exists: false } }, { dueDate: { $gte: tomorrowStart } }] },
           ],
         },
       ];

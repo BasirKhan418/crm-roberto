@@ -42,7 +42,7 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
         rejectionAcknowledgedAt: null, // Only acknowledge if not already done
       },
       { $set: { rejectionAcknowledgedAt: new Date() } },
-      { new: true }
+      { returnDocument: 'after' }
     )
       .select('_id rejectionAcknowledgedAt')
       .lean();

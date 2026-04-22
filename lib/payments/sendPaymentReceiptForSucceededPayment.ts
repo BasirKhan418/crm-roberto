@@ -1,0 +1,205 @@
+import mongoose from 'mongoose';
+
+import ConnectDb from '@/db/connectDb';
+import Client from '@/db/models/Client';
+import CompanyProfile from '@/db/models/CompanyProfile';
+import Invoice from '@/db/models/Invoice';
+import Payment from '@/db/models/Payment';
+import User from '@/db/models/User';
+import { sendPaymentReceipt } from '@/lib/email';
+import {
+  formatEurFromCents,
+  renderInvoicePdfForReminder,
+  resolveCompanyDisplayName,
+  resolveReminderLocalePreference,
+  type CompanyProfileForReminder,
+  type InvoiceForPdf,
+  type PaymentHistoryItem,
+} from '@/lib/reminders/formal-notice';
+
+type PaymentReceiptSendReason = 'missing-payment' | 'already-sent' | 'missing-invoice' | 'missing-email';
+
+interface PaymentReceiptSendResult {
+  sent: boolean;
+  reason?: PaymentReceiptSendReason;
+}
+
+type SucceededPaymentRecord = {
+  _id: mongoose.Types.ObjectId;
+  userId: mongoose.Types.ObjectId;
+  invoiceId: mongoose.Types.ObjectId;
+  amount: number;
+  method: string;
+  type: 'deposit' | 'full' | 'remaining_balance';
+  status: 'succeeded';
+  paidAt?: Date | null;
+  createdAt?: Date | null;
+  receiptSentAt?: Date | null;
+};
+
+type InvoiceForPaymentReceipt = {
+  _id: mongoose.Types.ObjectId;
+  userId: mongoose.Types.ObjectId;
+  clientId: mongoose.Types.ObjectId;
+  invoiceNumber: string;
+  quoteNumber?: string | null;
+  date?: Date | null;
+  dueDate?: Date | null;
+  status?: 'unpaid' | 'partial_paid' | 'paid' | 'overdue';
+  lineItems: Array<{
+    name: string;
+    quantity: number;
+    baseUnitPriceExcludingTax: number;
+    discountPercentage: number;
+    discountAmountExcludingTax: number;
+    vatRate: number;
+    totalExcludingTax: number;
+  }>;
+  totalExcludingTax?: number | null;
+  totalVat?: number | null;
+  totalIncludingTax?: number | null;
+  depositPercentage?: number | null;
+  notes?: string | null;
+  clientSnapshot?: {
+    fullName?: string | null;
+    companyName?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    address?: string | null;
+    addressDetails?: {
+      streetNumber?: string | null;
+      streetName?: string | null;
+      postalCode?: string | null;
+      city?: string | null;
+      country?: string | null;
+    } | null;
+  } | null;
+};
+
+function toInvoicePdfInput(invoice: InvoiceForPaymentReceipt): InvoiceForPdf {
+  return {
+    _id: invoice._id,
+    invoiceNumber: invoice.invoiceNumber,
+    quoteNumber: invoice.quoteNumber ?? null,
+    date: invoice.date ?? null,
+    dueDate: invoice.dueDate ?? null,
+    status: invoice.status,
+    lineItems: invoice.lineItems ?? [],
+    totalExcludingTax: Math.max(0, Math.round(invoice.totalExcludingTax ?? 0)),
+    totalVat: Math.max(0, Math.round(invoice.totalVat ?? 0)),
+    totalIncludingTax: Math.max(0, Math.round(invoice.totalIncludingTax ?? 0)),
+    depositPercentage: invoice.depositPercentage ?? 100,
+    notes: invoice.notes ?? null,
+    clientSnapshot: {
+      fullName: invoice.clientSnapshot?.fullName || 'Client',
+      companyName: invoice.clientSnapshot?.companyName ?? null,
+      email: invoice.clientSnapshot?.email ?? null,
+      phone: invoice.clientSnapshot?.phone ?? null,
+      address: invoice.clientSnapshot?.address ?? null,
+      addressDetails: invoice.clientSnapshot?.addressDetails ?? null,
+    },
+  };
+}
+
+function resolveRecipientEmail(billingEmail?: string | null, snapshotEmail?: string | null): string {
+  const normalizedBillingEmail = billingEmail?.trim() ?? '';
+  if (normalizedBillingEmail) {
+    return normalizedBillingEmail;
+  }
+
+  return snapshotEmail?.trim() ?? '';
+}
+
+export async function sendPaymentReceiptForSucceededPayment({
+  paymentId,
+}: {
+  paymentId: string;
+}): Promise<PaymentReceiptSendResult> {
+  await ConnectDb();
+
+  const payment = await Payment.findById(paymentId)
+    .select('_id userId invoiceId amount method type status paidAt createdAt receiptSentAt')
+    .lean<SucceededPaymentRecord | null>();
+
+  if (!payment || payment.status !== 'succeeded') {
+    return { sent: false, reason: 'missing-payment' };
+  }
+
+  if (payment.receiptSentAt) {
+    return { sent: false, reason: 'already-sent' };
+  }
+
+  const invoice = await Invoice.findOne({ _id: payment.invoiceId, userId: payment.userId })
+    .select(
+      '_id userId clientId invoiceNumber quoteNumber date dueDate status lineItems totalExcludingTax totalVat totalIncludingTax depositPercentage notes clientSnapshot'
+    )
+    .lean<InvoiceForPaymentReceipt | null>();
+
+  if (!invoice) {
+    return { sent: false, reason: 'missing-invoice' };
+  }
+
+  const [clientDoc, companyProfile, user, payments] = await Promise.all([
+    Client.findOne({ _id: invoice.clientId, user: payment.userId })
+      .select('billingEmail')
+      .lean<{ billingEmail?: string | null } | null>(),
+    CompanyProfile.findOne({ user: payment.userId })
+      .select('companyName ownerName locale address streetNumber streetName postalCode city country phone businessEmail vatNumber rcsNumber businessAuthorizationNumber matriculeNumber iban bankName legalIdentifier logoUrl')
+      .lean<CompanyProfileForReminder | null>(),
+    User.findById(payment.userId).select('locale').lean<{ locale?: string | null } | null>(),
+    Payment.find({ invoiceId: invoice._id, userId: payment.userId, status: 'succeeded' })
+      .sort({ paidAt: -1, createdAt: -1 })
+      .select('amount method type paidAt createdAt')
+      .lean<Array<{ amount: number; method: string; type: 'deposit' | 'full' | 'remaining_balance'; paidAt?: Date | null; createdAt?: Date | null }>>(),
+  ]);
+
+  const recipientEmail = resolveRecipientEmail(clientDoc?.billingEmail, invoice.clientSnapshot?.email);
+  if (!recipientEmail) {
+    return { sent: false, reason: 'missing-email' };
+  }
+
+  const locale = resolveReminderLocalePreference(user?.locale, companyProfile?.locale);
+  const paymentHistory: PaymentHistoryItem[] = payments.map((item) => ({
+    amount: item.amount,
+    method: item.method,
+    type: item.type,
+    paidAt: item.paidAt ?? null,
+    createdAt: item.createdAt ?? null,
+  }));
+
+  const invoiceTotal = Math.max(0, Math.round(invoice.totalIncludingTax ?? 0));
+  const totalPaid = paymentHistory.reduce((sum, item) => sum + Math.max(0, Math.round(item.amount ?? 0)), 0);
+  const remainingAmount = Math.max(0, invoiceTotal - totalPaid);
+
+  const pdfBuffer = await renderInvoicePdfForReminder({
+    invoice: toInvoicePdfInput(invoice),
+    companyProfile,
+    locale,
+    lateFeeAmountCents: 0,
+    payments: paymentHistory,
+  });
+
+  await sendPaymentReceipt({
+    to: recipientEmail,
+    clientName: invoice.clientSnapshot?.fullName || 'Client',
+    invoiceNumber: invoice.invoiceNumber,
+    amount: formatEurFromCents(payment.amount, locale),
+    paymentMethod: payment.method,
+    paymentType: payment.type,
+    paidAt: payment.paidAt ?? payment.createdAt ?? new Date(),
+    companyName: resolveCompanyDisplayName(companyProfile),
+    pdfBuffer,
+    locale,
+    invoiceTotal: formatEurFromCents(invoiceTotal, locale),
+    totalPaid: formatEurFromCents(totalPaid, locale),
+    remainingAmount: formatEurFromCents(remainingAmount, locale),
+    isFullyPaid: remainingAmount === 0,
+  });
+
+  await Payment.updateOne(
+    { _id: payment._id, receiptSentAt: null },
+    { $set: { receiptSentAt: new Date() } }
+  );
+
+  return { sent: true };
+}

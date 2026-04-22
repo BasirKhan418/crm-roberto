@@ -87,7 +87,7 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
           'reminderState.nextScheduledAt': nextScheduledAt,
         },
       },
-      { new: true, runValidators: true }
+      { returnDocument: 'after', runValidators: true }
     ).lean();
 
     if (!updated) {

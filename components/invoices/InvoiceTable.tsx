@@ -503,7 +503,7 @@ export default function InvoiceTable({
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               {selectionEnabled ? (
-                <TableHead className="h-11 w-10 pl-4">
+                <TableHead className="h-11 w-12 pl-4 pr-3">
                   <Checkbox
                     checked={allVisibleSelected}
                     onCheckedChange={(checked) => onToggleSelectAllVisible?.(Boolean(checked))}
@@ -529,7 +529,7 @@ export default function InvoiceTable({
             {loading
               ? Array.from({ length: 6 }).map((_, idx) => (
                   <TableRow key={`invoice-skeleton-${idx}`}>
-                    {selectionEnabled ? <TableCell className="py-4 pl-4"><Skeleton className="h-4 w-4 rounded" /></TableCell> : null}
+                    {selectionEnabled ? <TableCell className="py-4 pl-4 pr-3"><Skeleton className="h-4 w-4 rounded" /></TableCell> : null}
                     <TableCell className="py-4 pl-5"><Skeleton className="h-4 w-28" /></TableCell>
                     {isVisible('client') ? <TableCell className="py-4"><Skeleton className="h-4 w-28" /></TableCell> : null}
                     {isVisible('date') ? <TableCell className="py-4"><Skeleton className="h-4 w-24" /></TableCell> : null}
@@ -561,7 +561,7 @@ export default function InvoiceTable({
                       }}
                     >
                       {selectionEnabled ? (
-                        <TableCell className="py-4 pl-4 align-middle" onClick={(event) => event.stopPropagation()}>
+                        <TableCell className="py-4 pl-4 pr-3 align-middle" onClick={(event) => event.stopPropagation()}>
                           <Checkbox
                             checked={selectedIdsSet.has(invoice._id)}
                             onCheckedChange={(checked) => onToggleInvoiceSelection?.(invoice._id, Boolean(checked))}

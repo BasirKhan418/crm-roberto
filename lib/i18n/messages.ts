@@ -104,6 +104,12 @@ const messages = {
       invalidFileUrl: 'Invalid file URL',
       dateRequired: 'Date is required',
       validationError: 'Validation error',
+      recurrenceNextOccurrenceRequired: 'Next occurrence is required',
+      recurrenceNextOccurrenceInvalid: 'Next occurrence must be a valid date',
+      recurrenceEndDateInvalid: 'Repeat until must be a valid date',
+      recurrenceEndDateBeforeNextOccurrence: 'Repeat until must be on or after the next occurrence',
+      recurrenceCustomIntervalRequired: 'Custom interval must be at least 1 day',
+      recurrenceCustomIntervalOnlyForCustom: 'Custom interval is only allowed when frequency is custom',
     },
     statuses: {
       quote: {
@@ -280,12 +286,17 @@ const messages = {
       paymentReceipt: {
         subject: 'Payment receipt - {invoiceNumber}',
         documentLabel: 'Payment receipt',
-        messageBody: 'We confirm that your payment has been received successfully.',
+        messageBodyFull: 'We confirm that your payment has been received successfully. This invoice is now fully paid.',
+        messageBodyPartial: 'We confirm that your payment has been received successfully. Your updated payment summary is included below.',
         amountPaid: 'Amount paid',
+        paymentType: 'Payment type',
         method: 'Method',
         paidAt: 'Paid at',
+        invoiceTotal: 'Invoice total',
+        totalPaid: 'Total paid',
+        remainingAmount: 'Remaining balance',
         textBody:
-          'Hello {name},\n\nPayment received for invoice {invoiceNumber}.\nAmount: {amount}\nMethod: {paymentMethod}\nPaid at: {paidAt}',
+          'Hello {name},\n\nPayment received for invoice {invoiceNumber}.\nAmount: {amount}\nType: {paymentType}\nMethod: {paymentMethod}\nPaid at: {paidAt}\nInvoice total: {invoiceTotal}\nTotal paid: {totalPaid}\nRemaining balance: {remainingAmount}',
       },
     },
     reminders: {
@@ -663,6 +674,12 @@ const messages = {
       invalidFileUrl: 'URL de fichier invalide',
       dateRequired: 'La date est requise',
       validationError: 'Erreur de validation',
+      recurrenceNextOccurrenceRequired: 'La prochaine occurrence est requise',
+      recurrenceNextOccurrenceInvalid: 'La prochaine occurrence doit être une date valide',
+      recurrenceEndDateInvalid: 'La date de fin doit être une date valide',
+      recurrenceEndDateBeforeNextOccurrence: 'La date de fin doit être égale ou postérieure à la prochaine occurrence',
+      recurrenceCustomIntervalRequired: 'L\'intervalle personnalisé doit être d\'au moins 1 jour',
+      recurrenceCustomIntervalOnlyForCustom: 'L\'intervalle personnalisé est autorisé uniquement pour la fréquence personnalisée',
     },
     statuses: {
       quote: {
@@ -839,12 +856,17 @@ const messages = {
       paymentReceipt: {
         subject: 'Reçu de paiement - {invoiceNumber}',
         documentLabel: 'Reçu de paiement',
-        messageBody: 'Nous confirmons que votre paiement a été reçu avec succès.',
+        messageBodyFull: 'Nous confirmons que votre paiement a été reçu avec succès. Cette facture est désormais entièrement réglée.',
+        messageBodyPartial: 'Nous confirmons que votre paiement a été reçu avec succès. Votre récapitulatif de paiement mis à jour figure ci-dessous.',
         amountPaid: 'Montant réglé',
+        paymentType: 'Type de paiement',
         method: 'Méthode',
         paidAt: 'Payé le',
+        invoiceTotal: 'Montant total de la facture',
+        totalPaid: 'Total payé',
+        remainingAmount: 'Solde restant',
         textBody:
-          'Bonjour {name},\n\nPaiement reçu pour la facture {invoiceNumber}.\nMontant : {amount}\nMéthode : {paymentMethod}\nPayé le : {paidAt}',
+          'Bonjour {name},\n\nPaiement reçu pour la facture {invoiceNumber}.\nMontant : {amount}\nType : {paymentType}\nMéthode : {paymentMethod}\nPayé le : {paidAt}\nMontant total : {invoiceTotal}\nTotal payé : {totalPaid}\nSolde restant : {remainingAmount}',
       },
     },
     reminders: {

@@ -194,6 +194,10 @@ export default function StripeSettingsPage({ embedded = false }: StripeSettingsP
     return 'connected' as const;
   }, [status]);
 
+  function startStripeConnect() {
+    window.location.replace('/api/stripe/connect');
+  }
+
   async function handleDisconnect() {
     setDisconnecting(true);
     try {
@@ -301,20 +305,16 @@ export default function StripeSettingsPage({ embedded = false }: StripeSettingsP
         </CardContent>
         <CardFooter className="flex flex-wrap gap-2 border-t pt-4">
           {mode === 'disconnected' ? (
-            <Button asChild className="h-11 min-w-52">
-              <Link href="/api/stripe/connect">
+            <Button type="button" className="h-11 min-w-52" onClick={startStripeConnect}>
                 <PlugZapIcon className="size-4" />
                 {t.connectButton}
-              </Link>
             </Button>
           ) : null}
 
           {mode === 'pending' ? (
-            <Button asChild className="h-11 min-w-52">
-              <Link href="/api/stripe/connect">
+            <Button type="button" className="h-11 min-w-52" onClick={startStripeConnect}>
                 <CircleDashedIcon className="size-4" />
                 {t.continueSetup}
-              </Link>
             </Button>
           ) : null}
 

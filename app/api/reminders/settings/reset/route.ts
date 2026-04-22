@@ -31,7 +31,7 @@ export const POST = async (request: NextRequest) => {
     const updated = await ReminderSettings.findOneAndUpdate(
       { userId: me.user.id },
       { $set: { [section]: sectionDefaults }, $setOnInsert: { userId: me.user.id } },
-      { new: true, upsert: true, setDefaultsOnInsert: true, runValidators: true }
+      { returnDocument: 'after', upsert: true, setDefaultsOnInsert: true, runValidators: true }
     ).lean();
 
     return NextResponse.json({ success: true, data: updated });

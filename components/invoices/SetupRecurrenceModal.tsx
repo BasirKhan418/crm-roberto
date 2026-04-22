@@ -10,6 +10,7 @@ import type { QuoteLineItem } from '@/components/quotes/LineItemRow';
 import QuoteTotals from '@/components/quotes/QuoteTotals';
 import { resolveTranslatedError, translate } from '@/lib/i18n/messages';
 import { computeQuoteTotals } from '@/lib/quote-calculations';
+import { getRecurrenceScheduleValidationKey } from '@/lib/recurrence/validation';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -233,23 +234,23 @@ export default function SetupRecurrenceModal({
     [templateLineItems]
   );
 
+  const scheduleValidationKey = useMemo(
+    () => getRecurrenceScheduleValidationKey({ nextOccurrenceAt, endDate }),
+    [endDate, nextOccurrenceAt]
+  );
+
   async function saveRecurrence() {
     if (saving) {
       return;
     }
 
-    if (!nextOccurrenceAt) {
-      toast.error(t('recurring.setup.saveFailed'));
-      return;
-    }
-
-    if (endDate && endDate < nextOccurrenceAt) {
-      toast.error(t('recurring.setup.saveFailed'));
+    if (scheduleValidationKey) {
+      toast.error(t(scheduleValidationKey));
       return;
     }
 
     if (frequency === 'custom' && (!Number.isFinite(customIntervalDays) || customIntervalDays < 1)) {
-      toast.error(t('recurring.setup.saveFailed'));
+      toast.error(t('validation.recurrenceCustomIntervalRequired'));
       return;
     }
 
@@ -415,11 +416,16 @@ export default function SetupRecurrenceModal({
                 <Input
                   id="recurrence-end-date"
                   type="date"
+                  min={nextOccurrenceAt || undefined}
                   value={endDate}
                   onChange={(event) => setEndDate(event.target.value)}
                 />
               </div>
             </div>
+
+            {scheduleValidationKey ? (
+              <p className="text-xs text-destructive">{t(scheduleValidationKey)}</p>
+            ) : null}
           </section>
 
           <section className="space-y-3 rounded-lg border p-4">

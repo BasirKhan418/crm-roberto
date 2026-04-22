@@ -1,8 +1,14 @@
 import { z } from 'zod';
 
-const isoDateStringSchema = z.string().datetime();
+import { createI18nKey as i18nKey } from '@/lib/i18n/messages';
+import { getRecurrenceScheduleValidationKey } from '@/lib/recurrence/validation';
+
+const emptyToUndefined = (value: unknown) =>
+  typeof value === 'string' && value.trim() === '' ? undefined : value;
 
 export const recurrenceFrequencySchema = z.enum(['monthly', 'quarterly', 'yearly', 'custom']);
+
+const recurrenceDateFieldSchema = z.preprocess(emptyToUndefined, z.string().trim().min(1).optional());
 
 const recurrenceTemplateLineItemSchema = z.object({
   productId: z.string().trim().optional().nullable(),
@@ -33,18 +39,31 @@ export const upsertRecurrenceSchema = z
   .object({
     frequency: recurrenceFrequencySchema,
     customIntervalDays: z.coerce.number().int().min(1).optional(),
-    endDate: isoDateStringSchema.optional(),
-    nextOccurrenceAt: isoDateStringSchema.optional(),
+    endDate: recurrenceDateFieldSchema,
+    nextOccurrenceAt: recurrenceDateFieldSchema,
     autoGenerate: z.boolean().optional().default(false),
     autoSend: z.boolean().optional().default(false),
     template: recurrenceTemplateSchema.optional().nullable(),
   })
   .superRefine((data, ctx) => {
+    const scheduleValidationKey = getRecurrenceScheduleValidationKey({
+      nextOccurrenceAt: data.nextOccurrenceAt,
+      endDate: data.endDate,
+    });
+
+    if (scheduleValidationKey) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [scheduleValidationKey.includes('EndDate') ? 'endDate' : 'nextOccurrenceAt'],
+        message: i18nKey(scheduleValidationKey),
+      });
+    }
+
     if (data.frequency === 'custom' && (data.customIntervalDays === undefined || data.customIntervalDays < 1)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['customIntervalDays'],
-        message: 'customIntervalDays is required and must be at least 1 when frequency is custom',
+        message: i18nKey('validation.recurrenceCustomIntervalRequired'),
       });
     }
 
@@ -52,7 +71,7 @@ export const upsertRecurrenceSchema = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['customIntervalDays'],
-        message: 'customIntervalDays is only allowed when frequency is custom',
+        message: i18nKey('validation.recurrenceCustomIntervalOnlyForCustom'),
       });
     }
   });

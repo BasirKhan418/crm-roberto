@@ -1,7 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { ArrowDownIcon, ArrowUpIcon } from 'lucide-react';
+import { toast } from 'sonner';
 
 import ActivityFeed from '@/components/dashboard/ActivityFeed';
 import CollectionWidget from '@/components/dashboard/CollectionWidget';
@@ -75,6 +77,8 @@ function persistDashboardPrefs(prefs: DashboardPrefs) {
 
 export default function DashboardPage() {
   const { locale } = useLocale();
+  const searchParams = useSearchParams();
+  const handledStripeReturnRef = useRef(false);
   const t = {
     en: {
       title: 'Dashboard',
@@ -94,6 +98,7 @@ export default function DashboardPage() {
       blockRecentQuotes: 'Recent Quotes',
       blockRecurrences: 'Upcoming Recurrences',
       sectionAria: 'Dashboard content',
+      stripeConnected: 'Stripe connected successfully',
     },
     fr: {
       title: 'Tableau de bord',
@@ -113,6 +118,7 @@ export default function DashboardPage() {
       blockRecentQuotes: 'Devis récents',
       blockRecurrences: 'Prochaines récurrences',
       sectionAria: 'Contenu du tableau de bord',
+      stripeConnected: 'Stripe connecté avec succès',
     },
   }[locale];
 
@@ -173,6 +179,22 @@ export default function DashboardPage() {
       // Ignore storage write failures.
     }
   }, [blockOrder, hasLoadedPrefs, visibleBlocks]);
+
+  useEffect(() => {
+    if (handledStripeReturnRef.current) {
+      return;
+    }
+
+    if (searchParams.get('stripe') !== 'complete') {
+      return;
+    }
+
+    handledStripeReturnRef.current = true;
+    toast.success(t.stripeConnected);
+
+    window.history.replaceState(window.history.state, '', '/dashboard');
+    window.history.pushState(window.history.state, '', '/dashboard');
+  }, [searchParams, t.stripeConnected]);
 
   function handleQuickAddSuccess() {
     setStatsRefreshKey((prev) => prev + 1);

@@ -124,9 +124,9 @@ export default function RecurrenceCard({
   const [stopping, setStopping] = useState(false);
   const [generating, setGenerating] = useState(false);
 
-  const isActive = recurrence?.isActive === true;
-  const isStopped = recurrence?.isActive === false && Boolean(recurrence?.stoppedAt);
-  const isNeverConfigured = !isActive && !isStopped;
+  const hasNextOccurrence = Boolean(recurrence?.nextOccurrenceAt);
+  const isStopped = recurrence?.isActive === false || (recurrence?.isActive === true && !hasNextOccurrence);
+  const isNeverConfigured = !recurrence;
   const hasCustomTemplate = Boolean(
     recurrence?.template && Array.isArray(recurrence.template.lineItems) && recurrence.template.lineItems.length > 0
   );
@@ -256,9 +256,11 @@ export default function RecurrenceCard({
                   <Badge variant="outline" className="bg-slate-100 text-slate-700">
                     {t('recurring.status.inactive')}
                   </Badge>
-                  <p className="text-sm text-muted-foreground">
-                    {t('recurring.stoppedOn', { date: formatDate(recurrence?.stoppedAt, locale) })}
-                  </p>
+                  {recurrence?.stoppedAt ? (
+                    <p className="text-sm text-muted-foreground">
+                      {t('recurring.stoppedOn', { date: formatDate(recurrence?.stoppedAt, locale) })}
+                    </p>
+                  ) : null}
                 </div>
                 {recurrence?.stoppedReason ? (
                   <p className="text-sm text-muted-foreground">{recurrence.stoppedReason}</p>
@@ -276,9 +278,11 @@ export default function RecurrenceCard({
               <Badge variant="outline" className="bg-slate-100 text-slate-700">
                 {t('recurring.status.inactive')}
               </Badge>
-              <p className="text-sm text-muted-foreground">
-                {t('recurring.stoppedOn', { date: formatDate(recurrence?.stoppedAt, locale) })}
-              </p>
+              {recurrence?.stoppedAt ? (
+                <p className="text-sm text-muted-foreground">
+                  {t('recurring.stoppedOn', { date: formatDate(recurrence?.stoppedAt, locale) })}
+                </p>
+              ) : null}
             </div>
             {recurrence?.stoppedReason ? (
               <p className="text-sm text-muted-foreground">{recurrence.stoppedReason}</p>

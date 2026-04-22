@@ -390,7 +390,7 @@ async function allocateNextQuoteNumber(userId: string): Promise<string> {
       $inc: { lastCounter: 1 },
       $setOnInsert: { user: userId, year },
     },
-    { new: true, upsert: true }
+    { returnDocument: 'after', upsert: true }
   )
     .select('lastCounter')
     .lean();

@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 
 import ConnectDb from '@/db/connectDb';
 import Invoice from '@/db/models/Invoice';
+import { getStartOfTomorrow } from '@/lib/invoices/overdue';
 import getMe from '@/utils/middlewares/useMe';
 
 
@@ -16,7 +17,7 @@ export async function GET() {
     await ConnectDb();
 
     const userObjectId = new mongoose.Types.ObjectId(me.user.id);
-    const now = new Date();
+    const tomorrowStart = getStartOfTomorrow();
 
     const [result] = await Invoice.aggregate<{
       all: Array<{ count: number; totalTTC: number }>;
@@ -46,7 +47,7 @@ export async function GET() {
                 $or: [
                   { dueDate: null },
                   { dueDate: { $exists: false } },
-                  { dueDate: { $gte: now } },
+                  { dueDate: { $gte: tomorrowStart } },
                 ],
               },
             },
@@ -75,7 +76,7 @@ export async function GET() {
                   { status: 'overdue' },
                   {
                     status: { $in: ['unpaid', 'partial_paid'] },
-                    dueDate: { $lt: now },
+                    dueDate: { $lt: tomorrowStart },
                   },
                 ],
               },

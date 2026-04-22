@@ -22,6 +22,8 @@ interface PaymentLinkData {
   canPay: boolean;
 }
 
+type ConfirmedPaymentData = PaymentLinkData;
+
 type PaymentChoice = 'full' | 'partial';
 
 function parseEurosToCents(value: string): number | null {
@@ -71,6 +73,11 @@ export default function PayByTokenPage() {
       fullyPaidDesc: 'Thank you — there is nothing left to pay on this invoice.',
       paymentSuccess: 'Payment successful',
       paymentSuccessDesc: 'Thank you! Your payment is being confirmed. A receipt will be sent shortly.',
+      paymentRecordedDesc: 'Your payment has been recorded. You can now close this tab.',
+      paymentRecordedPartialDesc: 'Your payment has been recorded. There is still a remaining balance to pay.',
+      closeTab: 'Close this tab',
+      confirmingPayment: 'Confirming your payment…',
+      remainingToPay: 'Remaining to pay',
       paymentCancelled: 'Payment cancelled',
       paymentCancelledDesc: "The payment wasn't completed. You can safely try again whenever you're ready.",
       redirecting: 'Redirecting to Stripe…',
@@ -105,6 +112,11 @@ export default function PayByTokenPage() {
       fullyPaidDesc: 'Merci — il ne reste rien à régler sur cette facture.',
       paymentSuccess: 'Paiement réussi',
       paymentSuccessDesc: 'Merci ! Votre paiement est en cours de confirmation. Un reçu vous sera envoyé sous peu.',
+      paymentRecordedDesc: 'Votre paiement a été enregistré. Vous pouvez maintenant fermer cet onglet.',
+      paymentRecordedPartialDesc: 'Votre paiement a été enregistré. Il reste encore un solde à régler.',
+      closeTab: 'Fermer cet onglet',
+      confirmingPayment: 'Confirmation de votre paiement…',
+      remainingToPay: 'Solde restant à payer',
       paymentCancelled: 'Paiement annulé',
       paymentCancelledDesc: "Le paiement n'a pas été finalisé. Vous pouvez réessayer à tout moment.",
       redirecting: 'Redirection vers Stripe…',
@@ -120,6 +132,12 @@ export default function PayByTokenPage() {
   const [data, setData] = useState<PaymentLinkData | null>(null);
   const [paymentType, setPaymentType] = useState<PaymentChoice>('full');
   const [amountInput, setAmountInput] = useState('');
+  const [hasMounted, setHasMounted] = useState(false);
+  const sessionId = searchParams.get('session_id');
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!data) return;
@@ -180,18 +198,50 @@ export default function PayByTokenPage() {
     return Math.max(0, data.remainingAmount - selectedAmountCents);
   }, [data, selectedAmountCents]);
 
+  if (status && !hasMounted) {
+    return (
+      <main className="min-h-dvh flex flex-col items-center justify-center gap-4 bg-linear-to-b from-background via-background to-muted/40 px-6 text-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden />
+        <p className="text-sm text-muted-foreground">
+          {status === 'success' ? t.confirmingPayment : t.loading}
+        </p>
+      </main>
+    );
+  }
+
+  if (status === 'success' && token && sessionId) {
+    return (
+      <PaymentSuccessStatus
+        token={token}
+        sessionId={sessionId}
+        locale={locale}
+        successTitle={t.paymentSuccess}
+        errorTitle={t.paymentCancelled}
+        confirmingLabel={t.confirmingPayment}
+        successDescription={t.paymentRecordedDesc}
+        partialSuccessDescription={t.paymentRecordedPartialDesc}
+        errorDescription={t.paymentCancelledDesc}
+        closeLabel={t.closeTab}
+        retryLabel={t.tryAgain}
+        backToPaymentLabel={t.backToPayment}
+        remainingLabel={t.remainingToPay}
+        fallbackError={t.createPaymentFailed}
+        onRetry={() => router.replace(`/pay/${token}`)}
+      />
+    );
+  }
   if (status === 'success') {
     return (
       <StatusScreen
-        variant="success"
-        title={t.paymentSuccess}
-        description={t.paymentSuccessDesc}
-        primaryLabel={t.backToPayment}
+        variant="failed"
+        title={t.paymentCancelled}
+        description={t.paymentCancelledDesc}
+        primaryLabel={t.tryAgain}
         onPrimary={() => router.replace(`/pay/${token}`)}
       />
     );
   }
-  if (status === 'cancelled') {
+  if (status === 'cancelled' || status === 'failed') {
     return (
       <StatusScreen
         variant="failed"
@@ -486,6 +536,10 @@ function TokenPayButton({
   async function handleClick() {
     try {
       setLoading(true);
+      const idempotencyKey =
+        typeof window !== 'undefined' && window.crypto?.randomUUID
+          ? window.crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
       const response = await fetch(`/api/pay/${token}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -493,7 +547,7 @@ function TokenPayButton({
           type,
           amount: amountCents,
           locale,
-          idempotencyKey: `token-${token}-${type}-${amountCents}-v2`,
+          idempotencyKey,
         }),
       });
       const payload = (await response.json().catch(() => null)) as { checkoutUrl?: string; message?: string } | null;
@@ -531,19 +585,167 @@ function TokenPayButton({
   );
 }
 
-function StatusScreen({
-  variant,
-  title,
-  description,
-  primaryLabel,
-  onPrimary,
+function PaymentSuccessStatus({
+  token,
+  sessionId,
+  locale,
+  successTitle,
+  errorTitle,
+  confirmingLabel,
+  successDescription,
+  partialSuccessDescription,
+  errorDescription,
+  closeLabel,
+  retryLabel,
+  backToPaymentLabel,
+  remainingLabel,
+  fallbackError,
+  onRetry,
 }: {
-  variant: 'success' | 'failed';
-  title: string;
-  description: string;
-  primaryLabel: string;
-  onPrimary: () => void;
+  token: string;
+  sessionId: string;
+  locale: 'en' | 'fr';
+  successTitle: string;
+  errorTitle: string;
+  confirmingLabel: string;
+  successDescription: string;
+  partialSuccessDescription: string;
+  errorDescription: string;
+  closeLabel: string;
+  retryLabel: string;
+  backToPaymentLabel: string;
+  remainingLabel: string;
+  fallbackError: string;
+  onRetry: () => void;
 }) {
+  const [state, setState] = useState<{
+    phase: 'confirming' | 'confirmed' | 'failed';
+    message?: string;
+    data?: ConfirmedPaymentData;
+  }>({ phase: 'confirming' });
+
+  const priceLocale = useMemo(() => (locale === 'fr' ? 'fr-FR' : 'en-GB'), [locale]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const run = async () => {
+      try {
+        const response = await fetch(`/api/pay/${token}/confirm`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId }),
+        });
+
+        const payload = (await response.json().catch(() => null)) as
+          | { success?: boolean; data?: ConfirmedPaymentData; message?: string }
+          | null;
+
+        if (!response.ok || !payload?.success || !payload.data) {
+          throw new Error(payload?.message || fallbackError);
+        }
+
+        if (!cancelled) {
+          setState({ phase: 'confirmed', data: payload.data });
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setState({
+            phase: 'failed',
+            message: error instanceof Error ? error.message : fallbackError,
+          });
+        }
+      }
+    };
+
+    run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [fallbackError, sessionId, token]);
+
+  if (state.phase === 'confirming') {
+    return (
+      <main className="min-h-dvh flex flex-col items-center justify-center gap-4 bg-linear-to-b from-background via-background to-muted/40 px-6 text-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden />
+        <p className="text-sm text-muted-foreground">{confirmingLabel}</p>
+      </main>
+    );
+  }
+
+  if (state.phase === 'failed') {
+    return (
+      <StatusScreen
+        variant="failed"
+        title={errorTitle}
+        description={state.message || errorDescription}
+        primaryLabel={retryLabel}
+        onPrimary={onRetry}
+      />
+    );
+  }
+
+  const remainingAmount = Math.max(0, state.data?.remainingAmount ?? 0);
+  const hasRemainingAmount = remainingAmount > 0 && state.data?.canPay;
+
+  return (
+    <main className="flex min-h-dvh flex-col items-center justify-center bg-linear-to-b from-emerald-500/10 via-background to-background px-5 py-10">
+      <div className="w-full max-w-md rounded-3xl border border-border/60 bg-card p-5 shadow-sm ring-1 ring-emerald-500/20 sm:p-8">
+        <div className="mx-auto aspect-square w-full max-w-70">
+          <StatusAnimation variant="success" />
+        </div>
+        <h1 className="mt-2 text-center text-xl font-bold text-emerald-700 dark:text-emerald-400 sm:text-2xl">
+          {successTitle}
+        </h1>
+        <p className="mt-2 text-center text-sm text-muted-foreground">
+          {hasRemainingAmount ? partialSuccessDescription : successDescription}
+        </p>
+
+        {hasRemainingAmount ? (
+          <div className="mt-5 rounded-2xl border border-amber-300/50 bg-amber-50/70 px-4 py-3 dark:border-amber-700/40 dark:bg-amber-950/20">
+            <p className="text-center text-xs font-medium uppercase tracking-wide text-amber-800 dark:text-amber-300">
+              {remainingLabel}
+            </p>
+            <PriceDisplay
+              cents={remainingAmount}
+              locale={priceLocale}
+              className="mt-1 block text-center text-2xl font-bold tabular-nums text-amber-900 dark:text-amber-200"
+            />
+          </div>
+        ) : null}
+
+        <div className="mt-6 flex flex-col gap-3">
+          {hasRemainingAmount ? (
+            <button
+              type="button"
+              onClick={onRetry}
+              className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:brightness-105 active:scale-[0.99]"
+            >
+              <ArrowLeft className="h-4 w-4" aria-hidden />
+              <span>{backToPaymentLabel}</span>
+            </button>
+          ) : null}
+
+          <button
+            type="button"
+            onClick={() => window.close()}
+            className={`inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold shadow-sm transition-all hover:brightness-105 active:scale-[0.99] ${
+              hasRemainingAmount
+                ? 'border border-border bg-background text-foreground'
+                : 'bg-primary text-primary-foreground'
+            }`}
+          >
+            <ArrowLeft className="h-4 w-4" aria-hidden />
+            <span>{closeLabel}</span>
+          </button>
+        </div>
+      </div>
+    </main>
+  );
+}
+
+function StatusAnimation({ variant }: { variant: 'success' | 'failed' }) {
   const [animationData, setAnimationData] = useState<unknown | null>(null);
   const mountedRef = useRef(true);
 
@@ -561,6 +763,30 @@ function StatusScreen({
     };
   }, [variant]);
 
+  if (!animationData) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-hidden />
+      </div>
+    );
+  }
+
+  return <Lottie animationData={animationData} loop={variant === 'failed'} autoplay />;
+}
+
+function StatusScreen({
+  variant,
+  title,
+  description,
+  primaryLabel,
+  onPrimary,
+}: {
+  variant: 'success' | 'failed';
+  title: string;
+  description: string;
+  primaryLabel: string;
+  onPrimary: () => void;
+}) {
   const accent =
     variant === 'success'
       ? 'from-emerald-500/10 via-background to-background'
@@ -573,13 +799,7 @@ function StatusScreen({
     <main className={`flex min-h-dvh flex-col items-center justify-center bg-linear-to-b px-5 py-10 ${accent}`}>
       <div className={`w-full max-w-md rounded-3xl border border-border/60 bg-card p-5 shadow-sm ring-1 sm:p-8 ${ringColor}`}>
         <div className="mx-auto aspect-square w-full max-w-70">
-          {animationData ? (
-            <Lottie animationData={animationData} loop={variant === 'failed'} autoplay />
-          ) : (
-            <div className="flex h-full items-center justify-center">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-hidden />
-            </div>
-          )}
+          <StatusAnimation variant={variant} />
         </div>
         <h1 className={`mt-2 text-center text-xl font-bold sm:text-2xl ${titleColor}`}>{title}</h1>
         <p className="mt-2 text-center text-sm text-muted-foreground">{description}</p>

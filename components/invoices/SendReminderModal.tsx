@@ -8,6 +8,7 @@ import dayjs from 'dayjs';
 import { ChevronDownIcon, ChevronUpIcon, ExternalLinkIcon, InfoIcon, Loader2Icon, RotateCcwIcon, SendIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { getInvoiceDaysOverdue, isInvoiceDueOnOrBeforeToday } from '@/lib/invoices/overdue';
 import { formatInvoiceDisplayNumber, resolveTranslatedError, translate } from '@/lib/i18n/messages';
 import {
   computeLateFeeAmountCents,
@@ -101,14 +102,7 @@ function formatAmount(cents: number | null | undefined, locale: Locale): string 
 }
 
 function computeDaysOverdue(value: string | Date | null | undefined): number {
-  if (!value) {
-    return 0;
-  }
-  const date = new Date(value);
-  if (!Number.isFinite(date.getTime())) {
-    return 0;
-  }
-  return Math.max(0, dayjs().startOf('day').diff(dayjs(date).startOf('day'), 'day'));
+  return getInvoiceDaysOverdue(value);
 }
 
 const VARIABLE_TOKEN_REGEX = /(\{\{\s*[a-zA-Z][\w]*\s*\}\}|\{\s*[a-zA-Z][\w]*\s*\})/g;
@@ -336,8 +330,7 @@ export default function SendReminderModal({
   const currentStageConfig = normalizedLateFeeStages[mapLevelToKey(level)];
 
   const daysOverdue = useMemo(() => computeDaysOverdue(dueDate), [dueDate]);
-  const isOverdue = daysOverdue > 0;
-  const formalNoticeLocked = !isOverdue;
+  const formalNoticeLocked = !isInvoiceDueOnOrBeforeToday(dueDate);
 
   const legalDeadlineDate = useMemo(() => {
     if (level !== 4) {
@@ -420,14 +413,14 @@ export default function SendReminderModal({
       return;
     }
 
-    // Guard: never land on level 4 for a non-overdue invoice — the backend will
+    // Guard: never land on level 4 before the invoice due date is reached — the backend will
     // reject it and the user should not be able to select it in the first place.
-    if (nextLevel === 4 && !isOverdue) {
+    if (nextLevel === 4 && formalNoticeLocked) {
       setLevel(3);
       return;
     }
     setLevel(nextLevel);
-  }, [nextLevel, open, isOverdue]);
+  }, [formalNoticeLocked, nextLevel, open]);
 
   // When modal opens or level/template set changes, load the template for the level,
   // but don't overwrite user edits made since the last template load.
