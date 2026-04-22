@@ -248,6 +248,8 @@ export default function SendReminderModal({
   const currentStageConfig = normalizedLateFeeStages[mapLevelToKey(level)];
 
   const daysOverdue = useMemo(() => computeDaysOverdue(dueDate), [dueDate]);
+  const isOverdue = daysOverdue > 0;
+  const formalNoticeLocked = !isOverdue;
 
   const legalDeadlineDate = useMemo(() => {
     if (level !== 4) {
@@ -313,8 +315,14 @@ export default function SendReminderModal({
       return;
     }
 
+    // Guard: never land on level 4 for a non-overdue invoice — the backend will
+    // reject it and the user should not be able to select it in the first place.
+    if (nextLevel === 4 && !isOverdue) {
+      setLevel(3);
+      return;
+    }
     setLevel(nextLevel);
-  }, [nextLevel, open]);
+  }, [nextLevel, open, isOverdue]);
 
   // When modal opens or level/template set changes, load the template for the level,
   // but don't overwrite user edits made since the last template load.
@@ -342,10 +350,16 @@ export default function SendReminderModal({
   }, [open]);
 
   const selectedTemplateExists = Boolean(templateByLevel?.[mapLevelToKey(level)]);
-  const canSubmit = subject.trim().length > 0 && body.trim().length > 0;
+  const levelIsInvalid = level === 4 && formalNoticeLocked;
+  const canSubmit = subject.trim().length > 0 && body.trim().length > 0 && !levelIsInvalid;
 
   async function handleSend() {
     if (sending) {
+      return;
+    }
+
+    if (levelIsInvalid) {
+      toast.error(t('reminders.collection.sendModal.formalNoticeRequiresOverdue'));
       return;
     }
 
@@ -427,23 +441,45 @@ export default function SendReminderModal({
               onValueChange={(value) => {
                 const nextLevelValue: ReminderLevel =
                   value === '1' ? 1 : value === '2' ? 2 : value === '3' ? 3 : 4;
+                if (nextLevelValue === 4 && formalNoticeLocked) {
+                  return;
+                }
                 setLevel(nextLevelValue);
                 setSubjectTouched(false);
                 setBodyTouched(false);
               }}
               className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4"
             >
-              {REMINDER_LEVELS.map((lvl) => (
-                <Label
-                  key={lvl}
-                  className="flex min-w-0 flex-wrap items-center gap-2 rounded-lg border p-3 text-sm cursor-pointer"
-                >
-                  <RadioGroupItem value={String(lvl)} className="shrink-0" />
-                  <span className="min-w-0 flex-1">{t(`reminders.levels.${mapLevelToKey(lvl)}`)}</span>
-                  {renderLateFeeBadge(lvl)}
-                </Label>
-              ))}
+              {REMINDER_LEVELS.map((lvl) => {
+                const locked = lvl === 4 && formalNoticeLocked;
+                return (
+                  <Label
+                    key={lvl}
+                    className={
+                      locked
+                        ? 'flex min-w-0 flex-wrap items-center gap-2 rounded-lg border border-dashed p-3 text-sm opacity-60 cursor-not-allowed'
+                        : 'flex min-w-0 flex-wrap items-center gap-2 rounded-lg border p-3 text-sm cursor-pointer'
+                    }
+                    title={locked ? t('reminders.collection.sendModal.formalNoticeRequiresOverdue') : undefined}
+                  >
+                    <RadioGroupItem value={String(lvl)} className="shrink-0" disabled={locked} />
+                    <span className="min-w-0 flex-1">{t(`reminders.levels.${mapLevelToKey(lvl)}`)}</span>
+                    {locked ? (
+                      <span className="ml-auto text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                        {t('reminders.collection.sendModal.formalNoticeLockedShort')}
+                      </span>
+                    ) : (
+                      renderLateFeeBadge(lvl)
+                    )}
+                  </Label>
+                );
+              })}
             </RadioGroup>
+            {formalNoticeLocked ? (
+              <p className="text-[11px] text-muted-foreground">
+                {t('reminders.collection.sendModal.formalNoticeRequiresOverdue')}
+              </p>
+            ) : null}
           </div>
 
           {!currentStageConfig.enabled || currentStageConfig.value <= 0 ? (

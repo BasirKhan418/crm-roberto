@@ -302,7 +302,7 @@ export default function InvoiceTable({
               </Link>
             </DropdownMenuItem>
           ) : null}
-          <DropdownMenuItem onSelect={() => onSend(invoice)}>
+          <DropdownMenuItem onSelect={() => onSend(invoice)} disabled={invoice.status === 'paid'}>
             <SendIcon className="size-4" />
             {labels.sendInvoice}
           </DropdownMenuItem>

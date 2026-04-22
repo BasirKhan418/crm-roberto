@@ -152,6 +152,8 @@ function InvoicesPageContent() {
       bulkExport: 'Export selected',
       bulkDone: 'Reminders sent',
       bulkPartial: (success: number, failed: number) => `${success} succeeded, ${failed} failed`,
+      bulkNoEligible: 'No eligible invoices in the selection (paid invoices and those without a client email are skipped).',
+      bulkSkippedSummary: (skipped: number) => `${skipped} invoice(s) skipped (paid or missing client email).`,
       kpiUnpaid: 'Unpaid',
       kpiPaid: 'Paid',
       kpiOverdue: 'Overdue',
@@ -254,6 +256,8 @@ function InvoicesPageContent() {
       bulkExport: 'Exporter la sélection',
       bulkDone: 'Relances envoyées',
       bulkPartial: (success: number, failed: number) => `${success} réussie(s), ${failed} échec(s)`,
+      bulkNoEligible: 'Aucune facture éligible dans la sélection (les factures payées ou sans e-mail client sont ignorées).',
+      bulkSkippedSummary: (skipped: number) => `${skipped} facture(s) ignorée(s) (payées ou e-mail client manquant).`,
       kpiUnpaid: 'Impayées',
       kpiPaid: 'Payées',
       kpiOverdue: 'En retard',
@@ -661,15 +665,43 @@ function InvoicesPageContent() {
       return;
     }
 
+    // Pre-filter: skip invoices the backend will reject so users don't
+    // see post-click errors on predictable state (paid, missing email,
+    // or a bulk-chosen level that requires overdue but isn't overdue).
+    const eligibleInvoices = selectedInvoices.filter((invoice) => {
+      if (invoice.status === 'paid') return false;
+      if (!invoice.clientSnapshot?.email?.trim()) return false;
+      const resolvedLevel = resolveBulkReminderLevel(invoice);
+      if (resolvedLevel === 4) {
+        if (!invoice.dueDate) return false;
+        const dueTime = new Date(invoice.dueDate).getTime();
+        if (!Number.isFinite(dueTime)) return false;
+        const daysOverdue = Math.floor((Date.now() - dueTime) / (24 * 60 * 60 * 1000));
+        if (daysOverdue <= 0) return false;
+      }
+      return true;
+    });
+
+    const skippedCount = selectedInvoices.length - eligibleInvoices.length;
+
+    if (eligibleInvoices.length === 0) {
+      toast.error(t.bulkNoEligible);
+      return;
+    }
+
+    if (skippedCount > 0) {
+      toast.warning(t.bulkSkippedSummary(skippedCount));
+    }
+
     setBulkSending(true);
-    setBulkProgress({ done: 0, total: selectedInvoices.length, success: 0, failed: 0 });
+    setBulkProgress({ done: 0, total: eligibleInvoices.length, success: 0, failed: 0 });
 
     let success = 0;
     let failed = 0;
     const failureMessages: string[] = [];
 
-    for (let index = 0; index < selectedInvoices.length; index += 1) {
-      const invoice = selectedInvoices[index];
+    for (let index = 0; index < eligibleInvoices.length; index += 1) {
+      const invoice = eligibleInvoices[index];
       const level = resolveBulkReminderLevel(invoice);
 
       try {
@@ -695,7 +727,7 @@ function InvoicesPageContent() {
         const message = err instanceof Error ? err.message : String(err);
         failureMessages.push(`${invoice.invoiceNumber}: ${message}`);
       } finally {
-        setBulkProgress({ done: index + 1, total: selectedInvoices.length, success, failed });
+        setBulkProgress({ done: index + 1, total: eligibleInvoices.length, success, failed });
       }
     }
 

@@ -411,6 +411,7 @@ export default function InvoiceDetailPage() {
   const remainingAmount = Math.max(0, (invoice?.totalIncludingTax ?? 0) - totalPaidAmount);
   const canEdit = invoice?.status === 'unpaid';
   const canRecordPayment = Boolean(invoice && invoice.status !== 'paid' && remainingAmount > 0);
+  const canSendToClient = Boolean(invoice && invoice.status !== 'paid');
   const displayInvoiceNumber = invoice ? formatInvoiceDisplayNumber(locale as Locale, invoice.invoiceNumber) : '';
   const displayInvoiceStatus = invoice ? getInvoiceStatusLabel(locale as Locale, invoice.status) : '';
 
@@ -598,7 +599,7 @@ export default function InvoiceDetailPage() {
                   </Link>
                 </Button>
               ) : null}
-              <Button type="button" variant="outline" size="sm" className="h-10 w-full justify-start sm:h-9 sm:w-auto sm:justify-center" onClick={() => setSendOpen(true)}>
+              <Button type="button" variant="outline" size="sm" className="h-10 w-full justify-start sm:h-9 sm:w-auto sm:justify-center" onClick={() => setSendOpen(true)} disabled={!canSendToClient}>
                 <SendIcon className="size-3.5" />
                 {t.sendToClient}
               </Button>
