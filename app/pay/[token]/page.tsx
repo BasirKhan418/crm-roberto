@@ -372,6 +372,7 @@ export default function PayByTokenPage() {
                 label={t.payNow}
                 loadingLabel={t.redirecting}
                 errorMessage={t.createPaymentFailed}
+                locale={locale}
               />
               <p className="mt-2 flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
                 <Lock className="h-3 w-3" aria-hidden /> {t.secureHosted}
