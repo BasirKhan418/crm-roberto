@@ -127,6 +127,8 @@ export function NotificationsBell() {
 
       setItems(Array.isArray(payload.data) ? payload.data : []);
       setUnreadCount(typeof payload.unreadCount === 'number' ? payload.unreadCount : 0);
+    } catch {
+      // Ignore transient browser/network failures and keep the last known state.
     } finally {
       if (isMountedRef.current) {
         setLoading(false);
@@ -212,6 +214,8 @@ export function NotificationsBell() {
         return;
       }
       await fetchNotifications();
+    } catch {
+      // Keep the current UI state if the request fails.
     } finally {
       setUpdatingAll(false);
     }
@@ -231,6 +235,8 @@ export function NotificationsBell() {
         return;
       }
       await fetchNotifications();
+    } catch {
+      // Keep the current UI state if the request fails.
     } finally {
       setActiveReadId(null);
     }
