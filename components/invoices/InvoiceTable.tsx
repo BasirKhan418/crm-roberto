@@ -69,11 +69,15 @@ function ReminderStateBadge({
 
   let label: string;
   if (isPaused) {
-    label = locale === 'fr' ? 'Relances en pause' : 'Reminders paused';
+    label = locale === 'fr' ? `Relances en pause · niveau ${level}` : `Reminders paused · level ${level}`;
   } else if (level === 4) {
-    label = locale === 'fr' ? (dateLabel ? `Mise en demeure · ${dateLabel}` : 'Mise en demeure') : dateLabel ? `Formal notice · ${dateLabel}` : 'Formal notice';
+    label = locale === 'fr'
+      ? (dateLabel ? `Mise en demeure envoyée · ${dateLabel}` : 'Mise en demeure envoyée')
+      : dateLabel
+        ? `Formal notice sent · ${dateLabel}`
+        : 'Formal notice sent';
   } else {
-    const levelTxt = locale === 'fr' ? `Rappel ${level}` : `Reminder ${level}`;
+    const levelTxt = locale === 'fr' ? `Rappel ${level} envoyé` : `Reminder ${level} sent`;
     label = dateLabel ? `${levelTxt} · ${dateLabel}` : levelTxt;
   }
 
@@ -89,13 +93,24 @@ function ReminderStateBadge({
 
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium ${tone} ${compact ? 'text-[10px]' : 'text-[11px]'}`}
+      className={`inline-flex max-w-full items-center gap-1.5 rounded-full px-2.5 py-1 font-semibold shadow-xs ring-1 ring-inset ring-current/10 whitespace-nowrap ${tone} ${compact ? 'text-[11px]' : 'text-xs'}`}
       title={label}
     >
-      <BellIcon className={compact ? 'size-3' : 'size-3.5'} />
+      <BellIcon className={compact ? 'size-3.5' : 'size-4'} />
       {label}
     </span>
   );
+}
+
+function getReminderActionLabel(invoice: InvoiceListItem, locale: 'en' | 'fr'): string {
+  const level = Math.max(0, Math.min(4, Math.round(Number(invoice.reminderState?.level ?? 0))));
+  const hasReminderBeenSent = level > 0 || Boolean(invoice.reminderState?.lastSentAt);
+
+  if (!hasReminderBeenSent) {
+    return locale === 'fr' ? 'Envoyer rappel' : 'Send reminder';
+  }
+
+  return locale === 'fr' ? 'Envoyer rappel à nouveau' : 'Send reminder again';
 }
 
 interface InvoiceTableProps {
@@ -235,6 +250,8 @@ export default function InvoiceTable({
 
     // overdue or partial_paid → send reminder (Relancer)
     if ((invoice.status === 'overdue' || invoice.status === 'partial_paid') && onSendReminder) {
+      const reminderActionLabel = getReminderActionLabel(invoice, locale);
+
       return (
         <Button
           type="button"
@@ -246,7 +263,7 @@ export default function InvoiceTable({
           }}
         >
           <BellIcon className="size-3.5" />
-          {labels.sendReminder}
+          {reminderActionLabel}
         </Button>
       );
     }
@@ -309,7 +326,7 @@ export default function InvoiceTable({
           {onSendReminder && invoice.status !== 'paid' ? (
             <DropdownMenuItem onSelect={() => onSendReminder(invoice)}>
               <BellIcon className="size-4" />
-              {labels.sendReminder}
+              {getReminderActionLabel(invoice, locale)}
             </DropdownMenuItem>
           ) : null}
           <DropdownMenuItem onSelect={() => void onDownload(invoice)}>

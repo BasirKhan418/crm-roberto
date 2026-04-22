@@ -71,7 +71,7 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
         </div>
 
         <nav className="w-full" aria-label={t.heading}>
-          <div className="flex items-center gap-0.5 rounded-2xl border border-border/60 bg-muted/40 p-1.5 shadow-sm">
+          <div className="flex items-stretch gap-0.5 rounded-2xl border border-border/60 bg-muted/40 p-1.5 shadow-sm">
             {settingsNavItems.map((item) => {
               const isActive =
                 item.href === '/settings'
@@ -82,14 +82,14 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
                   key={item.key}
                   href={item.href}
                   className={cn(
-                    'flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl px-2 py-2 text-xs font-medium transition-all duration-150 sm:gap-2 sm:px-3 sm:text-sm',
+                    'flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-center text-xs font-medium transition-all duration-150 sm:flex-row sm:gap-2 sm:px-3 sm:text-sm',
                     isActive
                       ? 'bg-background text-foreground shadow-sm ring-1 ring-border/40'
                       : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'
                   )}
                 >
                   {item.icon}
-                  <span className="truncate">{t.nav[item.key]}</span>
+                  <span className="min-w-0 whitespace-normal leading-tight sm:text-left">{t.nav[item.key]}</span>
                 </Link>
               );
             })}

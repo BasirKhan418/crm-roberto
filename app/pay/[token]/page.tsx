@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import Image from 'next/image';
 import { ShieldCheck, Lock, Wallet, ReceiptText, CreditCard, ArrowLeft, Loader2 } from 'lucide-react';
 
 import { useLocale } from '@/components/providers/locale-provider';
@@ -242,9 +241,8 @@ export default function PayByTokenPage() {
               </p>
             </div>
           </div>
-          <div className="hidden items-center gap-1.5 text-xs text-muted-foreground sm:flex">
-            <span>{t.poweredBy}</span>
-            <Image src="/stripe.png" alt="Stripe" width={44} height={18} className="h-4 w-auto object-contain" />
+          <div className="hidden items-center text-xs font-medium text-muted-foreground sm:flex">
+            <span>{`${t.poweredBy} Stripe`}</span>
           </div>
         </div>
       </header>

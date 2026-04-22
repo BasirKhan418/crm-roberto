@@ -155,12 +155,14 @@ const TEMPLATE_SAMPLE_VARIABLES: Record<string, string> = {
 
 const TEMPLATE_VARIABLE_PATTERN = /\{\{(\w+)\}\}/g;
 
-const DEFAULT_TEMPLATE_TAB: Record<ReminderLevel, ReminderLocale> = {
-  soft: 'en',
-  medium: 'en',
-  firm: 'en',
-  formalNotice: 'en',
-};
+function createDefaultTemplateTabs(locale: ReminderLocale): Record<ReminderLevel, ReminderLocale> {
+  return {
+    soft: locale,
+    medium: locale,
+    firm: locale,
+    formalNotice: locale,
+  };
+}
 
 const DEFAULT_LEVEL_LOADING_STATE: Record<ReminderLevel, boolean> = {
   soft: false,
@@ -582,7 +584,9 @@ export default function ReminderSettingsPage({ embedded = false, lockedSection }
   const [timingSaving, setTimingSaving] = useState(false);
   const [templateSaving, setTemplateSaving] = useState<Record<ReminderLevel, boolean>>(DEFAULT_LEVEL_LOADING_STATE);
   const [templateResetting, setTemplateResetting] = useState<Record<ReminderLevel, boolean>>(DEFAULT_LEVEL_LOADING_STATE);
-  const [templateTabs, setTemplateTabs] = useState<Record<ReminderLevel, ReminderLocale>>(DEFAULT_TEMPLATE_TAB);
+  const [templateTabs, setTemplateTabs] = useState<Record<ReminderLevel, ReminderLocale>>(
+    createDefaultTemplateTabs(locale === 'fr' ? 'fr' : 'en')
+  );
   const [activeTemplateLevel, setActiveTemplateLevel] = useState<ReminderLevel>('soft');
   const [lateFeeSaving, setLateFeeSaving] = useState(false);
   const [legalNoticeSaving, setLegalNoticeSaving] = useState(false);
@@ -614,6 +618,11 @@ export default function ReminderSettingsPage({ embedded = false, lockedSection }
       setDraft(normalizeSettings(settings));
     }
   }, [settings]);
+
+  useEffect(() => {
+    const nextLocale: ReminderLocale = locale === 'fr' ? 'fr' : 'en';
+    setTemplateTabs(createDefaultTemplateTabs(nextLocale));
+  }, [locale]);
 
   useEffect(() => {
     if (lockedSection) {
@@ -1040,8 +1049,12 @@ export default function ReminderSettingsPage({ embedded = false, lockedSection }
                   </div>
                   <Dialog>
                     <DialogTrigger asChild>
-                      <Button type="button" variant="outline" className="w-full sm:w-auto">
-                        {pageChrome.smartFieldsButton}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-auto w-full justify-start whitespace-normal py-2 text-left sm:w-auto sm:max-w-72"
+                      >
+                        <span className="wrap-break-word">{pageChrome.smartFieldsButton}</span>
                       </Button>
                     </DialogTrigger>
                     <DialogContent className="sm:max-w-2xl lg:max-w-3xl">
@@ -1059,7 +1072,7 @@ export default function ReminderSettingsPage({ embedded = false, lockedSection }
                           <p className="mt-1 text-xs leading-5 text-muted-foreground">{pageChrome.smartFieldsRemoveHelpText}</p>
                         </div>
                       </div>
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                         {Object.entries(TEMPLATE_SAMPLE_VARIABLES).map(([name, value]) => (
                           <div key={name} className="rounded-xl border border-border/70 p-3">
                             <p className="text-sm font-medium">{pageChrome.smartFieldLabels[name as keyof typeof pageChrome.smartFieldLabels]}</p>
@@ -1068,48 +1081,48 @@ export default function ReminderSettingsPage({ embedded = false, lockedSection }
                               <Button
                                 type="button"
                                 variant="outline"
-                                className="h-auto w-full justify-between gap-2 whitespace-normal py-2 text-left"
+                                className="h-auto w-full flex-col items-start justify-start gap-1 whitespace-normal py-2 text-left"
                                 onClick={() => handleVariableAction('subject', name, 'add')}
                                 disabled={hasVariableToken(activeTemplate.subject, name)}
                               >
-                                <span className="min-w-0 flex-1 wrap-break-word">{pageChrome.addToSubject}</span>
-                                <span className="shrink-0 text-xs text-muted-foreground">
+                                <span className="w-full wrap-break-word">{pageChrome.addToSubject}</span>
+                                <span className="w-full text-[11px] leading-4 text-muted-foreground wrap-break-word">
                                   {hasVariableToken(activeTemplate.subject, name) ? pageChrome.alreadyInSubject : pageChrome.notInSubject}
                                 </span>
                               </Button>
                               <Button
                                 type="button"
                                 variant="outline"
-                                className="h-auto w-full justify-between gap-2 whitespace-normal py-2 text-left"
+                                className="h-auto w-full flex-col items-start justify-start gap-1 whitespace-normal py-2 text-left"
                                 onClick={() => handleVariableAction('body', name, 'add')}
                                 disabled={hasVariableToken(activeTemplate.body, name)}
                               >
-                                <span className="min-w-0 flex-1 wrap-break-word">{pageChrome.addToBody}</span>
-                                <span className="shrink-0 text-xs text-muted-foreground">
+                                <span className="w-full wrap-break-word">{pageChrome.addToBody}</span>
+                                <span className="w-full text-[11px] leading-4 text-muted-foreground wrap-break-word">
                                   {hasVariableToken(activeTemplate.body, name) ? pageChrome.alreadyInBody : pageChrome.notInBody}
                                 </span>
                               </Button>
                               <Button
                                 type="button"
                                 variant="ghost"
-                                className="h-auto w-full justify-between gap-2 whitespace-normal py-2 text-left"
+                                className="h-auto w-full flex-col items-start justify-start gap-1 whitespace-normal py-2 text-left"
                                 onClick={() => handleVariableAction('subject', name, 'remove')}
                                 disabled={!hasVariableToken(activeTemplate.subject, name)}
                               >
-                                <span className="min-w-0 flex-1 wrap-break-word">{pageChrome.removeFromSubject}</span>
-                                <span className="shrink-0 text-xs text-muted-foreground">
+                                <span className="w-full wrap-break-word">{pageChrome.removeFromSubject}</span>
+                                <span className="w-full text-[11px] leading-4 text-muted-foreground wrap-break-word">
                                   {hasVariableToken(activeTemplate.subject, name) ? pageChrome.alreadyInSubject : pageChrome.notInSubject}
                                 </span>
                               </Button>
                               <Button
                                 type="button"
                                 variant="ghost"
-                                className="h-auto w-full justify-between gap-2 whitespace-normal py-2 text-left"
+                                className="h-auto w-full flex-col items-start justify-start gap-1 whitespace-normal py-2 text-left"
                                 onClick={() => handleVariableAction('body', name, 'remove')}
                                 disabled={!hasVariableToken(activeTemplate.body, name)}
                               >
-                                <span className="min-w-0 flex-1 wrap-break-word">{pageChrome.removeFromBody}</span>
-                                <span className="shrink-0 text-xs text-muted-foreground">
+                                <span className="w-full wrap-break-word">{pageChrome.removeFromBody}</span>
+                                <span className="w-full text-[11px] leading-4 text-muted-foreground wrap-break-word">
                                   {hasVariableToken(activeTemplate.body, name) ? pageChrome.alreadyInBody : pageChrome.notInBody}
                                 </span>
                               </Button>

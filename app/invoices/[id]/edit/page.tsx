@@ -30,6 +30,14 @@ interface InvoiceApiResponse {
   data?: InvoiceEditData;
 }
 
+function getTodayDateInputValue(): string {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export default function EditInvoicePage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -45,6 +53,7 @@ export default function EditInvoicePage() {
       date: 'Date',
       dueDate: 'Due date',
       dueDateRequired: 'Due date is mandatory',
+      dueDateMin: 'Due date cannot be earlier than today',
       notes: 'Notes',
       notesPlaceholder: 'Add payment or legal notes...',
       save: 'Save changes',
@@ -63,6 +72,7 @@ export default function EditInvoicePage() {
       date: 'Date',
       dueDate: '\u00c9ch\u00e9ance',
       dueDateRequired: "L'\u00e9ch\u00e9ance est obligatoire",
+      dueDateMin: "L'\u00e9ch\u00e9ance ne peut pas être antérieure à aujourd'hui",
       notes: 'Notes',
       notesPlaceholder: 'Ajoutez des notes de paiement ou l\u00e9gales...',
       save: 'Enregistrer',
@@ -81,6 +91,7 @@ export default function EditInvoicePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const todayDateInputValue = getTodayDateInputValue();
 
   useEffect(() => {
     if (!params?.id) {
@@ -134,6 +145,13 @@ export default function EditInvoicePage() {
 
     if (!dueDate) {
       const message = t.dueDateRequired;
+      setDueDateError(message);
+      toast.error(message);
+      return;
+    }
+
+    if (dueDate < todayDateInputValue) {
+      const message = t.dueDateMin;
       setDueDateError(message);
       toast.error(message);
       return;
@@ -208,13 +226,16 @@ export default function EditInvoicePage() {
                 <Input
                   id="invoice-due-date"
                   type="date"
+                  min={todayDateInputValue}
                   value={dueDate}
                   onChange={(event) => {
                     const nextValue = event.target.value;
                     setDueDate(nextValue);
-                    if (nextValue) {
+                    if (!nextValue) {
                       setDueDateError(null);
+                      return;
                     }
+                    setDueDateError(nextValue < todayDateInputValue ? t.dueDateMin : null);
                   }}
                   aria-invalid={Boolean(dueDateError)}
                 />

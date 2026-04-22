@@ -534,6 +534,7 @@ export async function sendFormalNotice(params: SendFormalNoticeParams): Promise<
   const locale = params.locale ?? 'en';
   const html = buildReminderEmailHtml({ params, locale, showPdfAttached: true });
   const text = plainTextFromHtmlBody(params.htmlBody);
+  const legalNoticeFilenamePrefix = locale === 'fr' ? 'mise-en-demeure' : 'formal-notice';
 
   const emailTransporter = await ConnectEmailClient();
   if (!emailTransporter) {
@@ -553,7 +554,7 @@ export async function sendFormalNotice(params: SendFormalNoticeParams): Promise<
         contentType: 'application/pdf',
       },
       {
-        filename: `mise-en-demeure-${formatInvoiceDisplayNumber(locale, params.invoiceNumber)}.pdf`,
+        filename: `${legalNoticeFilenamePrefix}-${formatInvoiceDisplayNumber(locale, params.invoiceNumber)}.pdf`,
         content: params.legalNoticePdfBuffer,
         contentType: 'application/pdf',
       },

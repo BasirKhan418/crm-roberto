@@ -9,6 +9,7 @@ import Payment from '@/db/models/Payment';
 import ReminderLog from '@/db/models/ReminderLog';
 import ReminderSettings from '@/db/models/ReminderSettings';
 import StripeConnect from '@/db/models/StripeConnect';
+import User from '@/db/models/User';
 import { createActivityLog } from '@/db/repository/activity';
 import { sendFormalNotice, sendInvoiceReminder } from '@/lib/email';
 import { buildInvoicePayUrl, generatePaymentToken, generateTokenExpiry, isTokenExpired } from '@/lib/tokens';
@@ -26,7 +27,7 @@ import {
   type ReminderLevel,
 } from '@/lib/reminders/core';
 import {
-  normalizeReminderLocale,
+  resolveReminderLocalePreference,
   renderInvoicePdfForReminder,
   renderLegalNoticePdfForReminder,
   type CompanyProfileForReminder,
@@ -256,6 +257,7 @@ export async function runReminderPass(): Promise<ReminderPassTotals> {
   const now = new Date();
   const settingsCache = new Map<string, SettingsLike>();
   const profileCache = new Map<string, CompanyProfileForReminder | null>();
+  const userLocaleCache = new Map<string, string | null>();
   const stripeConnectedCache = new Map<string, boolean>();
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || '';
 
@@ -359,10 +361,19 @@ export async function runReminderPass(): Promise<ReminderPassTotals> {
           profileCache.set(userId, companyProfile);
         }
 
+        let userLocale = userLocaleCache.get(userId);
+        if (userLocale === undefined) {
+          const loadedUser = await User.findById(invoice.userId)
+            .select('locale')
+            .lean<{ locale?: string | null } | null>();
+          userLocale = loadedUser?.locale ?? null;
+          userLocaleCache.set(userId, userLocale);
+        }
+
         const locale =
           settings.messageLocale === 'en' || settings.messageLocale === 'fr'
             ? settings.messageLocale
-            : normalizeReminderLocale(companyProfile?.locale);
+            : resolveReminderLocalePreference(userLocale, companyProfile?.locale);
         const levelKey = getReminderLevelKey(targetLevel);
         const template = settings.templates?.[locale]?.[levelKey] ?? settings.templates?.fr?.[levelKey] ?? settings.templates?.en?.[levelKey];
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-import { createActivityLog } from '@/db/repository/activity';
+import { createActivityLog, listClientActivities } from '@/db/repository/activity';
 import {
   deleteClientById,
   getClientById,
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       maxLimit: 100,
     });
 
-    const [timeline, interactions, attachments] = await Promise.all([
+    const [timeline, interactions, attachments, activities] = await Promise.all([
       listClientTimelineNotes(me.user.id, id, {
         page: timelineOptions.page,
         limit: timelineOptions.limit,
@@ -47,6 +47,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       }),
       listClientInteractions(me.user.id, id),
       listClientAttachments(me.user.id, id),
+      listClientActivities(me.user.id, id),
     ]);
 
     return NextResponse.json({
@@ -56,6 +57,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         timeline: timeline.notes,
         interactions,
         attachments,
+        activities,
       },
       pagination: timeline.pagination,
     });

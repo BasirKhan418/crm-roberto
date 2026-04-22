@@ -58,6 +58,7 @@ export const DEFAULT_REMINDER_TEMPLATES: ReminderTemplates = {
 type PartialReminderTemplate = Partial<ReminderTemplate> | null | undefined;
 type PartialReminderLocaleTemplates = Partial<Record<ReminderTemplateKey, PartialReminderTemplate>> | null | undefined;
 type PartialReminderTemplates = Partial<Record<'en' | 'fr', PartialReminderLocaleTemplates>> | null | undefined;
+type ReminderTemplateField = keyof ReminderTemplate;
 
 const FRENCH_TEXT_REPAIRS: Array<[RegExp, string]> = [
   [/arrivee a echeance/gi, 'arrivée à échéance'],
@@ -87,6 +88,54 @@ const FRENCH_TEXT_REPAIRS: Array<[RegExp, string]> = [
 
 const LATE_FEES_VARIABLE_REGEX = /\{\{\s*lateFees\s*\}\}|\{\s*lateFees\s*\}/i;
 const AMOUNT_DUE_VARIABLE_REGEX = /\{\{\s*amountDue\s*\}\}|\{\s*amountDue\s*\}/i;
+
+const LEGACY_ENGLISH_FRENCH_TEMPLATE_MARKERS: Record<ReminderTemplateKey, Record<ReminderTemplateField, string[]>> = {
+  soft: {
+    subject: ['friendly reminder', 'invoice {{invoicenumber}}'],
+    body: ['hello {{clientname}}', 'this is a friendly reminder', 'amount due:', 'thank you for your business'],
+  },
+  medium: {
+    subject: ['payment follow-up', 'invoice {{invoicenumber}}'],
+    body: ['hello {{clientname}}', 'outstanding balance:', 'please proceed with payment as soon as possible'],
+  },
+  firm: {
+    subject: ['final reminder before formal notice', 'invoice {{invoicenumber}}'],
+    body: ['hello {{clientname}}', 'this is a final reminder for overdue invoice', 'unless payment is received promptly'],
+  },
+  formalNotice: {
+    subject: ['formal notice', 'invoice {{invoicenumber}}'],
+    body: ['hello {{clientname}}', 'please find attached the formal notice', 'legal deadline:'],
+  },
+};
+
+function normalizeTemplateComparisonValue(value: string): string {
+  return value
+    .replace(/\r\n/g, '\n')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function matchesLegacyEnglishFrenchTemplate(
+  level: ReminderTemplateKey,
+  field: ReminderTemplateField,
+  value: string
+): boolean {
+  const normalizedValue = normalizeTemplateComparisonValue(value);
+  if (!normalizedValue) {
+    return false;
+  }
+
+  const englishDefault = normalizeTemplateComparisonValue(DEFAULT_REMINDER_TEMPLATES.en[level][field]);
+  if (normalizedValue === englishDefault) {
+    return true;
+  }
+
+  const markers = LEGACY_ENGLISH_FRENCH_TEMPLATE_MARKERS[level][field];
+  return markers.length > 0 && markers.every((marker) => normalizedValue.includes(marker));
+}
 
 function cloneReminderTemplate(template: ReminderTemplate): ReminderTemplate {
   return {
@@ -136,9 +185,16 @@ function normalizeReminderTemplate(locale: 'en' | 'fr', level: ReminderTemplateK
     return cloneReminderTemplate(template);
   }
 
+  const repairedSubject = matchesLegacyEnglishFrenchTemplate(level, 'subject', template.subject)
+    ? DEFAULT_REMINDER_TEMPLATES.fr[level].subject
+    : template.subject;
+  const repairedBody = matchesLegacyEnglishFrenchTemplate(level, 'body', template.body)
+    ? DEFAULT_REMINDER_TEMPLATES.fr[level].body
+    : template.body;
+
   const normalized = {
-    subject: applyFrenchTextRepairs(template.subject),
-    body: applyFrenchTextRepairs(template.body),
+    subject: applyFrenchTextRepairs(repairedSubject),
+    body: applyFrenchTextRepairs(repairedBody),
   };
 
   if (level === 'soft') {

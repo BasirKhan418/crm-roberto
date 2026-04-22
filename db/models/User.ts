@@ -8,6 +8,12 @@ const UserSchema = new mongoose.Schema({
       lowercase: true,
       trim: true,
     },
+    locale: {
+      type: String,
+      enum: ['en', 'fr'],
+      default: 'fr',
+      trim: true,
+    },
      password: {
       type: String,
       required: true,

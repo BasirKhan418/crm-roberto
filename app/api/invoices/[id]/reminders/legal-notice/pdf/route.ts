@@ -8,7 +8,7 @@ import Payment from '@/db/models/Payment';
 import ReminderSettings from '@/db/models/ReminderSettings';
 import { formatInvoiceDisplayNumber } from '@/lib/i18n/messages';
 import {
-  normalizeReminderLocale,
+  resolveReminderLocalePreference,
   renderLegalNoticePdfForReminder,
   type CompanyProfileForReminder,
   type InvoiceForPdf,
@@ -102,7 +102,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       ]),
     ]);
 
-    const locale = normalizeReminderLocale(companyProfile?.locale);
+    const locale = resolveReminderLocalePreference(me.user.locale, companyProfile?.locale);
     const totalPaid = Math.max(0, Math.round(totals[0]?.totalPaid ?? 0));
     const remainingAmount = Math.max(0, Math.round(invoice.totalIncludingTax ?? 0) - totalPaid);
     const lateFeeAmount = Math.max(0, Math.round(invoice.reminderState?.lateFeeAmount ?? 0));
@@ -164,7 +164,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="mise-en-demeure-${displayInvoiceNumber}.pdf"`,
+        'Content-Disposition': `attachment; filename="${locale === 'fr' ? 'mise-en-demeure' : 'formal-notice'}-${displayInvoiceNumber}.pdf"`,
       },
     });
   } catch (error) {

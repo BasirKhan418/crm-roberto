@@ -218,6 +218,18 @@ function formatCurrencyText(amountCents: number, locale: 'en' | 'fr'): string {
 }
 
 export function buildFallbackReminderSubject(level: ReminderLevel, invoiceNumber: string, locale: 'en' | 'fr'): string {
+  if (locale === 'fr') {
+    const label =
+      level === 1
+        ? 'Rappel amical'
+        : level === 2
+          ? 'Relance de paiement'
+          : level === 3
+            ? 'Dernier rappel avant mise en demeure'
+            : 'Mise en demeure';
+    return `${label} - facture ${formatInvoiceDisplayNumber(locale, invoiceNumber)}`;
+  }
+
   const label = level === 1 ? 'Soft' : level === 2 ? 'Medium' : level === 3 ? 'Firm' : 'Formal notice';
   return `${label} reminder - invoice ${formatInvoiceDisplayNumber(locale, invoiceNumber)}`;
 }

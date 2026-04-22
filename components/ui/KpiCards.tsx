@@ -158,7 +158,7 @@ const variantStyles: Record<
 interface SkeletonCardProps { hasCount?: boolean; }
 function SkeletonCard({ hasCount = true }: SkeletonCardProps) {
   return (
-    <div className="flex animate-pulse flex-col gap-2 rounded-xl border border-border/50 bg-muted/20 p-4 min-h-27.5">
+    <div className="flex min-h-27.5 animate-pulse flex-col gap-2 rounded-xl border border-border/70 bg-card/95 p-4 shadow-md shadow-black/5 dark:shadow-black/20">
       <div className="h-3 w-24 rounded bg-muted/50" />
       {hasCount && <div className="h-10 w-16 rounded bg-muted/40 mt-1" />}
       <div className={cn('h-4 w-28 rounded bg-muted/30', hasCount ? '' : 'mt-auto h-8 w-24')} />

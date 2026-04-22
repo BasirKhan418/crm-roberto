@@ -152,6 +152,7 @@ export default function CollectionTab({
   const showControls = layout !== 'history';
   const showHistory = layout !== 'compact';
   const isCompact = layout === 'compact';
+  const sendReminderLabel = currentLevel > 0 ? t('reminders.actions.sendAgain') : t('reminders.actions.sendNow');
 
   const statusLabel = isDisabled
     ? t('reminders.simpleStatus.inactive')
@@ -343,7 +344,7 @@ export default function CollectionTab({
             onClick={() => setShowSendModal(true)}
           >
             <SendIcon className="size-3.5" />
-            {t('reminders.actions.sendNow')}
+            {sendReminderLabel}
           </Button>
           <Button
             type="button"
@@ -394,7 +395,7 @@ export default function CollectionTab({
             onClick={() => setShowSendModal(true)}
           >
             <SendIcon className="size-4" />
-            {t('reminders.actions.sendNow')}
+            {sendReminderLabel}
           </Button>
           <Button
             type="button"

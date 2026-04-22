@@ -7,6 +7,7 @@ interface JwtUserPayload {
     sub: string;
     name: string;
     email: string;
+    locale?: 'en' | 'fr';
     isOnboardingComplete?: boolean;
     isEmailVerified?: boolean;
 }
@@ -15,6 +16,7 @@ interface DbUserProjection {
     _id: string;
     name: string;
     email: string;
+    locale?: 'en' | 'fr';
     isOnboardingComplete?: boolean;
     isEmailVerified?: boolean;
     account_status?: "active" | "suspended";
@@ -32,7 +34,7 @@ const checkMe = async (fch:boolean) => {
 
                             await ConnectDb();
                             const user = await User.findById(decoded.sub)
-                                .select("name email isOnboardingComplete isEmailVerified account_status")
+                                .select("name email locale isOnboardingComplete isEmailVerified account_status")
                                 .lean<DbUserProjection | null>();
 
                             if (!user) {
@@ -47,9 +49,9 @@ const checkMe = async (fch:boolean) => {
                             }
 
                             if(fch){
-                                            return { message: "User data fetched successfully", success: true, user: { id: String(user._id), name: user.name, email: user.email, isOnboardingComplete: user.isOnboardingComplete, isEmailVerified: user.isEmailVerified } };
+                                            return { message: "User data fetched successfully", success: true, user: { id: String(user._id), name: user.name, email: user.email, locale: user.locale, isOnboardingComplete: user.isOnboardingComplete, isEmailVerified: user.isEmailVerified } };
                             }
-                            return { message: "User data fetched successfully", success: true, user: { id: String(user._id), name: user.name, email: user.email, isOnboardingComplete: user.isOnboardingComplete, isEmailVerified: user.isEmailVerified } };
+                            return { message: "User data fetched successfully", success: true, user: { id: String(user._id), name: user.name, email: user.email, locale: user.locale, isOnboardingComplete: user.isOnboardingComplete, isEmailVerified: user.isEmailVerified } };
           }
           catch{
               return { message: "Invalid token", success: false };

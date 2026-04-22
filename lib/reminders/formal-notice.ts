@@ -91,6 +91,22 @@ export function normalizeReminderLocale(value: unknown): ReminderLocale {
   return 'fr';
 }
 
+export function resolveReminderLocalePreference(...values: unknown[]): ReminderLocale {
+  for (const value of values) {
+    if (typeof value === 'string') {
+      const trimmed = value.trim().toLowerCase();
+      if (trimmed === 'en' || trimmed.startsWith('en-')) {
+        return 'en';
+      }
+      if (trimmed === 'fr' || trimmed.startsWith('fr-')) {
+        return 'fr';
+      }
+    }
+  }
+
+  return 'fr';
+}
+
 export function formatDateForLocale(date: Date | string | null | undefined, locale: ReminderLocale): string {
   if (!date) {
     return '';

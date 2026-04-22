@@ -21,12 +21,20 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
+
+type StripeConnectStatus = {
+  connected: boolean;
+  chargesEnabled: boolean;
+  payoutsEnabled: boolean;
+  onboardingComplete: boolean;
+};
 
 interface ProfileForm {
   companyName: string;
@@ -130,6 +138,9 @@ export default function ProfilePage() {
       logoSizeError: 'File too large. Maximum size is 5 MB',
       stripeTitle: 'Stripe payments',
       stripeSubtitle: 'Connect Stripe to receive online invoice payments directly to your bank account.',
+      stripeConnectedBadge: 'Connected',
+      stripePendingBadge: 'Pending verification',
+      stripeDisconnectedBadge: 'Not connected',
       stripeCta: 'Manage Stripe settings',
       stripeFeatureSettlement: 'Direct settlement to your bank account',
       stripeFeatureSecurity: 'Secure checkout hosted by Stripe',
@@ -197,6 +208,9 @@ export default function ProfilePage() {
       logoSizeError: 'Fichier trop volumineux. Taille maximale\u00a0: 5 Mo',
       stripeTitle: 'Paiements Stripe',
       stripeSubtitle: 'Connectez Stripe pour recevoir les paiements de factures en ligne directement sur votre compte bancaire.',
+      stripeConnectedBadge: 'Connecté',
+      stripePendingBadge: 'Vérification en attente',
+      stripeDisconnectedBadge: 'Non connecté',
       stripeCta: 'G\u00e9rer les param\u00e8tres Stripe',
       stripeFeatureSettlement: 'Versement direct vers votre compte bancaire',
       stripeFeatureSecurity: 'Paiement s\u00e9curis\u00e9 h\u00e9berg\u00e9 par Stripe',
@@ -226,7 +240,15 @@ export default function ProfilePage() {
   const [logoDeleting, setLogoDeleting] = useState(false);
   const [showDeleteLogoDialog, setShowDeleteLogoDialog] = useState(false);
   const [resettingTour, setResettingTour] = useState(false);
+  const [stripeStatus, setStripeStatus] = useState<StripeConnectStatus | null>(null);
+  const [stripeStatusLoading, setStripeStatusLoading] = useState(true);
   const logoInputRef = useRef<HTMLInputElement>(null);
+
+  const stripeMode = !stripeStatus?.connected
+    ? 'disconnected'
+    : !stripeStatus.onboardingComplete
+      ? 'pending'
+      : 'connected';
 
   async function handleRestartPlatformTour() {
     setResettingTour(true);
@@ -295,6 +317,46 @@ export default function ProfilePage() {
 
     loadProfile();
   }, [t.loadFailed]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadStripeStatus() {
+      setStripeStatusLoading(true);
+
+      try {
+        const response = await fetch('/api/stripe/connect/status', { method: 'GET', cache: 'no-store' });
+        const payload = (await response.json()) as Partial<StripeConnectStatus>;
+
+        if (!response.ok) {
+          throw new Error('Failed to load Stripe status');
+        }
+
+        if (!cancelled) {
+          setStripeStatus({
+            connected: Boolean(payload.connected),
+            chargesEnabled: Boolean(payload.chargesEnabled),
+            payoutsEnabled: Boolean(payload.payoutsEnabled),
+            onboardingComplete: Boolean(payload.onboardingComplete),
+          });
+        }
+      } catch {
+        if (!cancelled) {
+          setStripeStatus(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setStripeStatusLoading(false);
+        }
+      }
+    }
+
+    void loadStripeStatus();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   function handleLogoFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -535,8 +597,25 @@ export default function ProfilePage() {
 
       <Card id="stripe-payments" data-tour-profile-stripe-card className="scroll-mt-20 overflow-hidden border-primary/20 bg-linear-to-br from-sky-50/70 via-background to-indigo-50/40 pt-0 dark:from-sky-950/20 dark:to-indigo-950/20">
         <CardHeader className="border-b">
-          <CardTitle>{t.stripeTitle}</CardTitle>
-          <p className="text-sm text-muted-foreground">{t.stripeSubtitle}</p>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="space-y-1">
+              <CardTitle>{t.stripeTitle}</CardTitle>
+              <p className="text-sm text-muted-foreground">{t.stripeSubtitle}</p>
+            </div>
+            {stripeStatusLoading ? (
+              <Skeleton className="h-5 w-28 rounded-full" />
+            ) : stripeMode === 'connected' ? (
+              <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                {t.stripeConnectedBadge}
+              </Badge>
+            ) : stripeMode === 'pending' ? (
+              <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                {t.stripePendingBadge}
+              </Badge>
+            ) : (
+              <Badge variant="outline">{t.stripeDisconnectedBadge}</Badge>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="pt-4">
           <div className="grid gap-4 rounded-2xl border border-sky-200/70 bg-white/80 p-4 shadow-sm backdrop-blur-sm dark:border-sky-900/60 dark:bg-slate-950/40 md:grid-cols-[1fr_auto] md:items-center">

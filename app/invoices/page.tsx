@@ -1004,23 +1004,29 @@ function InvoicesPageContent() {
       </section>
 
       {selectedInvoiceIds.length > 0 ? (
-        <div className="fixed right-4 bottom-4 left-4 z-40 rounded-xl border border-border/70 bg-card/95 p-3 shadow-lg backdrop-blur sm:left-auto sm:min-w-105">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm font-medium text-foreground">
+        <div className="fixed right-4 bottom-4 left-4 z-40 rounded-xl border border-border/70 bg-card/95 p-3 shadow-lg backdrop-blur sm:max-w-[calc(100vw-2rem)] md:left-auto md:min-w-105">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+            <p className="min-w-0 text-sm font-medium text-foreground sm:max-w-64">
               {locale === 'fr'
                 ? `${selectedInvoiceIds.length} facture(s) sélectionnée(s)`
                 : `${selectedInvoiceIds.length} invoice(s) selected`}
             </p>
-            <div className="flex items-center gap-2">
-              <Button type="button" size="sm" onClick={() => setBulkReminderOpen(true)} disabled={bulkSending}>
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
+              <Button
+                type="button"
+                size="sm"
+                className="w-full sm:w-auto"
+                onClick={() => setBulkReminderOpen(true)}
+                disabled={bulkSending}
+              >
                 <SendIcon className="size-4" />
                 {t.bulkSendButton}
               </Button>
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <span>
-                      <Button type="button" size="sm" variant="outline" disabled>
+                    <span className="w-full sm:w-auto">
+                      <Button type="button" size="sm" variant="outline" className="w-full sm:w-auto" disabled>
                         {t.bulkExport}
                       </Button>
                     </span>
@@ -1030,7 +1036,14 @@ function InvoicesPageContent() {
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
-              <Button type="button" size="sm" variant="ghost" onClick={() => setSelectedInvoiceIds([])} disabled={bulkSending}>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="w-full sm:w-auto"
+                onClick={() => setSelectedInvoiceIds([])}
+                disabled={bulkSending}
+              >
                 {t.bulkClear}
               </Button>
             </div>

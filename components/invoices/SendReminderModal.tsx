@@ -5,7 +5,7 @@ import Link from 'next/link';
 
 import useSWR from 'swr';
 import dayjs from 'dayjs';
-import { ExternalLinkIcon, InfoIcon, Loader2Icon, RotateCcwIcon, SendIcon } from 'lucide-react';
+import { ChevronDownIcon, ChevronUpIcon, ExternalLinkIcon, InfoIcon, Loader2Icon, RotateCcwIcon, SendIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { resolveTranslatedError, translate } from '@/lib/i18n/messages';
@@ -118,6 +118,93 @@ type PreviewToken =
   | { kind: 'text'; value: string }
   | { kind: 'var'; name: string; value: string; isEmpty: boolean };
 
+type ReminderVariableName =
+  | 'clientName'
+  | 'companyName'
+  | 'invoiceNumber'
+  | 'invoiceDate'
+  | 'dueDate'
+  | 'daysOverdue'
+  | 'amountDue'
+  | 'amountOriginal'
+  | 'lateFees'
+  | 'paymentLink'
+  | 'legalDeadline';
+
+const EDITABLE_TEMPLATE_VARIABLE_REGEX = /\{\{\s*([a-zA-Z][\w]*)\s*\}\}|\{\s*([a-zA-Z][\w]*)\s*\}/g;
+
+const REMINDER_VARIABLE_LABELS: Record<Locale, Record<ReminderVariableName, string>> = {
+  en: {
+    clientName: 'Customer name',
+    companyName: 'Company name',
+    invoiceNumber: 'Invoice number',
+    invoiceDate: 'Invoice date',
+    dueDate: 'Due date',
+    daysOverdue: 'Days overdue',
+    amountDue: 'Amount due',
+    amountOriginal: 'Original amount',
+    lateFees: 'Late fees',
+    paymentLink: 'Payment link',
+    legalDeadline: 'Legal deadline',
+  },
+  fr: {
+    clientName: 'Nom du client',
+    companyName: 'Nom de l\'entreprise',
+    invoiceNumber: 'Numéro de facture',
+    invoiceDate: 'Date de facture',
+    dueDate: 'Date d\'échéance',
+    daysOverdue: 'Jours de retard',
+    amountDue: 'Montant dû',
+    amountOriginal: 'Montant initial',
+    lateFees: 'Pénalités de retard',
+    paymentLink: 'Lien de paiement',
+    legalDeadline: 'Date limite légale',
+  },
+};
+
+function extractTemplateVariablesInOrder(template: string): string[] {
+  return Array.from(template.matchAll(EDITABLE_TEMPLATE_VARIABLE_REGEX), (match) => match[1] || match[2]).filter(Boolean);
+}
+
+function buildLockedMarker(variable: string, labels: Record<string, string>): string {
+  return `[${labels[variable] ?? variable}]`;
+}
+
+function toEditableTemplate(template: string, labels: Record<string, string>): string {
+  return template.replace(EDITABLE_TEMPLATE_VARIABLE_REGEX, (_full, keyA: string, keyB: string) =>
+    buildLockedMarker(keyA || keyB, labels)
+  );
+}
+
+function rebuildTemplateFromEditable(
+  editableValue: string,
+  originalTemplate: string,
+  labels: Record<string, string>
+): string {
+  const variables = extractTemplateVariablesInOrder(originalTemplate);
+  if (variables.length === 0) {
+    return editableValue;
+  }
+
+  let remainder = editableValue;
+  let rebuilt = '';
+
+  for (const variable of variables) {
+    const marker = buildLockedMarker(variable, labels);
+    const markerIndex = remainder.indexOf(marker);
+
+    if (markerIndex === -1) {
+      return originalTemplate;
+    }
+
+    rebuilt += remainder.slice(0, markerIndex);
+    rebuilt += `{{${variable}}}`;
+    remainder = remainder.slice(markerIndex + marker.length);
+  }
+
+  return rebuilt + remainder;
+}
+
 function tokenizePreview(template: string, variables: Record<string, string>): PreviewToken[] {
   if (!template) {
     return [];
@@ -166,7 +253,7 @@ const fetcher = async (url: string): Promise<ReminderSettingsResponse> => {
   return payload;
 };
 
-function PreviewText({ tokens }: { tokens: PreviewToken[] }) {
+function PreviewText({ tokens, labels }: { tokens: PreviewToken[]; labels: Record<string, string> }) {
   return (
     <>
       {tokens.map((token, idx) => {
@@ -177,17 +264,17 @@ function PreviewText({ tokens }: { tokens: PreviewToken[] }) {
           return (
             <span
               key={idx}
-              title={`{{${token.name}}}`}
+              title={buildLockedMarker(token.name, labels)}
               className="rounded bg-amber-100 px-1 py-0.5 text-[11px] font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
             >
-              {`{{${token.name}}}`}
+              {buildLockedMarker(token.name, labels)}
             </span>
           );
         }
         return (
           <span
             key={idx}
-            title={`{{${token.name}}}`}
+            title={buildLockedMarker(token.name, labels)}
             className="rounded bg-primary/10 px-0.5 font-medium text-foreground"
           >
             {token.value}
@@ -215,6 +302,7 @@ export default function SendReminderModal({
   const [level, setLevel] = useState<ReminderLevel>(nextLevel);
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [sending, setSending] = useState(false);
   const [subjectTouched, setSubjectTouched] = useState(false);
   const [bodyTouched, setBodyTouched] = useState(false);
@@ -295,6 +383,18 @@ export default function SendReminderModal({
     totalWithLateFeeCents,
   ]);
 
+  const previewVariableLabels = useMemo<Record<string, string>>(() => REMINDER_VARIABLE_LABELS[locale], [locale]);
+
+  const editableSubject = useMemo(
+    () => toEditableTemplate(subject, previewVariableLabels),
+    [previewVariableLabels, subject]
+  );
+
+  const editableBody = useMemo(
+    () => toEditableTemplate(body, previewVariableLabels),
+    [body, previewVariableLabels]
+  );
+
   const applyTemplate = useCallback(
     (targetLevel: ReminderLevel, options?: { force?: boolean }) => {
       const levelKey = mapLevelToKey(targetLevel);
@@ -346,12 +446,21 @@ export default function SendReminderModal({
     if (!open) {
       setSubjectTouched(false);
       setBodyTouched(false);
+      setPreviewOpen(false);
     }
   }, [open]);
 
   const selectedTemplateExists = Boolean(templateByLevel?.[mapLevelToKey(level)]);
   const levelIsInvalid = level === 4 && formalNoticeLocked;
   const canSubmit = subject.trim().length > 0 && body.trim().length > 0 && !levelIsInvalid;
+  const previewToggleLabel =
+    locale === 'fr'
+      ? previewOpen
+        ? 'Masquer l\'aperçu'
+        : 'Afficher l\'aperçu'
+      : previewOpen
+        ? 'Hide preview'
+        : 'Show preview';
 
   async function handleSend() {
     if (sending) {
@@ -424,17 +533,21 @@ export default function SendReminderModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <SendIcon className="size-4" />
-            {t('reminders.collection.sendModal.title')}
-          </DialogTitle>
-          <DialogDescription>{t('reminders.collection.sendModal.description')}</DialogDescription>
-        </DialogHeader>
+      <DialogContent className="w-[calc(100%-0.75rem)] max-w-3xl gap-0 overflow-hidden rounded-2xl p-0 pr-0 sm:w-[min(100%-2rem,48rem)]">
+        <div className="flex max-h-[calc(var(--app-viewport-height)-0.75rem-var(--app-safe-area-top)-var(--app-safe-area-bottom))] flex-col sm:max-h-[calc(var(--app-viewport-height)-2rem-var(--app-safe-area-top)-var(--app-safe-area-bottom))]">
+          <DialogHeader className="border-b px-4 pb-4 pt-5 text-center sm:px-6 sm:pb-5 sm:pt-6">
+            <div className="mx-auto flex w-full max-w-2xl flex-col gap-1.5 text-center">
+              <DialogTitle className="flex items-center justify-center gap-2 pr-8 text-balance sm:pr-0">
+                <SendIcon className="size-4" />
+                {t('reminders.collection.sendModal.title')}
+              </DialogTitle>
+              <DialogDescription className="text-balance">{t('reminders.collection.sendModal.description')}</DialogDescription>
+            </div>
+          </DialogHeader>
 
-        <div className="space-y-4">
-          <div className="space-y-2">
+          <div className="flex-1 overflow-y-auto">
+            <div className="mx-auto w-full max-w-2xl space-y-4 px-4 py-4 sm:px-6 sm:py-5">
+              <div className="space-y-2">
             <Label>{t('reminders.collection.sendModal.level')}</Label>
             <RadioGroup
               value={String(level)}
@@ -521,13 +634,13 @@ export default function SendReminderModal({
           ) : null}
 
           <div className="space-y-2">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <Label htmlFor="send-reminder-subject">{t('reminders.settings.templates.subject')}</Label>
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="h-7 gap-1 text-xs"
+                className="h-8 w-full gap-1 text-xs sm:h-7 sm:w-auto"
                 onClick={() => applyTemplate(level, { force: true })}
                 disabled={settingsLoading}
               >
@@ -537,9 +650,10 @@ export default function SendReminderModal({
             </div>
             <Input
               id="send-reminder-subject"
-              value={subject}
+              value={editableSubject}
+              className="text-sm"
               onChange={(event) => {
-                setSubject(event.target.value);
+                setSubject(rebuildTemplateFromEditable(event.target.value, subject, previewVariableLabels));
                 setSubjectTouched(true);
               }}
             />
@@ -549,78 +663,100 @@ export default function SendReminderModal({
             <Label htmlFor="send-reminder-body">{t('reminders.settings.templates.body')}</Label>
             <Textarea
               id="send-reminder-body"
-              rows={10}
-              value={body}
+              rows={8}
+              value={editableBody}
+              className="min-h-45 text-sm sm:min-h-55"
               onChange={(event) => {
-                setBody(event.target.value);
+                setBody(rebuildTemplateFromEditable(event.target.value, body, previewVariableLabels));
                 setBodyTouched(true);
               }}
             />
           </div>
 
-          <div className="rounded-lg border bg-muted/20 p-3 text-sm">
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                {t('reminders.collection.sendModal.preview')}
-              </p>
-              <p className="text-[10px] text-muted-foreground">
-                {t('reminders.collection.sendModal.previewHint')}
-              </p>
-            </div>
+          <div className="overflow-hidden rounded-lg border bg-muted/20 text-sm">
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-auto w-full justify-between rounded-none px-3 py-3 text-left hover:bg-muted/50"
+              aria-expanded={previewOpen}
+              aria-label={previewToggleLabel}
+              onClick={() => setPreviewOpen((current) => !current)}
+            >
+              <span className="min-w-0 text-left">
+                <span className="block text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  {t('reminders.collection.sendModal.preview')}
+                </span>
+                <span className="mt-1 block text-[11px] whitespace-normal text-muted-foreground sm:text-xs">
+                  {t('reminders.collection.sendModal.previewHint')}
+                </span>
+              </span>
+              <span className="ml-3 inline-flex shrink-0 items-center gap-1 text-xs font-medium text-foreground">
+                {previewToggleLabel}
+                {previewOpen ? <ChevronUpIcon className="size-4" /> : <ChevronDownIcon className="size-4" />}
+              </span>
+            </Button>
 
-            <div className="mb-3 flex flex-wrap gap-1.5 border-b pb-2">
-              {Object.entries(previewVariables).map(([name, value]) => {
-                const isEmpty = !value || !String(value).trim();
-                return (
-                  <span
-                    key={name}
-                    className={
-                      isEmpty
-                        ? 'inline-flex items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-900 dark:bg-amber-900/40 dark:text-amber-100'
-                        : 'inline-flex items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] text-foreground'
-                    }
-                    title={`{{${name}}}`}
-                  >
-                    <span className="font-mono text-[10px] opacity-70">{name}</span>
-                    <span className="font-medium">
-                      {isEmpty ? t('reminders.collection.sendModal.emptyValue') : String(value)}
-                    </span>
-                  </span>
-                );
-              })}
-            </div>
+            {previewOpen ? (
+              <div className="border-t px-3 pb-3 pt-3">
+                <div className="mb-3 flex flex-wrap gap-1.5 border-b pb-2">
+                  {Object.entries(previewVariables).map(([name, value]) => {
+                    const isEmpty = !value || !String(value).trim();
+                    return (
+                      <span
+                        key={name}
+                        className={
+                          isEmpty
+                            ? 'inline-flex items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-900 dark:bg-amber-900/40 dark:text-amber-100'
+                            : 'inline-flex items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] text-foreground'
+                        }
+                        title={buildLockedMarker(name, previewVariableLabels)}
+                      >
+                        <span className="font-mono text-[10px] opacity-70">{previewVariableLabels[name] ?? name}</span>
+                        <span className="font-medium">
+                          {isEmpty ? t('reminders.collection.sendModal.emptyValue') : String(value)}
+                        </span>
+                      </span>
+                    );
+                  })}
+                </div>
 
-            {settingsLoading ? (
-              <p className="text-xs text-muted-foreground">{t('reminders.collection.sendModal.loadingTemplates')}</p>
-            ) : (
-              <>
-                <p className="font-medium">
-                  <PreviewText tokens={tokenizePreview(subject, previewVariables)} />
-                </p>
-                <p className="mt-2 whitespace-pre-wrap text-muted-foreground">
-                  <PreviewText tokens={tokenizePreview(body, previewVariables)} />
-                </p>
-              </>
-            )}
-            {level === 4 && legalDeadlineDate ? (
-              <p className="mt-3 border-t pt-2 text-[11px] italic text-muted-foreground">
-                {t('reminders.collection.sendModal.legalDeadlinePreview', {
-                  date: previewVariables.legalDeadline,
-                })}
-              </p>
+                {settingsLoading ? (
+                  <p className="text-xs text-muted-foreground">{t('reminders.collection.sendModal.loadingTemplates')}</p>
+                ) : (
+                  <>
+                    <p className="font-medium wrap-break-word">
+                      <PreviewText tokens={tokenizePreview(subject, previewVariables)} labels={previewVariableLabels} />
+                    </p>
+                    <p className="mt-2 whitespace-pre-wrap wrap-break-word text-muted-foreground">
+                      <PreviewText tokens={tokenizePreview(body, previewVariables)} labels={previewVariableLabels} />
+                    </p>
+                  </>
+                )}
+                {level === 4 && legalDeadlineDate ? (
+                  <p className="mt-3 border-t pt-2 text-[11px] italic text-muted-foreground">
+                    {t('reminders.collection.sendModal.legalDeadlinePreview', {
+                      date: previewVariables.legalDeadline,
+                    })}
+                  </p>
+                ) : null}
+              </div>
             ) : null}
           </div>
-        </div>
+            </div>
+          </div>
 
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={sending}>
-            {t('reminders.collection.sendModal.cancel')}
-          </Button>
-          <Button type="button" onClick={() => void handleSend()} disabled={sending || !canSubmit}>
-            {sending ? <Loader2Icon className="size-4 animate-spin" /> : null}
-            {sending ? t('reminders.collection.sendModal.sending') : t('reminders.collection.sendModal.send')}
-          </Button>
-        </DialogFooter>
+          <DialogFooter className="border-t bg-background/95 px-4 py-4 backdrop-blur sm:px-6">
+            <div className="mx-auto flex w-full max-w-2xl flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={sending} className="w-full sm:w-auto">
+                {t('reminders.collection.sendModal.cancel')}
+              </Button>
+              <Button type="button" onClick={() => void handleSend()} disabled={sending || !canSubmit} className="w-full sm:w-auto">
+                {sending ? <Loader2Icon className="size-4 animate-spin" /> : null}
+                {sending ? t('reminders.collection.sendModal.sending') : t('reminders.collection.sendModal.send')}
+              </Button>
+            </div>
+          </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   );

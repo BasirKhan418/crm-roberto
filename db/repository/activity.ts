@@ -2,6 +2,8 @@ import mongoose from 'mongoose';
 
 import ConnectDb from '@/db/connectDb';
 import ActivityLog from '@/db/models/Activity';
+import Invoice from '@/db/models/Invoice';
+import Quote from '@/db/models/Quote';
 import { emitActivityChanged } from '@/lib/activity-events';
 import type { CreateActivityDTO, UpdateActivityDTO } from '@/validators/activity.schema';
 import type { ListQueryOptions, PaginationMeta } from '@/utils/api/query';
@@ -86,6 +88,38 @@ export const listActivities = async (userId: string, options: ActivityListQueryO
     pagination: buildPagination(options.page, options.limit, total),
     unreadCount,
   };
+};
+
+export const listClientActivities = async (userId: string, clientId: string, limit = 200): Promise<ActivityRecord[]> => {
+  await ConnectDb();
+
+  if (!isValidObjectId(clientId)) {
+    return [];
+  }
+
+  const clientObjectId = new mongoose.Types.ObjectId(clientId);
+
+  const [invoiceIds, quoteIds] = await Promise.all([
+    Invoice.find({ userId, clientId: clientObjectId }).distinct('_id'),
+    Quote.find({ user: userId, clientId: clientObjectId }).distinct('_id'),
+  ]);
+
+  const orClauses: Record<string, unknown>[] = [
+    { entityType: 'client', entityId: clientObjectId },
+    { 'metadata.clientId': clientId },
+  ];
+
+  const relatedEntityIds = [...invoiceIds, ...quoteIds];
+  if (relatedEntityIds.length > 0) {
+    orClauses.push({ entityId: { $in: relatedEntityIds } });
+  }
+
+  const items = await ActivityLog.find({ user: userId, $or: orClauses })
+    .sort({ createdAt: -1 })
+    .limit(Math.max(1, Math.min(limit, 500)))
+    .lean();
+
+  return items as ActivityRecord[];
 };
 
 export const getActivityById = async (userId: string, activityId: string): Promise<ActivityRecord | null> => {
