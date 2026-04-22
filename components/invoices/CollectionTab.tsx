@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 import SendReminderModal from '@/components/invoices/SendReminderModal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { resolveTranslatedError, translate } from '@/lib/i18n/messages';
+import { formatInvoiceDisplayNumber, resolveTranslatedError, translate } from '@/lib/i18n/messages';
 import { cn } from '@/lib/utils';
 
 type Locale = 'en' | 'fr';
@@ -320,7 +320,7 @@ export default function CollectionTab({
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `legal-notice-${invoiceNumber ?? invoiceId}.pdf`;
+      link.download = `mise-en-demeure-${invoiceNumber ? formatInvoiceDisplayNumber(locale, invoiceNumber) : invoiceId}.pdf`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

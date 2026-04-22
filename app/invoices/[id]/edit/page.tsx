@@ -62,7 +62,7 @@ export default function EditInvoicePage() {
       invoiceNumber: 'Num\u00e9ro de facture',
       date: 'Date',
       dueDate: '\u00c9ch\u00e9ance',
-      dueDateRequired: "L'echeance est obligatoire",
+      dueDateRequired: "L'\u00e9ch\u00e9ance est obligatoire",
       notes: 'Notes',
       notesPlaceholder: 'Ajoutez des notes de paiement ou l\u00e9gales...',
       save: 'Enregistrer',

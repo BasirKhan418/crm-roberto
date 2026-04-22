@@ -6,6 +6,7 @@ import React from 'react';
 
 import { formatStructuredAddress, hasStructuredAddress } from '@/lib/address';
 import { extractClientSnapshot } from '@/lib/address';
+import { formatInvoiceDisplayNumber } from '@/lib/i18n/messages';
 import { InvoicePdfTemplate } from '@/lib/pdf/InvoicePdfTemplate';
 import { type LegalNoticePdfProps, renderLegalNoticePdf } from '@/lib/pdf/LegalNoticePdfTemplate';
 
@@ -104,7 +105,9 @@ export function formatDateForLocale(date: Date | string | null | undefined, loca
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
-  }).format(parsed);
+  })
+    .format(parsed)
+    .replace(/[\u00a0\u202f]/g, ' ');
 }
 
 export function formatEurFromCents(cents: number, locale: ReminderLocale): string {
@@ -113,7 +116,9 @@ export function formatEurFromCents(cents: number, locale: ReminderLocale): strin
   return new Intl.NumberFormat(locale === 'fr' ? 'fr-FR' : 'en-GB', {
     style: 'currency',
     currency: 'EUR',
-  }).format(normalized / 100);
+  })
+    .format(normalized / 100)
+    .replace(/[\u00a0\u202f]/g, ' ');
 }
 
 export function resolveCompanyDisplayName(profile: CompanyProfileForReminder | null): string {
@@ -251,7 +256,13 @@ export async function renderLegalNoticePdfForReminder({
   customFooter?: string | null;
 }): Promise<{ pdfBuffer: Buffer; legalDeadline: Date; props: LegalNoticePdfProps }> {
   const legalDeadline = computeLegalDeadline(legalNoticeDate, delayDays);
-  const daysOverdue = invoice.dueDate ? Math.max(0, dayjs().diff(invoice.dueDate, 'day')) : 0;
+  const daysOverdue = invoice.dueDate
+    ? dayjs().startOf('day').diff(dayjs(invoice.dueDate).startOf('day'), 'day')
+    : 0;
+
+  if (daysOverdue <= 0) {
+    throw new Error('Formal notice requires an overdue invoice');
+  }
 
   const props: LegalNoticePdfProps = {
     companyProfile: {
@@ -265,7 +276,7 @@ export async function renderLegalNoticePdfForReminder({
     },
     clientName: invoice.clientSnapshot.fullName || 'Client',
     clientAddress: resolveClientAddress(invoice.clientSnapshot),
-    invoiceNumber: invoice.invoiceNumber,
+    invoiceNumber: formatInvoiceDisplayNumber(locale, invoice.invoiceNumber),
     invoiceDate: formatDateForLocale(invoice.date, locale),
     dueDate: formatDateForLocale(invoice.dueDate, locale),
     daysOverdue,

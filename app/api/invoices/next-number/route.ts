@@ -17,11 +17,11 @@ export async function GET() {
     await ensureInvoiceIndexes();
 
     const year = new Date().getFullYear();
-    const yearPrefix = `INV-${year}-`;
+    const yearPrefixPattern = `^(INV|FAC)-${year}-`;
 
     const lastInvoice = await Invoice.findOne({
       userId: me.user.id,
-      invoiceNumber: { $regex: `^${yearPrefix}` },
+      invoiceNumber: { $regex: yearPrefixPattern },
     })
       .sort({ invoiceNumber: -1 })
       .select('invoiceNumber')

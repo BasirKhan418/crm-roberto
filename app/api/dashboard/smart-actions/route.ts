@@ -304,10 +304,11 @@ async function buildSmartActions(userId: string): Promise<SmartActionsResponse> 
 
 async function allocateInvoiceNumber(): Promise<string> {
   const year = new Date().getFullYear();
-  const prefix = `INV-${year}-`;
+  const prefix = `FAC-${year}-`;
+  const prefixPattern = `^(INV|FAC)-${year}-`;
 
   for (let attempt = 0; attempt < 200; attempt += 1) {
-    const count = await Invoice.countDocuments({ invoiceNumber: { $regex: `^${prefix}` } });
+    const count = await Invoice.countDocuments({ invoiceNumber: { $regex: prefixPattern } });
     const candidate = `${prefix}${String(count + 1 + attempt).padStart(4, '0')}`;
     const exists = await Invoice.exists({ invoiceNumber: candidate });
     if (!exists) {

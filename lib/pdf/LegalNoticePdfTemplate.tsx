@@ -196,10 +196,10 @@ function getBodyParagraphs(props: LegalNoticePdfProps): string[] {
   if (props.locale === 'fr') {
     return [
       `Madame, Monsieur,`,
-      `Sauf erreur de notre part, la facture ${props.invoiceNumber}, emise le ${props.invoiceDate} et echeant le ${props.dueDate}, demeure impayee a ce jour depuis ${props.daysOverdue} jour(s).`,
-      `Le montant initial de cette facture est de ${props.amountOriginal}. Le montant exigible a ce jour est de ${props.amountDue}${props.lateFees ? `, incluant des penalites de retard de ${props.lateFees}` : ''}.`,
-      `Par la presente, nous vous mettons formellement en demeure de regler l'integralite des sommes dues dans un delai de ${props.delayDays} jours calendaires a compter de la reception de ce courrier, soit au plus tard le ${props.legalDeadline}.`,
-      `A defaut de regularisation dans ce delai, nous nous reserverons le droit d'engager toute procedure utile de recouvrement, avec application des frais et interets prevus par les dispositions legales en vigueur.`,
+      `Sauf erreur de notre part, la facture ${props.invoiceNumber}, émise le ${props.invoiceDate} et arrivée à échéance le ${props.dueDate}, demeure impayée à ce jour depuis ${props.daysOverdue} jour(s).`,
+      `Le montant initial de cette facture est de ${props.amountOriginal}. Le montant exigible à ce jour est de ${props.amountDue}${props.lateFees ? `, incluant des pénalités de retard de ${props.lateFees}` : ''}.`,
+      `Par la présente, nous vous mettons formellement en demeure de régler l'intégralité des sommes dues dans un délai de ${props.delayDays} jours calendaires à compter de la réception de ce courrier, soit au plus tard le ${props.legalDeadline}.`,
+      `À défaut de régularisation dans ce délai, nous nous réserverons le droit d'engager toute procédure utile de recouvrement, avec application des frais et intérêts prévus par les dispositions légales en vigueur.`,
     ];
   }
 
@@ -214,7 +214,7 @@ function getBodyParagraphs(props: LegalNoticePdfProps): string[] {
 
 function getInterestClause(locale: 'en' | 'fr'): string {
   if (locale === 'fr') {
-    return 'Conformement aux dispositions legales applicables, tout retard de paiement peut donner lieu a l application d interets de retard ainsi qu a une indemnite forfaitaire pour frais de recouvrement.';
+    return "Conformément aux dispositions légales applicables, tout retard de paiement peut donner lieu à l'application d'intérêts de retard ainsi qu'à une indemnité forfaitaire pour frais de recouvrement.";
   }
 
   return 'In accordance with applicable legal provisions, any delay in payment may result in statutory late interest and a fixed compensation for recovery costs.';
@@ -271,7 +271,7 @@ export function LegalNoticePdfTemplate(props: LegalNoticePdfProps) {
 
         <Text style={styles.title}>{props.locale === 'fr' ? 'MISE EN DEMEURE' : 'FORMAL NOTICE'}</Text>
         {props.locale === 'fr' ? (
-          <Text style={styles.subHeader}>Par lettre recommandee avec accuse de reception</Text>
+          <Text style={styles.subHeader}>Par lettre recommandée avec accusé de réception</Text>
         ) : null}
 
         <View style={styles.dateBlock}>
@@ -289,21 +289,21 @@ export function LegalNoticePdfTemplate(props: LegalNoticePdfProps) {
 
         <View style={styles.amountBox}>
           <Text style={styles.amountLine}>
-            {props.locale === 'fr' ? 'Facture concernee:' : 'Invoice reference:'} <Text style={styles.amountStrong}>{props.invoiceNumber}</Text>
+            {props.locale === 'fr' ? 'Facture concernée :' : 'Invoice reference:'} <Text style={styles.amountStrong}>{props.invoiceNumber}</Text>
           </Text>
           <Text style={styles.amountLine}>
-            {props.locale === 'fr' ? 'Montant initial:' : 'Original amount:'} <Text style={styles.amountStrong}>{props.amountOriginal}</Text>
+            {props.locale === 'fr' ? 'Montant initial :' : 'Original amount:'} <Text style={styles.amountStrong}>{props.amountOriginal}</Text>
           </Text>
           <Text style={styles.amountLine}>
-            {props.locale === 'fr' ? 'Montant exigible:' : 'Amount due:'} <Text style={styles.amountStrong}>{props.amountDue}</Text>
+            {props.locale === 'fr' ? 'Montant exigible :' : 'Amount due:'} <Text style={styles.amountStrong}>{props.amountDue}</Text>
           </Text>
           {props.lateFees ? (
             <Text style={styles.amountLine}>
-              {props.locale === 'fr' ? 'Penalites de retard:' : 'Late fees:'} <Text style={styles.amountStrong}>{props.lateFees}</Text>
+              {props.locale === 'fr' ? 'Pénalités de retard :' : 'Late fees:'} <Text style={styles.amountStrong}>{props.lateFees}</Text>
             </Text>
           ) : null}
           <Text style={styles.amountLine}>
-            {props.locale === 'fr' ? 'Date limite legale:' : 'Legal deadline:'} <Text style={styles.amountStrong}>{props.legalDeadline}</Text>
+            {props.locale === 'fr' ? 'Date limite légale :' : 'Legal deadline:'} <Text style={styles.amountStrong}>{props.legalDeadline}</Text>
           </Text>
         </View>
 

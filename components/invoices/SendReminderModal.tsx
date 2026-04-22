@@ -401,7 +401,7 @@ export default function SendReminderModal({
     return (
       <Badge
         variant="secondary"
-        className="ml-auto shrink-0 whitespace-nowrap px-1.5 py-0 text-[10px] font-medium leading-4"
+        className="ml-0 h-auto max-w-full shrink-0 whitespace-normal px-2 py-0.5 text-[10px] font-medium leading-tight sm:ml-auto sm:max-w-40"
       >
         {label}
       </Badge>
@@ -436,10 +436,10 @@ export default function SendReminderModal({
               {REMINDER_LEVELS.map((lvl) => (
                 <Label
                   key={lvl}
-                  className="flex min-w-0 items-center gap-2 rounded-lg border p-3 text-sm cursor-pointer"
+                  className="flex min-w-0 flex-wrap items-center gap-2 rounded-lg border p-3 text-sm cursor-pointer"
                 >
                   <RadioGroupItem value={String(lvl)} className="shrink-0" />
-                  <span className="min-w-0 flex-1 truncate">{t(`reminders.levels.${mapLevelToKey(lvl)}`)}</span>
+                  <span className="min-w-0 flex-1">{t(`reminders.levels.${mapLevelToKey(lvl)}`)}</span>
                   {renderLateFeeBadge(lvl)}
                 </Label>
               ))}

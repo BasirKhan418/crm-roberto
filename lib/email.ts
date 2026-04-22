@@ -102,6 +102,7 @@ function buildDocumentEmailTemplate({
   ctaUrl,
   ctaNote,
   showPdfAttached = true,
+  includeGreeting = true,
 }: {
   subject: string;
   companyName: string;
@@ -115,6 +116,7 @@ function buildDocumentEmailTemplate({
   ctaUrl?: string;
   ctaNote?: string;
   showPdfAttached?: boolean;
+  includeGreeting?: boolean;
 }): string {
   const safeSubject = escapeHtml(subject);
   const safeCompanyName = escapeHtml(companyName || "CRM");
@@ -179,7 +181,7 @@ function buildDocumentEmailTemplate({
       </tr>
       <tr>
         <td class="cell" style="padding:28px;">
-          <p style="margin:0 0 18px;font-size:15px;font-weight:600;color:#1a2e44;">${safeGreeting}</p>
+          ${includeGreeting ? `<p style="margin:0 0 18px;font-size:15px;font-weight:600;color:#1a2e44;">${safeGreeting}</p>` : ''}
           <div style="font-size:14px;line-height:1.75;color:#374151;">${safeMessageBody}</div>
           ${ctaBlock}
         </td>
@@ -280,6 +282,7 @@ function buildReminderEmailHtml({
     messageBody: params.htmlBody,
     locale,
     showPdfAttached,
+    includeGreeting: false,
   });
 }
 
@@ -550,7 +553,7 @@ export async function sendFormalNotice(params: SendFormalNoticeParams): Promise<
         contentType: 'application/pdf',
       },
       {
-        filename: `${formatInvoiceDisplayNumber(locale, params.invoiceNumber)}-formal-notice.pdf`,
+        filename: `mise-en-demeure-${formatInvoiceDisplayNumber(locale, params.invoiceNumber)}.pdf`,
         content: params.legalNoticePdfBuffer,
         contentType: 'application/pdf',
       },

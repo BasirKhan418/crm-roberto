@@ -1,5 +1,6 @@
 import dayjs from 'dayjs';
 
+import { formatInvoiceDisplayNumber } from '@/lib/i18n/messages';
 import { buildInvoicePayUrl, isTokenExpired } from '@/lib/tokens';
 
 export interface ReminderVariables {
@@ -20,6 +21,7 @@ export interface ReminderVariables {
 type Locale = 'en' | 'fr';
 
 const PAYMENT_LINK_VARIABLE_REGEX = /\{\{\s*paymentLink\s*\}\}|\{\s*paymentLink\s*\}/i;
+const PAYMENT_LINK_LINE_REGEX = /^.*(?:\{\{\s*paymentLink\s*\}\}|\{\s*paymentLink\s*\}).*$/gim;
 
 type InvoiceLike = {
   invoiceNumber?: string | null;
@@ -93,12 +95,27 @@ function resolvePaidAmount(invoice: InvoiceLike): number {
   return 0;
 }
 
+function stripPaymentLinkLines(template: string): string {
+  return template
+    .replace(PAYMENT_LINK_LINE_REGEX, '')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 export function substituteVariables(template: string, vars: ReminderVariables): string {
-  return template.replace(/\{\{\s*([a-zA-Z][\w]*)\s*\}\}|\{\s*([a-zA-Z][\w]*)\s*\}/g, (_full, keyA: string, keyB: string) => {
-    const key = keyA || keyB;
-    const value = vars[key as keyof ReminderVariables];
-    return value === undefined || value === null ? '' : String(value);
-  });
+  const source = !vars.paymentLink && templateIncludesPaymentLinkVariable(template)
+    ? stripPaymentLinkLines(template)
+    : template;
+
+  return source
+    .replace(/\{\{\s*([a-zA-Z][\w]*)\s*\}\}|\{\s*([a-zA-Z][\w]*)\s*\}/g, (_full, keyA: string, keyB: string) => {
+      const key = keyA || keyB;
+      const value = vars[key as keyof ReminderVariables];
+      return value === undefined || value === null ? '' : String(value);
+    })
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 export function templateIncludesPaymentLinkVariable(template: string): boolean {
@@ -122,7 +139,7 @@ export function ensureReminderBodyHasPaymentLink({
     return renderedBody;
   }
 
-  const suffix = locale === 'fr' ? `Lien de paiement: ${paymentLink}` : `Payment link: ${paymentLink}`;
+  const suffix = locale === 'fr' ? `Lien de paiement : ${paymentLink}` : `Payment link: ${paymentLink}`;
   const trimmed = renderedBody.trim();
 
   return trimmed ? `${trimmed}\n\n${suffix}` : suffix;
@@ -153,7 +170,7 @@ export function buildReminderVars(
   return {
     clientName: invoice.clientSnapshot?.fullName?.trim() || 'Client',
     companyName: companyProfile?.companyName?.trim() || companyProfile?.ownerName?.trim() || 'CRM',
-    invoiceNumber: invoice.invoiceNumber?.trim() || '',
+    invoiceNumber: invoice.invoiceNumber?.trim() ? formatInvoiceDisplayNumber(locale, invoice.invoiceNumber.trim()) : '',
     invoiceDate: formatDateByLocale(invoiceDate, locale),
     dueDate: formatDateByLocale(dueDate, locale),
     daysOverdue,

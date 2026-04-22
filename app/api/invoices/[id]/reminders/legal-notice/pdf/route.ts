@@ -6,6 +6,7 @@ import CompanyProfile from '@/db/models/CompanyProfile';
 import Invoice from '@/db/models/Invoice';
 import Payment from '@/db/models/Payment';
 import ReminderSettings from '@/db/models/ReminderSettings';
+import { formatInvoiceDisplayNumber } from '@/lib/i18n/messages';
 import {
   normalizeReminderLocale,
   renderLegalNoticePdfForReminder,
@@ -106,6 +107,17 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     const remainingAmount = Math.max(0, Math.round(invoice.totalIncludingTax ?? 0) - totalPaid);
     const lateFeeAmount = Math.max(0, Math.round(invoice.reminderState?.lateFeeAmount ?? 0));
 
+    const effectiveDaysOverdue = invoice.dueDate
+      ? Math.floor((new Date().setHours(0, 0, 0, 0) - new Date(invoice.dueDate).setHours(0, 0, 0, 0)) / 86400000)
+      : 0;
+
+    if (effectiveDaysOverdue <= 0) {
+      return NextResponse.json(
+        { success: false, message: 'Formal notice is only available for overdue invoices' },
+        { status: 400 }
+      );
+    }
+
     const legalNoticeSettings = settingsDoc?.legalNotice;
     const delayDays = legalNoticeSettings?.delayDays === 15 ? 15 : 8;
     const includeInterestClause = legalNoticeSettings?.includeInterestClause !== false;
@@ -146,11 +158,13 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       customFooter,
     });
 
+    const displayInvoiceNumber = formatInvoiceDisplayNumber(locale, invoice.invoiceNumber);
+
     return new NextResponse(new Uint8Array(pdfBuffer), {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="${invoice.invoiceNumber}-formal-notice.pdf"`,
+        'Content-Disposition': `attachment; filename="mise-en-demeure-${displayInvoiceNumber}.pdf"`,
       },
     });
   } catch (error) {

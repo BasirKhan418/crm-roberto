@@ -32,6 +32,7 @@ import {
   type PaymentHistoryItem,
 } from '@/lib/reminders/formal-notice';
 import { buildReminderVars, ensureReminderBodyHasPaymentLink, substituteVariables } from '@/lib/reminders/substitute-variables';
+import { normalizeReminderTemplates } from '@/lib/reminders/templates';
 import { buildInvoicePayUrl, generatePaymentToken, generateTokenExpiry, isTokenExpired } from '@/lib/tokens';
 import { buildValidationError } from '@/utils/api/validation';
 import getMe from '@/utils/middlewares/useMe';
@@ -175,8 +176,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, message: 'Invoice is already paid' }, { status: 400 });
     }
 
-    const settingsDoc = await ReminderSettings.findOne({ userId: me.user.id }).lean();
-    const settings = settingsDoc ?? (new ReminderSettings({ userId: me.user.id }).toObject() as Record<string, unknown>);
+    const settingsDoc = await ReminderSettings.findOne({ userId: me.user.id }).lean<Record<string, unknown> | null>();
+    const rawSettings = settingsDoc ?? (new ReminderSettings({ userId: me.user.id }).toObject() as Record<string, unknown>);
+    const settings = {
+      ...rawSettings,
+      templates: normalizeReminderTemplates(
+        rawSettings.templates as Parameters<typeof normalizeReminderTemplates>[0]
+      ).templates,
+    };
 
     const companyProfile = await CompanyProfile.findOne({ user: me.user.id })
       .select('companyName ownerName locale address streetNumber streetName postalCode city country phone businessEmail vatNumber rcsNumber businessAuthorizationNumber matriculeNumber iban bankName legalIdentifier logoUrl')
@@ -252,7 +259,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     const subjectTemplate = parsed.data.subject?.trim()
       ? parsed.data.subject.trim()
-      : template?.subject || buildFallbackReminderSubject(level, invoice.invoiceNumber);
+      : template?.subject || buildFallbackReminderSubject(level, invoice.invoiceNumber, locale);
 
     const bodyTemplate = parsed.data.body?.trim()
       ? parsed.data.body.trim()
@@ -278,6 +285,17 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     let log;
 
     if (level === 4) {
+      const daysOverdue = invoice.dueDate
+        ? dayjs().startOf('day').diff(dayjs(invoice.dueDate).startOf('day'), 'day')
+        : 0;
+
+      if (daysOverdue <= 0) {
+        return NextResponse.json(
+          { success: false, message: 'Formal notice can only be sent for an overdue invoice' },
+          { status: 400 }
+        );
+      }
+
       const legalNoticeSettings = (settings as {
         legalNotice?: { delayDays?: 8 | 15; includeInterestClause?: boolean; customFooter?: string | null };
       }).legalNotice;

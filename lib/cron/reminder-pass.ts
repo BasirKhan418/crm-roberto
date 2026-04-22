@@ -34,6 +34,7 @@ import {
   type PaymentHistoryItem,
 } from '@/lib/reminders/formal-notice';
 import { buildReminderVars, ensureReminderBodyHasPaymentLink, substituteVariables } from '@/lib/reminders/substitute-variables';
+import { normalizeReminderTemplates } from '@/lib/reminders/templates';
 
 import { acquireLock, releaseLock } from './redis-lock';
 
@@ -318,7 +319,11 @@ export async function runReminderPass(): Promise<ReminderPassTotals> {
       let settings = settingsCache.get(userId);
       if (!settings) {
         const loadedSettings = await ReminderSettings.findOne({ userId: invoice.userId }).lean<SettingsLike | null>();
-        settings = loadedSettings ?? (new ReminderSettings({ userId: invoice.userId }).toObject() as SettingsLike);
+        const rawSettings = loadedSettings ?? (new ReminderSettings({ userId: invoice.userId }).toObject() as SettingsLike);
+        settings = {
+          ...rawSettings,
+          templates: normalizeReminderTemplates(rawSettings.templates).templates,
+        };
         settingsCache.set(userId, settings);
       }
 
@@ -414,7 +419,10 @@ export async function runReminderPass(): Promise<ReminderPassTotals> {
           lateFeeAmount,
           locale
         );
-        const subject = substituteVariables(template?.subject || buildFallbackReminderSubject(targetLevel, invoice.invoiceNumber), vars);
+        const subject = substituteVariables(
+          template?.subject || buildFallbackReminderSubject(targetLevel, invoice.invoiceNumber, locale),
+          vars
+        );
         const renderedBody = ensureReminderBodyHasPaymentLink({
           renderedBody: substituteVariables(template?.body || '', vars),
           paymentLink: vars.paymentLink,
@@ -435,7 +443,6 @@ export async function runReminderPass(): Promise<ReminderPassTotals> {
           const includeInterestClause = settings.legalNotice?.includeInterestClause !== false;
           const customFooter = settings.legalNotice?.customFooter ?? null;
           const legalNoticeDate = new Date();
-          const paymentUrl = vars.paymentLink || null;
 
           const formalVars = {
             ...vars,
@@ -447,7 +454,7 @@ export async function runReminderPass(): Promise<ReminderPassTotals> {
             locale,
           });
           const formalSubject = substituteVariables(
-            template?.subject || buildFallbackReminderSubject(targetLevel, invoice.invoiceNumber),
+            template?.subject || buildFallbackReminderSubject(targetLevel, invoice.invoiceNumber, locale),
             formalVars
           );
 

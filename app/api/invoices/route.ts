@@ -70,10 +70,10 @@ const standaloneInvoiceSchema = baseInvoiceSchema.extend({
 });
 
 async function getNextInvoiceNumberForYear(userId: string, year: number): Promise<string> {
-  const yearPrefix = `INV-${year}-`;
+  const yearPrefixPattern = `^(INV|FAC)-${year}-`;
   const lastInvoice = await Invoice.findOne({
     userId,
-    invoiceNumber: { $regex: `^${yearPrefix}` },
+    invoiceNumber: { $regex: yearPrefixPattern },
   })
     .sort({ invoiceNumber: -1 })
     .select('invoiceNumber')

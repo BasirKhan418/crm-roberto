@@ -1425,7 +1425,7 @@ function TimelineQuoteItem({ quote, locale, dateFormatter, onSend, quoteBadge }:
             <span className="text-sm font-semibold">{quote.quoteNumber}</span>
             {isConverted ? (
               <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold leading-none text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-300">
-                {locale === 'fr' ? 'Facture creee' : 'Invoiced'}
+                {locale === 'fr' ? 'Facture cr\u00e9\u00e9e' : 'Invoiced'}
               </span>
             ) : null}
             <QuoteStatusSummary status={quote.status} statusChangedAt={quote.statusChangedAt} locale={locale} />

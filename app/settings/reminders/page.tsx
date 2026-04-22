@@ -142,14 +142,14 @@ const DEFAULT_SETTINGS: ReminderSettingsData = {
 const TEMPLATE_SAMPLE_VARIABLES: Record<string, string> = {
   clientName: 'Jean Dupont',
   companyName: 'Atelier Roberto',
-  invoiceNumber: 'INV-2024-001',
+  invoiceNumber: 'FAC-2024-001',
   invoiceDate: '07/01/2025',
   dueDate: '15/01/2025',
   daysOverdue: '6',
   amountDue: '1 234,00 €',
   amountOriginal: '1 234,00 €',
   lateFees: '35,00 €',
-  paymentLink: 'https://pay.example.com/inv-2024-001',
+  paymentLink: 'https://pay.example.com/fac-2024-001',
   legalDeadline: '30/01/2025',
 };
 

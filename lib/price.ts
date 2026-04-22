@@ -57,9 +57,10 @@ export function nextQuoteNumber(lastNumber: string | null): string {
 
 export function nextInvoiceNumber(lastNumber: string | null, year?: number): string {
   const y = year ?? new Date().getFullYear();
-  const prefix = `INV-${y}-`;
+  const prefix = `FAC-${y}-`;
+  const legacyPrefixes = [`FAC-${y}-`, `INV-${y}-`];
 
-  if (!lastNumber || !lastNumber.startsWith(prefix)) {
+  if (!lastNumber || !legacyPrefixes.some((candidate) => lastNumber.startsWith(candidate))) {
     return `${prefix}001`;
   }
 

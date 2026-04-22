@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import ConnectDb from '@/db/connectDb';
 import ReminderSettings from '@/db/models/ReminderSettings';
+import { normalizeReminderTemplates } from '@/lib/reminders/templates';
 import { buildValidationError } from '@/utils/api/validation';
 import getMe from '@/utils/middlewares/useMe';
 import {
@@ -46,11 +47,22 @@ export const GET = async () => {
 
     await ConnectDb();
 
-    let settings = await ReminderSettings.findOne({ userId: me.user.id }).lean();
+    let settings = await ReminderSettings.findOne({ userId: me.user.id }).lean<Record<string, unknown> | null>();
 
     if (!settings) {
       const created = await ReminderSettings.create({ userId: me.user.id });
       settings = created.toObject();
+    }
+
+    const ensuredSettings = settings as Record<string, unknown>;
+
+    const { templates, changed } = normalizeReminderTemplates(
+      ensuredSettings.templates as Parameters<typeof normalizeReminderTemplates>[0]
+    );
+
+    if (changed) {
+      await ReminderSettings.updateOne({ userId: me.user.id }, { $set: { templates } });
+      settings = { ...ensuredSettings, templates };
     }
 
     return NextResponse.json({ success: true, data: settings });

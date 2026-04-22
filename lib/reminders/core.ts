@@ -1,5 +1,6 @@
 import dayjs from 'dayjs';
 
+import { formatInvoiceDisplayNumber } from '@/lib/i18n/messages';
 import type { ReminderVariables } from '@/lib/reminders/substitute-variables';
 
 export type ReminderLevel = 1 | 2 | 3 | 4;
@@ -216,9 +217,9 @@ function formatCurrencyText(amountCents: number, locale: 'en' | 'fr'): string {
   }).format(amountCents / 100);
 }
 
-export function buildFallbackReminderSubject(level: ReminderLevel, invoiceNumber: string): string {
+export function buildFallbackReminderSubject(level: ReminderLevel, invoiceNumber: string, locale: 'en' | 'fr'): string {
   const label = level === 1 ? 'Soft' : level === 2 ? 'Medium' : level === 3 ? 'Firm' : 'Formal notice';
-  return `${label} reminder - invoice ${invoiceNumber}`;
+  return `${label} reminder - invoice ${formatInvoiceDisplayNumber(locale, invoiceNumber)}`;
 }
 
 export function getTemplateForLevel(

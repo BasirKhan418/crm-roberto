@@ -1182,10 +1182,11 @@ export function getQuoteStatusLabel(locale: TranslationLocale, status: string): 
   return translate(locale, `statuses.quote.${status}`);
 }
 
-const INVOICE_DISPLAY_PREFIX: Record<TranslationLocale, string> = {
-  en: 'INV',
+const LOCALE_INVOICE_DISPLAY_PREFIX: Record<TranslationLocale, string> = {
   fr: 'FAC',
+  en: 'INV',
 };
+const INVOICE_REFERENCE_PREFIXES = new Set(['INV', 'FAC']);
 
 function splitInvoiceReference(invoiceNumber: string): { prefix: string; suffix: string } | null {
   const trimmed = invoiceNumber.trim();
@@ -1196,7 +1197,7 @@ function splitInvoiceReference(invoiceNumber: string): { prefix: string; suffix:
   }
 
   const prefix = trimmed.slice(0, separatorIndex).toUpperCase();
-  if (prefix !== INVOICE_DISPLAY_PREFIX.en && prefix !== INVOICE_DISPLAY_PREFIX.fr) {
+  if (!INVOICE_REFERENCE_PREFIXES.has(prefix)) {
     return null;
   }
 
@@ -1218,7 +1219,7 @@ export function formatInvoiceDisplayNumber(locale: TranslationLocale, invoiceNum
     return invoiceNumber;
   }
 
-  return `${INVOICE_DISPLAY_PREFIX[locale]}${parts.suffix}`;
+  return `${LOCALE_INVOICE_DISPLAY_PREFIX[locale] ?? 'FAC'}${parts.suffix}`;
 }
 
 export function normalizeInvoiceNumberSearchTerm(searchTerm: string): string {
@@ -1232,7 +1233,7 @@ export function normalizeInvoiceNumberSearchTerm(searchTerm: string): string {
     return trimmed;
   }
 
-  return `${INVOICE_DISPLAY_PREFIX.en}${parts.suffix}`;
+  return `${'FAC'}${parts.suffix}`;
 }
 
 export function getQuoteStatusDateLabel(
