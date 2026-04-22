@@ -8,7 +8,7 @@ import dayjs from 'dayjs';
 import { ChevronDownIcon, ChevronUpIcon, ExternalLinkIcon, InfoIcon, Loader2Icon, RotateCcwIcon, SendIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { resolveTranslatedError, translate } from '@/lib/i18n/messages';
+import { formatInvoiceDisplayNumber, resolveTranslatedError, translate } from '@/lib/i18n/messages';
 import {
   computeLateFeeAmountCents,
   getReminderLevelKey,
@@ -347,11 +347,16 @@ export default function SendReminderModal({
     return dayjs().add(delayDays, 'day').toDate();
   }, [level, settings?.data?.legalNotice?.delayDays]);
 
+  const displayInvoiceNumber = useMemo(
+    () => (invoiceNumber?.trim() ? formatInvoiceDisplayNumber(locale, invoiceNumber.trim()) : '-'),
+    [invoiceNumber, locale]
+  );
+
   const previewVariables = useMemo<Record<string, string>>(() => {
     const lateFeesText = lateFeeAmountCents > 0 ? formatAmount(lateFeeAmountCents, locale) : '';
     return {
       clientName: clientName?.trim() || (locale === 'fr' ? 'Client' : 'Client'),
-      invoiceNumber: invoiceNumber?.trim() || '-',
+      invoiceNumber: displayInvoiceNumber,
       amountDue: formatAmount(totalWithLateFeeCents, locale),
       amountOriginal: formatAmount(baseAmountDueCents, locale),
       dueDate: formatDate(dueDate, locale) || '-',
@@ -374,9 +379,9 @@ export default function SendReminderModal({
     clientName,
     companyName,
     daysOverdue,
+    displayInvoiceNumber,
     dueDate,
     invoiceDate,
-    invoiceNumber,
     lateFeeAmountCents,
     legalDeadlineDate,
     locale,

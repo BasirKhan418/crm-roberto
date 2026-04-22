@@ -69,6 +69,30 @@ const texts = {
   },
 } as const;
 
+function getRecurrenceGeneratedInvoiceId(item: ActivityItem): string | null {
+  if (item.action !== 'invoice_recurrence_generated') {
+    return null;
+  }
+
+  const newInvoiceId = item.metadata?.newInvoiceId;
+  return typeof newInvoiceId === 'string' && newInvoiceId.trim() ? newInvoiceId.trim() : null;
+}
+
+function getActivityInvoiceName(item: ActivityItem): string | null {
+  if (item.entityType !== 'invoice') {
+    return item.entityName || null;
+  }
+
+  if (item.action === 'invoice_recurrence_generated') {
+    const newInvoiceNumber = item.metadata?.newInvoiceNumber;
+    if (typeof newInvoiceNumber === 'string' && newInvoiceNumber.trim()) {
+      return newInvoiceNumber.trim();
+    }
+  }
+
+  return item.entityName || null;
+}
+
 function buildActivityPath(item: ActivityItem): string | null {
   if (item.action?.endsWith('_deleted')) {
     return null;
@@ -88,6 +112,11 @@ function buildActivityPath(item: ActivityItem): string | null {
   const basePath = basePathByEntity[item.entityType];
   if (!basePath) {
     return null;
+  }
+
+  const recurrenceGeneratedInvoiceId = getRecurrenceGeneratedInvoiceId(item);
+  if (basePath === 'invoices' && recurrenceGeneratedInvoiceId) {
+    return `/invoices/${recurrenceGeneratedInvoiceId}`;
   }
 
   return item.entityId ? `/${basePath}/${item.entityId}` : `/${basePath}`;
@@ -344,9 +373,9 @@ export function NotificationsBell() {
             ? items.map((item) => {
                 const headline = getActivityHeadline(locale, item.action, item.metadata);
                 const entityName =
-                  item.entityType === 'invoice' && item.entityName
-                    ? formatInvoiceDisplayNumber(locale, item.entityName)
-                    : item.entityName;
+                    item.entityType === 'invoice' && getActivityInvoiceName(item)
+                      ? formatInvoiceDisplayNumber(locale, getActivityInvoiceName(item) as string)
+                      : getActivityInvoiceName(item);
                 const itemPath = buildActivityPath(item);
 
                 return (

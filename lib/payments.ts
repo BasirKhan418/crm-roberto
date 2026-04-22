@@ -1,3 +1,5 @@
+import { formatInvoiceDisplayNumber, type TranslationLocale } from '@/lib/i18n/messages';
+
 export type PaymentLocale = 'en' | 'fr';
 export type StoredPaymentType = 'deposit' | 'full' | 'remaining_balance';
 
@@ -175,4 +177,34 @@ export function getPaymentTypeLabel(type: StoredPaymentType | null | undefined, 
   }
 
   return PAYMENT_TYPE_LABELS[locale][type] ?? titleCaseWords(type.replace(/[_-]+/g, ' '));
+}
+
+export function getCheckoutLineItemLabel(
+  locale: TranslationLocale,
+  type: StoredPaymentType,
+  invoiceNumber: string
+): string {
+  const displayInvoiceNumber = formatInvoiceDisplayNumber(locale, invoiceNumber);
+
+  if (locale === 'fr') {
+    if (type === 'deposit') {
+      return `Acompte pour la facture ${displayInvoiceNumber}`;
+    }
+
+    if (type === 'full') {
+      return `Facture ${displayInvoiceNumber}`;
+    }
+
+    return `Paiement partiel pour la facture ${displayInvoiceNumber}`;
+  }
+
+  if (type === 'deposit') {
+    return `Deposit for invoice ${displayInvoiceNumber}`;
+  }
+
+  if (type === 'full') {
+    return `Invoice ${displayInvoiceNumber}`;
+  }
+
+  return `Partial payment for invoice ${displayInvoiceNumber}`;
 }

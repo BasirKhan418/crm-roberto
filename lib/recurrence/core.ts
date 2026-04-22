@@ -8,13 +8,14 @@ import ConnectDb from '@/db/connectDb';
 import CompanyProfile from '@/db/models/CompanyProfile';
 import Invoice from '@/db/models/Invoice';
 import StripeConnect from '@/db/models/StripeConnect';
+import User from '@/db/models/User';
 import { ensureInvoiceIndexes } from '@/db/repository/ensureInvoiceIndexes';
 import ConnectEmailClient from '@/emails/connectEmailClient';
 import { sendInvoice } from '@/lib/email';
+import { getNextInvoiceNumberForYear, isInvoiceNumberDuplicateError } from '@/lib/invoice-number';
 import { InvoicePdfTemplate } from '@/lib/pdf/InvoicePdfTemplate';
-import { nextInvoiceNumber } from '@/lib/price';
 import { computeQuoteLine, computeQuoteTotalsFromComputedLines } from '@/lib/quote-calculations';
-import { normalizeReminderLocale } from '@/lib/reminders/formal-notice';
+import { resolveReminderLocalePreference } from '@/lib/reminders/formal-notice';
 import { buildInvoicePayUrl, generatePaymentToken, generateTokenExpiry, isTokenExpired } from '@/lib/tokens';
 
 export type RecurrenceFrequency = 'monthly' | 'quarterly' | 'yearly' | 'custom';
@@ -178,27 +179,6 @@ export function normalizeRecurrencePayload(input: RecurrenceInput, invoiceDueDat
     stoppedReason: null,
     template: input.template ?? null,
   };
-}
-
-async function getNextInvoiceNumberForYear(userId: string, year: number): Promise<string> {
-  const yearPrefixPattern = `^(INV|FAC)-${year}-`;
-  const lastInvoice = await Invoice.findOne({
-    userId,
-    invoiceNumber: { $regex: yearPrefixPattern },
-  })
-    .sort({ invoiceNumber: -1 })
-    .select('invoiceNumber')
-    .lean<{ invoiceNumber?: string } | null>();
-
-  return nextInvoiceNumber(lastInvoice?.invoiceNumber ?? null, year);
-}
-
-function isInvoiceNumberDuplicateError(error: unknown): boolean {
-  if (!(error instanceof Error)) {
-    return false;
-  }
-
-  return error.message.includes('E11000') && error.message.includes('invoiceNumber');
 }
 
 async function createInvoiceWithUniqueNumber(
@@ -423,8 +403,11 @@ export async function autoSendRecurringInvoiceToClient({
     throw new Error('Client email is required for auto-send');
   }
 
-  const companyProfile = await CompanyProfile.findOne({ user: userId }).lean<Record<string, unknown> | null>();
-  const locale = normalizeReminderLocale(companyProfile?.locale);
+  const [companyProfile, user] = await Promise.all([
+    CompanyProfile.findOne({ user: userId }).lean<Record<string, unknown> | null>(),
+    User.findById(userId).select('locale').lean<{ locale?: string | null } | null>(),
+  ]);
+  const locale = resolveReminderLocalePreference(user?.locale, companyProfile?.locale);
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || '';
   const stripeConnect = await StripeConnect.findOne({ userId })
     .select('onboardingComplete chargesEnabled')

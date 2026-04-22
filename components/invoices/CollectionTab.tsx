@@ -311,7 +311,7 @@ export default function CollectionTab({
 
   async function downloadLegalNotice() {
     try {
-      const response = await fetch(`/api/invoices/${invoiceId}/reminders/legal-notice/pdf`);
+      const response = await fetch(`/api/invoices/${invoiceId}/reminders/legal-notice/pdf?locale=${locale}`);
       if (!response.ok) {
         const payload = await response.json().catch(() => null);
         throw new Error((payload as { message?: string } | null)?.message || 'Failed to download legal notice');
@@ -320,8 +320,9 @@ export default function CollectionTab({
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
+      const legalNoticeFilenamePrefix = locale === 'fr' ? 'mise-en-demeure' : 'formal-notice';
       link.href = url;
-      link.download = `mise-en-demeure-${invoiceNumber ? formatInvoiceDisplayNumber(locale, invoiceNumber) : invoiceId}.pdf`;
+      link.download = `${legalNoticeFilenamePrefix}-${invoiceNumber ? formatInvoiceDisplayNumber(locale, invoiceNumber) : invoiceId}.pdf`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

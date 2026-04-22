@@ -5,6 +5,8 @@ import ConnectDb from '@/db/connectDb';
 import Invoice from '@/db/models/Invoice';
 import Payment from '@/db/models/Payment';
 import StripeConnect from '@/db/models/StripeConnect';
+import { resolveLocaleFromRequest } from '@/lib/i18n/locale';
+import { getCheckoutLineItemLabel } from '@/lib/payments';
 import { stripe } from '@/lib/stripe';
 import { isTokenExpired } from '@/lib/tokens';
 
@@ -20,6 +22,7 @@ interface TokenCheckoutBody {
   type?: CheckoutType;
   amount?: number;
   idempotencyKey?: string;
+  locale?: string;
 }
 
 async function findInvoiceByPaymentToken(token: string) {
@@ -105,6 +108,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       typeof body.idempotencyKey === 'string' && body.idempotencyKey.trim()
         ? body.idempotencyKey.trim().slice(0, 120)
         : null;
+    const locale = resolveLocaleFromRequest(request, { rawLocale: body.locale, fallback: 'fr' });
 
     if (paymentType !== 'full' && paymentType !== 'partial' && paymentType !== 'deposit') {
       return NextResponse.json({ message: 'Invalid payment type' }, { status: 400 });
@@ -162,12 +166,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         ? 'deposit'
         : 'remaining_balance';
 
-    const label =
-      recordedPaymentType === 'deposit'
-        ? `Deposit for invoice ${invoice.invoiceNumber}`
-        : recordedPaymentType === 'full'
-          ? `Invoice ${invoice.invoiceNumber}`
-          : `Partial payment for invoice ${invoice.invoiceNumber}`;
+    const label = getCheckoutLineItemLabel(locale, recordedPaymentType, invoice.invoiceNumber);
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
 

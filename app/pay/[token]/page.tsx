@@ -411,6 +411,7 @@ export default function PayByTokenPage() {
             label={t.payNow}
             loadingLabel={t.redirecting}
             errorMessage={t.createPaymentFailed}
+            locale={locale}
           />
         </div>
       ) : null}
@@ -468,6 +469,7 @@ function TokenPayButton({
   label,
   loadingLabel,
   errorMessage,
+  locale,
 }: {
   token: string;
   type: 'full' | 'partial';
@@ -476,6 +478,7 @@ function TokenPayButton({
   label: string;
   loadingLabel: string;
   errorMessage: string;
+  locale: 'en' | 'fr';
 }) {
   const [loading, setLoading] = useState(false);
 
@@ -488,6 +491,7 @@ function TokenPayButton({
         body: JSON.stringify({
           type,
           amount: amountCents,
+          locale,
           idempotencyKey: `token-${token}-${type}-${amountCents}-v2`,
         }),
       });

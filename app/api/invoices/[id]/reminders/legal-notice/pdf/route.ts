@@ -62,7 +62,7 @@ type InvoiceForLegalNotice = {
   } | null;
 };
 
-export async function GET(_request: NextRequest, { params }: RouteParams) {
+export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const me = await getMe(true);
     if (!me.success || !me.user) {
@@ -102,7 +102,8 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       ]),
     ]);
 
-    const locale = resolveReminderLocalePreference(me.user.locale, companyProfile?.locale);
+    const rawLocale = request.nextUrl.searchParams.get('locale');
+    const locale = resolveReminderLocalePreference(rawLocale, me.user.locale, companyProfile?.locale);
     const totalPaid = Math.max(0, Math.round(totals[0]?.totalPaid ?? 0));
     const remainingAmount = Math.max(0, Math.round(invoice.totalIncludingTax ?? 0) - totalPaid);
     const lateFeeAmount = Math.max(0, Math.round(invoice.reminderState?.lateFeeAmount ?? 0));

@@ -189,11 +189,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       .select('companyName ownerName locale address streetNumber streetName postalCode city country phone businessEmail vatNumber rcsNumber businessAuthorizationNumber matriculeNumber iban bankName legalIdentifier logoUrl')
       .lean<CompanyProfileForReminder | null>();
 
-    const messageLocale = (settings as { messageLocale?: 'auto' | 'en' | 'fr' }).messageLocale ?? 'auto';
-    const locale =
-      messageLocale === 'en' || messageLocale === 'fr'
-        ? messageLocale
-        : resolveReminderLocalePreference(me.user.locale, companyProfile?.locale);
+    const locale = parsed.data.locale ?? resolveReminderLocalePreference(me.user.locale, companyProfile?.locale);
     const offsets = normalizeOffsets((settings as { offsets?: { soft?: number; medium?: number; firm?: number; formalNotice?: number } }).offsets);
 
     const level = parsed.data.level as ReminderLevel;

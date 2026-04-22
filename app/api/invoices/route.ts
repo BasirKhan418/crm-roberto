@@ -9,9 +9,9 @@ import Payment from '@/db/models/Payment';
 import Quote from '@/db/models/Quote';
 import { createActivityLog } from '@/db/repository/activity';
 import { ensureInvoiceIndexes } from '@/db/repository/ensureInvoiceIndexes';
+import { getNextInvoiceNumberForYear, isInvoiceNumberDuplicateError } from '@/lib/invoice-number';
 import { normalizeInvoiceNumberSearchTerm } from '@/lib/i18n/messages';
 import { computeQuoteLine, computeQuoteTotalsFromComputedLines } from '@/lib/quote-calculations';
-import { nextInvoiceNumber } from '@/lib/price';
 import { buildValidationError } from '@/utils/api/validation';
 import getMe from '@/utils/middlewares/useMe';
 
@@ -68,27 +68,6 @@ const standaloneInvoiceSchema = baseInvoiceSchema.extend({
     )
     .min(1),
 });
-
-async function getNextInvoiceNumberForYear(userId: string, year: number): Promise<string> {
-  const yearPrefixPattern = `^(INV|FAC)-${year}-`;
-  const lastInvoice = await Invoice.findOne({
-    userId,
-    invoiceNumber: { $regex: yearPrefixPattern },
-  })
-    .sort({ invoiceNumber: -1 })
-    .select('invoiceNumber')
-    .lean<{ invoiceNumber?: string } | null>();
-
-  return nextInvoiceNumber(lastInvoice?.invoiceNumber ?? null, year);
-}
-
-function isInvoiceNumberDuplicateError(error: unknown): boolean {
-  if (!(error instanceof Error)) {
-    return false;
-  }
-
-  return error.message.includes('E11000') && error.message.includes('invoiceNumber');
-}
 
 type CreatedInvoiceLike = {
   _id: mongoose.Types.ObjectId;

@@ -17,6 +17,7 @@ import EmptyState from '@/components/ui/EmptyState';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { FollowUpItem } from '@/hooks/useDashboard';
+import { formatInvoiceDisplayNumber } from '@/lib/i18n/messages';
 
 const DAY_IN_MS = 86_400_000;
 
@@ -796,11 +797,12 @@ export default function PriorityActionsPanel({
                         <div className="space-y-2">
                           {overdueInvoiceItems.map((invoice) => {
                             const rowLoading = invoiceRowLoadingId === invoice._id;
+                            const displayInvoiceNumber = formatInvoiceDisplayNumber(locale, invoice.invoiceNumber);
 
                             return (
                               <div key={invoice._id} className="flex items-center justify-between gap-2 rounded-lg border border-border/60 bg-card px-2.5 py-2">
                                 <div className="min-w-0">
-                                  <p className="truncate text-sm font-medium text-foreground">{invoice.invoiceNumber}</p>
+                                  <p className="truncate text-sm font-medium text-foreground">{displayInvoiceNumber}</p>
                                   <p className="truncate text-xs text-muted-foreground">
                                     {invoice.clientSnapshot.fullName} · {getInvoiceStatusLabel(invoice.status)}
                                   </p>
@@ -878,7 +880,7 @@ export default function PriorityActionsPanel({
     {isReminderConfirmOpen ? (
       <BaseAddModal
         title={t.confirmReminderTitle}
-        description={overdueInvoiceTarget ? t.confirmReminderDescription(overdueInvoiceTarget.invoiceNumber) : t.overdueInvoicesDescription}
+        description={overdueInvoiceTarget ? t.confirmReminderDescription(formatInvoiceDisplayNumber(locale, overdueInvoiceTarget.invoiceNumber)) : t.overdueInvoicesDescription}
         onClose={() => setIsReminderConfirmOpen(false)}
       >
         <div className="flex gap-2 pt-1">

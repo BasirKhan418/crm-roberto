@@ -592,7 +592,7 @@ function QuotesPageContent() {
         onClick: () => setStatus('rejected'),
       },
     ];
-  }, [kpiData, status, t.kpiAccepted, t.kpiAll, t.kpiConversionRate, t.kpiPending, t.kpiRejected]);
+  }, [kpiData, status, t]);
 
   const quoteKpiTotalsCards = useMemo<KpiCard[]>(() => {
     if (!kpiData) return [];
@@ -601,7 +601,7 @@ function QuotesPageContent() {
       { key: 'kpi-ht', label: t.kpiTotalHT, amount: kpiData.totals.totalHT, variant: 'slate' as const, icon: 'bar-chart' as const },
       { key: 'kpi-vat', label: t.kpiTotalVAT, amount: kpiData.totals.totalVat, variant: 'slate' as const },
     ];
-  }, [kpiData, t.kpiTotalHT, t.kpiTotalTTC, t.kpiTotalVAT]);
+  }, [kpiData, t]);
 
   const pendingCount = draftCount + sentCount;
 

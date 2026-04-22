@@ -725,7 +725,7 @@ function InvoicesPageContent() {
       } catch (err) {
         failed += 1;
         const message = err instanceof Error ? err.message : String(err);
-        failureMessages.push(`${invoice.invoiceNumber}: ${message}`);
+        failureMessages.push(`${formatInvoiceDisplayNumber(locale as 'en' | 'fr', invoice.invoiceNumber)}: ${message}`);
       } finally {
         setBulkProgress({ done: index + 1, total: eligibleInvoices.length, success, failed });
       }

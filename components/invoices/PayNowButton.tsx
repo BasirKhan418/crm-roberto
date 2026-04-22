@@ -39,6 +39,7 @@ export function PayNowButton({
         body: JSON.stringify({
           invoiceId,
           type,
+          locale,
           ...(typeof amountCents === 'number' ? { amount: Math.max(0, Math.round(amountCents)) } : {}),
           idempotencyKey:
             typeof window !== 'undefined' && window.crypto?.randomUUID

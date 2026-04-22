@@ -9,7 +9,7 @@ import useSWR from 'swr';
 import { useLocale } from '@/components/providers/locale-provider';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { translate } from '@/lib/i18n/messages';
+import { formatInvoiceDisplayNumber, translate } from '@/lib/i18n/messages';
 
 interface RecurrenceRow {
   id: string;
@@ -121,7 +121,7 @@ export default function UpcomingRecurrencesWidget() {
         {rows.map((item) => (
           <div key={item.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3">
             <div className="min-w-0 space-y-1">
-              <p className="text-sm font-medium">{item.invoiceNumber}</p>
+              <p className="text-sm font-medium">{formatInvoiceDisplayNumber(locale, item.invoiceNumber)}</p>
               <p className="truncate text-xs text-muted-foreground">{item.clientName}</p>
             </div>
 

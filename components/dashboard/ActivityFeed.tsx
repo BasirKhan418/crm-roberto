@@ -27,6 +27,30 @@ const ENTITY_TO_PATH: Record<string, string> = {
   invoice: 'invoices',
 };
 
+function getRecurrenceGeneratedInvoiceId(item: ActivityItem): string | null {
+  if (item.action !== 'invoice_recurrence_generated') {
+    return null;
+  }
+
+  const newInvoiceId = item.metadata?.newInvoiceId;
+  return typeof newInvoiceId === 'string' && newInvoiceId.trim() ? newInvoiceId.trim() : null;
+}
+
+function getActivityInvoiceName(item: ActivityItem): string | null {
+  if (item.entityType !== 'invoice') {
+    return item.entityName || null;
+  }
+
+  if (item.action === 'invoice_recurrence_generated') {
+    const newInvoiceNumber = item.metadata?.newInvoiceNumber;
+    if (typeof newInvoiceNumber === 'string' && newInvoiceNumber.trim()) {
+      return newInvoiceNumber.trim();
+    }
+  }
+
+  return item.entityName || null;
+}
+
 function buildActivityPath(item: ActivityItem): string | null {
   const isDeleted = item.action?.endsWith('_deleted');
   if (isDeleted) return null;
@@ -35,6 +59,10 @@ function buildActivityPath(item: ActivityItem): string | null {
   if (entityType === 'note') return '/notes';
   const basePath = ENTITY_TO_PATH[entityType];
   if (!basePath) return null;
+  const recurrenceGeneratedInvoiceId = getRecurrenceGeneratedInvoiceId(item);
+  if (basePath === 'invoices' && recurrenceGeneratedInvoiceId) {
+    return `/invoices/${recurrenceGeneratedInvoiceId}`;
+  }
   return item.entityId ? `/${basePath}/${item.entityId}` : `/${basePath}`;
 }
 
@@ -138,9 +166,10 @@ export default function ActivityFeed({ activity = [], loading = false, error = n
               const headline = item.action
                 ? getActivityHeadline(locale, item.action, item.metadata)
                 : translate(locale, 'activity.fallbackHeadline');
-              const entityName = item.entityType === 'invoice' && item.entityName
-                ? formatInvoiceDisplayNumber(locale, item.entityName)
-                : item.entityName;
+              const activityEntityName = getActivityInvoiceName(item);
+              const entityName = item.entityType === 'invoice' && activityEntityName
+                ? formatInvoiceDisplayNumber(locale, activityEntityName)
+                : activityEntityName;
               const isDeleted = item.action?.endsWith('_deleted');
               const path = buildActivityPath(item);
               const key = item._id ?? `${item.createdAt ?? 'activity'}-${index}`;

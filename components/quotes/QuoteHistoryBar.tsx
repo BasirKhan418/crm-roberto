@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { CheckIcon, XIcon } from 'lucide-react';
 
 import type { QuoteStatus } from '@/components/ui/StatusBadge';
-import { getQuoteStatusLabel } from '@/lib/i18n/messages';
+import { formatInvoiceDisplayNumber, getQuoteStatusLabel } from '@/lib/i18n/messages';
 
 interface HistoryEntry {
   from?: QuoteStatus;
@@ -62,6 +62,7 @@ export default function QuoteHistoryBar({ history, currentStatus, locale, conver
   const isRefused = currentStatus === 'refused';
   const isRejected = currentStatus === 'rejected';
   const c = CONVERSION_LABELS[locale];
+  const displayConvertedInvoiceNumber = convertedInvoiceNumber ? formatInvoiceDisplayNumber(locale, convertedInvoiceNumber) : null;
 
   const steps: QuoteStatus[] = isRefused
     ? ['draft', 'sent', 'refused']
@@ -152,7 +153,7 @@ export default function QuoteHistoryBar({ history, currentStatus, locale, conver
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
               {c.converted}
-              {convertedInvoiceNumber ? `: ${convertedInvoiceNumber}` : ''}
+              {displayConvertedInvoiceNumber ? `: ${displayConvertedInvoiceNumber}` : ''}
               {convertedAt ? ` ${c.on} ${formatDate(convertedAt, locale)}` : ''}
             </p>
             {invoiceId ? (
