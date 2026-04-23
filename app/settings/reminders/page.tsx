@@ -28,7 +28,7 @@ type ReminderLevel = 'soft' | 'medium' | 'firm' | 'formalNotice';
 type ReminderLocale = 'en' | 'fr';
 type LateFeeType = 'fixed' | 'percentage';
 type LateFeeApplyFrom = 'medium' | 'firm' | 'formalNotice';
-type SectionKey = 'timing' | 'templates' | 'lateFees' | 'legalNotice';
+type SectionKey = 'timing' | 'templates' | 'lateFees' | 'legalNotice' | 'legalRecovery';
 
 interface ReminderLateFeeStageSettings {
   enabled: boolean;
@@ -70,6 +70,19 @@ interface ReminderSettingsData {
     delayDays: 8 | 15;
     includeInterestClause: boolean;
     customFooter: string | null;
+  };
+  legalRecovery: {
+    claimThresholdCents: number;
+    jurisdiction: 'justice_of_peace';
+    courtLocation: 'luxembourg' | 'esch_sur_alzette' | 'diekirch' | null;
+    courtName: string | null;
+    courtAddress: string | null;
+    courtCity: string | null;
+    creditorProfession: string | null;
+    elisantDomicile: string | null;
+    representativeName: string | null;
+    representativeTitle: string | null;
+    additionalNotes: string | null;
   };
 }
 
@@ -137,6 +150,19 @@ const DEFAULT_SETTINGS: ReminderSettingsData = {
     includeInterestClause: true,
     customFooter: null,
   },
+  legalRecovery: {
+    claimThresholdCents: 1500000,
+    jurisdiction: 'justice_of_peace',
+    courtLocation: null,
+    courtName: null,
+    courtAddress: null,
+    courtCity: null,
+    creditorProfession: null,
+    elisantDomicile: null,
+    representativeName: null,
+    representativeTitle: null,
+    additionalNotes: null,
+  },
 };
 
 const TEMPLATE_SAMPLE_VARIABLES: Record<string, string> = {
@@ -179,6 +205,7 @@ const reminderSettingsPageChrome = {
       templates: 'Email templates',
       lateFees: 'Late fees',
       legalNotice: 'Legal notice',
+      legalRecovery: 'Legal recovery',
     },
     timingEyebrow: 'Reminder flow',
     timingSummary: 'Set when each reminder is sent and which language should be used by default.',
@@ -188,6 +215,8 @@ const reminderSettingsPageChrome = {
     lateFeesSummary: 'Configure overdue charges independently for each reminder step.',
     legalNoticeEyebrow: 'Legal notice',
     legalNoticeSummary: 'Set the formal notice delay and any legal footer text.',
+    legalRecoveryEyebrow: 'Legal recovery',
+    legalRecoverySummary: 'Configure the court details used to generate the payment-order request.',
     templateLevelLabel: 'Which reminder email do you want to edit?',
     templateLevelHelp: 'Choose the reminder step and the language your customer will receive.',
     templateLocaleLabel: 'Email language',
@@ -234,6 +263,7 @@ const reminderSettingsPageChrome = {
       templates: 'Modèles d\'e-mail',
       lateFees: 'Pénalités',
       legalNotice: 'Mise en demeure',
+      legalRecovery: 'Recouvrement judiciaire',
     },
     timingEyebrow: 'Flux de relance',
     timingSummary: 'Définissez quand chaque relance est envoyée et la langue utilisée par défaut.',
@@ -243,6 +273,8 @@ const reminderSettingsPageChrome = {
     lateFeesSummary: 'Configurez les pénalités de retard indépendamment pour chaque étape de relance.',
     legalNoticeEyebrow: 'Mise en demeure',
     legalNoticeSummary: 'Réglez le délai de mise en demeure et le texte juridique complémentaire.',
+    legalRecoveryEyebrow: 'Recouvrement judiciaire',
+    legalRecoverySummary: 'Configurez les coordonnées de la juridiction utilisées pour générer la requête en paiement.',
     templateLevelLabel: 'Quel e-mail de relance souhaitez-vous modifier ?',
     templateLevelHelp: 'Choisissez l\'étape de relance et la langue que votre client recevra.',
     templateLocaleLabel: 'Langue de l\'e-mail',
@@ -285,7 +317,7 @@ const reminderSettingsPageChrome = {
 } as const;
 
 function isSectionKey(value: string | null): value is SectionKey {
-  return value === 'timing' || value === 'templates' || value === 'lateFees' || value === 'legalNotice';
+  return value === 'timing' || value === 'templates' || value === 'lateFees' || value === 'legalNotice' || value === 'legalRecovery';
 }
 
 function replaceTemplateVariables(template: string): string {
@@ -478,6 +510,21 @@ function normalizeSettings(input?: ReminderSettingsInput): ReminderSettingsData 
       includeInterestClause: input?.legalNotice?.includeInterestClause ?? DEFAULT_SETTINGS.legalNotice.includeInterestClause,
       customFooter: input?.legalNotice?.customFooter ?? DEFAULT_SETTINGS.legalNotice.customFooter,
     },
+    legalRecovery: {
+      claimThresholdCents: typeof input?.legalRecovery?.claimThresholdCents === 'number'
+        ? input.legalRecovery.claimThresholdCents
+        : DEFAULT_SETTINGS.legalRecovery.claimThresholdCents,
+      jurisdiction: 'justice_of_peace',
+      courtLocation: (input?.legalRecovery?.courtLocation ?? null) as ReminderSettingsData['legalRecovery']['courtLocation'],
+      courtName: input?.legalRecovery?.courtName ?? null,
+      courtAddress: input?.legalRecovery?.courtAddress ?? null,
+      courtCity: input?.legalRecovery?.courtCity ?? null,
+      creditorProfession: input?.legalRecovery?.creditorProfession ?? null,
+      elisantDomicile: input?.legalRecovery?.elisantDomicile ?? null,
+      representativeName: input?.legalRecovery?.representativeName ?? null,
+      representativeTitle: input?.legalRecovery?.representativeTitle ?? null,
+      additionalNotes: input?.legalRecovery?.additionalNotes ?? null,
+    },
   };
 }
 
@@ -590,6 +637,7 @@ export default function ReminderSettingsPage({ embedded = false, lockedSection }
   const [activeTemplateLevel, setActiveTemplateLevel] = useState<ReminderLevel>('soft');
   const [lateFeeSaving, setLateFeeSaving] = useState(false);
   const [legalNoticeSaving, setLegalNoticeSaving] = useState(false);
+  const [legalRecoverySaving, setLegalRecoverySaving] = useState(false);
 
   const t = (key: string, replacements?: Record<string, string | number | null | undefined>) =>
     translate(locale, key, replacements);
@@ -751,6 +799,18 @@ export default function ReminderSettingsPage({ embedded = false, lockedSection }
     }
   }
 
+  async function handleSaveLegalRecovery() {
+    setLegalRecoverySaving(true);
+    try {
+      await patchSettings({ legalRecovery: draft.legalRecovery });
+      toast.success(t('reminders.settings.legalRecoverySection.savedToast'));
+    } catch (error) {
+      toast.error(resolveTranslatedError(locale, error, t('reminders.settings.saveFailedGeneric')));
+    } finally {
+      setLegalRecoverySaving(false);
+    }
+  }
+
   if (authLoading || isLoading) {
     return (
       <Card>
@@ -888,6 +948,13 @@ export default function ReminderSettingsPage({ embedded = false, lockedSection }
               description={pageChrome.legalNoticeSummary}
               icon={<FileTextIcon className="size-4" />}
               onClick={() => setActiveSection('legalNotice')}
+            />
+            <SectionPickerButton
+              active={activeSection === 'legalRecovery'}
+              title={pageChrome.sections.legalRecovery}
+              description={pageChrome.legalRecoverySummary}
+              icon={<FileTextIcon className="size-4" />}
+              onClick={() => setActiveSection('legalRecovery')}
             />
           </div>
         </div>
@@ -1386,6 +1453,280 @@ export default function ReminderSettingsPage({ embedded = false, lockedSection }
             <Button type="button" className="w-full sm:w-auto" disabled={legalNoticeSaving} onClick={() => void handleSaveLegalNotice()}>
               {legalNoticeSaving ? <Loader2Icon className="size-4 animate-spin" /> : null}
               {legalNoticeSaving ? t('reminders.settings.common.saving') : t('reminders.settings.legalNoticeSection.saveButton')}
+            </Button>
+          </div>
+        </SettingsSectionCard>
+      ) : null}
+
+      {activeSection === 'legalRecovery' ? (
+        <SettingsSectionCard
+          eyebrow={pageChrome.legalRecoveryEyebrow}
+          title={t('reminders.settings.legalRecoverySection.title')}
+          description={t('reminders.settings.legalRecoverySection.description')}
+          icon={<FileTextIcon className="size-5" />}
+        >
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="legal-recovery-jurisdiction">
+                  {t('reminders.settings.legalRecoverySection.jurisdictionLabel')}
+                </Label>
+                <Input
+                  id="legal-recovery-jurisdiction"
+                  value={t('reminders.settings.legalRecoverySection.jurisdictionJusticeOfPeace')}
+                  readOnly
+                  disabled
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="legal-recovery-threshold">
+                  {t('reminders.settings.legalRecoverySection.claimThresholdLabel')}
+                </Label>
+                <Input
+                  id="legal-recovery-threshold"
+                  type="number"
+                  min={0}
+                  step={100}
+                  value={Math.round(draft.legalRecovery.claimThresholdCents / 100)}
+                  onChange={(event) => {
+                    const raw = Number(event.target.value);
+                    const euros = Number.isFinite(raw) && raw >= 0 ? Math.floor(raw) : 0;
+                    setDraft((prev) => ({
+                      ...prev,
+                      legalRecovery: {
+                        ...prev.legalRecovery,
+                        claimThresholdCents: euros * 100,
+                      },
+                    }));
+                  }}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {t('reminders.settings.legalRecoverySection.claimThresholdHelp')}
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="legal-recovery-court-location">
+                {t('reminders.settings.legalRecoverySection.courtLocationLabel')}
+              </Label>
+              <Select
+                value={draft.legalRecovery.courtLocation ?? '__none__'}
+                onValueChange={(value) => {
+                  const next = value === '__none__'
+                    ? null
+                    : (value as NonNullable<ReminderSettingsData['legalRecovery']['courtLocation']>);
+                  setDraft((prev) => ({
+                    ...prev,
+                    legalRecovery: {
+                      ...prev.legalRecovery,
+                      courtLocation: next,
+                    },
+                  }));
+                }}
+              >
+                <SelectTrigger id="legal-recovery-court-location" className="h-11 w-full sm:max-w-sm">
+                  <SelectValue placeholder={t('reminders.settings.legalRecoverySection.courtLocationNone')} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">
+                    {t('reminders.settings.legalRecoverySection.courtLocationNone')}
+                  </SelectItem>
+                  <SelectItem value="luxembourg">
+                    {t('reminders.settings.legalRecoverySection.courtLocationLuxembourg')}
+                  </SelectItem>
+                  <SelectItem value="esch_sur_alzette">
+                    {t('reminders.settings.legalRecoverySection.courtLocationEschSurAlzette')}
+                  </SelectItem>
+                  <SelectItem value="diekirch">
+                    {t('reminders.settings.legalRecoverySection.courtLocationDiekirch')}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {t('reminders.settings.legalRecoverySection.courtLocationHelp')}
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="legal-recovery-court-name">
+                {t('reminders.settings.legalRecoverySection.courtNameLabel')}
+              </Label>
+              <Input
+                id="legal-recovery-court-name"
+                value={draft.legalRecovery.courtName ?? ''}
+                placeholder={t('reminders.settings.legalRecoverySection.courtNamePlaceholder')}
+                onChange={(event) => {
+                  const next = event.target.value;
+                  setDraft((prev) => ({
+                    ...prev,
+                    legalRecovery: {
+                      ...prev.legalRecovery,
+                      courtName: next.trim() ? next : null,
+                    },
+                  }));
+                }}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="legal-recovery-court-address">
+                  {t('reminders.settings.legalRecoverySection.courtAddressLabel')}
+                </Label>
+                <Input
+                  id="legal-recovery-court-address"
+                  value={draft.legalRecovery.courtAddress ?? ''}
+                  onChange={(event) => {
+                    const next = event.target.value;
+                    setDraft((prev) => ({
+                      ...prev,
+                      legalRecovery: {
+                        ...prev.legalRecovery,
+                        courtAddress: next.trim() ? next : null,
+                      },
+                    }));
+                  }}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="legal-recovery-court-city">
+                  {t('reminders.settings.legalRecoverySection.courtCityLabel')}
+                </Label>
+                <Input
+                  id="legal-recovery-court-city"
+                  value={draft.legalRecovery.courtCity ?? ''}
+                  onChange={(event) => {
+                    const next = event.target.value;
+                    setDraft((prev) => ({
+                      ...prev,
+                      legalRecovery: {
+                        ...prev.legalRecovery,
+                        courtCity: next.trim() ? next : null,
+                      },
+                    }));
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="legal-recovery-rep-name">
+                  {t('reminders.settings.legalRecoverySection.representativeNameLabel')}
+                </Label>
+                <Input
+                  id="legal-recovery-rep-name"
+                  value={draft.legalRecovery.representativeName ?? ''}
+                  placeholder={t('reminders.settings.legalRecoverySection.representativeNamePlaceholder')}
+                  onChange={(event) => {
+                    const next = event.target.value;
+                    setDraft((prev) => ({
+                      ...prev,
+                      legalRecovery: {
+                        ...prev.legalRecovery,
+                        representativeName: next.trim() ? next : null,
+                      },
+                    }));
+                  }}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="legal-recovery-rep-title">
+                  {t('reminders.settings.legalRecoverySection.representativeTitleLabel')}
+                </Label>
+                <Input
+                  id="legal-recovery-rep-title"
+                  value={draft.legalRecovery.representativeTitle ?? ''}
+                  onChange={(event) => {
+                    const next = event.target.value;
+                    setDraft((prev) => ({
+                      ...prev,
+                      legalRecovery: {
+                        ...prev.legalRecovery,
+                        representativeTitle: next.trim() ? next : null,
+                      },
+                    }));
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="legal-recovery-creditor-profession">
+                  {t('reminders.settings.legalRecoverySection.creditorProfessionLabel')}
+                </Label>
+                <Input
+                  id="legal-recovery-creditor-profession"
+                  value={draft.legalRecovery.creditorProfession ?? ''}
+                  placeholder={t('reminders.settings.legalRecoverySection.creditorProfessionPlaceholder')}
+                  onChange={(event) => {
+                    const next = event.target.value;
+                    setDraft((prev) => ({
+                      ...prev,
+                      legalRecovery: {
+                        ...prev.legalRecovery,
+                        creditorProfession: next.trim() ? next : null,
+                      },
+                    }));
+                  }}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="legal-recovery-elisant">
+                  {t('reminders.settings.legalRecoverySection.elisantDomicileLabel')}
+                </Label>
+                <Input
+                  id="legal-recovery-elisant"
+                  value={draft.legalRecovery.elisantDomicile ?? ''}
+                  placeholder={t('reminders.settings.legalRecoverySection.elisantDomicilePlaceholder')}
+                  onChange={(event) => {
+                    const next = event.target.value;
+                    setDraft((prev) => ({
+                      ...prev,
+                      legalRecovery: {
+                        ...prev.legalRecovery,
+                        elisantDomicile: next.trim() ? next : null,
+                      },
+                    }));
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="legal-recovery-notes">
+                {t('reminders.settings.legalRecoverySection.additionalNotesLabel')}
+              </Label>
+              <Textarea
+                id="legal-recovery-notes"
+                rows={4}
+                value={draft.legalRecovery.additionalNotes ?? ''}
+                placeholder={t('reminders.settings.legalRecoverySection.additionalNotesPlaceholder')}
+                onChange={(event) => {
+                  const next = event.target.value;
+                  setDraft((prev) => ({
+                    ...prev,
+                    legalRecovery: {
+                      ...prev.legalRecovery,
+                      additionalNotes: next.trim() ? next : null,
+                    },
+                  }));
+                }}
+              />
+            </div>
+
+            <Button
+              type="button"
+              className="w-full sm:w-auto"
+              disabled={legalRecoverySaving}
+              onClick={() => void handleSaveLegalRecovery()}
+            >
+              {legalRecoverySaving ? <Loader2Icon className="size-4 animate-spin" /> : null}
+              {legalRecoverySaving
+                ? t('reminders.settings.common.saving')
+                : t('reminders.settings.legalRecoverySection.saveButton')}
             </Button>
           </div>
         </SettingsSectionCard>

@@ -99,6 +99,23 @@ export const reminderLegalNoticeSchema = z.object({
   customFooter: z.preprocess(emptyStringToNull, z.string().max(4000).nullable().optional()),
 });
 
+export const reminderLegalRecoverySchema = z.object({
+  claimThresholdCents: z.number().int().min(0).max(100_000_000).optional(),
+  jurisdiction: z.enum(['justice_of_peace']).optional(),
+  courtLocation: z.preprocess(
+    emptyStringToNull,
+    z.enum(['luxembourg', 'esch_sur_alzette', 'diekirch']).nullable().optional()
+  ),
+  courtName: z.preprocess(emptyStringToNull, z.string().max(200).nullable().optional()),
+  courtAddress: z.preprocess(emptyStringToNull, z.string().max(500).nullable().optional()),
+  courtCity: z.preprocess(emptyStringToNull, z.string().max(200).nullable().optional()),
+  creditorProfession: z.preprocess(emptyStringToNull, z.string().max(200).nullable().optional()),
+  elisantDomicile: z.preprocess(emptyStringToNull, z.string().max(500).nullable().optional()),
+  representativeName: z.preprocess(emptyStringToNull, z.string().max(200).nullable().optional()),
+  representativeTitle: z.preprocess(emptyStringToNull, z.string().max(200).nullable().optional()),
+  additionalNotes: z.preprocess(emptyStringToNull, z.string().max(2000).nullable().optional()),
+});
+
 export const reminderChannelsSchema = z.object({
   email: z
     .object({
@@ -120,6 +137,7 @@ export const updateReminderSettingsSchema = z
     messageLocale: z.enum(['auto', 'en', 'fr']).optional(),
     lateFee: reminderLateFeeSchema.optional(),
     legalNotice: reminderLegalNoticeSchema.optional(),
+    legalRecovery: reminderLegalRecoverySchema.optional(),
     channels: reminderChannelsSchema.optional(),
   })
   .refine(
@@ -129,6 +147,7 @@ export const updateReminderSettingsSchema = z
       data.messageLocale !== undefined ||
       data.lateFee !== undefined ||
       data.legalNotice !== undefined ||
+      data.legalRecovery !== undefined ||
       data.channels !== undefined,
     {
       message: 'At least one settings section must be provided',
@@ -137,7 +156,7 @@ export const updateReminderSettingsSchema = z
   );
 
 export const resetReminderSettingsSchema = z.object({
-  section: z.enum(['offsets', 'templates', 'lateFee', 'legalNotice']),
+  section: z.enum(['offsets', 'templates', 'lateFee', 'legalNotice', 'legalRecovery']),
 });
 
 export type UpdateReminderSettingsDTO = z.infer<typeof updateReminderSettingsSchema>;

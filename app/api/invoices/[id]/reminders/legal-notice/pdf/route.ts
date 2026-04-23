@@ -5,7 +5,6 @@ import ConnectDb from '@/db/connectDb';
 import CompanyProfile from '@/db/models/CompanyProfile';
 import Invoice from '@/db/models/Invoice';
 import Payment from '@/db/models/Payment';
-import { isInvoiceDueOnOrBeforeToday } from '@/lib/invoices/overdue';
 import ReminderSettings from '@/db/models/ReminderSettings';
 import { formatInvoiceDisplayNumber } from '@/lib/i18n/messages';
 import {
@@ -83,11 +82,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     if (!invoice) {
       return NextResponse.json({ success: false, message: 'Invoice not found' }, { status: 404 });
-    }
-
-    const reminderLevel = Math.max(0, Math.round(invoice.reminderState?.level ?? 0));
-    if (reminderLevel < 4) {
-      return NextResponse.json({ success: false, message: 'Formal notice is not available for this invoice yet' }, { status: 403 });
     }
 
     const [settingsDoc, companyProfile, totals] = await Promise.all([

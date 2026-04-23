@@ -35,6 +35,7 @@ export const createActivitySchema = z.object({
     'invoice_reminder_paused',
     'invoice_reminder_resumed',
     'invoice_formal_notice_sent',
+    'invoice_legal_recovery_initiated',
     'invoice_recurrence_created',
     'invoice_recurrence_stopped',
     'invoice_recurrence_generated',

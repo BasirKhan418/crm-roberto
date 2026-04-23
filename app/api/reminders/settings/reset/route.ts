@@ -6,7 +6,7 @@ import { buildValidationError } from '@/utils/api/validation';
 import getMe from '@/utils/middlewares/useMe';
 import { resetReminderSettingsSchema } from '@/validators/reminder-settings.schema';
 
-type ResetSection = 'offsets' | 'templates' | 'lateFee' | 'legalNotice';
+type ResetSection = 'offsets' | 'templates' | 'lateFee' | 'legalNotice' | 'legalRecovery';
 
 export const POST = async (request: NextRequest) => {
   try {

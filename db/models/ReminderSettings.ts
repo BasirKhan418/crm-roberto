@@ -148,6 +148,45 @@ const ReminderSettingsSchema = new mongoose.Schema(
         customFooter: null,
       }),
     },
+    legalRecovery: {
+      type: new mongoose.Schema(
+        {
+          claimThresholdCents: { type: Number, default: 1500000, min: 0 },
+          jurisdiction: {
+            type: String,
+            enum: ["justice_of_peace"],
+            default: "justice_of_peace",
+          },
+          courtLocation: {
+            type: String,
+            enum: ["luxembourg", "esch_sur_alzette", "diekirch", null],
+            default: null,
+          },
+          courtName: { type: String, default: null, trim: true },
+          courtAddress: { type: String, default: null, trim: true },
+          courtCity: { type: String, default: null, trim: true },
+          creditorProfession: { type: String, default: null, trim: true },
+          elisantDomicile: { type: String, default: null, trim: true },
+          representativeName: { type: String, default: null, trim: true },
+          representativeTitle: { type: String, default: null, trim: true },
+          additionalNotes: { type: String, default: null, trim: true },
+        },
+        { _id: false }
+      ),
+      default: () => ({
+        claimThresholdCents: 1500000,
+        jurisdiction: "justice_of_peace",
+        courtLocation: null,
+        courtName: null,
+        courtAddress: null,
+        courtCity: null,
+        creditorProfession: null,
+        elisantDomicile: null,
+        representativeName: null,
+        representativeTitle: null,
+        additionalNotes: null,
+      }),
+    },
     channels: {
       type: new mongoose.Schema(
         {
