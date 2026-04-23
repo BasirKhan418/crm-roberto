@@ -1,4 +1,4 @@
-import { Document, Image, Page, StyleSheet, Text, View, renderToBuffer } from '@react-pdf/renderer';
+import { Document, Page, StyleSheet, Text, View, renderToBuffer } from '@react-pdf/renderer';
 import type { DocumentProps } from '@react-pdf/renderer';
 import React from 'react';
 
@@ -95,7 +95,6 @@ export interface PaymentOrderPdfProps {
 
 const ROW_NUMBER_WIDTH = 20;
 const SIDE_COLUMN_WIDTH = 132;
-const TITLE_LEFT_WIDTH = ROW_NUMBER_WIDTH + SIDE_COLUMN_WIDTH;
 
 const BORDER = '#94a3b8';
 const BORDER_SOFT = '#cbd5e1';
@@ -113,47 +112,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
   },
 
-  topHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    borderWidth: 1,
-    borderColor: BORDER,
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-    marginBottom: 8,
-  },
-  logo: {
-    width: 42,
-    height: 42,
-    objectFit: 'cover',
-    borderRadius: 2,
-  },
-  identityCard: {
-    flex: 1,
-    marginLeft: 8,
-  },
-  companyName: {
-    fontSize: 10.5,
-    fontWeight: 700,
-    color: TEXT_MAIN,
-  },
-  infoLine: {
-    fontSize: 8,
-    color: TEXT_MUTED,
-    marginTop: 1,
-  },
-
   titleHeader: {
     flexDirection: 'row',
     borderTopWidth: 1,
     borderLeftWidth: 1,
     borderRightWidth: 1,
     borderBottomWidth: 1,
-    borderColor: BORDER,
-  },
-  titleLeftCell: {
-    width: TITLE_LEFT_WIDTH,
-    borderRightWidth: 1,
     borderColor: BORDER,
   },
   titleCell: {
@@ -362,8 +326,11 @@ function isLuxembourgCountry(value?: string | null): boolean {
 }
 
 function formatDomicile(postalCode?: string | null, city?: string | null, country?: string | null): string {
-  const pc = trimOrNull(postalCode)?.replace(/^L-\s*/i, '');
-  const locality = trimOrNull(city);
+  // Strip any leading "L-", "L", or repeated combinations (e.g. "L-L-7633" → "7633").
+  const pc = trimOrNull(postalCode)?.replace(/^(?:L\s*-?\s*)+/i, '');
+  const rawCity = trimOrNull(city);
+  // Also strip an "L-XXXX" prefix accidentally stored in the city field.
+  const locality = rawCity?.replace(/^L\s*-?\s*\d{3,5}\s*/i, '').trim() || rawCity;
   const c = trimOrNull(country);
 
   if (!pc && !locality && !c) {
@@ -381,18 +348,26 @@ function formatDomicile(postalCode?: string | null, city?: string | null, countr
   return joinParts([localityLine, c], ', ');
 }
 
-function formatHeaderAddress(creditor: PaymentOrderCompanyProfile): string {
-  return (
-    trimOrNull(creditor.address) ||
-    joinParts(
-      [
-        joinParts([creditor.streetNumber, creditor.streetName], ' '),
-        joinParts([creditor.postalCode, creditor.city], ' '),
-        creditor.country,
-      ],
-      ', '
-    )
-  );
+/**
+ * Best-effort split of a free-form address string into a street part and a
+ * domicile (postal code + city + country) part. Used as a fallback when the
+ * structured address fields are missing but the legacy single-line address
+ * still contains everything.
+ */
+function splitAddressLine(address: string | null | undefined): { street: string; domicile: string } {
+  const raw = trimOrNull(address);
+  if (!raw) return { street: '', domicile: '' };
+
+  const match = raw.match(/^(.*?)[,\s]+(L\s*-?\s*\d{3,5}[\s\S]*)$/i);
+  if (match) {
+    const street = match[1].replace(/[,\s]+$/, '').trim();
+    const domicileRest = match[2].trim();
+    // Normalize the leading "L" / "L " / "L-" into a single "L-".
+    const domicile = domicileRest.replace(/^L\s*-?\s*/i, 'L-');
+    return { street, domicile };
+  }
+
+  return { street: raw, domicile: '' };
 }
 
 function normalizeLabel(label: string): string {
@@ -642,12 +617,6 @@ export function PaymentOrderPdfTemplate(props: PaymentOrderPdfProps) {
   const creditorFirstName = props.creditorIsLegalEntity ? '' : creditorDerivedFirst;
   const creditorStreet = joinParts([creditor.streetNumber, creditor.streetName], ' ');
   const creditorDomicile = formatDomicile(creditor.postalCode, creditor.city, creditor.country);
-  const creditorAddressLine = formatHeaderAddress(creditor);
-  const creditorMetaLine = [
-    creditor.vatNumber ? `${labels.vatShort}: ${creditor.vatNumber}` : null,
-    creditor.rcsNumber ? `${labels.rcsShort}: ${creditor.rcsNumber}` : null,
-    creditor.legalIdentifier ? `${labels.idShort}: ${creditor.legalIdentifier}` : null,
-  ].filter(Boolean).join('    ');
 
   const { firstName: debtorDerivedFirst, lastName: debtorDerivedLast } =
     splitFullName(props.debtor.name);
@@ -655,9 +624,13 @@ export function PaymentOrderPdfTemplate(props: PaymentOrderPdfProps) {
     ? (props.debtor.companyName || props.debtor.name)
     : (props.debtor.lastName || debtorDerivedLast || props.debtor.name);
   const debtorFirstName = props.debtor.isLegalEntity ? '' : (props.debtor.firstName || debtorDerivedFirst);
-  const debtorStreet = joinParts([props.debtor.streetNumber, props.debtor.streetName], ' ');
-  const debtorDomicile = formatDomicile(props.debtor.postalCode, props.debtor.city, props.debtor.country);
-  const debtorDomicileResolved = debtorDomicile || notEmpty(props.debtor.address);
+  const debtorStructuredStreet = joinParts([props.debtor.streetNumber, props.debtor.streetName], ' ');
+  const debtorStructuredDomicile = formatDomicile(props.debtor.postalCode, props.debtor.city, props.debtor.country);
+  // Fallback: when structured fields are missing, parse the legacy single-line
+  // address so the street stays in row 12 and the locality lands in row 13.
+  const parsedFromAddress = splitAddressLine(props.debtor.address);
+  const debtorStreet = debtorStructuredStreet || parsedFromAddress.street;
+  const debtorDomicileResolved = debtorStructuredDomicile || parsedFromAddress.domicile;
   const debtorProfession = labels.defaultDebtorProfession;
 
   const courtLoc = props.court.location;
@@ -666,20 +639,7 @@ export function PaymentOrderPdfTemplate(props: PaymentOrderPdfProps) {
     <Document>
    
       <Page size="A4" style={styles.page}>
-        <View style={styles.topHeader} wrap={false}>
-          {creditor.logo ? (
-            // eslint-disable-next-line jsx-a11y/alt-text
-            <Image style={styles.logo} src={creditor.logo} />
-          ) : null}
-          <View style={styles.identityCard}>
-            <Text style={styles.companyName}>{notEmpty(creditor.name)}</Text>
-            {creditorAddressLine ? <Text style={styles.infoLine}>{creditorAddressLine}</Text> : null}
-            {creditorMetaLine ? <Text style={styles.infoLine}>{creditorMetaLine}</Text> : null}
-          </View>
-        </View>
-
         <View style={styles.titleHeader} wrap={false}>
-          <View style={styles.titleLeftCell} />
           <View style={styles.titleCell}>
             <Text style={styles.titleText}>{labels.title}</Text>
             <Text style={styles.subtitleText}>{labels.intro}</Text>
