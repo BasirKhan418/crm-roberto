@@ -51,6 +51,38 @@ interface ReminderTemplateContent {
 
 type ReminderLocaleTemplates = Record<ReminderLevel, ReminderTemplateContent>;
 
+type LegalRecoveryCourtLocation = 'luxembourg' | 'esch_sur_alzette' | 'diekirch';
+
+interface ReminderLegalRecoveryCourtSettings {
+  courtName: string | null;
+  courtAddress: string | null;
+  courtCity: string | null;
+  creditorProfession: string | null;
+  elisantDomicile: string | null;
+  representativeName: string | null;
+  representativeTitle: string | null;
+  additionalNotes: string | null;
+}
+
+const LEGAL_RECOVERY_COURT_LOCATIONS: LegalRecoveryCourtLocation[] = [
+  'luxembourg',
+  'esch_sur_alzette',
+  'diekirch',
+];
+
+function createEmptyLegalRecoveryCourtSettings(): ReminderLegalRecoveryCourtSettings {
+  return {
+    courtName: null,
+    courtAddress: null,
+    courtCity: null,
+    creditorProfession: null,
+    elisantDomicile: null,
+    representativeName: null,
+    representativeTitle: null,
+    additionalNotes: null,
+  };
+}
+
 interface ReminderSettingsData {
   offsets: {
     soft: number;
@@ -74,15 +106,8 @@ interface ReminderSettingsData {
   legalRecovery: {
     claimThresholdCents: number;
     jurisdiction: 'justice_of_peace';
-    courtLocation: 'luxembourg' | 'esch_sur_alzette' | 'diekirch' | null;
-    courtName: string | null;
-    courtAddress: string | null;
-    courtCity: string | null;
-    creditorProfession: string | null;
-    elisantDomicile: string | null;
-    representativeName: string | null;
-    representativeTitle: string | null;
-    additionalNotes: string | null;
+    courtLocation: LegalRecoveryCourtLocation | null;
+    courts: Record<LegalRecoveryCourtLocation, ReminderLegalRecoveryCourtSettings>;
   };
 }
 
@@ -92,7 +117,19 @@ interface ReminderSettingsApiResponse {
   data?: Partial<Omit<ReminderSettingsData, 'lateFee'>> & { lateFee?: ReminderLateFeeLegacySettings };
 }
 
-type ReminderSettingsInput = Partial<Omit<ReminderSettingsData, 'lateFee'>> & { lateFee?: ReminderLateFeeLegacySettings };
+type ReminderSettingsInput = Partial<Omit<ReminderSettingsData, 'lateFee' | 'legalRecovery'>> & {
+  lateFee?: ReminderLateFeeLegacySettings;
+  legalRecovery?: (Partial<ReminderSettingsData['legalRecovery']> & {
+    courtName?: string | null;
+    courtAddress?: string | null;
+    courtCity?: string | null;
+    creditorProfession?: string | null;
+    elisantDomicile?: string | null;
+    representativeName?: string | null;
+    representativeTitle?: string | null;
+    additionalNotes?: string | null;
+  }) | undefined;
+};
 
 const LEVELS: ReminderLevel[] = ['soft', 'medium', 'firm', 'formalNotice'];
 
@@ -153,15 +190,12 @@ const DEFAULT_SETTINGS: ReminderSettingsData = {
   legalRecovery: {
     claimThresholdCents: 1500000,
     jurisdiction: 'justice_of_peace',
-    courtLocation: null,
-    courtName: null,
-    courtAddress: null,
-    courtCity: null,
-    creditorProfession: null,
-    elisantDomicile: null,
-    representativeName: null,
-    representativeTitle: null,
-    additionalNotes: null,
+    courtLocation: 'luxembourg',
+    courts: {
+      luxembourg: createEmptyLegalRecoveryCourtSettings(),
+      esch_sur_alzette: createEmptyLegalRecoveryCourtSettings(),
+      diekirch: createEmptyLegalRecoveryCourtSettings(),
+    },
   },
 };
 
@@ -216,7 +250,7 @@ const reminderSettingsPageChrome = {
     legalNoticeEyebrow: 'Legal notice',
     legalNoticeSummary: 'Set the formal notice delay and any legal footer text.',
     legalRecoveryEyebrow: 'Legal recovery',
-    legalRecoverySummary: 'Configure the court details used to generate the payment-order request.',
+    legalRecoverySummary: 'Configure the three court profiles used to generate payment-order requests.',
     templateLevelLabel: 'Which reminder email do you want to edit?',
     templateLevelHelp: 'Choose the reminder step and the language your customer will receive.',
     templateLocaleLabel: 'Email language',
@@ -274,7 +308,7 @@ const reminderSettingsPageChrome = {
     legalNoticeEyebrow: 'Mise en demeure',
     legalNoticeSummary: 'Réglez le délai de mise en demeure et le texte juridique complémentaire.',
     legalRecoveryEyebrow: 'Recouvrement judiciaire',
-    legalRecoverySummary: 'Configurez les coordonnées de la juridiction utilisées pour générer la requête en paiement.',
+    legalRecoverySummary: 'Configurez les trois profils de juridiction utilisés pour générer la requête en paiement.',
     templateLevelLabel: 'Quel e-mail de relance souhaitez-vous modifier ?',
     templateLevelHelp: 'Choisissez l\'étape de relance et la langue que votre client recevra.',
     templateLocaleLabel: 'Langue de l\'e-mail',
@@ -420,6 +454,43 @@ function removeVariableToken(template: string, variable: string, field: 'subject
   return withoutToken.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
 }
 
+function normalizeOptionalText(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function normalizeLegalRecoveryCourtSettings(
+  input?: Partial<ReminderLegalRecoveryCourtSettings> | null
+): ReminderLegalRecoveryCourtSettings {
+  return {
+    courtName: normalizeOptionalText(input?.courtName),
+    courtAddress: normalizeOptionalText(input?.courtAddress),
+    courtCity: normalizeOptionalText(input?.courtCity),
+    creditorProfession: normalizeOptionalText(input?.creditorProfession),
+    elisantDomicile: normalizeOptionalText(input?.elisantDomicile),
+    representativeName: normalizeOptionalText(input?.representativeName),
+    representativeTitle: normalizeOptionalText(input?.representativeTitle),
+    additionalNotes: normalizeOptionalText(input?.additionalNotes),
+  };
+}
+
+function hasAnyLegalRecoveryCourtValue(court: ReminderLegalRecoveryCourtSettings): boolean {
+  return Boolean(
+    court.courtName ||
+    court.courtAddress ||
+    court.courtCity ||
+    court.creditorProfession ||
+    court.elisantDomicile ||
+    court.representativeName ||
+    court.representativeTitle ||
+    court.additionalNotes
+  );
+}
+
 function normalizeSettings(input?: ReminderSettingsInput): ReminderSettingsData {
   const legacyLateFee = input?.lateFee;
   const lateFeeStages = legacyLateFee?.stages;
@@ -450,6 +521,44 @@ function normalizeSettings(input?: ReminderSettingsInput): ReminderSettingsData 
       value: legacyValue,
     };
   };
+
+  const inputLegalRecovery = input?.legalRecovery;
+  const inputCourtLocation = (inputLegalRecovery?.courtLocation ?? null) as LegalRecoveryCourtLocation | null;
+  const effectiveCourtLocationForLegacy: LegalRecoveryCourtLocation = inputCourtLocation ?? 'luxembourg';
+  const legacyCourt = normalizeLegalRecoveryCourtSettings({
+    courtName: inputLegalRecovery?.courtName,
+    courtAddress: inputLegalRecovery?.courtAddress,
+    courtCity: inputLegalRecovery?.courtCity,
+    creditorProfession: inputLegalRecovery?.creditorProfession,
+    elisantDomicile: inputLegalRecovery?.elisantDomicile,
+    representativeName: inputLegalRecovery?.representativeName,
+    representativeTitle: inputLegalRecovery?.representativeTitle,
+    additionalNotes: inputLegalRecovery?.additionalNotes,
+  });
+
+  const courts = LEGAL_RECOVERY_COURT_LOCATIONS.reduce<Record<LegalRecoveryCourtLocation, ReminderLegalRecoveryCourtSettings>>(
+    (accumulator, location) => {
+      const configuredCourt = normalizeLegalRecoveryCourtSettings(inputLegalRecovery?.courts?.[location]);
+
+      if (hasAnyLegalRecoveryCourtValue(configuredCourt)) {
+        accumulator[location] = configuredCourt;
+        return accumulator;
+      }
+
+      if (effectiveCourtLocationForLegacy === location && hasAnyLegalRecoveryCourtValue(legacyCourt)) {
+        accumulator[location] = legacyCourt;
+        return accumulator;
+      }
+
+      accumulator[location] = createEmptyLegalRecoveryCourtSettings();
+      return accumulator;
+    },
+    {
+      luxembourg: createEmptyLegalRecoveryCourtSettings(),
+      esch_sur_alzette: createEmptyLegalRecoveryCourtSettings(),
+      diekirch: createEmptyLegalRecoveryCourtSettings(),
+    }
+  );
 
   return {
     offsets: {
@@ -511,19 +620,12 @@ function normalizeSettings(input?: ReminderSettingsInput): ReminderSettingsData 
       customFooter: input?.legalNotice?.customFooter ?? DEFAULT_SETTINGS.legalNotice.customFooter,
     },
     legalRecovery: {
-      claimThresholdCents: typeof input?.legalRecovery?.claimThresholdCents === 'number'
-        ? input.legalRecovery.claimThresholdCents
+      claimThresholdCents: typeof inputLegalRecovery?.claimThresholdCents === 'number'
+        ? inputLegalRecovery.claimThresholdCents
         : DEFAULT_SETTINGS.legalRecovery.claimThresholdCents,
       jurisdiction: 'justice_of_peace',
-      courtLocation: (input?.legalRecovery?.courtLocation ?? null) as ReminderSettingsData['legalRecovery']['courtLocation'],
-      courtName: input?.legalRecovery?.courtName ?? null,
-      courtAddress: input?.legalRecovery?.courtAddress ?? null,
-      courtCity: input?.legalRecovery?.courtCity ?? null,
-      creditorProfession: input?.legalRecovery?.creditorProfession ?? null,
-      elisantDomicile: input?.legalRecovery?.elisantDomicile ?? null,
-      representativeName: input?.legalRecovery?.representativeName ?? null,
-      representativeTitle: input?.legalRecovery?.representativeTitle ?? null,
-      additionalNotes: input?.legalRecovery?.additionalNotes ?? null,
+      courtLocation: inputCourtLocation ?? DEFAULT_SETTINGS.legalRecovery.courtLocation,
+      courts,
     },
   };
 }
@@ -853,6 +955,10 @@ export default function ReminderSettingsPage({ embedded = false, lockedSection }
       ...extractTemplateVariablesInOrder(activeTemplate.body),
     ])
   );
+
+  const selectedLegalRecoveryCourtLocation =
+    (draft.legalRecovery.courtLocation ?? 'luxembourg') as LegalRecoveryCourtLocation;
+  const selectedLegalRecoveryCourt = draft.legalRecovery.courts[selectedLegalRecoveryCourtLocation];
 
   function handleTemplateFieldChange(field: 'subject' | 'body', nextValue: string) {
     const originalValue = draft.templates[activeTemplateLocale][activeTemplateLevel][field];
@@ -1511,11 +1617,9 @@ export default function ReminderSettingsPage({ embedded = false, lockedSection }
                 {t('reminders.settings.legalRecoverySection.courtLocationLabel')}
               </Label>
               <Select
-                value={draft.legalRecovery.courtLocation ?? '__none__'}
+                value={selectedLegalRecoveryCourtLocation}
                 onValueChange={(value) => {
-                  const next = value === '__none__'
-                    ? null
-                    : (value as NonNullable<ReminderSettingsData['legalRecovery']['courtLocation']>);
+                  const next = value as LegalRecoveryCourtLocation;
                   setDraft((prev) => ({
                     ...prev,
                     legalRecovery: {
@@ -1526,12 +1630,9 @@ export default function ReminderSettingsPage({ embedded = false, lockedSection }
                 }}
               >
                 <SelectTrigger id="legal-recovery-court-location" className="h-11 w-full sm:max-w-sm">
-                  <SelectValue placeholder={t('reminders.settings.legalRecoverySection.courtLocationNone')} />
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__none__">
-                    {t('reminders.settings.legalRecoverySection.courtLocationNone')}
-                  </SelectItem>
                   <SelectItem value="luxembourg">
                     {t('reminders.settings.legalRecoverySection.courtLocationLuxembourg')}
                   </SelectItem>
@@ -1554,7 +1655,7 @@ export default function ReminderSettingsPage({ embedded = false, lockedSection }
               </Label>
               <Input
                 id="legal-recovery-court-name"
-                value={draft.legalRecovery.courtName ?? ''}
+                value={selectedLegalRecoveryCourt.courtName ?? ''}
                 placeholder={t('reminders.settings.legalRecoverySection.courtNamePlaceholder')}
                 onChange={(event) => {
                   const next = event.target.value;
@@ -1562,7 +1663,13 @@ export default function ReminderSettingsPage({ embedded = false, lockedSection }
                     ...prev,
                     legalRecovery: {
                       ...prev.legalRecovery,
-                      courtName: next.trim() ? next : null,
+                      courts: {
+                        ...prev.legalRecovery.courts,
+                        [selectedLegalRecoveryCourtLocation]: {
+                          ...prev.legalRecovery.courts[selectedLegalRecoveryCourtLocation],
+                          courtName: next.trim() ? next : null,
+                        },
+                      },
                     },
                   }));
                 }}
@@ -1576,14 +1683,20 @@ export default function ReminderSettingsPage({ embedded = false, lockedSection }
                 </Label>
                 <Input
                   id="legal-recovery-court-address"
-                  value={draft.legalRecovery.courtAddress ?? ''}
+                  value={selectedLegalRecoveryCourt.courtAddress ?? ''}
                   onChange={(event) => {
                     const next = event.target.value;
                     setDraft((prev) => ({
                       ...prev,
                       legalRecovery: {
                         ...prev.legalRecovery,
-                        courtAddress: next.trim() ? next : null,
+                        courts: {
+                          ...prev.legalRecovery.courts,
+                          [selectedLegalRecoveryCourtLocation]: {
+                            ...prev.legalRecovery.courts[selectedLegalRecoveryCourtLocation],
+                            courtAddress: next.trim() ? next : null,
+                          },
+                        },
                       },
                     }));
                   }}
@@ -1595,14 +1708,20 @@ export default function ReminderSettingsPage({ embedded = false, lockedSection }
                 </Label>
                 <Input
                   id="legal-recovery-court-city"
-                  value={draft.legalRecovery.courtCity ?? ''}
+                  value={selectedLegalRecoveryCourt.courtCity ?? ''}
                   onChange={(event) => {
                     const next = event.target.value;
                     setDraft((prev) => ({
                       ...prev,
                       legalRecovery: {
                         ...prev.legalRecovery,
-                        courtCity: next.trim() ? next : null,
+                        courts: {
+                          ...prev.legalRecovery.courts,
+                          [selectedLegalRecoveryCourtLocation]: {
+                            ...prev.legalRecovery.courts[selectedLegalRecoveryCourtLocation],
+                            courtCity: next.trim() ? next : null,
+                          },
+                        },
                       },
                     }));
                   }}
@@ -1617,7 +1736,7 @@ export default function ReminderSettingsPage({ embedded = false, lockedSection }
                 </Label>
                 <Input
                   id="legal-recovery-rep-name"
-                  value={draft.legalRecovery.representativeName ?? ''}
+                  value={selectedLegalRecoveryCourt.representativeName ?? ''}
                   placeholder={t('reminders.settings.legalRecoverySection.representativeNamePlaceholder')}
                   onChange={(event) => {
                     const next = event.target.value;
@@ -1625,7 +1744,13 @@ export default function ReminderSettingsPage({ embedded = false, lockedSection }
                       ...prev,
                       legalRecovery: {
                         ...prev.legalRecovery,
-                        representativeName: next.trim() ? next : null,
+                        courts: {
+                          ...prev.legalRecovery.courts,
+                          [selectedLegalRecoveryCourtLocation]: {
+                            ...prev.legalRecovery.courts[selectedLegalRecoveryCourtLocation],
+                            representativeName: next.trim() ? next : null,
+                          },
+                        },
                       },
                     }));
                   }}
@@ -1637,14 +1762,20 @@ export default function ReminderSettingsPage({ embedded = false, lockedSection }
                 </Label>
                 <Input
                   id="legal-recovery-rep-title"
-                  value={draft.legalRecovery.representativeTitle ?? ''}
+                  value={selectedLegalRecoveryCourt.representativeTitle ?? ''}
                   onChange={(event) => {
                     const next = event.target.value;
                     setDraft((prev) => ({
                       ...prev,
                       legalRecovery: {
                         ...prev.legalRecovery,
-                        representativeTitle: next.trim() ? next : null,
+                        courts: {
+                          ...prev.legalRecovery.courts,
+                          [selectedLegalRecoveryCourtLocation]: {
+                            ...prev.legalRecovery.courts[selectedLegalRecoveryCourtLocation],
+                            representativeTitle: next.trim() ? next : null,
+                          },
+                        },
                       },
                     }));
                   }}
@@ -1659,7 +1790,7 @@ export default function ReminderSettingsPage({ embedded = false, lockedSection }
                 </Label>
                 <Input
                   id="legal-recovery-creditor-profession"
-                  value={draft.legalRecovery.creditorProfession ?? ''}
+                  value={selectedLegalRecoveryCourt.creditorProfession ?? ''}
                   placeholder={t('reminders.settings.legalRecoverySection.creditorProfessionPlaceholder')}
                   onChange={(event) => {
                     const next = event.target.value;
@@ -1667,7 +1798,13 @@ export default function ReminderSettingsPage({ embedded = false, lockedSection }
                       ...prev,
                       legalRecovery: {
                         ...prev.legalRecovery,
-                        creditorProfession: next.trim() ? next : null,
+                        courts: {
+                          ...prev.legalRecovery.courts,
+                          [selectedLegalRecoveryCourtLocation]: {
+                            ...prev.legalRecovery.courts[selectedLegalRecoveryCourtLocation],
+                            creditorProfession: next.trim() ? next : null,
+                          },
+                        },
                       },
                     }));
                   }}
@@ -1679,7 +1816,7 @@ export default function ReminderSettingsPage({ embedded = false, lockedSection }
                 </Label>
                 <Input
                   id="legal-recovery-elisant"
-                  value={draft.legalRecovery.elisantDomicile ?? ''}
+                  value={selectedLegalRecoveryCourt.elisantDomicile ?? ''}
                   placeholder={t('reminders.settings.legalRecoverySection.elisantDomicilePlaceholder')}
                   onChange={(event) => {
                     const next = event.target.value;
@@ -1687,7 +1824,13 @@ export default function ReminderSettingsPage({ embedded = false, lockedSection }
                       ...prev,
                       legalRecovery: {
                         ...prev.legalRecovery,
-                        elisantDomicile: next.trim() ? next : null,
+                        courts: {
+                          ...prev.legalRecovery.courts,
+                          [selectedLegalRecoveryCourtLocation]: {
+                            ...prev.legalRecovery.courts[selectedLegalRecoveryCourtLocation],
+                            elisantDomicile: next.trim() ? next : null,
+                          },
+                        },
                       },
                     }));
                   }}
@@ -1702,7 +1845,7 @@ export default function ReminderSettingsPage({ embedded = false, lockedSection }
               <Textarea
                 id="legal-recovery-notes"
                 rows={4}
-                value={draft.legalRecovery.additionalNotes ?? ''}
+                value={selectedLegalRecoveryCourt.additionalNotes ?? ''}
                 placeholder={t('reminders.settings.legalRecoverySection.additionalNotesPlaceholder')}
                 onChange={(event) => {
                   const next = event.target.value;
@@ -1710,7 +1853,13 @@ export default function ReminderSettingsPage({ embedded = false, lockedSection }
                     ...prev,
                     legalRecovery: {
                       ...prev.legalRecovery,
-                      additionalNotes: next.trim() ? next : null,
+                      courts: {
+                        ...prev.legalRecovery.courts,
+                        [selectedLegalRecoveryCourtLocation]: {
+                          ...prev.legalRecovery.courts[selectedLegalRecoveryCourtLocation],
+                          additionalNotes: next.trim() ? next : null,
+                        },
+                      },
                     },
                   }));
                 }}

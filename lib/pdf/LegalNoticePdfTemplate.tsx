@@ -270,9 +270,11 @@ export function LegalNoticePdfTemplate(props: LegalNoticePdfProps) {
         </View>
 
         <Text style={styles.title}>{props.locale === 'fr' ? 'MISE EN DEMEURE' : 'FORMAL NOTICE'}</Text>
-        {props.locale === 'fr' ? (
-          <Text style={styles.subHeader}>Par lettre recommandée avec accusé de réception</Text>
-        ) : null}
+        <Text style={styles.subHeader}>
+          {props.locale === 'fr'
+            ? 'Par lettre recommandée avec accusé de réception'
+            : 'By registered letter with acknowledgment of receipt'}
+        </Text>
 
         <View style={styles.dateBlock}>
           <Text style={styles.dateText}>

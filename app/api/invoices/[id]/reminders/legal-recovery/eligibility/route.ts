@@ -7,7 +7,11 @@ import Payment from '@/db/models/Payment';
 import ReminderSettings from '@/db/models/ReminderSettings';
 import {
   evaluateLegalRecoveryEligibility,
+  isLegalRecoveryCourtConfigured,
+  LEGAL_RECOVERY_COURT_LOCATIONS,
   resolveClaimThresholdCents,
+  resolveLegalRecoveryCourtConfig,
+  type LegalRecoveryCourtLocation,
   type LegalRecoverySettings,
 } from '@/lib/reminders/legal-recovery';
 import getMe from '@/utils/middlewares/useMe';
@@ -20,6 +24,7 @@ type InvoiceDoc = {
   _id: mongoose.Types.ObjectId;
   status?: 'unpaid' | 'partial_paid' | 'paid' | 'overdue';
   totalIncludingTax?: number | null;
+  legalRecoveryCourtLocation?: LegalRecoveryCourtLocation | null;
   reminderState?: {
     level?: number | null;
     lateFeeAmount?: number | null;
@@ -44,7 +49,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     await ConnectDb();
 
     const invoice = await Invoice.findOne({ _id: id, userId: me.user.id })
-      .select('_id status totalIncludingTax reminderState')
+      .select('_id status totalIncludingTax legalRecoveryCourtLocation reminderState')
       .lean<InvoiceDoc | null>();
 
     if (!invoice) {
@@ -76,6 +81,27 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       claimThresholdCents,
     });
 
+    const selectedCourtLocation = invoice.legalRecoveryCourtLocation ?? null;
+    const selectedCourt = resolveLegalRecoveryCourtConfig(settingsDoc?.legalRecovery, selectedCourtLocation);
+    const selectedCourtConfigured = selectedCourtLocation
+      ? isLegalRecoveryCourtConfigured(selectedCourt)
+      : false;
+
+    const courts = LEGAL_RECOVERY_COURT_LOCATIONS.reduce<
+      Record<LegalRecoveryCourtLocation, ReturnType<typeof resolveLegalRecoveryCourtConfig> & { configured: boolean }>
+    >((accumulator, location) => {
+      const court = resolveLegalRecoveryCourtConfig(settingsDoc?.legalRecovery, location);
+      accumulator[location] = {
+        ...court,
+        configured: isLegalRecoveryCourtConfigured(court),
+      };
+      return accumulator;
+    }, {
+      luxembourg: { configured: false },
+      esch_sur_alzette: { configured: false },
+      diekirch: { configured: false },
+    });
+
     return NextResponse.json({
       success: true,
       data: {
@@ -88,11 +114,12 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
         formalNoticeDeadline: invoice.reminderState?.formalNoticeDeadline ?? null,
         legalRecoveryInitiatedAt: invoice.reminderState?.legalRecoveryInitiatedAt ?? null,
         jurisdiction: settingsDoc?.legalRecovery?.jurisdiction ?? 'justice_of_peace',
-        courtLocation: settingsDoc?.legalRecovery?.courtLocation ?? null,
-        courtConfigured: Boolean(
-          settingsDoc?.legalRecovery?.courtLocation ||
-          (settingsDoc?.legalRecovery?.courtName && settingsDoc.legalRecovery.courtName.trim().length > 0)
-        ),
+        courtLocation: selectedCourtLocation,
+        courtSelectionRequired: true,
+        courtSelected: Boolean(selectedCourtLocation),
+        courtConfigured: selectedCourtConfigured,
+        selectedCourt,
+        courts,
       },
     });
   } catch (error) {

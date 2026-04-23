@@ -36,6 +36,20 @@ const ReminderLateFeeStageSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const ReminderLegalRecoveryCourtSchema = new mongoose.Schema(
+  {
+    courtName: { type: String, default: null, trim: true },
+    courtAddress: { type: String, default: null, trim: true },
+    courtCity: { type: String, default: null, trim: true },
+    creditorProfession: { type: String, default: null, trim: true },
+    elisantDomicile: { type: String, default: null, trim: true },
+    representativeName: { type: String, default: null, trim: true },
+    representativeTitle: { type: String, default: null, trim: true },
+    additionalNotes: { type: String, default: null, trim: true },
+  },
+  { _id: false }
+);
+
 const ReminderSettingsSchema = new mongoose.Schema(
   {
     userId: {
@@ -162,6 +176,23 @@ const ReminderSettingsSchema = new mongoose.Schema(
             enum: ["luxembourg", "esch_sur_alzette", "diekirch", null],
             default: null,
           },
+          courts: {
+            type: new mongoose.Schema(
+              {
+                luxembourg: { type: ReminderLegalRecoveryCourtSchema, default: () => ({}) },
+                esch_sur_alzette: { type: ReminderLegalRecoveryCourtSchema, default: () => ({}) },
+                diekirch: { type: ReminderLegalRecoveryCourtSchema, default: () => ({}) },
+              },
+              { _id: false }
+            ),
+            default: () => ({
+              luxembourg: {},
+              esch_sur_alzette: {},
+              diekirch: {},
+            }),
+          },
+
+          // Legacy single-court fields retained for backwards compatibility.
           courtName: { type: String, default: null, trim: true },
           courtAddress: { type: String, default: null, trim: true },
           courtCity: { type: String, default: null, trim: true },
@@ -177,6 +208,11 @@ const ReminderSettingsSchema = new mongoose.Schema(
         claimThresholdCents: 1500000,
         jurisdiction: "justice_of_peace",
         courtLocation: null,
+        courts: {
+          luxembourg: {},
+          esch_sur_alzette: {},
+          diekirch: {},
+        },
         courtName: null,
         courtAddress: null,
         courtCity: null,
@@ -223,4 +259,27 @@ const ReminderSettingsSchema = new mongoose.Schema(
 
 export type IReminderSettings = InferSchemaType<typeof ReminderSettingsSchema>;
 
-export default mongoose.models.ReminderSettings || mongoose.model("ReminderSettings", ReminderSettingsSchema);
+const REMINDER_SETTINGS_MODEL_VERSION = 2;
+
+type VersionedReminderSettingsModel = mongoose.Model<IReminderSettings> & {
+  __schemaVersion?: number;
+};
+
+const existingReminderSettingsModel =
+  mongoose.models.ReminderSettings as VersionedReminderSettingsModel | undefined;
+
+if (
+  existingReminderSettingsModel &&
+  (!existingReminderSettingsModel.schema.path('legalRecovery.courts') ||
+    existingReminderSettingsModel.__schemaVersion !== REMINDER_SETTINGS_MODEL_VERSION)
+) {
+  delete (mongoose.models as Record<string, VersionedReminderSettingsModel>).ReminderSettings;
+}
+
+const ReminderSettingsModel =
+  ((mongoose.models.ReminderSettings as VersionedReminderSettingsModel | undefined) ||
+    mongoose.model<IReminderSettings>('ReminderSettings', ReminderSettingsSchema)) as VersionedReminderSettingsModel;
+
+ReminderSettingsModel.__schemaVersion = REMINDER_SETTINGS_MODEL_VERSION;
+
+export default ReminderSettingsModel;

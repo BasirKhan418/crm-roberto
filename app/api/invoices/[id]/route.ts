@@ -106,6 +106,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const payload: {
       notes?: string | null;
       dueDate?: Date | null;
+      legalRecoveryCourtLocation?: 'luxembourg' | 'esch_sur_alzette' | 'diekirch' | null;
     } = {};
 
     if ('notes' in parsed.data) {
@@ -114,15 +115,26 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     if ('dueDate' in parsed.data) {
       payload.dueDate = parsed.data.dueDate ?? null;
     }
+    if ('legalRecoveryCourtLocation' in parsed.data) {
+      payload.legalRecoveryCourtLocation = parsed.data.legalRecoveryCourtLocation ?? null;
+    }
     const existing = await Invoice.findOne({ _id: id, userId: me.user.id }).select('status').lean();
 
     if (!existing) {
       return NextResponse.json({ success: false, message: 'Invoice not found' }, { status: 404 });
     }
 
-    if (existing.status !== 'unpaid') {
+    const updatesEditableFields = 'notes' in parsed.data || 'dueDate' in parsed.data;
+    if (updatesEditableFields && existing.status !== 'unpaid') {
       return NextResponse.json(
         { success: false, message: 'Only unpaid invoices can be edited.' },
+        { status: 403 }
+      );
+    }
+
+    if ('legalRecoveryCourtLocation' in parsed.data && existing.status === 'paid') {
+      return NextResponse.json(
+        { success: false, message: 'Paid invoices cannot be used for legal recovery.' },
         { status: 403 }
       );
     }

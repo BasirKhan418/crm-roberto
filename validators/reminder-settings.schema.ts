@@ -99,9 +99,29 @@ export const reminderLegalNoticeSchema = z.object({
   customFooter: z.preprocess(emptyStringToNull, z.string().max(4000).nullable().optional()),
 });
 
+const reminderLegalRecoveryCourtSchema = z.object({
+  courtName: z.preprocess(emptyStringToNull, z.string().max(200).nullable().optional()),
+  courtAddress: z.preprocess(emptyStringToNull, z.string().max(500).nullable().optional()),
+  courtCity: z.preprocess(emptyStringToNull, z.string().max(200).nullable().optional()),
+  creditorProfession: z.preprocess(emptyStringToNull, z.string().max(200).nullable().optional()),
+  elisantDomicile: z.preprocess(emptyStringToNull, z.string().max(500).nullable().optional()),
+  representativeName: z.preprocess(emptyStringToNull, z.string().max(200).nullable().optional()),
+  representativeTitle: z.preprocess(emptyStringToNull, z.string().max(200).nullable().optional()),
+  additionalNotes: z.preprocess(emptyStringToNull, z.string().max(2000).nullable().optional()),
+});
+
 export const reminderLegalRecoverySchema = z.object({
   claimThresholdCents: z.number().int().min(0).max(100_000_000).optional(),
   jurisdiction: z.enum(['justice_of_peace']).optional(),
+  courts: z
+    .object({
+      luxembourg: reminderLegalRecoveryCourtSchema.optional(),
+      esch_sur_alzette: reminderLegalRecoveryCourtSchema.optional(),
+      diekirch: reminderLegalRecoveryCourtSchema.optional(),
+    })
+    .optional(),
+
+  // Legacy single-court shape kept for backwards compatibility.
   courtLocation: z.preprocess(
     emptyStringToNull,
     z.enum(['luxembourg', 'esch_sur_alzette', 'diekirch']).nullable().optional()

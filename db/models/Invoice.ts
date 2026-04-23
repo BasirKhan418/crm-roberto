@@ -353,6 +353,11 @@ const InvoiceSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    legalRecoveryCourtLocation: {
+      type: String,
+      enum: ['luxembourg', 'esch_sur_alzette', 'diekirch', null],
+      default: null,
+    },
     reminderState: {
       type: InvoiceReminderStateSchema,
       default: null,
@@ -427,7 +432,7 @@ InvoiceSchema.index(
 
 export type InvoiceDocument = InferSchemaType<typeof InvoiceSchema>;
 
-const INVOICE_MODEL_VERSION = 2;
+const INVOICE_MODEL_VERSION = 3;
 
 type VersionedInvoiceModel = Model<InvoiceDocument> & { __ownerUnreadVersion?: number };
 
@@ -436,6 +441,7 @@ const existingInvoiceModel = mongoose.models.Invoice as VersionedInvoiceModel | 
 if (
   existingInvoiceModel &&
   (!existingInvoiceModel.schema.path("ownerHasUnread") ||
+    !existingInvoiceModel.schema.path('legalRecoveryCourtLocation') ||
     existingInvoiceModel.__ownerUnreadVersion !== INVOICE_MODEL_VERSION)
 ) {
   delete (mongoose.models as Record<string, VersionedInvoiceModel>).Invoice;

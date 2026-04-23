@@ -10,11 +10,16 @@ import ReminderLog from '@/db/models/ReminderLog';
 import ReminderSettings from '@/db/models/ReminderSettings';
 import { createActivityLog } from '@/db/repository/activity';
 import { formatInvoiceDisplayNumber } from '@/lib/i18n/messages';
+import { renderReminderHistoryPdf } from '@/lib/pdf/ReminderHistoryPdfTemplate';
 import {
   evaluateLegalRecoveryEligibility,
+  isLegalRecoveryCourtConfigured,
   markLegalRecoveryInitiatedIfNeeded,
   renderPaymentOrderPdfForRecovery,
   resolveClaimThresholdCents,
+  resolveLegalRecoveryCourtConfig,
+  resolveLegalRecoverySettingsForCourt,
+  type LegalRecoveryCourtLocation,
   type LegalRecoverySettings,
   type ReminderLogEntry,
 } from '@/lib/reminders/legal-recovery';
@@ -35,6 +40,7 @@ interface RouteParams {
 type InvoiceForLegalRecovery = {
   _id: mongoose.Types.ObjectId;
   userId: mongoose.Types.ObjectId;
+  legalRecoveryCourtLocation?: LegalRecoveryCourtLocation | null;
   invoiceNumber: string;
   quoteNumber?: string | null;
   date?: Date | null;
@@ -94,115 +100,6 @@ type ReminderLogDoc = ReminderLogEntry & {
   lateFeeAmount?: number;
 };
 
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-function buildReminderHistoryHtml({
-  locale,
-  invoiceNumber,
-  logs,
-}: {
-  locale: 'en' | 'fr';
-  invoiceNumber: string;
-  logs: ReminderLogDoc[];
-}): string {
-  const title = locale === 'fr' ? 'Historique des relances' : 'Reminder history';
-  const reference = locale === 'fr' ? 'Facture' : 'Invoice';
-  const levelLabels: Record<string, string> = locale === 'fr'
-    ? { 1: 'Rappel amical', 2: 'Rappel ferme', 3: 'Dernier rappel', 4: 'Mise en demeure' }
-    : { 1: 'Soft reminder', 2: 'Medium reminder', 3: 'Firm reminder', 4: 'Formal notice' };
-  const statusLabels: Record<string, string> = locale === 'fr'
-    ? { sent: 'Envoyé', failed: 'Échec', skipped: 'Ignoré', paused: 'En pause', resumed: 'Repris' }
-    : { sent: 'Sent', failed: 'Failed', skipped: 'Skipped', paused: 'Paused', resumed: 'Resumed' };
-  const emptyLabel = locale === 'fr' ? 'Aucune relance enregistrée.' : 'No reminders recorded.';
-  const thDate = locale === 'fr' ? 'Date' : 'Date';
-  const thLevel = locale === 'fr' ? 'Niveau' : 'Level';
-  const thChannel = locale === 'fr' ? 'Canal' : 'Channel';
-  const thStatus = locale === 'fr' ? 'Statut' : 'Status';
-  const thSubject = locale === 'fr' ? 'Sujet' : 'Subject';
-
-  const rows = logs.length === 0
-    ? `<tr><td colspan="5" style="padding:12px;text-align:center;color:#64748b;">${escapeHtml(emptyLabel)}</td></tr>`
-    : logs
-        .map((log) => {
-          const date = log.sentAt ? new Date(log.sentAt).toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-GB') : '-';
-          const levelLabel = levelLabels[String(log.level)] ?? String(log.level);
-          const channelLabel = log.channel === 'whatsapp' ? 'WhatsApp' : 'Email';
-          const statusLabel = statusLabels[String(log.status)] ?? String(log.status ?? '-');
-          return `<tr>
-            <td style="padding:6px 8px;border-bottom:1px solid #e2e8f0;">${escapeHtml(date)}</td>
-            <td style="padding:6px 8px;border-bottom:1px solid #e2e8f0;">${escapeHtml(levelLabel)}</td>
-            <td style="padding:6px 8px;border-bottom:1px solid #e2e8f0;">${escapeHtml(channelLabel)}</td>
-            <td style="padding:6px 8px;border-bottom:1px solid #e2e8f0;">${escapeHtml(statusLabel)}</td>
-            <td style="padding:6px 8px;border-bottom:1px solid #e2e8f0;">${escapeHtml(log.subject ?? '')}</td>
-          </tr>`;
-        })
-        .join('\n');
-
-  return `<!DOCTYPE html>
-<html lang="${locale}">
-<head>
-<meta charset="UTF-8" />
-<title>${escapeHtml(title)} — ${escapeHtml(invoiceNumber)}</title>
-</head>
-<body style="font-family:Helvetica,Arial,sans-serif;color:#0f172a;padding:24px;">
-  <h1 style="font-size:18px;margin:0 0 8px;">${escapeHtml(title)}</h1>
-  <p style="font-size:13px;color:#475569;margin:0 0 16px;">${escapeHtml(reference)}: <strong>${escapeHtml(invoiceNumber)}</strong></p>
-  <table style="border-collapse:collapse;width:100%;font-size:12px;">
-    <thead>
-      <tr style="background:#f1f5f9;text-align:left;">
-        <th style="padding:6px 8px;border-bottom:1px solid #cbd5e1;">${escapeHtml(thDate)}</th>
-        <th style="padding:6px 8px;border-bottom:1px solid #cbd5e1;">${escapeHtml(thLevel)}</th>
-        <th style="padding:6px 8px;border-bottom:1px solid #cbd5e1;">${escapeHtml(thChannel)}</th>
-        <th style="padding:6px 8px;border-bottom:1px solid #cbd5e1;">${escapeHtml(thStatus)}</th>
-        <th style="padding:6px 8px;border-bottom:1px solid #cbd5e1;">${escapeHtml(thSubject)}</th>
-      </tr>
-    </thead>
-    <tbody>${rows}</tbody>
-  </table>
-</body>
-</html>`;
-}
-
-function buildReadmeText(locale: 'en' | 'fr', invoiceNumber: string): string {
-  if (locale === 'fr') {
-    return [
-      'Dossier de recouvrement — procédure de paiement (Justice de Paix)',
-      `Facture concernée : ${invoiceNumber}`,
-      `Date de génération : ${new Date().toLocaleString('fr-FR')}`,
-      '',
-      'Contenu :',
-      '  1. facture.pdf            — copie de la facture impayée',
-      '  2. mise-en-demeure.pdf    — copie de la mise en demeure',
-      '  3. requete-en-paiement.pdf — requête à déposer auprès de la Justice de Paix',
-      '  4. historique-relances.html — historique des relances envoyées',
-      '',
-      'Champ d\'application : créances inférieures à 15 000 €, Justice de Paix uniquement.',
-      'Les procédures de district (ordonnance de provision, référé) ne sont pas couvertes dans cette version.',
-    ].join('\n');
-  }
-  return [
-    'Recovery file — payment-order procedure (Justice of the Peace)',
-    `Invoice: ${invoiceNumber}`,
-    `Generated on: ${new Date().toLocaleString('en-GB')}`,
-    '',
-    'Contents:',
-    '  1. invoice.pdf                — copy of the unpaid invoice',
-    '  2. formal-notice.pdf          — copy of the formal notice',
-    '  3. payment-order-request.pdf  — request to file with the Justice of the Peace',
-    '  4. reminder-history.html      — history of reminders sent',
-    '',
-    'Scope: claims below €15,000, Justice of the Peace only.',
-    'District-court procedures (ordonnance de provision, référé) are not covered in this version.',
-  ].join('\n');
-}
-
 async function loadPaymentHistory(invoiceId: mongoose.Types.ObjectId, userId: string): Promise<PaymentHistoryItem[]> {
   const payments = await Payment.find({ invoiceId, userId, status: 'succeeded' })
     .sort({ paidAt: -1, createdAt: -1 })
@@ -234,7 +131,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     await ConnectDb();
 
     const invoice = await Invoice.findOne({ _id: id, userId: me.user.id })
-      .select('_id userId invoiceNumber quoteNumber date dueDate status lineItems totalExcludingTax totalVat totalIncludingTax depositPercentage notes clientSnapshot reminderState paymentToken')
+      .select('_id userId legalRecoveryCourtLocation invoiceNumber quoteNumber date dueDate status lineItems totalExcludingTax totalVat totalIncludingTax depositPercentage notes clientSnapshot reminderState paymentToken')
       .lean<InvoiceForLegalRecovery | null>();
 
     if (!invoice) {
@@ -298,6 +195,36 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    const selectedCourtLocation = invoice.legalRecoveryCourtLocation ?? null;
+    if (!selectedCourtLocation) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Please select a competent court on the invoice before generating legal recovery documents.',
+          reason: 'court_not_selected',
+        },
+        { status: 400 }
+      );
+    }
+
+    const selectedCourt = resolveLegalRecoveryCourtConfig(settingsDoc?.legalRecovery, selectedCourtLocation);
+    if (!isLegalRecoveryCourtConfigured(selectedCourt)) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Court details are not configured for the selected court. Update Settings → Reminders → Legal Recovery.',
+          reason: 'court_not_configured',
+          courtLocation: selectedCourtLocation,
+        },
+        { status: 400 }
+      );
+    }
+
+    const legalRecoverySettings = resolveLegalRecoverySettingsForCourt(
+      settingsDoc?.legalRecovery,
+      selectedCourtLocation
+    );
+
     const rawLocale = request.nextUrl.searchParams.get('locale');
     const locale = resolveReminderLocalePreference(rawLocale, me.user.locale, companyProfile?.locale);
 
@@ -329,7 +256,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       },
     };
 
-    const [invoicePdfBuffer, legalNoticeResult, paymentOrderResult] = await Promise.all([
+    const displayInvoiceNumber = formatInvoiceDisplayNumber(locale, invoice.invoiceNumber);
+
+    const [invoicePdfBuffer, legalNoticeResult, paymentOrderResult, historyPdfBuffer] = await Promise.all([
       renderInvoicePdfForReminder({
         invoice: invoicePdfInput,
         companyProfile,
@@ -352,7 +281,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       renderPaymentOrderPdfForRecovery({
         invoice: invoicePdfInput,
         companyProfile,
-        settings: settingsDoc?.legalRecovery ?? null,
+        settings: legalRecoverySettings,
         locale,
         remainingAmountCents: remainingAmount,
         paidAmountCents: totalPaid,
@@ -362,37 +291,34 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         includeInterestClause,
         reminderLogs: logs ?? [],
       }),
+      renderReminderHistoryPdf({
+        invoiceNumber: displayInvoiceNumber,
+        locale,
+        entries: logs ?? [],
+      }),
     ]);
-
-    const displayInvoiceNumber = formatInvoiceDisplayNumber(locale, invoice.invoiceNumber);
 
     const fileNames = locale === 'fr'
       ? {
-          invoice: `facture-${displayInvoiceNumber}.pdf`,
-          formalNotice: `mise-en-demeure-${displayInvoiceNumber}.pdf`,
-          paymentOrder: `requete-en-paiement-${displayInvoiceNumber}.pdf`,
-          history: 'historique-relances.html',
-          readme: 'LISEZMOI.txt',
+          invoice: `01-facture-${displayInvoiceNumber}.pdf`,
+          formalNotice: `02-mise-en-demeure-${displayInvoiceNumber}.pdf`,
+          paymentOrder: `03-requete-en-paiement-${displayInvoiceNumber}.pdf`,
+          history: `04-historique-relances-${displayInvoiceNumber}.pdf`,
           bundle: `dossier-recouvrement-${displayInvoiceNumber}.zip`,
         }
       : {
-          invoice: `invoice-${displayInvoiceNumber}.pdf`,
-          formalNotice: `formal-notice-${displayInvoiceNumber}.pdf`,
-          paymentOrder: `payment-order-request-${displayInvoiceNumber}.pdf`,
-          history: 'reminder-history.html',
-          readme: 'README.txt',
+          invoice: `01-invoice-${displayInvoiceNumber}.pdf`,
+          formalNotice: `02-formal-notice-${displayInvoiceNumber}.pdf`,
+          paymentOrder: `03-payment-order-request-${displayInvoiceNumber}.pdf`,
+          history: `04-reminder-history-${displayInvoiceNumber}.pdf`,
           bundle: `recovery-file-${displayInvoiceNumber}.zip`,
         };
 
     const zip = new JSZip();
-    zip.file(fileNames.readme, buildReadmeText(locale, displayInvoiceNumber));
     zip.file(fileNames.invoice, invoicePdfBuffer);
     zip.file(fileNames.formalNotice, legalNoticeResult.pdfBuffer);
     zip.file(fileNames.paymentOrder, paymentOrderResult.pdfBuffer);
-    zip.file(
-      fileNames.history,
-      buildReminderHistoryHtml({ locale, invoiceNumber: displayInvoiceNumber, logs: logs ?? [] })
-    );
+    zip.file(fileNames.history, historyPdfBuffer);
 
     const zipBuffer = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
 
@@ -413,6 +339,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         metadata: {
           claimAmountCents: eligibility.claimAmountCents,
           jurisdiction: settingsDoc?.legalRecovery?.jurisdiction ?? 'justice_of_peace',
+          courtLocation: selectedCourtLocation,
           bundle: true,
         },
       });

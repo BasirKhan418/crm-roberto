@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useSWRConfig } from 'swr';
 import useSWR from 'swr';
 import useSWRInfinite from 'swr/infinite';
-import { DownloadIcon, ForwardIcon, GavelIcon, Loader2Icon, MailIcon, PowerIcon, SendIcon } from 'lucide-react';
+import { ChevronDownIcon, DownloadIcon, ForwardIcon, GavelIcon, Loader2Icon, MailIcon, PowerIcon, SendIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import SendReminderModal from '@/components/invoices/SendReminderModal';
@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { formatInvoiceDisplayNumber, resolveTranslatedError, translate } from '@/lib/i18n/messages';
 import { cn } from '@/lib/utils';
 
@@ -38,6 +39,19 @@ type LegalRecoveryIneligibleReason =
 
 type LegalRecoveryWarningReason = 'formal_notice_deadline_not_reached';
 type LegalRecoveryArtifactKind = 'payment-order' | 'recovery-file';
+type LegalRecoveryCourtLocation = 'luxembourg' | 'esch_sur_alzette' | 'diekirch';
+
+interface LegalRecoveryCourtData {
+  courtName?: string | null;
+  courtAddress?: string | null;
+  courtCity?: string | null;
+  creditorProfession?: string | null;
+  elisantDomicile?: string | null;
+  representativeName?: string | null;
+  representativeTitle?: string | null;
+  additionalNotes?: string | null;
+  configured: boolean;
+}
 
 interface LegalRecoveryEligibilityData {
   eligible: boolean;
@@ -49,7 +63,11 @@ interface LegalRecoveryEligibilityData {
   formalNoticeDeadline?: string | Date | null;
   legalRecoveryInitiatedAt?: string | Date | null;
   jurisdiction?: string | null;
-  courtLocation?: string | null;
+  courtLocation?: LegalRecoveryCourtLocation | null;
+  courtSelectionRequired?: boolean;
+  courtSelected?: boolean;
+  selectedCourt?: Omit<LegalRecoveryCourtData, 'configured'>;
+  courts?: Partial<Record<LegalRecoveryCourtLocation, LegalRecoveryCourtData>>;
   courtConfigured?: boolean;
 }
 
@@ -179,7 +197,10 @@ export default function CollectionTab({
   const [showLegalRecoveryConfirm, setShowLegalRecoveryConfirm] = useState(false);
   const [pendingLegalRecoveryKind, setPendingLegalRecoveryKind] = useState<LegalRecoveryArtifactKind | null>(null);
   const [downloadingLegalRecoveryKind, setDownloadingLegalRecoveryKind] = useState<LegalRecoveryArtifactKind | null>(null);
+  const [savingLegalRecoveryCourt, setSavingLegalRecoveryCourt] = useState(false);
+  const [selectedLegalRecoveryCourtLocation, setSelectedLegalRecoveryCourtLocation] = useState<LegalRecoveryCourtLocation | null>(null);
   const [updatingState, setUpdatingState] = useState(false);
+  const [showCourtDetails, setShowCourtDetails] = useState(false);
   const { mutate: globalMutate } = useSWRConfig();
 
   const t = useCallback(
@@ -338,6 +359,10 @@ export default function CollectionTab({
   const legalRecovery = legalRecoveryResp?.data ?? null;
 
   useEffect(() => {
+    setSelectedLegalRecoveryCourtLocation((legalRecovery?.courtLocation ?? null) as LegalRecoveryCourtLocation | null);
+  }, [legalRecovery?.courtLocation]);
+
+  useEffect(() => {
     if (!showHistory) {
       return;
     }
@@ -485,6 +510,43 @@ export default function CollectionTab({
       toast.error(resolveTranslatedError(locale, downloadError, t('reminders.legalRecovery.downloadFailed')));
     } finally {
       setDownloadingLegalRecoveryKind(null);
+    }
+  }
+
+  async function updateLegalRecoveryCourtSelection(nextCourtLocation: LegalRecoveryCourtLocation) {
+    if (isInvoicePaid || savingLegalRecoveryCourt) {
+      return;
+    }
+
+    const previousCourtLocation = selectedLegalRecoveryCourtLocation ?? null;
+    if (previousCourtLocation === nextCourtLocation) {
+      return;
+    }
+
+    setSelectedLegalRecoveryCourtLocation(nextCourtLocation);
+
+    setSavingLegalRecoveryCourt(true);
+
+    try {
+      const response = await fetch(`/api/invoices/${invoiceId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ legalRecoveryCourtLocation: nextCourtLocation }),
+      });
+
+      const payload = (await response.json()) as { success?: boolean; message?: string };
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.message || t('reminders.collection.actionFailed'));
+      }
+
+      // No need to call mutateLegalRecovery() here — the courts map already
+      // contains the configured state for all courts, so the UI updates
+      // correctly via optimistic local state without triggering a full refetch.
+    } catch (selectionError) {
+      setSelectedLegalRecoveryCourtLocation(previousCourtLocation);
+      toast.error(resolveTranslatedError(locale, selectionError, t('reminders.collection.actionFailed')));
+    } finally {
+      setSavingLegalRecoveryCourt(false);
     }
   }
 
@@ -683,6 +745,19 @@ export default function CollectionTab({
 
     const hasDeadlineWarning = legalRecovery.warningReason === 'formal_notice_deadline_not_reached';
     const requiresFormalNotice = legalRecovery.reason === 'formal_notice_not_sent';
+    const selectedCourtLocation =
+      selectedLegalRecoveryCourtLocation ??
+      (legalRecovery.courtLocation ?? null);
+    const selectedCourt = selectedCourtLocation
+      ? legalRecovery.courts?.[selectedCourtLocation] ?? null
+      : null;
+    const hasCourtSelection = Boolean(selectedCourtLocation);
+    // Use the per-court configured flag from the courts map so the UI reflects
+    // the selected court immediately (even before SWR revalidates).
+    const canGenerateLegalRecoveryDocuments =
+      legalRecovery.eligible &&
+      hasCourtSelection &&
+      selectedCourt?.configured === true;
 
     const thresholdLabel = t('reminders.legalRecovery.thresholdHint', {
       amount: formatEur(legalRecovery.claimThresholdCents, locale),
@@ -733,7 +808,7 @@ export default function CollectionTab({
               <p className="text-sm font-semibold text-foreground">
                 {t('reminders.legalRecovery.sectionTitle')}
               </p>
-              <p className="break-words text-xs text-muted-foreground">
+              <p className="wrap-break-word text-xs text-muted-foreground">
                 {t('reminders.legalRecovery.sectionDescription')}
               </p>
             </div>
@@ -748,7 +823,7 @@ export default function CollectionTab({
         {bannerText ? (
           <p
             className={cn(
-              'break-words rounded-md border px-3 py-2 text-xs',
+              'wrap-break-word rounded-md border px-3 py-2 text-xs',
               legalRecovery.eligible
                 ? 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200'
                 : 'border-border/60 bg-muted/40 text-muted-foreground'
@@ -763,13 +838,65 @@ export default function CollectionTab({
             <p className="font-semibold uppercase tracking-[0.08em] text-foreground">
               {t('reminders.legalRecovery.availableOnlyIfTitle')}
             </p>
-            <p className="mt-2 break-words">{t('reminders.legalRecovery.availableOnlyIfFormalNotice')}</p>
+            <p className="mt-2 wrap-break-word">{t('reminders.legalRecovery.availableOnlyIfFormalNotice')}</p>
           </div>
         ) : null}
 
-        {legalRecovery.eligible && legalRecovery.courtConfigured === false ? (
+        <div className="space-y-2">
+          <p className="text-xs font-medium text-foreground">{t('reminders.legalRecovery.courtSelectionLabel')}</p>
+          <Select
+            value={selectedCourtLocation ?? undefined}
+            onValueChange={(value) => {
+              void updateLegalRecoveryCourtSelection(value as LegalRecoveryCourtLocation);
+            }}
+            disabled={isInvoicePaid || savingLegalRecoveryCourt || downloadingLegalRecoveryKind !== null}
+          >
+            <SelectTrigger className="h-9 w-full sm:max-w-sm">
+              <SelectValue placeholder={t('reminders.settings.legalRecoverySection.courtLocationNone')} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="luxembourg">
+                {t('reminders.settings.legalRecoverySection.courtLocationLuxembourg')}
+              </SelectItem>
+              <SelectItem value="esch_sur_alzette">
+                {t('reminders.settings.legalRecoverySection.courtLocationEschSurAlzette')}
+              </SelectItem>
+              <SelectItem value="diekirch">
+                {t('reminders.settings.legalRecoverySection.courtLocationDiekirch')}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">{t('reminders.legalRecovery.courtSelectionHelp')}</p>
+          {selectedCourt?.configured ? (
+            <div className="mt-1 rounded-md border border-border/50 bg-muted/30 text-xs text-muted-foreground">
+              <button
+                type="button"
+                onClick={() => setShowCourtDetails((v) => !v)}
+                className="flex w-full items-center justify-between px-3 py-2 text-left"
+              >
+                <span className="font-medium text-foreground">{t('reminders.settings.legalRecoverySection.courtNameLabel')}: {selectedCourt.courtName}</span>
+                <ChevronDownIcon className={cn('h-3.5 w-3.5 shrink-0 transition-transform', showCourtDetails && 'rotate-180')} />
+              </button>
+              {showCourtDetails ? (
+                <div className="border-t border-border/50 px-3 py-2 space-y-0.5">
+                  {selectedCourt.courtAddress ? <p>{selectedCourt.courtAddress}{selectedCourt.courtCity ? `, ${selectedCourt.courtCity}` : ''}</p> : null}
+                  {selectedCourt.representativeName ? <p><span className="font-medium text-foreground">{t('reminders.settings.legalRecoverySection.representativeNameLabel')}:</span> {selectedCourt.representativeName}{selectedCourt.representativeTitle ? ` — ${selectedCourt.representativeTitle}` : ''}</p> : null}
+                  {selectedCourt.creditorProfession ? <p><span className="font-medium text-foreground">{t('reminders.settings.legalRecoverySection.creditorProfessionLabel')}:</span> {selectedCourt.creditorProfession}</p> : null}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+
+        {legalRecovery.eligible && !hasCourtSelection ? (
+          <div className="rounded-md border border-orange-200 bg-orange-50 px-3 py-2 text-xs text-orange-900 dark:border-orange-900/60 dark:bg-orange-950/30 dark:text-orange-200">
+            <span className="min-w-0 wrap-break-word">{t('reminders.legalRecovery.selectCourtRequired')}</span>
+          </div>
+        ) : null}
+
+        {legalRecovery.eligible && hasCourtSelection && selectedCourt?.configured === false ? (
           <div className="flex flex-col gap-2 rounded-md border border-orange-200 bg-orange-50 px-3 py-2 text-xs text-orange-900 dark:border-orange-900/60 dark:bg-orange-950/30 dark:text-orange-200 sm:flex-row sm:items-center sm:justify-between">
-            <span className="min-w-0 break-words">{t('reminders.legalRecovery.configureCourt')}</span>
+            <span className="min-w-0 wrap-break-word">{t('reminders.legalRecovery.configureCourt')}</span>
             <Link
               href="/settings/reminders?section=legalRecovery"
               className="shrink-0 text-xs font-semibold underline-offset-2 hover:underline"
@@ -780,24 +907,24 @@ export default function CollectionTab({
         ) : null}
 
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-          <span className="break-words">{claimLabel}</span>
+          <span className="wrap-break-word">{claimLabel}</span>
           <span aria-hidden>•</span>
-          <span className="break-words">{thresholdLabel}</span>
+          <span className="wrap-break-word">{thresholdLabel}</span>
           {initiatedLabel ? (
             <>
               <span aria-hidden>•</span>
-              <span className="break-words">{initiatedLabel}</span>
+              <span className="wrap-break-word">{initiatedLabel}</span>
             </>
           ) : null}
         </div>
 
-        {legalRecovery.eligible ? (
+        {canGenerateLegalRecoveryDocuments ? (
           <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
             <Button
               type="button"
               size={isCompact ? 'sm' : 'default'}
               className="w-full min-w-0 sm:w-auto"
-              disabled={downloadingLegalRecoveryKind !== null}
+              disabled={downloadingLegalRecoveryKind !== null || savingLegalRecoveryCourt}
               onClick={() => void downloadLegalRecoveryArtifact('payment-order')}
             >
               {downloadingLegalRecoveryKind === 'payment-order'
@@ -810,7 +937,7 @@ export default function CollectionTab({
               size={isCompact ? 'sm' : 'default'}
               variant="outline"
               className="w-full min-w-0 sm:w-auto"
-              disabled={downloadingLegalRecoveryKind !== null}
+              disabled={downloadingLegalRecoveryKind !== null || savingLegalRecoveryCourt}
               onClick={() => void downloadLegalRecoveryArtifact('recovery-file')}
             >
               {downloadingLegalRecoveryKind === 'recovery-file'

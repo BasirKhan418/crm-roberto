@@ -21,9 +21,29 @@ import {
 
 export const DEFAULT_LEGAL_RECOVERY_CLAIM_THRESHOLD_CENTS = 1_500_000; // €15,000
 
+export type LegalRecoveryCourtLocation = Exclude<PaymentOrderCourtLocation, null>;
+
+export const LEGAL_RECOVERY_COURT_LOCATIONS: LegalRecoveryCourtLocation[] = [
+  'luxembourg',
+  'esch_sur_alzette',
+  'diekirch',
+];
+
+export interface LegalRecoveryCourtConfig {
+  courtName?: string | null;
+  courtAddress?: string | null;
+  courtCity?: string | null;
+  creditorProfession?: string | null;
+  elisantDomicile?: string | null;
+  representativeName?: string | null;
+  representativeTitle?: string | null;
+  additionalNotes?: string | null;
+}
+
 export interface LegalRecoverySettings {
   claimThresholdCents?: number | null;
   jurisdiction?: 'justice_of_peace' | string | null;
+  courts?: Partial<Record<LegalRecoveryCourtLocation, LegalRecoveryCourtConfig | null>> | null;
   courtLocation?: PaymentOrderCourtLocation;
   courtName?: string | null;
   courtAddress?: string | null;
@@ -33,6 +53,104 @@ export interface LegalRecoverySettings {
   representativeName?: string | null;
   representativeTitle?: string | null;
   additionalNotes?: string | null;
+}
+
+function toTrimmedOrNull(value: string | null | undefined): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+export function normalizeLegalRecoveryCourtConfig(
+  court: LegalRecoveryCourtConfig | null | undefined
+): LegalRecoveryCourtConfig {
+  return {
+    courtName: toTrimmedOrNull(court?.courtName),
+    courtAddress: toTrimmedOrNull(court?.courtAddress),
+    courtCity: toTrimmedOrNull(court?.courtCity),
+    creditorProfession: toTrimmedOrNull(court?.creditorProfession),
+    elisantDomicile: toTrimmedOrNull(court?.elisantDomicile),
+    representativeName: toTrimmedOrNull(court?.representativeName),
+    representativeTitle: toTrimmedOrNull(court?.representativeTitle),
+    additionalNotes: toTrimmedOrNull(court?.additionalNotes),
+  };
+}
+
+export function isLegalRecoveryCourtConfigured(court: LegalRecoveryCourtConfig | null | undefined): boolean {
+  const normalized = normalizeLegalRecoveryCourtConfig(court);
+  return Boolean(normalized.courtName);
+}
+
+function hasAnyCourtConfigValue(court: LegalRecoveryCourtConfig | null | undefined): boolean {
+  const normalized = normalizeLegalRecoveryCourtConfig(court);
+  return Boolean(
+    normalized.courtName ||
+    normalized.courtAddress ||
+    normalized.courtCity ||
+    normalized.creditorProfession ||
+    normalized.elisantDomicile ||
+    normalized.representativeName ||
+    normalized.representativeTitle ||
+    normalized.additionalNotes
+  );
+}
+
+export function resolveLegalRecoveryCourtConfig(
+  settings: LegalRecoverySettings | null | undefined,
+  courtLocation: PaymentOrderCourtLocation
+): LegalRecoveryCourtConfig {
+  if (!courtLocation) {
+    return normalizeLegalRecoveryCourtConfig(null);
+  }
+
+  const configuredCourt = settings?.courts?.[courtLocation] ?? null;
+  if (hasAnyCourtConfigValue(configuredCourt)) {
+    return normalizeLegalRecoveryCourtConfig(configuredCourt);
+  }
+
+  const legacyCourt = normalizeLegalRecoveryCourtConfig({
+    courtName: settings?.courtName,
+    courtAddress: settings?.courtAddress,
+    courtCity: settings?.courtCity,
+    creditorProfession: settings?.creditorProfession,
+    elisantDomicile: settings?.elisantDomicile,
+    representativeName: settings?.representativeName,
+    representativeTitle: settings?.representativeTitle,
+    additionalNotes: settings?.additionalNotes,
+  });
+
+  // Only use legacy flat-field data for the court location it was originally saved under.
+  // Default to 'luxembourg' when courtLocation is absent (pre-multi-court migration).
+  const effectiveCourtLocation = settings?.courtLocation ?? 'luxembourg';
+  const canUseLegacy = effectiveCourtLocation === courtLocation;
+  if (canUseLegacy && hasAnyCourtConfigValue(legacyCourt)) {
+    return legacyCourt;
+  }
+
+  return normalizeLegalRecoveryCourtConfig(null);
+}
+
+export function resolveLegalRecoverySettingsForCourt(
+  settings: LegalRecoverySettings | null | undefined,
+  courtLocation: PaymentOrderCourtLocation
+): LegalRecoverySettings {
+  const court = resolveLegalRecoveryCourtConfig(settings, courtLocation);
+
+  return {
+    ...settings,
+    courtLocation,
+    courtName: court.courtName ?? null,
+    courtAddress: court.courtAddress ?? null,
+    courtCity: court.courtCity ?? null,
+    creditorProfession: court.creditorProfession ?? null,
+    elisantDomicile: court.elisantDomicile ?? null,
+    representativeName: court.representativeName ?? null,
+    representativeTitle: court.representativeTitle ?? null,
+    additionalNotes: court.additionalNotes ?? null,
+  };
 }
 
 export interface LegalRecoveryEligibilityInput {

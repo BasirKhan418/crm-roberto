@@ -11,9 +11,13 @@ import { createActivityLog } from '@/db/repository/activity';
 import { formatInvoiceDisplayNumber } from '@/lib/i18n/messages';
 import {
   evaluateLegalRecoveryEligibility,
+  isLegalRecoveryCourtConfigured,
   markLegalRecoveryInitiatedIfNeeded,
   renderPaymentOrderPdfForRecovery,
   resolveClaimThresholdCents,
+  resolveLegalRecoveryCourtConfig,
+  resolveLegalRecoverySettingsForCourt,
+  type LegalRecoveryCourtLocation,
   type LegalRecoverySettings,
   type ReminderLogEntry,
 } from '@/lib/reminders/legal-recovery';
@@ -31,6 +35,7 @@ interface RouteParams {
 type InvoiceForLegalRecovery = {
   _id: mongoose.Types.ObjectId;
   userId: mongoose.Types.ObjectId;
+  legalRecoveryCourtLocation?: LegalRecoveryCourtLocation | null;
   invoiceNumber: string;
   quoteNumber?: string | null;
   date?: Date | null;
@@ -94,7 +99,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     await ConnectDb();
 
     const invoice = await Invoice.findOne({ _id: id, userId: me.user.id })
-      .select('_id userId invoiceNumber quoteNumber date dueDate status lineItems totalExcludingTax totalVat totalIncludingTax depositPercentage notes clientSnapshot reminderState')
+      .select('_id userId legalRecoveryCourtLocation invoiceNumber quoteNumber date dueDate status lineItems totalExcludingTax totalVat totalIncludingTax depositPercentage notes clientSnapshot reminderState')
       .lean<InvoiceForLegalRecovery | null>();
 
     if (!invoice) {
@@ -157,6 +162,36 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    const selectedCourtLocation = invoice.legalRecoveryCourtLocation ?? null;
+    if (!selectedCourtLocation) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Please select a competent court on the invoice before generating legal recovery documents.',
+          reason: 'court_not_selected',
+        },
+        { status: 400 }
+      );
+    }
+
+    const selectedCourt = resolveLegalRecoveryCourtConfig(settingsDoc?.legalRecovery, selectedCourtLocation);
+    if (!isLegalRecoveryCourtConfigured(selectedCourt)) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Court details are not configured for the selected court. Update Settings → Reminders → Legal Recovery.',
+          reason: 'court_not_configured',
+          courtLocation: selectedCourtLocation,
+        },
+        { status: 400 }
+      );
+    }
+
+    const legalRecoverySettings = resolveLegalRecoverySettingsForCourt(
+      settingsDoc?.legalRecovery,
+      selectedCourtLocation
+    );
+
     const rawLocale = request.nextUrl.searchParams.get('locale');
     const locale = resolveReminderLocalePreference(rawLocale, me.user.locale, companyProfile?.locale);
 
@@ -188,7 +223,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const { pdfBuffer } = await renderPaymentOrderPdfForRecovery({
       invoice: invoicePdfInput,
       companyProfile,
-      settings: settingsDoc?.legalRecovery ?? null,
+      settings: legalRecoverySettings,
       locale,
       remainingAmountCents: remainingAmount,
       paidAmountCents: totalPaid,
@@ -216,6 +251,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         metadata: {
           claimAmountCents: eligibility.claimAmountCents,
           jurisdiction: settingsDoc?.legalRecovery?.jurisdiction ?? 'justice_of_peace',
+          courtLocation: selectedCourtLocation,
         },
       });
     }
