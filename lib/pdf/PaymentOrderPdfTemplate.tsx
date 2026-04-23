@@ -113,36 +113,37 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
   },
 
-  // Top strip (logo + creditor identity)
   topHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: BORDER,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    marginBottom: 8,
   },
   logo: {
-    width: 52,
-    height: 52,
-    objectFit: 'contain',
+    width: 42,
+    height: 42,
+    objectFit: 'cover',
+    borderRadius: 2,
   },
   identityCard: {
     flex: 1,
-  },
-  identityCardWithLogo: {
-    marginLeft: 12,
+    marginLeft: 8,
   },
   companyName: {
-    fontSize: 11,
+    fontSize: 10.5,
     fontWeight: 700,
     color: TEXT_MAIN,
   },
   infoLine: {
-    fontSize: 8.5,
+    fontSize: 8,
     color: TEXT_MUTED,
+    marginTop: 1,
   },
 
-  // Title row (ORIGINAL | REQUÊTE…)
-  titleRow: {
+  titleHeader: {
     flexDirection: 'row',
     borderTopWidth: 1,
     borderLeftWidth: 1,
@@ -150,26 +151,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: BORDER,
   },
-  leftColumn: {
+  titleLeftCell: {
     width: TITLE_LEFT_WIDTH,
     borderRightWidth: 1,
     borderColor: BORDER,
-    paddingHorizontal: 6,
-    paddingVertical: 6,
-    justifyContent: 'flex-start',
-  },
-  leftLabel: {
-    fontSize: 9,
-    fontWeight: 700,
-    color: TEXT_MAIN,
-    textTransform: 'uppercase',
-    textAlign: 'center',
-  },
-  leftSub: {
-    fontSize: 8,
-    color: TEXT_MUTED,
-    textAlign: 'center',
-    marginTop: 2,
   },
   titleCell: {
     flex: 1,
@@ -377,7 +362,7 @@ function isLuxembourgCountry(value?: string | null): boolean {
 }
 
 function formatDomicile(postalCode?: string | null, city?: string | null, country?: string | null): string {
-  const pc = trimOrNull(postalCode);
+  const pc = trimOrNull(postalCode)?.replace(/^L-\s*/i, '');
   const locality = trimOrNull(city);
   const c = trimOrNull(country);
 
@@ -408,6 +393,16 @@ function formatHeaderAddress(creditor: PaymentOrderCompanyProfile): string {
       ', '
     )
   );
+}
+
+function normalizeLabel(label: string): string {
+  return label.replace(/:\s*$/, '').trim();
+}
+
+function formatLabel(label: string, value?: string | null): string {
+  const cleanValue = trimOrNull(value);
+  if (!cleanValue) return '';
+  return `${normalizeLabel(label)}: ${cleanValue}`;
 }
 
 function splitFullName(fullName: string | null | undefined): { firstName: string; lastName: string } {
@@ -660,6 +655,8 @@ export function PaymentOrderPdfTemplate(props: PaymentOrderPdfProps) {
   const debtorFirstName = props.debtor.isLegalEntity ? '' : (props.debtor.firstName || debtorDerivedFirst);
   const debtorStreet = joinParts([props.debtor.streetNumber, props.debtor.streetName], ' ');
   const debtorDomicile = formatDomicile(props.debtor.postalCode, props.debtor.city, props.debtor.country);
+  const debtorDomicileResolved = debtorDomicile || notEmpty(props.debtor.address);
+  const debtorProfession = 'Dirigeant de société';
 
   const courtLoc = props.court.location;
 
@@ -667,25 +664,20 @@ export function PaymentOrderPdfTemplate(props: PaymentOrderPdfProps) {
     <Document>
    
       <Page size="A4" style={styles.page}>
-        {/* Creditor identity strip */}
-        <View style={styles.topHeader}>
+        <View style={styles.topHeader} wrap={false}>
           {creditor.logo ? (
             // eslint-disable-next-line jsx-a11y/alt-text
             <Image style={styles.logo} src={creditor.logo} />
           ) : null}
-          <View style={creditor.logo ? [styles.identityCard, styles.identityCardWithLogo] : styles.identityCard}>
+          <View style={styles.identityCard}>
             <Text style={styles.companyName}>{notEmpty(creditor.name)}</Text>
             {creditorAddressLine ? <Text style={styles.infoLine}>{creditorAddressLine}</Text> : null}
             {creditorMetaLine ? <Text style={styles.infoLine}>{creditorMetaLine}</Text> : null}
           </View>
         </View>
 
-        {/* Title row */}
-        <View style={styles.titleRow} wrap={false}>
-          <View style={styles.leftColumn}>
-            <Text style={styles.leftLabel}>{labels.original}</Text>
-            <Text style={styles.leftSub}>{labels.caseNumber}: {notEmpty(props.caseReference)}</Text>
-          </View>
+        <View style={styles.titleHeader} wrap={false}>
+          <View style={styles.titleLeftCell} />
           <View style={styles.titleCell}>
             <Text style={styles.titleText}>{labels.title}</Text>
             <Text style={styles.subtitleText}>{labels.intro}</Text>
@@ -695,59 +687,53 @@ export function PaymentOrderPdfTemplate(props: PaymentOrderPdfProps) {
         {/* 1. Nom (or legal entity) */}
         <FormRow number={1} sideLabel={labels.creditorSide}>
           <View style={styles.rowInline}>
-            <Text style={styles.rowLabel}>{labels.lastName} <Text style={styles.rowHint}>{labels.lastNameHint}</Text>:</Text>
-            <Text style={styles.rowValue}>{notEmpty(creditorLastName)}</Text>
+            <Text style={styles.rowValue}>{formatLabel(labels.lastName, creditorLastName)}</Text>
+            {!trimOrNull(creditorLastName) ? <Text style={styles.rowHint}>{labels.lastNameHint}</Text> : null}
           </View>
         </FormRow>
 
         {/* 2. Prénom */}
         <FormRow number={2}>
           <View style={styles.rowInline}>
-            <Text style={styles.rowLabel}>{labels.firstName} <Text style={styles.rowHint}>{labels.firstNameHint}</Text>:</Text>
-            <Text style={styles.rowValue}>{notEmpty(creditorFirstName)}</Text>
+            <Text style={styles.rowValue}>{formatLabel(labels.firstName, creditorFirstName)}</Text>
+            {!trimOrNull(creditorFirstName) ? <Text style={styles.rowHint}>{labels.firstNameHint}</Text> : null}
           </View>
         </FormRow>
 
         {/* 3. Profession */}
         <FormRow number={3}>
           <View style={styles.rowInline}>
-            <Text style={styles.rowLabel}>{labels.profession}:</Text>
-            <Text style={styles.rowValue}>{notEmpty(creditor.profession)}</Text>
+            <Text style={styles.rowValue}>{formatLabel(labels.profession, creditor.profession)}</Text>
           </View>
         </FormRow>
 
         {/* 4. Street and number */}
         <FormRow number={4}>
           <View style={styles.rowInline}>
-            <Text style={styles.rowLabel}>{labels.street}:</Text>
-            <Text style={styles.rowValue}>{notEmpty(creditorStreet)}</Text>
+            <Text style={styles.rowValue}>{formatLabel(labels.street, creditorStreet)}</Text>
           </View>
         </FormRow>
 
         {/* 5. Domicile */}
         <FormRow number={5}>
           <View style={styles.rowInline}>
-            <Text style={styles.rowLabel}>{labels.domicile}</Text>
-            <Text style={styles.rowValue}>{notEmpty(creditorDomicile)}</Text>
-            <Text style={styles.rowHint}>{labels.domicileHint}</Text>
+            <Text style={styles.rowValue}>{formatLabel(labels.domicile, creditorDomicile)}</Text>
+            {!trimOrNull(creditorDomicile) ? <Text style={styles.rowHint}>{labels.domicileHint}</Text> : null}
           </View>
         </FormRow>
 
         {/* 6. Legal representative (for legal entity) */}
         <FormRow number={6}>
           <View>
-            <Text style={styles.rowHint}>{labels.moralHint}:</Text>
-            <Text style={styles.rowValue}>
-              {props.creditorIsLegalEntity ? joinParts([props.representativeName, props.representativeTitle], ' — ') : ''}
-            </Text>
+            {props.creditorIsLegalEntity ? <Text style={styles.rowHint}>{labels.moralHint}:</Text> : null}
+            <Text style={styles.rowValue}>{props.creditorIsLegalEntity ? joinParts([props.representativeName, props.representativeTitle], ' — ') : ''}</Text>
           </View>
         </FormRow>
 
         {/* 7. Elisant domicile (optional) */}
         <FormRow number={7} sideLabel={labels.optional}>
           <View style={styles.rowInline}>
-            <Text style={styles.rowLabel}>{labels.elisantDomicile}</Text>
-            <Text style={styles.rowValue}>{notEmpty(props.elisantDomicile)}</Text>
+            <Text style={styles.rowValue}>{formatLabel(labels.elisantDomicile, props.elisantDomicile)}</Text>
           </View>
         </FormRow>
 
@@ -776,48 +762,45 @@ export function PaymentOrderPdfTemplate(props: PaymentOrderPdfProps) {
         {/* 9. Debtor name */}
         <FormRow number={9} sideLabel={labels.debtorSide}>
           <View style={styles.rowInline}>
-            <Text style={styles.rowLabel}>{labels.lastName} <Text style={styles.rowHint}>{labels.lastNameHint}</Text>:</Text>
-            <Text style={styles.rowValue}>{notEmpty(debtorLastName)}</Text>
+            <Text style={styles.rowValue}>{formatLabel(labels.lastName, debtorLastName)}</Text>
+            {!trimOrNull(debtorLastName) ? <Text style={styles.rowHint}>{labels.lastNameHint}</Text> : null}
           </View>
         </FormRow>
 
         {/* 10. Debtor first name */}
         <FormRow number={10}>
           <View style={styles.rowInline}>
-            <Text style={styles.rowLabel}>{labels.firstName} <Text style={styles.rowHint}>{labels.firstNameHint}</Text>:</Text>
-            <Text style={styles.rowValue}>{notEmpty(debtorFirstName)}</Text>
+            <Text style={styles.rowValue}>{formatLabel(labels.firstName, debtorFirstName)}</Text>
+            {!trimOrNull(debtorFirstName) ? <Text style={styles.rowHint}>{labels.firstNameHint}</Text> : null}
           </View>
         </FormRow>
 
         {/* 11. Debtor profession */}
         <FormRow number={11}>
           <View style={styles.rowInline}>
-            <Text style={styles.rowLabel}>{labels.profession}:</Text>
-            <Text style={styles.rowValue}>{notEmpty(props.debtor.profession)}</Text>
+            <Text style={styles.rowValue}>{formatLabel(labels.profession, debtorProfession)}</Text>
           </View>
         </FormRow>
 
         {/* 12. Debtor street */}
         <FormRow number={12}>
           <View style={styles.rowInline}>
-            <Text style={styles.rowLabel}>{labels.street}:</Text>
-            <Text style={styles.rowValue}>{notEmpty(debtorStreet || props.debtor.address)}</Text>
+            <Text style={styles.rowValue}>{formatLabel(labels.street, debtorStreet)}</Text>
           </View>
         </FormRow>
 
         {/* 13. Debtor domicile */}
         <FormRow number={13}>
           <View style={styles.rowInline}>
-            <Text style={styles.rowLabel}>{labels.domicile}</Text>
-            <Text style={styles.rowValue}>{notEmpty(debtorDomicile)}</Text>
-            <Text style={styles.rowHint}>{labels.domicileHint}</Text>
+            <Text style={styles.rowValue}>{formatLabel(labels.domicile, debtorDomicileResolved)}</Text>
+            {!trimOrNull(debtorDomicileResolved) ? <Text style={styles.rowHint}>{labels.domicileHint}</Text> : null}
           </View>
         </FormRow>
 
         {/* 14. Debtor representative */}
         <FormRow number={14}>
           <View>
-            <Text style={styles.rowHint}>{labels.moralAgainstHint}:</Text>
+            {props.debtor.isLegalEntity ? <Text style={styles.rowHint}>{labels.moralAgainstHint}:</Text> : null}
             <Text style={styles.rowValue}>
               {props.debtor.isLegalEntity ? notEmpty(props.debtor.representativeName) : ''}
             </Text>
@@ -863,28 +846,22 @@ export function PaymentOrderPdfTemplate(props: PaymentOrderPdfProps) {
         {/* 18. IBAN */}
         <FormRow number={18}>
           <View style={styles.rowInline}>
-            <Text style={styles.rowLabel}>{labels.ibanLead}</Text>
-            <Text style={styles.rowValue}>{notEmpty(creditor.iban)}</Text>
-            <Text style={styles.rowLabel}>{labels.ibanTail}</Text>
+            <Text style={styles.rowValue}>{formatLabel(labels.ibanLabel, creditor.iban)}</Text>
           </View>
         </FormRow>
 
         {/* 19. Bank */}
         <FormRow number={19}>
           <View style={styles.rowInline}>
-            <Text style={styles.rowLabel}>{labels.bankLead}</Text>
-            <Text style={styles.rowValue}>{notEmpty(creditor.bankName)}</Text>
-            <Text style={styles.rowHint}>{labels.bankHint}</Text>
+            <Text style={styles.rowValue}>{formatLabel(labels.bankLabel, creditor.bankName)}</Text>
+            {!trimOrNull(creditor.bankName) ? <Text style={styles.rowHint}>{labels.bankHint}</Text> : null}
           </View>
         </FormRow>
 
         {/* 20. Place, date */}
         <FormRow number={20}>
           <View style={styles.rowInline}>
-            <Text style={styles.rowValue}>{notEmpty(props.requestPlace)}</Text>
-            <Text style={styles.rowLabel}>,</Text>
-            <Text style={styles.rowLabel}>{labels.dateWord}</Text>
-            <Text style={styles.rowValue}>{notEmpty(props.requestDate)}</Text>
+            <Text style={styles.rowValue}>{`${notEmpty(props.requestPlace)}, ${labels.dateWord} ${notEmpty(props.requestDate)}`}</Text>
           </View>
         </FormRow>
 

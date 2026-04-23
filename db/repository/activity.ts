@@ -39,6 +39,10 @@ function isValidObjectId(value: string): boolean {
 export const createActivityLog = async (userId: string, payload: CreateActivityDTO): Promise<ActivityRecord> => {
   await ConnectDb();
 
+  if (!payload?.action) {
+    throw new Error('Action not initialized');
+  }
+
   const created = await ActivityLog.create({
     ...payload,
     user: userId,
