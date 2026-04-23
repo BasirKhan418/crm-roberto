@@ -401,10 +401,17 @@ const messages = {
       actions: {
         sendNow: 'Send reminder now',
         sendAgain: 'Send reminder again',
+        resendFormalNotice: 'Resend (exceptional)',
         pause: 'Pause reminders',
         resume: 'Resume reminders',
         downloadNotice: 'Download legal notice',
         skipNext: 'Skip next reminder',
+      },
+      formalNoticeResendConfirm: {
+        title: 'Resend formal notice?',
+        description: 'A formal notice was already sent on {date}. This is a legal action. Do you really want to send it again?',
+        confirm: 'Resend formal notice',
+        cancel: 'Cancel',
       },
       simpleStatus: {
         active: 'Active',
@@ -977,10 +984,17 @@ const messages = {
       actions: {
         sendNow: 'Envoyer maintenant',
         sendAgain: 'Envoyer à nouveau',
+        resendFormalNotice: 'Renvoyer (exceptionnel)',
         pause: 'Mettre en pause',
         resume: 'Reprendre',
         downloadNotice: 'Télécharger la mise en demeure',
         skipNext: 'Ignorer le prochain rappel',
+      },
+      formalNoticeResendConfirm: {
+        title: 'Renvoyer la mise en demeure ?',
+        description: 'Une mise en demeure a déjà été envoyée le {date}. Il s\'agit d\'une action légale. Voulez-vous vraiment la renvoyer ?',
+        confirm: 'Renvoyer la mise en demeure',
+        cancel: 'Annuler',
       },
       simpleStatus: {
         active: 'Actif',

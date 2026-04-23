@@ -13,7 +13,7 @@ import SendReminderModal from '@/components/invoices/SendReminderModal';
 import CrmShell from '@/components/crm-shell';
 import KpiCards, { type KpiCard } from '@/components/ui/KpiCards';
 import { useLocale } from '@/components/providers/locale-provider';
-import { formatInvoiceDisplayNumber } from '@/lib/i18n/messages';
+import { formatInvoiceDisplayNumber, translate } from '@/lib/i18n/messages';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -282,6 +282,7 @@ function InvoicesPageContent() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [sendTarget, setSendTarget] = useState<InvoiceListItem | null>(null);
   const [reminderTarget, setReminderTarget] = useState<InvoiceListItem | null>(null);
+  const [formalNoticeConfirmTarget, setFormalNoticeConfirmTarget] = useState<InvoiceListItem | null>(null);
   const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<string[]>([]);
   const [bulkReminderOpen, setBulkReminderOpen] = useState(false);
   const [bulkReminderMode, setBulkReminderMode] = useState<'auto' | '1' | '2' | '3'>('auto');
@@ -918,7 +919,16 @@ function InvoicesPageContent() {
               onDelete={setDeleteTarget}
               onDownload={handleDownloadPdf}
               onSend={setSendTarget}
-              onSendReminder={setReminderTarget}
+              onSendReminder={(invoice) => {
+                const level = Math.max(0, Math.min(4, Math.round(Number(invoice.reminderState?.level ?? 0))));
+                const formalNoticeAlreadySent =
+                  level >= 4 && Boolean(invoice.reminderState?.formalNoticeSentAt ?? invoice.reminderState?.lastSentAt);
+                if (formalNoticeAlreadySent) {
+                  setFormalNoticeConfirmTarget(invoice);
+                  return;
+                }
+                setReminderTarget(invoice);
+              }}
               selectedInvoiceIds={selectedInvoiceIds}
               onToggleInvoiceSelection={(invoiceId, checked) => {
                 setSelectedInvoiceIds((prev) => {
@@ -1160,6 +1170,58 @@ function InvoicesPageContent() {
           }}
         />
       ) : null}
+
+      <AlertDialog
+        open={Boolean(formalNoticeConfirmTarget)}
+        onOpenChange={(next) => (!next ? setFormalNoticeConfirmTarget(null) : undefined)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {translate(locale as 'en' | 'fr', 'reminders.formalNoticeResendConfirm.title')}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {translate(locale as 'en' | 'fr', 'reminders.formalNoticeResendConfirm.description', {
+                date: (() => {
+                  const raw =
+                    formalNoticeConfirmTarget?.reminderState?.formalNoticeSentAt ??
+                    formalNoticeConfirmTarget?.reminderState?.lastSentAt ??
+                    null;
+                  if (!raw) return '-';
+                  const date = new Date(raw);
+                  if (!Number.isFinite(date.getTime())) return '-';
+                  return new Intl.DateTimeFormat(locale === 'fr' ? 'fr-FR' : 'en-GB', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                  }).format(date);
+                })(),
+              })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel asChild>
+              <Button type="button" variant="outline">
+                {translate(locale as 'en' | 'fr', 'reminders.formalNoticeResendConfirm.cancel')}
+              </Button>
+            </AlertDialogCancel>
+            <AlertDialogAction asChild>
+              <Button
+                type="button"
+                onClick={() => {
+                  const next = formalNoticeConfirmTarget;
+                  setFormalNoticeConfirmTarget(null);
+                  if (next) {
+                    setReminderTarget(next);
+                  }
+                }}
+              >
+                {translate(locale as 'en' | 'fr', 'reminders.formalNoticeResendConfirm.confirm')}
+              </Button>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </CrmShell>
   );
 }

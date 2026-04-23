@@ -8,6 +8,16 @@ import { DownloadIcon, ForwardIcon, Loader2Icon, MailIcon, PowerIcon, SendIcon }
 import { toast } from 'sonner';
 
 import SendReminderModal from '@/components/invoices/SendReminderModal';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { formatInvoiceDisplayNumber, resolveTranslatedError, translate } from '@/lib/i18n/messages';
@@ -22,6 +32,7 @@ interface ReminderState {
   lastSentAt?: string | Date | null;
   nextScheduledAt?: string | Date | null;
   isPaused?: boolean;
+  formalNoticeSentAt?: string | Date | null;
 }
 
 interface ReminderLogItem {
@@ -111,6 +122,7 @@ export default function CollectionTab({
   layout = 'full',
 }: CollectionTabProps) {
   const [showSendModal, setShowSendModal] = useState(false);
+  const [showFormalNoticeConfirm, setShowFormalNoticeConfirm] = useState(false);
   const [updatingState, setUpdatingState] = useState(false);
   const { mutate: globalMutate } = useSWRConfig();
 
@@ -155,7 +167,21 @@ export default function CollectionTab({
   const showControls = layout !== 'history';
   const showHistory = layout !== 'compact';
   const isCompact = layout === 'compact';
-  const sendReminderLabel = currentLevel > 0 ? t('reminders.actions.sendAgain') : t('reminders.actions.sendNow');
+  const formalNoticeAlreadySent = currentLevel >= 4 && Boolean(reminderState?.formalNoticeSentAt ?? reminderState?.lastSentAt);
+  const sendReminderLabel = formalNoticeAlreadySent
+    ? t('reminders.actions.resendFormalNotice')
+    : currentLevel > 0
+      ? t('reminders.actions.sendAgain')
+      : t('reminders.actions.sendNow');
+  const formalNoticeSentDateLabel = formatSentDate(reminderState?.formalNoticeSentAt ?? reminderState?.lastSentAt);
+
+  const handleSendClick = useCallback(() => {
+    if (formalNoticeAlreadySent) {
+      setShowFormalNoticeConfirm(true);
+      return;
+    }
+    setShowSendModal(true);
+  }, [formalNoticeAlreadySent]);
 
   const statusLabel = isDisabled
     ? t('reminders.simpleStatus.inactive')
@@ -176,11 +202,12 @@ export default function CollectionTab({
     }
 
     if (currentLevel >= 4) {
-      return t('reminders.formalNoticeSent', { date: dateLabel });
+      const formalNoticeDate = formatSentDate(reminderState?.formalNoticeSentAt ?? reminderState?.lastSentAt);
+      return t('reminders.formalNoticeSent', { date: formalNoticeDate || dateLabel });
     }
 
     return t('reminders.reminderSent', { level: currentLevel, date: dateLabel });
-  }, [currentLevel, formatSentDate, reminderState?.lastSentAt, t]);
+  }, [currentLevel, formatSentDate, reminderState?.formalNoticeSentAt, reminderState?.lastSentAt, t]);
 
   const nextScheduledLabel = useMemo(() => {
     if (isDisabled) {
@@ -345,7 +372,7 @@ export default function CollectionTab({
             size="sm"
             className="h-8 w-full sm:w-auto"
             disabled={isDisabled || isInvoicePaid}
-            onClick={() => setShowSendModal(true)}
+            onClick={handleSendClick}
           >
             <SendIcon className="size-3.5" />
             {sendReminderLabel}
@@ -396,7 +423,7 @@ export default function CollectionTab({
             type="button"
             className="w-full sm:w-auto"
             disabled={isDisabled || isInvoicePaid}
-            onClick={() => setShowSendModal(true)}
+            onClick={handleSendClick}
           >
             <SendIcon className="size-4" />
             {sendReminderLabel}
@@ -527,6 +554,30 @@ export default function CollectionTab({
     <div className={cn(showControls && showHistory && 'space-y-4')}>
       {showControls ? controlsNode : null}
       {showHistory ? historyNode : null}
+
+      <AlertDialog open={showFormalNoticeConfirm} onOpenChange={setShowFormalNoticeConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('reminders.formalNoticeResendConfirm.title')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('reminders.formalNoticeResendConfirm.description', {
+                date: formalNoticeSentDateLabel || '-',
+              })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('reminders.formalNoticeResendConfirm.cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setShowFormalNoticeConfirm(false);
+                setShowSendModal(true);
+              }}
+            >
+              {t('reminders.formalNoticeResendConfirm.confirm')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <SendReminderModal
         open={showSendModal}

@@ -105,6 +105,12 @@ function ReminderStateBadge({
 function getReminderActionLabel(invoice: InvoiceListItem, locale: 'en' | 'fr'): string {
   const level = Math.max(0, Math.min(4, Math.round(Number(invoice.reminderState?.level ?? 0))));
   const hasReminderBeenSent = level > 0 || Boolean(invoice.reminderState?.lastSentAt);
+  const formalNoticeAlreadySent =
+    level >= 4 && Boolean(invoice.reminderState?.formalNoticeSentAt ?? invoice.reminderState?.lastSentAt);
+
+  if (formalNoticeAlreadySent) {
+    return locale === 'fr' ? 'Renvoyer (exceptionnel)' : 'Resend (exceptional)';
+  }
 
   if (!hasReminderBeenSent) {
     return locale === 'fr' ? 'Envoyer rappel' : 'Send reminder';

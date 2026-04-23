@@ -31,6 +31,7 @@ export interface InvoiceListItem {
     lastSentAt?: string | null;
     nextScheduledAt?: string | null;
     isPaused?: boolean;
+    formalNoticeSentAt?: string | null;
   };
   clientId: string;
   clientSnapshot: {
