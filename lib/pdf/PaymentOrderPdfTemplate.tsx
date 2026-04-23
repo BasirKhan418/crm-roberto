@@ -491,6 +491,7 @@ function getLabels(locale: 'en' | 'fr') {
       nameLabel: 'Nom :',
       firstNameLabel: 'Prénom :',
       professionLabel: 'Profession :',
+      defaultDebtorProfession: 'Dirigeant de société',
       streetLabel: 'rue et numéro :',
       domicileLabel: 'Domicile :',
       representativeLabel: 'Représentant légal :',
@@ -574,6 +575,7 @@ function getLabels(locale: 'en' | 'fr') {
     nameLabel: 'Last name:',
     firstNameLabel: 'First name:',
     professionLabel: 'Profession:',
+    defaultDebtorProfession: 'Company director',
     streetLabel: 'street and number:',
     domicileLabel: 'Domicile:',
     representativeLabel: 'Legal representative:',
@@ -656,7 +658,7 @@ export function PaymentOrderPdfTemplate(props: PaymentOrderPdfProps) {
   const debtorStreet = joinParts([props.debtor.streetNumber, props.debtor.streetName], ' ');
   const debtorDomicile = formatDomicile(props.debtor.postalCode, props.debtor.city, props.debtor.country);
   const debtorDomicileResolved = debtorDomicile || notEmpty(props.debtor.address);
-  const debtorProfession = 'Dirigeant de société';
+  const debtorProfession = labels.defaultDebtorProfession;
 
   const courtLoc = props.court.location;
 
