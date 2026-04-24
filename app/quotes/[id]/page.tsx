@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 
@@ -126,7 +126,7 @@ function statusLabel(status: QuoteStatus, locale: Locale): string {
   return getQuoteStatusLabel(locale, status);
 }
 
-export default function QuoteDetailPage() {
+function QuoteDetailPageContent() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const searchParams = useSearchParams();
@@ -1038,5 +1038,13 @@ export default function QuoteDetailPage() {
         />
       ) : null}
     </CrmShell>
+  );
+}
+
+export default function QuoteDetailPage() {
+  return (
+    <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Chargement...</div>}>
+      <QuoteDetailPageContent />
+    </Suspense>
   );
 }

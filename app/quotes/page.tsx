@@ -74,14 +74,14 @@ function QuotesPageContent() {
       tabAccepted: 'Accepted',
       tabRejected: 'Rejected',
       empty: 'No quotes yet - create your first quote',
-      quoteNumber: 'Quote',
+      quoteNumber: 'Quote N°',
       client: 'Client',
       subject: 'Subject',
       date: 'Date',
       totalIncludingTax: 'Total incl. tax',
       status: 'Status',
       invoiceLink: 'Invoice link',
-      columnQuoteNumber: 'Quote',
+      columnQuoteNumber: 'Quote N°',
       columnClient: 'Client',
       columnSubject: 'Subject',
       columnDate: 'Date',
@@ -158,14 +158,14 @@ function QuotesPageContent() {
       tabAccepted: 'Accepté',
       tabRejected: 'Refusé',
       empty: 'Aucun devis - créez votre premier devis',
-      quoteNumber: 'Devis',
+      quoteNumber: 'N° Devis',
       client: 'Client',
       subject: 'Objet',
       date: 'Date',
       totalIncludingTax: 'Total TTC',
       status: 'Statut',
       invoiceLink: 'Lien facture',
-      columnQuoteNumber: 'Devis',
+      columnQuoteNumber: 'N° Devis',
       columnClient: 'Client',
       columnSubject: 'Objet',
       columnDate: 'Date',
@@ -236,7 +236,6 @@ function QuotesPageContent() {
 
   const { quotes, pagination, loading, error, refetch } = useQuotes(status, searchDebounced, sort, page, limit);
 
-  // ── KPI data ──────────────────────────────────────────────────────────────
   const [kpiData, setKpiData] = useState<{
     all: { count: number; totalTTC: number };
     accepted: { count: number; totalTTC: number };
@@ -616,7 +615,6 @@ function QuotesPageContent() {
           </Button>
         </div>
 
-        {/* ── KPI cards ────────────────────────────────────────────────────── */}
         <div className="space-y-3">
           <KpiCards cards={quoteKpiCards} locale={locale as 'en' | 'fr'} loading={kpiLoading} />
           {!kpiLoading && quoteKpiTotalsCards.length > 0 ? <KpiCards cards={quoteKpiTotalsCards} locale={locale as 'en' | 'fr'} cols={3} /> : null}
@@ -800,6 +798,8 @@ function QuotesPageContent() {
                 markReviewing: t.markReviewing,
               }}
               locale={locale as 'en' | 'fr'}
+              numberSortOrder={sort === 'number_asc' ? 'asc' : 'desc'}
+              onToggleNumberSort={() => setSort((prev) => (prev === 'number_desc' ? 'number_asc' : 'number_desc'))}
               onDuplicate={handleDuplicateQuote}
               onSend={setSendTarget}
               onConvert={handleConvertFromList}

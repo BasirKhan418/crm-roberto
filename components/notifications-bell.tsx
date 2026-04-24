@@ -193,6 +193,7 @@ export function NotificationsBell() {
     let closedByUnmount = false;
 
     const connect = () => {
+      if (source) return;
       source = new EventSource('/api/activity/events');
 
       source.addEventListener('activity_changed', (event) => {
@@ -214,17 +215,42 @@ export function NotificationsBell() {
       source.onerror = () => {
         if (closedByUnmount) {
           source?.close();
+          source = null;
           return;
         }
         void fetchNotifications();
       };
     };
 
-    connect();
+    const disconnect = () => {
+      source?.close();
+      source = null;
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        connect();
+        // Refresh once on focus in case we missed events while the tab was hidden.
+        void fetchNotifications();
+      } else {
+        // Close the SSE connection in background tabs so they do not
+        // consume scarce HTTP/1.1 connection slots (6 per origin in most
+        // browsers). Without this, opening ~3+ tabs queues every other
+        // request forever.
+        disconnect();
+      }
+    };
+
+    if (typeof document === 'undefined' || document.visibilityState === 'visible') {
+      connect();
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       closedByUnmount = true;
-      source?.close();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      disconnect();
     };
   }, [fetchNotifications]);
 

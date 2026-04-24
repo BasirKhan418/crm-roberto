@@ -37,6 +37,40 @@ export function SuspensionSseListener() {
       }
     };
 
+    const openSource = () => {
+      if (disposed || eventSource) return;
+
+      eventSource = new EventSource("/api/me/events");
+
+      eventSource.addEventListener("suspended", () => {
+        void forceLogout();
+      });
+
+      eventSource.onerror = () => {
+        if (eventSource?.readyState === EventSource.CLOSED) {
+          eventSource?.close();
+          eventSource = null;
+        }
+      };
+    };
+
+    const closeSource = () => {
+      eventSource?.close();
+      eventSource = null;
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        openSource();
+      } else {
+        // Close the SSE connection in background tabs so they do not
+        // consume scarce HTTP/1.1 connection slots (6 per origin in most
+        // browsers). Without this, opening ~3+ tabs queues every other
+        // request forever.
+        closeSource();
+      }
+    };
+
     const init = async () => {
       try {
         const meResponse = await fetch("/api/me", { cache: "no-store" });
@@ -45,17 +79,11 @@ export function SuspensionSseListener() {
         const data = (await meResponse.json()) as MeResponse;
         if (!data.success) return;
 
-        eventSource = new EventSource("/api/me/events");
+        if (document.visibilityState === "visible") {
+          openSource();
+        }
 
-        eventSource.addEventListener("suspended", () => {
-          void forceLogout();
-        });
-
-        eventSource.onerror = () => {
-          if (eventSource?.readyState === EventSource.CLOSED) {
-            eventSource?.close();
-          }
-        };
+        document.addEventListener("visibilitychange", handleVisibilityChange);
       } catch {
         // No-op: missing auth or temporary network failure.
       }
@@ -65,7 +93,8 @@ export function SuspensionSseListener() {
 
     return () => {
       disposed = true;
-      eventSource?.close();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      closeSource();
     };
   }, [pathname, router]);
 
