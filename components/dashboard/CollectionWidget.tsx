@@ -21,6 +21,14 @@ interface DashboardRemindersData {
   level4?: number;
   paused?: number;
   overdueCount?: number;
+  sentLast30Days?: number;
+  sentAllTime?: number;
+  sentByLevel?: {
+    level1?: number;
+    level2?: number;
+    level3?: number;
+    level4?: number;
+  };
   upcomingRecurrences?: Array<{
     id: string;
     invoiceNumber: string;
@@ -44,12 +52,18 @@ export default function CollectionWidget() {
   const { locale } = useLocale();
   const { data, error, isLoading } = useSWR('/api/dashboard/reminders', fetcher);
 
-  const stats = [
-    { label: translate(locale, 'dashboard.collection.noReminder'), value: data?.level0 ?? 0 },
-    { label: translate(locale, 'reminders.levels.soft'), value: data?.level1 ?? 0 },
-    { label: translate(locale, 'reminders.levels.medium'), value: data?.level2 ?? 0 },
-    { label: translate(locale, 'reminders.levels.firm'), value: data?.level3 ?? 0 },
-    { label: translate(locale, 'reminders.levels.formalNotice'), value: data?.level4 ?? 0 },
+  const activeCasesNow =
+    (data?.level0 ?? 0) +
+    (data?.level1 ?? 0) +
+    (data?.level2 ?? 0) +
+    (data?.level3 ?? 0) +
+    (data?.level4 ?? 0);
+
+  const sentByLevelStats = [
+    { label: translate(locale, 'reminders.levels.soft'), value: data?.sentByLevel?.level1 ?? 0 },
+    { label: translate(locale, 'reminders.levels.medium'), value: data?.sentByLevel?.level2 ?? 0 },
+    { label: translate(locale, 'reminders.levels.firm'), value: data?.sentByLevel?.level3 ?? 0 },
+    { label: translate(locale, 'reminders.levels.formalNotice'), value: data?.sentByLevel?.level4 ?? 0 },
   ];
 
   return (
@@ -63,13 +77,34 @@ export default function CollectionWidget() {
       <CardContent className="space-y-4">
         {error ? <p className="text-sm text-destructive">{translate(locale, 'dashboard.collection.loadFailed')}</p> : null}
 
-        <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
-          {stats.map((item) => (
-            <div key={item.label} className="rounded-lg border bg-muted/20 p-2.5">
-              <p className="text-xs text-muted-foreground">{item.label}</p>
-              <p className="mt-1 text-xl font-semibold tabular-nums">{isLoading ? '-' : item.value}</p>
-            </div>
-          ))}
+        <p className="text-xs text-muted-foreground">{translate(locale, 'dashboard.collection.activeScopeHint')}</p>
+
+        <div className="rounded-lg border bg-muted/20 p-2.5">
+          <p className="text-xs text-muted-foreground">{translate(locale, 'dashboard.collection.activeCasesNow')}</p>
+          <p className="mt-1 text-xl font-semibold tabular-nums">{isLoading ? '-' : activeCasesNow}</p>
+        </div>
+
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+          <div className="rounded-lg border bg-emerald-50/70 p-2.5">
+            <p className="text-xs text-emerald-700">{translate(locale, 'dashboard.collection.sentLast30Days')}</p>
+            <p className="mt-1 text-xl font-semibold tabular-nums text-emerald-900">{isLoading ? '-' : (data?.sentLast30Days ?? 0)}</p>
+          </div>
+          <div className="rounded-lg border bg-emerald-50/40 p-2.5">
+            <p className="text-xs text-emerald-700">{translate(locale, 'dashboard.collection.sentAllTime')}</p>
+            <p className="mt-1 text-xl font-semibold tabular-nums text-emerald-900">{isLoading ? '-' : (data?.sentAllTime ?? 0)}</p>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <p className="text-xs text-muted-foreground">{translate(locale, 'dashboard.collection.sentByLevelTitle')}</p>
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+            {sentByLevelStats.map((item) => (
+              <div key={item.label} className="rounded-lg border bg-emerald-50/30 p-2.5">
+                <p className="text-xs text-emerald-700">{item.label}</p>
+                <p className="mt-1 text-xl font-semibold tabular-nums text-emerald-900">{isLoading ? '-' : item.value}</p>
+              </div>
+            ))}
+          </div>
         </div>
 
         {typeof data?.paused === 'number' ? (

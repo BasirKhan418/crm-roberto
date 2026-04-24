@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server';
+import mongoose from 'mongoose';
 
 import ConnectDb from '@/db/connectDb';
+import ActivityLog from '@/db/models/Activity';
 import Invoice from '@/db/models/Invoice';
+import ReminderLog from '@/db/models/ReminderLog';
 import getMe from '@/utils/middlewares/useMe';
 
 type LevelBucket = {
@@ -9,7 +12,14 @@ type LevelBucket = {
   count: number;
 };
 
-const COLLECTION_STATUSES = ['unpaid', 'partial_paid', 'overdue'] as const;
+type SentLevelBucket = {
+  _id: number | null;
+  count: number;
+};
+
+// Keep legacy partial-payment statuses to avoid dropping historical invoices
+// from dashboard collection counters.
+const COLLECTION_STATUSES = ['unpaid', 'partial_paid', 'overdue', 'deposit_paid', 'initial_paid'] as const;
 
 export async function GET() {
   try {
@@ -21,14 +31,29 @@ export async function GET() {
 
     await ConnectDb();
 
+    const userObjectId = new mongoose.Types.ObjectId(me.user.id);
+
     const now = new Date();
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
     const inFourteenDays = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
 
-    const [levelBuckets, paused, overdueCount, upcomingRecurrences] = await Promise.all([
+    const [
+      levelBuckets,
+      paused,
+      overdueCount,
+      upcomingRecurrences,
+      sentLast30Days,
+      sentAllTime,
+      sentLevelBuckets,
+      sentLevel1FromActivity,
+      sentLevel2FromActivity,
+      sentLevel3FromActivity,
+      sentLevel4FromActivity,
+    ] = await Promise.all([
       Invoice.aggregate<LevelBucket>([
         {
           $match: {
-            userId: me.user.id,
+            userId: userObjectId,
             status: { $in: COLLECTION_STATUSES },
           },
         },
@@ -46,7 +71,7 @@ export async function GET() {
       }),
       Invoice.countDocuments({
         userId: me.user.id,
-        status: { $in: ['unpaid', 'partial_paid'] },
+        status: { $in: ['unpaid', 'partial_paid', 'deposit_paid', 'initial_paid'] },
         'reminderState.formalNoticeDeadline': { $lt: now },
       }),
       Invoice.find({
@@ -66,10 +91,59 @@ export async function GET() {
           clientSnapshot?: { fullName?: string | null } | null;
           recurrence?: { nextOccurrenceAt?: Date | null } | null;
         }>>(),
+      ReminderLog.countDocuments({
+        userId: me.user.id,
+        status: 'sent',
+        sentAt: { $gte: thirtyDaysAgo },
+      }),
+      ReminderLog.countDocuments({
+        userId: me.user.id,
+        status: 'sent',
+      }),
+      ReminderLog.aggregate<SentLevelBucket>([
+        {
+          $match: {
+            userId: userObjectId,
+            status: 'sent',
+          },
+        },
+        {
+          $group: {
+            _id: '$level',
+            count: { $sum: 1 },
+          },
+        },
+      ]),
+      ActivityLog.countDocuments({
+        user: me.user.id,
+        action: 'invoice_reminder_sent',
+        'metadata.level': { $in: [1, '1'] },
+      }),
+      ActivityLog.countDocuments({
+        user: me.user.id,
+        action: 'invoice_reminder_sent',
+        'metadata.level': { $in: [2, '2'] },
+      }),
+      ActivityLog.countDocuments({
+        user: me.user.id,
+        action: 'invoice_reminder_sent',
+        'metadata.level': { $in: [3, '3'] },
+      }),
+      ActivityLog.countDocuments({
+        user: me.user.id,
+        action: 'invoice_formal_notice_sent',
+      }),
     ]);
 
     const counts = {
       level0: 0,
+      level1: 0,
+      level2: 0,
+      level3: 0,
+      level4: 0,
+    };
+
+    const sentByLevel = {
       level1: 0,
       level2: 0,
       level3: 0,
@@ -83,12 +157,29 @@ export async function GET() {
       }
     }
 
+    for (const bucket of sentLevelBuckets) {
+      const level = Number(bucket._id ?? 0);
+      if (level >= 1 && level <= 4) {
+        sentByLevel[`level${level}` as keyof typeof sentByLevel] = bucket.count;
+      }
+    }
+
+    // Fallback for legacy logs where ReminderLog entries exist with missing/invalid level values.
+    // We keep the higher value to avoid undercounting while preventing obvious double counting.
+    sentByLevel.level1 = Math.max(sentByLevel.level1, sentLevel1FromActivity);
+    sentByLevel.level2 = Math.max(sentByLevel.level2, sentLevel2FromActivity);
+    sentByLevel.level3 = Math.max(sentByLevel.level3, sentLevel3FromActivity);
+    sentByLevel.level4 = Math.max(sentByLevel.level4, sentLevel4FromActivity);
+
     return NextResponse.json({
       success: true,
       data: {
         ...counts,
         paused: paused,
         overdueCount,
+        sentLast30Days,
+        sentAllTime,
+        sentByLevel,
         upcomingRecurrences: upcomingRecurrences.map((item) => ({
           id: String(item._id),
           invoiceNumber: item.invoiceNumber ?? '-',
