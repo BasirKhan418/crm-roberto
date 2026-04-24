@@ -313,7 +313,7 @@ function QuoteDetailPageContent() {
       !quote.invoiceId
   );
   const hasConvertedInvoice = Boolean(quote?.convertedToInvoice && quote?.invoiceId);
-  const actionButtonClass = 'h-10 w-full justify-start sm:h-9 sm:w-auto sm:justify-center text-center';
+  const actionButtonClass = 'h-10 w-full justify-start sm:h-9 sm:w-full sm:justify-center text-center';
 
   const loadData = useCallback(async () => {
     if (!params?.id) {
@@ -717,45 +717,42 @@ function QuoteDetailPageContent() {
             </section>
           ) : null}
 
-          <div data-tour-quote-detail-actions className="flex flex-col gap-2.5 rounded-xl border border-border/60 bg-card/80 px-3.5 py-3 print:hidden sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-2.5 sm:py-2.5">
-            <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
-             
-
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className={actionButtonClass}
-                hidden={quote.status === 'rejected'}
-                disabled={!canEdit}
-                asChild={canEdit}
-                title={!canEdit ? t.lockEdit : t.edit}
-              >
-                {canEdit ? (
-                  <Link href={`/quotes/${quote._id}/edit`}>
-                    <PencilIcon className="size-3.5" />
-                    {t.edit}
-                  </Link>
-                ) : (
-                  <span className="inline-flex items-center gap-1.5">
-                    <PencilIcon className="size-3.5" />
-                    {t.edit}
-                  </span>
-                )}
-              </Button>
-            </div>
-
-            {!canEdit ? (
-              <div className="w-full sm:w-auto">
-                <Button type="button" variant="outline" size="sm" className={actionButtonClass} disabled={duplicating} onClick={duplicateQuote}>
-                  <CopyIcon className="size-3.5" />
-                  {t.duplicate}
+          <div data-tour-quote-detail-actions className="flex flex-col gap-2.5 rounded-xl border border-border/60 bg-card/80 px-3.5 py-3 print:hidden sm:grid sm:grid-flow-col sm:auto-cols-fr sm:items-center sm:gap-2.5 sm:py-2.5">
+            {quote.status !== 'rejected' ? (
+              <div className="w-full">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className={actionButtonClass}
+                  disabled={!canEdit}
+                  asChild={canEdit}
+                  title={!canEdit ? t.lockEdit : t.edit}
+                >
+                  {canEdit ? (
+                    <Link href={`/quotes/${quote._id}/edit`}>
+                      <PencilIcon className="size-3.5" />
+                      {t.edit}
+                    </Link>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5">
+                      <PencilIcon className="size-3.5" />
+                      {t.edit}
+                    </span>
+                  )}
                 </Button>
               </div>
             ) : null}
 
+            <div className="w-full">
+              <Button type="button" variant="outline" size="sm" className={actionButtonClass} disabled={duplicating} onClick={duplicateQuote}>
+                <CopyIcon className="size-3.5" />
+                {t.duplicate}
+              </Button>
+            </div>
+
             {canConvertToInvoice ? (
-              <div className="w-full sm:w-auto">
+              <div className="w-full">
                 <Button
                   type="button"
                   variant="default"
@@ -772,10 +769,10 @@ function QuoteDetailPageContent() {
             ) : null}
 
             {hasConvertedInvoice && quote?.invoiceId ? (
-              <div className="w-full sm:w-auto">
+              <div className="w-full">
                 <Link
                   href={`/invoices/${quote.invoiceId}`}
-                  className="inline-flex h-10 w-full items-center justify-start rounded-md border border-emerald-200 bg-emerald-50 px-3 text-sm font-medium text-emerald-800 hover:bg-emerald-100 sm:h-9 sm:w-auto sm:justify-center"
+                  className="inline-flex h-10 w-full items-center justify-start rounded-md border border-emerald-200 bg-emerald-50 px-3 text-sm font-medium text-emerald-800 hover:bg-emerald-100 sm:h-9 sm:w-full sm:justify-center"
                 >
                   {t.convertedToInvoiceLabel} {convertedInvoiceNumber ? formatInvoiceDisplayNumber(locale as Locale, convertedInvoiceNumber) : ''}
                 </Link>
@@ -788,12 +785,12 @@ function QuoteDetailPageContent() {
               locale={locale as Locale}
               onStatusChanged={handleOptimisticStatusChange}
               onStatusCommitted={loadData}
-              containerClassName="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:items-center"
-              selectClassName="h-10 w-full sm:h-8 sm:w-44"
+              containerClassName="w-full"
+              selectClassName="h-10 w-full sm:h-9 sm:w-full"
               buttonClassName="h-10 w-full justify-start sm:h-8 sm:w-auto sm:justify-center"
             />
 
-            <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2 sm:w-auto sm:items-center">
+            <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2 sm:items-center">
               {(quote.status === 'draft' || quote.status === 'sent') ? (
                 <Button type="button" variant="default" size="sm" className={actionButtonClass} onClick={() => setSendOpen(true)}>
                   <SendIcon className="size-3.5" />
@@ -804,7 +801,7 @@ function QuoteDetailPageContent() {
                 type="button"
                 variant="outline"
                 size="sm"
-                className={quote.status === 'draft' ? actionButtonClass : 'col-span-2 h-10 w-full justify-start sm:col-span-1 sm:h-8 sm:w-auto sm:justify-center'}
+                className={quote.status === 'draft' ? actionButtonClass : 'col-span-2 h-10 w-full justify-start sm:col-span-1 sm:h-8 sm:w-full sm:justify-center'}
                 onClick={downloadPdf}
               >
                 <DownloadIcon className="size-3.5" />
@@ -812,7 +809,7 @@ function QuoteDetailPageContent() {
               </Button>
             </div>
 
-            <div className="w-full sm:w-auto">
+            <div className="w-full">
               <Button type="button" variant="destructive" size="sm" className={actionButtonClass} onClick={() => setDeleteOpen(true)}>
                 <Trash2Icon className="size-3.5" />
                 {t.delete}
