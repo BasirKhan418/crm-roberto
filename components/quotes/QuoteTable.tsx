@@ -168,7 +168,7 @@ export default function QuoteTable({ items, loading, visibleColumns, labels, loc
   }
 
   function renderSecondaryActions(quote: QuoteListItem, align: 'start' | 'end' = 'end', tourTarget: 'mobile' | 'table' = 'table') {
-    const canEdit = quote.status === 'draft' || quote.status === 'sent' || quote.status === 'rejected';
+    const canEdit = quote.status === 'draft' || quote.status === 'sent' || quote.status === 'rejected' || quote.status === 'refused';
     const canConvert =
       quote.status === 'accepted' &&
       quote.signedStatus === 'signed' &&
@@ -209,12 +209,10 @@ export default function QuoteTable({ items, loading, visibleColumns, labels, loc
             </DropdownMenuItem>
           ) : null}
 
-          {!canEdit ? (
-            <DropdownMenuItem disabled={duplicatingId === quote._id} onSelect={() => void onDuplicate(quote)}>
-              <CopyIcon className="size-4" />
-              {labels.duplicate}
-            </DropdownMenuItem>
-          ) : null}
+          <DropdownMenuItem disabled={duplicatingId === quote._id} onSelect={() => void onDuplicate(quote)}>
+            <CopyIcon className="size-4" />
+            {labels.duplicate}
+          </DropdownMenuItem>
 
           {canConvert ? (
             <DropdownMenuItem onSelect={() => onConvert(quote)}>

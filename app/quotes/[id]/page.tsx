@@ -180,7 +180,7 @@ export default function QuoteDetailPage() {
       expired: 'Expired on',
       history: 'Status history',
       historyEmpty: 'No status transitions yet.',
-      lockEdit: 'Accepted and refused quotes cannot be edited',
+      lockEdit: 'Accepted quotes cannot be edited',
       rejectionBannerTitle: 'This quote was rejected by the client',
       rejectionAlertTop: 'Quote rejected by client',
       rejectionBannerBody: 'The client has rejected this quote. Review the comment below, update the quote, and resend it.',
@@ -256,7 +256,7 @@ export default function QuoteDetailPage() {
       expired: 'Expir\u00e9 le',
       history: 'Historique des statuts',
       historyEmpty: 'Aucune transition de statut pour le moment.',
-      lockEdit: 'Les devis accept\u00e9s et refus\u00e9s ne peuvent pas \u00eatre modifi\u00e9s',
+      lockEdit: 'Les devis accept\u00e9s ne peuvent pas \u00eatre modifi\u00e9s',
       rejectionBannerTitle: 'Ce devis a \u00e9t\u00e9 refus\u00e9 par le client',
       rejectionAlertTop: 'Devis refus\u00e9 par le client',
       rejectionBannerBody: 'Le client a refus\u00e9 ce devis. Consultez le commentaire ci-dessous, mettez le devis \u00e0 jour et renvoyez-le.',
@@ -302,7 +302,9 @@ export default function QuoteDetailPage() {
   const [sendingReply, setSendingReply] = useState(false);
   const [threadExpanded, setThreadExpanded] = useState(false);
 
-  const canEdit = quote ? quote.status === 'draft' || quote.status === 'sent' || quote.status === 'rejected' : false;
+  const canEdit = quote
+    ? quote.status === 'draft' || quote.status === 'sent' || quote.status === 'rejected' || quote.status === 'refused'
+    : false;
   const canConvertToInvoice = Boolean(
     quote &&
       quote.status === 'accepted' &&
