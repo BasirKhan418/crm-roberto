@@ -43,6 +43,7 @@ const ActivityLogSchema = new mongoose.Schema(
         "invoice_reminder_resumed",
         "invoice_formal_notice_sent",
         "invoice_legal_recovery_initiated",
+        "invoice_legal_recovery_sent_to_court",
         "invoice_recurrence_created",
         "invoice_recurrence_stopped",
         "invoice_recurrence_generated",

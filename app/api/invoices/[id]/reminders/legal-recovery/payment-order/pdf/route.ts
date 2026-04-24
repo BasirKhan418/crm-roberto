@@ -12,6 +12,7 @@ import { createActivityLog } from '@/db/repository/activity';
 import { formatInvoiceDisplayNumber } from '@/lib/i18n/messages';
 import { renderReminderHistoryPdf } from '@/lib/pdf/ReminderHistoryPdfTemplate';
 import {
+  appendLegalRecoveryTrackingEntries,
   evaluateLegalRecoveryEligibility,
   isLegalRecoveryCourtConfigured,
   markLegalRecoveryInitiatedIfNeeded,
@@ -80,6 +81,7 @@ type InvoiceForLegalRecovery = {
     formalNoticeSentAt?: Date | null;
     formalNoticeDeadline?: Date | null;
     legalRecoveryInitiatedAt?: Date | null;
+    legalRecoverySentToCourtAt?: Date | null;
   } | null;
 };
 
@@ -272,6 +274,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     };
 
     const displayInvoiceNumber = formatInvoiceDisplayNumber(locale, invoice.invoiceNumber);
+    const historyEntries = appendLegalRecoveryTrackingEntries(logs ?? [], invoice.reminderState);
 
     // Generate every document that makes up the full recovery dossier and
     // merge them into a single consolidated PDF. The standalone "Download
@@ -289,7 +292,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         formalNoticeSentAt: invoice.reminderState?.formalNoticeSentAt ?? null,
         formalNoticeDeadline: invoice.reminderState?.formalNoticeDeadline ?? null,
         includeInterestClause,
-        reminderLogs: logs ?? [],
+        reminderLogs: historyEntries,
       }),
       renderInvoicePdfForReminder({
         invoice: invoicePdfInput,
@@ -313,7 +316,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       renderReminderHistoryPdf({
         invoiceNumber: displayInvoiceNumber,
         locale,
-        entries: logs ?? [],
+        entries: historyEntries,
       }),
     ]);
 

@@ -5,7 +5,7 @@ import React from 'react';
 export interface ReminderHistoryEntry {
   level: number;
   channel?: 'email' | 'whatsapp' | null;
-  status?: 'sent' | 'failed' | 'skipped' | 'paused' | 'resumed' | null;
+  status?: 'sent' | 'failed' | 'skipped' | 'paused' | 'resumed' | 'generated' | 'court_sent' | null;
   sentAt?: Date | string | null;
   subject?: string | null;
 }
@@ -112,7 +112,11 @@ const styles = StyleSheet.create({
   },
 });
 
-function getLevelLabel(level: number, locale: 'en' | 'fr'): string {
+function getLevelLabel(level: number, locale: 'en' | 'fr', status?: ReminderHistoryEntry['status']): string {
+  if (status === 'generated' || status === 'court_sent') {
+    return locale === 'fr' ? 'Recouvrement judiciaire' : 'Legal recovery';
+  }
+
   if (locale === 'fr') {
     const map: Record<number, string> = {
       1: 'Rappel amical',
@@ -143,6 +147,8 @@ function getStatusLabel(
       skipped: 'Ignoré',
       paused: 'En pause',
       resumed: 'Repris',
+      generated: 'Généré',
+      court_sent: 'Envoyé au tribunal',
     };
     return map[key] ?? key;
   }
@@ -152,8 +158,26 @@ function getStatusLabel(
     skipped: 'Skipped',
     paused: 'Paused',
     resumed: 'Resumed',
+    generated: 'Generated',
+    court_sent: 'Sent to court',
   };
   return map[key] ?? key;
+}
+
+function getSubjectLabel(entry: ReminderHistoryEntry, locale: 'en' | 'fr'): string {
+  if (entry.subject && entry.subject.trim().length > 0) {
+    return entry.subject;
+  }
+
+  if (entry.status === 'generated') {
+    return locale === 'fr' ? 'Fichier de recouvrement généré' : 'Recovery file generated';
+  }
+
+  if (entry.status === 'court_sent') {
+    return locale === 'fr' ? 'Dossier envoyé au tribunal' : 'Recovery file sent to court';
+  }
+
+  return '';
 }
 
 function formatSentAt(
@@ -238,12 +262,18 @@ export function ReminderHistoryPdfTemplate(props: ReminderHistoryPdfProps) {
                 </View>
                 <View style={[styles.cell, { width: COL_LEVEL }]}>
                   <Text style={styles.cellText}>
-                    {getLevelLabel(entry.level, locale)}
+                    {getLevelLabel(entry.level, locale, entry.status)}
                   </Text>
                 </View>
                 <View style={[styles.cell, { width: COL_CHANNEL }]}>
                   <Text style={styles.cellText}>
-                    {entry.channel === 'whatsapp' ? 'WhatsApp' : 'Email'}
+                    {entry.channel === 'whatsapp'
+                      ? 'WhatsApp'
+                      : entry.channel === 'email'
+                        ? 'Email'
+                        : locale === 'fr'
+                          ? 'Système'
+                          : 'System'}
                   </Text>
                 </View>
                 <View style={[styles.cell, { width: COL_STATUS }]}>
@@ -252,7 +282,7 @@ export function ReminderHistoryPdfTemplate(props: ReminderHistoryPdfProps) {
                   </Text>
                 </View>
                 <View style={styles.lastCell}>
-                  <Text style={styles.cellText}>{entry.subject ?? ''}</Text>
+                  <Text style={styles.cellText}>{getSubjectLabel(entry, locale)}</Text>
                 </View>
               </View>
             );

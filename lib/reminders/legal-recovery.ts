@@ -241,10 +241,90 @@ export function evaluateLegalRecoveryEligibility(
 }
 
 export interface ReminderLogEntry {
+  _id?: string;
   level: number;
   channel?: 'email' | 'whatsapp' | null;
-  status?: 'sent' | 'failed' | 'skipped' | 'paused' | 'resumed' | null;
+  status?: 'sent' | 'failed' | 'skipped' | 'paused' | 'resumed' | 'generated' | 'court_sent' | null;
   sentAt?: Date | string | null;
+  subject?: string | null;
+}
+
+export interface LegalRecoveryTrackingState {
+  legalRecoveryInitiatedAt?: Date | string | null;
+  legalRecoverySentToCourtAt?: Date | string | null;
+}
+
+function toHistoryTimestamp(value: Date | string | null | undefined): number {
+  if (!value) {
+    return 0;
+  }
+
+  const timestamp = new Date(value).getTime();
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+export function buildLegalRecoveryTrackingEntries(
+  tracking: LegalRecoveryTrackingState | null | undefined
+): ReminderLogEntry[] {
+  const entries: ReminderLogEntry[] = [];
+
+  if (tracking?.legalRecoveryInitiatedAt) {
+    entries.push({
+      _id: 'legal-recovery-generated',
+      level: 4,
+      channel: null,
+      status: 'generated',
+      sentAt: tracking.legalRecoveryInitiatedAt,
+      subject: null,
+    });
+  }
+
+  if (tracking?.legalRecoverySentToCourtAt) {
+    entries.push({
+      _id: 'legal-recovery-court-sent',
+      level: 4,
+      channel: null,
+      status: 'court_sent',
+      sentAt: tracking.legalRecoverySentToCourtAt,
+      subject: null,
+    });
+  }
+
+  return entries;
+}
+
+export function appendLegalRecoveryTrackingEntries(
+  logs: ReminderLogEntry[],
+  tracking: LegalRecoveryTrackingState | null | undefined
+): ReminderLogEntry[] {
+  return [...logs, ...buildLegalRecoveryTrackingEntries(tracking)].sort((left, right) => {
+    const diff = toHistoryTimestamp(right.sentAt) - toHistoryTimestamp(left.sentAt);
+    if (diff !== 0) {
+      return diff;
+    }
+
+    if (left.status === right.status) {
+      return 0;
+    }
+
+    if (left.status === 'court_sent') {
+      return -1;
+    }
+
+    if (right.status === 'court_sent') {
+      return 1;
+    }
+
+    if (left.status === 'generated') {
+      return -1;
+    }
+
+    if (right.status === 'generated') {
+      return 1;
+    }
+
+    return 0;
+  });
 }
 
 export function mapReminderLogsToEvents(
