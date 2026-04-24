@@ -752,12 +752,14 @@ export default function CollectionTab({
       ? legalRecovery.courts?.[selectedCourtLocation] ?? null
       : null;
     const hasCourtSelection = Boolean(selectedCourtLocation);
-    // Use the per-court configured flag from the courts map so the UI reflects
-    // the selected court immediately (even before SWR revalidates).
     const canGenerateLegalRecoveryDocuments =
       legalRecovery.eligible &&
       hasCourtSelection &&
       selectedCourt?.configured === true;
+    const isAmountExceedsThreshold = legalRecovery.reason === 'amount_exceeds_threshold';
+    const statusBadgeLabel = legalRecovery.eligible
+      ? t('reminders.legalRecovery.statusEligible')
+      : t('reminders.legalRecovery.statusNotEligible');
 
     const thresholdLabel = t('reminders.legalRecovery.thresholdHint', {
       amount: formatEur(legalRecovery.claimThresholdCents, locale),
@@ -767,6 +769,7 @@ export default function CollectionTab({
     });
 
     let bannerText: string | null = null;
+    let nextStepText: string | null = null;
     if (!legalRecovery.eligible) {
       const reason = legalRecovery.reason;
       if (reason === 'formal_notice_not_sent') {
@@ -777,9 +780,9 @@ export default function CollectionTab({
         });
       } else if (reason === 'amount_exceeds_threshold') {
         bannerText = t('reminders.legalRecovery.ineligible.amount_exceeds_threshold', {
-          amount: formatEur(legalRecovery.claimAmountCents, locale),
-          threshold: Math.round(legalRecovery.claimThresholdCents / 100).toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-GB'),
+          threshold: formatEur(legalRecovery.claimThresholdCents, locale),
         });
+        nextStepText = t('reminders.legalRecovery.ineligible.amount_exceeds_threshold_next_step');
       } else if (reason === 'invoice_paid') {
         bannerText = t('reminders.legalRecovery.ineligible.invoice_paid');
       } else if (reason === 'amount_is_zero') {
@@ -813,11 +816,16 @@ export default function CollectionTab({
               </p>
             </div>
           </div>
-          {legalRecovery.eligible ? (
-            <Badge className="shrink-0 border-0 bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
-              {t('reminders.legalRecovery.sectionTitle')}
-            </Badge>
-          ) : null}
+          <Badge
+            className={cn(
+              'shrink-0 border-0',
+              legalRecovery.eligible
+                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300'
+                : 'bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300'
+            )}
+          >
+            {statusBadgeLabel}
+          </Badge>
         </div>
 
         {bannerText ? (
@@ -826,11 +834,20 @@ export default function CollectionTab({
               'wrap-break-word rounded-md border px-3 py-2 text-xs',
               legalRecovery.eligible
                 ? 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200'
+                : isAmountExceedsThreshold
+                  ? 'border-orange-200 bg-orange-50 text-orange-900 dark:border-orange-900/60 dark:bg-orange-950/30 dark:text-orange-200'
                 : 'border-border/60 bg-muted/40 text-muted-foreground'
             )}
           >
             {bannerText}
           </p>
+        ) : null}
+
+        {nextStepText ? (
+          <div className="rounded-md border border-orange-200 bg-orange-50 px-3 py-2 text-xs text-orange-900 dark:border-orange-900/60 dark:bg-orange-950/30 dark:text-orange-200">
+            <p className="font-semibold text-foreground">{t('reminders.legalRecovery.nextStepTitle')}</p>
+            <p className="mt-1 wrap-break-word">{nextStepText}</p>
+          </div>
         ) : null}
 
         {requiresFormalNotice ? (
@@ -918,35 +935,33 @@ export default function CollectionTab({
           ) : null}
         </div>
 
-        {canGenerateLegalRecoveryDocuments ? (
-          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-            <Button
-              type="button"
-              size={isCompact ? 'sm' : 'default'}
-              className="w-full min-w-0 sm:w-auto"
-              disabled={downloadingLegalRecoveryKind !== null || savingLegalRecoveryCourt}
-              onClick={() => void downloadLegalRecoveryArtifact('payment-order')}
-            >
-              {downloadingLegalRecoveryKind === 'payment-order'
-                ? <Loader2Icon className={(isCompact ? 'size-3.5' : 'size-4') + ' animate-spin'} />
-                : <DownloadIcon className={isCompact ? 'size-3.5' : 'size-4'} />}
-              <span className="truncate">{t('reminders.actions.downloadPaymentOrder')}</span>
-            </Button>
-            <Button
-              type="button"
-              size={isCompact ? 'sm' : 'default'}
-              variant="outline"
-              className="w-full min-w-0 sm:w-auto"
-              disabled={downloadingLegalRecoveryKind !== null || savingLegalRecoveryCourt}
-              onClick={() => void downloadLegalRecoveryArtifact('recovery-file')}
-            >
-              {downloadingLegalRecoveryKind === 'recovery-file'
-                ? <Loader2Icon className={(isCompact ? 'size-3.5' : 'size-4') + ' animate-spin'} />
-                : <DownloadIcon className={isCompact ? 'size-3.5' : 'size-4'} />}
-              <span className="truncate">{t('reminders.actions.downloadRecoveryFile')}</span>
-            </Button>
-          </div>
-        ) : null}
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+          <Button
+            type="button"
+            size={isCompact ? 'sm' : 'default'}
+            className="w-full min-w-0 sm:w-auto"
+            disabled={!canGenerateLegalRecoveryDocuments || downloadingLegalRecoveryKind !== null || savingLegalRecoveryCourt}
+            onClick={() => void downloadLegalRecoveryArtifact('payment-order')}
+          >
+            {downloadingLegalRecoveryKind === 'payment-order'
+              ? <Loader2Icon className={(isCompact ? 'size-3.5' : 'size-4') + ' animate-spin'} />
+              : <DownloadIcon className={isCompact ? 'size-3.5' : 'size-4'} />}
+            <span className="truncate">{t('reminders.actions.downloadPaymentOrder')}</span>
+          </Button>
+          <Button
+            type="button"
+            size={isCompact ? 'sm' : 'default'}
+            variant="outline"
+            className="w-full min-w-0 sm:w-auto"
+            disabled={!canGenerateLegalRecoveryDocuments || downloadingLegalRecoveryKind !== null || savingLegalRecoveryCourt}
+            onClick={() => void downloadLegalRecoveryArtifact('recovery-file')}
+          >
+            {downloadingLegalRecoveryKind === 'recovery-file'
+              ? <Loader2Icon className={(isCompact ? 'size-3.5' : 'size-4') + ' animate-spin'} />
+              : <DownloadIcon className={isCompact ? 'size-3.5' : 'size-4'} />}
+            <span className="truncate">{t('reminders.actions.downloadRecoveryFile')}</span>
+          </Button>
+        </div>
       </div>
     );
   })();
