@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-import { CopyIcon, CheckCircle2Icon, DownloadIcon, EllipsisVerticalIcon, EyeIcon, FileTextIcon, HistoryIcon, PencilIcon, SendIcon, Trash2Icon } from 'lucide-react';
+import { ArrowDownIcon, ArrowUpIcon, CopyIcon, CheckCircle2Icon, DownloadIcon, EllipsisVerticalIcon, EyeIcon, FileTextIcon, HistoryIcon, PencilIcon, SendIcon, Trash2Icon } from 'lucide-react';
 
 import QuoteHistoryDialog from '@/components/quotes/QuoteHistoryDialog';
 import QuoteStatusSummary from '@/components/quotes/QuoteStatusSummary';
@@ -91,11 +91,13 @@ interface QuoteTableProps {
   onAcknowledge: (quote: QuoteListItem) => Promise<void>;
   duplicatingId?: string | null;
   acknowledgingId?: string | null;
+  numberSortOrder?: 'asc' | 'desc';
+  onToggleNumberSort?: () => void;
 }
 
 export type QuoteTableColumnKey = 'quoteNumber' | 'client' | 'subject' | 'date' | 'totalIncludingTax' | 'status' | 'invoiceLink';
 
-export default function QuoteTable({ items, loading, visibleColumns, labels, locale, formatDate, onDelete, onDownload, onDuplicate, onSend, onConvert, onAcknowledge, duplicatingId, acknowledgingId }: QuoteTableProps) {
+export default function QuoteTable({ items, loading, visibleColumns, labels, locale, formatDate, onDelete, onDownload, onDuplicate, onSend, onConvert, onAcknowledge, duplicatingId, acknowledgingId, numberSortOrder = 'desc', onToggleNumberSort }: QuoteTableProps) {
   const router = useRouter();
   const [historyTarget, setHistoryTarget] = useState<QuoteListItem | null>(null);
   const priceLocale = locale === 'fr' ? 'fr-FR' : 'en-GB';
@@ -386,7 +388,24 @@ export default function QuoteTable({ items, loading, visibleColumns, labels, loc
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
-              {isVisible('quoteNumber') ? <TableHead className="h-11 pl-5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.quoteNumber}</TableHead> : null}
+              {isVisible('quoteNumber') ? (
+                <TableHead className="h-11 pl-5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                  {onToggleNumberSort ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground"
+                      onClick={onToggleNumberSort}
+                    >
+                      {labels.quoteNumber}
+                      {numberSortOrder === 'asc' ? <ArrowUpIcon className="size-3.5" /> : <ArrowDownIcon className="size-3.5" />}
+                    </Button>
+                  ) : (
+                    labels.quoteNumber
+                  )}
+                </TableHead>
+              ) : null}
               {isVisible('client') ? <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.client}</TableHead> : null}
               {isVisible('subject') ? <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.subject}</TableHead> : null}
               {isVisible('date') ? <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.date}</TableHead> : null}

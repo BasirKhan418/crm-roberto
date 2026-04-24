@@ -798,6 +798,8 @@ function QuotesPageContent() {
                 markReviewing: t.markReviewing,
               }}
               locale={locale as 'en' | 'fr'}
+              numberSortOrder={sort === 'number_asc' ? 'asc' : 'desc'}
+              onToggleNumberSort={() => setSort((prev) => (prev === 'number_desc' ? 'number_asc' : 'number_desc'))}
               onDuplicate={handleDuplicateQuote}
               onSend={setSendTarget}
               onConvert={handleConvertFromList}
