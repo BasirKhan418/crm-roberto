@@ -193,7 +193,14 @@ export async function GET(request: NextRequest) {
           ? 'partial_paid'
         : undefined;
 
-    const sort: 'date' | 'amount' = sortParam === 'amount' ? 'amount' : 'date';
+    const sort: 'number_desc' | 'number_asc' | 'date' | 'amount' =
+      sortParam === 'number_asc'
+        ? 'number_asc'
+        : sortParam === 'date'
+          ? 'date'
+          : sortParam === 'amount'
+            ? 'amount'
+            : 'number_desc';
     const page = Number.isFinite(pageParam) ? Math.max(1, pageParam) : 1;
     const limit = Number.isFinite(limitParam) ? Math.max(1, Math.min(100, limitParam)) : 10;
     const skip = (page - 1) * limit;
@@ -263,7 +270,13 @@ export async function GET(request: NextRequest) {
     }
 
     const sortSpec: Record<string, 1 | -1> =
-      sort === 'amount' ? { totalIncludingTax: -1, createdAt: -1 } : { date: -1, createdAt: -1 };
+      sort === 'number_asc'
+        ? { invoiceNumberYear: 1, invoiceNumberSequence: 1, createdAt: 1 }
+        : sort === 'amount'
+          ? { totalIncludingTax: -1, createdAt: -1 }
+          : sort === 'date'
+            ? { date: -1, createdAt: -1 }
+            : { invoiceNumberYear: -1, invoiceNumberSequence: -1, createdAt: -1 };
 
     const [items, total] = await Promise.all([
       Invoice.find(query)

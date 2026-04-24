@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-import { BellIcon, DownloadIcon, EllipsisVerticalIcon, EyeIcon, PencilIcon, SendIcon, Trash2Icon } from 'lucide-react';
+import { ArrowDownIcon, ArrowUpIcon, BellIcon, DownloadIcon, EllipsisVerticalIcon, EyeIcon, PencilIcon, PlusIcon, SendIcon, Trash2Icon } from 'lucide-react';
 
 import type { InvoiceListItem } from '@/hooks/useInvoices';
 import { InvoiceStatusBadge } from '@/components/ui/InvoiceStatusBadge';
@@ -142,6 +142,7 @@ interface InvoiceTableProps {
     send: string;
     sendInvoice: string;
     sendReminder: string;
+    recordPayment?: string;
     downloadPdf: string;
     delete: string;
   };
@@ -151,6 +152,9 @@ interface InvoiceTableProps {
   onDownload: (invoice: InvoiceListItem) => Promise<void>;
   onSend: (invoice: InvoiceListItem) => void;
   onSendReminder?: (invoice: InvoiceListItem) => void;
+  onRecordPayment?: (invoice: InvoiceListItem) => void;
+  numberSortOrder?: 'asc' | 'desc';
+  onToggleNumberSort?: () => void;
   selectedInvoiceIds?: string[];
   onToggleInvoiceSelection?: (invoiceId: string, checked: boolean) => void;
   onToggleSelectAllVisible?: (checked: boolean) => void;
@@ -180,6 +184,9 @@ export default function InvoiceTable({
   onDownload,
   onSend,
   onSendReminder,
+  onRecordPayment,
+  numberSortOrder = 'desc',
+  onToggleNumberSort,
   selectedInvoiceIds = [],
   onToggleInvoiceSelection,
   onToggleSelectAllVisible,
@@ -333,6 +340,12 @@ export default function InvoiceTable({
             <DropdownMenuItem onSelect={() => onSendReminder(invoice)}>
               <BellIcon className="size-4" />
               {getReminderActionLabel(invoice, locale)}
+            </DropdownMenuItem>
+          ) : null}
+          {onRecordPayment && invoice.status !== 'paid' ? (
+            <DropdownMenuItem onSelect={() => onRecordPayment(invoice)}>
+              <PlusIcon className="size-4" />
+              {labels.recordPayment ?? (locale === 'fr' ? 'Enregistrer un paiement' : 'Record payment')}
             </DropdownMenuItem>
           ) : null}
           <DropdownMenuItem onSelect={() => void onDownload(invoice)}>
@@ -517,7 +530,22 @@ export default function InvoiceTable({
                   />
                 </TableHead>
               ) : null}
-              <TableHead className="h-11 pl-5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.invoiceNumber}</TableHead>
+              <TableHead className="h-11 pl-5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                {onToggleNumberSort ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground"
+                    onClick={onToggleNumberSort}
+                  >
+                    {labels.invoiceNumber}
+                    {numberSortOrder === 'asc' ? <ArrowUpIcon className="size-3.5" /> : <ArrowDownIcon className="size-3.5" />}
+                  </Button>
+                ) : (
+                  labels.invoiceNumber
+                )}
+              </TableHead>
               {isVisible('client') ? <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.client}</TableHead> : null}
               {isVisible('date') ? <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.date}</TableHead> : null}
               {isVisible('dueDate') ? <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.dueDate}</TableHead> : null}

@@ -1,5 +1,50 @@
 import Invoice from '@/db/models/Invoice';
-import { nextInvoiceNumber } from '@/lib/price';
+
+const INVOICE_PREFIX = 'FAC';
+const LEGACY_INVOICE_PREFIXES = ['FAC', 'INV'];
+const INVOICE_NUMBER_REGEX = /^(FAC|INV)-(\d{4})-(\d+)$/i;
+
+export interface ParsedInvoiceNumber {
+  year: number;
+  sequence: number;
+  canonical: string;
+}
+
+export function formatCanonicalInvoiceNumber(year: number, sequence: number): string {
+  const normalizedSequence = Math.max(1, Math.round(sequence));
+  const width = Math.max(3, String(normalizedSequence).length);
+  return `${INVOICE_PREFIX}-${year}-${String(normalizedSequence).padStart(width, '0')}`;
+}
+
+export function parseInvoiceNumber(input: string | null | undefined): ParsedInvoiceNumber | null {
+  if (!input) {
+    return null;
+  }
+
+  const normalized = input.trim().toUpperCase();
+  const match = INVOICE_NUMBER_REGEX.exec(normalized);
+  if (!match) {
+    return null;
+  }
+
+  const [, prefix, yearRaw, sequenceRaw] = match;
+  if (!LEGACY_INVOICE_PREFIXES.includes(prefix)) {
+    return null;
+  }
+
+  const year = Number.parseInt(yearRaw, 10);
+  const sequence = Number.parseInt(sequenceRaw, 10);
+
+  if (!Number.isFinite(year) || !Number.isFinite(sequence) || sequence <= 0) {
+    return null;
+  }
+
+  return {
+    year,
+    sequence,
+    canonical: formatCanonicalInvoiceNumber(year, sequence),
+  };
+}
 
 function getInvoiceNumberPrefixes(year: number): string[] {
   return [`FAC-${year}-`, `INV-${year}-`];
@@ -35,6 +80,20 @@ function getLatestInvoiceNumberForYear(invoiceNumbers: Array<string | null | und
 }
 
 export async function getNextInvoiceNumberForYear(userId: string, year: number): Promise<string> {
+  const latestBySequence = await Invoice.findOne({
+    userId,
+    invoiceNumberYear: year,
+    invoiceNumberSequence: { $gt: 0 },
+  })
+    .select('invoiceNumberSequence')
+    .sort({ invoiceNumberSequence: -1 })
+    .lean<{ invoiceNumberSequence?: number | null } | null>();
+
+  const latestSequence = latestBySequence?.invoiceNumberSequence;
+  if (typeof latestSequence === 'number' && Number.isFinite(latestSequence) && latestSequence > 0) {
+    return formatCanonicalInvoiceNumber(year, latestSequence + 1);
+  }
+
   const yearPrefixPattern = `^(INV|FAC)-${year}-`;
   const invoices = await Invoice.find({
     userId,
@@ -48,7 +107,9 @@ export async function getNextInvoiceNumberForYear(userId: string, year: number):
     year
   );
 
-  return nextInvoiceNumber(latestInvoiceNumber, year);
+  const latestParsed = parseInvoiceNumber(latestInvoiceNumber);
+  const nextSequence = latestParsed?.year === year ? latestParsed.sequence + 1 : 1;
+  return formatCanonicalInvoiceNumber(year, nextSequence);
 }
 
 type DuplicateKeyErrorLike = {
@@ -65,9 +126,14 @@ export function isInvoiceNumberDuplicateError(error: unknown): boolean {
   if (duplicateError?.code === 11000) {
     return Boolean(
       (duplicateError.keyPattern && 'invoiceNumber' in duplicateError.keyPattern) ||
+        (duplicateError.keyPattern && 'invoiceNumberYear' in duplicateError.keyPattern) ||
+        (duplicateError.keyPattern && 'invoiceNumberSequence' in duplicateError.keyPattern) ||
         (duplicateError.keyValue && 'invoiceNumber' in duplicateError.keyValue) ||
+        (duplicateError.keyValue && 'invoiceNumberYear' in duplicateError.keyValue) ||
+        (duplicateError.keyValue && 'invoiceNumberSequence' in duplicateError.keyValue) ||
         message.includes('invoiceNumber') ||
-        message.includes('unique_user_invoice_number')
+        message.includes('unique_user_invoice_number') ||
+        message.includes('unique_user_invoice_number_sequence')
     );
   }
 

@@ -8,6 +8,7 @@ import { Loader2Icon, PlusIcon, SearchIcon, SendIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import InvoiceTable, { type InvoiceTableColumnKey } from '@/components/invoices/InvoiceTable';
+import ManualPaymentModal, { type ManualPaymentType } from '@/components/invoices/ManualPaymentModal';
 import SendInvoiceModal from '@/components/invoices/SendInvoiceModal';
 import SendReminderModal from '@/components/invoices/SendReminderModal';
 import CrmShell from '@/components/crm-shell';
@@ -31,7 +32,6 @@ import ErrorMessage from '@/components/ui/ErrorMessage';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useInvoices, type InvoiceListItem, type InvoiceStatusFilter } from '@/hooks/useInvoices';
@@ -69,8 +69,6 @@ function InvoicesPageContent() {
       downloadFailed: 'Failed to download PDF',
       newInvoice: 'New invoice',
       search: 'Search by invoice number or client name...',
-      sortDate: 'Date',
-      sortAmount: 'Amount',
       columns: 'Columns',
       visibleColumns: 'Visible columns',
       applyColumns: 'Apply',
@@ -173,8 +171,6 @@ function InvoicesPageContent() {
       downloadFailed: 'Impossible de télécharger le PDF',
       newInvoice: 'Nouvelle facture',
       search: 'Rechercher par numéro de facture ou nom client...',
-      sortDate: 'Date',
-      sortAmount: 'Montant',
       columns: 'Colonnes',
       visibleColumns: 'Colonnes visibles',
       applyColumns: 'Appliquer',
@@ -271,7 +267,7 @@ function InvoicesPageContent() {
   const [searchInput, setSearchInput] = useState('');
   const [searchDebounced, setSearchDebounced] = useState('');
   const [status, setStatus] = useState<InvoiceStatusFilter>('all');
-  const [sort, setSort] = useState<'date' | 'amount'>('date');
+  const [sort, setSort] = useState<'number_desc' | 'number_asc'>('number_desc');
   const [page, setPage] = useState(1);
   const limit = 10;
   const [visibleColumns, setVisibleColumns] = useState<Record<InvoiceTableColumnKey, boolean>>(DEFAULT_VISIBLE_COLUMNS);
@@ -282,6 +278,8 @@ function InvoicesPageContent() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [sendTarget, setSendTarget] = useState<InvoiceListItem | null>(null);
   const [reminderTarget, setReminderTarget] = useState<InvoiceListItem | null>(null);
+  const [recordPaymentTarget, setRecordPaymentTarget] = useState<InvoiceListItem | null>(null);
+  const [recordPaymentLoading, setRecordPaymentLoading] = useState(false);
   const [formalNoticeConfirmTarget, setFormalNoticeConfirmTarget] = useState<InvoiceListItem | null>(null);
   const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<string[]>([]);
   const [bulkReminderOpen, setBulkReminderOpen] = useState(false);
@@ -347,7 +345,7 @@ function InvoicesPageContent() {
       const parsed = JSON.parse(raw) as {
         searchInput?: string;
         status?: InvoiceStatusFilter;
-        sort?: 'date' | 'amount';
+        sort?: 'number_desc' | 'number_asc';
       };
 
       const nextSearchInput = typeof parsed.searchInput === 'string' ? parsed.searchInput : '';
@@ -355,7 +353,7 @@ function InvoicesPageContent() {
         parsed.status === 'unpaid' || parsed.status === 'partial_paid' || parsed.status === 'paid' || parsed.status === 'overdue'
           ? parsed.status
           : 'all';
-      const nextSort: 'date' | 'amount' = parsed.sort === 'amount' ? 'amount' : 'date';
+      const nextSort: 'number_desc' | 'number_asc' = parsed.sort === 'number_asc' ? 'number_asc' : 'number_desc';
 
       setSearchInput(nextSearchInput);
       setSearchDebounced(nextSearchInput.trim());
@@ -517,6 +515,38 @@ function InvoicesPageContent() {
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (downloadError) {
       toast.error(downloadError instanceof Error ? downloadError.message : t.downloadFailed);
+    }
+  }
+
+  async function handleRecordPayment(payload: {
+    amount: number;
+    paymentType: ManualPaymentType;
+    method: string;
+    customMethod?: string;
+  }) {
+    if (!recordPaymentTarget?._id) {
+      return;
+    }
+
+    setRecordPaymentLoading(true);
+    try {
+      const response = await fetch(`/api/invoices/${recordPaymentTarget._id}/payments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const responsePayload = (await response.json().catch(() => null)) as { success?: boolean; message?: string } | null;
+
+      if (!response.ok || !responsePayload?.success) {
+        throw new Error(responsePayload?.message || t.markAsPaid);
+      }
+
+      setRecordPaymentTarget(null);
+      await refetch();
+    } catch (recordPaymentError) {
+      toast.error(recordPaymentError instanceof Error ? recordPaymentError.message : t.markAsPaid);
+    } finally {
+      setRecordPaymentLoading(false);
     }
   }
 
@@ -772,20 +802,11 @@ function InvoicesPageContent() {
             </span>
           </div>
 
-          <div className="grid gap-2.5 lg:grid-cols-[1fr_auto_auto] lg:items-center">
+          <div className="grid gap-2.5 lg:grid-cols-[1fr_auto] lg:items-center">
             <div className="relative">
               <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input className="h-10 pl-9" value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder={t.search} />
             </div>
-            <Select value={sort} onValueChange={(value) => setSort(value === 'amount' ? 'amount' : 'date')}>
-              <SelectTrigger className="h-9 w-full sm:w-40">
-                <SelectValue placeholder={t.sortDate} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="date">{t.sortDate}</SelectItem>
-                <SelectItem value="amount">{t.sortAmount}</SelectItem>
-              </SelectContent>
-            </Select>
             <DropdownMenu
               open={columnsOpen}
               onOpenChange={(next) => {
@@ -929,6 +950,9 @@ function InvoicesPageContent() {
                 }
                 setReminderTarget(invoice);
               }}
+              onRecordPayment={setRecordPaymentTarget}
+              numberSortOrder={sort === 'number_asc' ? 'asc' : 'desc'}
+              onToggleNumberSort={() => setSort((prev) => (prev === 'number_desc' ? 'number_asc' : 'number_desc'))}
               selectedInvoiceIds={selectedInvoiceIds}
               onToggleInvoiceSelection={(invoiceId, checked) => {
                 setSelectedInvoiceIds((prev) => {
@@ -973,6 +997,7 @@ function InvoicesPageContent() {
                 send: t.send,
                 sendInvoice: t.sendInvoice,
                 sendReminder: t.sendReminder,
+                recordPayment: t.markAsPaid,
                 downloadPdf: t.downloadPdf,
                 delete: t.delete,
               }}
@@ -1168,6 +1193,29 @@ function InvoicesPageContent() {
           onSent={() => {
             refetch();
           }}
+        />
+      ) : null}
+
+      {recordPaymentTarget ? (
+        <ManualPaymentModal
+          open={Boolean(recordPaymentTarget)}
+          onOpenChange={(next) => {
+            if (!next) {
+              setRecordPaymentTarget(null);
+            }
+          }}
+          loading={recordPaymentLoading}
+          locale={locale as 'en' | 'fr'}
+          totalAmount={Math.max(0, Math.round(recordPaymentTarget.totalIncludingTax ?? 0))}
+          totalPaidAmount={Math.max(0, Math.round(recordPaymentTarget.amountPaid ?? 0))}
+          remainingAmount={Math.max(
+            0,
+            Math.round(
+              recordPaymentTarget.remainingAmount ??
+                Math.max(0, Math.round(recordPaymentTarget.totalIncludingTax ?? 0) - Math.round(recordPaymentTarget.amountPaid ?? 0))
+            )
+          )}
+          onConfirm={handleRecordPayment}
         />
       ) : null}
 

@@ -2,6 +2,34 @@ import mongoose, { type InferSchemaType, type Model } from "mongoose";
 export type QuoteStatus = "draft" | "sent" | "accepted" | "refused" | "rejected";
 export type QuoteSignedStatus = "not_signed" | "signed";
 
+const QUOTE_NUMBER_REGEX = /^DEV-(\d{4})-(\d+)$/i;
+
+function parseQuoteNumber(input: string | null | undefined): { year: number; sequence: number } | null {
+  if (!input) {
+    return null;
+  }
+
+  const normalized = input.trim().toUpperCase();
+  const match = QUOTE_NUMBER_REGEX.exec(normalized);
+  if (!match) {
+    return null;
+  }
+
+  const year = Number.parseInt(match[1], 10);
+  const sequence = Number.parseInt(match[2], 10);
+  if (!Number.isFinite(year) || !Number.isFinite(sequence) || sequence <= 0) {
+    return null;
+  }
+
+  return { year, sequence };
+}
+
+function formatCanonicalQuoteNumber(year: number, sequence: number): string {
+  const normalizedSequence = Math.max(1, Math.round(sequence));
+  const width = Math.max(3, String(normalizedSequence).length);
+  return `DEV-${year}-${String(normalizedSequence).padStart(width, '0')}`;
+}
+
 const LineItemSchema = new mongoose.Schema(
   {
     productId: {
@@ -137,6 +165,17 @@ const QuoteSchema = new mongoose.Schema(
       required: true,
       trim: true,
       // example: "DEV-001"
+    },
+    quoteNumberYear: {
+      type: Number,
+      default: null,
+      min: 2000,
+      max: 9999,
+    },
+    quoteNumberSequence: {
+      type: Number,
+      default: null,
+      min: 1,
     },
 
     date: {
@@ -350,11 +389,35 @@ const QuoteSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+QuoteSchema.pre('validate', function normalizeQuoteNumber() {
+  const parsed = parseQuoteNumber(this.quoteNumber);
+  if (!parsed) {
+    this.invalidate('quoteNumber', 'Quote number must follow DEV-YYYY-### format');
+    return;
+  }
+
+  this.quoteNumber = formatCanonicalQuoteNumber(parsed.year, parsed.sequence);
+  this.quoteNumberYear = parsed.year;
+  this.quoteNumberSequence = parsed.sequence;
+});
+
 
 
 QuoteSchema.index({ user: 1, createdAt: -1 });
 
 QuoteSchema.index({ user: 1, quoteNumber: 1 }, { unique: true, name: 'unique_user_quote_number' });
+
+QuoteSchema.index(
+  { user: 1, quoteNumberYear: 1, quoteNumberSequence: 1 },
+  {
+    unique: true,
+    name: 'unique_user_quote_number_sequence',
+    partialFilterExpression: {
+      quoteNumberYear: { $type: 'number' },
+      quoteNumberSequence: { $type: 'number' },
+    },
+  }
+);
 
 QuoteSchema.index({ user: 1, status: 1 });
 
@@ -401,7 +464,7 @@ preHook(["updateOne", "findOneAndUpdate", "updateMany"], function () {
 
 export type QuoteDocument = InferSchemaType<typeof QuoteSchema>;
 
-const QUOTE_MODEL_VERSION = 3;
+const QUOTE_MODEL_VERSION = 4;
 
 type VersionedQuoteModel = Model<QuoteDocument> & { __ownerUnreadVersion?: number };
 
@@ -412,6 +475,8 @@ if (
   (!existingQuoteModel.schema.path("rejectedSignToken") ||
     !existingQuoteModel.schema.path("adminReplyMessage") ||
     !existingQuoteModel.schema.path("conversationMessages") ||
+    !existingQuoteModel.schema.path('quoteNumberYear') ||
+    !existingQuoteModel.schema.path('quoteNumberSequence') ||
     !existingQuoteModel.schema.path("ownerHasUnread") ||
     existingQuoteModel.__ownerUnreadVersion !== QUOTE_MODEL_VERSION)
 ) {

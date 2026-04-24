@@ -1,4 +1,5 @@
 import mongoose, { type InferSchemaType, type Model } from "mongoose";
+import { formatCanonicalInvoiceNumber, parseInvoiceNumber } from '@/lib/invoice-number';
 
 export const INVOICE_STATUS = ["unpaid", "partial_paid", "paid", "overdue"] as const;
 
@@ -249,6 +250,17 @@ const InvoiceSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    invoiceNumberYear: {
+      type: Number,
+      default: null,
+      min: 2000,
+      max: 9999,
+    },
+    invoiceNumberSequence: {
+      type: Number,
+      default: null,
+      min: 1,
+    },
     quoteId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Quote",
@@ -377,6 +389,15 @@ const InvoiceSchema = new mongoose.Schema(
 );
 
 InvoiceSchema.pre("validate", function computeDepositAmount() {
+  const parsedInvoiceNumber = parseInvoiceNumber(this.invoiceNumber);
+  if (!parsedInvoiceNumber) {
+    this.invalidate('invoiceNumber', 'Invoice number must follow FAC-YYYY-### format');
+  } else {
+    this.invoiceNumber = formatCanonicalInvoiceNumber(parsedInvoiceNumber.year, parsedInvoiceNumber.sequence);
+    this.invoiceNumberYear = parsedInvoiceNumber.year;
+    this.invoiceNumberSequence = parsedInvoiceNumber.sequence;
+  }
+
   const percent = this.depositPercentage ?? 100;
   const total = this.totalIncludingTax ?? 0;
   this.depositAmount = Math.round(total * (percent / 100));
@@ -416,6 +437,17 @@ preInvoiceHook(["updateOne", "findOneAndUpdate", "updateMany"], function () {
 });
 
 InvoiceSchema.index({ userId: 1, invoiceNumber: 1 }, { unique: true, name: "unique_user_invoice_number" });
+InvoiceSchema.index(
+  { userId: 1, invoiceNumberYear: 1, invoiceNumberSequence: 1 },
+  {
+    unique: true,
+    name: 'unique_user_invoice_number_sequence',
+    partialFilterExpression: {
+      invoiceNumberYear: { $type: 'number' },
+      invoiceNumberSequence: { $type: 'number' },
+    },
+  }
+);
 InvoiceSchema.index({ userId: 1, createdAt: -1 });
 InvoiceSchema.index({ userId: 1, status: 1 });
 InvoiceSchema.index({ userId: 1, quoteId: 1 });
@@ -432,7 +464,7 @@ InvoiceSchema.index(
 
 export type InvoiceDocument = InferSchemaType<typeof InvoiceSchema>;
 
-const INVOICE_MODEL_VERSION = 3;
+const INVOICE_MODEL_VERSION = 4;
 
 type VersionedInvoiceModel = Model<InvoiceDocument> & { __ownerUnreadVersion?: number };
 
@@ -441,6 +473,8 @@ const existingInvoiceModel = mongoose.models.Invoice as VersionedInvoiceModel | 
 if (
   existingInvoiceModel &&
   (!existingInvoiceModel.schema.path("ownerHasUnread") ||
+    !existingInvoiceModel.schema.path('invoiceNumberYear') ||
+    !existingInvoiceModel.schema.path('invoiceNumberSequence') ||
     !existingInvoiceModel.schema.path('legalRecoveryCourtLocation') ||
     existingInvoiceModel.__ownerUnreadVersion !== INVOICE_MODEL_VERSION)
 ) {

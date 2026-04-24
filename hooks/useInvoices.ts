@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 export type InvoiceStatus = 'unpaid' | 'partial_paid' | 'paid' | 'overdue';
 export type InvoiceStatusFilter = 'all' | InvoiceStatus;
-export type InvoiceSort = 'date' | 'amount';
+export type InvoiceSort = 'number_desc' | 'number_asc' | 'date' | 'amount';
 
 export interface InvoiceListItem {
   _id: string;
@@ -73,7 +73,7 @@ const initialPagination: InvoicesPagination = {
 export function useInvoices(
   filter: InvoiceStatusFilter = 'all',
   search = '',
-  sort: InvoiceSort = 'date',
+  sort: InvoiceSort = 'number_desc',
   page = 1,
   limit = 10,
   options?: UseInvoicesOptions

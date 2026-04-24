@@ -28,7 +28,6 @@ import EmptyState from '@/components/ui/EmptyState';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import FinancialTotalsBar from '@/components/ui/FinancialTotalsBar';
 import KpiCards, { type KpiCard } from '@/components/ui/KpiCards';
@@ -64,8 +63,6 @@ function QuotesPageContent() {
       downloadFailed: 'Failed to download PDF',
       newQuote: 'New quote',
       search: 'Search by quote number or client name...',
-      sortDate: 'Date',
-      sortAmount: 'Amount',
       columns: 'Columns',
       visibleColumns: 'Visible columns',
       applyColumns: 'Apply',
@@ -150,8 +147,6 @@ function QuotesPageContent() {
       downloadFailed: 'Impossible de télécharger le PDF',
       newQuote: 'Nouveau devis',
       search: 'Rechercher par numéro de devis ou nom client...',
-      sortDate: 'Date',
-      sortAmount: 'Montant',
       columns: 'Colonnes',
       visibleColumns: 'Colonnes visibles',
       applyColumns: 'Appliquer',
@@ -227,7 +222,7 @@ function QuotesPageContent() {
   const [searchInput, setSearchInput] = useState('');
   const [searchDebounced, setSearchDebounced] = useState('');
   const [status, setStatus] = useState<QuoteStatusFilter>('all');
-  const [sort, setSort] = useState<'date' | 'amount'>('date');
+  const [sort, setSort] = useState<'number_desc' | 'number_asc'>('number_desc');
   const [page, setPage] = useState(1);
   const limit = 10;
   const [visibleColumns, setVisibleColumns] = useState<Record<QuoteTableColumnKey, boolean>>(DEFAULT_VISIBLE_COLUMNS);
@@ -301,7 +296,7 @@ function QuotesPageContent() {
       const parsed = JSON.parse(raw) as {
         searchInput?: string;
         status?: QuoteStatusFilter;
-        sort?: 'date' | 'amount';
+        sort?: 'number_desc' | 'number_asc';
       };
 
       const nextSearchInput = typeof parsed.searchInput === 'string' ? parsed.searchInput : '';
@@ -309,7 +304,7 @@ function QuotesPageContent() {
         parsed.status === 'pending' || parsed.status === 'draft' || parsed.status === 'sent' || parsed.status === 'accepted' || parsed.status === 'rejected'
           ? parsed.status
           : 'all';
-      const nextSort: 'date' | 'amount' = parsed.sort === 'amount' ? 'amount' : 'date';
+      const nextSort: 'number_desc' | 'number_asc' = parsed.sort === 'number_asc' ? 'number_asc' : 'number_desc';
 
       setSearchInput(nextSearchInput);
       setSearchDebounced(nextSearchInput.trim());
@@ -637,20 +632,11 @@ function QuotesPageContent() {
             </span>
           </div>
 
-          <div className="grid gap-2.5 lg:grid-cols-[1fr_auto_auto] lg:items-center">
+          <div className="grid gap-2.5 lg:grid-cols-[1fr_auto] lg:items-center">
             <div className="relative">
               <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input className="h-10 pl-9" value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder={t.search} />
             </div>
-            <Select value={sort} onValueChange={(value) => setSort(value === 'amount' ? 'amount' : 'date')}>
-              <SelectTrigger className="h-9 w-full sm:w-40">
-                <SelectValue placeholder={t.sortDate} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="date">{t.sortDate}</SelectItem>
-                <SelectItem value="amount">{t.sortAmount}</SelectItem>
-              </SelectContent>
-            </Select>
             <DropdownMenu
               open={columnsOpen}
               onOpenChange={(next) => {

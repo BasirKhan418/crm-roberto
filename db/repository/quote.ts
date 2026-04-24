@@ -185,6 +185,7 @@ const ALLOWED_STATUS_TRANSITIONS: Record<QuoteStatus, QuoteStatus[]> = {
 const MAX_QUOTE_NUMBER_RETRIES = 200;
 const QUOTE_NUMBER_PREFIX = 'DEV';
 let ensureQuoteNumberIndexPromise: Promise<void> | null = null;
+const QUOTE_NUMBER_REGEX = /^DEV-(\d{4})-(\d+)$/i;
 
 function getCurrentQuoteYear(): number {
   return new Date().getFullYear();
@@ -195,7 +196,33 @@ function getQuotePrefix(year: number): string {
 }
 
 function formatQuoteNumber(year: number, counter: number): string {
-  return `${getQuotePrefix(year)}${String(counter).padStart(3, '0')}`;
+  const normalizedCounter = Math.max(1, Math.round(counter));
+  const width = Math.max(3, String(normalizedCounter).length);
+  return `${getQuotePrefix(year)}${String(normalizedCounter).padStart(width, '0')}`;
+}
+
+function parseQuoteNumber(quoteNumber: string | null | undefined): { year: number; sequence: number; canonical: string } | null {
+  if (!quoteNumber) {
+    return null;
+  }
+
+  const normalized = quoteNumber.trim().toUpperCase();
+  const match = QUOTE_NUMBER_REGEX.exec(normalized);
+  if (!match) {
+    return null;
+  }
+
+  const year = Number.parseInt(match[1], 10);
+  const sequence = Number.parseInt(match[2], 10);
+  if (!Number.isFinite(year) || !Number.isFinite(sequence) || sequence <= 0) {
+    return null;
+  }
+
+  return {
+    year,
+    sequence,
+    canonical: formatQuoteNumber(year, sequence),
+  };
 }
 
 function isValidObjectId(value: string): boolean {
@@ -280,6 +307,113 @@ async function ensureTenantScopedQuoteNumberIndex(): Promise<void> {
   }
 
   ensureQuoteNumberIndexPromise = (async () => {
+    const quoteRows = await Quote.find({})
+      .select('_id user quoteNumber quoteNumberYear quoteNumberSequence createdAt')
+      .lean<Array<{
+        _id: mongoose.Types.ObjectId | string;
+        user: mongoose.Types.ObjectId | string;
+        quoteNumber?: string | null;
+        quoteNumberYear?: number | null;
+        quoteNumberSequence?: number | null;
+        createdAt?: Date | null;
+      }>>();
+
+    const usedByUserYear = new Map<string, Set<number>>();
+    const grouped = new Map<string, Array<{
+      _id: mongoose.Types.ObjectId | string;
+      user: mongoose.Types.ObjectId | string;
+      quoteNumber?: string | null;
+      quoteNumberYear?: number | null;
+      quoteNumberSequence?: number | null;
+      createdAt?: Date | null;
+    }>>();
+
+    for (const row of quoteRows) {
+      const parsed = parseQuoteNumber(row.quoteNumber ?? null);
+      if (!parsed) {
+        continue;
+      }
+
+      const userId = String(row.user);
+      const userYearKey = `${userId}|${parsed.year}`;
+      const groupKey = `${userYearKey}|${parsed.sequence}`;
+
+      if (!usedByUserYear.has(userYearKey)) {
+        usedByUserYear.set(userYearKey, new Set<number>());
+      }
+      usedByUserYear.get(userYearKey)?.add(parsed.sequence);
+
+      if (!grouped.has(groupKey)) {
+        grouped.set(groupKey, []);
+      }
+      grouped.get(groupKey)?.push(row);
+    }
+
+    const numberFixOps: Array<{ updateOne: { filter: { _id: mongoose.Types.ObjectId | string }; update: { $set: Record<string, unknown> } } }> = [];
+
+    for (const [groupKey, rows] of grouped) {
+      const [userId, yearRaw, sequenceRaw] = groupKey.split('|');
+      const year = Number.parseInt(yearRaw, 10);
+      const sequence = Number.parseInt(sequenceRaw, 10);
+      if (!Number.isFinite(year) || !Number.isFinite(sequence) || sequence <= 0) {
+        continue;
+      }
+
+      const sortedRows = [...rows].sort((a, b) => {
+        const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        if (aTime !== bTime) {
+          return aTime - bTime;
+        }
+
+        return String(a._id).localeCompare(String(b._id));
+      });
+
+      const userYearKey = `${userId}|${year}`;
+      const used = usedByUserYear.get(userYearKey) ?? new Set<number>();
+      usedByUserYear.set(userYearKey, used);
+
+      for (let index = 0; index < sortedRows.length; index += 1) {
+        const row = sortedRows[index];
+        let targetSequence = sequence;
+
+        if (index > 0) {
+          targetSequence = sequence;
+          while (used.has(targetSequence)) {
+            targetSequence += 1;
+          }
+          used.add(targetSequence);
+        }
+
+        const targetNumber = formatQuoteNumber(year, targetSequence);
+        const needsUpdate =
+          row.quoteNumber !== targetNumber ||
+          row.quoteNumberYear !== year ||
+          row.quoteNumberSequence !== targetSequence;
+
+        if (!needsUpdate) {
+          continue;
+        }
+
+        numberFixOps.push({
+          updateOne: {
+            filter: { _id: row._id },
+            update: {
+              $set: {
+                quoteNumber: targetNumber,
+                quoteNumberYear: year,
+                quoteNumberSequence: targetSequence,
+              },
+            },
+          },
+        });
+      }
+    }
+
+    if (numberFixOps.length > 0) {
+      await Quote.bulkWrite(numberFixOps, { ordered: false });
+    }
+
     const indexes = await Quote.collection.indexes();
     const hasTenantUniqueIndex = indexes.some(
       (index) =>
@@ -307,6 +441,29 @@ async function ensureTenantScopedQuoteNumberIndex(): Promise<void> {
         { unique: true, name: 'unique_user_quote_number' }
       );
     }
+
+    const hasTenantSequenceIndex = indexes.some(
+      (index) =>
+        index.name === 'unique_user_quote_number_sequence' &&
+        index.unique === true &&
+        (index.key as Record<string, number>)?.user === 1 &&
+        (index.key as Record<string, number>)?.quoteNumberYear === 1 &&
+        (index.key as Record<string, number>)?.quoteNumberSequence === 1
+    );
+
+    if (!hasTenantSequenceIndex) {
+      await Quote.collection.createIndex(
+        { user: 1, quoteNumberYear: 1, quoteNumberSequence: 1 },
+        {
+          unique: true,
+          name: 'unique_user_quote_number_sequence',
+          partialFilterExpression: {
+            quoteNumberYear: { $type: 'number' },
+            quoteNumberSequence: { $type: 'number' },
+          },
+        }
+      );
+    }
   })().catch((error) => {
     ensureQuoteNumberIndexPromise = null;
     throw error;
@@ -316,18 +473,12 @@ async function ensureTenantScopedQuoteNumberIndex(): Promise<void> {
 }
 
 function parseQuoteCounter(quoteNumber: string, year: number): number | null {
-  const prefix = getQuotePrefix(year);
-  if (!quoteNumber.startsWith(prefix)) {
+  const parsed = parseQuoteNumber(quoteNumber);
+  if (!parsed || parsed.year !== year) {
     return null;
   }
 
-  const rawCounter = quoteNumber.slice(prefix.length);
-  if (!/^\d+$/.test(rawCounter)) {
-    return null;
-  }
-
-  const counter = Number.parseInt(rawCounter, 10);
-  return Number.isFinite(counter) && counter > 0 ? counter : null;
+  return parsed.sequence;
 }
 
 async function getMaxExistingQuoteCounter(userId: string, year: number): Promise<number> {
@@ -432,13 +583,14 @@ export const listQuotes = async (
   options: {
     status?: QuoteStatus | 'pending';
     search?: string;
-    sort?: 'date' | 'amount';
+    sort?: 'number_desc' | 'number_asc' | 'date' | 'amount';
     page?: number;
     limit?: number;
     clientId?: string;
   }
 ): Promise<QuoteListResult> => {
   await ConnectDb();
+  await ensureTenantScopedQuoteNumberIndex();
 
   const query: Record<string, unknown> = { user: userId };
 
@@ -463,7 +615,13 @@ export const listQuotes = async (
   }
 
   const sortOptions: Record<string, 1 | -1> =
-    options.sort === 'amount' ? { totalIncludingTax: -1 } : { createdAt: -1 };
+    options.sort === 'number_asc'
+      ? { quoteNumberYear: 1, quoteNumberSequence: 1, createdAt: 1 }
+      : options.sort === 'amount'
+        ? { totalIncludingTax: -1 }
+        : options.sort === 'date'
+          ? { createdAt: -1 }
+          : { quoteNumberYear: -1, quoteNumberSequence: -1, createdAt: -1 };
   const page = Math.max(1, options.page ?? 1);
   const limit = Math.max(1, Math.min(options.limit ?? 10, 100));
 

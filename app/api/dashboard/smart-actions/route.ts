@@ -12,6 +12,7 @@ import { getCompanyProfileByUserId } from '@/db/repository/cprofile';
 import { extractClientSnapshot } from '@/lib/address';
 import { sendInvoice } from '@/lib/email';
 import { resolveLocaleFromRequest } from '@/lib/i18n/locale';
+import { getNextInvoiceNumberForYear, isInvoiceNumberDuplicateError } from '@/lib/invoice-number';
 import { InvoicePdfTemplate } from '@/lib/pdf/InvoicePdfTemplate';
 import getMe from '@/utils/middlewares/useMe';
 
@@ -302,23 +303,6 @@ async function buildSmartActions(userId: string): Promise<SmartActionsResponse> 
   };
 }
 
-async function allocateInvoiceNumber(): Promise<string> {
-  const year = new Date().getFullYear();
-  const prefix = `FAC-${year}-`;
-  const prefixPattern = `^(INV|FAC)-${year}-`;
-
-  for (let attempt = 0; attempt < 200; attempt += 1) {
-    const count = await Invoice.countDocuments({ invoiceNumber: { $regex: prefixPattern } });
-    const candidate = `${prefix}${String(count + 1 + attempt).padStart(4, '0')}`;
-    const exists = await Invoice.exists({ invoiceNumber: candidate });
-    if (!exists) {
-      return candidate;
-    }
-  }
-
-  throw new Error('Could not allocate invoice number');
-}
-
 async function createInvoiceFromQuote(userId: string, quoteId: string) {
   await ConnectDb();
 
@@ -390,27 +374,42 @@ async function createInvoiceFromQuote(userId: string, quoteId: string) {
     };
   }
 
-  const invoiceNumber = await allocateInvoiceNumber();
   const date = new Date();
   const dueDate = new Date(date.getTime() + 30 * DAY_IN_MS);
 
-  const created = await Invoice.create({
-    invoiceNumber,
-    quoteId: quoteDoc._id,
-    quoteNumber: quoteDoc.quoteNumber,
-    date,
-    dueDate,
-    status: 'unpaid',
-    clientId: quoteDoc.clientId,
-    clientSnapshot: quoteDoc.clientSnapshot,
-    lineItems: quoteDoc.lineItems,
-    totalExcludingTax: quoteDoc.totalExcludingTax,
-    totalVat: quoteDoc.totalVat,
-    totalIncludingTax: quoteDoc.totalIncludingTax,
-    depositPercentage: 100,
-    notes: quoteDoc.notes ?? null,
-    userId: toObjectId(userId),
-  });
+  let created: (mongoose.Document & { _id: mongoose.Types.ObjectId }) | null = null;
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const invoiceNumber = await getNextInvoiceNumberForYear(userId, date.getFullYear());
+
+    try {
+      created = await Invoice.create({
+        invoiceNumber,
+        quoteId: quoteDoc._id,
+        quoteNumber: quoteDoc.quoteNumber,
+        date,
+        dueDate,
+        status: 'unpaid',
+        clientId: quoteDoc.clientId,
+        clientSnapshot: quoteDoc.clientSnapshot,
+        lineItems: quoteDoc.lineItems,
+        totalExcludingTax: quoteDoc.totalExcludingTax,
+        totalVat: quoteDoc.totalVat,
+        totalIncludingTax: quoteDoc.totalIncludingTax,
+        depositPercentage: 100,
+        notes: quoteDoc.notes ?? null,
+        userId: toObjectId(userId),
+      });
+      break;
+    } catch (error) {
+      if (!isInvoiceNumberDuplicateError(error) || attempt === 4) {
+        throw error;
+      }
+    }
+  }
+
+  if (!created) {
+    throw new Error('Could not allocate invoice number');
+  }
 
   await Quote.updateOne(
     { _id: quoteDoc._id, user: userId },
