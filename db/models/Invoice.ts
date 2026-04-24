@@ -139,6 +139,10 @@ const InvoiceReminderStateSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    legalRecoverySentToCourtAt: {
+      type: Date,
+      default: null,
+    },
     legalRecoveryClaimAmount: {
       type: Number,
       min: 0,

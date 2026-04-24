@@ -2,7 +2,9 @@ import mongoose from 'mongoose';
 import { NextRequest, NextResponse } from 'next/server';
 
 import ConnectDb from '@/db/connectDb';
+import Invoice from '@/db/models/Invoice';
 import ReminderLog from '@/db/models/ReminderLog';
+import { appendLegalRecoveryTrackingEntries, type ReminderLogEntry } from '@/lib/reminders/legal-recovery';
 import getMe from '@/utils/middlewares/useMe';
 import { logsQuerySchema } from '@/validators/reminder-actions.schema';
 
@@ -37,10 +39,25 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const limit = parsed.data.limit;
     const skip = (page - 1) * limit;
 
-    const [items, total] = await Promise.all([
-      ReminderLog.find({ userId: me.user.id, invoiceId: id }).sort({ sentAt: -1 }).skip(skip).limit(limit).lean(),
-      ReminderLog.countDocuments({ userId: me.user.id, invoiceId: id }),
+    const [invoice, rawLogs] = await Promise.all([
+      Invoice.findOne({ _id: id, userId: me.user.id })
+        .select('reminderState')
+        .lean<{
+          reminderState?: {
+            legalRecoveryInitiatedAt?: Date | null;
+            legalRecoverySentToCourtAt?: Date | null;
+          } | null;
+        } | null>(),
+      ReminderLog.find({ userId: me.user.id, invoiceId: id }).sort({ sentAt: -1 }).lean<ReminderLogEntry[]>(),
     ]);
+
+    if (!invoice) {
+      return NextResponse.json({ success: false, message: 'Invoice not found' }, { status: 404 });
+    }
+
+    const mergedItems = appendLegalRecoveryTrackingEntries(rawLogs, invoice.reminderState);
+    const items = mergedItems.slice(skip, skip + limit);
+    const total = mergedItems.length;
 
     return NextResponse.json({
       success: true,

@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useSWRConfig } from 'swr';
 import useSWR from 'swr';
 import useSWRInfinite from 'swr/infinite';
-import { ChevronDownIcon, DownloadIcon, ForwardIcon, GavelIcon, Loader2Icon, MailIcon, PowerIcon, SendIcon } from 'lucide-react';
+import { CheckCircle2Icon, ChevronDownIcon, DownloadIcon, ForwardIcon, GavelIcon, Loader2Icon, MailIcon, PowerIcon, SendIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import SendReminderModal from '@/components/invoices/SendReminderModal';
@@ -28,7 +28,7 @@ import { cn } from '@/lib/utils';
 
 type Locale = 'en' | 'fr';
 type ReminderLevel = 0 | 1 | 2 | 3 | 4;
-type ReminderLogStatus = 'sent' | 'failed' | 'skipped' | 'paused' | 'resumed';
+type ReminderLogStatus = 'sent' | 'failed' | 'skipped' | 'paused' | 'resumed' | 'generated' | 'court_sent';
 
 type LegalRecoveryIneligibleReason =
   | 'invoice_paid'
@@ -62,6 +62,7 @@ interface LegalRecoveryEligibilityData {
   formalNoticeSentAt?: string | Date | null;
   formalNoticeDeadline?: string | Date | null;
   legalRecoveryInitiatedAt?: string | Date | null;
+  legalRecoverySentToCourtAt?: string | Date | null;
   jurisdiction?: string | null;
   courtLocation?: LegalRecoveryCourtLocation | null;
   courtSelectionRequired?: boolean;
@@ -79,12 +80,13 @@ interface ReminderState {
   formalNoticeSentAt?: string | Date | null;
   formalNoticeDeadline?: string | Date | null;
   legalRecoveryInitiatedAt?: string | Date | null;
+  legalRecoverySentToCourtAt?: string | Date | null;
 }
 
 interface ReminderLogItem {
   _id: string;
-  level: 1 | 2 | 3 | 4;
-  channel: 'email' | 'whatsapp';
+  level: number;
+  channel?: 'email' | 'whatsapp' | null;
   status: ReminderLogStatus;
   subject?: string;
   sentAt?: string;
@@ -201,6 +203,7 @@ export default function CollectionTab({
   const [selectedLegalRecoveryCourtLocation, setSelectedLegalRecoveryCourtLocation] = useState<LegalRecoveryCourtLocation | null>(null);
   const [updatingState, setUpdatingState] = useState(false);
   const [showCourtDetails, setShowCourtDetails] = useState(false);
+  const [markingLegalRecoverySent, setMarkingLegalRecoverySent] = useState(false);
   const { mutate: globalMutate } = useSWRConfig();
 
   const t = useCallback(
@@ -506,10 +509,46 @@ export default function CollectionTab({
 
       await Promise.resolve(onInvoiceRefresh());
       await mutateLegalRecovery();
+      await mutate();
+      await refreshLogsCache();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('reminder-logs:refresh', { detail: { invoiceId } }));
+      }
     } catch (downloadError) {
       toast.error(resolveTranslatedError(locale, downloadError, t('reminders.legalRecovery.downloadFailed')));
     } finally {
       setDownloadingLegalRecoveryKind(null);
+    }
+  }
+
+  async function markLegalRecoveryAsSentToCourt() {
+    if (markingLegalRecoverySent) {
+      return;
+    }
+
+    setMarkingLegalRecoverySent(true);
+
+    try {
+      const response = await fetch(`/api/invoices/${invoiceId}/reminders/legal-recovery/sent-to-court`, {
+        method: 'POST',
+      });
+      const payload = (await response.json()) as { success?: boolean; message?: string };
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.message || t('reminders.legalRecovery.markSentToCourtFailed'));
+      }
+
+      toast.success(t('reminders.legalRecovery.markSentToCourtSuccess'));
+      await Promise.resolve(onInvoiceRefresh());
+      await mutateLegalRecovery();
+      await mutate();
+      await refreshLogsCache();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('reminder-logs:refresh', { detail: { invoiceId } }));
+      }
+    } catch (actionError) {
+      toast.error(resolveTranslatedError(locale, actionError, t('reminders.legalRecovery.markSentToCourtFailed')));
+    } finally {
+      setMarkingLegalRecoverySent(false);
     }
   }
 
@@ -665,8 +704,12 @@ export default function CollectionTab({
       {logs.length > 0 ? (
         <ol className="space-y-4 border-l pl-4">
           {logs.map((item) => {
-            const levelLabel =
-              item.level === 1
+            const itemKey = item._id || `${item.status ?? 'unknown'}-${String(item.sentAt ?? '')}-${String(item.level)}`;
+            const isLegalRecoveryHistoryItem = item.status === 'generated' || item.status === 'court_sent';
+
+            const levelLabel = isLegalRecoveryHistoryItem
+              ? t('reminders.legalRecovery.historyLabel')
+              : item.level === 1
                 ? t('reminders.levels.soft')
                 : item.level === 2
                   ? t('reminders.levels.medium')
@@ -675,7 +718,11 @@ export default function CollectionTab({
                     : t('reminders.levels.formalNotice');
 
             const statusDotClass =
-              item.status === 'sent'
+              item.status === 'court_sent'
+                ? 'bg-emerald-500'
+                : item.status === 'generated'
+                  ? 'bg-sky-500'
+                  : item.status === 'sent'
                 ? 'bg-emerald-500'
                 : item.status === 'failed'
                   ? 'bg-destructive'
@@ -686,7 +733,11 @@ export default function CollectionTab({
                       : 'bg-muted-foreground';
 
             const historyStatusLabel =
-              item.status === 'sent'
+              item.status === 'generated'
+                ? t('reminders.collection.historyStatus.generated')
+                : item.status === 'court_sent'
+                  ? t('reminders.collection.historyStatus.court_sent')
+                  : item.status === 'sent'
                 ? t('reminders.collection.historyStatus.sent')
                 : item.status === 'failed'
                   ? t('reminders.collection.historyStatus.failed')
@@ -697,18 +748,22 @@ export default function CollectionTab({
                       : t('reminders.collection.historyStatus.skipped');
 
             const primaryText = item.subject?.slice(0, 60) ||
-              (item.status === 'paused'
-                ? t('reminders.history.pausedLine', { level: item.level })
-                : item.status === 'resumed'
-                  ? t('reminders.history.resumedLine', { level: item.level })
-                  : item.status === 'skipped'
-                    ? t('reminders.history.skippedLine', { level: item.level })
-                    : item.status === 'failed'
-                      ? t('reminders.history.failedLine', { level: item.level })
-                      : '');
+              (item.status === 'generated'
+                ? t('reminders.history.legalRecoveryGeneratedLine')
+                : item.status === 'court_sent'
+                  ? t('reminders.history.legalRecoverySentToCourtLine')
+                  : item.status === 'paused'
+                    ? t('reminders.history.pausedLine', { level: item.level })
+                    : item.status === 'resumed'
+                      ? t('reminders.history.resumedLine', { level: item.level })
+                      : item.status === 'skipped'
+                        ? t('reminders.history.skippedLine', { level: item.level })
+                        : item.status === 'failed'
+                          ? t('reminders.history.failedLine', { level: item.level })
+                          : '');
 
             return (
-              <li key={item._id} className="relative space-y-1">
+              <li key={itemKey} className="relative space-y-1">
                 <span className={cn('absolute -left-[1.18rem] top-1.5 inline-flex size-2.5 rounded-full', statusDotClass)} />
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant="outline">{levelLabel}</Badge>
@@ -716,7 +771,7 @@ export default function CollectionTab({
                 </div>
                 {primaryText ? <p className="text-sm font-medium text-foreground">{primaryText}</p> : null}
                 <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                  {item.status === 'sent' || item.status === 'failed' ? (
+                  {(item.status === 'sent' || item.status === 'failed') && item.channel === 'email' ? (
                     <span className="inline-flex items-center gap-1">
                       <MailIcon className="size-3.5" />
                       {t('reminders.collection.viaEmail')}
@@ -752,12 +807,16 @@ export default function CollectionTab({
       ? legalRecovery.courts?.[selectedCourtLocation] ?? null
       : null;
     const hasCourtSelection = Boolean(selectedCourtLocation);
-    // Use the per-court configured flag from the courts map so the UI reflects
-    // the selected court immediately (even before SWR revalidates).
     const canGenerateLegalRecoveryDocuments =
       legalRecovery.eligible &&
       hasCourtSelection &&
       selectedCourt?.configured === true;
+    const generatedAt = legalRecovery.legalRecoveryInitiatedAt ?? reminderState?.legalRecoveryInitiatedAt ?? null;
+    const sentToCourtAt = legalRecovery.legalRecoverySentToCourtAt ?? reminderState?.legalRecoverySentToCourtAt ?? null;
+    const isAmountExceedsThreshold = legalRecovery.reason === 'amount_exceeds_threshold';
+    const statusBadgeLabel = legalRecovery.eligible
+      ? t('reminders.legalRecovery.statusEligible')
+      : t('reminders.legalRecovery.statusNotEligible');
 
     const thresholdLabel = t('reminders.legalRecovery.thresholdHint', {
       amount: formatEur(legalRecovery.claimThresholdCents, locale),
@@ -767,6 +826,7 @@ export default function CollectionTab({
     });
 
     let bannerText: string | null = null;
+    let nextStepText: string | null = null;
     if (!legalRecovery.eligible) {
       const reason = legalRecovery.reason;
       if (reason === 'formal_notice_not_sent') {
@@ -777,9 +837,9 @@ export default function CollectionTab({
         });
       } else if (reason === 'amount_exceeds_threshold') {
         bannerText = t('reminders.legalRecovery.ineligible.amount_exceeds_threshold', {
-          amount: formatEur(legalRecovery.claimAmountCents, locale),
-          threshold: Math.round(legalRecovery.claimThresholdCents / 100).toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-GB'),
+          threshold: formatEur(legalRecovery.claimThresholdCents, locale),
         });
+        nextStepText = t('reminders.legalRecovery.ineligible.amount_exceeds_threshold_next_step');
       } else if (reason === 'invoice_paid') {
         bannerText = t('reminders.legalRecovery.ineligible.invoice_paid');
       } else if (reason === 'amount_is_zero') {
@@ -793,11 +853,33 @@ export default function CollectionTab({
       bannerText = t('reminders.legalRecovery.eligibleDescription');
     }
 
-    const initiatedLabel = legalRecovery.legalRecoveryInitiatedAt
-      ? t('reminders.legalRecovery.initiatedOn', {
-          date: formatSentDate(legalRecovery.legalRecoveryInitiatedAt) || '-',
+    const trackingStatusLabel = sentToCourtAt
+      ? t('reminders.legalRecovery.trackingSentToCourt')
+      : generatedAt
+        ? t('reminders.legalRecovery.trackingGenerated')
+        : t('reminders.legalRecovery.trackingNotStarted');
+
+    const trackingStatusDateLabel = sentToCourtAt
+      ? t('reminders.legalRecovery.sentToCourtOn', {
+          date: formatSentDate(sentToCourtAt) || '-',
         })
-      : null;
+      : generatedAt
+        ? t('reminders.legalRecovery.generatedOn', {
+            date: formatSentDate(generatedAt) || '-',
+          })
+        : null;
+
+    const trackingStatusDescription = sentToCourtAt
+      ? t('reminders.legalRecovery.trackingSentToCourtDescription')
+      : generatedAt
+        ? t('reminders.legalRecovery.trackingGeneratedDescription')
+        : t('reminders.legalRecovery.trackingNotStartedDescription');
+
+    const trackingStatusBadgeClass = sentToCourtAt
+      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300'
+      : generatedAt
+        ? 'bg-sky-100 text-sky-800 dark:bg-sky-950/40 dark:text-sky-300'
+        : 'bg-slate-100 text-slate-700 dark:bg-slate-900/40 dark:text-slate-300';
 
     return (
       <div className={cn('space-y-3 overflow-hidden rounded-lg border p-4', isCompact && 'border-border/70 bg-card p-3')}>
@@ -813,11 +895,16 @@ export default function CollectionTab({
               </p>
             </div>
           </div>
-          {legalRecovery.eligible ? (
-            <Badge className="shrink-0 border-0 bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
-              {t('reminders.legalRecovery.sectionTitle')}
-            </Badge>
-          ) : null}
+          <Badge
+            className={cn(
+              'shrink-0 border-0',
+              legalRecovery.eligible
+                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300'
+                : 'bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300'
+            )}
+          >
+            {statusBadgeLabel}
+          </Badge>
         </div>
 
         {bannerText ? (
@@ -826,12 +913,53 @@ export default function CollectionTab({
               'wrap-break-word rounded-md border px-3 py-2 text-xs',
               legalRecovery.eligible
                 ? 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200'
+                : isAmountExceedsThreshold
+                  ? 'border-orange-200 bg-orange-50 text-orange-900 dark:border-orange-900/60 dark:bg-orange-950/30 dark:text-orange-200'
                 : 'border-border/60 bg-muted/40 text-muted-foreground'
             )}
           >
             {bannerText}
           </p>
         ) : null}
+
+        {nextStepText ? (
+          <div className="rounded-md border border-orange-200 bg-orange-50 px-3 py-2 text-xs text-orange-900 dark:border-orange-900/60 dark:bg-orange-950/30 dark:text-orange-200">
+            <p className="font-semibold text-foreground">{t('reminders.legalRecovery.nextStepTitle')}</p>
+            <p className="mt-1 wrap-break-word">{nextStepText}</p>
+          </div>
+        ) : null}
+
+        <div className="rounded-md border border-border/60 bg-muted/30 px-3 py-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="space-y-1">
+              <p className="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
+                {t('reminders.legalRecovery.trackingLabel')}
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge className={cn('border-0', trackingStatusBadgeClass)}>{trackingStatusLabel}</Badge>
+                {trackingStatusDateLabel ? (
+                  <span className="text-xs text-muted-foreground">{trackingStatusDateLabel}</span>
+                ) : null}
+              </div>
+              <p className="text-xs text-muted-foreground">{trackingStatusDescription}</p>
+            </div>
+            {generatedAt && !sentToCourtAt ? (
+              <Button
+                type="button"
+                size={isCompact ? 'sm' : 'default'}
+                variant="outline"
+                className="w-full sm:w-auto"
+                disabled={markingLegalRecoverySent || downloadingLegalRecoveryKind !== null}
+                onClick={() => void markLegalRecoveryAsSentToCourt()}
+              >
+                {markingLegalRecoverySent
+                  ? <Loader2Icon className={(isCompact ? 'size-3.5' : 'size-4') + ' animate-spin'} />
+                  : <CheckCircle2Icon className={isCompact ? 'size-3.5' : 'size-4'} />}
+                <span className="truncate">{t('reminders.legalRecovery.markSentToCourt')}</span>
+              </Button>
+            ) : null}
+          </div>
+        </div>
 
         {requiresFormalNotice ? (
           <div className="rounded-md border border-border/60 bg-muted/30 px-3 py-3 text-xs text-muted-foreground">
@@ -910,43 +1038,35 @@ export default function CollectionTab({
           <span className="wrap-break-word">{claimLabel}</span>
           <span aria-hidden>•</span>
           <span className="wrap-break-word">{thresholdLabel}</span>
-          {initiatedLabel ? (
-            <>
-              <span aria-hidden>•</span>
-              <span className="wrap-break-word">{initiatedLabel}</span>
-            </>
-          ) : null}
         </div>
 
-        {canGenerateLegalRecoveryDocuments ? (
-          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-            <Button
-              type="button"
-              size={isCompact ? 'sm' : 'default'}
-              className="w-full min-w-0 sm:w-auto"
-              disabled={downloadingLegalRecoveryKind !== null || savingLegalRecoveryCourt}
-              onClick={() => void downloadLegalRecoveryArtifact('payment-order')}
-            >
-              {downloadingLegalRecoveryKind === 'payment-order'
-                ? <Loader2Icon className={(isCompact ? 'size-3.5' : 'size-4') + ' animate-spin'} />
-                : <DownloadIcon className={isCompact ? 'size-3.5' : 'size-4'} />}
-              <span className="truncate">{t('reminders.actions.downloadPaymentOrder')}</span>
-            </Button>
-            <Button
-              type="button"
-              size={isCompact ? 'sm' : 'default'}
-              variant="outline"
-              className="w-full min-w-0 sm:w-auto"
-              disabled={downloadingLegalRecoveryKind !== null || savingLegalRecoveryCourt}
-              onClick={() => void downloadLegalRecoveryArtifact('recovery-file')}
-            >
-              {downloadingLegalRecoveryKind === 'recovery-file'
-                ? <Loader2Icon className={(isCompact ? 'size-3.5' : 'size-4') + ' animate-spin'} />
-                : <DownloadIcon className={isCompact ? 'size-3.5' : 'size-4'} />}
-              <span className="truncate">{t('reminders.actions.downloadRecoveryFile')}</span>
-            </Button>
-          </div>
-        ) : null}
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+          <Button
+            type="button"
+            size={isCompact ? 'sm' : 'default'}
+            className="w-full min-w-0 sm:w-auto"
+            disabled={!canGenerateLegalRecoveryDocuments || downloadingLegalRecoveryKind !== null || savingLegalRecoveryCourt}
+            onClick={() => void downloadLegalRecoveryArtifact('payment-order')}
+          >
+            {downloadingLegalRecoveryKind === 'payment-order'
+              ? <Loader2Icon className={(isCompact ? 'size-3.5' : 'size-4') + ' animate-spin'} />
+              : <DownloadIcon className={isCompact ? 'size-3.5' : 'size-4'} />}
+            <span className="truncate">{t('reminders.actions.downloadPaymentOrder')}</span>
+          </Button>
+          <Button
+            type="button"
+            size={isCompact ? 'sm' : 'default'}
+            variant="outline"
+            className="w-full min-w-0 sm:w-auto"
+            disabled={!canGenerateLegalRecoveryDocuments || downloadingLegalRecoveryKind !== null || savingLegalRecoveryCourt}
+            onClick={() => void downloadLegalRecoveryArtifact('recovery-file')}
+          >
+            {downloadingLegalRecoveryKind === 'recovery-file'
+              ? <Loader2Icon className={(isCompact ? 'size-3.5' : 'size-4') + ' animate-spin'} />
+              : <DownloadIcon className={isCompact ? 'size-3.5' : 'size-4'} />}
+            <span className="truncate">{t('reminders.actions.downloadRecoveryFile')}</span>
+          </Button>
+        </div>
       </div>
     );
   })();

@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { NextRequest, NextResponse } from 'next/server';
+import { PDFDocument } from 'pdf-lib';
 
 import ConnectDb from '@/db/connectDb';
 import CompanyProfile from '@/db/models/CompanyProfile';
@@ -9,7 +10,9 @@ import ReminderLog from '@/db/models/ReminderLog';
 import ReminderSettings from '@/db/models/ReminderSettings';
 import { createActivityLog } from '@/db/repository/activity';
 import { formatInvoiceDisplayNumber } from '@/lib/i18n/messages';
+import { renderReminderHistoryPdf } from '@/lib/pdf/ReminderHistoryPdfTemplate';
 import {
+  appendLegalRecoveryTrackingEntries,
   evaluateLegalRecoveryEligibility,
   isLegalRecoveryCourtConfigured,
   markLegalRecoveryInitiatedIfNeeded,
@@ -22,9 +25,12 @@ import {
   type ReminderLogEntry,
 } from '@/lib/reminders/legal-recovery';
 import {
+  renderInvoicePdfForReminder,
+  renderLegalNoticePdfForReminder,
   resolveReminderLocalePreference,
   type CompanyProfileForReminder,
   type InvoiceForPdf,
+  type PaymentHistoryItem,
 } from '@/lib/reminders/formal-notice';
 import getMe from '@/utils/middlewares/useMe';
 
@@ -75,13 +81,56 @@ type InvoiceForLegalRecovery = {
     formalNoticeSentAt?: Date | null;
     formalNoticeDeadline?: Date | null;
     legalRecoveryInitiatedAt?: Date | null;
+    legalRecoverySentToCourtAt?: Date | null;
   } | null;
 };
 
 type ReminderSettingsDoc = {
-  legalNotice?: { includeInterestClause?: boolean } | null;
+  legalNotice?: {
+    delayDays?: 8 | 15;
+    includeInterestClause?: boolean;
+    customFooter?: string | null;
+  } | null;
   legalRecovery?: LegalRecoverySettings | null;
 } | null;
+
+type ReminderLogDoc = ReminderLogEntry & {
+  _id: mongoose.Types.ObjectId;
+  subject?: string;
+  recipientEmail?: string;
+  lateFeeAmount?: number;
+};
+
+async function loadPaymentHistory(
+  invoiceId: mongoose.Types.ObjectId,
+  userId: string
+): Promise<PaymentHistoryItem[]> {
+  const payments = await Payment.find({ invoiceId, userId, status: 'succeeded' })
+    .sort({ paidAt: -1, createdAt: -1 })
+    .select('amount method type paidAt createdAt')
+    .lean<Array<{ amount: number; method: string; type: 'deposit' | 'full' | 'remaining_balance'; paidAt?: Date | null; createdAt?: Date | null }>>();
+
+  return payments.map((item) => ({
+    amount: item.amount,
+    method: item.method,
+    type: item.type,
+    paidAt: item.paidAt ?? null,
+    createdAt: item.createdAt ?? null,
+  }));
+}
+
+async function mergePdfBuffers(buffers: Array<Buffer | Uint8Array>): Promise<Buffer> {
+  const merged = await PDFDocument.create();
+  for (const buffer of buffers) {
+    const source = await PDFDocument.load(buffer);
+    const pages = await merged.copyPages(source, source.getPageIndices());
+    for (const page of pages) {
+      merged.addPage(page);
+    }
+  }
+  const bytes = await merged.save();
+  return Buffer.from(bytes);
+}
 
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
@@ -106,7 +155,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, message: 'Invoice not found' }, { status: 404 });
     }
 
-    const [settingsDoc, companyProfile, totals, logs] = await Promise.all([
+    const [settingsDoc, companyProfile, totals, logs, paymentHistory] = await Promise.all([
       ReminderSettings.findOne({ userId: me.user.id }).lean<ReminderSettingsDoc>(),
       CompanyProfile.findOne({ user: me.user.id })
         .select('companyName ownerName locale address streetNumber streetName postalCode city country phone businessEmail vatNumber rcsNumber businessAuthorizationNumber matriculeNumber iban bankName legalIdentifier logoUrl')
@@ -117,8 +166,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       ]),
       ReminderLog.find({ invoiceId: invoice._id, userId: me.user.id })
         .sort({ sentAt: 1, createdAt: 1 })
-        .select('level channel status sentAt')
-        .lean<Array<ReminderLogEntry & { _id: mongoose.Types.ObjectId }>>(),
+        .select('level channel status sentAt subject recipientEmail lateFeeAmount')
+        .lean<ReminderLogDoc[]>(),
+      loadPaymentHistory(invoice._id, me.user.id),
     ]);
 
     const totalPaid = Math.max(0, Math.round(totals[0]?.totalPaid ?? 0));
@@ -195,7 +245,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const rawLocale = request.nextUrl.searchParams.get('locale');
     const locale = resolveReminderLocalePreference(rawLocale, me.user.locale, companyProfile?.locale);
 
-    const includeInterestClause = settingsDoc?.legalNotice?.includeInterestClause !== false;
+    const legalNoticeSettings = settingsDoc?.legalNotice;
+    const delayDays = legalNoticeSettings?.delayDays === 15 ? 15 : 8;
+    const includeInterestClause = legalNoticeSettings?.includeInterestClause !== false;
+    const customFooter = legalNoticeSettings?.customFooter ?? null;
 
     const invoicePdfInput: InvoiceForPdf = {
       _id: invoice._id,
@@ -220,19 +273,61 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       },
     };
 
-    const { pdfBuffer } = await renderPaymentOrderPdfForRecovery({
-      invoice: invoicePdfInput,
-      companyProfile,
-      settings: legalRecoverySettings,
-      locale,
-      remainingAmountCents: remainingAmount,
-      paidAmountCents: totalPaid,
-      lateFeeAmountCents: lateFeeAmount,
-      formalNoticeSentAt: invoice.reminderState?.formalNoticeSentAt ?? null,
-      formalNoticeDeadline: invoice.reminderState?.formalNoticeDeadline ?? null,
-      includeInterestClause,
-      reminderLogs: logs ?? [],
-    });
+    const displayInvoiceNumber = formatInvoiceDisplayNumber(locale, invoice.invoiceNumber);
+    const historyEntries = appendLegalRecoveryTrackingEntries(logs ?? [], invoice.reminderState);
+
+    // Generate every document that makes up the full recovery dossier and
+    // merge them into a single consolidated PDF. The standalone "Download
+    // payment-order request" button must produce the complete filing so that
+    // it is consistent with the ZIP recovery file.
+    const [paymentOrderResult, invoicePdfBuffer, legalNoticePdfResult, historyPdfBuffer] = await Promise.all([
+      renderPaymentOrderPdfForRecovery({
+        invoice: invoicePdfInput,
+        companyProfile,
+        settings: legalRecoverySettings,
+        locale,
+        remainingAmountCents: remainingAmount,
+        paidAmountCents: totalPaid,
+        lateFeeAmountCents: lateFeeAmount,
+        formalNoticeSentAt: invoice.reminderState?.formalNoticeSentAt ?? null,
+        formalNoticeDeadline: invoice.reminderState?.formalNoticeDeadline ?? null,
+        includeInterestClause,
+        reminderLogs: historyEntries,
+      }),
+      renderInvoicePdfForReminder({
+        invoice: invoicePdfInput,
+        companyProfile,
+        locale,
+        paymentUrl: null,
+        lateFeeAmountCents: lateFeeAmount,
+        payments: paymentHistory,
+      }),
+      renderLegalNoticePdfForReminder({
+        invoice: invoicePdfInput,
+        companyProfile,
+        locale,
+        remainingAmountCents: remainingAmount,
+        lateFeeAmountCents: lateFeeAmount,
+        legalNoticeDate: invoice.reminderState?.formalNoticeSentAt ?? new Date(),
+        delayDays,
+        includeInterestClause,
+        customFooter,
+      }),
+      renderReminderHistoryPdf({
+        invoiceNumber: displayInvoiceNumber,
+        locale,
+        entries: historyEntries,
+      }),
+    ]);
+
+    // Order: payment-order request first (the filing itself), followed by the
+    // supporting exhibits — invoice, formal notice, reminder history.
+    const mergedPdfBuffer = await mergePdfBuffers([
+      paymentOrderResult.pdfBuffer,
+      invoicePdfBuffer,
+      legalNoticePdfResult.pdfBuffer,
+      historyPdfBuffer,
+    ]);
 
     const wasAlreadyInitiated = Boolean(invoice.reminderState?.legalRecoveryInitiatedAt);
     const { firstTime } = await markLegalRecoveryInitiatedIfNeeded({
@@ -256,10 +351,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       });
     }
 
-    const displayInvoiceNumber = formatInvoiceDisplayNumber(locale, invoice.invoiceNumber);
     const filenamePrefix = locale === 'fr' ? 'requete-en-paiement' : 'payment-order-request';
 
-    return new NextResponse(new Uint8Array(pdfBuffer), {
+    return new NextResponse(new Uint8Array(mergedPdfBuffer), {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
