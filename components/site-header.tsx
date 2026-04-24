@@ -98,14 +98,6 @@ export function SiteHeader({ title = "Documents" }: { title?: string }) {
   const { locale } = useLocale()
   const t = headerMessages[locale]
   const isDashboard = pathname === "/dashboard"
-  const currentRoute = useMemo(() => {
-    if (typeof window === "undefined") {
-      return pathname
-    }
-
-    const query = window.location.search
-    return query ? `${pathname}${query}` : pathname
-  }, [pathname])
 
   const backFallbackHref = useMemo(() => getBackFallbackHref(pathname), [pathname])
   const userDisplayName = user?.name?.trim() || t.userFallback
@@ -117,6 +109,12 @@ export function SiteHeader({ title = "Documents" }: { title?: string }) {
     .join("") || "U"
 
   useEffect(() => {
+    // Compute the current route inside the effect so the first client render
+    // matches SSR output exactly (avoids a hydration mismatch that would
+    // otherwise blank the whole header tree in React 19).
+    const search = typeof window !== "undefined" ? window.location.search : ""
+    const currentRoute = search ? `${pathname}${search}` : pathname
+
     const stack = readNavigationStack()
     let nextStack = stack
 
@@ -131,7 +129,7 @@ export function SiteHeader({ title = "Documents" }: { title?: string }) {
     }
 
     writeNavigationStack(nextStack)
-  }, [currentRoute])
+  }, [pathname])
 
   function handleBack() {
     const stack = readNavigationStack()

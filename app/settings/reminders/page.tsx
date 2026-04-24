@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 
 import useSWR from 'swr';
 import { useSearchParams } from 'next/navigation';
@@ -723,7 +723,15 @@ interface ReminderSettingsPageProps {
   lockedSection?: SectionKey;
 }
 
-export default function ReminderSettingsPage({ embedded = false, lockedSection }: ReminderSettingsPageProps = {}) {
+export default function ReminderSettingsPage(props: ReminderSettingsPageProps = {}) {
+  return (
+    <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Chargement...</div>}>
+      <ReminderSettingsPageContent {...props} />
+    </Suspense>
+  );
+}
+
+function ReminderSettingsPageContent({ embedded = false, lockedSection }: ReminderSettingsPageProps = {}) {
   const searchParams = useSearchParams();
   const { locale } = useLocale();
   const { user, loading: authLoading } = useAuthMe();

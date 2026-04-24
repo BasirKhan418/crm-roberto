@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ArrowDownIcon, ArrowUpIcon } from 'lucide-react';
 import { toast } from 'sonner';
@@ -75,7 +75,7 @@ function persistDashboardPrefs(prefs: DashboardPrefs) {
   window.localStorage.setItem(LEGACY_DASHBOARD_PREFS_KEY, payload);
 }
 
-export default function DashboardPage() {
+function DashboardPageContent() {
   const { locale } = useLocale();
   const searchParams = useSearchParams();
   const handledStripeReturnRef = useRef(false);
@@ -325,5 +325,13 @@ export default function DashboardPage() {
         </BaseAddModal>
       ) : null}
     </CrmShell>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Chargement...</div>}>
+      <DashboardPageContent />
+    </Suspense>
   );
 }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { Suspense, useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useForm } from "react-hook-form"
@@ -91,7 +91,7 @@ const forgotMessages = {
   },
 } as const
 
-export default function ForgotPasswordPage() {
+function ForgotPasswordPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { locale } = useLocale()
@@ -437,6 +437,14 @@ export default function ForgotPasswordPage() {
         </Link>
       </p>
     </div>
+  )
+}
+
+export default function ForgotPasswordPage() {
+  return (
+    <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Chargement...</div>}>
+      <ForgotPasswordPageContent />
+    </Suspense>
   )
 }
         

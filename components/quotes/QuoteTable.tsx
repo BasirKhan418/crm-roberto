@@ -312,16 +312,18 @@ export default function QuoteTable({ items, loading, visibleColumns, labels, loc
            
                 <div className="flex items-start justify-between gap-3 px-4 pt-4.5">
                   <div className="min-w-0">
+                    {isVisible('quoteNumber') ? (
+                      <p className="truncate text-sm font-semibold text-foreground">{quote.quoteNumber}</p>
+                    ) : null}
                     {isVisible('client') ? (
                       <Link
                         href={`/clients/${quote.clientId}`}
-                        className="block truncate text-sm font-semibold text-foreground hover:underline"
+                        className="mt-0.5 block truncate text-[12px] font-medium text-muted-foreground hover:text-foreground hover:underline"
                         onClick={(event) => event.stopPropagation()}
                       >
                         {quote.clientSnapshot.fullName}
                       </Link>
                     ) : null}
-                    {isVisible('quoteNumber') ? <p className="mt-0.5 text-[11px] font-medium text-muted-foreground">{quote.quoteNumber}</p> : null}
                     {isVisible('subject') && quote.subject ? (
                       <p className="mt-0.5 truncate text-[11px] font-medium text-muted-foreground">{quote.subject}</p>
                     ) : null}
@@ -384,8 +386,8 @@ export default function QuoteTable({ items, loading, visibleColumns, labels, loc
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
-              {isVisible('client') ? <TableHead className="h-11 pl-5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.client}</TableHead> : null}
-              {isVisible('quoteNumber') ? <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.quoteNumber}</TableHead> : null}
+              {isVisible('quoteNumber') ? <TableHead className="h-11 pl-5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.quoteNumber}</TableHead> : null}
+              {isVisible('client') ? <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.client}</TableHead> : null}
               {isVisible('subject') ? <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.subject}</TableHead> : null}
               {isVisible('date') ? <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.date}</TableHead> : null}
               {isVisible('totalIncludingTax') ? <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.totalIncludingTax}</TableHead> : null}
@@ -398,15 +400,15 @@ export default function QuoteTable({ items, loading, visibleColumns, labels, loc
             {loading
               ? Array.from({ length: 6 }).map((_, idx) => (
                   <TableRow key={`quote-skeleton-${idx}`}>
+                    {isVisible('quoteNumber') ? <TableCell className="py-4 pl-5"><Skeleton className="h-5 w-20 rounded-full" /></TableCell> : null}
                     {isVisible('client') ? (
-                      <TableCell className="py-4 pl-5">
+                      <TableCell className="py-4">
                         <div className="space-y-1.5">
                           <Skeleton className="h-4 w-32" />
                           <Skeleton className="h-3 w-20" />
                         </div>
                       </TableCell>
                     ) : null}
-                    {isVisible('quoteNumber') ? <TableCell className="py-4"><Skeleton className="h-5 w-20 rounded-full" /></TableCell> : null}
                     {isVisible('subject') ? <TableCell className="py-4"><Skeleton className="h-5 w-20 rounded-full" /></TableCell> : null}
                     {isVisible('date') ? <TableCell className="py-4"><Skeleton className="h-4 w-24" /></TableCell> : null}
                     {isVisible('totalIncludingTax') ? <TableCell className="py-4"><Skeleton className="h-5 w-24" /></TableCell> : null}
@@ -427,11 +429,19 @@ export default function QuoteTable({ items, loading, visibleColumns, labels, loc
                     }}
                   >
                     {/* Client */}
-                    {isVisible('client') ? (
+                    {/* Quote number (first column) */}
+                    {isVisible('quoteNumber') ? (
                       <TableCell
-                        className="py-4 pl-5 align-middle"
+                        className="py-4 pl-5 align-middle text-sm font-semibold text-foreground"
                         style={{ borderLeft: `3px solid ${STATUS_ACCENT[quote.status]}` }}
                       >
+                        {quote.quoteNumber}
+                      </TableCell>
+                    ) : null}
+
+                    {/* Client */}
+                    {isVisible('client') ? (
+                      <TableCell className="py-4 align-middle">
                         <Link
                           href={`/clients/${quote.clientId}`}
                           className="block text-sm font-semibold text-foreground hover:text-(--color-text-info) hover:underline"
@@ -440,10 +450,6 @@ export default function QuoteTable({ items, loading, visibleColumns, labels, loc
                           {quote.clientSnapshot.fullName}
                         </Link>
                       </TableCell>
-                    ) : null}
-
-                    {isVisible('quoteNumber') ? (
-                      <TableCell className="py-4 align-middle text-sm font-medium text-foreground">{quote.quoteNumber}</TableCell>
                     ) : null}
 
                     {/* Subject */}
