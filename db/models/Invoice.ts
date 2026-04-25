@@ -5,6 +5,11 @@ export const INVOICE_STATUS = ["unpaid", "partial_paid", "paid", "overdue"] as c
 
 const InvoiceLineItemSchema = new mongoose.Schema(
   {
+    lineType: {
+      type: String,
+      enum: ['catalog', 'custom', 'free_text', 'item'],
+      default: 'custom',
+    },
     productId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "CatalogueItem",

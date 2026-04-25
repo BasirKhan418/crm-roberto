@@ -33,6 +33,7 @@ function getTodayStart(): Date {
 const legalRecoveryCourtLocationSchema = z.enum(['luxembourg', 'esch_sur_alzette', 'diekirch']).nullable();
 
 const invoiceLineItemSchema = z.object({
+  lineType: z.enum(['catalog', 'custom', 'free_text', 'item']).optional(),
   productId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid product id').nullable().optional(),
   productImageUrl: z.preprocess(emptyToNull, z.string().trim().url().nullable().optional()),
   name: z.string().trim().min(1),

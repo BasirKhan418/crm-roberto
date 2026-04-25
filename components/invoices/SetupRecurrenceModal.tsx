@@ -482,7 +482,7 @@ export default function SetupRecurrenceModal({
               <div className="space-y-4">
                 <div>
                   <Label className="mb-2 block text-sm">{t('recurring.setup.templateLineItems')}</Label>
-                  <LineItemsBuilder lineItems={templateLineItems} onChange={setTemplateLineItems} />
+                  <LineItemsBuilder mode="invoice" lineItems={templateLineItems} onChange={setTemplateLineItems} />
                 </div>
 
                 <QuoteTotals lineItems={templateLineItems} />

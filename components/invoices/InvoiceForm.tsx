@@ -333,7 +333,7 @@ export default function InvoiceForm({ defaultClientId, defaultQuoteId, defaultDu
                 {t.lineItems}
                 <span className="text-xs font-normal text-muted-foreground">— {t.step2}</span>
               </h2>
-              <LineItemsBuilder lineItems={lineItems} onChange={setLineItems} />
+              <LineItemsBuilder mode="invoice" lineItems={lineItems} onChange={setLineItems} />
               {errors.lineItems ? <p className="mt-2 text-xs text-destructive">{errors.lineItems}</p> : null}
             </section>
           ) : null}

@@ -87,6 +87,7 @@ interface InvoiceDetail {
   };
   lineItems: Array<{
     _id?: string;
+    lineType?: 'catalog' | 'custom' | 'free_text' | 'item';
     productImageUrl?: string | null;
     name: string;
     quantity: number;
@@ -796,6 +797,16 @@ export default function InvoiceDetailPage() {
                   </thead>
                   <tbody>
                     {invoice.lineItems.map((item, index) => {
+                      if (item.lineType === 'free_text') {
+                        return (
+                          <tr key={item._id || `free-text-${index}`} className="border-t border-border/60 bg-secondary/10">
+                            <td className="px-3 py-3 font-medium text-muted-foreground" colSpan={8}>
+                              {item.name}
+                            </td>
+                          </tr>
+                        );
+                      }
+
                       const computed = derivedTotals?.lineComputed[index] ?? null;
 
                       return (

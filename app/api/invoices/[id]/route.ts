@@ -109,6 +109,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       notes?: string | null;
       dueDate?: Date | null;
       lineItems?: Array<{
+        lineType: 'catalog' | 'custom' | 'free_text' | 'item';
         productId: mongoose.Types.ObjectId | null;
         productImageUrl: string | null;
         name: string;
@@ -140,6 +141,25 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
     if ('lineItems' in parsed.data && parsed.data.lineItems) {
       const computedLineItems = parsed.data.lineItems.map((item) => {
+        if (item.lineType === 'free_text') {
+          return {
+            lineType: 'free_text' as const,
+            productId: null,
+            productImageUrl: null,
+            name: item.name,
+            quantity: 1,
+            unitPriceExcludingTax: 0,
+            baseUnitPriceExcludingTax: 0,
+            discountPercentage: 0,
+            vatRate: 0,
+            totalExcludingTaxBeforeDiscount: 0,
+            discountAmountExcludingTax: 0,
+            totalExcludingTax: 0,
+            vatAmount: 0,
+            totalIncludingTax: 0,
+          };
+        }
+
         const computed = computeQuoteLine({
           quantity: item.quantity,
           unitPriceExcludingTax: item.unitPriceExcludingTax,
@@ -149,8 +169,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         });
 
         return {
-          productId: item.productId ? new mongoose.Types.ObjectId(item.productId) : null,
-          productImageUrl: item.productImageUrl ?? null,
+          lineType: (item.lineType === 'catalog' ? 'catalog' : item.lineType === 'item' ? 'item' : 'custom') as 'catalog' | 'custom' | 'item',
+          productId: item.lineType === 'catalog' && item.productId ? new mongoose.Types.ObjectId(item.productId) : null,
+          productImageUrl: item.lineType === 'catalog' ? item.productImageUrl ?? null : null,
           name: item.name,
           quantity: computed.quantity,
           unitPriceExcludingTax: computed.unitPriceExcludingTax,

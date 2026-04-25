@@ -32,6 +32,7 @@ interface InvoiceEditData {
   status: InvoiceStatus;
   lineItems: Array<{
     _id?: string;
+    lineType?: 'catalog' | 'custom' | 'free_text' | 'item';
     name: string;
     quantity: number;
     unitPriceExcludingTax: number;
@@ -163,6 +164,7 @@ export default function EditInvoicePage() {
           setDueDate(payload.data.dueDate ? new Date(payload.data.dueDate).toISOString().slice(0, 10) : '');
           setLineItems(
             payload.data.lineItems.map((item) => ({
+              lineType: item.lineType ?? 'custom',
               productId: null,
               productImageUrl: null,
               name: item.name,
@@ -350,7 +352,7 @@ export default function EditInvoicePage() {
               <h2 className="mb-3 font-heading text-base font-semibold">{t.lineItems}</h2>
               {isEditable ? (
                 <>
-                  <LineItemsBuilder lineItems={lineItems} onChange={setLineItems} />
+                  <LineItemsBuilder mode="invoice" lineItems={lineItems} onChange={setLineItems} />
                   <div className="mt-4">
                     <QuoteTotals lineItems={lineItems} />
                   </div>
@@ -371,6 +373,16 @@ export default function EditInvoicePage() {
                     </thead>
                     <tbody>
                       {invoice.lineItems.map((item, index) => {
+                        if (item.lineType === 'free_text') {
+                          return (
+                            <tr key={item._id || `free-text-${index}`} className="border-t border-border/60 bg-secondary/10">
+                              <td className="px-3 py-3 font-medium text-muted-foreground" colSpan={7}>
+                                {item.name}
+                              </td>
+                            </tr>
+                          );
+                        }
+
                         const computed = lineComputed[index] ?? null;
 
                         return (
