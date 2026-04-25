@@ -6,6 +6,7 @@ import Client from '@/db/models/Client';
 import Invoice from '@/db/models/Invoice';
 import Payment from '@/db/models/Payment';
 import Quote from '@/db/models/Quote';
+import { computeQuoteLine, computeQuoteTotalsFromComputedLines } from '@/lib/quote-calculations';
 import { isInvoiceDueOnOrBeforeToday } from '@/lib/invoices/overdue';
 import { buildValidationError } from '@/utils/api/validation';
 import getMe from '@/utils/middlewares/useMe';
@@ -107,6 +108,24 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       subject?: string | null;
       notes?: string | null;
       dueDate?: Date | null;
+      lineItems?: Array<{
+        productId: mongoose.Types.ObjectId | null;
+        productImageUrl: string | null;
+        name: string;
+        quantity: number;
+        unitPriceExcludingTax: number;
+        baseUnitPriceExcludingTax: number;
+        discountPercentage: number;
+        vatRate: number;
+        totalExcludingTaxBeforeDiscount: number;
+        discountAmountExcludingTax: number;
+        totalExcludingTax: number;
+        vatAmount: number;
+        totalIncludingTax: number;
+      }>;
+      totalExcludingTax?: number;
+      totalVat?: number;
+      totalIncludingTax?: number;
       legalRecoveryCourtLocation?: 'luxembourg' | 'esch_sur_alzette' | 'diekirch' | null;
     } = {};
 
@@ -119,19 +138,56 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     if ('dueDate' in parsed.data) {
       payload.dueDate = parsed.data.dueDate ?? null;
     }
+    if ('lineItems' in parsed.data && parsed.data.lineItems) {
+      const computedLineItems = parsed.data.lineItems.map((item) => {
+        const computed = computeQuoteLine({
+          quantity: item.quantity,
+          unitPriceExcludingTax: item.unitPriceExcludingTax,
+          baseUnitPriceExcludingTax: item.baseUnitPriceExcludingTax,
+          discountPercentage: item.discountPercentage,
+          vatRate: item.vatRate,
+        });
+
+        return {
+          productId: item.productId ? new mongoose.Types.ObjectId(item.productId) : null,
+          productImageUrl: item.productImageUrl ?? null,
+          name: item.name,
+          quantity: computed.quantity,
+          unitPriceExcludingTax: computed.unitPriceExcludingTax,
+          baseUnitPriceExcludingTax: computed.baseUnitPriceExcludingTax,
+          discountPercentage: computed.discountPercentage,
+          vatRate: computed.vatRate,
+          totalExcludingTaxBeforeDiscount: computed.totalExcludingTaxBeforeDiscount,
+          discountAmountExcludingTax: computed.discountAmountExcludingTax,
+          totalExcludingTax: computed.totalExcludingTax,
+          vatAmount: computed.vatAmount,
+          totalIncludingTax: computed.totalIncludingTax,
+        };
+      });
+
+      const totals = computeQuoteTotalsFromComputedLines(computedLineItems);
+
+      payload.lineItems = computedLineItems;
+      payload.totalExcludingTax = totals.totalExcludingTax;
+      payload.totalVat = totals.totalVat;
+      payload.totalIncludingTax = totals.totalIncludingTax;
+    }
     if ('legalRecoveryCourtLocation' in parsed.data) {
       payload.legalRecoveryCourtLocation = parsed.data.legalRecoveryCourtLocation ?? null;
     }
-    const existing = await Invoice.findOne({ _id: id, userId: me.user.id }).select('status').lean();
+    const existing = await Invoice.findOne({ _id: id, userId: me.user.id }).select('status quoteId sentAt').lean();
 
     if (!existing) {
       return NextResponse.json({ success: false, message: 'Invoice not found' }, { status: 404 });
     }
 
-    const updatesEditableFields = 'subject' in parsed.data || 'notes' in parsed.data || 'dueDate' in parsed.data;
-    if (updatesEditableFields && existing.status !== 'unpaid') {
+    const updatesEditableFields = 'subject' in parsed.data || 'notes' in parsed.data || 'dueDate' in parsed.data || 'lineItems' in parsed.data;
+    const isQuoteBasedInvoice = Boolean(existing.quoteId);
+    const isSentInvoice = Boolean(existing.sentAt);
+    const isEditableManualInvoice = !isQuoteBasedInvoice && !isSentInvoice;
+    if (updatesEditableFields && !isEditableManualInvoice) {
       return NextResponse.json(
-        { success: false, message: 'Only unpaid invoices can be edited.' },
+        { success: false, message: 'Only unsent manual invoices can be edited.' },
         { status: 403 }
       );
     }

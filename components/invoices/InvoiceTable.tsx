@@ -324,7 +324,7 @@ export default function InvoiceTable({
               {labels.view}
             </Link>
           </DropdownMenuItem>
-          {invoice.status === 'unpaid' ? (
+          {!invoice.quoteId && !invoice.sentAt ? (
             <DropdownMenuItem asChild>
               <Link href={`/invoices/${invoice._id}/edit`}>
                 <PencilIcon className="size-4" />

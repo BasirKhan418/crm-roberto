@@ -11,6 +11,7 @@ export interface InvoiceListItem {
   invoiceNumber: string;
   quoteId?: string | null;
   quoteNumber?: string | null;
+  sentAt?: string | null;
   date: string;
   dueDate?: string | null;
   status: InvoiceStatus;

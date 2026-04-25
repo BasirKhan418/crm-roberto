@@ -285,6 +285,10 @@ const InvoiceSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    sentAt: {
+      type: Date,
+      default: null,
+    },
     // Short object/subject label for quick invoice identification.
     subject: {
       type: String,

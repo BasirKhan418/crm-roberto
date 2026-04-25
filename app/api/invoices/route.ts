@@ -83,6 +83,7 @@ type InvoiceListQueryResult = {
   invoiceNumber: string;
   quoteId?: mongoose.Types.ObjectId | null;
   quoteNumber?: string | null;
+  sentAt?: Date | null;
   date: Date;
   dueDate?: Date | null;
   status: string;
@@ -283,7 +284,7 @@ export async function GET(request: NextRequest) {
     const [items, total] = await Promise.all([
       Invoice.find(query)
         .select(
-          '_id invoiceNumber quoteId quoteNumber date dueDate status totalExcludingTax totalVat totalIncludingTax depositPercentage depositAmount recurrence.isActive reminderState clientId clientSnapshot.fullName clientSnapshot.email'
+          '_id invoiceNumber quoteId quoteNumber sentAt date dueDate status totalExcludingTax totalVat totalIncludingTax depositPercentage depositAmount recurrence.isActive reminderState clientId clientSnapshot.fullName clientSnapshot.email'
         )
         .sort(sortSpec)
         .skip(skip)
@@ -350,6 +351,7 @@ export async function GET(request: NextRequest) {
         ...normalized,
         _id: invoiceId,
         quoteId: normalized.quoteId ? String(normalized.quoteId) : null,
+        sentAt: normalized.sentAt ? new Date(normalized.sentAt).toISOString() : null,
         clientId: String(normalized.clientId),
         depositAmount: depositTarget > 0 ? depositTarget : null,
         depositPaidAt: depositTarget > 0 ? depositPaidAtByInvoiceId.get(invoiceId) ?? null : null,

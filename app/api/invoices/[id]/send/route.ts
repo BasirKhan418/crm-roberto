@@ -252,6 +252,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       messageBody: customMessageBody,
     });
 
+    await Invoice.updateOne(
+      { _id: invoice._id, userId: me.user.id },
+      { $set: { sentAt: new Date() } }
+    );
+
     return NextResponse.json({ success: true, message: 'Invoice sent successfully' });
   } catch (error) {
     return NextResponse.json({ success: false, message: `Error sending invoice: ${String(error)}` }, { status: 500 });

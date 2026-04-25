@@ -7,6 +7,9 @@ import { toast } from 'sonner';
 
 import CrmShell from '@/components/crm-shell';
 import { useLocale } from '@/components/providers/locale-provider';
+import LineItemsBuilder from '@/components/quotes/LineItemsBuilder';
+import QuoteTotals from '@/components/quotes/QuoteTotals';
+import type { QuoteLineItem } from '@/components/quotes/LineItemRow';
 import { formatInvoiceDisplayNumber } from '@/lib/i18n/messages';
 import { computeQuoteLine } from '@/lib/quote-calculations';
 import { Button } from '@/components/ui/button';
@@ -20,8 +23,10 @@ type InvoiceStatus = 'unpaid' | 'partial_paid' | 'paid' | 'overdue';
 interface InvoiceEditData {
   _id: string;
   invoiceNumber: string;
+  quoteId?: string | null;
   date: string;
   dueDate?: string | null;
+  sentAt?: string | null;
   subject?: string | null;
   notes?: string | null;
   status: InvoiceStatus;
@@ -88,8 +93,8 @@ export default function EditInvoicePage() {
       saved: 'Invoice updated successfully',
       loadFailed: 'Failed to load invoice',
       updateFailed: 'Failed to update invoice',
-      locked: 'Only unpaid invoices can be edited',
-      readOnlyInfo: 'This invoice is read-only. Line items remain visible for reference.',
+      locked: 'Only unsent manual invoices can be edited',
+      readOnlyInfo: 'This invoice is read-only because it was created from a quote or has already been sent.',
     },
     fr: {
       shellTitle: 'Modifier la facture',
@@ -118,8 +123,8 @@ export default function EditInvoicePage() {
       saved: 'Facture mise \u00e0 jour avec succ\u00e8s',
       loadFailed: 'Impossible de charger la facture',
       updateFailed: 'Impossible de mettre \u00e0 jour la facture',
-      locked: 'Seules les factures impay\u00e9es peuvent \u00eatre modifi\u00e9es',
-      readOnlyInfo: 'Cette facture est en lecture seule. Les lignes restent visibles a titre de reference.',
+      locked: 'Seules les factures manuelles non envoyees peuvent etre modifiees',
+      readOnlyInfo: 'Cette facture est en lecture seule car elle provient d\'un devis ou a deja ete envoyee.',
     },
   }[locale as 'en' | 'fr'];
 
@@ -127,6 +132,7 @@ export default function EditInvoicePage() {
   const [subject, setSubject] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [dueDateError, setDueDateError] = useState<string | null>(null);
+  const [lineItems, setLineItems] = useState<QuoteLineItem[]>([]);
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -155,6 +161,18 @@ export default function EditInvoicePage() {
           setInvoice(payload.data);
           setSubject(payload.data.subject ?? '');
           setDueDate(payload.data.dueDate ? new Date(payload.data.dueDate).toISOString().slice(0, 10) : '');
+          setLineItems(
+            payload.data.lineItems.map((item) => ({
+              productId: null,
+              productImageUrl: null,
+              name: item.name,
+              quantity: item.quantity,
+              baseUnitPriceExcludingTax: item.baseUnitPriceExcludingTax,
+              unitPriceExcludingTax: item.unitPriceExcludingTax,
+              discountPercentage: item.discountPercentage,
+              vatRate: item.vatRate,
+            }))
+          );
           setNotes(payload.data.notes ?? '');
         }
       } catch (fetchError) {
@@ -194,6 +212,11 @@ export default function EditInvoicePage() {
       return;
     }
 
+    if (lineItems.length === 0 || lineItems.some((line) => !line.name.trim())) {
+      toast.error(locale === 'fr' ? 'Chaque ligne doit avoir une description' : 'Each line item must have a description');
+      return;
+    }
+
     setSaving(true);
     setError(null);
 
@@ -204,6 +227,7 @@ export default function EditInvoicePage() {
         body: JSON.stringify({
           subject: subject.trim() || null,
           dueDate,
+          lineItems,
           notes: notes.trim() || null,
         }),
       });
@@ -224,7 +248,7 @@ export default function EditInvoicePage() {
     }
   }
 
-  const isEditable = invoice?.status === 'unpaid';
+  const isEditable = Boolean(invoice && !invoice.quoteId && !invoice.sentAt);
   const lineComputed = (invoice?.lineItems ?? []).map((item) =>
     computeQuoteLine({
       quantity: item.quantity,
@@ -322,40 +346,49 @@ export default function EditInvoicePage() {
               />
             </div>
 
-            <section className="mt-4 overflow-hidden rounded-xl border border-border/70 bg-background">
-              <h2 className="border-b border-border/70 px-4 py-3 font-heading text-base font-semibold">{t.lineItems}</h2>
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-sm">
-                  <thead className="bg-secondary/30 text-muted-foreground">
-                    <tr>
-                      <th className="px-3 py-2 text-left font-medium">{t.no}</th>
-                      <th className="px-3 py-2 text-left font-medium">{t.description}</th>
-                      <th className="px-3 py-2 text-right font-medium">{t.qty}</th>
-                      <th className="px-3 py-2 text-right font-medium">{t.unitExcl}</th>
-                      <th className="px-3 py-2 text-right font-medium">{t.discount}</th>
-                      <th className="px-3 py-2 text-right font-medium">{t.vatRate}</th>
-                      <th className="px-3 py-2 text-right font-medium">{t.lineTotal}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {invoice.lineItems.map((item, index) => {
-                      const computed = lineComputed[index] ?? null;
+            <section className="mt-4 overflow-hidden rounded-xl border border-border/70 bg-background p-4">
+              <h2 className="mb-3 font-heading text-base font-semibold">{t.lineItems}</h2>
+              {isEditable ? (
+                <>
+                  <LineItemsBuilder lineItems={lineItems} onChange={setLineItems} />
+                  <div className="mt-4">
+                    <QuoteTotals lineItems={lineItems} />
+                  </div>
+                </>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-sm">
+                    <thead className="bg-secondary/30 text-muted-foreground">
+                      <tr>
+                        <th className="px-3 py-2 text-left font-medium">{t.no}</th>
+                        <th className="px-3 py-2 text-left font-medium">{t.description}</th>
+                        <th className="px-3 py-2 text-right font-medium">{t.qty}</th>
+                        <th className="px-3 py-2 text-right font-medium">{t.unitExcl}</th>
+                        <th className="px-3 py-2 text-right font-medium">{t.discount}</th>
+                        <th className="px-3 py-2 text-right font-medium">{t.vatRate}</th>
+                        <th className="px-3 py-2 text-right font-medium">{t.lineTotal}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {invoice.lineItems.map((item, index) => {
+                        const computed = lineComputed[index] ?? null;
 
-                      return (
-                        <tr key={item._id || `${item.name}-${index}`} className="border-t border-border/60 odd:bg-background even:bg-secondary/10">
-                          <td className="px-3 py-2">{index + 1}</td>
-                          <td className="px-3 py-2 font-medium">{item.name}</td>
-                          <td className="px-3 py-2 text-right">{item.quantity}</td>
-                          <td className="px-3 py-2 text-right"><PriceDisplay cents={computed?.baseUnitPriceExcludingTax ?? item.baseUnitPriceExcludingTax} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} /></td>
-                          <td className="px-3 py-2 text-right">{Number(computed?.discountPercentage ?? item.discountPercentage).toFixed(2)}%</td>
-                          <td className="px-3 py-2 text-right">{item.vatRate}%</td>
-                          <td className="px-3 py-2 text-right font-semibold"><PriceDisplay cents={computed?.totalExcludingTax ?? item.totalExcludingTax} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} /></td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                        return (
+                          <tr key={item._id || `${item.name}-${index}`} className="border-t border-border/60 odd:bg-background even:bg-secondary/10">
+                            <td className="px-3 py-2">{index + 1}</td>
+                            <td className="px-3 py-2 font-medium">{item.name}</td>
+                            <td className="px-3 py-2 text-right">{item.quantity}</td>
+                            <td className="px-3 py-2 text-right"><PriceDisplay cents={computed?.baseUnitPriceExcludingTax ?? item.baseUnitPriceExcludingTax} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} /></td>
+                            <td className="px-3 py-2 text-right">{Number(computed?.discountPercentage ?? item.discountPercentage).toFixed(2)}%</td>
+                            <td className="px-3 py-2 text-right">{item.vatRate}%</td>
+                            <td className="px-3 py-2 text-right font-semibold"><PriceDisplay cents={computed?.totalExcludingTax ?? item.totalExcludingTax} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} /></td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </section>
 
             <div className="mt-4">

@@ -56,6 +56,7 @@ interface InvoiceDetail {
   clientBillingEmail?: string | null;
   invoiceNumber: string;
   subject?: string | null;
+  sentAt?: string | null;
   quoteId?: string | null;
   quoteNumber?: string | null;
   date: string;
@@ -428,7 +429,7 @@ export default function InvoiceDetailPage() {
       .reduce((sum, payment) => sum + Math.max(0, Math.round(payment.amount || 0)), 0)
   );
   const remainingAmount = Math.max(0, (invoice?.totalIncludingTax ?? 0) - totalPaidAmount);
-  const canEdit = invoice?.status === 'unpaid';
+  const canEdit = Boolean(invoice && !invoice.quoteId && !invoice.sentAt);
   const canRecordPayment = Boolean(invoice && invoice.status !== 'paid' && remainingAmount > 0);
   const canSendToClient = Boolean(invoice && invoice.status !== 'paid');
   const displayInvoiceNumber = invoice ? formatInvoiceDisplayNumber(locale as Locale, invoice.invoiceNumber) : '';
