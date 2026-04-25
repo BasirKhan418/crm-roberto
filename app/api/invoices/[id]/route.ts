@@ -104,11 +104,15 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     await ConnectDb();
 
     const payload: {
+      subject?: string | null;
       notes?: string | null;
       dueDate?: Date | null;
       legalRecoveryCourtLocation?: 'luxembourg' | 'esch_sur_alzette' | 'diekirch' | null;
     } = {};
 
+    if ('subject' in parsed.data) {
+      payload.subject = parsed.data.subject ?? null;
+    }
     if ('notes' in parsed.data) {
       payload.notes = parsed.data.notes ?? null;
     }
@@ -124,7 +128,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, message: 'Invoice not found' }, { status: 404 });
     }
 
-    const updatesEditableFields = 'notes' in parsed.data || 'dueDate' in parsed.data;
+    const updatesEditableFields = 'subject' in parsed.data || 'notes' in parsed.data || 'dueDate' in parsed.data;
     if (updatesEditableFields && existing.status !== 'unpaid') {
       return NextResponse.json(
         { success: false, message: 'Only unpaid invoices can be edited.' },

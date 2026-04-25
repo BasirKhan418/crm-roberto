@@ -37,6 +37,8 @@ export default function InvoiceForm({ defaultClientId, defaultQuoteId, defaultDu
       date: 'Date',
       dueDate: 'Due date',
       client: 'Client',
+      subject: 'Object',
+      subjectPlaceholder: 'Website creation, POS installation, Maintenance...',
       lineItems: 'Products / Services',
       notes: 'Notes',
       notesPlaceholder: 'Add payment or legal notes...',
@@ -49,6 +51,7 @@ export default function InvoiceForm({ defaultClientId, defaultQuoteId, defaultDu
       dueDateRequired: 'Due date is mandatory',
       dueDateInvalid: 'Due date must be after invoice date',
       lineItemsRequired: 'At least one line item is required',
+      subjectRequired: 'Object is required',
       lineItemNameRequired: 'Each line item must have a name',
       fromQuoteTitle: 'Convert signed quote',
       fromQuoteText: 'This invoice will be created directly from the selected quote.',
@@ -67,6 +70,8 @@ export default function InvoiceForm({ defaultClientId, defaultQuoteId, defaultDu
       date: 'Date',
       dueDate: '\u00c9ch\u00e9ance',
       client: 'Client',
+      subject: 'Objet',
+      subjectPlaceholder: 'Creation de site web, installation POS, maintenance...',
       lineItems: 'Produits / Services',
       notes: 'Notes',
       notesPlaceholder: 'Ajoutez des notes de paiement ou l\u00e9gales...',
@@ -79,6 +84,7 @@ export default function InvoiceForm({ defaultClientId, defaultQuoteId, defaultDu
       dueDateRequired: "L'\u00e9ch\u00e9ance est obligatoire",
       dueDateInvalid: "L'\u00e9ch\u00e9ance doit \u00eatre post\u00e9rieure \u00e0 la date de facture",
       lineItemsRequired: 'Au moins une ligne est requise',
+      subjectRequired: "L'objet est requis",
       lineItemNameRequired: 'Chaque ligne doit avoir un nom',
       fromQuoteTitle: 'Convertir un devis sign\u00e9',
       fromQuoteText: 'Cette facture sera cr\u00e9\u00e9e directement depuis le devis s\u00e9lectionn\u00e9.',
@@ -92,6 +98,7 @@ export default function InvoiceForm({ defaultClientId, defaultQuoteId, defaultDu
 
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [clientId, setClientId] = useState(defaultClientId ?? '');
+  const [subject, setSubject] = useState('');
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [dueDate, setDueDate] = useState(defaultDueDate ?? '');
   const [lineItems, setLineItems] = useState<QuoteLineItem[]>([]);
@@ -145,6 +152,10 @@ export default function InvoiceForm({ defaultClientId, defaultQuoteId, defaultDu
       nextErrors.clientId = t.clientRequired;
     }
 
+    if (!subject.trim()) {
+      nextErrors.subject = t.subjectRequired;
+    }
+
     if (!date) {
       nextErrors.date = t.dateRequired;
     }
@@ -187,6 +198,7 @@ export default function InvoiceForm({ defaultClientId, defaultQuoteId, defaultDu
             clientId,
             date,
             dueDate,
+            subject: subject.trim() || null,
             lineItems,
             notes: notes.trim() || null,
           };
@@ -297,6 +309,19 @@ export default function InvoiceForm({ defaultClientId, defaultQuoteId, defaultDu
                 emailDisplayMode="billing-first"
               />
               {errors.clientId ? <p className="mt-2 text-xs text-destructive">{errors.clientId}</p> : null}
+            </section>
+          ) : null}
+
+          {!convertFromQuote ? (
+            <section className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
+              <Label htmlFor="invoice-subject">{t.subject}</Label>
+              <Input
+                id="invoice-subject"
+                value={subject}
+                onChange={(event) => setSubject(event.target.value)}
+                placeholder={t.subjectPlaceholder}
+              />
+              {errors.subject ? <p className="mt-2 text-xs text-destructive">{errors.subject}</p> : null}
             </section>
           ) : null}
 

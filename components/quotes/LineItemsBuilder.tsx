@@ -19,6 +19,7 @@ interface CatalogueApiResponse {
 interface LineItemsBuilderProps {
   lineItems: QuoteLineItem[];
   onChange: (items: QuoteLineItem[]) => void;
+  showFreeTextAction?: boolean;
 }
 
 const EMPTY_ROW: QuoteLineItem = {
@@ -32,7 +33,7 @@ const EMPTY_ROW: QuoteLineItem = {
   vatRate: 17,
 };
 
-export default function LineItemsBuilder({ lineItems, onChange }: LineItemsBuilderProps) {
+export default function LineItemsBuilder({ lineItems, onChange, showFreeTextAction = true }: LineItemsBuilderProps) {
   const { locale } = useLocale();
   const t = {
     en: {
@@ -48,6 +49,7 @@ export default function LineItemsBuilder({ lineItems, onChange }: LineItemsBuild
       noItemsTitle: 'No items yet',
       noItemsSubtitle: 'Click Add a line to start building this quote.',
       addLine: 'Add a line',
+      addFreeTextLine: 'Add free text line',
       pickerTitle: 'Add product / service',
       pickerSearch: 'Search...',
       pickerEmpty: 'No products found',
@@ -67,6 +69,7 @@ export default function LineItemsBuilder({ lineItems, onChange }: LineItemsBuild
       noItemsTitle: 'Aucune ligne',
       noItemsSubtitle: 'Cliquez sur Ajouter une ligne pour commencer ce devis.',
       addLine: 'Ajouter une ligne',
+      addFreeTextLine: 'Ajouter une ligne libre',
       pickerTitle: 'Ajouter un produit / service',
       pickerSearch: 'Rechercher...',
       pickerEmpty: 'Aucun produit trouv\u00e9',
@@ -116,6 +119,18 @@ export default function LineItemsBuilder({ lineItems, onChange }: LineItemsBuild
 
   const addBlankRow = useCallback(() => {
     onChange([...lineItems, { ...EMPTY_ROW }]);
+    setPickerOpen(false);
+    setPickerSearch('');
+  }, [lineItems, onChange]);
+
+  const addFreeTextRow = useCallback(() => {
+    onChange([
+      ...lineItems,
+      {
+        ...EMPTY_ROW,
+        vatRate: 0,
+      },
+    ]);
     setPickerOpen(false);
     setPickerSearch('');
   }, [lineItems, onChange]);
@@ -268,11 +283,17 @@ export default function LineItemsBuilder({ lineItems, onChange }: LineItemsBuild
           </div>
         )}
 
-        <div className="pt-1 md:pt-0">
+        <div className="flex flex-col gap-2 pt-1 md:flex-row md:pt-0">
           <Button type="button" variant="outline" className="h-10 w-full gap-2 border-primary/30 text-sm font-semibold text-primary hover:bg-primary/5 md:w-auto md:font-medium" onClick={() => setPickerOpen(true)}>
             <PlusIcon className="size-4" />
             {t.addLine}
           </Button>
+          {showFreeTextAction ? (
+            <Button type="button" variant="outline" className="h-10 w-full gap-2 text-sm font-medium md:w-auto" onClick={addFreeTextRow}>
+              <PlusIcon className="size-4" />
+              {t.addFreeTextLine}
+            </Button>
+          ) : null}
         </div>
       </section>
     </>

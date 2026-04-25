@@ -55,6 +55,7 @@ interface InvoiceDetail {
   _id: string;
   clientBillingEmail?: string | null;
   invoiceNumber: string;
+  subject?: string | null;
   quoteId?: string | null;
   quoteNumber?: string | null;
   date: string;
@@ -180,6 +181,7 @@ export default function InvoiceDetailPage() {
       paymentUpdateFailed: 'Failed to update payment entry',
       paymentDeleteFailed: 'Failed to delete payment entry',
       invoice: 'Invoice',
+      object: 'Object',
       date: 'Date',
       dueDate: 'Due date',
       status: 'Status',
@@ -238,6 +240,13 @@ export default function InvoiceDetailPage() {
       paymentTypeFull: 'Full payment',
       paymentTypeRemaining: 'Partial payment',
       noData: '-',
+      deleteInvoice: 'Delete invoice',
+      deleteInvoiceTitle: 'Delete this invoice?',
+      deleteInvoiceDescription: 'This action permanently deletes the invoice and related payment history.',
+      deleteInvoiceAction: 'Delete invoice',
+      deletingInvoice: 'Deleting invoice...',
+      invoiceDeleted: 'Invoice deleted',
+      invoiceDeleteFailed: 'Failed to delete invoice',
     },
     fr: {
       shellTitle: 'D\u00e9tail de la facture',
@@ -254,6 +263,7 @@ export default function InvoiceDetailPage() {
       paymentUpdateFailed: 'Impossible de modifier la ligne de paiement',
       paymentDeleteFailed: 'Impossible de supprimer la ligne de paiement',
       invoice: 'Facture',
+      object: 'Objet',
       date: 'Date',
       dueDate: '\u00c9ch\u00e9ance',
       status: 'Statut',
@@ -312,6 +322,13 @@ export default function InvoiceDetailPage() {
       paymentTypeFull: 'Paiement complet',
       paymentTypeRemaining: 'Paiement partiel',
       noData: '-',
+      deleteInvoice: 'Supprimer la facture',
+      deleteInvoiceTitle: 'Supprimer cette facture ?',
+      deleteInvoiceDescription: 'Cette action supprime definitivement la facture et son historique de paiements.',
+      deleteInvoiceAction: 'Supprimer la facture',
+      deletingInvoice: 'Suppression de la facture...',
+      invoiceDeleted: 'Facture supprimee',
+      invoiceDeleteFailed: 'Impossible de supprimer la facture',
     },
   }[locale as Locale];
 
@@ -322,6 +339,8 @@ export default function InvoiceDetailPage() {
   const [payments, setPayments] = useState<PaymentHistoryItem[]>([]);
   const [sendOpen, setSendOpen] = useState(false);
   const [manualPaymentOpen, setManualPaymentOpen] = useState(false);
+  const [deletingInvoice, setDeletingInvoice] = useState(false);
+  const [invoiceDeleteDialogOpen, setInvoiceDeleteDialogOpen] = useState(false);
   const [markingPaid, setMarkingPaid] = useState(false);
   const [editingPayment, setEditingPayment] = useState<PaymentHistoryItem | null>(null);
   const [deletingPayment, setDeletingPayment] = useState<PaymentHistoryItem | null>(null);
@@ -553,6 +572,32 @@ export default function InvoiceDetailPage() {
     }
   }
 
+  async function deleteInvoice() {
+    if (!invoice?._id || deletingInvoice) {
+      return;
+    }
+
+    setDeletingInvoice(true);
+    try {
+      const response = await fetch(`/api/invoices/${invoice._id}`, {
+        method: 'DELETE',
+      });
+
+      const payload = (await response.json().catch(() => null)) as { success?: boolean; message?: string } | null;
+      if (!response.ok || !payload?.success) {
+        throw new Error(payload?.message || t.invoiceDeleteFailed);
+      }
+
+      toast.success(t.invoiceDeleted);
+      router.push('/invoices');
+    } catch (deleteError) {
+      toast.error(deleteError instanceof Error ? deleteError.message : t.invoiceDeleteFailed);
+    } finally {
+      setDeletingInvoice(false);
+      setInvoiceDeleteDialogOpen(false);
+    }
+  }
+
   return (
     <CrmShell title={t.shellTitle}>
       {loading ? (
@@ -606,6 +651,17 @@ export default function InvoiceDetailPage() {
               <Button type="button" variant="outline" size="sm" className="h-10 w-full justify-start sm:h-9 sm:w-auto sm:justify-center" onClick={downloadPdf}>
                 <DownloadIcon className="size-3.5" />
                 {t.download}
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                className="h-10 w-full justify-start sm:h-9 sm:w-auto sm:justify-center"
+                onClick={() => setInvoiceDeleteDialogOpen(true)}
+                disabled={deletingInvoice}
+              >
+                <Trash2Icon className="size-3.5" />
+                {deletingInvoice ? t.deletingInvoice : t.deleteInvoice}
               </Button>
             </div>
           </div>
@@ -683,6 +739,12 @@ export default function InvoiceDetailPage() {
                   <p className="text-xs text-muted-foreground">{t.status}</p>
                   <p className="font-medium">{displayInvoiceStatus}</p>
                 </div>
+                {invoice.subject ? (
+                  <div className="sm:col-span-3">
+                    <p className="text-xs text-muted-foreground">{t.object}</p>
+                    <p className="font-medium">{invoice.subject}</p>
+                  </div>
+                ) : null}
               </div>
             </header>
 
@@ -1038,6 +1100,32 @@ export default function InvoiceDetailPage() {
           onConfirm={updatePaymentEntry}
         />
       ) : null}
+
+      <AlertDialog
+        open={invoiceDeleteDialogOpen}
+        onOpenChange={(nextOpen) => {
+          if (!deletingInvoice) {
+            setInvoiceDeleteDialogOpen(nextOpen);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t.deleteInvoiceTitle}</AlertDialogTitle>
+            <AlertDialogDescription>{t.deleteInvoiceDescription}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel asChild>
+              <Button type="button" variant="outline" disabled={deletingInvoice}>{t.confirmDeleteCancel}</Button>
+            </AlertDialogCancel>
+            <AlertDialogAction asChild>
+              <Button type="button" variant="destructive" disabled={deletingInvoice} onClick={deleteInvoice}>
+                {deletingInvoice ? t.deletingInvoice : t.deleteInvoiceAction}
+              </Button>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={Boolean(deletingPayment)} onOpenChange={(nextOpen) => {
         if (!nextOpen) {

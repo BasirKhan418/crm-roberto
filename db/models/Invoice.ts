@@ -285,6 +285,13 @@ const InvoiceSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    // Short object/subject label for quick invoice identification.
+    subject: {
+      type: String,
+      trim: true,
+      default: null,
+      maxlength: [200, "Subject cannot exceed 200 characters"],
+    },
     status: {
       type: String,
       required: true,

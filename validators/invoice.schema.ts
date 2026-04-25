@@ -15,6 +15,7 @@ function getTodayStart(): Date {
 const legalRecoveryCourtLocationSchema = z.enum(['luxembourg', 'esch_sur_alzette', 'diekirch']).nullable();
 
 export const updateInvoiceSchema = z.object({
+  subject: z.preprocess(emptyToNull, z.string().trim().max(200).nullable().optional()),
   notes: z.preprocess(emptyToNull, z.string().trim().max(2000).nullable().optional()),
   dueDate: z
     .preprocess(emptyToUndefined, z.coerce.date().optional())
@@ -24,6 +25,7 @@ export const updateInvoiceSchema = z.object({
   legalRecoveryCourtLocation: z.preprocess(emptyToNull, legalRecoveryCourtLocationSchema.optional()),
 }).refine(
   (value) =>
+    value.subject !== undefined ||
     value.notes !== undefined ||
     value.dueDate !== undefined ||
     value.legalRecoveryCourtLocation !== undefined,

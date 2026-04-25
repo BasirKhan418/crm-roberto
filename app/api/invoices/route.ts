@@ -44,6 +44,7 @@ const toNumber = (value: unknown) => {
 
 const baseInvoiceSchema = z.object({
   dueDate: z.preprocess(emptyToUndefined, z.coerce.date()),
+  subject: z.preprocess(emptyToNull, z.string().trim().max(200).nullable().optional()),
   notes: z.preprocess(emptyToNull, z.string().trim().max(2000).nullable().optional()),
 });
 
@@ -54,6 +55,7 @@ const convertQuoteToInvoiceSchema = baseInvoiceSchema.extend({
 const standaloneInvoiceSchema = baseInvoiceSchema.extend({
   clientId: objectIdSchema,
   date: z.preprocess(emptyToUndefined, z.coerce.date().optional()),
+  subject: z.preprocess(emptyToUndefined, z.string().trim().min(1).max(200)),
   lineItems: z
     .array(
       z.object({
@@ -442,6 +444,7 @@ export async function POST(request: NextRequest) {
             quoteNumber: quote.quoteNumber,
             date: new Date(),
             dueDate: parsed.data.dueDate ?? null,
+          subject: parsed.data.subject ?? quote.subject ?? null,
             status: 'unpaid',
             clientId: quote.clientId,
             clientSnapshot: {
@@ -552,6 +555,7 @@ export async function POST(request: NextRequest) {
           invoiceNumber,
           date: parsed.data.date ?? new Date(),
           dueDate: parsed.data.dueDate ?? null,
+          subject: parsed.data.subject ?? null,
           status: 'unpaid',
           clientId: client._id,
           clientSnapshot: {
