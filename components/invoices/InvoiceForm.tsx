@@ -50,6 +50,8 @@ export default function InvoiceForm({ defaultClientId, defaultQuoteId, defaultDu
       dateRequired: 'Date is required',
       dueDateRequired: 'Due date is mandatory',
       dueDateInvalid: 'Due date must be after invoice date',
+      datePast: 'Invoice date cannot be in the past',
+      dueDatePast: 'Due date cannot be in the past',
       lineItemsRequired: 'At least one line item is required',
       subjectRequired: 'Object is required',
       lineItemNameRequired: 'Each line item must have a name',
@@ -83,6 +85,8 @@ export default function InvoiceForm({ defaultClientId, defaultQuoteId, defaultDu
       dateRequired: 'La date est requise',
       dueDateRequired: "L'\u00e9ch\u00e9ance est obligatoire",
       dueDateInvalid: "L'\u00e9ch\u00e9ance doit \u00eatre post\u00e9rieure \u00e0 la date de facture",
+      datePast: 'La date de facture ne peut pas \u00eatre dans le pass\u00e9',
+      dueDatePast: "L'\u00e9ch\u00e9ance ne peut pas \u00eatre dans le pass\u00e9",
       lineItemsRequired: 'Au moins une ligne est requise',
       subjectRequired: "L'objet est requis",
       lineItemNameRequired: 'Chaque ligne doit avoir un nom',
@@ -96,10 +100,12 @@ export default function InvoiceForm({ defaultClientId, defaultQuoteId, defaultDu
     },
   }[locale];
 
+  const todayIso = new Date().toISOString().slice(0, 10);
+
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [clientId, setClientId] = useState(defaultClientId ?? '');
   const [subject, setSubject] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(todayIso);
   const [dueDate, setDueDate] = useState(defaultDueDate ?? '');
   const [lineItems, setLineItems] = useState<QuoteLineItem[]>([]);
   const [notes, setNotes] = useState('');
@@ -158,9 +164,13 @@ export default function InvoiceForm({ defaultClientId, defaultQuoteId, defaultDu
 
     if (!date) {
       nextErrors.date = t.dateRequired;
+    } else if (date < todayIso) {
+      nextErrors.date = t.datePast;
     }
 
-    if (dueDate && date && new Date(dueDate).getTime() < new Date(date).getTime()) {
+    if (dueDate && dueDate < todayIso) {
+      nextErrors.dueDate = t.dueDatePast;
+    } else if (dueDate && date && new Date(dueDate).getTime() < new Date(date).getTime()) {
       nextErrors.dueDate = t.dueDateInvalid;
     }
 
@@ -274,6 +284,7 @@ export default function InvoiceForm({ defaultClientId, defaultQuoteId, defaultDu
                 id="invoice-date"
                 type="date"
                 value={date}
+                min={todayIso}
                 onChange={(event) => setDate(event.target.value)}
                 className="pr-9"
                 disabled={convertFromQuote}
@@ -284,7 +295,7 @@ export default function InvoiceForm({ defaultClientId, defaultQuoteId, defaultDu
 
           <div className="space-y-1.5 rounded-lg border border-border/70 bg-background/80 p-3">
             <Label htmlFor="invoice-due-date">{t.dueDate}</Label>
-            <Input data-tour-invoice-due-date id="invoice-due-date" type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
+            <Input data-tour-invoice-due-date id="invoice-due-date" type="date" value={dueDate} min={date || todayIso} onChange={(event) => setDueDate(event.target.value)} />
             {errors.dueDate ? <p className="text-xs text-destructive">{errors.dueDate}</p> : null}
           </div>
         </div>
