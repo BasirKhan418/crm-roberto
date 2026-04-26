@@ -64,13 +64,13 @@ export default function CrmShell({ title, children, contentClassName }: CrmShell
         <main className="flex min-h-0 flex-1 flex-col">
           <div
             className={cn(
-              '@container/main flex min-h-0 flex-1 flex-col gap-4 px-4 py-4 pb-[calc(1rem+var(--app-safe-area-bottom)+var(--app-keyboard-inset-height))] scroll-pb-[calc(5rem+var(--app-keyboard-inset-height))] lg:px-6 lg:py-6',
+              '@container/main flex min-h-0 min-w-0 flex-1 flex-col gap-4 px-4 py-4 pb-[calc(1rem+var(--app-safe-area-bottom)+var(--app-keyboard-inset-height))] scroll-pb-[calc(5rem+var(--app-keyboard-inset-height))] lg:px-6 lg:py-6',
               shellTone,
               contentClassName,
             )}
           >
-            <div className={cn('p-3 sm:p-4', panelTone)}>
-              <div className="flex flex-col gap-4">
+            <div className={cn('min-w-0 overflow-x-clip p-3 sm:p-4', panelTone)}>
+              <div className="flex min-w-0 flex-col gap-4 *:min-w-0">
                 {children}
               </div>
             </div>

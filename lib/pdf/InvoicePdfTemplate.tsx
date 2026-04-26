@@ -36,6 +36,7 @@ interface InvoiceLineItem {
   discountAmountExcludingTax: number;
   vatRate: number;
   totalExcludingTax: number;
+  lineType?: 'catalog' | 'custom' | 'free_text' | 'item' | null;
 }
 
 interface InvoicePaymentItem {
@@ -354,6 +355,22 @@ const styles = StyleSheet.create({
     paddingVertical: 2.5,
     fontSize: 8.5,
   },
+  freeTextRow: {
+    flexDirection: 'row',
+    minHeight: 18,
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+    backgroundColor: '#f1f5f9',
+  },
+  freeTextCell: {
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    fontSize: 8.5,
+    fontStyle: 'italic',
+    color: '#475569',
+    width: '100%',
+  },
   colDesc: { width: '30%' },
   colQty: { width: '8%' },
   colUnit: { width: '14%' },
@@ -622,11 +639,6 @@ function combineAddressLines(lines: { line1: string; line2: string }): string {
   return `${lines.line1}\n${lines.line2}`;
 }
 
-/**
- * Formats a structured address (from separate fields) into a combined display string.
- * Line 1: street number + street name
- * Line 2: postal code + city + country
- */
 function formatStructuredAddressPdf(details?: InvoiceAddressDetails | null): string {
   if (!hasStructuredAddress(details)) return '-';
   const addressDetails = details!;
@@ -835,28 +847,45 @@ export function InvoicePdfTemplate({ invoice, company, paymentUrl = null, locale
               <Text style={[styles.cell, styles.colTotal, styles.right]}>{t.colTotal}</Text>
             </View>
 
-            {invoice.lineItems.map((item, index) => (
-              <View
-                key={`${item.name}-${index}`}
-                wrap={false}
-                style={[
-                  styles.tableRow,
-                  ...(index % 2 === 1 ? [styles.rowAlt] : []),
-                  ...(index === invoice.lineItems.length - 1 ? [styles.rowLast] : []),
-                ]}
-              >
-                <Text style={[styles.cell, styles.colDesc]}>{item.name}</Text>
-                <Text style={[styles.cell, styles.colQty, styles.right]}>{item.quantity}</Text>
-                <Text style={[styles.cell, styles.colUnit, styles.right]}>{formatPrice(item.baseUnitPriceExcludingTax)}</Text>
-                <Text style={[styles.cell, styles.colDiscount, styles.right]}>
-                  {item.discountAmountExcludingTax > 0
-                    ? `${item.discountPercentage.toFixed(2)}% (- ${formatPrice(item.discountAmountExcludingTax)})`
-                    : '-'}
-                </Text>
-                <Text style={[styles.cell, styles.colVat, styles.right]}>{item.vatRate}%</Text>
-                <Text style={[styles.cell, styles.colTotal, styles.right]}>{formatPrice(item.totalExcludingTax)}</Text>
-              </View>
-            ))}
+            {invoice.lineItems.map((item, index) => {
+              const isLast = index === invoice.lineItems.length - 1;
+              if (item.lineType === 'free_text') {
+                return (
+                  <View
+                    key={`${item.name}-${index}`}
+                    wrap={false}
+                    style={[
+                      styles.freeTextRow,
+                      ...(isLast ? [styles.rowLast] : []),
+                    ]}
+                  >
+                    <Text style={styles.freeTextCell}>{item.name}</Text>
+                  </View>
+                );
+              }
+              return (
+                <View
+                  key={`${item.name}-${index}`}
+                  wrap={false}
+                  style={[
+                    styles.tableRow,
+                    ...(index % 2 === 1 ? [styles.rowAlt] : []),
+                    ...(isLast ? [styles.rowLast] : []),
+                  ]}
+                >
+                  <Text style={[styles.cell, styles.colDesc]}>{item.name}</Text>
+                  <Text style={[styles.cell, styles.colQty, styles.right]}>{item.quantity}</Text>
+                  <Text style={[styles.cell, styles.colUnit, styles.right]}>{formatPrice(item.baseUnitPriceExcludingTax)}</Text>
+                  <Text style={[styles.cell, styles.colDiscount, styles.right]}>
+                    {item.discountAmountExcludingTax > 0
+                      ? `${item.discountPercentage.toFixed(2)}% (- ${formatPrice(item.discountAmountExcludingTax)})`
+                      : '-'}
+                  </Text>
+                  <Text style={[styles.cell, styles.colVat, styles.right]}>{item.vatRate}%</Text>
+                  <Text style={[styles.cell, styles.colTotal, styles.right]}>{formatPrice(item.totalExcludingTax)}</Text>
+                </View>
+              );
+            })}
           </View>
         </View>
 

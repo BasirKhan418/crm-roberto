@@ -148,6 +148,16 @@ const InvoiceReminderStateSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    legalRecoveryRegisteredMailNumber: {
+      type: String,
+      trim: true,
+      default: null,
+      maxlength: 64,
+    },
+    legalRecoveryRegisteredMailDate: {
+      type: Date,
+      default: null,
+    },
     legalRecoveryClaimAmount: {
       type: Number,
       min: 0,

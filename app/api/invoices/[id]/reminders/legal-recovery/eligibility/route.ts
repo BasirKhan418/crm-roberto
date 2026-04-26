@@ -32,6 +32,8 @@ type InvoiceDoc = {
     formalNoticeDeadline?: Date | null;
     legalRecoveryInitiatedAt?: Date | null;
     legalRecoverySentToCourtAt?: Date | null;
+    legalRecoveryRegisteredMailNumber?: string | null;
+    legalRecoveryRegisteredMailDate?: Date | null;
   } | null;
 };
 
@@ -115,6 +117,8 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
         formalNoticeDeadline: invoice.reminderState?.formalNoticeDeadline ?? null,
         legalRecoveryInitiatedAt: invoice.reminderState?.legalRecoveryInitiatedAt ?? null,
         legalRecoverySentToCourtAt: invoice.reminderState?.legalRecoverySentToCourtAt ?? null,
+        legalRecoveryRegisteredMailNumber: invoice.reminderState?.legalRecoveryRegisteredMailNumber ?? null,
+        legalRecoveryRegisteredMailDate: invoice.reminderState?.legalRecoveryRegisteredMailDate ?? null,
         jurisdiction: settingsDoc?.legalRecovery?.jurisdiction ?? 'justice_of_peace',
         courtLocation: selectedCourtLocation,
         courtSelectionRequired: true,
