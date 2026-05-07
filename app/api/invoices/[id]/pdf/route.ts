@@ -75,7 +75,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         : null;
 
     const computedLineItems = invoice.lineItems.map((item) => {
-      const raw = item as typeof item & { lineType?: string | null };
+      const raw = item as typeof item & { lineType?: 'custom' | 'catalog' | 'free_text' | 'item' | null };
       return {
         name: raw.name,
         quantity: raw.quantity,
