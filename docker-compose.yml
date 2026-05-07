@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: roby-back-web
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      # O Docker vai tentar se conectar ao MongoDB e Redis rodando nos outros containers
+      - MONGO_URI=mongodb://mongodb:27017/roby-crm
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    # Ele também vai ler as variáveis (ex: Stripe, Email, JWT_SECRET) que estiverem neste arquivo
+    env_file:
+      - .env.local
+    depends_on:
+      - mongodb
+      - redis
+
+  mongodb:
+    image: mongo:latest
+    container_name: roby-back-db
+    restart: always
+    volumes:
+      - mongodb_data:/data/db
+    ports:
+      - "27017:27017"
+
+  redis:
+    image: redis:alpine
+    container_name: roby-back-redis
+    restart: always
+    ports:
+      - "6379:6379"
+
+volumes:
+  mongodb_data:
