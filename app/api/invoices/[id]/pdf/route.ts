@@ -75,16 +75,16 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         : null;
 
     const computedLineItems = invoice.lineItems.map((item) => {
-      const raw = item as typeof item & { lineType?: 'custom' | 'catalog' | 'free_text' | 'item' | null };
+      const raw = item as unknown as Record<string, unknown>;
       return {
-        name: raw.name,
-        quantity: raw.quantity,
-        baseUnitPriceExcludingTax: raw.baseUnitPriceExcludingTax,
-        discountPercentage: raw.discountPercentage,
-        discountAmountExcludingTax: raw.discountAmountExcludingTax,
-        vatRate: raw.vatRate,
-        totalExcludingTax: raw.totalExcludingTax,
-        lineType: raw.lineType ?? null,
+        name: item.name,
+        quantity: item.quantity,
+        baseUnitPriceExcludingTax: item.baseUnitPriceExcludingTax,
+        discountPercentage: item.discountPercentage,
+        discountAmountExcludingTax: item.discountAmountExcludingTax,
+        vatRate: item.vatRate,
+        totalExcludingTax: item.totalExcludingTax,
+        lineType: (raw.lineType ?? null) as 'custom' | 'catalog' | 'free_text' | 'item' | null,
       };
     });
     const depositPercentage = typeof invoice.depositPercentage === 'number' ? invoice.depositPercentage : 100;
