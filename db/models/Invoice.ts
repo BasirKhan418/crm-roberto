@@ -217,6 +217,36 @@ const InvoiceSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    sentAt: {
+      type: Date,
+      default: null,
+    },
+    reminderState: {
+      type: new mongoose.Schema({
+        level: { type: Number, default: 0 },
+        lastSentAt: { type: Date, default: null },
+        nextScheduledAt: { type: Date, default: null },
+        isPaused: { type: Boolean, default: false },
+        lateFeeAmount: { type: Number, default: 0 },
+        formalNoticeSentAt: { type: Date, default: null },
+        formalNoticeDeadline: { type: Date, default: null },
+        legalRecoveryInitiatedAt: { type: Date, default: null },
+        legalRecoveryClaimAmount: { type: Number, default: null },
+      }, { _id: false }),
+      default: null,
+    },
+    recurrenceState: {
+      type: new mongoose.Schema({
+        isActive: { type: Boolean, default: false },
+        frequency: { type: String, default: null },
+        nextOccurrenceAt: { type: Date, default: null },
+        lastGeneratedAt: { type: Date, default: null },
+        occurrenceCount: { type: Number, default: 0 },
+        maxOccurrences: { type: Number, default: null },
+        parentInvoiceId: { type: mongoose.Schema.Types.ObjectId, default: null },
+      }, { _id: false }),
+      default: null,
+    },
   },
   { timestamps: true }
 );
