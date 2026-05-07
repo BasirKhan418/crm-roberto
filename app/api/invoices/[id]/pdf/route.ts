@@ -74,19 +74,16 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         ? buildInvoicePayUrl(invoice.paymentToken, appUrl)
         : null;
 
-    const computedLineItems = invoice.lineItems.map((item) => {
-      const raw = item as unknown as Record<string, unknown>;
-      return {
-        name: item.name,
-        quantity: item.quantity,
-        baseUnitPriceExcludingTax: item.baseUnitPriceExcludingTax,
-        discountPercentage: item.discountPercentage,
-        discountAmountExcludingTax: item.discountAmountExcludingTax,
-        vatRate: item.vatRate,
-        totalExcludingTax: item.totalExcludingTax,
-        lineType: (raw.lineType ?? null) as 'custom' | 'catalog' | 'free_text' | 'item' | null,
-      };
-    });
+    const computedLineItems = invoice.lineItems.map((item) => ({
+      name: item.name,
+      quantity: item.quantity,
+      baseUnitPriceExcludingTax: item.baseUnitPriceExcludingTax,
+      discountPercentage: item.discountPercentage,
+      discountAmountExcludingTax: item.discountAmountExcludingTax,
+      vatRate: item.vatRate,
+      totalExcludingTax: item.totalExcludingTax,
+      lineType: item.lineType ?? null,
+    }));
     const depositPercentage = typeof invoice.depositPercentage === 'number' ? invoice.depositPercentage : 100;
 
     const totalExcludingTaxBeforeDiscount = computedLineItems.reduce(

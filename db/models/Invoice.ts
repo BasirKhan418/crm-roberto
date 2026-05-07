@@ -73,6 +73,11 @@ const InvoiceLineItemSchema = new mongoose.Schema(
       min: [0, "Total including tax cannot be negative"],
       default: 0,
     },
+    lineType: {
+      type: String,
+      enum: ['catalog', 'custom', 'free_text', 'item', null],
+      default: null,
+    },
   },
   { _id: true }
 );
