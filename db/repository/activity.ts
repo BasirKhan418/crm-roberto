@@ -88,6 +88,24 @@ export const listActivities = async (userId: string, options: ActivityListQueryO
   };
 };
 
+export const listClientActivities = async (userId: string, clientId: string): Promise<ActivityRecord[]> => {
+  await ConnectDb();
+
+  if (!isValidObjectId(clientId)) {
+    return [];
+  }
+
+  const items = await ActivityLog.find({
+    user: userId,
+    entityType: 'client',
+    entityId: clientId,
+  })
+    .sort({ createdAt: -1 })
+    .lean();
+
+  return items as ActivityRecord[];
+};
+
 export const getActivityById = async (userId: string, activityId: string): Promise<ActivityRecord | null> => {
   await ConnectDb();
 
