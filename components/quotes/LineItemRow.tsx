@@ -32,6 +32,7 @@ export interface QuoteLineItem {
   unitPriceExcludingTax: number;
   discountPercentage: number;
   vatRate: number;
+  lineType?: 'catalog' | 'custom' | 'free_text' | 'item';
 }
 
 interface LineItemRowProps {
@@ -91,6 +92,8 @@ export default function LineItemRow({ row, index, products, onChange, onDelete }
       removeLine: 'Delete line',
       searchPlaceholder: 'Search product/service',
       noMatches: 'No matches',
+      freeTextLabel: 'Free text block',
+      freeTextPlaceholder: 'Type a section title, comment, or explanation...',
     },
     fr: {
       product: 'Produit',
@@ -104,8 +107,13 @@ export default function LineItemRow({ row, index, products, onChange, onDelete }
       removeLine: 'Supprimer la ligne',
       searchPlaceholder: 'Rechercher un produit/service',
       noMatches: 'Aucun r\u00e9sultat',
+      freeTextLabel: 'Bloc de texte libre',
+      freeTextPlaceholder: 'Saisissez un titre de section, un commentaire ou une explication...',
     },
   }[locale];
+
+  const isFreeTextRow = row.lineType === 'free_text';
+  const isCatalogRow = row.lineType === 'catalog';
 
   const [search, setSearch] = useState('');
   const [isOpen, setIsOpen] = useState(false);
@@ -167,6 +175,7 @@ export default function LineItemRow({ row, index, products, onChange, onDelete }
 
   function handleProductSelect(product: CatalogueItemOption) {
     onChange(index, {
+      lineType: 'catalog',
       productId: product._id,
       productImageUrl: isImageAttachment(product.attachmentUrl, product.attachmentMimeType) ? product.attachmentUrl ?? null : null,
       name: product.name,
@@ -217,6 +226,35 @@ export default function LineItemRow({ row, index, products, onChange, onDelete }
     });
   }
 
+  if (isFreeTextRow) {
+    return (
+      <div className="rounded-xl border border-border/70 bg-linear-to-b from-background to-secondary/25 p-3 md:p-3.5">
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_auto] md:items-start">
+          <div>
+            <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{t.freeTextLabel}</p>
+            <textarea
+              className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+              placeholder={t.freeTextPlaceholder}
+              value={row.name}
+              onChange={(event) => onChange(index, { name: event.target.value, productId: null, productImageUrl: null, lineType: 'free_text' })}
+            />
+          </div>
+
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-9 w-full shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive md:w-9"
+            onClick={() => onDelete(index)}
+          >
+            <Trash2Icon className="size-4" />
+            <span className="ml-1.5 md:hidden">{t.removeLine}</span>
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="rounded-xl border border-border/70 bg-linear-to-b from-background to-secondary/25 p-3 md:p-3.5">
       <div className="grid grid-cols-3 items-center gap-x-2 gap-y-2 md:grid-cols-[2fr_0.7fr_1.2fr_0.9fr_1.1fr_0.7fr_1fr_1fr_auto] md:gap-2">
@@ -237,18 +275,23 @@ export default function LineItemRow({ row, index, products, onChange, onDelete }
             ) : null}
             <Input
               value={search || row.name}
-              onFocus={() => setIsOpen(true)}
+              onFocus={() => setIsOpen(isCatalogRow)}
               onChange={(event) => {
                 const next = event.target.value;
                 setSearch(next);
-                onChange(index, { name: next, productId: null, productImageUrl: null });
-                setIsOpen(true);
+                if (isCatalogRow) {
+                  onChange(index, { name: next, productId: null, productImageUrl: null, lineType: 'catalog' });
+                  setIsOpen(true);
+                  return;
+                }
+
+                onChange(index, { name: next, productId: null, productImageUrl: null, lineType: 'custom' });
               }}
               placeholder={t.searchPlaceholder}
               className={`${row.productImageUrl ? 'pl-9' : ''} ${row.productId ? 'border-emerald-500/50 ring-1 ring-emerald-500/20' : ''}`}
             />
           </div>
-          {isOpen ? (
+          {isCatalogRow && isOpen ? (
             <div
               className="absolute inset-x-0 z-50 flex flex-col overflow-hidden rounded-md border border-border bg-background p-1 shadow-lg"
               style={dropdown.style}

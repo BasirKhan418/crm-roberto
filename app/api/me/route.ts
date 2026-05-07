@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
+import ConnectDb from "@/db/connectDb";
+import User from "@/db/models/User";
 import checkMe from "@/utils/middlewares/checkMe";
 
 export async function GET(request: NextRequest) {
@@ -27,5 +29,35 @@ export async function GET(request: NextRequest) {
         });
     } catch (error) {
         return NextResponse.json({ message: "Error fetching user data" + error, success: false }, { status: 500 });
+    }
+}
+
+export async function PATCH(request: NextRequest) {
+    try {
+        const me = await checkMe(true);
+        if (!me.success || !me.user) {
+            return NextResponse.json({ message: me.message || "Unauthorized", success: false }, { status: 401 });
+        }
+
+        const payload = await request.json().catch(() => null) as { locale?: unknown } | null;
+        const nextLocale = payload?.locale;
+
+        if (nextLocale !== "en" && nextLocale !== "fr") {
+            return NextResponse.json({ message: "Invalid locale", success: false }, { status: 400 });
+        }
+
+        await ConnectDb();
+        await User.findByIdAndUpdate(me.user.id, { locale: nextLocale });
+
+        return NextResponse.json({
+            message: "Locale updated successfully",
+            success: true,
+            user: {
+                ...me.user,
+                locale: nextLocale,
+            },
+        });
+    } catch (error) {
+        return NextResponse.json({ message: "Error updating locale" + error, success: false }, { status: 500 });
     }
 }

@@ -1,7 +1,7 @@
 import ConnectEmailClient from "@/emails/connectEmailClient";
 import { getQuoteEmailTemplate } from "@/emails/quoteEmailTemplate";
 import { formatInvoiceDisplayNumber, getDocumentEmailLanguage, translate, type TranslationLocale } from '@/lib/i18n/messages';
-import { getPaymentMethodLabel } from '@/lib/payments';
+import { getPaymentMethodLabel, getPaymentTypeLabel, type StoredPaymentType } from '@/lib/payments';
 
 interface BaseSendParams {
   to: string;
@@ -64,8 +64,25 @@ interface SendPaymentReceiptParams extends BaseSendParams {
   invoiceNumber: string;
   amount: string;
   paymentMethod: string;
+  paymentType: StoredPaymentType;
   paidAt: Date | string;
+  invoiceTotal: string;
+  totalPaid: string;
+  remainingAmount: string;
+  isFullyPaid: boolean;
   locale?: TranslationLocale;
+}
+
+export interface SendReminderParams extends BaseSendParams {
+  invoiceNumber: string;
+  subject: string;
+  htmlBody: string;
+  locale?: TranslationLocale;
+}
+
+export interface SendFormalNoticeParams extends Omit<SendReminderParams, 'pdfBuffer'> {
+  pdfBuffer: Buffer;
+  legalNoticePdfBuffer: Buffer;
 }
 
 function escapeHtml(text: string): string {
@@ -89,6 +106,8 @@ function buildDocumentEmailTemplate({
   ctaLabel,
   ctaUrl,
   ctaNote,
+  showPdfAttached = true,
+  includeGreeting = true,
 }: {
   subject: string;
   companyName: string;
@@ -101,6 +120,8 @@ function buildDocumentEmailTemplate({
   ctaLabel?: string;
   ctaUrl?: string;
   ctaNote?: string;
+  showPdfAttached?: boolean;
+  includeGreeting?: boolean;
 }): string {
   const safeSubject = escapeHtml(subject);
   const safeCompanyName = escapeHtml(companyName || "CRM");
@@ -108,7 +129,7 @@ function buildDocumentEmailTemplate({
   const safeDocumentLabel = escapeHtml(documentLabel);
   const safeDocumentNumber = escapeHtml(documentNumber);
   const safeMessageBody = escapeHtml(messageBody).replace(/\n/g, "<br>");
-  const safePdfAttachedLabel = escapeHtml(translate(locale, 'email.pdfAttached'));
+  const safePdfAttachedLabel = showPdfAttached ? escapeHtml(translate(locale, 'email.pdfAttached')) : '';
 
   const rows = details
     .map(
@@ -165,12 +186,12 @@ function buildDocumentEmailTemplate({
       </tr>
       <tr>
         <td class="cell" style="padding:28px;">
-          <p style="margin:0 0 18px;font-size:15px;font-weight:600;color:#1a2e44;">${safeGreeting}</p>
+          ${includeGreeting ? `<p style="margin:0 0 18px;font-size:15px;font-weight:600;color:#1a2e44;">${safeGreeting}</p>` : ''}
           <div style="font-size:14px;line-height:1.75;color:#374151;">${safeMessageBody}</div>
           ${ctaBlock}
         </td>
       </tr>
-      <tr>
+      ${showPdfAttached ? `<tr>
         <td style="padding:0 28px 24px;">
           <table width="100%" style="background:#f6f7f9;border:1px solid #e2e5e9;">
             <tr>
@@ -178,7 +199,7 @@ function buildDocumentEmailTemplate({
             </tr>
           </table>
         </td>
-      </tr>
+      </tr>` : ''}
       <tr>
         <td style="background:#1a2e44;padding:16px 28px;color:#94a3b8;font-size:12px;">
           &copy; ${new Date().getFullYear()} ${safeCompanyName}
@@ -190,14 +211,16 @@ function buildDocumentEmailTemplate({
 </html>`;
 }
 
-function formatDate(value: Date | string): string {
-  return new Intl.DateTimeFormat("en-GB", {
+function formatDateTime(value: Date | string, locale: TranslationLocale): string {
+  return new Intl.DateTimeFormat(locale === 'fr' ? 'fr-FR' : 'en-GB', {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-  }).format(new Date(value));
+  })
+    .format(new Date(value))
+    .replace(/[\u00a0\u202f]/g, ' ');
 }
 
 async function sendDocumentEmail({
@@ -237,6 +260,36 @@ async function sendDocumentEmail({
           },
         ]
       : [],
+  });
+}
+
+function plainTextFromHtmlBody(htmlBody: string): string {
+  return htmlBody
+    .replace(/<br\s*\/?\s*>/gi, '\n')
+    .replace(/<[^>]*>/g, '')
+    .trim();
+}
+
+function buildReminderEmailHtml({
+  params,
+  locale,
+  showPdfAttached,
+}: {
+  params: SendReminderParams;
+  locale: TranslationLocale;
+  showPdfAttached?: boolean;
+}): string {
+  return buildDocumentEmailTemplate({
+    subject: params.subject,
+    companyName: params.companyName,
+    clientName: params.clientName,
+    documentLabel: translate(locale, 'email.sendInvoice.documentLabel'),
+    documentNumber: formatInvoiceDisplayNumber(locale, params.invoiceNumber),
+    details: [],
+    messageBody: params.htmlBody,
+    locale,
+    showPdfAttached,
+    includeGreeting: false,
   });
 }
 
@@ -456,6 +509,66 @@ export async function sendInvoice({
   });
 }
 
+export async function sendInvoiceReminder(params: SendReminderParams): Promise<void> {
+  const locale = params.locale ?? 'en';
+  const html = buildReminderEmailHtml({ params, locale, showPdfAttached: Boolean(params.pdfBuffer) });
+  const text = plainTextFromHtmlBody(params.htmlBody);
+
+  const emailTransporter = await ConnectEmailClient();
+  if (!emailTransporter) {
+    throw new Error('Failed to connect to email service');
+  }
+
+  await emailTransporter.sendMail({
+    from: `"${params.companyName || 'CRM'}" <${process.env.EMAIL_USER_V2 || process.env.EMAIL_USER}>`,
+    to: params.to,
+    subject: params.subject,
+    html,
+    text,
+    attachments: params.pdfBuffer
+      ? [
+          {
+            filename: `${formatInvoiceDisplayNumber(locale, params.invoiceNumber)}.pdf`,
+            content: params.pdfBuffer,
+            contentType: 'application/pdf',
+          },
+        ]
+      : [],
+  });
+}
+
+export async function sendFormalNotice(params: SendFormalNoticeParams): Promise<void> {
+  const locale = params.locale ?? 'en';
+  const html = buildReminderEmailHtml({ params, locale, showPdfAttached: true });
+  const text = plainTextFromHtmlBody(params.htmlBody);
+  const legalNoticeFilenamePrefix = locale === 'fr' ? 'mise-en-demeure' : 'formal-notice';
+
+  const emailTransporter = await ConnectEmailClient();
+  if (!emailTransporter) {
+    throw new Error('Failed to connect to email service');
+  }
+
+  await emailTransporter.sendMail({
+    from: `"${params.companyName || 'CRM'}" <${process.env.EMAIL_USER_V2 || process.env.EMAIL_USER}>`,
+    to: params.to,
+    subject: params.subject,
+    html,
+    text,
+    attachments: [
+      {
+        filename: `${formatInvoiceDisplayNumber(locale, params.invoiceNumber)}.pdf`,
+        content: params.pdfBuffer,
+        contentType: 'application/pdf',
+      },
+      {
+        filename: `${legalNoticeFilenamePrefix}-${formatInvoiceDisplayNumber(locale, params.invoiceNumber)}.pdf`,
+        content: params.legalNoticePdfBuffer,
+        contentType: 'application/pdf',
+      },
+    ],
+  });
+}
+
 export async function sendQuoteRejectionNotification({
   to,
   adminName,
@@ -617,15 +730,25 @@ export async function sendPaymentReceipt({
   invoiceNumber,
   amount,
   paymentMethod,
+  paymentType,
   paidAt,
   companyName,
   pdfBuffer,
+  invoiceTotal,
+  totalPaid,
+  remainingAmount,
+  isFullyPaid,
   locale = 'en',
 }: SendPaymentReceiptParams) {
   const displayInvoiceNumber = formatInvoiceDisplayNumber(locale, invoiceNumber);
   const localizedPaymentMethod = getPaymentMethodLabel(paymentMethod, locale);
+  const localizedPaymentType = getPaymentTypeLabel(paymentType, locale);
   const subject = translate(locale, 'email.paymentReceipt.subject', { invoiceNumber: displayInvoiceNumber });
-  const messageBody = translate(locale, 'email.paymentReceipt.messageBody');
+  const formattedPaidAt = formatDateTime(paidAt, locale);
+  const messageBody = translate(
+    locale,
+    isFullyPaid ? 'email.paymentReceipt.messageBodyFull' : 'email.paymentReceipt.messageBodyPartial'
+  );
 
   const html = buildDocumentEmailTemplate({
     subject,
@@ -635,8 +758,12 @@ export async function sendPaymentReceipt({
     documentNumber: displayInvoiceNumber,
     details: [
       { label: translate(locale, 'email.paymentReceipt.amountPaid'), value: amount },
+      { label: translate(locale, 'email.paymentReceipt.paymentType'), value: localizedPaymentType },
       { label: translate(locale, 'email.paymentReceipt.method'), value: localizedPaymentMethod },
-      { label: translate(locale, 'email.paymentReceipt.paidAt'), value: formatDate(paidAt) },
+      { label: translate(locale, 'email.paymentReceipt.paidAt'), value: formattedPaidAt },
+      { label: translate(locale, 'email.paymentReceipt.invoiceTotal'), value: invoiceTotal },
+      { label: translate(locale, 'email.paymentReceipt.totalPaid'), value: totalPaid },
+      { label: translate(locale, 'email.paymentReceipt.remainingAmount'), value: remainingAmount },
     ],
     messageBody,
     locale,
@@ -646,8 +773,12 @@ export async function sendPaymentReceipt({
     name: clientName,
     invoiceNumber: displayInvoiceNumber,
     amount,
+    paymentType: localizedPaymentType,
     paymentMethod: localizedPaymentMethod,
-    paidAt: formatDate(paidAt),
+    paidAt: formattedPaidAt,
+    invoiceTotal,
+    totalPaid,
+    remainingAmount,
   });
 
   return sendDocumentEmail({

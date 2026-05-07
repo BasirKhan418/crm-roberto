@@ -11,7 +11,7 @@ interface TokenPayload {
 }
 
 const bypassRoutePrefixes = ['/sign'];
-const protectedRoutePrefixes = ['/dashboard', '/clients', '/suppliers', '/notes', '/follow-up-tracking', '/profile', '/products', '/quotes'];
+const protectedRoutePrefixes = ['/dashboard', '/clients', '/suppliers', '/notes', '/follow-up-tracking', '/profile', '/products', '/quotes', '/invoices', '/catalogue', '/settings'];
 const adminProtectedPrefixes = ['/admin'];
 const adminPublicRoutes = ['/admin/login'];
 const publicRoutes = ['/', '/login', '/signup', '/forgot-password'];

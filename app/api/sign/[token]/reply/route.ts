@@ -52,7 +52,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           conversationMessages: { role: 'client', text: message, sentAt },
         },
       },
-      { new: true, strict: false }
+      { returnDocument: 'after', strict: false }
     );
 
     if (!updatedQuote) {

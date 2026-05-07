@@ -5,6 +5,8 @@ import ConnectDb from '@/db/connectDb';
 import Invoice from '@/db/models/Invoice';
 import Payment from '@/db/models/Payment';
 import { createActivityLog } from '@/db/repository/activity';
+import { isInvoiceDueOnOrBeforeToday } from '@/lib/invoices/overdue';
+import { sendPaymentReceiptForSucceededPayment } from '@/lib/payments/sendPaymentReceiptForSucceededPayment';
 import { resolveStoredPaymentMethod } from '@/lib/payments';
 import getMe from '@/utils/middlewares/useMe';
 
@@ -51,10 +53,7 @@ function computeInvoiceStatus(invoiceTotal: number, totalPaid: number, dueDate?:
     return 'paid';
   }
 
-  const now = Date.now();
-  const dueTimestamp = dueDate instanceof Date ? dueDate.getTime() : Number.NaN;
-  const isOverdue = Number.isFinite(dueTimestamp) && dueTimestamp < now;
-  if (isOverdue) {
+  if (isInvoiceDueOnOrBeforeToday(dueDate)) {
     return 'overdue';
   }
 
@@ -80,6 +79,8 @@ async function recomputeInvoiceState(userId: string, invoice: {
   totalIncludingTax?: number;
   dueDate?: Date | null;
   status: 'paid' | 'partial_paid' | 'unpaid' | 'overdue';
+  paymentToken?: string | null;
+  paymentTokenExpiry?: Date | null;
   save: () => Promise<unknown>;
 }) {
   const userObjectId = new mongoose.Types.ObjectId(userId);
@@ -98,6 +99,10 @@ async function recomputeInvoiceState(userId: string, invoice: {
   const totalPaid = Math.max(0, Math.round(totals[0]?.paidTotal ?? 0));
   const invoiceTotal = Math.max(0, Math.round(invoice.totalIncludingTax ?? 0));
   invoice.status = computeInvoiceStatus(invoiceTotal, totalPaid, invoice.dueDate ?? null);
+  if (invoice.status === 'paid') {
+    invoice.paymentToken = null;
+    invoice.paymentTokenExpiry = null;
+  }
   await invoice.save();
 
   return {
@@ -165,7 +170,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     await ConnectDb();
 
-    const invoice = await Invoice.findOne({ _id: id, userId: me.user.id }).select('_id invoiceNumber totalIncludingTax depositAmount status');
+    const invoice = await Invoice.findOne({ _id: id, userId: me.user.id }).select('_id invoiceNumber totalIncludingTax depositAmount status paymentToken paymentTokenExpiry');
     if (!invoice) {
       return NextResponse.json({ success: false, message: 'Invoice not found' }, { status: 404 });
     }
@@ -244,11 +249,20 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       },
     });
 
+    let receiptEmailResult: { sent: boolean; reason?: string } = { sent: false };
+    try {
+      receiptEmailResult = await sendPaymentReceiptForSucceededPayment({ paymentId: String(payment._id) });
+    } catch (receiptError) {
+      console.error('Failed to send payment receipt:', receiptError);
+    }
+
     return NextResponse.json({
       success: true,
       message: 'Payment added successfully',
       data: {
         payment: serializePayment(payment.toObject() as unknown as Record<string, unknown>),
+        receiptEmailSent: receiptEmailResult.sent,
+        receiptEmailStatus: receiptEmailResult.reason ?? (receiptEmailResult.sent ? 'sent' : 'error'),
       },
     });
   } catch (error) {
@@ -297,7 +311,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     await ConnectDb();
 
-    const invoice = await Invoice.findOne({ _id: id, userId: me.user.id }).select('_id invoiceNumber totalIncludingTax dueDate status');
+    const invoice = await Invoice.findOne({ _id: id, userId: me.user.id }).select('_id invoiceNumber totalIncludingTax dueDate status paymentToken paymentTokenExpiry');
     if (!invoice) {
       return NextResponse.json({ success: false, message: 'Invoice not found' }, { status: 404 });
     }
@@ -384,7 +398,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     await ConnectDb();
 
-    const invoice = await Invoice.findOne({ _id: id, userId: me.user.id }).select('_id invoiceNumber totalIncludingTax dueDate status');
+    const invoice = await Invoice.findOne({ _id: id, userId: me.user.id }).select('_id invoiceNumber totalIncludingTax dueDate status paymentToken paymentTokenExpiry');
     if (!invoice) {
       return NextResponse.json({ success: false, message: 'Invoice not found' }, { status: 404 });
     }

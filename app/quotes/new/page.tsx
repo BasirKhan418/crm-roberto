@@ -24,7 +24,7 @@ function NewQuotePageContent() {
 
 export default function NewQuotePage() {
   return (
-    <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Loading...</div>}>
+    <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Chargement...</div>}>
       <NewQuotePageContent />
     </Suspense>
   );

@@ -10,6 +10,7 @@ export interface ActivityItem {
   entityType?: ActivityEntityType | string;
   entityName?: string;
   entityId?: string | null;
+  metadata?: Record<string, unknown> | null;
   createdAt?: string;
 }
 

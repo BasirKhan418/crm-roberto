@@ -8,8 +8,10 @@ import { CheckCircle2Icon, DownloadIcon, PencilIcon, ReceiptTextIcon, SendIcon, 
 import { toast } from 'sonner';
 
 import CrmShell from '@/components/crm-shell';
+import CollectionTab from '@/components/invoices/CollectionTab';
 import EditPaymentEntryModal from '@/components/invoices/EditPaymentEntryModal';
 import ManualPaymentModal, { type ManualPaymentType } from '@/components/invoices/ManualPaymentModal';
+import RecurrenceCard from '@/components/invoices/RecurrenceCard';
 import SendInvoiceModal from '@/components/invoices/SendInvoiceModal';
 import { useLocale } from '@/components/providers/locale-provider';
 import {
@@ -22,7 +24,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { formatInvoiceDisplayNumber, getInvoiceStatusLabel } from '@/lib/i18n/messages';
+import { formatInvoiceDisplayNumber, getInvoiceStatusLabel, translate } from '@/lib/i18n/messages';
 import { getPaymentMethodLabel, getPaymentTypeLabel } from '@/lib/payments';
 import { computeQuoteLine } from '@/lib/quote-calculations';
 import { InvoiceStatusBadge, type InvoiceStatus } from '@/components/ui/InvoiceStatusBadge';
@@ -53,6 +55,8 @@ interface InvoiceDetail {
   _id: string;
   clientBillingEmail?: string | null;
   invoiceNumber: string;
+  subject?: string | null;
+  sentAt?: string | null;
   quoteId?: string | null;
   quoteNumber?: string | null;
   date: string;
@@ -83,6 +87,7 @@ interface InvoiceDetail {
   };
   lineItems: Array<{
     _id?: string;
+    lineType?: 'catalog' | 'custom' | 'free_text' | 'item';
     productImageUrl?: string | null;
     name: string;
     quantity: number;
@@ -96,6 +101,28 @@ interface InvoiceDetail {
     vatAmount: number;
     totalIncludingTax: number;
   }>;
+  reminderState?: {
+    level?: number | null;
+    lastSentAt?: string | null;
+    nextScheduledAt?: string | null;
+    isPaused?: boolean;
+    lateFeeAmount?: number;
+    formalNoticeSentAt?: string | null;
+    formalNoticeDeadline?: string | null;
+  } | null;
+  recurrence?: {
+    isActive?: boolean;
+    frequency?: 'monthly' | 'quarterly' | 'yearly' | 'custom' | null;
+    customIntervalDays?: number | null;
+    nextOccurrenceAt?: string | null;
+    lastGeneratedAt?: string | null;
+    lastGeneratedInvoiceId?: string | null;
+    endDate?: string | null;
+    stoppedAt?: string | null;
+    stoppedReason?: string | null;
+    autoGenerate?: boolean;
+    autoSend?: boolean;
+  } | null;
 }
 
 interface PaymentHistoryItem {
@@ -156,6 +183,7 @@ export default function InvoiceDetailPage() {
       paymentUpdateFailed: 'Failed to update payment entry',
       paymentDeleteFailed: 'Failed to delete payment entry',
       invoice: 'Invoice',
+      object: 'Object',
       date: 'Date',
       dueDate: 'Due date',
       status: 'Status',
@@ -214,6 +242,13 @@ export default function InvoiceDetailPage() {
       paymentTypeFull: 'Full payment',
       paymentTypeRemaining: 'Partial payment',
       noData: '-',
+      deleteInvoice: 'Delete invoice',
+      deleteInvoiceTitle: 'Delete this invoice?',
+      deleteInvoiceDescription: 'This action permanently deletes the invoice and related payment history.',
+      deleteInvoiceAction: 'Delete invoice',
+      deletingInvoice: 'Deleting invoice...',
+      invoiceDeleted: 'Invoice deleted',
+      invoiceDeleteFailed: 'Failed to delete invoice',
     },
     fr: {
       shellTitle: 'D\u00e9tail de la facture',
@@ -225,11 +260,12 @@ export default function InvoiceDetailPage() {
       addingPayment: 'Ajout du paiement...',
       paymentAdded: 'Paiement ajoute avec succes',
       addPaymentFailed: 'Impossible d\'ajouter le paiement',
-      paymentUpdated: 'Ligne de paiement modifiee',
-      paymentDeleted: 'Ligne de paiement supprimee',
+      paymentUpdated: 'Ligne de paiement modifiée',
+      paymentDeleted: 'Ligne de paiement supprimée',
       paymentUpdateFailed: 'Impossible de modifier la ligne de paiement',
       paymentDeleteFailed: 'Impossible de supprimer la ligne de paiement',
       invoice: 'Facture',
+      object: 'Objet',
       date: 'Date',
       dueDate: '\u00c9ch\u00e9ance',
       status: 'Statut',
@@ -258,7 +294,7 @@ export default function InvoiceDetailPage() {
       paymentSummary: 'R\u00e9sum\u00e9 des paiements',
       totalInvoiceAmount: 'Montant total facture',
       remaining: 'Reste',
-      totalPaid: 'Total paye',
+      totalPaid: 'Total payé',
       paymentHistory: 'Historique des paiements',
       paymentMethod: 'M\u00e9thode',
       paymentAmount: 'Montant',
@@ -269,18 +305,18 @@ export default function InvoiceDetailPage() {
       paymentSourceManual: 'Paiement manuel',
       editPayment: 'Modifier',
       deletePayment: 'Supprimer',
-      stripeLocked: 'Paiement Stripe verrouille',
+      stripeLocked: 'Paiement Stripe verrouillé',
       noPaymentActions: 'Aucune action',
       confirmDeleteTitle: 'Supprimer cette ligne de paiement ?',
-      confirmDeleteDescription: 'Seule cette ligne d historique est supprimee. Les totaux facture/devis ne changent pas.',
+      confirmDeleteDescription: 'Seule cette ligne d\'historique est supprimée. Les totaux facture/devis ne changent pas.',
       confirmDeleteAction: 'Supprimer le paiement',
       confirmDeleteCancel: 'Annuler',
       paymentTypeDeposit: 'Acompte',
       noPayments: 'Aucun paiement finalis\u00e9 pour le moment.',
       paymentActionTitle: 'Raccourci paiement',
-      paymentActionDescription: 'Enregistrez ici un paiement recu sans devoir chercher le bouton.',
-      paymentSettledTitle: 'Facture reglee',
-      paymentSettledDescription: 'Aucune action de paiement n est necessaire pour cette facture.',
+      paymentActionDescription: 'Enregistrez ici un paiement reçu sans chercher dans la page.',
+      paymentSettledTitle: 'Facture réglée',
+      paymentSettledDescription: 'Aucune action de paiement n\'est nécessaire pour cette facture.',
       notes: 'Notes',
       loadFailed: 'Impossible de charger le d\u00e9tail de la facture',
       notFound: 'Facture introuvable',
@@ -288,6 +324,13 @@ export default function InvoiceDetailPage() {
       paymentTypeFull: 'Paiement complet',
       paymentTypeRemaining: 'Paiement partiel',
       noData: '-',
+      deleteInvoice: 'Supprimer la facture',
+      deleteInvoiceTitle: 'Supprimer cette facture ?',
+      deleteInvoiceDescription: 'Cette action supprime definitivement la facture et son historique de paiements.',
+      deleteInvoiceAction: 'Supprimer la facture',
+      deletingInvoice: 'Suppression de la facture...',
+      invoiceDeleted: 'Facture supprimee',
+      invoiceDeleteFailed: 'Impossible de supprimer la facture',
     },
   }[locale as Locale];
 
@@ -298,6 +341,8 @@ export default function InvoiceDetailPage() {
   const [payments, setPayments] = useState<PaymentHistoryItem[]>([]);
   const [sendOpen, setSendOpen] = useState(false);
   const [manualPaymentOpen, setManualPaymentOpen] = useState(false);
+  const [deletingInvoice, setDeletingInvoice] = useState(false);
+  const [invoiceDeleteDialogOpen, setInvoiceDeleteDialogOpen] = useState(false);
   const [markingPaid, setMarkingPaid] = useState(false);
   const [editingPayment, setEditingPayment] = useState<PaymentHistoryItem | null>(null);
   const [deletingPayment, setDeletingPayment] = useState<PaymentHistoryItem | null>(null);
@@ -385,8 +430,9 @@ export default function InvoiceDetailPage() {
       .reduce((sum, payment) => sum + Math.max(0, Math.round(payment.amount || 0)), 0)
   );
   const remainingAmount = Math.max(0, (invoice?.totalIncludingTax ?? 0) - totalPaidAmount);
-  const canEdit = invoice?.status === 'unpaid';
+  const canEdit = Boolean(invoice && !invoice.quoteId && !invoice.sentAt);
   const canRecordPayment = Boolean(invoice && invoice.status !== 'paid' && remainingAmount > 0);
+  const canSendToClient = Boolean(invoice && invoice.status !== 'paid');
   const displayInvoiceNumber = invoice ? formatInvoiceDisplayNumber(locale as Locale, invoice.invoiceNumber) : '';
   const displayInvoiceStatus = invoice ? getInvoiceStatusLabel(locale as Locale, invoice.status) : '';
 
@@ -528,6 +574,32 @@ export default function InvoiceDetailPage() {
     }
   }
 
+  async function deleteInvoice() {
+    if (!invoice?._id || deletingInvoice) {
+      return;
+    }
+
+    setDeletingInvoice(true);
+    try {
+      const response = await fetch(`/api/invoices/${invoice._id}`, {
+        method: 'DELETE',
+      });
+
+      const payload = (await response.json().catch(() => null)) as { success?: boolean; message?: string } | null;
+      if (!response.ok || !payload?.success) {
+        throw new Error(payload?.message || t.invoiceDeleteFailed);
+      }
+
+      toast.success(t.invoiceDeleted);
+      router.push('/invoices');
+    } catch (deleteError) {
+      toast.error(deleteError instanceof Error ? deleteError.message : t.invoiceDeleteFailed);
+    } finally {
+      setDeletingInvoice(false);
+      setInvoiceDeleteDialogOpen(false);
+    }
+  }
+
   return (
     <CrmShell title={t.shellTitle}>
       {loading ? (
@@ -574,7 +646,7 @@ export default function InvoiceDetailPage() {
                   </Link>
                 </Button>
               ) : null}
-              <Button type="button" variant="outline" size="sm" className="h-10 w-full justify-start sm:h-9 sm:w-auto sm:justify-center" onClick={() => setSendOpen(true)}>
+              <Button type="button" variant="outline" size="sm" className="h-10 w-full justify-start sm:h-9 sm:w-auto sm:justify-center" onClick={() => setSendOpen(true)} disabled={!canSendToClient}>
                 <SendIcon className="size-3.5" />
                 {t.sendToClient}
               </Button>
@@ -582,7 +654,61 @@ export default function InvoiceDetailPage() {
                 <DownloadIcon className="size-3.5" />
                 {t.download}
               </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                className="h-10 w-full justify-start sm:h-9 sm:w-auto sm:justify-center"
+                onClick={() => setInvoiceDeleteDialogOpen(true)}
+                disabled={deletingInvoice}
+              >
+                <Trash2Icon className="size-3.5" />
+                {deletingInvoice ? t.deletingInvoice : t.deleteInvoice}
+              </Button>
             </div>
+          </div>
+
+          <div className="grid gap-3 print:hidden lg:grid-cols-2">
+            <section className="min-w-0 space-y-2">
+              <header className="mb-2 flex flex-col gap-0.5">
+                <h2 className="font-heading text-sm font-semibold">{translate(locale as Locale, 'invoices.sections.recurrence')}</h2>
+                <p className="text-xs text-muted-foreground">{translate(locale as Locale, 'invoices.sections.recurrenceDescription')}</p>
+              </header>
+              <RecurrenceCard
+                compact
+                invoiceId={invoice._id}
+                locale={locale as Locale}
+                invoiceDueDate={invoice.dueDate}
+                recurrence={invoice.recurrence}
+                sourceInvoice={{
+                  lineItems: invoice.lineItems,
+                  depositPercentage: invoice.depositPercentage,
+                  notes: invoice.notes,
+                }}
+                onInvoiceRefresh={loadData}
+              />
+            </section>
+
+            <section data-tour-invoice-collection className="min-w-0 space-y-2">
+              <header className="mb-2 flex flex-col gap-0.5">
+                <h2 className="font-heading text-sm font-semibold">{translate(locale as Locale, 'invoices.sections.reminders')}</h2>
+                <p className="text-xs text-muted-foreground">{translate(locale as Locale, 'invoices.sections.remindersDescription')}</p>
+              </header>
+              <CollectionTab
+                layout="compact"
+                invoiceId={invoice._id}
+                locale={locale as Locale}
+                invoiceStatus={invoice.status}
+                clientName={invoice.clientSnapshot.fullName}
+                invoiceNumber={invoice.invoiceNumber}
+                dueDate={invoice.dueDate}
+                invoiceDate={invoice.date}
+                amountDue={remainingAmount}
+                companyName={company?.companyName ?? company?.ownerName ?? null}
+                reminderState={invoice.reminderState}
+                onInvoiceRefresh={loadData}
+              />
+            </section>
           </div>
 
           <article data-tour-invoice-document className="rounded-2xl border border-border/60 bg-white p-4 shadow-sm print:rounded-none print:border-0 print:p-0 print:shadow-none sm:p-6">
@@ -615,6 +741,12 @@ export default function InvoiceDetailPage() {
                   <p className="text-xs text-muted-foreground">{t.status}</p>
                   <p className="font-medium">{displayInvoiceStatus}</p>
                 </div>
+                {invoice.subject ? (
+                  <div className="sm:col-span-3">
+                    <p className="text-xs text-muted-foreground">{t.object}</p>
+                    <p className="font-medium">{invoice.subject}</p>
+                  </div>
+                ) : null}
               </div>
             </header>
 
@@ -665,6 +797,16 @@ export default function InvoiceDetailPage() {
                   </thead>
                   <tbody>
                     {invoice.lineItems.map((item, index) => {
+                      if (item.lineType === 'free_text') {
+                        return (
+                          <tr key={item._id || `free-text-${index}`} className="border-t border-border/60 bg-secondary/10">
+                            <td className="px-3 py-3 font-medium text-muted-foreground" colSpan={8}>
+                              {item.name}
+                            </td>
+                          </tr>
+                        );
+                      }
+
                       const computed = derivedTotals?.lineComputed[index] ?? null;
 
                       return (
@@ -701,189 +843,221 @@ export default function InvoiceDetailPage() {
             </section>
 
             <section className="mb-4 flex justify-end">
-              <div className="w-full max-w-sm rounded-xl border border-border/70 bg-card p-3">
-                <div className="flex items-center justify-between border-b border-border/60 py-2 text-sm">
+              <div className="w-full sm:max-w-sm rounded-xl border border-border/70 bg-card p-3">
+                <div className="flex items-center justify-between gap-3 border-b border-border/60 py-2 text-sm">
                   <span className="text-muted-foreground">{t.totalExcl}</span>
-                  <PriceDisplay cents={derivedTotals?.totalExcludingTaxBeforeDiscount ?? 0} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} />
+                  <PriceDisplay cents={derivedTotals?.totalExcludingTaxBeforeDiscount ?? 0} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="whitespace-nowrap tabular-nums" />
                 </div>
-                <div className="flex items-center justify-between border-b border-border/60 py-2 text-sm">
+                <div className="flex items-center justify-between gap-3 border-b border-border/60 py-2 text-sm">
                   <span className="text-muted-foreground">{t.discountAmount}</span>
-                  <span className="text-destructive">- <PriceDisplay cents={derivedTotals?.totalDiscountExcludingTax ?? 0} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} /></span>
+                  <span className="whitespace-nowrap text-destructive tabular-nums">- <PriceDisplay cents={derivedTotals?.totalDiscountExcludingTax ?? 0} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} /></span>
                 </div>
-                <div className="flex items-center justify-between border-b border-border/60 py-2 text-sm">
+                <div className="flex items-center justify-between gap-3 border-b border-border/60 py-2 text-sm">
                   <span className="text-muted-foreground">{t.totalNet}</span>
-                  <PriceDisplay cents={derivedTotals?.totalExcludingTax ?? 0} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} />
+                  <PriceDisplay cents={derivedTotals?.totalExcludingTax ?? 0} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="whitespace-nowrap tabular-nums" />
                 </div>
-                <div className="flex items-center justify-between border-b border-border/60 py-2 text-sm">
+                <div className="flex items-center justify-between gap-3 border-b border-border/60 py-2 text-sm">
                   <span className="text-muted-foreground">{t.totalVat}</span>
-                  <PriceDisplay cents={derivedTotals?.totalVat ?? 0} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} />
+                  <PriceDisplay cents={derivedTotals?.totalVat ?? 0} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="whitespace-nowrap tabular-nums" />
                 </div>
-                <div className="flex items-center justify-between py-2 text-base font-semibold">
+                <div className="flex items-center justify-between gap-3 py-2 text-base font-semibold">
                   <span>{t.totalIncl}</span>
-                  <PriceDisplay cents={derivedTotals?.totalIncludingTax ?? 0} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="font-semibold" />
+                  <PriceDisplay cents={derivedTotals?.totalIncludingTax ?? 0} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="whitespace-nowrap font-semibold tabular-nums" />
                 </div>
               </div>
             </section>
 
-            <section className="mb-4 rounded-xl border border-border/70 bg-card p-4">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                <div>
-                  <h2 className="font-heading text-base font-semibold">{t.paymentSummary}</h2>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {canRecordPayment ? t.paymentActionDescription : t.paymentSettledDescription}
-                  </p>
-                </div>
+            <div className="space-y-4">
+              {/* Payments section */}
+              <section className="rounded-xl border border-border/70 bg-card p-4" data-tour-invoice-payments>
+                <header className="mb-3 flex flex-col gap-1 border-b border-border/60 pb-3">
+                  <h2 className="font-heading text-base font-semibold">{translate(locale as Locale, 'invoices.sections.payments')}</h2>
+                  <p className="text-xs text-muted-foreground">{translate(locale as Locale, 'invoices.sections.paymentsDescription')}</p>
+                </header>
 
-                <div className={`rounded-xl border px-3.5 py-3 lg:w-full lg:max-w-sm ${canRecordPayment ? 'border-amber-200 bg-amber-50/70 dark:border-amber-900/40 dark:bg-amber-950/20' : 'border-emerald-200 bg-emerald-50/70 dark:border-emerald-900/40 dark:bg-emerald-950/20'}`}>
-                  <p className={`text-[11px] font-semibold uppercase tracking-wide ${canRecordPayment ? 'text-amber-900 dark:text-amber-300' : 'text-emerald-900 dark:text-emerald-300'}`}>
-                    {canRecordPayment ? t.paymentActionTitle : t.paymentSettledTitle}
-                  </p>
-                  <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-                    <div>
-                      <p className="text-xs text-muted-foreground">{t.remaining}</p>
-                      <PriceDisplay cents={remainingAmount} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="text-base font-semibold text-foreground" />
-                    </div>
-                    {canRecordPayment ? (
-                      <Button
-                        type="button"
-                        size="sm"
-                        className="h-9 w-full justify-center text-xs sm:h-8 sm:w-auto sm:text-sm"
-                        onClick={() => setManualPaymentOpen(true)}
-                        disabled={markingPaid}
-                      >
-                        <CheckCircle2Icon className="size-3.5" />
-                        {markingPaid ? t.addingPayment : t.addPayment}
-                      </Button>
-                    ) : null}
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <h3 className="font-heading text-sm font-semibold">{t.paymentSummary}</h3>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {canRecordPayment ? t.paymentActionDescription : t.paymentSettledDescription}
+                    </p>
                   </div>
-                </div>
-              </div>
 
-              <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                <div className="rounded-xl border border-border/60 bg-background px-3 py-3">
-                  <p className="text-xs text-muted-foreground">{t.totalInvoiceAmount}</p>
-                  <PriceDisplay cents={invoice.totalIncludingTax} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="mt-1 text-base font-semibold text-foreground" />
-                </div>
-                <div className="rounded-xl border border-border/60 bg-background px-3 py-3">
-                  <p className="text-xs text-muted-foreground">{t.totalPaid}</p>
-                  <PriceDisplay cents={totalPaidAmount} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="mt-1 text-base font-semibold text-foreground" />
-                </div>
-                <div className="rounded-xl border border-border/60 bg-background px-3 py-3">
-                  <p className="text-xs text-muted-foreground">{t.remaining}</p>
-                  <PriceDisplay cents={remainingAmount} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="mt-1 text-base font-semibold text-foreground" />
-                </div>
-              </div>
-            </section>
-
-            <section className="mb-4 rounded-xl border border-border/70 bg-card p-4">
-              <h2 className="mb-2 font-heading text-base font-semibold">{t.paymentHistory}</h2>
-              {payments.length === 0 ? (
-                <p className="text-sm text-muted-foreground">{t.noPayments}</p>
-              ) : (
-                <div className="space-y-3">
-                  <div className="grid gap-2 md:hidden">
-                    {payments.map((payment) => {
-                      const canMutate = isManualPaymentEntry(payment);
-
-                      return (
-                        <article
-                          key={payment._id}
-                          className={`rounded-xl border p-3 ${canMutate ? 'border-emerald-200/80 bg-linear-to-br from-white via-background to-emerald-50/40 dark:border-emerald-900/40 dark:from-background dark:to-emerald-950/10' : 'border-slate-200/80 bg-linear-to-br from-white via-background to-slate-100/60 dark:border-slate-700/70 dark:from-background dark:to-slate-900/40'}`}
+                  <div className={`rounded-xl border px-3.5 py-3 lg:w-full lg:max-w-sm ${canRecordPayment ? 'border-amber-200 bg-amber-50/70 dark:border-amber-900/40 dark:bg-amber-950/20' : 'border-emerald-200 bg-emerald-50/70 dark:border-emerald-900/40 dark:bg-emerald-950/20'}`}>
+                    <p className={`text-[11px] font-semibold uppercase tracking-wide ${canRecordPayment ? 'text-amber-900 dark:text-amber-300' : 'text-emerald-900 dark:text-emerald-300'}`}>
+                      {canRecordPayment ? t.paymentActionTitle : t.paymentSettledTitle}
+                    </p>
+                    <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                      <div>
+                        <p className="text-xs text-muted-foreground">{t.remaining}</p>
+                        <PriceDisplay cents={remainingAmount} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="text-base font-semibold text-foreground" />
+                      </div>
+                      {canRecordPayment ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="h-9 w-full justify-center text-xs sm:h-8 sm:w-auto sm:text-sm"
+                          onClick={() => setManualPaymentOpen(true)}
+                          disabled={markingPaid}
                         >
-                          <div className="flex items-start justify-between gap-2">
-                            <div>
-                              <p className="text-xs text-muted-foreground">{t.paymentDate}</p>
-                              <p className="text-sm font-medium">{formatDateTime(payment.paidAt || payment.createdAt, locale as Locale)}</p>
-                            </div>
-                            <PriceDisplay cents={payment.amount} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="text-base font-semibold" />
-                          </div>
-
-                          <div className="mt-2 grid grid-cols-2 gap-2 text-xs sm:text-sm">
-                            <div>
-                              <p className="text-muted-foreground">{t.paymentMethod}</p>
-                              <p className="font-medium">{payment.method ? paymentMethodLabel(payment.method) : t.noData}</p>
-                            </div>
-                            <div>
-                              <p className="text-muted-foreground">{t.paymentType}</p>
-                              <p className="font-medium">{paymentTypeLabel(payment.type)}</p>
-                            </div>
-                          </div>
-
-                          <div className="mt-2 flex items-center justify-between gap-2">
-                            <p className="text-[11px] text-muted-foreground">{canMutate ? t.paymentSourceManual : t.paymentSourceStripe}</p>
-                            {!canMutate ? (
-                              <p className="text-[11px] text-muted-foreground">{t.stripeLocked}</p>
-                            ) : null}
-                          </div>
-
-                          {canMutate ? (
-                            <div className="mt-2 grid grid-cols-2 gap-2">
-                              <Button type="button" size="sm" variant="outline" className="h-8 min-w-0 px-2 text-xs" onClick={() => setEditingPayment(payment)}>
-                                <SquarePenIcon className="size-3.5" />
-                                {t.editPayment}
-                              </Button>
-                              <Button type="button" size="sm" variant="outline" className="h-8 min-w-0 px-2 text-xs text-destructive hover:text-destructive" onClick={() => setDeletingPayment(payment)}>
-                                <Trash2Icon className="size-3.5" />
-                                {t.deletePayment}
-                              </Button>
-                            </div>
-                          ) : null}
-                        </article>
-                      );
-                    })}
+                          <CheckCircle2Icon className="size-3.5" />
+                          {markingPaid ? t.addingPayment : t.addPayment}
+                        </Button>
+                      ) : null}
+                    </div>
                   </div>
+                </div>
 
-                  <div className="hidden overflow-x-auto md:block">
-                    <table className="min-w-full text-sm">
-                      <thead className="bg-secondary/30 text-muted-foreground">
-                        <tr>
-                          <th className="px-3 py-2 text-left font-medium">{t.paymentDate}</th>
-                          <th className="px-3 py-2 text-left font-medium">{t.paymentMethod}</th>
-                          <th className="px-3 py-2 text-left font-medium">{t.paymentType}</th>
-                          <th className="px-3 py-2 text-right font-medium">{t.paymentAmount}</th>
-                          <th className="px-3 py-2 text-right font-medium">{t.paymentActions}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
+                <div className="mt-4">
+                  <h3 className="mb-2 font-heading text-sm font-semibold">{t.paymentHistory}</h3>
+                  {payments.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">{t.noPayments}</p>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="grid gap-2 md:hidden">
                         {payments.map((payment) => {
                           const canMutate = isManualPaymentEntry(payment);
 
                           return (
-                            <tr key={payment._id} className="border-t border-border/60 odd:bg-background even:bg-secondary/10">
-                              <td className="px-3 py-2">{formatDateTime(payment.paidAt || payment.createdAt, locale as Locale)}</td>
-                              <td className="px-3 py-2">{payment.method ? paymentMethodLabel(payment.method) : t.noData}</td>
-                              <td className="px-3 py-2">{paymentTypeLabel(payment.type)}</td>
-                              <td className="px-3 py-2 text-right font-medium"><PriceDisplay cents={payment.amount} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} /></td>
-                              <td className="px-3 py-2">
-                                <div className="flex justify-end gap-1.5">
-                                  {canMutate ? (
-                                    <>
-                                      <Button type="button" variant="outline" size="sm" className="h-8" onClick={() => setEditingPayment(payment)}>
-                                        <SquarePenIcon className="size-3.5" />
-                                        {t.editPayment}
-                                      </Button>
-                                      <Button type="button" variant="outline" size="sm" className="h-8 text-destructive hover:text-destructive" onClick={() => setDeletingPayment(payment)}>
-                                        <Trash2Icon className="size-3.5" />
-                                        {t.deletePayment}
-                                      </Button>
-                                    </>
-                                  ) : (
-                                    <p className="text-xs text-muted-foreground">{t.stripeLocked}</p>
-                                  )}
+                            <article
+                              key={payment._id}
+                              className={`rounded-xl border p-3 ${canMutate ? 'border-emerald-200/80 bg-linear-to-br from-white via-background to-emerald-50/40 dark:border-emerald-900/40 dark:from-background dark:to-emerald-950/10' : 'border-slate-200/80 bg-linear-to-br from-white via-background to-slate-100/60 dark:border-slate-700/70 dark:from-background dark:to-slate-900/40'}`}
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <div>
+                                  <p className="text-xs text-muted-foreground">{t.paymentDate}</p>
+                                  <p className="text-sm font-medium">{formatDateTime(payment.paidAt || payment.createdAt, locale as Locale)}</p>
                                 </div>
-                              </td>
-                            </tr>
+                                <PriceDisplay cents={payment.amount} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="text-base font-semibold" />
+                              </div>
+
+                              <div className="mt-2 grid grid-cols-2 gap-2 text-xs sm:text-sm">
+                                <div>
+                                  <p className="text-muted-foreground">{t.paymentMethod}</p>
+                                  <p className="font-medium">{payment.method ? paymentMethodLabel(payment.method) : t.noData}</p>
+                                </div>
+                                <div>
+                                  <p className="text-muted-foreground">{t.paymentType}</p>
+                                  <p className="font-medium">{paymentTypeLabel(payment.type)}</p>
+                                </div>
+                              </div>
+
+                              <div className="mt-2 flex items-center justify-between gap-2">
+                                <p className="text-[11px] text-muted-foreground">{canMutate ? t.paymentSourceManual : t.paymentSourceStripe}</p>
+                                {!canMutate ? (
+                                  <p className="text-[11px] text-muted-foreground">{t.stripeLocked}</p>
+                                ) : null}
+                              </div>
+
+                              {canMutate ? (
+                                <div className="mt-2 grid grid-cols-2 gap-2">
+                                  <Button type="button" size="sm" variant="outline" className="h-8 min-w-0 px-2 text-xs" onClick={() => setEditingPayment(payment)}>
+                                    <SquarePenIcon className="size-3.5" />
+                                    {t.editPayment}
+                                  </Button>
+                                  <Button type="button" size="sm" variant="outline" className="h-8 min-w-0 px-2 text-xs text-destructive hover:text-destructive" onClick={() => setDeletingPayment(payment)}>
+                                    <Trash2Icon className="size-3.5" />
+                                    {t.deletePayment}
+                                  </Button>
+                                </div>
+                              ) : null}
+                            </article>
                           );
                         })}
-                      </tbody>
-                    </table>
+                      </div>
+
+                      <div className="hidden overflow-x-auto md:block">
+                        <table className="min-w-full text-sm">
+                          <thead className="bg-secondary/30 text-muted-foreground">
+                            <tr>
+                              <th className="px-3 py-2 text-left font-medium">{t.paymentDate}</th>
+                              <th className="px-3 py-2 text-left font-medium">{t.paymentMethod}</th>
+                              <th className="px-3 py-2 text-left font-medium">{t.paymentType}</th>
+                              <th className="px-3 py-2 text-right font-medium">{t.paymentAmount}</th>
+                              <th className="px-3 py-2 text-right font-medium">{t.paymentActions}</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {payments.map((payment) => {
+                              const canMutate = isManualPaymentEntry(payment);
+
+                              return (
+                                <tr key={payment._id} className="border-t border-border/60 odd:bg-background even:bg-secondary/10">
+                                  <td className="px-3 py-2">{formatDateTime(payment.paidAt || payment.createdAt, locale as Locale)}</td>
+                                  <td className="px-3 py-2">{payment.method ? paymentMethodLabel(payment.method) : t.noData}</td>
+                                  <td className="px-3 py-2">{paymentTypeLabel(payment.type)}</td>
+                                  <td className="px-3 py-2 text-right font-medium"><PriceDisplay cents={payment.amount} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} /></td>
+                                  <td className="px-3 py-2">
+                                    <div className="flex justify-end gap-1.5">
+                                      {canMutate ? (
+                                        <>
+                                          <Button type="button" variant="outline" size="sm" className="h-8" onClick={() => setEditingPayment(payment)}>
+                                            <SquarePenIcon className="size-3.5" />
+                                            {t.editPayment}
+                                          </Button>
+                                          <Button type="button" variant="outline" size="sm" className="h-8 text-destructive hover:text-destructive" onClick={() => setDeletingPayment(payment)}>
+                                            <Trash2Icon className="size-3.5" />
+                                            {t.deletePayment}
+                                          </Button>
+                                        </>
+                                      ) : (
+                                        <p className="text-xs text-muted-foreground">{t.stripeLocked}</p>
+                                      )}
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </section>
+
+              {/* Summary section */}
+              <section className="rounded-xl border border-border/70 bg-card p-4">
+                <header className="mb-3 flex flex-col gap-1 border-b border-border/60 pb-3">
+                  <h2 className="font-heading text-base font-semibold">{translate(locale as Locale, 'invoices.sections.summary')}</h2>
+                  <p className="text-xs text-muted-foreground">{translate(locale as Locale, 'invoices.sections.summaryDescription')}</p>
+                </header>
+                <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
+                  <div className="rounded-xl border border-border/60 bg-background px-3 py-3">
+                    <p className="text-xs text-muted-foreground">{t.totalInvoiceAmount}</p>
+                    <PriceDisplay cents={invoice.totalIncludingTax} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="mt-1 block whitespace-nowrap text-base font-semibold text-foreground tabular-nums" />
+                  </div>
+                  <div className="rounded-xl border border-border/60 bg-background px-3 py-3">
+                    <p className="text-xs text-muted-foreground">{t.totalPaid}</p>
+                    <PriceDisplay cents={totalPaidAmount} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="mt-1 block whitespace-nowrap text-base font-semibold text-foreground tabular-nums" />
+                  </div>
+                  <div className="rounded-xl border border-border/60 bg-background px-3 py-3">
+                    <p className="text-xs text-muted-foreground">{t.remaining}</p>
+                    <PriceDisplay cents={remainingAmount} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="mt-1 block whitespace-nowrap text-base font-semibold text-foreground tabular-nums" />
                   </div>
                 </div>
-              )}
-            </section>
+              </section>
+
+              <section className="print:hidden">
+                <CollectionTab
+                  layout="history"
+                  invoiceId={invoice._id}
+                  locale={locale as Locale}
+                  invoiceStatus={invoice.status}
+                  clientName={invoice.clientSnapshot.fullName}
+                  invoiceNumber={invoice.invoiceNumber}
+                  dueDate={invoice.dueDate}
+                  invoiceDate={invoice.date}
+                  amountDue={remainingAmount}
+                  companyName={company?.companyName ?? company?.ownerName ?? null}
+                  reminderState={invoice.reminderState}
+                  onInvoiceRefresh={loadData}
+                />
+              </section>
+            </div>
 
             {invoice.notes ? (
-              <section className="mb-4 rounded-xl border border-border/70 bg-card p-4">
+              <section className="mt-4 mb-4 rounded-xl border border-border/70 bg-card p-4">
                 <h2 className="mb-2 font-heading text-base font-semibold">{t.notes}</h2>
                 <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">{invoice.notes}</p>
               </section>
@@ -938,6 +1112,32 @@ export default function InvoiceDetailPage() {
           onConfirm={updatePaymentEntry}
         />
       ) : null}
+
+      <AlertDialog
+        open={invoiceDeleteDialogOpen}
+        onOpenChange={(nextOpen) => {
+          if (!deletingInvoice) {
+            setInvoiceDeleteDialogOpen(nextOpen);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t.deleteInvoiceTitle}</AlertDialogTitle>
+            <AlertDialogDescription>{t.deleteInvoiceDescription}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel asChild>
+              <Button type="button" variant="outline" disabled={deletingInvoice}>{t.confirmDeleteCancel}</Button>
+            </AlertDialogCancel>
+            <AlertDialogAction asChild>
+              <Button type="button" variant="destructive" disabled={deletingInvoice} onClick={deleteInvoice}>
+                {deletingInvoice ? t.deletingInvoice : t.deleteInvoiceAction}
+              </Button>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={Boolean(deletingPayment)} onOpenChange={(nextOpen) => {
         if (!nextOpen) {

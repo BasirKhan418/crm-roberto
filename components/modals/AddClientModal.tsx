@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, type ChangeEvent } from 'react';
+import { useEffect, useState, type ChangeEvent, type ReactNode } from 'react';
 
 import { toast } from 'sonner';
 
@@ -26,15 +26,43 @@ function isTitlePreset(value: string): value is TitlePreset {
 function FieldLabel({
   text,
   required = false,
+  action,
 }: {
   text: string;
   required?: boolean;
+  action?: ReactNode;
 }) {
   return (
-    <Label>
+    <div className="flex items-center justify-between gap-2">
+      <Label>
+        {text}
+        {required ? <span className="ml-1 text-red-600 dark:text-red-400">*</span> : null}
+      </Label>
+      {action}
+    </div>
+  );
+}
+
+function FieldActionButton({
+  text,
+  onClick,
+  disabled = false,
+}: {
+  text: string;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <Button
+      type="button"
+      variant="link"
+      size="sm"
+      className="h-auto px-0 text-xs"
+      onClick={onClick}
+      disabled={disabled}
+    >
       {text}
-      {required ? <span className="ml-1 text-red-600 dark:text-red-400">*</span> : null}
-    </Label>
+    </Button>
   );
 }
 
@@ -187,6 +215,7 @@ export default function AddClientModal({
       companyPhone: 'Company Phone',
       privatePhone: 'Private Phone',
       mobilePhone: 'Mobile Phone',
+      sameAsMain: 'Same as main',
       additionalDescription: 'Additional Description',
       cancel: 'Cancel',
       saving: 'Saving...',
@@ -234,6 +263,7 @@ export default function AddClientModal({
       companyPhone: 'T\u00e9l\u00e9phone entreprise',
       privatePhone: 'T\u00e9l\u00e9phone priv\u00e9',
       mobilePhone: 'T\u00e9l\u00e9phone mobile',
+      sameAsMain: 'Identique au principal',
       additionalDescription: 'Description compl\u00e9mentaire',
       cancel: 'Annuler',
       saving: 'Enregistrement...',
@@ -549,17 +579,53 @@ export default function AddClientModal({
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-1.5"><FieldLabel text={t.responsibleEmail} /><Input type="email" value={form.responsibleEmail} onChange={(e) => setForm((p) => ({ ...p, responsibleEmail: e.target.value }))} /></div>
-              <div className="space-y-1.5"><FieldLabel text={t.billingEmail} /><Input type="email" value={form.billingEmail} onChange={(e) => setForm((p) => ({ ...p, billingEmail: e.target.value }))} /></div>
+              <div className="space-y-1.5">
+                <FieldLabel
+                  text={t.billingEmail}
+                  action={
+                    <FieldActionButton
+                      text={t.sameAsMain}
+                      onClick={() => setForm((p) => ({ ...p, billingEmail: p.responsibleEmail }))}
+                      disabled={!form.responsibleEmail.trim()}
+                    />
+                  }
+                />
+                <Input type="email" value={form.billingEmail} onChange={(e) => setForm((p) => ({ ...p, billingEmail: e.target.value }))} />
+              </div>
             </div>
             {form.clientType === 'company' ? (
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5"><FieldLabel text={t.companyPhone} /><Input value={form.companyPhone} onChange={(e) => setForm((p) => ({ ...p, companyPhone: e.target.value }))} /></div>
-                <div className="space-y-1.5"><FieldLabel text={t.mobilePhone} /><Input value={form.mobilePhone} onChange={(e) => setForm((p) => ({ ...p, mobilePhone: e.target.value }))} /></div>
+                <div className="space-y-1.5">
+                  <FieldLabel
+                    text={t.mobilePhone}
+                    action={
+                      <FieldActionButton
+                        text={t.sameAsMain}
+                        onClick={() => setForm((p) => ({ ...p, mobilePhone: p.companyPhone }))}
+                        disabled={!form.companyPhone.trim()}
+                      />
+                    }
+                  />
+                  <Input value={form.mobilePhone} onChange={(e) => setForm((p) => ({ ...p, mobilePhone: e.target.value }))} />
+                </div>
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5"><FieldLabel text={t.privatePhone} /><Input value={form.privatePhone} onChange={(e) => setForm((p) => ({ ...p, privatePhone: e.target.value }))} /></div>
-                <div className="space-y-1.5"><FieldLabel text={t.mobilePhone} /><Input value={form.mobilePhone} onChange={(e) => setForm((p) => ({ ...p, mobilePhone: e.target.value }))} /></div>
+                <div className="space-y-1.5">
+                  <FieldLabel
+                    text={t.mobilePhone}
+                    action={
+                      <FieldActionButton
+                        text={t.sameAsMain}
+                        onClick={() => setForm((p) => ({ ...p, mobilePhone: p.privatePhone }))}
+                        disabled={!form.privatePhone.trim()}
+                      />
+                    }
+                  />
+                  <Input value={form.mobilePhone} onChange={(e) => setForm((p) => ({ ...p, mobilePhone: e.target.value }))} />
+                </div>
               </div>
             )}
             <div className="space-y-1.5">

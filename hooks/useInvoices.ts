@@ -4,13 +4,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 export type InvoiceStatus = 'unpaid' | 'partial_paid' | 'paid' | 'overdue';
 export type InvoiceStatusFilter = 'all' | InvoiceStatus;
-export type InvoiceSort = 'date' | 'amount';
+export type InvoiceSort = 'number_desc' | 'number_asc' | 'date' | 'amount';
 
 export interface InvoiceListItem {
   _id: string;
   invoiceNumber: string;
   quoteId?: string | null;
   quoteNumber?: string | null;
+  sentAt?: string | null;
   date: string;
   dueDate?: string | null;
   status: InvoiceStatus;
@@ -23,6 +24,16 @@ export interface InvoiceListItem {
   amountPaid?: number;
   remainingAmount?: number;
   paymentProgressPercent?: number;
+  recurrence?: {
+    isActive?: boolean;
+  };
+  reminderState?: {
+    level?: number | null;
+    lastSentAt?: string | null;
+    nextScheduledAt?: string | null;
+    isPaused?: boolean;
+    formalNoticeSentAt?: string | null;
+  };
   clientId: string;
   clientSnapshot: {
     fullName: string;
@@ -49,6 +60,10 @@ interface InvoicesPagination {
   totalPages: number;
 }
 
+interface UseInvoicesOptions {
+  clientId?: string;
+}
+
 const initialPagination: InvoicesPagination = {
   page: 1,
   limit: 10,
@@ -59,9 +74,10 @@ const initialPagination: InvoicesPagination = {
 export function useInvoices(
   filter: InvoiceStatusFilter = 'all',
   search = '',
-  sort: InvoiceSort = 'date',
+  sort: InvoiceSort = 'number_desc',
   page = 1,
-  limit = 10
+  limit = 10,
+  options?: UseInvoicesOptions
 ) {
   const [invoices, setInvoices] = useState<InvoiceListItem[]>([]);
   const [pagination, setPagination] = useState<InvoicesPagination>(initialPagination);
@@ -78,13 +94,23 @@ export function useInvoices(
       params.set('status', filter);
     }
 
+    // Keep unpaid / partial_paid filters mutually exclusive with overdue, so
+    // the list matches the sidebar badges and the "Overdue" tab.
+    if (filter === 'unpaid' || filter === 'partial_paid') {
+      params.set('excludeOverdue', 'true');
+    }
+
     const normalizedSearch = search.trim();
     if (normalizedSearch) {
       params.set('search', normalizedSearch);
     }
 
+    if (options?.clientId) {
+      params.set('clientId', options.clientId);
+    }
+
     return params.toString();
-  }, [filter, search, sort, page, limit]);
+  }, [filter, search, sort, page, limit, options?.clientId]);
 
   const fetchInvoices = useCallback(async () => {
     setLoading(true);

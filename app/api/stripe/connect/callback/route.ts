@@ -28,8 +28,13 @@ export async function GET(request: NextRequest) {
     connect.onboardingComplete = account.charges_enabled && account.payouts_enabled;
     await connect.save();
 
-    const status = connect.onboardingComplete ? 'complete' : 'pending';
-    return NextResponse.redirect(new URL(`/settings/stripe?status=${status}`, request.url));
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
+
+    if (connect.onboardingComplete) {
+      return NextResponse.redirect(new URL('/dashboard?stripe=complete', appUrl));
+    }
+
+    return NextResponse.redirect(new URL('/settings/stripe?status=pending', appUrl));
   } catch {
     return NextResponse.redirect(new URL('/settings/stripe?status=error', request.url));
   }

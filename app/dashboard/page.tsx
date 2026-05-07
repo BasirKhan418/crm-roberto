@@ -1,13 +1,17 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { ArrowDownIcon, ArrowUpIcon } from 'lucide-react';
+import { toast } from 'sonner';
 
 import ActivityFeed from '@/components/dashboard/ActivityFeed';
+import CollectionWidget from '@/components/dashboard/CollectionWidget';
 import PriorityActionsPanel from '@/components/dashboard/PriorityActionsPanel';
 import QuickAddButtons from '@/components/dashboard/QuickAddButtons';
 import RecentQuotes from '@/components/dashboard/RecentQuotes';
 import StatCards from '@/components/dashboard/StatCards';
+import UpcomingRecurrencesWidget from '@/components/dashboard/UpcomingRecurrencesWidget';
 import CrmShell from '@/components/crm-shell';
 import BaseAddModal from '@/components/modals/BaseAddModal';
 import { useLocale } from '@/components/providers/locale-provider';
@@ -15,20 +19,23 @@ import { Button } from '@/components/ui/button';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import { useDashboard } from '@/hooks/useDashboard';
 
-type DashboardBlockKey = 'smartActions' | 'stats' | 'activity' | 'recentQuotes';
+type DashboardBlockKey = 'smartActions' | 'stats' | 'collection' | 'activity' | 'recentQuotes' | 'recurrences';
 type DashboardPrefs = {
   order: DashboardBlockKey[];
   visible: Record<DashboardBlockKey, boolean>;
 };
 
-const DASHBOARD_PREFS_KEY = 'crm.dashboard.blocks.v2';
+const DASHBOARD_PREFS_KEY = 'crm.dashboard.blocks.v3';
 const LEGACY_DASHBOARD_PREFS_KEY = 'crm.dashboard.blocks.v1';
-const DEFAULT_BLOCK_ORDER: DashboardBlockKey[] = ['smartActions', 'stats', 'activity', 'recentQuotes'];
+const LEGACY_DASHBOARD_PREFS_KEY_V2 = 'crm.dashboard.blocks.v2';
+const DEFAULT_BLOCK_ORDER: DashboardBlockKey[] = ['smartActions', 'stats', 'collection', 'activity', 'recentQuotes', 'recurrences'];
 const DEFAULT_BLOCK_VISIBILITY: Record<DashboardBlockKey, boolean> = {
   smartActions: true,
   stats: true,
+  collection: true,
   activity: true,
   recentQuotes: true,
+  recurrences: true,
 };
 
 function normalizeDashboardPrefs(raw: unknown): DashboardPrefs {
@@ -53,8 +60,10 @@ function normalizeDashboardPrefs(raw: unknown): DashboardPrefs {
   const visible: Record<DashboardBlockKey, boolean> = {
     smartActions: typeof visibleCandidate.smartActions === 'boolean' ? visibleCandidate.smartActions : DEFAULT_BLOCK_VISIBILITY.smartActions,
     stats: typeof visibleCandidate.stats === 'boolean' ? visibleCandidate.stats : DEFAULT_BLOCK_VISIBILITY.stats,
+    collection: typeof visibleCandidate.collection === 'boolean' ? visibleCandidate.collection : DEFAULT_BLOCK_VISIBILITY.collection,
     activity: typeof visibleCandidate.activity === 'boolean' ? visibleCandidate.activity : DEFAULT_BLOCK_VISIBILITY.activity,
     recentQuotes: typeof visibleCandidate.recentQuotes === 'boolean' ? visibleCandidate.recentQuotes : DEFAULT_BLOCK_VISIBILITY.recentQuotes,
+    recurrences: typeof visibleCandidate.recurrences === 'boolean' ? visibleCandidate.recurrences : DEFAULT_BLOCK_VISIBILITY.recurrences,
   };
 
   return { order: normalizedOrder, visible };
@@ -66,8 +75,10 @@ function persistDashboardPrefs(prefs: DashboardPrefs) {
   window.localStorage.setItem(LEGACY_DASHBOARD_PREFS_KEY, payload);
 }
 
-export default function DashboardPage() {
+function DashboardPageContent() {
   const { locale } = useLocale();
+  const searchParams = useSearchParams();
+  const handledStripeReturnRef = useRef(false);
   const t = {
     en: {
       title: 'Dashboard',
@@ -82,9 +93,12 @@ export default function DashboardPage() {
       moveDown: 'Move down',
       blockSmartActions: 'Smart Actions',
       blockStats: 'Top insights',
+      blockCollection: 'Collection',
       blockActivity: 'Recent Activity',
       blockRecentQuotes: 'Recent Quotes',
+      blockRecurrences: 'Upcoming Recurrences',
       sectionAria: 'Dashboard content',
+      stripeConnected: 'Stripe connected successfully',
     },
     fr: {
       title: 'Tableau de bord',
@@ -99,9 +113,12 @@ export default function DashboardPage() {
       moveDown: 'Descendre',
       blockSmartActions: 'Actions intelligentes',
       blockStats: 'Indicateurs clés',
+      blockCollection: 'Recouvrement',
       blockActivity: 'Activité récente',
       blockRecentQuotes: 'Devis récents',
+      blockRecurrences: 'Prochaines récurrences',
       sectionAria: 'Contenu du tableau de bord',
+      stripeConnected: 'Stripe connecté avec succès',
     },
   }[locale];
 
@@ -118,17 +135,20 @@ export default function DashboardPage() {
     () => ({
       smartActions: t.blockSmartActions,
       stats: t.blockStats,
+      collection: t.blockCollection,
       activity: t.blockActivity,
       recentQuotes: t.blockRecentQuotes,
+      recurrences: t.blockRecurrences,
     }),
-    [t.blockActivity, t.blockRecentQuotes, t.blockSmartActions, t.blockStats],
+    [t.blockActivity, t.blockCollection, t.blockRecurrences, t.blockRecentQuotes, t.blockSmartActions, t.blockStats],
   );
 
   useEffect(() => {
     try {
-      const rawV2 = window.localStorage.getItem(DASHBOARD_PREFS_KEY);
+      const rawV3 = window.localStorage.getItem(DASHBOARD_PREFS_KEY);
+      const rawV2 = window.localStorage.getItem(LEGACY_DASHBOARD_PREFS_KEY_V2);
       const rawV1 = window.localStorage.getItem(LEGACY_DASHBOARD_PREFS_KEY);
-      const raw = rawV2 ?? rawV1;
+      const raw = rawV3 ?? rawV2 ?? rawV1;
       if (!raw) return;
       const normalized = normalizeDashboardPrefs(JSON.parse(raw));
 
@@ -159,6 +179,22 @@ export default function DashboardPage() {
       // Ignore storage write failures.
     }
   }, [blockOrder, hasLoadedPrefs, visibleBlocks]);
+
+  useEffect(() => {
+    if (handledStripeReturnRef.current) {
+      return;
+    }
+
+    if (searchParams.get('stripe') !== 'complete') {
+      return;
+    }
+
+    handledStripeReturnRef.current = true;
+    toast.success(t.stripeConnected);
+
+    window.history.replaceState(window.history.state, '', '/dashboard');
+    window.history.pushState(window.history.state, '', '/dashboard');
+  }, [searchParams, t.stripeConnected]);
 
   function handleQuickAddSuccess() {
     setStatsRefreshKey((prev) => prev + 1);
@@ -231,12 +267,24 @@ export default function DashboardPage() {
             );
           }
 
+          if (blockKey === 'collection') {
+            return (
+              <div key={blockKey} data-tour-dashboard-collection>
+                <CollectionWidget />
+              </div>
+            );
+          }
+
           if (blockKey === 'activity') {
             return (
               <div key={blockKey} data-tour-dashboard-activity>
                 <ActivityFeed activity={activity} loading={loading} error={activityError} onActionSuccess={handleQuickAddSuccess} />
               </div>
             );
+          }
+
+          if (blockKey === 'recurrences') {
+            return <UpcomingRecurrencesWidget key={blockKey} />;
           }
 
           return (
@@ -277,5 +325,13 @@ export default function DashboardPage() {
         </BaseAddModal>
       ) : null}
     </CrmShell>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Chargement...</div>}>
+      <DashboardPageContent />
+    </Suspense>
   );
 }

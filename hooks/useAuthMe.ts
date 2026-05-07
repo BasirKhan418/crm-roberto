@@ -6,6 +6,7 @@ interface AuthUser {
   id: string;
   name: string;
   email: string;
+  locale?: 'en' | 'fr';
   isOnboardingComplete?: boolean;
 }
 

@@ -357,7 +357,7 @@ export default function FollowUpsList({ followUps = [], loading = false, error =
 
   return (
     <>
-      <Card className="flex h-full flex-col gap-0 overflow-hidden">
+      <Card className="flex h-full flex-col gap-0 overflow-hidden pt-0">
       <CardHeader className="border-b bg-slate-50 px-5 py-3.5 dark:bg-slate-900/40">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle className="text-[11px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">

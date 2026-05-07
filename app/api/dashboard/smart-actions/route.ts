@@ -12,6 +12,7 @@ import { getCompanyProfileByUserId } from '@/db/repository/cprofile';
 import { extractClientSnapshot } from '@/lib/address';
 import { sendInvoice } from '@/lib/email';
 import { resolveLocaleFromRequest } from '@/lib/i18n/locale';
+import { getNextInvoiceNumberForYear, isInvoiceNumberDuplicateError } from '@/lib/invoice-number';
 import { InvoicePdfTemplate } from '@/lib/pdf/InvoicePdfTemplate';
 import getMe from '@/utils/middlewares/useMe';
 
@@ -45,6 +46,14 @@ interface InactiveClientTarget {
 interface OverdueInvoiceTarget {
   _id: string;
   invoiceNumber: string;
+  status: 'unpaid' | 'overdue';
+  dueDate?: string | null;
+  reminderState?: {
+    level?: number | null;
+  };
+  recurrence?: {
+    isActive?: boolean;
+  };
   clientSnapshot: {
     fullName: string;
     email?: string | null;
@@ -68,6 +77,7 @@ interface SmartActionsResponse {
   overdueInvoices: {
     count: number;
     target: OverdueInvoiceTarget | null;
+    items: OverdueInvoiceTarget[];
   };
 }
 
@@ -129,11 +139,10 @@ async function buildSmartActions(userId: string): Promise<SmartActionsResponse> 
       .lean(),
     Invoice.find({
       userId: userObjectId,
-      dueDate: { $ne: null, $lt: new Date(now) },
-      status: { $ne: 'paid' },
+      status: { $in: ['unpaid', 'overdue'] },
     })
-      .sort({ dueDate: 1 })
-      .select('_id invoiceNumber clientSnapshot.fullName clientSnapshot.email dueDate status')
+      .sort({ dueDate: 1, createdAt: -1 })
+      .select('_id invoiceNumber clientSnapshot.fullName clientSnapshot.email dueDate status recurrence.isActive reminderState.level')
       .lean(),
     Client.find({ user: userId })
       .select('_id fullName email createdAt updatedAt')
@@ -200,6 +209,14 @@ async function buildSmartActions(userId: string): Promise<SmartActionsResponse> 
   const overdueInvoices = overdueInvoicesRaw as Array<{
     _id: mongoose.Types.ObjectId;
     invoiceNumber: string;
+    status: 'unpaid' | 'overdue';
+    dueDate?: Date | null;
+    reminderState?: {
+      level?: number | null;
+    } | null;
+    recurrence?: {
+      isActive?: boolean;
+    } | null;
     clientSnapshot: { fullName: string; email?: string | null };
   }>;
 
@@ -248,30 +265,42 @@ async function buildSmartActions(userId: string): Promise<SmartActionsResponse> 
         ? {
             _id: String(overdueInvoices[0]._id),
             invoiceNumber: overdueInvoices[0].invoiceNumber,
+            status: overdueInvoices[0].status,
+            dueDate: overdueInvoices[0].dueDate ? new Date(overdueInvoices[0].dueDate).toISOString() : null,
+            recurrence: {
+              isActive: overdueInvoices[0].recurrence?.isActive === true,
+            },
+            reminderState: {
+              level: Number.isFinite(overdueInvoices[0].reminderState?.level)
+                ? Math.max(0, Math.min(4, Math.round(Number(overdueInvoices[0].reminderState?.level))))
+                : 0,
+            },
             clientSnapshot: {
               fullName: overdueInvoices[0].clientSnapshot?.fullName ?? 'Client',
               email: overdueInvoices[0].clientSnapshot?.email ?? null,
             },
           }
         : null,
+      items: overdueInvoices.slice(0, 8).map((invoice) => ({
+        _id: String(invoice._id),
+        invoiceNumber: invoice.invoiceNumber,
+        status: invoice.status,
+        dueDate: invoice.dueDate ? new Date(invoice.dueDate).toISOString() : null,
+        recurrence: {
+          isActive: invoice.recurrence?.isActive === true,
+        },
+        reminderState: {
+          level: Number.isFinite(invoice.reminderState?.level)
+            ? Math.max(0, Math.min(4, Math.round(Number(invoice.reminderState?.level))))
+            : 0,
+        },
+        clientSnapshot: {
+          fullName: invoice.clientSnapshot?.fullName ?? 'Client',
+          email: invoice.clientSnapshot?.email ?? null,
+        },
+      })),
     },
   };
-}
-
-async function allocateInvoiceNumber(): Promise<string> {
-  const year = new Date().getFullYear();
-  const prefix = `INV-${year}-`;
-
-  for (let attempt = 0; attempt < 200; attempt += 1) {
-    const count = await Invoice.countDocuments({ invoiceNumber: { $regex: `^${prefix}` } });
-    const candidate = `${prefix}${String(count + 1 + attempt).padStart(4, '0')}`;
-    const exists = await Invoice.exists({ invoiceNumber: candidate });
-    if (!exists) {
-      return candidate;
-    }
-  }
-
-  throw new Error('Could not allocate invoice number');
 }
 
 async function createInvoiceFromQuote(userId: string, quoteId: string) {
@@ -345,27 +374,42 @@ async function createInvoiceFromQuote(userId: string, quoteId: string) {
     };
   }
 
-  const invoiceNumber = await allocateInvoiceNumber();
   const date = new Date();
   const dueDate = new Date(date.getTime() + 30 * DAY_IN_MS);
 
-  const created = await Invoice.create({
-    invoiceNumber,
-    quoteId: quoteDoc._id,
-    quoteNumber: quoteDoc.quoteNumber,
-    date,
-    dueDate,
-    status: 'unpaid',
-    clientId: quoteDoc.clientId,
-    clientSnapshot: quoteDoc.clientSnapshot,
-    lineItems: quoteDoc.lineItems,
-    totalExcludingTax: quoteDoc.totalExcludingTax,
-    totalVat: quoteDoc.totalVat,
-    totalIncludingTax: quoteDoc.totalIncludingTax,
-    depositPercentage: 100,
-    notes: quoteDoc.notes ?? null,
-    userId: toObjectId(userId),
-  });
+  let created: (mongoose.Document & { _id: mongoose.Types.ObjectId }) | null = null;
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const invoiceNumber = await getNextInvoiceNumberForYear(userId, date.getFullYear());
+
+    try {
+      created = await Invoice.create({
+        invoiceNumber,
+        quoteId: quoteDoc._id,
+        quoteNumber: quoteDoc.quoteNumber,
+        date,
+        dueDate,
+        status: 'unpaid',
+        clientId: quoteDoc.clientId,
+        clientSnapshot: quoteDoc.clientSnapshot,
+        lineItems: quoteDoc.lineItems,
+        totalExcludingTax: quoteDoc.totalExcludingTax,
+        totalVat: quoteDoc.totalVat,
+        totalIncludingTax: quoteDoc.totalIncludingTax,
+        depositPercentage: 100,
+        notes: quoteDoc.notes ?? null,
+        userId: toObjectId(userId),
+      });
+      break;
+    } catch (error) {
+      if (!isInvoiceNumberDuplicateError(error) || attempt === 4) {
+        throw error;
+      }
+    }
+  }
+
+  if (!created) {
+    throw new Error('Could not allocate invoice number');
+  }
 
   await Quote.updateOne(
     { _id: quoteDoc._id, user: userId },

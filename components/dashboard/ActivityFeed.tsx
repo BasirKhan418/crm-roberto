@@ -27,6 +27,30 @@ const ENTITY_TO_PATH: Record<string, string> = {
   invoice: 'invoices',
 };
 
+function getRecurrenceGeneratedInvoiceId(item: ActivityItem): string | null {
+  if (item.action !== 'invoice_recurrence_generated') {
+    return null;
+  }
+
+  const newInvoiceId = item.metadata?.newInvoiceId;
+  return typeof newInvoiceId === 'string' && newInvoiceId.trim() ? newInvoiceId.trim() : null;
+}
+
+function getActivityInvoiceName(item: ActivityItem): string | null {
+  if (item.entityType !== 'invoice') {
+    return item.entityName || null;
+  }
+
+  if (item.action === 'invoice_recurrence_generated') {
+    const newInvoiceNumber = item.metadata?.newInvoiceNumber;
+    if (typeof newInvoiceNumber === 'string' && newInvoiceNumber.trim()) {
+      return newInvoiceNumber.trim();
+    }
+  }
+
+  return item.entityName || null;
+}
+
 function buildActivityPath(item: ActivityItem): string | null {
   const isDeleted = item.action?.endsWith('_deleted');
   if (isDeleted) return null;
@@ -35,6 +59,10 @@ function buildActivityPath(item: ActivityItem): string | null {
   if (entityType === 'note') return '/notes';
   const basePath = ENTITY_TO_PATH[entityType];
   if (!basePath) return null;
+  const recurrenceGeneratedInvoiceId = getRecurrenceGeneratedInvoiceId(item);
+  if (basePath === 'invoices' && recurrenceGeneratedInvoiceId) {
+    return `/invoices/${recurrenceGeneratedInvoiceId}`;
+  }
   return item.entityId ? `/${basePath}/${item.entityId}` : `/${basePath}`;
 }
 
@@ -72,30 +100,6 @@ const DEFAULT_ENTITY = {
   labelColor: 'text-slate-600 dark:text-slate-400',
 };
 
-type ActionBadge = { badgeClass: string };
-
-const ACTION_BADGE: Record<string, ActionBadge> = {
-  client_created: { badgeClass: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' },
-  client_updated: { badgeClass: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300' },
-  client_deleted: { badgeClass: 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300' },
-  supplier_created: { badgeClass: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' },
-  supplier_updated: { badgeClass: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300' },
-  supplier_deleted: { badgeClass: 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300' },
-  note_created: { badgeClass: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' },
-  note_updated: { badgeClass: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300' },
-  note_deleted: { badgeClass: 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300' },
-  quote_created: { badgeClass: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' },
-  quote_duplicated: { badgeClass: 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300' },
-  quote_updated: { badgeClass: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300' },
-  quote_deleted: { badgeClass: 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300' },
-  quote_client_replied: { badgeClass: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
-  quote_status_changed: { badgeClass: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
-  invoice_created: { badgeClass: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' },
-  invoice_payment_received: { badgeClass: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' },
-  invoice_payment_updated: { badgeClass: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
-  invoice_payment_deleted: { badgeClass: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300' },
-};
-
 interface ActivityFeedProps {
   activity?: ActivityItem[];
   loading?: boolean;
@@ -109,7 +113,7 @@ export default function ActivityFeed({ activity = [], loading = false, error = n
   const t = {
     title: translate(locale, 'activity.title'),
     empty: translate(locale, 'activity.empty'),
-    addNote: locale === 'fr' ? 'Ajouter une note' : 'Add Note',
+    addNote: locale === 'fr' ? 'Ajouter une note' : 'Add note',
   };
   const items = Array.isArray(activity) ? activity : [];
   const pagedItems = items.slice(0, 5);
@@ -117,7 +121,7 @@ export default function ActivityFeed({ activity = [], loading = false, error = n
 
   return (
     <>
-      <Card className="flex h-full flex-col gap-0 overflow-hidden">
+      <Card className="flex h-full flex-col gap-0 overflow-hidden pt-0">
       <CardHeader className="border-b bg-slate-50 px-5 py-3.5 dark:bg-slate-900/40">
         <div className="flex items-center justify-between gap-2">
           <CardTitle className="text-[11px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
@@ -159,13 +163,13 @@ export default function ActivityFeed({ activity = [], loading = false, error = n
           {!loading &&
             pagedItems.map((item, index) => {
               const entityCfg = ENTITY_CONFIG[item.entityType as keyof typeof ENTITY_CONFIG] ?? DEFAULT_ENTITY;
-              const badge = item.action ? ACTION_BADGE[item.action] : null;
               const headline = item.action
-                ? getActivityHeadline(locale, item.action)
+                ? getActivityHeadline(locale, item.action, item.metadata)
                 : translate(locale, 'activity.fallbackHeadline');
-              const entityName = item.entityType === 'invoice' && item.entityName
-                ? formatInvoiceDisplayNumber(locale, item.entityName)
-                : item.entityName;
+              const activityEntityName = getActivityInvoiceName(item);
+              const entityName = item.entityType === 'invoice' && activityEntityName
+                ? formatInvoiceDisplayNumber(locale, activityEntityName)
+                : activityEntityName;
               const isDeleted = item.action?.endsWith('_deleted');
               const path = buildActivityPath(item);
               const key = item._id ?? `${item.createdAt ?? 'activity'}-${index}`;
@@ -215,7 +219,7 @@ export default function ActivityFeed({ activity = [], loading = false, error = n
           ) : null}
         </div>
 
-        {items.length > 5 ? <div className="px-5 py-2 text-[11px] text-muted-foreground">+{items.length - 5} more items</div> : null}
+        {items.length > 5 ? <div className="px-5 py-2 text-[11px] text-muted-foreground">{translate(locale, 'activity.moreItems', { count: items.length - 5 })}</div> : null}
       </CardContent>
       </Card>
       {isAddNoteOpen ? <AddNoteModal onClose={() => setIsAddNoteOpen(false)} onSuccess={onActionSuccess} /> : null}

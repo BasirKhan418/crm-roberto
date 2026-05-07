@@ -6,12 +6,12 @@ import {
   Text,
   View,
 } from '@react-pdf/renderer';
-import { formatStructuredAddress, hasStructuredAddress } from '@/lib/address';
+import { hasStructuredAddress } from '@/lib/address';
 import type { AddressDetails as SharedAddressDetails } from '@/lib/address';
 
 type QuoteStatus = 'draft' | 'sent' | 'accepted' | 'refused' | 'rejected';
 
-interface QuoteAddressDetails extends SharedAddressDetails {}
+type QuoteAddressDetails = SharedAddressDetails;
 
 interface CompanyData {
   companyName?: string;
@@ -46,6 +46,7 @@ interface QuoteLineItem {
   totalExcludingTax: number;
   vatAmount: number;
   totalIncludingTax: number;
+  lineType?: 'catalog' | 'custom' | 'free_text' | 'item' | null;
 }
 
 interface QuoteData {
@@ -343,6 +344,22 @@ const styles = StyleSheet.create({
   },
   rowLast: {
     borderBottomWidth: 0,
+  },
+  freeTextRow: {
+    flexDirection: 'row',
+    minHeight: 20,
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+    backgroundColor: '#f1f5f9',
+  },
+  freeTextCell: {
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    fontSize: 9,
+    fontStyle: 'italic',
+    color: '#475569',
+    width: '100%',
   },
   cell: {
     paddingHorizontal: 6,
@@ -762,30 +779,47 @@ export function QuotePdfTemplate({ quote, company, locale = 'en' }: QuotePdfTemp
               <Text style={[styles.cell, styles.colTotal, styles.right]}>{t.colTotal}</Text>
             </View>
 
-            {quote.lineItems.map((item, index) => (
-              <View
-                key={`${item.name}-${index}`}
-                wrap={false}
-                style={[
-                  styles.tableRow,
-                  ...(index % 2 === 1 ? [styles.rowAlt] : []),
-                  ...(index === quote.lineItems.length - 1 ? [styles.rowLast] : []),
-                ]}
-              >
-                <Text style={[styles.cell, styles.colDesc]}>
-                  {item.name}
-                </Text>
-                <Text style={[styles.cell, styles.colQty, styles.right]}>{item.quantity}</Text>
-                <Text style={[styles.cell, styles.colUnit, styles.right]}>{formatPrice(item.baseUnitPriceExcludingTax)}</Text>
-                <Text style={[styles.cell, styles.colDiscount, styles.right]}>
-                  {item.discountAmountExcludingTax > 0
-                    ? `${item.discountPercentage.toFixed(2)}% (- ${formatPrice(item.discountAmountExcludingTax)})`
-                    : '-'}
-                </Text>
-                <Text style={[styles.cell, styles.colVat, styles.right]}>{item.vatRate}%</Text>
-                <Text style={[styles.cell, styles.colTotal, styles.right]}>{formatPrice(item.totalExcludingTax)}</Text>
-              </View>
-            ))}
+            {quote.lineItems.map((item, index) => {
+              const isLast = index === quote.lineItems.length - 1;
+              if (item.lineType === 'free_text') {
+                return (
+                  <View
+                    key={`${item.name}-${index}`}
+                    wrap={false}
+                    style={[
+                      styles.freeTextRow,
+                      ...(isLast ? [styles.rowLast] : []),
+                    ]}
+                  >
+                    <Text style={styles.freeTextCell}>{item.name}</Text>
+                  </View>
+                );
+              }
+              return (
+                <View
+                  key={`${item.name}-${index}`}
+                  wrap={false}
+                  style={[
+                    styles.tableRow,
+                    ...(index % 2 === 1 ? [styles.rowAlt] : []),
+                    ...(isLast ? [styles.rowLast] : []),
+                  ]}
+                >
+                  <Text style={[styles.cell, styles.colDesc]}>
+                    {item.name}
+                  </Text>
+                  <Text style={[styles.cell, styles.colQty, styles.right]}>{item.quantity}</Text>
+                  <Text style={[styles.cell, styles.colUnit, styles.right]}>{formatPrice(item.baseUnitPriceExcludingTax)}</Text>
+                  <Text style={[styles.cell, styles.colDiscount, styles.right]}>
+                    {item.discountAmountExcludingTax > 0
+                      ? `${item.discountPercentage.toFixed(2)}% (- ${formatPrice(item.discountAmountExcludingTax)})`
+                      : '-'}
+                  </Text>
+                  <Text style={[styles.cell, styles.colVat, styles.right]}>{item.vatRate}%</Text>
+                  <Text style={[styles.cell, styles.colTotal, styles.right]}>{formatPrice(item.totalExcludingTax)}</Text>
+                </View>
+              );
+            })}
           </View>
         </View>
 

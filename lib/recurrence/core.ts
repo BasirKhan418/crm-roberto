@@ -1,0 +1,601 @@
+import type { DocumentProps } from '@react-pdf/renderer';
+import { renderToBuffer } from '@react-pdf/renderer';
+import dayjs from 'dayjs';
+import mongoose from 'mongoose';
+import React from 'react';
+
+import ConnectDb from '@/db/connectDb';
+import CompanyProfile from '@/db/models/CompanyProfile';
+import Invoice from '@/db/models/Invoice';
+import StripeConnect from '@/db/models/StripeConnect';
+import User from '@/db/models/User';
+import { ensureInvoiceIndexes } from '@/db/repository/ensureInvoiceIndexes';
+import ConnectEmailClient from '@/emails/connectEmailClient';
+import { sendInvoice } from '@/lib/email';
+import { getNextInvoiceNumberForYear, isInvoiceNumberDuplicateError } from '@/lib/invoice-number';
+import { InvoicePdfTemplate } from '@/lib/pdf/InvoicePdfTemplate';
+import { computeQuoteLine, computeQuoteTotalsFromComputedLines } from '@/lib/quote-calculations';
+import { resolveReminderLocalePreference } from '@/lib/reminders/formal-notice';
+import { buildInvoicePayUrl, generatePaymentToken, generateTokenExpiry, isTokenExpired } from '@/lib/tokens';
+
+export type RecurrenceFrequency = 'monthly' | 'quarterly' | 'yearly' | 'custom';
+
+export interface RecurrenceTemplateLineItem {
+  productId?: string | mongoose.Types.ObjectId | null;
+  productImageUrl?: string | null;
+  name: string;
+  quantity: number;
+  baseUnitPriceExcludingTax: number;
+  unitPriceExcludingTax: number;
+  discountPercentage: number;
+  vatRate: number;
+  totalExcludingTaxBeforeDiscount?: number;
+  discountAmountExcludingTax?: number;
+  totalExcludingTax: number;
+  vatAmount?: number;
+  totalIncludingTax?: number;
+}
+
+export interface RecurrenceTemplate {
+  lineItems: RecurrenceTemplateLineItem[];
+  totalExcludingTax: number;
+  totalVat: number;
+  totalIncludingTax: number;
+  depositPercentage?: number | null;
+  notes?: string | null;
+}
+
+export interface RecurrenceInput {
+  frequency: RecurrenceFrequency;
+  customIntervalDays?: number | null;
+  endDate?: Date | null;
+  nextOccurrenceAt?: Date | null;
+  autoGenerate?: boolean;
+  autoSend?: boolean;
+  template?: RecurrenceTemplate | null;
+}
+
+export interface RecurrenceInvoiceLike {
+  _id: mongoose.Types.ObjectId;
+  userId: mongoose.Types.ObjectId;
+  invoiceNumber: string;
+  quoteNumber?: string | null;
+  date?: Date | null;
+  dueDate?: Date | null;
+  status?: 'unpaid' | 'partial_paid' | 'paid' | 'overdue';
+  clientId: mongoose.Types.ObjectId;
+  clientSnapshot: {
+    fullName: string;
+    companyName?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    address?: string | null;
+    addressDetails?: {
+      streetNumber?: string | null;
+      streetName?: string | null;
+      postalCode?: string | null;
+      city?: string | null;
+      country?: string | null;
+    } | null;
+    vatNumber?: string | null;
+  };
+  lineItems: Array<{
+    productId?: mongoose.Types.ObjectId | null;
+    productImageUrl?: string | null;
+    name: string;
+    quantity: number;
+    unitPriceExcludingTax: number;
+    baseUnitPriceExcludingTax: number;
+    discountPercentage: number;
+    vatRate: number;
+    totalExcludingTaxBeforeDiscount: number;
+    discountAmountExcludingTax: number;
+    totalExcludingTax: number;
+    vatAmount: number;
+    totalIncludingTax: number;
+  }>;
+  totalExcludingTax: number;
+  totalVat: number;
+  totalIncludingTax: number;
+  depositPercentage?: number | null;
+  notes?: string | null;
+  paymentToken?: string | null;
+  paymentTokenExpiry?: Date | null;
+  recurrence?: {
+    isActive?: boolean;
+    frequency?: RecurrenceFrequency | null;
+    customIntervalDays?: number | null;
+    nextOccurrenceAt?: Date | null;
+    lastGeneratedAt?: Date | null;
+    lastGeneratedInvoiceId?: mongoose.Types.ObjectId | null;
+    endDate?: Date | null;
+    stoppedAt?: Date | null;
+    stoppedReason?: string | null;
+    autoGenerate?: boolean;
+    autoSend?: boolean;
+    template?: RecurrenceTemplate | null;
+  } | null;
+}
+
+export interface DuplicateRecurrenceResult {
+  newInvoice: RecurrenceInvoiceLike;
+  nextOccurrenceAt: Date | null;
+}
+
+type CloneableRecurrenceLineItem = {
+  productId?: mongoose.Types.ObjectId | string | null;
+  productImageUrl?: string | null;
+  name: string;
+  quantity: number;
+  unitPriceExcludingTax?: number;
+  baseUnitPriceExcludingTax?: number;
+  discountPercentage?: number;
+  vatRate?: number;
+  totalExcludingTaxBeforeDiscount?: number;
+  discountAmountExcludingTax?: number;
+  totalExcludingTax?: number;
+  vatAmount?: number;
+  totalIncludingTax?: number;
+};
+
+function toDateOrNull(value?: string | Date | null): Date | null {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = new Date(value);
+  return Number.isFinite(parsed.getTime()) ? parsed : null;
+}
+
+function toObjectIdOrNull(value?: string | mongoose.Types.ObjectId | null): mongoose.Types.ObjectId | null {
+  if (!value) {
+    return null;
+  }
+
+  if (value instanceof mongoose.Types.ObjectId) {
+    return value;
+  }
+
+  return mongoose.Types.ObjectId.isValid(value) ? new mongoose.Types.ObjectId(value) : null;
+}
+
+function cloneLineItemsForNewInvoice(items: CloneableRecurrenceLineItem[]): RecurrenceInvoiceLike['lineItems'] {
+  return items.map((item) => {
+    const quantity = Math.max(1, Math.round(item.quantity));
+    const baseUnitPriceExcludingTax = Math.max(
+      0,
+      Math.round(item.baseUnitPriceExcludingTax ?? item.unitPriceExcludingTax ?? 0)
+    );
+    const unitPriceExcludingTax = Math.max(
+      0,
+      Math.round(item.unitPriceExcludingTax ?? item.baseUnitPriceExcludingTax ?? 0)
+    );
+    const discountPercentage = Math.max(0, Math.min(100, Number(item.discountPercentage) || 0));
+    const vatRate = Math.max(0, Math.min(100, Number(item.vatRate) || 0));
+    const totalExcludingTaxBeforeDiscount = Math.max(
+      0,
+      Math.round(item.totalExcludingTaxBeforeDiscount ?? baseUnitPriceExcludingTax * quantity)
+    );
+    const totalExcludingTax = Math.max(0, Math.round(item.totalExcludingTax ?? unitPriceExcludingTax * quantity));
+    const discountAmountExcludingTax = Math.max(
+      0,
+      Math.round(item.discountAmountExcludingTax ?? Math.max(0, totalExcludingTaxBeforeDiscount - totalExcludingTax))
+    );
+    const vatAmount = Math.max(0, Math.round(item.vatAmount ?? totalExcludingTax * (vatRate / 100)));
+    const totalIncludingTax = Math.max(0, Math.round(item.totalIncludingTax ?? totalExcludingTax + vatAmount));
+
+    return {
+      productId: toObjectIdOrNull(item.productId),
+      productImageUrl: item.productImageUrl ?? null,
+      name: item.name,
+      quantity,
+      unitPriceExcludingTax,
+      baseUnitPriceExcludingTax,
+      discountPercentage,
+      vatRate,
+      totalExcludingTaxBeforeDiscount,
+      discountAmountExcludingTax,
+      totalExcludingTax,
+      vatAmount,
+      totalIncludingTax,
+    };
+  });
+}
+
+function computeGeneratedInvoiceDates(sourceInvoice: RecurrenceInvoiceLike, scheduledDueDate: Date): {
+  invoiceDate: Date;
+  dueDate: Date | null;
+} {
+  const sourceDate = toDateOrNull(sourceInvoice.date);
+  const sourceDueDate = toDateOrNull(sourceInvoice.dueDate);
+  const normalizedScheduledDueDate = new Date(scheduledDueDate);
+
+  if (sourceDate && sourceDueDate) {
+    const issueLeadMs = sourceDueDate.getTime() - sourceDate.getTime();
+    if (issueLeadMs >= 0) {
+      return {
+        invoiceDate: new Date(normalizedScheduledDueDate.getTime() - issueLeadMs),
+        dueDate: normalizedScheduledDueDate,
+      };
+    }
+  }
+
+  return {
+    invoiceDate: normalizedScheduledDueDate,
+    dueDate: sourceDueDate ? normalizedScheduledDueDate : null,
+  };
+}
+
+export function computeNextOccurrence(baseDate: Date, frequency: RecurrenceFrequency, customIntervalDays?: number | null): Date {
+  if (frequency === 'monthly') {
+    return dayjs(baseDate).add(1, 'month').toDate();
+  }
+
+  if (frequency === 'quarterly') {
+    return dayjs(baseDate).add(3, 'month').toDate();
+  }
+
+  if (frequency === 'yearly') {
+    return dayjs(baseDate).add(1, 'year').toDate();
+  }
+
+  return dayjs(baseDate).add(Math.max(1, Math.round(customIntervalDays ?? 1)), 'day').toDate();
+}
+
+export function normalizeRecurrencePayload(input: RecurrenceInput, invoiceDueDate?: Date | null): {
+  isActive: true;
+  frequency: RecurrenceFrequency;
+  customIntervalDays: number | null;
+  nextOccurrenceAt: Date;
+  endDate: Date | null;
+  autoGenerate: boolean;
+  autoSend: boolean;
+  stoppedAt: null;
+  stoppedReason: null;
+  template: RecurrenceTemplate | null;
+} {
+  const dueDate = toDateOrNull(invoiceDueDate) ?? new Date();
+  const customIntervalDays = input.frequency === 'custom' ? Math.max(1, Math.round(input.customIntervalDays ?? 1)) : null;
+  const nextOccurrenceAt =
+    toDateOrNull(input.nextOccurrenceAt) ?? computeNextOccurrence(dueDate, input.frequency, customIntervalDays);
+
+  const autoGenerate = input.autoGenerate === true;
+  const autoSend = autoGenerate && input.autoSend === true;
+
+  return {
+    isActive: true,
+    frequency: input.frequency,
+    customIntervalDays,
+    nextOccurrenceAt,
+    endDate: toDateOrNull(input.endDate),
+    autoGenerate,
+    autoSend,
+    stoppedAt: null,
+    stoppedReason: null,
+    template: input.template ?? null,
+  };
+}
+
+async function createInvoiceWithUniqueNumber(
+  userId: string,
+  year: number,
+  payloadFactory: (invoiceNumber: string) => Record<string, unknown>
+): Promise<RecurrenceInvoiceLike> {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const invoiceNumber = await getNextInvoiceNumberForYear(userId, year);
+
+    try {
+      const created = await Invoice.create(payloadFactory(invoiceNumber));
+      return created.toObject() as RecurrenceInvoiceLike;
+    } catch (error) {
+      if (!isInvoiceNumberDuplicateError(error) || attempt === 4) {
+        throw error;
+      }
+    }
+  }
+
+  throw new Error('Could not generate a unique invoice number');
+}
+
+export async function duplicateInvoiceForRecurrence({
+  sourceInvoice,
+  recurrence,
+}: {
+  sourceInvoice: RecurrenceInvoiceLike;
+  recurrence: {
+    frequency: RecurrenceFrequency;
+    customIntervalDays?: number | null;
+    nextOccurrenceAt: Date;
+    endDate?: Date | null;
+    template?: RecurrenceTemplate | null;
+  };
+}): Promise<DuplicateRecurrenceResult> {
+  await ConnectDb();
+  await ensureInvoiceIndexes();
+
+  const userId = String(sourceInvoice.userId);
+  const { invoiceDate, dueDate } = computeGeneratedInvoiceDates(sourceInvoice, recurrence.nextOccurrenceAt);
+
+  const template = recurrence.template ?? null;
+  const hasTemplateLineItems = Array.isArray(template?.lineItems) && (template?.lineItems?.length ?? 0) > 0;
+
+  let lineItems: RecurrenceTemplateLineItem[];
+  let totalExcludingTax: number;
+  let totalVat: number;
+  let totalIncludingTax: number;
+
+  if (hasTemplateLineItems && template) {
+    const computedLines = template.lineItems.map((item) =>
+      computeQuoteLine({
+        quantity: item.quantity,
+        unitPriceExcludingTax: item.unitPriceExcludingTax,
+        baseUnitPriceExcludingTax: item.baseUnitPriceExcludingTax,
+        discountPercentage: item.discountPercentage,
+        vatRate: item.vatRate,
+      })
+    );
+
+    lineItems = template.lineItems.map((item, index) => {
+      const computed = computedLines[index];
+      return {
+        productId: item.productId ?? null,
+        productImageUrl: item.productImageUrl ?? null,
+        name: item.name,
+        quantity: computed.quantity,
+        unitPriceExcludingTax: computed.unitPriceExcludingTax,
+        baseUnitPriceExcludingTax: computed.baseUnitPriceExcludingTax,
+        discountPercentage: computed.discountPercentage,
+        vatRate: computed.vatRate,
+        totalExcludingTaxBeforeDiscount: computed.totalExcludingTaxBeforeDiscount,
+        discountAmountExcludingTax: computed.discountAmountExcludingTax,
+        totalExcludingTax: computed.totalExcludingTax,
+        vatAmount: computed.vatAmount,
+        totalIncludingTax: computed.totalIncludingTax,
+      };
+    });
+
+    const totals = computeQuoteTotalsFromComputedLines(computedLines);
+    totalExcludingTax = totals.totalExcludingTax;
+    totalVat = totals.totalVat;
+    totalIncludingTax = totals.totalIncludingTax;
+  } else {
+    lineItems = cloneLineItemsForNewInvoice(sourceInvoice.lineItems);
+    totalExcludingTax = sourceInvoice.totalExcludingTax;
+    totalVat = sourceInvoice.totalVat;
+    totalIncludingTax = sourceInvoice.totalIncludingTax;
+  }
+
+  const depositPercentage =
+    hasTemplateLineItems && typeof template?.depositPercentage === 'number'
+      ? Math.max(0, Math.min(100, template.depositPercentage))
+      : typeof sourceInvoice.depositPercentage === 'number'
+        ? sourceInvoice.depositPercentage
+        : 100;
+  const notes = hasTemplateLineItems && template?.notes !== undefined ? template.notes ?? null : sourceInvoice.notes ?? null;
+
+  const newInvoice = await createInvoiceWithUniqueNumber(userId, invoiceDate.getFullYear(), (invoiceNumber) => ({
+    userId: sourceInvoice.userId,
+    invoiceNumber,
+    quoteId: null,
+    quoteNumber: null,
+    date: invoiceDate,
+    dueDate,
+    status: 'unpaid',
+    clientId: sourceInvoice.clientId,
+    clientSnapshot: {
+      ...sourceInvoice.clientSnapshot,
+      addressDetails: sourceInvoice.clientSnapshot.addressDetails
+        ? { ...sourceInvoice.clientSnapshot.addressDetails }
+        : null,
+    },
+    lineItems,
+    totalExcludingTax,
+    totalVat,
+    totalIncludingTax,
+    depositPercentage,
+    notes,
+    paymentToken: null,
+    paymentTokenExpiry: null,
+    reminderState: {
+      level: 0,
+      isPaused: false,
+      lastSentAt: null,
+      nextScheduledAt: null,
+      lateFeeAmount: 0,
+      formalNoticeSentAt: null,
+      formalNoticeDeadline: null,
+    },
+    recurrence: null,
+  }));
+
+  const advancedNextOccurrenceAt = computeNextOccurrence(
+    recurrence.nextOccurrenceAt,
+    recurrence.frequency,
+    recurrence.customIntervalDays
+  );
+
+  return {
+    newInvoice,
+    nextOccurrenceAt: recurrence.endDate && advancedNextOccurrenceAt > recurrence.endDate ? null : advancedNextOccurrenceAt,
+  };
+}
+
+async function renderInvoicePdfForAutoSend({
+  invoice,
+  companyProfile,
+  locale,
+  paymentUrl,
+}: {
+  invoice: RecurrenceInvoiceLike;
+  companyProfile: Record<string, unknown> | null;
+  locale: 'en' | 'fr';
+  paymentUrl: string | null;
+}): Promise<Buffer> {
+  const createPdfDocument = (logoUrlOverride?: string | null) =>
+    React.createElement(InvoicePdfTemplate, {
+      invoice: {
+        status: invoice.status,
+        invoiceNumber: invoice.invoiceNumber,
+        quoteNumber: invoice.quoteNumber ?? null,
+        date: invoice.date ?? new Date(),
+        dueDate: invoice.dueDate ?? null,
+        clientSnapshot: invoice.clientSnapshot,
+        lineItems: invoice.lineItems,
+        totalExcludingTaxBeforeDiscount: invoice.lineItems.reduce(
+          (sum, item) => sum + item.baseUnitPriceExcludingTax * item.quantity,
+          0
+        ),
+        totalDiscountExcludingTax: invoice.lineItems.reduce((sum, item) => sum + item.discountAmountExcludingTax, 0),
+        totalExcludingTax: invoice.totalExcludingTax,
+        totalVat: invoice.totalVat,
+        totalIncludingTax: invoice.totalIncludingTax,
+        depositPercentage: typeof invoice.depositPercentage === 'number' ? invoice.depositPercentage : 100,
+        notes: invoice.notes ?? null,
+        payments: [],
+      },
+      company: companyProfile
+        ? {
+            companyName: (companyProfile.companyName as string | null) ?? (companyProfile.ownerName as string | null) ?? 'CRM',
+            ownerName: (companyProfile.ownerName as string | null) ?? null,
+            address: (companyProfile.address as string | null) ?? null,
+            streetNumber: (companyProfile.streetNumber as string | null) ?? null,
+            streetName: (companyProfile.streetName as string | null) ?? null,
+            postalCode: (companyProfile.postalCode as string | null) ?? null,
+            city: (companyProfile.city as string | null) ?? null,
+            country: (companyProfile.country as string | null) ?? null,
+            phone: (companyProfile.phone as string | null) ?? null,
+            businessEmail: (companyProfile.businessEmail as string | null) ?? null,
+            vatNumber: (companyProfile.vatNumber as string | null) ?? null,
+            rcsNumber: (companyProfile.rcsNumber as string | null) ?? null,
+            businessAuthorizationNumber: (companyProfile.businessAuthorizationNumber as string | null) ?? null,
+            matriculeNumber: (companyProfile.matriculeNumber as string | null) ?? null,
+            iban: (companyProfile.iban as string | null) ?? null,
+            bankName: (companyProfile.bankName as string | null) ?? null,
+            legalIdentifier: (companyProfile.legalIdentifier as string | null) ?? null,
+            logoUrl: logoUrlOverride ?? ((companyProfile.logoUrl as string | null) ?? null),
+          }
+        : null,
+      paymentUrl,
+      locale,
+    }) as unknown as React.ReactElement<DocumentProps>;
+
+  try {
+    return await renderToBuffer(createPdfDocument());
+  } catch {
+    if (!companyProfile?.logoUrl) {
+      throw new Error('Failed to generate recurring invoice PDF');
+    }
+
+    return renderToBuffer(createPdfDocument(''));
+  }
+}
+
+export async function autoSendRecurringInvoiceToClient({
+  invoice,
+  userId,
+}: {
+  invoice: RecurrenceInvoiceLike;
+  userId: string;
+}): Promise<void> {
+  const recipient = invoice.clientSnapshot?.email?.trim();
+  if (!recipient) {
+    throw new Error('Client email is required for auto-send');
+  }
+
+  const [companyProfile, user] = await Promise.all([
+    CompanyProfile.findOne({ user: userId }).lean<Record<string, unknown> | null>(),
+    User.findById(userId).select('locale').lean<{ locale?: string | null } | null>(),
+  ]);
+  const locale = resolveReminderLocalePreference(user?.locale, companyProfile?.locale);
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || '';
+  const stripeConnect = await StripeConnect.findOne({ userId })
+    .select('onboardingComplete chargesEnabled')
+    .lean<{ onboardingComplete?: boolean; chargesEnabled?: boolean } | null>();
+  const stripeConnected = Boolean(stripeConnect?.onboardingComplete && stripeConnect?.chargesEnabled);
+
+  let paymentUrl: string | null = null;
+  if (stripeConnected && appUrl) {
+    let paymentToken = typeof invoice.paymentToken === 'string' && invoice.paymentToken.trim() ? invoice.paymentToken.trim() : '';
+    let paymentTokenExpiry = invoice.paymentTokenExpiry ?? null;
+
+    if (!paymentToken || isTokenExpired(paymentTokenExpiry)) {
+      paymentToken = generatePaymentToken();
+      paymentTokenExpiry = generateTokenExpiry(30);
+      await Invoice.updateOne(
+        { _id: invoice._id, userId },
+        { $set: { paymentToken, paymentTokenExpiry } }
+      );
+    }
+
+    paymentUrl = buildInvoicePayUrl(paymentToken, appUrl);
+  }
+
+  const amount = new Intl.NumberFormat(locale === 'fr' ? 'fr-FR' : 'en-GB', {
+    style: 'currency',
+    currency: 'EUR',
+  }).format(Math.max(0, Math.round(invoice.totalIncludingTax ?? 0)) / 100);
+
+  const pdfBuffer = await renderInvoicePdfForAutoSend({
+    invoice,
+    companyProfile,
+    locale,
+    paymentUrl,
+  });
+
+  await sendInvoice({
+    to: recipient,
+    clientName: invoice.clientSnapshot?.fullName || 'Client',
+    invoiceNumber: invoice.invoiceNumber,
+    paymentUrl,
+    amount,
+    companyName:
+      ((companyProfile?.companyName as string | null) ?? (companyProfile?.ownerName as string | null) ?? 'CRM') ||
+      'CRM',
+    pdfBuffer,
+    locale,
+    includeOnlinePayment: Boolean(paymentUrl),
+  });
+}
+
+export async function sendRecurrenceDueNotificationToOwner({
+  ownerEmail,
+  ownerName,
+  invoiceNumber,
+  invoiceDetailUrl,
+  companyName,
+}: {
+  ownerEmail: string;
+  ownerName: string;
+  invoiceNumber: string;
+  invoiceDetailUrl: string;
+  companyName: string;
+}): Promise<void> {
+  const transporter = await ConnectEmailClient();
+  if (!transporter) {
+    throw new Error('Failed to connect to email service');
+  }
+
+  const subject = `Invoice ${invoiceNumber} is due to be renewed today`;
+  const text = [
+    `Hello ${ownerName},`,
+    '',
+    `Invoice ${invoiceNumber} is due to be renewed today.`,
+    `Open invoice: ${invoiceDetailUrl}`,
+  ].join('\n');
+
+  const html = `
+    <div style="font-family:Segoe UI,Arial,sans-serif;line-height:1.5;color:#1f2937;">
+      <p>Hello ${ownerName},</p>
+      <p>Invoice <strong>${invoiceNumber}</strong> is due to be renewed today.</p>
+      <p><a href="${invoiceDetailUrl}">Open invoice</a></p>
+    </div>
+  `;
+
+  await transporter.sendMail({
+    from: `"${companyName || 'CRM'}" <${process.env.EMAIL_USER_V2 || process.env.EMAIL_USER}>`,
+    to: ownerEmail,
+    subject,
+    text,
+    html,
+  });
+}

@@ -4,8 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import type { QuoteListItem } from '@/components/quotes/QuoteTable';
 
-export type QuoteStatusFilter = 'all' | 'draft' | 'sent' | 'accepted' | 'rejected';
-export type QuoteSort = 'date' | 'amount';
+export type QuoteStatusFilter = 'all' | 'pending' | 'draft' | 'sent' | 'accepted' | 'rejected';
+export type QuoteSort = 'number_desc' | 'number_asc' | 'date' | 'amount';
 
 interface QuotesApiResponse {
   success: boolean;
@@ -36,7 +36,7 @@ const initialPagination: QuotesPagination = {
 export function useQuotes(
   filter: QuoteStatusFilter = 'all',
   search = '',
-  sort: QuoteSort = 'date',
+  sort: QuoteSort = 'number_desc',
   page = 1,
   limit = 10
 ) {

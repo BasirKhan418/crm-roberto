@@ -2,10 +2,10 @@ import { Document, Image, Link, Page, StyleSheet, Text, View } from '@react-pdf/
 
 import { formatInvoiceDisplayNumber } from '@/lib/i18n/messages';
 import { getPaymentMethodLabel, getPaymentTypeLabel } from '@/lib/payments';
-import { formatStructuredAddress, hasStructuredAddress } from '@/lib/address';
+import { hasStructuredAddress } from '@/lib/address';
 import type { AddressDetails as SharedAddressDetails } from '@/lib/address';
 
-interface InvoiceAddressDetails extends SharedAddressDetails {}
+type InvoiceAddressDetails = SharedAddressDetails;
 
 interface InvoiceCompanyData {
   companyName?: string | null;
@@ -36,6 +36,7 @@ interface InvoiceLineItem {
   discountAmountExcludingTax: number;
   vatRate: number;
   totalExcludingTax: number;
+  lineType?: 'catalog' | 'custom' | 'free_text' | 'item' | null;
 }
 
 interface InvoicePaymentItem {
@@ -67,6 +68,7 @@ interface InvoiceData {
   totalExcludingTax: number;
   totalVat: number;
   totalIncludingTax: number;
+  lateFeeAmountCents?: number;
   depositPercentage?: number;
   notes?: string | null;
   payments?: InvoicePaymentItem[];
@@ -112,6 +114,7 @@ const translations = {
     totalDiscount: 'Discount',
     totalNet: 'Total excl. tax (net)',
     totalVat: 'VAT',
+    lateFees: 'Late fees',
     totalIncl: 'Total incl. tax',
     paymentSummary: 'Payment summary',
     paymentStatus: 'Payment status',
@@ -167,6 +170,7 @@ const translations = {
     totalDiscount: 'Remise',
     totalNet: 'Total HT (net)',
     totalVat: 'TVA',
+    lateFees: 'Penalites de retard',
     totalIncl: 'Total TTC',
     paymentSummary: 'R\u00e9sum\u00e9 des paiements',
     paymentStatus: 'Statut de paiement',
@@ -350,6 +354,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2.5,
     fontSize: 8.5,
+  },
+  freeTextRow: {
+    flexDirection: 'row',
+    minHeight: 18,
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+    backgroundColor: '#f1f5f9',
+  },
+  freeTextCell: {
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    fontSize: 8.5,
+    fontStyle: 'italic',
+    color: '#475569',
+    width: '100%',
   },
   colDesc: { width: '30%' },
   colQty: { width: '8%' },
@@ -619,11 +639,6 @@ function combineAddressLines(lines: { line1: string; line2: string }): string {
   return `${lines.line1}\n${lines.line2}`;
 }
 
-/**
- * Formats a structured address (from separate fields) into a combined display string.
- * Line 1: street number + street name
- * Line 2: postal code + city + country
- */
 function formatStructuredAddressPdf(details?: InvoiceAddressDetails | null): string {
   if (!hasStructuredAddress(details)) return '-';
   const addressDetails = details!;
@@ -735,8 +750,10 @@ export function InvoicePdfTemplate({ invoice, company, paymentUrl = null, locale
   const t = translations[locale];
   const displayInvoiceNumber = formatInvoiceDisplayNumber(locale, invoice.invoiceNumber);
   const payments = invoice.payments ?? [];
+  const lateFeeAmount = Math.max(0, Math.round(invoice.lateFeeAmountCents ?? 0));
+  const grandTotalWithLateFees = invoice.totalIncludingTax + lateFeeAmount;
   const totalPaidAmount = payments.reduce((sum, payment) => sum + Math.max(0, Math.round(payment.amount || 0)), 0);
-  const remainingAmount = Math.max(0, invoice.totalIncludingTax - totalPaidAmount);
+  const remainingAmount = Math.max(0, grandTotalWithLateFees - totalPaidAmount);
   const statusPresentation = getStatusPresentation(invoice.status, t);
   const issuerAddressDetails = company
     ? { streetNumber: company.streetNumber, streetName: company.streetName, postalCode: company.postalCode, city: company.city, country: company.country }
@@ -830,28 +847,45 @@ export function InvoicePdfTemplate({ invoice, company, paymentUrl = null, locale
               <Text style={[styles.cell, styles.colTotal, styles.right]}>{t.colTotal}</Text>
             </View>
 
-            {invoice.lineItems.map((item, index) => (
-              <View
-                key={`${item.name}-${index}`}
-                wrap={false}
-                style={[
-                  styles.tableRow,
-                  ...(index % 2 === 1 ? [styles.rowAlt] : []),
-                  ...(index === invoice.lineItems.length - 1 ? [styles.rowLast] : []),
-                ]}
-              >
-                <Text style={[styles.cell, styles.colDesc]}>{item.name}</Text>
-                <Text style={[styles.cell, styles.colQty, styles.right]}>{item.quantity}</Text>
-                <Text style={[styles.cell, styles.colUnit, styles.right]}>{formatPrice(item.baseUnitPriceExcludingTax)}</Text>
-                <Text style={[styles.cell, styles.colDiscount, styles.right]}>
-                  {item.discountAmountExcludingTax > 0
-                    ? `${item.discountPercentage.toFixed(2)}% (- ${formatPrice(item.discountAmountExcludingTax)})`
-                    : '-'}
-                </Text>
-                <Text style={[styles.cell, styles.colVat, styles.right]}>{item.vatRate}%</Text>
-                <Text style={[styles.cell, styles.colTotal, styles.right]}>{formatPrice(item.totalExcludingTax)}</Text>
-              </View>
-            ))}
+            {invoice.lineItems.map((item, index) => {
+              const isLast = index === invoice.lineItems.length - 1;
+              if (item.lineType === 'free_text') {
+                return (
+                  <View
+                    key={`${item.name}-${index}`}
+                    wrap={false}
+                    style={[
+                      styles.freeTextRow,
+                      ...(isLast ? [styles.rowLast] : []),
+                    ]}
+                  >
+                    <Text style={styles.freeTextCell}>{item.name}</Text>
+                  </View>
+                );
+              }
+              return (
+                <View
+                  key={`${item.name}-${index}`}
+                  wrap={false}
+                  style={[
+                    styles.tableRow,
+                    ...(index % 2 === 1 ? [styles.rowAlt] : []),
+                    ...(isLast ? [styles.rowLast] : []),
+                  ]}
+                >
+                  <Text style={[styles.cell, styles.colDesc]}>{item.name}</Text>
+                  <Text style={[styles.cell, styles.colQty, styles.right]}>{item.quantity}</Text>
+                  <Text style={[styles.cell, styles.colUnit, styles.right]}>{formatPrice(item.baseUnitPriceExcludingTax)}</Text>
+                  <Text style={[styles.cell, styles.colDiscount, styles.right]}>
+                    {item.discountAmountExcludingTax > 0
+                      ? `${item.discountPercentage.toFixed(2)}% (- ${formatPrice(item.discountAmountExcludingTax)})`
+                      : '-'}
+                  </Text>
+                  <Text style={[styles.cell, styles.colVat, styles.right]}>{item.vatRate}%</Text>
+                  <Text style={[styles.cell, styles.colTotal, styles.right]}>{formatPrice(item.totalExcludingTax)}</Text>
+                </View>
+              );
+            })}
           </View>
         </View>
 
@@ -906,9 +940,15 @@ export function InvoicePdfTemplate({ invoice, company, paymentUrl = null, locale
               <Text style={styles.totalLabel}>{t.totalVat}</Text>
               <Text style={styles.totalValue}>{formatPrice(invoice.totalVat)}</Text>
             </View>
+            {lateFeeAmount > 0 ? (
+              <View style={styles.totalRow}>
+                <Text style={styles.totalLabel}>{t.lateFees}</Text>
+                <Text style={styles.totalValue}>{formatPrice(lateFeeAmount)}</Text>
+              </View>
+            ) : null}
             <View style={[styles.totalRow, styles.grandTotal]}>
               <Text style={styles.totalLabel}>{t.totalIncl}</Text>
-              <Text style={styles.totalValue}>{formatPrice(invoice.totalIncludingTax)}</Text>
+              <Text style={styles.totalValue}>{formatPrice(grandTotalWithLateFees)}</Text>
             </View>
           </View>
         </View>

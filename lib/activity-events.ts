@@ -10,8 +10,19 @@ export interface ActivityChangedEvent {
   at: number;
 }
 
-const emitter = new EventEmitter();
-emitter.setMaxListeners(0);
+type ActivityEmitterGlobal = typeof globalThis & {
+  __crmActivityEmitter?: EventEmitter;
+};
+
+const globalForActivityEmitter = globalThis as ActivityEmitterGlobal;
+
+const emitter =
+  globalForActivityEmitter.__crmActivityEmitter ?? new EventEmitter();
+
+if (!globalForActivityEmitter.__crmActivityEmitter) {
+  emitter.setMaxListeners(0);
+  globalForActivityEmitter.__crmActivityEmitter = emitter;
+}
 
 const EVENT_NAME = "activity-changed";
 

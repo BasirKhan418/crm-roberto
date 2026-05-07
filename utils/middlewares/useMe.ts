@@ -4,6 +4,7 @@ export interface AuthorizedUser {
   id: string;
   name: string;
   email: string;
+  locale?: 'en' | 'fr';
   isOnboardingComplete?: boolean;
   isEmailVerified?: boolean;
 }

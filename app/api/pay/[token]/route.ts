@@ -5,12 +5,14 @@ import ConnectDb from '@/db/connectDb';
 import Invoice from '@/db/models/Invoice';
 import Payment from '@/db/models/Payment';
 import StripeConnect from '@/db/models/StripeConnect';
+import { resolveLocaleFromRequest } from '@/lib/i18n/locale';
+import { getCheckoutLineItemLabel } from '@/lib/payments';
 import { stripe } from '@/lib/stripe';
 import { isTokenExpired } from '@/lib/tokens';
 
 export const runtime = 'nodejs';
 
-type CheckoutType = 'full' | 'deposit';
+type CheckoutType = 'full' | 'partial' | 'deposit';
 
 interface RouteParams {
   params: Promise<{ token: string }>;
@@ -20,6 +22,7 @@ interface TokenCheckoutBody {
   type?: CheckoutType;
   amount?: number;
   idempotencyKey?: string;
+  locale?: string;
 }
 
 async function findInvoiceByPaymentToken(token: string) {
@@ -105,8 +108,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       typeof body.idempotencyKey === 'string' && body.idempotencyKey.trim()
         ? body.idempotencyKey.trim().slice(0, 120)
         : null;
+    const locale = resolveLocaleFromRequest(request, { rawLocale: body.locale, fallback: 'fr' });
 
-    if (paymentType !== 'full' && paymentType !== 'deposit') {
+    if (paymentType !== 'full' && paymentType !== 'partial' && paymentType !== 'deposit') {
       return NextResponse.json({ message: 'Invalid payment type' }, { status: 400 });
     }
 
@@ -125,7 +129,21 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     const configuredDeposit = Math.max(0, Math.round(invoice.depositAmount ?? 0));
-    const defaultAmount = paymentType === 'deposit' ? Math.min(configuredDeposit, remainingAmount) : remainingAmount;
+    const defaultAmount =
+      paymentType === 'deposit'
+        ? Math.min(configuredDeposit, remainingAmount)
+        : paymentType === 'full'
+          ? remainingAmount
+          : 0;
+
+    if (paymentType === 'partial' && requestedAmount === null) {
+      return NextResponse.json({ message: 'Partial payment amount is required' }, { status: 400 });
+    }
+
+    if (paymentType === 'full' && requestedAmount !== null && requestedAmount !== remainingAmount) {
+      return NextResponse.json({ message: 'Full payment must match remaining balance' }, { status: 422 });
+    }
+
     const amount = requestedAmount ?? defaultAmount;
 
     if (requestedAmount !== null && requestedAmount > remainingAmount) {
@@ -136,6 +154,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ message: 'Invoice amount must be greater than zero' }, { status: 422 });
     }
 
+    if (paymentType === 'partial' && amount >= remainingAmount) {
+      return NextResponse.json({ message: 'Partial payment must be less than remaining balance' }, { status: 422 });
+    }
+
     const isSettlingAll = amount >= remainingAmount;
     const isConfiguredDeposit = totalPaid === 0 && amount === Math.min(configuredDeposit, remainingAmount) && configuredDeposit > 0;
     const recordedPaymentType: 'deposit' | 'full' | 'remaining_balance' = isSettlingAll
@@ -144,19 +166,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         ? 'deposit'
         : 'remaining_balance';
 
-    const label =
-      recordedPaymentType === 'deposit'
-        ? `Deposit for invoice ${invoice.invoiceNumber}`
-        : recordedPaymentType === 'full'
-          ? `Invoice ${invoice.invoiceNumber}`
-          : `Partial payment for invoice ${invoice.invoiceNumber}`;
+    const label = getCheckoutLineItemLabel(locale, recordedPaymentType, invoice.invoiceNumber);
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
 
     const checkoutSession = await stripe.checkout.sessions.create(
       {
         mode: 'payment',
-        payment_method_types: ['card'],
         line_items: [
           {
             price_data: {
@@ -171,6 +187,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           invoiceId: String(invoice._id),
           paymentType: recordedPaymentType,
           paymentSource: 'invoice_token',
+          paymentToken: token,
         },
         success_url: `${appUrl}/pay/${token}?status=success&session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${appUrl}/pay/${token}?status=cancelled`,

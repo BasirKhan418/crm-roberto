@@ -1,0 +1,75 @@
+import mongoose from 'mongoose';
+import { NextResponse } from 'next/server';
+
+import ConnectDb from '@/db/connectDb';
+import Invoice from '@/db/models/Invoice';
+import Quote from '@/db/models/Quote';
+import getMe from '@/utils/middlewares/useMe';
+
+interface QuoteSidebarItem {
+  id: string;
+  bucket: 'accepted' | 'pending' | 'rejected';
+  updatedAt: string;
+}
+
+interface InvoiceSidebarItem {
+  id: string;
+  bucket: 'paid' | 'pending' | 'overdue';
+  updatedAt: string;
+}
+
+export async function GET() {
+  try {
+    const me = await getMe(true);
+    if (!me.success || !me.user) {
+      return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
+    }
+
+    await ConnectDb();
+
+    const userObjectId = new mongoose.Types.ObjectId(me.user.id);
+    const now = new Date();
+
+    const [quoteDocs, invoiceDocs] = await Promise.all([
+      Quote.find({ user: userObjectId })
+        .select('_id status createdAt updatedAt')
+        .lean<Array<{ _id: mongoose.Types.ObjectId; status?: string; createdAt?: Date | null; updatedAt?: Date | null }>>(),
+      Invoice.find({ userId: userObjectId })
+        .select('_id status dueDate createdAt updatedAt')
+        .lean<Array<{ _id: mongoose.Types.ObjectId; status?: string; dueDate?: Date | null; createdAt?: Date | null; updatedAt?: Date | null }>>(),
+    ]);
+
+    const quotes: QuoteSidebarItem[] = quoteDocs.flatMap((quote) => {
+      let bucket: QuoteSidebarItem['bucket'] | null = null;
+
+      if (quote.status === 'accepted') bucket = 'accepted';
+      else if (quote.status === 'draft' || quote.status === 'sent') bucket = 'pending';
+      else if (quote.status === 'rejected' || quote.status === 'refused') bucket = 'rejected';
+
+      if (!bucket) return [];
+
+      const touchedAt = quote.updatedAt ?? quote.createdAt ?? now;
+      return [{ id: String(quote._id), bucket, updatedAt: touchedAt.toISOString() }];
+    });
+
+    const invoices: InvoiceSidebarItem[] = invoiceDocs.map((invoice) => {
+      const dueDate = invoice.dueDate ? new Date(invoice.dueDate) : null;
+      const isOverdue =
+        (invoice.status === 'unpaid' || invoice.status === 'partial_paid') &&
+        Boolean(dueDate && Number.isFinite(dueDate.getTime()) && dueDate.getTime() < now.getTime());
+
+      const bucket: InvoiceSidebarItem['bucket'] =
+        invoice.status === 'paid' ? 'paid' : isOverdue ? 'overdue' : 'pending';
+
+      const touchedAt = invoice.updatedAt ?? invoice.createdAt ?? now;
+      return { id: String(invoice._id), bucket, updatedAt: touchedAt.toISOString() };
+    });
+
+    return NextResponse.json({ success: true, data: { quotes, invoices } });
+  } catch (error) {
+    return NextResponse.json(
+      { success: false, message: `Error fetching sidebar badges: ${String(error)}` },
+      { status: 500 }
+    );
+  }
+}

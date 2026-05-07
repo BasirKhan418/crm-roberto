@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
-import { Loader2, PaperclipIcon, UploadIcon, X } from 'lucide-react';
+import { Loader2, PaperclipIcon, UploadIcon } from 'lucide-react';
 
 import { createCatalogueItemSchema, updateCatalogueItemSchema } from '@/validators/catalogue.schema';
 import { resolveTranslatedText } from '@/lib/i18n/messages';
@@ -454,18 +454,6 @@ export default function CatalogueItemModal({ open, mode, item, onClose, onSaved 
   return (
     <Dialog open={open} onOpenChange={(next) => (!next ? onClose() : undefined)}>
       <DialogContent className="flex w-[calc(100vw-1rem)] max-w-2xl max-h-[calc(100dvh-1rem-var(--app-safe-area-top)-var(--app-safe-area-bottom))] flex-col gap-2.5 overflow-hidden p-3.5 [&_input[data-slot=input]]:focus-visible:ring-2 [&_input[data-slot=input]]:focus-visible:ring-inset [&_select]:focus-visible:ring-2 [&_select]:focus-visible:ring-inset [&_textarea]:focus-visible:ring-2 [&_textarea]:focus-visible:ring-inset sm:max-h-[calc(100dvh-2rem-var(--app-safe-area-top)-var(--app-safe-area-bottom))] sm:p-5">
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          className="absolute top-3 right-3"
-          aria-label={t.close}
-          onClick={onClose}
-          disabled={saving}
-        >
-          <X className="size-4" />
-        </Button>
-
         <DialogHeader className="gap-1 px-1">
           <DialogTitle className="pr-8 text-base sm:text-lg">{title}</DialogTitle>
           <DialogDescription className="text-xs sm:text-sm">{mode === 'add' ? t.subtitleAdd : t.subtitleEdit}</DialogDescription>

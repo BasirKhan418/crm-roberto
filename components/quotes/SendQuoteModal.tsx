@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from 'react';
 
-import { CheckIcon, CopyIcon, Loader2Icon, SendIcon, X } from 'lucide-react';
+import { CheckIcon, CopyIcon, Loader2Icon, SendIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { resolveTranslatedError } from '@/lib/i18n/messages';
@@ -216,18 +216,6 @@ export default function SendQuoteModal({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="flex w-[calc(100vw-1rem)] max-w-md max-h-[calc(100dvh-1rem-var(--app-safe-area-top)-var(--app-safe-area-bottom))] flex-col gap-2.5 scroll-pb-24 p-3.5 pb-3.5 [&_button[data-slot=button]]:focus-visible:ring-inset [&_input[data-slot=input]]:focus-visible:ring-inset [&_textarea]:focus-visible:ring-inset [&_textarea]:focus-visible:ring-offset-0 sm:max-h-[calc(100dvh-2rem-var(--app-safe-area-top)-var(--app-safe-area-bottom))] sm:p-4 sm:pb-4">
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          className="absolute top-3 right-3"
-          aria-label={t.cancel}
-          onClick={() => onOpenChange(false)}
-          disabled={sending}
-        >
-          <X className="size-4" />
-        </Button>
-
         <DialogHeader className="gap-1 pr-8">
           <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
             <SendIcon className="size-4" />

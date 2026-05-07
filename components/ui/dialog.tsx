@@ -2,7 +2,9 @@
 
 import * as React from 'react';
 import { Dialog as DialogPrimitive } from 'radix-ui';
+import { XIcon } from 'lucide-react';
 
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 function Dialog({ ...props }: React.ComponentProps<typeof DialogPrimitive.Root>) {
@@ -34,19 +36,34 @@ function DialogOverlay({ className, ...props }: React.ComponentProps<typeof Dial
   );
 }
 
-function DialogContent({ className, children, ...props }: React.ComponentProps<typeof DialogPrimitive.Content>) {
+function DialogContent({
+  className,
+  children,
+  showCloseButton = true,
+  ...props
+}: React.ComponentProps<typeof DialogPrimitive.Content> & {
+  showCloseButton?: boolean;
+}) {
   return (
     <DialogPortal>
       <DialogOverlay />
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          'fixed top-[50%] left-[50%] z-50 grid w-[calc(100%-1.5rem)] max-w-lg max-h-[calc(var(--app-viewport-height)-1.5rem-var(--app-safe-area-top)-var(--app-safe-area-bottom))] translate-x-[-50%] translate-y-[-50%] gap-4 overflow-y-auto rounded-xl border bg-popover p-5 pb-[calc(1.25rem+var(--app-safe-area-bottom)+var(--app-keyboard-inset-height))] text-popover-foreground shadow-xl transition-[opacity,transform] duration-200 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 scroll-pb-[calc(5rem+var(--app-keyboard-inset-height))] sm:w-[calc(100%-2rem)] sm:max-h-[calc(var(--app-viewport-height)-2rem-var(--app-safe-area-top)-var(--app-safe-area-bottom))]',
+          'fixed top-[50%] left-[50%] z-50 grid w-[calc(100%-1.5rem)] max-w-lg max-h-[calc(var(--app-viewport-height)-1.5rem-var(--app-safe-area-top)-var(--app-safe-area-bottom))] translate-x-[-50%] translate-y-[-50%] gap-4 overflow-y-auto rounded-xl border bg-popover p-5 pr-12 pb-[calc(1.25rem+var(--app-safe-area-bottom)+var(--app-keyboard-inset-height))] text-popover-foreground shadow-xl transition-[opacity,transform] duration-200 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 scroll-pb-[calc(5rem+var(--app-keyboard-inset-height))] sm:w-[calc(100%-2rem)] sm:max-h-[calc(var(--app-viewport-height)-2rem-var(--app-safe-area-top)-var(--app-safe-area-bottom))]',
           className
         )}
         {...props}
       >
         {children}
+        {showCloseButton ? (
+          <DialogPrimitive.Close data-slot="dialog-close" asChild>
+            <Button type="button" variant="ghost" size="icon-sm" className="absolute top-3 right-3">
+              <XIcon />
+              <span className="sr-only">Close</span>
+            </Button>
+          </DialogPrimitive.Close>
+        ) : null}
       </DialogPrimitive.Content>
     </DialogPortal>
   );

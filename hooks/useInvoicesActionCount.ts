@@ -10,7 +10,11 @@ export interface InvoicesActionCount {
   overdueCount: number;
 }
 
-export function useInvoicesActionCount(refreshKey = 0): InvoicesActionCount {
+interface UseInvoicesActionCountOptions {
+  clientId?: string;
+}
+
+export function useInvoicesActionCount(refreshKey = 0, options?: UseInvoicesActionCountOptions): InvoicesActionCount {
   const [counts, setCounts] = useState<InvoicesActionCount>({
     allCount: 0,
     unpaidCount: 0,
@@ -24,12 +28,13 @@ export function useInvoicesActionCount(refreshKey = 0): InvoicesActionCount {
 
     async function fetchCounts() {
       try {
+        const clientQuery = options?.clientId ? `&clientId=${encodeURIComponent(options.clientId)}` : '';
         const [allRes, unpaidRes, partialRes, paidRes, overdueRes] = await Promise.all([
-          fetch('/api/invoices?limit=1', { cache: 'no-store' }),
-          fetch('/api/invoices?status=unpaid&limit=1', { cache: 'no-store' }),
-          fetch('/api/invoices?status=partial_paid&limit=1', { cache: 'no-store' }),
-          fetch('/api/invoices?status=paid&limit=1', { cache: 'no-store' }),
-          fetch('/api/invoices?status=overdue&limit=1', { cache: 'no-store' }),
+          fetch(`/api/invoices?limit=1${clientQuery}`, { cache: 'no-store' }),
+          fetch(`/api/invoices?status=unpaid&excludeOverdue=true&limit=1${clientQuery}`, { cache: 'no-store' }),
+          fetch(`/api/invoices?status=partial_paid&excludeOverdue=true&limit=1${clientQuery}`, { cache: 'no-store' }),
+          fetch(`/api/invoices?status=paid&limit=1${clientQuery}`, { cache: 'no-store' }),
+          fetch(`/api/invoices?status=overdue&limit=1${clientQuery}`, { cache: 'no-store' }),
         ]);
 
         if (cancelled) return;
@@ -61,7 +66,7 @@ export function useInvoicesActionCount(refreshKey = 0): InvoicesActionCount {
       cancelled = true;
       window.clearInterval(intervalId);
     };
-  }, [refreshKey]);
+  }, [refreshKey, options?.clientId]);
 
   return counts;
 }

@@ -79,7 +79,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         $set: { adminReplyMessage: message },
         $push: { conversationMessages: { role: 'admin', text: message, sentAt: now } },
       },
-      { new: true, strict: false }
+      { returnDocument: 'after', strict: false }
     );
 
     if (!updated) {

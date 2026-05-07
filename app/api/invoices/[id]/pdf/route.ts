@@ -9,7 +9,7 @@ import Payment from '@/db/models/Payment';
 import { getCompanyProfileByUserId } from '@/db/repository/cprofile';
 import { extractClientSnapshot } from '@/lib/address';
 import { formatInvoiceDisplayNumber } from '@/lib/i18n/messages';
-import { resolveLocaleFromRequest } from '@/lib/i18n/locale';
+import { resolveLocaleFromValue } from '@/lib/i18n/locale';
 import { InvoicePdfTemplate } from '@/lib/pdf/InvoicePdfTemplate';
 import { buildInvoicePayUrl, isTokenExpired } from '@/lib/tokens';
 import getMe from '@/utils/middlewares/useMe';
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     const rawLocale = request.nextUrl.searchParams.get('locale');
-    const locale = resolveLocaleFromRequest(request, { rawLocale });
+    const locale = resolveLocaleFromValue(rawLocale, resolveLocaleFromValue(me.user.locale, 'fr'));
 
     const { id } = await params;
 
@@ -82,6 +82,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       discountAmountExcludingTax: item.discountAmountExcludingTax,
       vatRate: item.vatRate,
       totalExcludingTax: item.totalExcludingTax,
+      lineType: item.lineType ?? null,
     }));
     const depositPercentage = typeof invoice.depositPercentage === 'number' ? invoice.depositPercentage : 100;
 

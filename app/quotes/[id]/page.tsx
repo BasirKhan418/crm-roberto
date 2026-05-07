@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 
@@ -126,7 +126,7 @@ function statusLabel(status: QuoteStatus, locale: Locale): string {
   return getQuoteStatusLabel(locale, status);
 }
 
-export default function QuoteDetailPage() {
+function QuoteDetailPageContent() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const searchParams = useSearchParams();
@@ -180,7 +180,7 @@ export default function QuoteDetailPage() {
       expired: 'Expired on',
       history: 'Status history',
       historyEmpty: 'No status transitions yet.',
-      lockEdit: 'Accepted and refused quotes cannot be edited',
+      lockEdit: 'Accepted quotes cannot be edited',
       rejectionBannerTitle: 'This quote was rejected by the client',
       rejectionAlertTop: 'Quote rejected by client',
       rejectionBannerBody: 'The client has rejected this quote. Review the comment below, update the quote, and resend it.',
@@ -256,7 +256,7 @@ export default function QuoteDetailPage() {
       expired: 'Expir\u00e9 le',
       history: 'Historique des statuts',
       historyEmpty: 'Aucune transition de statut pour le moment.',
-      lockEdit: 'Les devis accept\u00e9s et refus\u00e9s ne peuvent pas \u00eatre modifi\u00e9s',
+      lockEdit: 'Les devis accept\u00e9s ne peuvent pas \u00eatre modifi\u00e9s',
       rejectionBannerTitle: 'Ce devis a \u00e9t\u00e9 refus\u00e9 par le client',
       rejectionAlertTop: 'Devis refus\u00e9 par le client',
       rejectionBannerBody: 'Le client a refus\u00e9 ce devis. Consultez le commentaire ci-dessous, mettez le devis \u00e0 jour et renvoyez-le.',
@@ -302,7 +302,9 @@ export default function QuoteDetailPage() {
   const [sendingReply, setSendingReply] = useState(false);
   const [threadExpanded, setThreadExpanded] = useState(false);
 
-  const canEdit = quote ? quote.status === 'draft' || quote.status === 'sent' || quote.status === 'rejected' : false;
+  const canEdit = quote
+    ? quote.status === 'draft' || quote.status === 'sent' || quote.status === 'rejected' || quote.status === 'refused'
+    : false;
   const canConvertToInvoice = Boolean(
     quote &&
       quote.status === 'accepted' &&
@@ -715,42 +717,39 @@ export default function QuoteDetailPage() {
             </section>
           ) : null}
 
-          <div data-tour-quote-detail-actions className="flex flex-col gap-2.5 rounded-xl border border-border/60 bg-card/80 px-3.5 py-3 print:hidden sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-2.5 sm:py-2.5">
-            <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
-             
-
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className={actionButtonClass}
-                hidden={quote.status === 'rejected'}
-                disabled={!canEdit}
-                asChild={canEdit}
-                title={!canEdit ? t.lockEdit : t.edit}
-              >
-                {canEdit ? (
-                  <Link href={`/quotes/${quote._id}/edit`}>
-                    <PencilIcon className="size-3.5" />
-                    {t.edit}
-                  </Link>
-                ) : (
-                  <span className="inline-flex items-center gap-1.5">
-                    <PencilIcon className="size-3.5" />
-                    {t.edit}
-                  </span>
-                )}
-              </Button>
-            </div>
-
-            {!canEdit ? (
+          <div data-tour-quote-detail-actions className="flex flex-col gap-2 rounded-xl border border-border/60 bg-card/80 px-3.5 py-3 print:hidden sm:flex-row sm:flex-wrap sm:items-center sm:gap-2 sm:py-2.5">
+            {quote.status !== 'rejected' ? (
               <div className="w-full sm:w-auto">
-                <Button type="button" variant="outline" size="sm" className={actionButtonClass} disabled={duplicating} onClick={duplicateQuote}>
-                  <CopyIcon className="size-3.5" />
-                  {t.duplicate}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className={actionButtonClass}
+                  disabled={!canEdit}
+                  asChild={canEdit}
+                  title={!canEdit ? t.lockEdit : t.edit}
+                >
+                  {canEdit ? (
+                    <Link href={`/quotes/${quote._id}/edit`}>
+                      <PencilIcon className="size-3.5" />
+                      {t.edit}
+                    </Link>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5">
+                      <PencilIcon className="size-3.5" />
+                      {t.edit}
+                    </span>
+                  )}
                 </Button>
               </div>
             ) : null}
+
+            <div className="w-full sm:w-auto">
+              <Button type="button" variant="outline" size="sm" className={actionButtonClass} disabled={duplicating} onClick={duplicateQuote}>
+                <CopyIcon className="size-3.5" />
+                {t.duplicate}
+              </Button>
+            </div>
 
             {canConvertToInvoice ? (
               <div className="w-full sm:w-auto">
@@ -786,12 +785,12 @@ export default function QuoteDetailPage() {
               locale={locale as Locale}
               onStatusChanged={handleOptimisticStatusChange}
               onStatusCommitted={loadData}
-              containerClassName="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:items-center"
-              selectClassName="h-10 w-full sm:h-8 sm:w-44"
+              containerClassName="w-full sm:w-auto"
+              selectClassName="h-10 w-full sm:h-9 sm:w-auto"
               buttonClassName="h-10 w-full justify-start sm:h-8 sm:w-auto sm:justify-center"
             />
 
-            <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2 sm:w-auto sm:items-center">
+            <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:items-center sm:gap-2">
               {(quote.status === 'draft' || quote.status === 'sent') ? (
                 <Button type="button" variant="default" size="sm" className={actionButtonClass} onClick={() => setSendOpen(true)}>
                   <SendIcon className="size-3.5" />
@@ -1036,5 +1035,13 @@ export default function QuoteDetailPage() {
         />
       ) : null}
     </CrmShell>
+  );
+}
+
+export default function QuoteDetailPage() {
+  return (
+    <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Chargement...</div>}>
+      <QuoteDetailPageContent />
+    </Suspense>
   );
 }

@@ -6,7 +6,6 @@ import Link from 'next/link';
 import { CheckCircle2Icon, CircleDashedIcon, CreditCardIcon, Loader2Icon, Link2OffIcon, PlugZapIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
-import CrmShell from '@/components/crm-shell';
 import { useLocale } from '@/components/providers/locale-provider';
 import { resolveTranslatedError } from '@/lib/i18n/messages';
 import { Badge } from '@/components/ui/badge';
@@ -20,7 +19,11 @@ type StripeConnectStatus = {
   onboardingComplete: boolean;
 };
 
-export default function StripeSettingsPage() {
+interface StripeSettingsPageProps {
+  embedded?: boolean;
+}
+
+export default function StripeSettingsPage({ embedded = false }: StripeSettingsPageProps = {}) {
   const { locale } = useLocale();
   const [status, setStatus] = useState<StripeConnectStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -191,6 +194,10 @@ export default function StripeSettingsPage() {
     return 'connected' as const;
   }, [status]);
 
+  function startStripeConnect() {
+    window.location.replace('/api/stripe/connect');
+  }
+
   async function handleDisconnect() {
     setDisconnecting(true);
     try {
@@ -210,12 +217,14 @@ export default function StripeSettingsPage() {
   }
 
   return (
-    <CrmShell title={t.shellTitle}>
-      <div className="flex flex-wrap items-center gap-2">
-        <Button asChild variant="ghost" className="h-10">
-          <Link href="/profile">{t.backToProfile}</Link>
-        </Button>
-      </div>
+    <div className="space-y-4">
+      {!embedded ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <Button asChild variant="ghost" className="h-10">
+            <Link href="/profile">{t.backToProfile}</Link>
+          </Button>
+        </div>
+      ) : null}
 
       <Card className="overflow-hidden border-primary/20 bg-linear-to-br from-primary/5 via-background to-background">
         <CardContent className="pt-6">
@@ -296,20 +305,16 @@ export default function StripeSettingsPage() {
         </CardContent>
         <CardFooter className="flex flex-wrap gap-2 border-t pt-4">
           {mode === 'disconnected' ? (
-            <Button asChild className="h-11 min-w-52">
-              <Link href="/api/stripe/connect">
+            <Button type="button" className="h-11 min-w-52" onClick={startStripeConnect}>
                 <PlugZapIcon className="size-4" />
                 {t.connectButton}
-              </Link>
             </Button>
           ) : null}
 
           {mode === 'pending' ? (
-            <Button asChild className="h-11 min-w-52">
-              <Link href="/api/stripe/connect">
+            <Button type="button" className="h-11 min-w-52" onClick={startStripeConnect}>
                 <CircleDashedIcon className="size-4" />
                 {t.continueSetup}
-              </Link>
             </Button>
           ) : null}
 
@@ -333,6 +338,6 @@ export default function StripeSettingsPage() {
           ) : null}
         </CardFooter>
       </Card>
-    </CrmShell>
+    </div>
   );
 }

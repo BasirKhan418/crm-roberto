@@ -220,18 +220,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
 
     if (quote.status === 'draft' || quote.status === 'rejected') {
-      const statusFrom = quote.status;
-      const statusResult = await updateQuoteStatusById(me.user.id, id, { to: 'sent' });
-
-      if (statusResult.kind === 'ok') {
-        await createActivityLog(me.user.id, {
-          action: 'quote_status_changed',
-          entityType: 'quote',
-          entityName: quote.quoteNumber,
-          entityId: quote._id,
-          metadata: { from: statusFrom, to: 'sent' },
-        });
-      }
+      await updateQuoteStatusById(me.user.id, id, { to: 'sent' });
     }
 
 

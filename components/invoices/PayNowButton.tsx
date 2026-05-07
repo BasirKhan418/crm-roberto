@@ -4,7 +4,9 @@ import { useState } from 'react';
 
 import { toast } from 'sonner';
 
+import { useLocale } from '@/components/providers/locale-provider';
 import { Button } from '@/components/ui/button';
+import { translate } from '@/lib/i18n/messages';
 
 interface PayNowButtonProps {
   invoiceId: string;
@@ -23,6 +25,7 @@ export function PayNowButton({
   className,
   onRedirecting,
 }: PayNowButtonProps) {
+  const { locale } = useLocale();
   const [loading, setLoading] = useState(false);
 
   async function handlePay() {
@@ -36,6 +39,7 @@ export function PayNowButton({
         body: JSON.stringify({
           invoiceId,
           type,
+          locale,
           ...(typeof amountCents === 'number' ? { amount: Math.max(0, Math.round(amountCents)) } : {}),
           idempotencyKey:
             typeof window !== 'undefined' && window.crypto?.randomUUID
@@ -50,17 +54,17 @@ export function PayNowButton({
         return;
       }
 
-      toast.error(data?.message || 'Could not create payment link');
+      toast.error(data?.message || translate(locale, 'payment.linkFailed'));
       setLoading(false);
     } catch {
-      toast.error('Could not create payment link');
+      toast.error(translate(locale, 'payment.linkFailed'));
       setLoading(false);
     }
   }
 
   return (
     <Button type="button" onClick={handlePay} disabled={loading} className={className}>
-      {loading ? 'Redirecting to payment...' : label}
+      {loading ? translate(locale, 'payment.redirecting') : label}
     </Button>
   );
 }

@@ -28,23 +28,23 @@ import EmptyState from '@/components/ui/EmptyState';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import FinancialTotalsBar from '@/components/ui/FinancialTotalsBar';
+import KpiCards, { type KpiCard } from '@/components/ui/KpiCards';
+
+const COLUMN_STORAGE_KEY = 'crm.quote.visibleColumns.v1';
+const VIEW_STORAGE_KEY = 'crm.quote.viewConfig.v1';
+const DEFAULT_VISIBLE_COLUMNS: Record<QuoteTableColumnKey, boolean> = {
+  quoteNumber: true,
+  client: true,
+  subject: true,
+  date: true,
+  totalIncludingTax: true,
+  status: true,
+  invoiceLink: true,
+};
 
 function QuotesPageContent() {
-  const COLUMN_STORAGE_KEY = 'crm.quote.visibleColumns.v1';
-  const VIEW_STORAGE_KEY = 'crm.quote.viewConfig.v1';
-  const DEFAULT_VISIBLE_COLUMNS: Record<QuoteTableColumnKey, boolean> = {
-    quoteNumber: true,
-    client: true,
-    subject: true,
-    date: true,
-    totalIncludingTax: true,
-    status: true,
-    invoiceLink: true,
-  };
-
   const router = useRouter();
   const searchParams = useSearchParams();
   const { locale } = useLocale();
@@ -63,8 +63,6 @@ function QuotesPageContent() {
       downloadFailed: 'Failed to download PDF',
       newQuote: 'New quote',
       search: 'Search by quote number or client name...',
-      sortDate: 'Date',
-      sortAmount: 'Amount',
       columns: 'Columns',
       visibleColumns: 'Visible columns',
       applyColumns: 'Apply',
@@ -72,17 +70,18 @@ function QuotesPageContent() {
       tabAll: 'All',
       tabDraft: 'Draft',
       tabSent: 'Sent',
+      tabPending: 'Pending',
       tabAccepted: 'Accepted',
       tabRejected: 'Rejected',
       empty: 'No quotes yet - create your first quote',
-      quoteNumber: 'Quote',
+      quoteNumber: 'Quote N°',
       client: 'Client',
       subject: 'Subject',
       date: 'Date',
       totalIncludingTax: 'Total incl. tax',
       status: 'Status',
       invoiceLink: 'Invoice link',
-      columnQuoteNumber: 'Quote',
+      columnQuoteNumber: 'Quote N°',
       columnClient: 'Client',
       columnSubject: 'Subject',
       columnDate: 'Date',
@@ -96,7 +95,7 @@ function QuotesPageContent() {
       duplicate: 'Duplicate',
       delete: 'Delete',
       downloadPdf: 'PDF',
-      lockEdit: 'Accepted and rejected quotes cannot be edited',
+      lockEdit: 'Accepted quotes cannot be edited',
       send: 'Send',
       sendForSignature: 'Send for signature',
       history: 'History',
@@ -125,6 +124,14 @@ function QuotesPageContent() {
       actionAcceptedHint: 'Disappears when you convert to invoice',
       seeRejected: 'See declined',
       seeAccepted: 'See accepted',
+      kpiAll: 'Total quotes',
+      kpiAccepted: 'Accepted',
+      kpiPending: 'Pending',
+      kpiRejected: 'Rejected',
+      kpiTotalTTC: 'Total TTC',
+      kpiTotalHT: 'Total HT',
+      kpiTotalVAT: 'Total VAT',
+      kpiConversionRate: (accepted: number, total: number, rate: number) => `${accepted} accepted / ${total} → ${rate}%`,
     },
     fr: {
       shellTitle: 'Devis',
@@ -140,8 +147,6 @@ function QuotesPageContent() {
       downloadFailed: 'Impossible de télécharger le PDF',
       newQuote: 'Nouveau devis',
       search: 'Rechercher par numéro de devis ou nom client...',
-      sortDate: 'Date',
-      sortAmount: 'Montant',
       columns: 'Colonnes',
       visibleColumns: 'Colonnes visibles',
       applyColumns: 'Appliquer',
@@ -149,17 +154,18 @@ function QuotesPageContent() {
       tabAll: 'Tous',
       tabDraft: 'Brouillon',
       tabSent: 'Envoyé',
+      tabPending: 'En attente',
       tabAccepted: 'Accepté',
       tabRejected: 'Refusé',
       empty: 'Aucun devis - créez votre premier devis',
-      quoteNumber: 'Devis',
+      quoteNumber: 'N° Devis',
       client: 'Client',
       subject: 'Objet',
       date: 'Date',
       totalIncludingTax: 'Total TTC',
       status: 'Statut',
       invoiceLink: 'Lien facture',
-      columnQuoteNumber: 'Devis',
+      columnQuoteNumber: 'N° Devis',
       columnClient: 'Client',
       columnSubject: 'Objet',
       columnDate: 'Date',
@@ -173,7 +179,7 @@ function QuotesPageContent() {
       duplicate: 'Dupliquer',
       delete: 'Supprimer',
       downloadPdf: 'PDF',
-      lockEdit: 'Les devis acceptés et refusés (client) ne peuvent pas être modifiés',
+      lockEdit: 'Les devis acceptés ne peuvent pas être modifiés',
       send: 'Envoyer',
       sendForSignature: 'Envoyer pour signature',
       history: 'Historique',
@@ -202,13 +208,21 @@ function QuotesPageContent() {
       actionAcceptedHint: 'Disparaît lorsque vous convertissez en facture',
       seeRejected: 'Voir refusés',
       seeAccepted: 'Voir acceptés',
+      kpiAll: 'Total devis',
+      kpiAccepted: 'Acceptés',
+      kpiPending: 'En attente',
+      kpiRejected: 'Refusés',
+      kpiTotalTTC: 'Total TTC',
+      kpiTotalHT: 'Total HT',
+      kpiTotalVAT: 'Total TVA',
+      kpiConversionRate: (accepted: number, total: number, rate: number) => `${accepted} acceptés / ${total} → ${rate}%`,
     },
   }[locale];
 
   const [searchInput, setSearchInput] = useState('');
   const [searchDebounced, setSearchDebounced] = useState('');
   const [status, setStatus] = useState<QuoteStatusFilter>('all');
-  const [sort, setSort] = useState<'date' | 'amount'>('date');
+  const [sort, setSort] = useState<'number_desc' | 'number_asc'>('number_desc');
   const [page, setPage] = useState(1);
   const limit = 10;
   const [visibleColumns, setVisibleColumns] = useState<Record<QuoteTableColumnKey, boolean>>(DEFAULT_VISIBLE_COLUMNS);
@@ -221,6 +235,44 @@ function QuotesPageContent() {
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
 
   const { quotes, pagination, loading, error, refetch } = useQuotes(status, searchDebounced, sort, page, limit);
+
+  const [kpiData, setKpiData] = useState<{
+    all: { count: number; totalTTC: number };
+    accepted: { count: number; totalTTC: number };
+    pending: { count: number; totalTTC: number };
+    rejected: { count: number; totalTTC: number };
+    totals: { totalHT: number; totalVat: number; totalTTC: number };
+  } | null>(null);
+  const [kpiLoading, setKpiLoading] = useState(true);
+
+  const quoteKpiRefreshKey = useMemo(
+    () =>
+      `${pagination.total}:${loading ? '1' : '0'}:${quotes
+        .map((quote) => `${quote._id}:${quote.status}:${quote.totalIncludingTax}:${quote.convertedToInvoice ? '1' : '0'}`)
+        .join('|')}`,
+    [loading, pagination.total, quotes]
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchKpis() {
+      setKpiLoading(true);
+      try {
+        const res = await fetch('/api/quotes/kpis', { cache: 'no-store' });
+        if (!res.ok || cancelled) return;
+        const payload = await res.json() as { success?: boolean; data?: typeof kpiData };
+        if (!cancelled && payload.success && payload.data) {
+          setKpiData(payload.data);
+        }
+      } catch {
+        // Silently ignore
+      } finally {
+        if (!cancelled) setKpiLoading(false);
+      }
+    }
+    void fetchKpis();
+    return () => { cancelled = true; };
+  }, [quoteKpiRefreshKey]);
   const {
     allCount,
     draftCount,
@@ -243,15 +295,15 @@ function QuotesPageContent() {
       const parsed = JSON.parse(raw) as {
         searchInput?: string;
         status?: QuoteStatusFilter;
-        sort?: 'date' | 'amount';
+        sort?: 'number_desc' | 'number_asc';
       };
 
       const nextSearchInput = typeof parsed.searchInput === 'string' ? parsed.searchInput : '';
       const nextStatus: QuoteStatusFilter =
-        parsed.status === 'draft' || parsed.status === 'sent' || parsed.status === 'accepted' || parsed.status === 'rejected'
+        parsed.status === 'pending' || parsed.status === 'draft' || parsed.status === 'sent' || parsed.status === 'accepted' || parsed.status === 'rejected'
           ? parsed.status
           : 'all';
-      const nextSort: 'date' | 'amount' = parsed.sort === 'amount' ? 'amount' : 'date';
+      const nextSort: 'number_desc' | 'number_asc' = parsed.sort === 'number_asc' ? 'number_asc' : 'number_desc';
 
       setSearchInput(nextSearchInput);
       setSearchDebounced(nextSearchInput.trim());
@@ -295,7 +347,7 @@ function QuotesPageContent() {
     }
 
     const normalizedStatus: QuoteStatusFilter =
-      rawStatus === 'draft' || rawStatus === 'sent' || rawStatus === 'accepted' || rawStatus === 'rejected'
+      rawStatus === 'pending' || rawStatus === 'draft' || rawStatus === 'sent' || rawStatus === 'accepted' || rawStatus === 'rejected'
         ? rawStatus
         : rawStatus === 'refused' || rawStatus === 'refuse'
           ? 'rejected'
@@ -455,7 +507,17 @@ function QuotesPageContent() {
   }
 
   const currentFilterLabel =
-    status === 'all' ? t.tabAll : status === 'draft' ? t.tabDraft : status === 'sent' ? t.tabSent : status === 'accepted' ? t.tabAccepted : t.tabRejected;
+    status === 'all'
+      ? t.tabAll
+      : status === 'pending'
+        ? t.tabPending
+        : status === 'draft'
+          ? t.tabDraft
+          : status === 'sent'
+            ? t.tabSent
+            : status === 'accepted'
+              ? t.tabAccepted
+              : t.tabRejected;
 
   const quoteMetrics = useMemo(() => {
     const totalHT = quotes.reduce((sum, quote) => sum + Math.max(0, Math.round(quote.totalExcludingTax ?? 0)), 0);
@@ -475,6 +537,68 @@ function QuotesPageContent() {
     ];
   }, [quotes, t.numberOfDocuments, t.totalAccepted, t.totalHT, t.totalTTC, t.totalTVA]);
 
+  const quoteKpiCards = useMemo<KpiCard[]>(() => {
+    if (!kpiData) return [];
+    const conversionRate =
+      kpiData.all.count > 0
+        ? Math.round((kpiData.accepted.count / kpiData.all.count) * 100)
+        : 0;
+    return [
+      {
+        key: 'kpi-all',
+        label: t.kpiAll,
+        count: kpiData.all.count,
+        amount: kpiData.all.totalTTC,
+        variant: 'default',
+        icon: 'file-text',
+        active: status === 'all',
+        onClick: () => setStatus('all'),
+      },
+      {
+        key: 'kpi-accepted',
+        label: t.kpiAccepted,
+        count: kpiData.accepted.count,
+        amount: kpiData.accepted.totalTTC,
+        variant: 'green-bold',
+        icon: 'thumbs-up',
+        footnote: t.kpiConversionRate(kpiData.accepted.count, kpiData.all.count, conversionRate),
+        active: status === 'accepted',
+        onClick: () => setStatus('accepted'),
+      },
+      {
+        key: 'kpi-pending',
+        label: t.kpiPending,
+        count: kpiData.pending.count,
+        amount: kpiData.pending.totalTTC,
+        variant: 'orange-bold',
+        icon: 'clock',
+        active: status === 'pending',
+        onClick: () => setStatus('pending'),
+      },
+      {
+        key: 'kpi-rejected',
+        label: t.kpiRejected,
+        count: kpiData.rejected.count,
+        amount: kpiData.rejected.totalTTC,
+        variant: 'red-bold',
+        icon: 'thumbs-down',
+        active: status === 'rejected',
+        onClick: () => setStatus('rejected'),
+      },
+    ];
+  }, [kpiData, status, t]);
+
+  const quoteKpiTotalsCards = useMemo<KpiCard[]>(() => {
+    if (!kpiData) return [];
+    return [
+      { key: 'kpi-ttc', label: t.kpiTotalTTC, amount: kpiData.totals.totalTTC, variant: 'slate' as const, icon: 'dollar' as const },
+      { key: 'kpi-ht', label: t.kpiTotalHT, amount: kpiData.totals.totalHT, variant: 'slate' as const, icon: 'bar-chart' as const },
+      { key: 'kpi-vat', label: t.kpiTotalVAT, amount: kpiData.totals.totalVat, variant: 'slate' as const },
+    ];
+  }, [kpiData, t]);
+
+  const pendingCount = draftCount + sentCount;
+
   return (
     <CrmShell title={t.shellTitle}>
       <section className="space-y-5">
@@ -491,6 +615,11 @@ function QuotesPageContent() {
           </Button>
         </div>
 
+        <div className="space-y-3">
+          <KpiCards cards={quoteKpiCards} locale={locale as 'en' | 'fr'} loading={kpiLoading} />
+          {!kpiLoading && quoteKpiTotalsCards.length > 0 ? <KpiCards cards={quoteKpiTotalsCards} locale={locale as 'en' | 'fr'} cols={3} /> : null}
+        </div>
+
         <div data-tour-quotes-filters className="space-y-3 rounded-xl border border-border/70 bg-card/40 p-3 sm:p-4">
           <div className="flex flex-wrap items-center gap-2 text-xs">
             <span className="rounded-full border border-border/70 bg-background px-2.5 py-1 text-muted-foreground">
@@ -501,20 +630,11 @@ function QuotesPageContent() {
             </span>
           </div>
 
-          <div className="grid gap-2.5 lg:grid-cols-[1fr_auto_auto] lg:items-center">
+          <div className="grid gap-2.5 lg:grid-cols-[1fr_auto] lg:items-center">
             <div className="relative">
               <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input className="h-10 pl-9" value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder={t.search} />
             </div>
-            <Select value={sort} onValueChange={(value) => setSort(value === 'amount' ? 'amount' : 'date')}>
-              <SelectTrigger className="h-9 w-full sm:w-40">
-                <SelectValue placeholder={t.sortDate} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="date">{t.sortDate}</SelectItem>
-                <SelectItem value="amount">{t.sortAmount}</SelectItem>
-              </SelectContent>
-            </Select>
             <DropdownMenu
               open={columnsOpen}
               onOpenChange={(next) => {
@@ -572,6 +692,12 @@ function QuotesPageContent() {
                   <span>{t.tabSent}</span>
                   <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-sky-600 px-1.5 text-[10px] font-semibold leading-none text-white shadow-sm">
                     {sentCount > 99 ? '99+' : sentCount}
+                  </span>
+                </TabsTrigger>
+                <TabsTrigger value="pending" className="min-h-6 rounded-md border border-border/80 px-3 py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
+                  <span>{t.tabPending}</span>
+                  <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-600 px-1.5 text-[10px] font-semibold leading-none text-white shadow-sm">
+                    {pendingCount > 99 ? '99+' : pendingCount}
                   </span>
                 </TabsTrigger>
                 <TabsTrigger value="accepted" className="min-h-6 rounded-md border border-border/80 px-3 py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
@@ -672,6 +798,8 @@ function QuotesPageContent() {
                 markReviewing: t.markReviewing,
               }}
               locale={locale as 'en' | 'fr'}
+              numberSortOrder={sort === 'number_asc' ? 'asc' : 'desc'}
+              onToggleNumberSort={() => setSort((prev) => (prev === 'number_desc' ? 'number_asc' : 'number_desc'))}
               onDuplicate={handleDuplicateQuote}
               onSend={setSendTarget}
               onConvert={handleConvertFromList}
@@ -749,7 +877,7 @@ function QuotesPageContent() {
 
 export default function QuotesPage() {
   return (
-    <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Loading...</div>}>
+    <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Chargement...</div>}>
       <QuotesPageContent />
     </Suspense>
   );

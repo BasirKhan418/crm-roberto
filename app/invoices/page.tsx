@@ -4,14 +4,17 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-import { PlusIcon, SearchIcon } from 'lucide-react';
+import { Loader2Icon, PlusIcon, SearchIcon, SendIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import InvoiceTable, { type InvoiceTableColumnKey } from '@/components/invoices/InvoiceTable';
+import ManualPaymentModal, { type ManualPaymentType } from '@/components/invoices/ManualPaymentModal';
 import SendInvoiceModal from '@/components/invoices/SendInvoiceModal';
+import SendReminderModal from '@/components/invoices/SendReminderModal';
 import CrmShell from '@/components/crm-shell';
+import KpiCards, { type KpiCard } from '@/components/ui/KpiCards';
 import { useLocale } from '@/components/providers/locale-provider';
-import { formatInvoiceDisplayNumber } from '@/lib/i18n/messages';
+import { formatInvoiceDisplayNumber, translate } from '@/lib/i18n/messages';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,33 +26,35 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import EmptyState from '@/components/ui/EmptyState';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useInvoices, type InvoiceListItem, type InvoiceStatusFilter } from '@/hooks/useInvoices';
 import { useInvoicesActionCount } from '@/hooks/useInvoicesActionCount';
 import FinancialTotalsBar from '@/components/ui/FinancialTotalsBar';
 
-function InvoicesPageContent() {
-  const COLUMN_STORAGE_KEY = 'crm.invoice.visibleColumns.v1';
-  const VIEW_STORAGE_KEY = 'crm.invoice.viewConfig.v1';
-  const DEFAULT_VISIBLE_COLUMNS: Record<InvoiceTableColumnKey, boolean> = {
-    invoiceNumber: true,
-    client: true,
-    date: true,
-    dueDate: true,
-    totalIncludingTax: true,
-    amountPaid: true,
-    remainingAmount: true,
-    paymentProgress: true,
-    depositAmount: true,
-    depositPaymentDate: true,
-    status: true,
-  };
+const COLUMN_STORAGE_KEY = 'crm.invoice.visibleColumns.v1';
+const VIEW_STORAGE_KEY = 'crm.invoice.viewConfig.v1';
+const DEFAULT_VISIBLE_COLUMNS: Record<InvoiceTableColumnKey, boolean> = {
+  invoiceNumber: true,
+  client: true,
+  date: true,
+  dueDate: true,
+  totalIncludingTax: true,
+  amountPaid: true,
+  remainingAmount: true,
+  paymentProgress: true,
+  depositAmount: true,
+  depositPaymentDate: true,
+  status: true,
+};
 
+function InvoicesPageContent() {
   const router = useRouter();
   const { locale } = useLocale();
   const t = {
@@ -64,8 +69,6 @@ function InvoicesPageContent() {
       downloadFailed: 'Failed to download PDF',
       newInvoice: 'New invoice',
       search: 'Search by invoice number or client name...',
-      sortDate: 'Date',
-      sortAmount: 'Amount',
       columns: 'Columns',
       visibleColumns: 'Visible columns',
       applyColumns: 'Apply',
@@ -103,6 +106,8 @@ function InvoicesPageContent() {
       view: 'View',
       edit: 'Edit',
       send: 'Send',
+      sendInvoice: 'Send invoice',
+      sendReminder: 'Send reminder',
       downloadPdf: 'Download PDF',
       delete: 'Delete',
       deleteTitle: 'Delete invoice?',
@@ -129,6 +134,31 @@ function InvoicesPageContent() {
       seeInitialPaid: 'See partially paid',
       markAsPaid: 'Add payment',
       markingAsPaid: 'Recording...',
+      bulkReminderTitle: 'Send reminder to selected',
+      bulkReminderDescription: 'Choose reminder level, then send sequentially to avoid SMTP rate limits.',
+      bulkLevelAuto: 'Auto — next logical level per invoice',
+      bulkLevel1: 'Level 1 — soft reminder',
+      bulkLevel2: 'Level 2 — medium reminder',
+      bulkLevel3: 'Level 3 — firm reminder',
+      bulkProcessed: (done: number, total: number) => `${done}/${total} processed`,
+      bulkSuccessFailed: (success: number, failed: number) => `Success: ${success} · Failed: ${failed}`,
+      bulkCancel: 'Cancel',
+      bulkSending: 'Sending...',
+      bulkStart: 'Start sending',
+      bulkSendButton: 'Send reminder to selected',
+      bulkClear: 'Clear',
+      bulkExport: 'Export selected',
+      bulkDone: 'Reminders sent',
+      bulkPartial: (success: number, failed: number) => `${success} succeeded, ${failed} failed`,
+      bulkNoEligible: 'No eligible invoices in the selection (paid invoices and those without a client email are skipped).',
+      bulkSkippedSummary: (skipped: number) => `${skipped} invoice(s) skipped (paid or missing client email).`,
+      kpiUnpaid: 'Unpaid',
+      kpiPaid: 'Paid',
+      kpiOverdue: 'Overdue',
+      kpiAll: 'Invoices issued',
+      kpiTotalTTC: 'Total TTC',
+      kpiTotalHT: 'Total HT',
+      kpiTotalVAT: 'Total VAT',
     },
     fr: {
       shellTitle: 'Factures',
@@ -141,8 +171,6 @@ function InvoicesPageContent() {
       downloadFailed: 'Impossible de télécharger le PDF',
       newInvoice: 'Nouvelle facture',
       search: 'Rechercher par numéro de facture ou nom client...',
-      sortDate: 'Date',
-      sortAmount: 'Montant',
       columns: 'Colonnes',
       visibleColumns: 'Colonnes visibles',
       applyColumns: 'Appliquer',
@@ -158,28 +186,30 @@ function InvoicesPageContent() {
       date: 'Date',
       dueDate: 'Échéance',
       totalIncludingTax: 'Total TTC',
-      amountPaid: 'Montant paye',
-      remainingAmount: 'Reste a payer',
-      paymentProgress: 'Paye',
+      amountPaid: 'Montant payé',
+      remainingAmount: 'Reste à payer',
+      paymentProgress: 'Payé',
       depositAmount: 'Acompte',
       depositPaymentDate: 'Acompte payé',
       status: 'Statut',
       columnInvoiceNumber: 'Facture',
       columnClient: 'Client',
       columnDate: 'Date',
-      columnDueDate: 'Echeance',
+      columnDueDate: 'Échéance',
       columnTotal: 'Total',
-      columnAmountPaid: 'Paye',
+      columnAmountPaid: 'Payé',
       columnRemaining: 'Reste',
       columnProgress: 'Progression',
       columnDeposit: 'Acompte',
-      columnDepositPaid: 'Acompte paye',
+      columnDepositPaid: 'Acompte payé',
       columnStatus: 'Statut',
       actions: 'Actions',
       quickActions: 'Action principale',
       view: 'Voir',
       edit: 'Modifier',
       send: 'Envoyer',
+      sendInvoice: 'Envoyer facture',
+      sendReminder: 'Envoyer rappel',
       downloadPdf: 'Télécharger PDF',
       delete: 'Supprimer',
       deleteTitle: 'Supprimer la facture ?',
@@ -206,13 +236,38 @@ function InvoicesPageContent() {
       seeInitialPaid: 'Voir paiements partiels',
       markAsPaid: 'Ajouter un paiement',
       markingAsPaid: 'Enregistrement...',
+      bulkReminderTitle: 'Envoyer des relances',
+      bulkReminderDescription: 'Choisissez le niveau à envoyer, puis lancez en séquence pour éviter les limites SMTP.',
+      bulkLevelAuto: 'Auto — prochain niveau logique par facture',
+      bulkLevel1: 'Niveau 1 — relance amicale',
+      bulkLevel2: 'Niveau 2 — relance intermédiaire',
+      bulkLevel3: 'Niveau 3 — relance ferme',
+      bulkProcessed: (done: number, total: number) => `${done}/${total} traitées`,
+      bulkSuccessFailed: (success: number, failed: number) => `Succès : ${success} · Échecs : ${failed}`,
+      bulkCancel: 'Annuler',
+      bulkSending: 'Envoi...',
+      bulkStart: 'Lancer l\'envoi',
+      bulkSendButton: 'Envoyer relance',
+      bulkClear: 'Effacer',
+      bulkExport: 'Exporter la sélection',
+      bulkDone: 'Relances envoyées',
+      bulkPartial: (success: number, failed: number) => `${success} réussie(s), ${failed} échec(s)`,
+      bulkNoEligible: 'Aucune facture éligible dans la sélection (les factures payées ou sans e-mail client sont ignorées).',
+      bulkSkippedSummary: (skipped: number) => `${skipped} facture(s) ignorée(s) (payées ou e-mail client manquant).`,
+      kpiUnpaid: 'Impayées',
+      kpiPaid: 'Payées',
+      kpiOverdue: 'En retard',
+      kpiAll: 'Factures émises',
+      kpiTotalTTC: 'Total TTC',
+      kpiTotalHT: 'Total HT',
+      kpiTotalVAT: 'Total TVA',
     },
   }[locale];
 
   const [searchInput, setSearchInput] = useState('');
   const [searchDebounced, setSearchDebounced] = useState('');
   const [status, setStatus] = useState<InvoiceStatusFilter>('all');
-  const [sort, setSort] = useState<'date' | 'amount'>('date');
+  const [sort, setSort] = useState<'number_desc' | 'number_asc'>('number_desc');
   const [page, setPage] = useState(1);
   const limit = 10;
   const [visibleColumns, setVisibleColumns] = useState<Record<InvoiceTableColumnKey, boolean>>(DEFAULT_VISIBLE_COLUMNS);
@@ -222,10 +277,63 @@ function InvoicesPageContent() {
   const [deleteTarget, setDeleteTarget] = useState<InvoiceListItem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [sendTarget, setSendTarget] = useState<InvoiceListItem | null>(null);
+  const [reminderTarget, setReminderTarget] = useState<InvoiceListItem | null>(null);
+  const [recordPaymentTarget, setRecordPaymentTarget] = useState<InvoiceListItem | null>(null);
+  const [recordPaymentLoading, setRecordPaymentLoading] = useState(false);
+  const [formalNoticeConfirmTarget, setFormalNoticeConfirmTarget] = useState<InvoiceListItem | null>(null);
+  const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<string[]>([]);
+  const [bulkReminderOpen, setBulkReminderOpen] = useState(false);
+  const [bulkReminderMode, setBulkReminderMode] = useState<'auto' | '1' | '2' | '3'>('auto');
+  const [bulkSending, setBulkSending] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number; success: number; failed: number }>({
+    done: 0,
+    total: 0,
+    success: 0,
+    failed: 0,
+  });
   const { invoices, pagination, loading, error, refetch } = useInvoices(status, searchDebounced, sort, page, limit);
   const { allCount, unpaidCount, partialPaidCount, paidCount, overdueCount } = useInvoicesActionCount(
     pagination.total + invoices.length + Number(loading)
   );
+
+  // ── KPI data ──────────────────────────────────────────────────────────────
+  const [kpiData, setKpiData] = useState<{
+    all: { count: number; totalTTC: number };
+    unpaid: { count: number; totalTTC: number };
+    paid: { count: number; totalTTC: number };
+    overdue: { count: number; totalTTC: number };
+    totals: { totalHT: number; totalVat: number; totalTTC: number };
+  } | null>(null);
+  const [kpiLoading, setKpiLoading] = useState(true);
+
+  const invoiceKpiRefreshKey = useMemo(
+    () =>
+      `${pagination.total}:${loading ? '1' : '0'}:${invoices
+        .map((invoice) => `${invoice._id}:${invoice.status}:${invoice.totalIncludingTax}:${invoice.amountPaid ?? 0}:${invoice.remainingAmount ?? 0}`)
+        .join('|')}`,
+    [invoices, loading, pagination.total]
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchKpis() {
+      setKpiLoading(true);
+      try {
+        const res = await fetch('/api/invoices/kpis', { cache: 'no-store' });
+        if (!res.ok || cancelled) return;
+        const payload = await res.json() as { success?: boolean; data?: typeof kpiData };
+        if (!cancelled && payload.success && payload.data) {
+          setKpiData(payload.data);
+        }
+      } catch {
+        // Silently ignore
+      } finally {
+        if (!cancelled) setKpiLoading(false);
+      }
+    }
+    void fetchKpis();
+    return () => { cancelled = true; };
+  }, [invoiceKpiRefreshKey]);
 
   useEffect(() => {
     try {
@@ -237,7 +345,7 @@ function InvoicesPageContent() {
       const parsed = JSON.parse(raw) as {
         searchInput?: string;
         status?: InvoiceStatusFilter;
-        sort?: 'date' | 'amount';
+        sort?: 'number_desc' | 'number_asc';
       };
 
       const nextSearchInput = typeof parsed.searchInput === 'string' ? parsed.searchInput : '';
@@ -245,7 +353,7 @@ function InvoicesPageContent() {
         parsed.status === 'unpaid' || parsed.status === 'partial_paid' || parsed.status === 'paid' || parsed.status === 'overdue'
           ? parsed.status
           : 'all';
-      const nextSort: 'date' | 'amount' = parsed.sort === 'amount' ? 'amount' : 'date';
+      const nextSort: 'number_desc' | 'number_asc' = parsed.sort === 'number_asc' ? 'number_asc' : 'number_desc';
 
       setSearchInput(nextSearchInput);
       setSearchDebounced(nextSearchInput.trim());
@@ -282,6 +390,10 @@ function InvoicesPageContent() {
   useEffect(() => {
     setPage(1);
   }, [searchDebounced, status, sort]);
+
+  useEffect(() => {
+    setSelectedInvoiceIds((prev) => prev.filter((id) => invoices.some((invoice) => invoice._id === id)));
+  }, [invoices]);
 
   useEffect(() => {
     if (loading) {
@@ -406,6 +518,38 @@ function InvoicesPageContent() {
     }
   }
 
+  async function handleRecordPayment(payload: {
+    amount: number;
+    paymentType: ManualPaymentType;
+    method: string;
+    customMethod?: string;
+  }) {
+    if (!recordPaymentTarget?._id) {
+      return;
+    }
+
+    setRecordPaymentLoading(true);
+    try {
+      const response = await fetch(`/api/invoices/${recordPaymentTarget._id}/payments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const responsePayload = (await response.json().catch(() => null)) as { success?: boolean; message?: string } | null;
+
+      if (!response.ok || !responsePayload?.success) {
+        throw new Error(responsePayload?.message || t.markAsPaid);
+      }
+
+      setRecordPaymentTarget(null);
+      await refetch();
+    } catch (recordPaymentError) {
+      toast.error(recordPaymentError instanceof Error ? recordPaymentError.message : t.markAsPaid);
+    } finally {
+      setRecordPaymentLoading(false);
+    }
+  }
+
   const currentFilterLabel =
     status === 'all'
       ? t.tabAll
@@ -444,6 +588,188 @@ function InvoicesPageContent() {
     ];
   }, [invoices, t.numberOfDocuments, t.totalDue, t.totalHT, t.totalPaid, t.totalTTC, t.totalTVA]);
 
+  const selectedInvoices = useMemo(
+    () => invoices.filter((invoice) => selectedInvoiceIds.includes(invoice._id)),
+    [invoices, selectedInvoiceIds]
+  );
+
+  const invoiceKpiCards = useMemo<KpiCard[]>(() => {
+    if (!kpiData) return [];
+    return [
+      {
+        key: 'kpi-unpaid',
+        label: t.kpiUnpaid,
+        count: kpiData.unpaid.count,
+        amount: kpiData.unpaid.totalTTC,
+        variant: 'red-bold',
+        icon: 'receipt',
+        active: status === 'unpaid',
+        onClick: () => setStatus('unpaid'),
+      },
+      {
+        key: 'kpi-all',
+        label: t.kpiAll,
+        count: kpiData.all.count,
+        amount: kpiData.all.totalTTC,
+        variant: 'slate',
+        icon: 'file-text',
+        active: status === 'all',
+        onClick: () => setStatus('all'),
+      },
+      {
+        key: 'kpi-paid',
+        label: t.kpiPaid,
+        count: kpiData.paid.count,
+        amount: kpiData.paid.totalTTC,
+        variant: 'green',
+        icon: 'check-circle',
+        active: status === 'paid',
+        onClick: () => setStatus('paid'),
+      },
+      {
+        key: 'kpi-overdue',
+        label: t.kpiOverdue,
+        count: kpiData.overdue.count,
+        amount: kpiData.overdue.totalTTC,
+        variant: 'red-bold',
+        icon: 'alert-triangle',
+        active: status === 'overdue',
+        onClick: () => setStatus('overdue'),
+      },
+    ];
+  }, [kpiData, status, t.kpiAll, t.kpiOverdue, t.kpiPaid, t.kpiUnpaid]);
+
+  const invoiceKpiTotalsCards = useMemo<KpiCard[]>(() => {
+    if (!kpiData) return [];
+    return [
+      {
+        key: 'kpi-ttc',
+        label: t.kpiTotalTTC,
+        amount: kpiData.totals.totalTTC,
+        variant: 'slate',
+        icon: 'dollar',
+      },
+      {
+        key: 'kpi-ht',
+        label: t.kpiTotalHT,
+        amount: kpiData.totals.totalHT,
+        variant: 'slate',
+        icon: 'bar-chart',
+      },
+      {
+        key: 'kpi-vat',
+        label: t.kpiTotalVAT,
+        amount: kpiData.totals.totalVat,
+        variant: 'slate',
+      },
+    ];
+  }, [kpiData, t.kpiTotalHT, t.kpiTotalTTC, t.kpiTotalVAT]);
+
+  function getNextReminderLevel(level: number | null | undefined): 1 | 2 | 3 | 4 {
+    const normalized = Number.isFinite(level) ? Math.max(0, Math.min(4, Math.round(Number(level)))) : 0;
+
+    if (normalized <= 0) {
+      return 1;
+    }
+
+    if (normalized === 1) {
+      return 2;
+    }
+
+    if (normalized === 2) {
+      return 3;
+    }
+
+    return 4;
+  }
+
+  function resolveBulkReminderLevel(invoice: InvoiceListItem): 1 | 2 | 3 | 4 {
+    if (bulkReminderMode === '1' || bulkReminderMode === '2' || bulkReminderMode === '3') {
+      return Number(bulkReminderMode) as 1 | 2 | 3;
+    }
+
+    return getNextReminderLevel(invoice.reminderState?.level);
+  }
+
+  async function sendReminderToSelectedSequentially() {
+    if (selectedInvoices.length === 0 || bulkSending) {
+      return;
+    }
+
+    // Pre-filter: skip invoices the backend will reject so users don't
+    // see post-click errors on predictable state (paid, missing email,
+    // or a bulk-chosen level that requires overdue but isn't overdue).
+    const eligibleInvoices = selectedInvoices.filter((invoice) => {
+      if (invoice.status === 'paid') return false;
+      if (!invoice.clientSnapshot?.email?.trim()) return false;
+      // Formal notice (level 4) is no longer gated by overdue status — behavior is consistent
+      // with reminders 1–3, and the UI surfaces a warning when not yet overdue.
+      return true;
+    });
+
+    const skippedCount = selectedInvoices.length - eligibleInvoices.length;
+
+    if (eligibleInvoices.length === 0) {
+      toast.error(t.bulkNoEligible);
+      return;
+    }
+
+    if (skippedCount > 0) {
+      toast.warning(t.bulkSkippedSummary(skippedCount));
+    }
+
+    setBulkSending(true);
+    setBulkProgress({ done: 0, total: eligibleInvoices.length, success: 0, failed: 0 });
+
+    let success = 0;
+    let failed = 0;
+    const failureMessages: string[] = [];
+
+    for (let index = 0; index < eligibleInvoices.length; index += 1) {
+      const invoice = eligibleInvoices[index];
+      const level = resolveBulkReminderLevel(invoice);
+
+      try {
+        const response = await fetch(`/api/invoices/${invoice._id}/reminders/send`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ level, locale }),
+        });
+
+        const payload = (await response.json().catch(() => null)) as { success?: boolean; message?: string } | null;
+        if (!response.ok || !payload?.success) {
+          throw new Error(payload?.message || 'Failed to send reminder');
+        }
+
+        success += 1;
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(
+            new CustomEvent('reminder-logs:refresh', { detail: { invoiceId: invoice._id } })
+          );
+        }
+      } catch (err) {
+        failed += 1;
+        const message = err instanceof Error ? err.message : String(err);
+        failureMessages.push(`${formatInvoiceDisplayNumber(locale as 'en' | 'fr', invoice.invoiceNumber)}: ${message}`);
+      } finally {
+        setBulkProgress({ done: index + 1, total: eligibleInvoices.length, success, failed });
+      }
+    }
+
+    if (failed === 0) {
+      toast.success(t.bulkDone);
+    } else {
+      toast.error(t.bulkPartial(success, failed), {
+        description: failureMessages.slice(0, 5).join('\n'),
+      });
+    }
+
+    setBulkSending(false);
+    setBulkReminderOpen(false);
+    setSelectedInvoiceIds([]);
+    await refetch();
+  }
+
   return (
     <CrmShell title={t.shellTitle}>
       <section className="space-y-5">
@@ -460,6 +786,12 @@ function InvoicesPageContent() {
           </Button>
         </div>
 
+        {/* ── KPI cards row 1: per-status ───────────────────────────────────── */}
+        <div className="space-y-3">
+          <KpiCards cards={invoiceKpiCards} locale={locale as 'en' | 'fr'} loading={kpiLoading} />
+          {!kpiLoading && invoiceKpiTotalsCards.length > 0 ? <KpiCards cards={invoiceKpiTotalsCards} locale={locale as 'en' | 'fr'} cols={3} /> : null}
+        </div>
+
         <div data-tour-invoices-filters className="space-y-3 rounded-xl border border-border/70 bg-card/40 p-3 sm:p-4">
           <div className="flex flex-wrap items-center gap-2 text-xs">
             <span className="rounded-full border border-border/70 bg-background px-2.5 py-1 text-muted-foreground">
@@ -470,20 +802,11 @@ function InvoicesPageContent() {
             </span>
           </div>
 
-          <div className="grid gap-2.5 lg:grid-cols-[1fr_auto_auto] lg:items-center">
+          <div className="grid gap-2.5 lg:grid-cols-[1fr_auto] lg:items-center">
             <div className="relative">
               <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input className="h-10 pl-9" value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder={t.search} />
             </div>
-            <Select value={sort} onValueChange={(value) => setSort(value === 'amount' ? 'amount' : 'date')}>
-              <SelectTrigger className="h-9 w-full sm:w-40">
-                <SelectValue placeholder={t.sortDate} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="date">{t.sortDate}</SelectItem>
-                <SelectItem value="amount">{t.sortAmount}</SelectItem>
-              </SelectContent>
-            </Select>
             <DropdownMenu
               open={columnsOpen}
               onOpenChange={(next) => {
@@ -617,6 +940,43 @@ function InvoicesPageContent() {
               onDelete={setDeleteTarget}
               onDownload={handleDownloadPdf}
               onSend={setSendTarget}
+              onSendReminder={(invoice) => {
+                const level = Math.max(0, Math.min(4, Math.round(Number(invoice.reminderState?.level ?? 0))));
+                const formalNoticeAlreadySent =
+                  level >= 4 && Boolean(invoice.reminderState?.formalNoticeSentAt ?? invoice.reminderState?.lastSentAt);
+                if (formalNoticeAlreadySent) {
+                  setFormalNoticeConfirmTarget(invoice);
+                  return;
+                }
+                setReminderTarget(invoice);
+              }}
+              onRecordPayment={setRecordPaymentTarget}
+              numberSortOrder={sort === 'number_asc' ? 'asc' : 'desc'}
+              onToggleNumberSort={() => setSort((prev) => (prev === 'number_desc' ? 'number_asc' : 'number_desc'))}
+              selectedInvoiceIds={selectedInvoiceIds}
+              onToggleInvoiceSelection={(invoiceId, checked) => {
+                setSelectedInvoiceIds((prev) => {
+                  if (checked) {
+                    return prev.includes(invoiceId) ? prev : [...prev, invoiceId];
+                  }
+
+                  return prev.filter((id) => id !== invoiceId);
+                });
+              }}
+              onToggleSelectAllVisible={(checked) => {
+                setSelectedInvoiceIds((prev) => {
+                  if (checked) {
+                    const next = new Set(prev);
+                    for (const invoice of invoices) {
+                      next.add(invoice._id);
+                    }
+                    return Array.from(next);
+                  }
+
+                  const visibleIds = new Set(invoices.map((invoice) => invoice._id));
+                  return prev.filter((id) => !visibleIds.has(id));
+                });
+              }}
               visibleColumns={visibleColumns}
               labels={{
                 invoiceNumber: t.invoiceNumber,
@@ -635,6 +995,9 @@ function InvoicesPageContent() {
                 view: t.view,
                 edit: t.edit,
                 send: t.send,
+                sendInvoice: t.sendInvoice,
+                sendReminder: t.sendReminder,
+                recordPayment: t.markAsPaid,
                 downloadPdf: t.downloadPdf,
                 delete: t.delete,
               }}
@@ -669,6 +1032,118 @@ function InvoicesPageContent() {
         )}
       </section>
 
+      {selectedInvoiceIds.length > 0 ? (
+        <div className="fixed right-4 bottom-4 left-4 z-40 rounded-xl border border-border/70 bg-card/95 p-3 shadow-lg backdrop-blur sm:max-w-[calc(100vw-2rem)] md:left-auto md:min-w-105">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+            <p className="min-w-0 text-sm font-medium text-foreground sm:max-w-64">
+              {locale === 'fr'
+                ? `${selectedInvoiceIds.length} facture(s) sélectionnée(s)`
+                : `${selectedInvoiceIds.length} invoice(s) selected`}
+            </p>
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
+              <Button
+                type="button"
+                size="sm"
+                className="w-full sm:w-auto"
+                onClick={() => setBulkReminderOpen(true)}
+                disabled={bulkSending}
+              >
+                <SendIcon className="size-4" />
+                {t.bulkSendButton}
+              </Button>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="w-full sm:w-auto">
+                      <Button type="button" size="sm" variant="outline" className="w-full sm:w-auto" disabled>
+                        {t.bulkExport}
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{locale === 'fr' ? 'Bientôt disponible' : 'Coming soon'}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="w-full sm:w-auto"
+                onClick={() => setSelectedInvoiceIds([])}
+                disabled={bulkSending}
+              >
+                {t.bulkClear}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      <Dialog
+        open={bulkReminderOpen}
+        onOpenChange={(nextOpen) => {
+          if (!bulkSending) {
+            setBulkReminderOpen(nextOpen);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t.bulkReminderTitle}</DialogTitle>
+            <DialogDescription>{t.bulkReminderDescription}</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <RadioGroup
+              value={bulkReminderMode}
+              onValueChange={(value) => {
+                const nextValue = value === '1' || value === '2' || value === '3' ? value : 'auto';
+                setBulkReminderMode(nextValue);
+              }}
+              className="space-y-2"
+            >
+              <label className="flex items-center gap-2 rounded-md border border-border/60 p-2 text-sm">
+                <RadioGroupItem value="auto" />
+                {t.bulkLevelAuto}
+              </label>
+              <label className="flex items-center gap-2 rounded-md border border-border/60 p-2 text-sm">
+                <RadioGroupItem value="1" />
+                {t.bulkLevel1}
+              </label>
+              <label className="flex items-center gap-2 rounded-md border border-border/60 p-2 text-sm">
+                <RadioGroupItem value="2" />
+                {t.bulkLevel2}
+              </label>
+              <label className="flex items-center gap-2 rounded-md border border-border/60 p-2 text-sm">
+                <RadioGroupItem value="3" />
+                {t.bulkLevel3}
+              </label>
+            </RadioGroup>
+
+            {bulkSending ? (
+              <div className="rounded-md border border-border/60 bg-muted/20 p-3 text-sm">
+                <div className="flex items-center gap-2">
+                  <Loader2Icon className="size-4 animate-spin" />
+                  <span>{t.bulkProcessed(bulkProgress.done, bulkProgress.total)}</span>
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">{t.bulkSuccessFailed(bulkProgress.success, bulkProgress.failed)}</p>
+              </div>
+            ) : null}
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setBulkReminderOpen(false)} disabled={bulkSending}>
+              {t.bulkCancel}
+            </Button>
+            <Button type="button" onClick={() => void sendReminderToSelectedSequentially()} disabled={bulkSending || selectedInvoices.length === 0}>
+              {bulkSending ? <Loader2Icon className="size-4 animate-spin" /> : null}
+              {bulkSending ? t.bulkSending : t.bulkStart}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(next) => (!next ? setDeleteTarget(null) : undefined)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -702,13 +1177,106 @@ function InvoicesPageContent() {
           }}
         />
       ) : null}
+
+      {reminderTarget ? (
+        <SendReminderModal
+          open={Boolean(reminderTarget)}
+          onOpenChange={(next) => (!next ? setReminderTarget(null) : undefined)}
+          invoiceId={reminderTarget._id}
+          invoiceNumber={reminderTarget.invoiceNumber}
+          clientName={reminderTarget.clientSnapshot.fullName}
+          dueDate={reminderTarget.dueDate}
+          invoiceDate={reminderTarget.date}
+          amountDue={reminderTarget.remainingAmount ?? reminderTarget.totalIncludingTax}
+          locale={locale as 'en' | 'fr'}
+          nextLevel={getNextReminderLevel(reminderTarget.reminderState?.level)}
+          onSent={() => {
+            refetch();
+          }}
+        />
+      ) : null}
+
+      {recordPaymentTarget ? (
+        <ManualPaymentModal
+          open={Boolean(recordPaymentTarget)}
+          onOpenChange={(next) => {
+            if (!next) {
+              setRecordPaymentTarget(null);
+            }
+          }}
+          loading={recordPaymentLoading}
+          locale={locale as 'en' | 'fr'}
+          totalAmount={Math.max(0, Math.round(recordPaymentTarget.totalIncludingTax ?? 0))}
+          totalPaidAmount={Math.max(0, Math.round(recordPaymentTarget.amountPaid ?? 0))}
+          remainingAmount={Math.max(
+            0,
+            Math.round(
+              recordPaymentTarget.remainingAmount ??
+                Math.max(0, Math.round(recordPaymentTarget.totalIncludingTax ?? 0) - Math.round(recordPaymentTarget.amountPaid ?? 0))
+            )
+          )}
+          onConfirm={handleRecordPayment}
+        />
+      ) : null}
+
+      <AlertDialog
+        open={Boolean(formalNoticeConfirmTarget)}
+        onOpenChange={(next) => (!next ? setFormalNoticeConfirmTarget(null) : undefined)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {translate(locale as 'en' | 'fr', 'reminders.formalNoticeResendConfirm.title')}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {translate(locale as 'en' | 'fr', 'reminders.formalNoticeResendConfirm.description', {
+                date: (() => {
+                  const raw =
+                    formalNoticeConfirmTarget?.reminderState?.formalNoticeSentAt ??
+                    formalNoticeConfirmTarget?.reminderState?.lastSentAt ??
+                    null;
+                  if (!raw) return '-';
+                  const date = new Date(raw);
+                  if (!Number.isFinite(date.getTime())) return '-';
+                  return new Intl.DateTimeFormat(locale === 'fr' ? 'fr-FR' : 'en-GB', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                  }).format(date);
+                })(),
+              })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel asChild>
+              <Button type="button" variant="outline">
+                {translate(locale as 'en' | 'fr', 'reminders.formalNoticeResendConfirm.cancel')}
+              </Button>
+            </AlertDialogCancel>
+            <AlertDialogAction asChild>
+              <Button
+                type="button"
+                onClick={() => {
+                  const next = formalNoticeConfirmTarget;
+                  setFormalNoticeConfirmTarget(null);
+                  if (next) {
+                    setReminderTarget(next);
+                  }
+                }}
+              >
+                {translate(locale as 'en' | 'fr', 'reminders.formalNoticeResendConfirm.confirm')}
+              </Button>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </CrmShell>
   );
 }
 
 export default function InvoicesPage() {
   return (
-    <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Loading...</div>}>
+    <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Chargement...</div>}>
       <InvoicesPageContent />
     </Suspense>
   );

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 
-import { Loader2Icon, ReceiptTextIcon, X } from 'lucide-react';
+import { Loader2Icon, ReceiptTextIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { resolveTranslatedError } from '@/lib/i18n/messages';
@@ -132,18 +132,6 @@ export default function ConvertToInvoiceModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[calc(100vw-1rem)] max-w-lg p-4 sm:p-5">
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          className="absolute top-3 right-3"
-          aria-label={t.cancel}
-          onClick={() => onOpenChange(false)}
-          disabled={submitting}
-        >
-          <X className="size-4" />
-        </Button>
-
         <DialogHeader className="pr-8">
           <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
             <ReceiptTextIcon className="size-4" />

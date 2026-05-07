@@ -4,6 +4,8 @@ import ConnectDb from '@/db/connectDb';
 import Invoice from '@/db/models/Invoice';
 import Payment from '@/db/models/Payment';
 import StripeConnect from '@/db/models/StripeConnect';
+import { resolveLocaleFromValue } from '@/lib/i18n/locale';
+import { getCheckoutLineItemLabel } from '@/lib/payments';
 import { stripe } from '@/lib/stripe';
 import getMe from '@/utils/middlewares/useMe';
 
@@ -16,6 +18,7 @@ interface CheckoutBody {
   type?: CheckoutType;
   amount?: number;
   idempotencyKey?: string;
+  locale?: string;
 }
 
 export async function POST(req: NextRequest) {
@@ -36,6 +39,7 @@ export async function POST(req: NextRequest) {
       typeof body.idempotencyKey === 'string' && body.idempotencyKey.trim()
         ? body.idempotencyKey.trim().slice(0, 120)
         : null;
+    const locale = resolveLocaleFromValue(body.locale, resolveLocaleFromValue(me.user.locale, 'fr'));
 
     if (!invoiceId || (paymentType !== 'full' && paymentType !== 'deposit')) {
       return NextResponse.json({ message: 'Invalid request body' }, { status: 400 });
@@ -104,17 +108,12 @@ export async function POST(req: NextRequest) {
         ? 'deposit'
         : 'remaining_balance';
 
-    const label = recordedPaymentType === 'deposit'
-      ? `Deposit for invoice ${invoice.invoiceNumber}`
-      : recordedPaymentType === 'full'
-        ? `Invoice ${invoice.invoiceNumber}`
-        : `Partial payment for invoice ${invoice.invoiceNumber}`;
+    const label = getCheckoutLineItemLabel(locale, recordedPaymentType, invoice.invoiceNumber);
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin;
 
     const checkoutSession = await stripe.checkout.sessions.create({
       mode: 'payment',
-      payment_method_types: ['card'],
       line_items: [
         {
           price_data: {

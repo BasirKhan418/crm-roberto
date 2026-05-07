@@ -37,6 +37,8 @@ export default function InvoiceForm({ defaultClientId, defaultQuoteId, defaultDu
       date: 'Date',
       dueDate: 'Due date',
       client: 'Client',
+      subject: 'Object',
+      subjectPlaceholder: 'Website creation, POS installation, Maintenance...',
       lineItems: 'Products / Services',
       notes: 'Notes',
       notesPlaceholder: 'Add payment or legal notes...',
@@ -48,7 +50,10 @@ export default function InvoiceForm({ defaultClientId, defaultQuoteId, defaultDu
       dateRequired: 'Date is required',
       dueDateRequired: 'Due date is mandatory',
       dueDateInvalid: 'Due date must be after invoice date',
+      datePast: 'Invoice date cannot be in the past',
+      dueDatePast: 'Due date cannot be in the past',
       lineItemsRequired: 'At least one line item is required',
+      subjectRequired: 'Object is required',
       lineItemNameRequired: 'Each line item must have a name',
       fromQuoteTitle: 'Convert signed quote',
       fromQuoteText: 'This invoice will be created directly from the selected quote.',
@@ -67,6 +72,8 @@ export default function InvoiceForm({ defaultClientId, defaultQuoteId, defaultDu
       date: 'Date',
       dueDate: '\u00c9ch\u00e9ance',
       client: 'Client',
+      subject: 'Objet',
+      subjectPlaceholder: 'Creation de site web, installation POS, maintenance...',
       lineItems: 'Produits / Services',
       notes: 'Notes',
       notesPlaceholder: 'Ajoutez des notes de paiement ou l\u00e9gales...',
@@ -76,9 +83,12 @@ export default function InvoiceForm({ defaultClientId, defaultQuoteId, defaultDu
       createFailed: 'Impossible de cr\u00e9er la facture',
       clientRequired: 'Le client est requis',
       dateRequired: 'La date est requise',
-      dueDateRequired: "L'echeance est obligatoire",
+      dueDateRequired: "L'\u00e9ch\u00e9ance est obligatoire",
       dueDateInvalid: "L'\u00e9ch\u00e9ance doit \u00eatre post\u00e9rieure \u00e0 la date de facture",
+      datePast: 'La date de facture ne peut pas \u00eatre dans le pass\u00e9',
+      dueDatePast: "L'\u00e9ch\u00e9ance ne peut pas \u00eatre dans le pass\u00e9",
       lineItemsRequired: 'Au moins une ligne est requise',
+      subjectRequired: "L'objet est requis",
       lineItemNameRequired: 'Chaque ligne doit avoir un nom',
       fromQuoteTitle: 'Convertir un devis sign\u00e9',
       fromQuoteText: 'Cette facture sera cr\u00e9\u00e9e directement depuis le devis s\u00e9lectionn\u00e9.',
@@ -90,9 +100,12 @@ export default function InvoiceForm({ defaultClientId, defaultQuoteId, defaultDu
     },
   }[locale];
 
+  const todayIso = new Date().toISOString().slice(0, 10);
+
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [clientId, setClientId] = useState(defaultClientId ?? '');
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [subject, setSubject] = useState('');
+  const [date, setDate] = useState(todayIso);
   const [dueDate, setDueDate] = useState(defaultDueDate ?? '');
   const [lineItems, setLineItems] = useState<QuoteLineItem[]>([]);
   const [notes, setNotes] = useState('');
@@ -110,11 +123,11 @@ export default function InvoiceForm({ defaultClientId, defaultQuoteId, defaultDu
         const response = await fetch('/api/invoices/next-number');
         const payload = (await response.json()) as { invoiceNumber?: string };
         if (!cancelled) {
-          setInvoiceNumber(payload.invoiceNumber || `INV-${new Date().getFullYear()}-001`);
+          setInvoiceNumber(payload.invoiceNumber || `FAC-${new Date().getFullYear()}-001`);
         }
       } catch {
         if (!cancelled) {
-          setInvoiceNumber(`INV-${new Date().getFullYear()}-001`);
+          setInvoiceNumber(`FAC-${new Date().getFullYear()}-001`);
         }
       }
     }
@@ -145,11 +158,19 @@ export default function InvoiceForm({ defaultClientId, defaultQuoteId, defaultDu
       nextErrors.clientId = t.clientRequired;
     }
 
-    if (!date) {
-      nextErrors.date = t.dateRequired;
+    if (!subject.trim()) {
+      nextErrors.subject = t.subjectRequired;
     }
 
-    if (dueDate && date && new Date(dueDate).getTime() < new Date(date).getTime()) {
+    if (!date) {
+      nextErrors.date = t.dateRequired;
+    } else if (date < todayIso) {
+      nextErrors.date = t.datePast;
+    }
+
+    if (dueDate && dueDate < todayIso) {
+      nextErrors.dueDate = t.dueDatePast;
+    } else if (dueDate && date && new Date(dueDate).getTime() < new Date(date).getTime()) {
       nextErrors.dueDate = t.dueDateInvalid;
     }
 
@@ -187,6 +208,7 @@ export default function InvoiceForm({ defaultClientId, defaultQuoteId, defaultDu
             clientId,
             date,
             dueDate,
+            subject: subject.trim() || null,
             lineItems,
             notes: notes.trim() || null,
           };
@@ -262,6 +284,7 @@ export default function InvoiceForm({ defaultClientId, defaultQuoteId, defaultDu
                 id="invoice-date"
                 type="date"
                 value={date}
+                min={todayIso}
                 onChange={(event) => setDate(event.target.value)}
                 className="pr-9"
                 disabled={convertFromQuote}
@@ -272,7 +295,7 @@ export default function InvoiceForm({ defaultClientId, defaultQuoteId, defaultDu
 
           <div className="space-y-1.5 rounded-lg border border-border/70 bg-background/80 p-3">
             <Label htmlFor="invoice-due-date">{t.dueDate}</Label>
-            <Input data-tour-invoice-due-date id="invoice-due-date" type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
+            <Input data-tour-invoice-due-date id="invoice-due-date" type="date" value={dueDate} min={date || todayIso} onChange={(event) => setDueDate(event.target.value)} />
             {errors.dueDate ? <p className="text-xs text-destructive">{errors.dueDate}</p> : null}
           </div>
         </div>
@@ -301,6 +324,19 @@ export default function InvoiceForm({ defaultClientId, defaultQuoteId, defaultDu
           ) : null}
 
           {!convertFromQuote ? (
+            <section className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
+              <Label htmlFor="invoice-subject">{t.subject}</Label>
+              <Input
+                id="invoice-subject"
+                value={subject}
+                onChange={(event) => setSubject(event.target.value)}
+                placeholder={t.subjectPlaceholder}
+              />
+              {errors.subject ? <p className="mt-2 text-xs text-destructive">{errors.subject}</p> : null}
+            </section>
+          ) : null}
+
+          {!convertFromQuote ? (
             <section data-tour-invoice-items-step className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
               <h2 className="mb-3 inline-flex items-center gap-2 font-heading text-base font-semibold">
                 <span className="flex size-6 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">{lineItems.length > 0 ? '✓' : '2'}</span>
@@ -308,7 +344,7 @@ export default function InvoiceForm({ defaultClientId, defaultQuoteId, defaultDu
                 {t.lineItems}
                 <span className="text-xs font-normal text-muted-foreground">— {t.step2}</span>
               </h2>
-              <LineItemsBuilder lineItems={lineItems} onChange={setLineItems} />
+              <LineItemsBuilder mode="invoice" lineItems={lineItems} onChange={setLineItems} />
               {errors.lineItems ? <p className="mt-2 text-xs text-destructive">{errors.lineItems}</p> : null}
             </section>
           ) : null}

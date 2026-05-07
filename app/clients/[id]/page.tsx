@@ -30,11 +30,17 @@ import {
 import { toast } from 'sonner';
 
 import CrmShell from '@/components/crm-shell';
+import ClientInvoicesPanel from '@/components/clients/client-invoices-panel';
 import AddClientModal from '@/components/modals/AddClientModal';
 import SendQuoteModal from '@/components/quotes/SendQuoteModal';
 import QuoteStatusSummary from '@/components/quotes/QuoteStatusSummary';
 import { useLocale } from '@/components/providers/locale-provider';
-import { resolveTranslatedError } from '@/lib/i18n/messages';
+import {
+  formatInvoiceDisplayNumber,
+  getActivityBadgeLabel,
+  getActivityHeadline,
+  resolveTranslatedError,
+} from '@/lib/i18n/messages';
 import { PriceDisplay } from '@/components/ui/PriceDisplay';
 import type { QuoteStatus } from '@/components/ui/StatusBadge';
 import {
@@ -132,6 +138,16 @@ interface AttachmentItem {
   createdAt: string;
 }
 
+interface ActivityItem {
+  _id: string;
+  action: string;
+  entityType: 'client' | 'supplier' | 'note' | 'product' | 'quote' | 'invoice' | 'reminder' | 'recurrence';
+  entityName: string;
+  entityId?: string | null;
+  metadata?: Record<string, unknown> | null;
+  createdAt: string;
+}
+
 interface DetailResponse {
   success: boolean;
   message?: string;
@@ -140,6 +156,7 @@ interface DetailResponse {
     timeline: NoteItem[];
     interactions: InteractionItem[];
     attachments: AttachmentItem[];
+    activities: ActivityItem[];
   };
 }
 
@@ -200,6 +217,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       timeline: 'Timeline',
       notes: 'Notes & Tasks',
       interactions: 'Interactions',
+      invoicesTab: 'Invoices',
       attachments: 'Attachments',
       createQuote: 'Create Quote',
       createInvoice: 'Create Invoice',
@@ -328,6 +346,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       timeline: 'Chronologie',
       notes: 'Notes & T\u00e2ches',
       interactions: 'Interactions',
+      invoicesTab: 'Factures',
       attachments: 'Pi\u00e8ces jointes',
       createQuote: 'Cr\u00e9er un devis',
       createInvoice: 'Cr\u00e9er une facture',
@@ -447,6 +466,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   const [quotes, setQuotes] = useState<ClientQuote[]>([]);
   const [interactions, setInteractions] = useState<InteractionItem[]>([]);
   const [attachments, setAttachments] = useState<AttachmentItem[]>([]);
+  const [activities, setActivities] = useState<ActivityItem[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [quotesLoading, setQuotesLoading] = useState(false);
@@ -498,14 +518,22 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       if (!response.ok || !data.success || !data.data) {
         throw new Error(data.message || t.loadFailed);
       }
-      const { client: c, timeline: tl, interactions: ints, attachments: atts } = data.data;
+      const {
+        client: c,
+        timeline: tl,
+        interactions: ints,
+        attachments: atts,
+        activities: activityItems = [],
+      } = data.data;
       setClient(c);
       setTimeline(tl);
       setInteractions(ints);
       setAttachments(atts);
+      setActivities(activityItems);
     } catch (err) {
       setError(err instanceof Error ? err.message : t.loadFailed);
       setClient(null);
+      setActivities([]);
     } finally {
       setLoading(false);
     }
@@ -556,14 +584,18 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   type TimelineEvent =
     | { kind: 'note'; date: Date; item: NoteItem }
     | { kind: 'quote'; date: Date; item: ClientQuote }
-    | { kind: 'interaction'; date: Date; item: InteractionItem };
+    | { kind: 'interaction'; date: Date; item: InteractionItem }
+    | { kind: 'activity'; date: Date; item: ActivityItem };
 
   const unifiedTimeline = useMemo<TimelineEvent[]>(() => {
     const noteEvents: TimelineEvent[] = timeline.map((n) => ({ kind: 'note', date: new Date(n.createdAt), item: n }));
-    const quoteEvents: TimelineEvent[] = quotes.map((q) => ({ kind: 'quote', date: new Date(q.statusChangedAt ?? q.date), item: q }));
+    const quoteEvents: TimelineEvent[] = quotes.map((q) => ({ kind: 'quote', date: new Date(q.date), item: q }));
     const interactionEvents: TimelineEvent[] = interactions.map((i) => ({ kind: 'interaction', date: new Date(i.date), item: i }));
-    return [...noteEvents, ...quoteEvents, ...interactionEvents].sort((a, b) => b.date.getTime() - a.date.getTime());
-  }, [timeline, quotes, interactions]);
+    const activityEvents: TimelineEvent[] = activities
+      .filter((activity) => activity.action !== 'quote_created')
+      .map((activity) => ({ kind: 'activity', date: new Date(activity.createdAt), item: activity }));
+    return [...noteEvents, ...quoteEvents, ...interactionEvents, ...activityEvents].sort((a, b) => b.date.getTime() - a.date.getTime());
+  }, [activities, interactions, quotes, timeline]);
 
   const dateFormatter = useMemo(
     () => new Intl.DateTimeFormat(locale === 'fr' ? 'fr-FR' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
@@ -931,6 +963,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                     <TabTriggerStyled value="timeline">{t.timeline}</TabTriggerStyled>
                     <TabTriggerStyled value="notes" badge={pendingNotes.length > 0 ? pendingNotes.length : undefined}>{t.notes}</TabTriggerStyled>
                     <TabTriggerStyled value="interactions" badge={interactions.length > 0 ? interactions.length : undefined}>{t.interactions}</TabTriggerStyled>
+                    <TabTriggerStyled value="invoices">{t.invoicesTab}</TabTriggerStyled>
                     <TabTriggerStyled value="quotes" badge={quotes.length > 0 ? quotes.length : undefined}>{t.quotesTab}</TabTriggerStyled>
                     <TabTriggerStyled value="attachments" badge={attachments.length > 0 ? attachments.length : undefined}>{t.attachments}</TabTriggerStyled>
                   </TabsList>
@@ -964,6 +997,17 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                               onDelete={() => setDeletingInteractionId(event.item._id)}
                               typeLabels={{ call: t.call, meeting: t.meeting, email: t.emailType, discussion: t.discussion }}
                               followUpLabel={t.followUpLabel}
+                            />
+                          );
+                        }
+                        if (event.kind === 'activity') {
+                          return (
+                            <TimelineActivityItem
+                              key={`activity-${event.item._id}`}
+                              activity={event.item}
+                              locale={locale as 'en' | 'fr'}
+                              dateFormatter={dateFormatter}
+                              viewLabel={t.view}
                             />
                           );
                         }
@@ -1048,6 +1092,11 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                         ))}
                     </div>
                   )}
+                </TabsContent>
+
+                {/* INVOICES */}
+                <TabsContent value="invoices" className="space-y-4">
+                  <ClientInvoicesPanel clientId={client._id} />
                 </TabsContent>
 
                 {/* QUOTES */}
@@ -1416,7 +1465,7 @@ function TimelineQuoteItem({ quote, locale, dateFormatter, onSend, quoteBadge }:
             <span className="text-sm font-semibold">{quote.quoteNumber}</span>
             {isConverted ? (
               <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold leading-none text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-300">
-                {locale === 'fr' ? 'Facture creee' : 'Invoiced'}
+                {locale === 'fr' ? 'Facture cr\u00e9\u00e9e' : 'Invoiced'}
               </span>
             ) : null}
             <QuoteStatusSummary status={quote.status} statusChangedAt={quote.statusChangedAt} locale={locale} />
@@ -1437,6 +1486,186 @@ function TimelineQuoteItem({ quote, locale, dateFormatter, onSend, quoteBadge }:
           </div>
         </div>
         <p className="mt-1 text-xs text-muted-foreground">{dateFormatter.format(new Date(quote.date))}</p>
+      </div>
+    </li>
+  );
+}
+
+function getActivityPresentation(activity: ActivityItem) {
+  if (activity.action === 'invoice_formal_notice_sent') {
+    return {
+      dotClass: 'bg-red-500',
+      containerClass: 'border-l-red-500 bg-red-50/70 dark:bg-red-950/20',
+      badgeClass: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
+      icon: <AlertTriangleIcon className="size-3.5" />,
+    };
+  }
+
+  if (activity.action.startsWith('invoice_reminder')) {
+    return {
+      dotClass: activity.action === 'invoice_reminder_failed' ? 'bg-red-500' : 'bg-amber-500',
+      containerClass:
+        activity.action === 'invoice_reminder_failed'
+          ? 'border-l-red-500 bg-red-50/60 dark:bg-red-950/20'
+          : 'border-l-amber-500 bg-amber-50/60 dark:bg-amber-950/20',
+      badgeClass:
+        activity.action === 'invoice_reminder_failed'
+          ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+          : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
+      icon: <MailIcon className="size-3.5" />,
+    };
+  }
+
+  if (activity.entityType === 'invoice') {
+    return {
+      dotClass: 'bg-rose-400',
+      containerClass: 'border-l-rose-400 bg-rose-50/60 dark:bg-rose-950/20',
+      badgeClass: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300',
+      icon: <ReceiptIcon className="size-3.5" />,
+    };
+  }
+
+  if (activity.entityType === 'quote') {
+    return {
+      dotClass: 'bg-blue-400',
+      containerClass: 'border-l-blue-400 bg-blue-50/60 dark:bg-blue-950/20',
+      badgeClass: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
+      icon: <FileTextIcon className="size-3.5" />,
+    };
+  }
+
+  return {
+    dotClass: 'bg-slate-400',
+    containerClass: 'border-l-slate-400 bg-slate-50/60 dark:bg-slate-950/20',
+    badgeClass: 'bg-slate-100 text-slate-700 dark:bg-slate-900/40 dark:text-slate-300',
+    icon: <UserIcon className="size-3.5" />,
+  };
+}
+
+function buildActivityLink(activity: ActivityItem): string | null {
+  if (!activity.entityId) {
+    return null;
+  }
+
+  if (activity.entityType === 'invoice') {
+    return `/invoices/${activity.entityId}`;
+  }
+
+  if (activity.entityType === 'quote') {
+    return `/quotes/${activity.entityId}`;
+  }
+
+  return null;
+}
+
+function formatActivityEntity(activity: ActivityItem, locale: 'en' | 'fr'): string {
+  if (activity.entityType === 'invoice') {
+    return `${locale === 'fr' ? 'Facture' : 'Invoice'} ${formatInvoiceDisplayNumber(locale, activity.entityName)}`;
+  }
+
+  if (activity.entityType === 'quote') {
+    return `${locale === 'fr' ? 'Devis' : 'Quote'} ${activity.entityName}`;
+  }
+
+  if (activity.entityType === 'client') {
+    return `${locale === 'fr' ? 'Client' : 'Client'} ${activity.entityName}`;
+  }
+
+  return activity.entityName;
+}
+
+function formatActivityDetail(activity: ActivityItem, locale: 'en' | 'fr'): string | null {
+  const metadata = activity.metadata ?? null;
+  if (!metadata) {
+    return null;
+  }
+
+  if (activity.action === 'quote_sent') {
+    const sentTo = typeof metadata.sentTo === 'string' ? metadata.sentTo : null;
+    return sentTo
+      ? locale === 'fr'
+        ? `Envoyé à ${sentTo}`
+        : `Sent to ${sentTo}`
+      : null;
+  }
+
+  if (activity.action === 'quote_status_changed') {
+    const from = typeof metadata.from === 'string' ? metadata.from : null;
+    const to = typeof metadata.to === 'string' ? metadata.to : null;
+    return from && to ? `${from} -> ${to}` : null;
+  }
+
+  if (activity.action === 'invoice_formal_notice_sent') {
+    const deadline = typeof metadata.deadline === 'string' ? metadata.deadline : null;
+    if (!deadline) {
+      return null;
+    }
+
+    const formattedDeadline = new Intl.DateTimeFormat(locale === 'fr' ? 'fr-FR' : 'en-GB', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    }).format(new Date(deadline));
+
+    return locale === 'fr'
+      ? `Échéance légale ${formattedDeadline}`
+      : `Legal deadline ${formattedDeadline}`;
+  }
+
+  if (activity.action.startsWith('invoice_reminder')) {
+    const levelValue =
+      typeof metadata.level === 'number'
+        ? metadata.level
+        : typeof metadata.skippedLevel === 'number'
+          ? metadata.skippedLevel
+          : null;
+    const recipientEmail = typeof metadata.recipientEmail === 'string' ? metadata.recipientEmail : null;
+    const parts = [levelValue ? (locale === 'fr' ? `Niveau ${levelValue}` : `Level ${levelValue}`) : null, recipientEmail]
+      .filter((part): part is string => Boolean(part));
+    return parts.length > 0 ? parts.join(' • ') : null;
+  }
+
+  return null;
+}
+
+function TimelineActivityItem({ activity, locale, dateFormatter, viewLabel }: {
+  activity: ActivityItem;
+  locale: 'en' | 'fr';
+  dateFormatter: Intl.DateTimeFormat;
+  viewLabel: string;
+}) {
+  const presentation = getActivityPresentation(activity);
+  const headline = getActivityHeadline(locale, activity.action, activity.metadata);
+  const badgeLabel = getActivityBadgeLabel(locale, activity.action);
+  const entityLabel = formatActivityEntity(activity, locale);
+  const detailLabel = formatActivityDetail(activity, locale);
+  const href = buildActivityLink(activity);
+
+  return (
+    <li className="mb-6 ml-4">
+      <span className={`absolute -left-1.5 mt-1.5 size-3 rounded-full border border-border ${presentation.dotClass}`} />
+      <div className={`rounded-lg border border-l-4 border-border/70 p-4 ${presentation.containerClass}`}>
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${presentation.badgeClass}`}>
+                {presentation.icon}
+                {badgeLabel}
+              </span>
+              <h3 className="text-sm font-semibold">{headline}</h3>
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">{entityLabel}</p>
+            {detailLabel ? <p className="mt-2 text-xs text-muted-foreground">{detailLabel}</p> : null}
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">{dateFormatter.format(new Date(activity.createdAt))}</span>
+            {href ? (
+              <Button variant="ghost" size="sm" asChild>
+                <Link href={href}>{viewLabel}</Link>
+              </Button>
+            ) : null}
+          </div>
+        </div>
       </div>
     </li>
   );

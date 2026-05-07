@@ -133,7 +133,7 @@ export default function RecentQuotes({ refreshKey = 0 }: RecentQuotesProps) {
   const showError = Boolean(error) && items.length === 0;
 
   return (
-    <Card className="gap-0 overflow-hidden">
+    <Card className="gap-0 overflow-hidden pt-0">
       <CardHeader className="border-b bg-slate-50 px-5 py-3.5 dark:bg-slate-900/40">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle className="text-[11px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">

@@ -11,7 +11,7 @@ import StripeConnect from '@/db/models/StripeConnect';
 import { getCompanyProfileByUserId } from '@/db/repository/cprofile';
 import { extractClientSnapshot } from '@/lib/address';
 import { sendInvoice } from '@/lib/email';
-import { resolveLocaleFromRequest } from '@/lib/i18n/locale';
+import { resolveLocaleFromValue } from '@/lib/i18n/locale';
 import { InvoicePdfTemplate } from '@/lib/pdf/InvoicePdfTemplate';
 import { buildInvoicePayUrl, generatePaymentToken, generateTokenExpiry, isTokenExpired } from '@/lib/tokens';
 import getMe from '@/utils/middlewares/useMe';
@@ -39,7 +39,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       locale?: string;
       sendMode?: string;
     };
-    const locale = resolveLocaleFromRequest(request, { rawLocale });
+    const locale = resolveLocaleFromValue(rawLocale, resolveLocaleFromValue(me.user.locale, 'fr'));
     const sendMode: InvoiceSendMode = rawSendMode === 'online' ? 'online' : 'normal';
     const customSubject = typeof subject === 'string' && subject.trim() ? subject.trim() : undefined;
     const customMessageBody = typeof message === 'string' && message.trim() ? message.trim() : undefined;
@@ -155,6 +155,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       discountAmountExcludingTax: item.discountAmountExcludingTax,
       vatRate: item.vatRate,
       totalExcludingTax: item.totalExcludingTax,
+      lineType: item.lineType ?? null,
     }));
     const depositPercentage = typeof invoice.depositPercentage === 'number' ? invoice.depositPercentage : 100;
 
@@ -251,6 +252,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       subject: customSubject,
       messageBody: customMessageBody,
     });
+
+    await Invoice.updateOne(
+      { _id: invoice._id, userId: me.user.id },
+      { $set: { sentAt: new Date() } }
+    );
 
     return NextResponse.json({ success: true, message: 'Invoice sent successfully' });
   } catch (error) {

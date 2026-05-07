@@ -9,9 +9,10 @@ import Payment from '@/db/models/Payment';
 import Quote from '@/db/models/Quote';
 import { createActivityLog } from '@/db/repository/activity';
 import { ensureInvoiceIndexes } from '@/db/repository/ensureInvoiceIndexes';
+import { getStartOfTomorrow, isInvoiceDueOnOrBeforeToday } from '@/lib/invoices/overdue';
+import { getNextInvoiceNumberForYear, isInvoiceNumberDuplicateError } from '@/lib/invoice-number';
 import { normalizeInvoiceNumberSearchTerm } from '@/lib/i18n/messages';
 import { computeQuoteLine, computeQuoteTotalsFromComputedLines } from '@/lib/quote-calculations';
-import { nextInvoiceNumber } from '@/lib/price';
 import { buildValidationError } from '@/utils/api/validation';
 import getMe from '@/utils/middlewares/useMe';
 
@@ -43,6 +44,7 @@ const toNumber = (value: unknown) => {
 
 const baseInvoiceSchema = z.object({
   dueDate: z.preprocess(emptyToUndefined, z.coerce.date()),
+  subject: z.preprocess(emptyToNull, z.string().trim().max(200).nullable().optional()),
   notes: z.preprocess(emptyToNull, z.string().trim().max(2000).nullable().optional()),
 });
 
@@ -53,9 +55,11 @@ const convertQuoteToInvoiceSchema = baseInvoiceSchema.extend({
 const standaloneInvoiceSchema = baseInvoiceSchema.extend({
   clientId: objectIdSchema,
   date: z.preprocess(emptyToUndefined, z.coerce.date().optional()),
+  subject: z.preprocess(emptyToUndefined, z.string().trim().min(1).max(200)),
   lineItems: z
     .array(
       z.object({
+        lineType: z.enum(['catalog', 'custom', 'free_text', 'item']).optional(),
         productId: objectIdSchema.optional().nullable(),
         productImageUrl: z.preprocess(emptyToNull, z.string().trim().url().nullable().optional()),
         name: z.string().trim().min(1),
@@ -69,27 +73,6 @@ const standaloneInvoiceSchema = baseInvoiceSchema.extend({
     .min(1),
 });
 
-async function getNextInvoiceNumberForYear(userId: string, year: number): Promise<string> {
-  const yearPrefix = `INV-${year}-`;
-  const lastInvoice = await Invoice.findOne({
-    userId,
-    invoiceNumber: { $regex: `^${yearPrefix}` },
-  })
-    .sort({ invoiceNumber: -1 })
-    .select('invoiceNumber')
-    .lean<{ invoiceNumber?: string } | null>();
-
-  return nextInvoiceNumber(lastInvoice?.invoiceNumber ?? null, year);
-}
-
-function isInvoiceNumberDuplicateError(error: unknown): boolean {
-  if (!(error instanceof Error)) {
-    return false;
-  }
-
-  return error.message.includes('E11000') && error.message.includes('invoiceNumber');
-}
-
 type CreatedInvoiceLike = {
   _id: mongoose.Types.ObjectId;
   invoiceNumber: string;
@@ -101,6 +84,7 @@ type InvoiceListQueryResult = {
   invoiceNumber: string;
   quoteId?: mongoose.Types.ObjectId | null;
   quoteNumber?: string | null;
+  sentAt?: Date | null;
   date: Date;
   dueDate?: Date | null;
   status: string;
@@ -109,6 +93,15 @@ type InvoiceListQueryResult = {
   totalIncludingTax: number;
   depositPercentage?: number | null;
   depositAmount?: number | null;
+  recurrence?: {
+    isActive?: boolean;
+  } | null;
+  reminderState?: {
+    level?: number | null;
+    lastSentAt?: Date | null;
+    nextScheduledAt?: Date | null;
+    isPaused?: boolean;
+  } | null;
   clientId: mongoose.Types.ObjectId;
   clientSnapshot: {
     fullName: string;
@@ -160,14 +153,11 @@ async function createInvoiceWithUniqueNumber(
 }
 
 function withComputedInvoiceStatus<T extends { status: string; dueDate?: Date | string | null }>(invoice: T): T {
-  const dueDate = invoice.dueDate ? new Date(invoice.dueDate) : null;
-  const isPastDue = Boolean(dueDate && Number.isFinite(dueDate.getTime()) && dueDate.getTime() < Date.now());
-
   if (
     invoice.status === 'unpaid' ||
     invoice.status === 'partial_paid'
   ) {
-    if (!isPastDue) {
+    if (!isInvoiceDueOnOrBeforeToday(invoice.dueDate)) {
       return invoice;
     }
 
@@ -193,6 +183,7 @@ export async function GET(request: NextRequest) {
     const statusParam = request.nextUrl.searchParams.get('status');
     const searchParam = request.nextUrl.searchParams.get('search')?.trim();
     const sortParam = request.nextUrl.searchParams.get('sort');
+    const clientIdParam = request.nextUrl.searchParams.get('clientId')?.trim();
     const pageParam = Number(request.nextUrl.searchParams.get('page') ?? '1');
     const limitParam = Number(request.nextUrl.searchParams.get('limit') ?? '10');
 
@@ -206,13 +197,28 @@ export async function GET(request: NextRequest) {
           ? 'partial_paid'
         : undefined;
 
-    const sort: 'date' | 'amount' = sortParam === 'amount' ? 'amount' : 'date';
+    const sort: 'number_desc' | 'number_asc' | 'date' | 'amount' =
+      sortParam === 'number_asc'
+        ? 'number_asc'
+        : sortParam === 'date'
+          ? 'date'
+          : sortParam === 'amount'
+            ? 'amount'
+            : 'number_desc';
     const page = Number.isFinite(pageParam) ? Math.max(1, pageParam) : 1;
     const limit = Number.isFinite(limitParam) ? Math.max(1, Math.min(100, limitParam)) : 10;
     const skip = (page - 1) * limit;
 
-    const now = new Date();
+    if (clientIdParam && !objectIdSchema.safeParse(clientIdParam).success) {
+      return NextResponse.json({ success: false, message: 'Invalid client id' }, { status: 400 });
+    }
+
+    const tomorrowStart = getStartOfTomorrow();
     const query: Record<string, unknown> = { userId: me.user.id };
+
+    if (clientIdParam) {
+      query.clientId = new mongoose.Types.ObjectId(clientIdParam);
+    }
 
     if (status) {
       if (status === 'overdue') {
@@ -220,7 +226,7 @@ export async function GET(request: NextRequest) {
           { status: 'overdue' },
           {
             status: { $in: ['unpaid', 'partial_paid'] },
-            dueDate: { $lt: now },
+                    dueDate: { $lt: tomorrowStart },
           },
         ];
       } else if (status === 'partial_paid') {
@@ -228,6 +234,25 @@ export async function GET(request: NextRequest) {
       } else {
         query.status = status;
       }
+    }
+
+    // Sidebar badges opt in to this flag so "unpaid" and "partial_paid" counts
+    // exclude invoices that are already surfaced in the "overdue" bucket,
+    // keeping the three badges mutually exclusive.
+    const excludeOverdueParam = request.nextUrl.searchParams.get('excludeOverdue');
+    if (
+      excludeOverdueParam === 'true' &&
+      (status === 'unpaid' || status === 'partial_paid')
+    ) {
+      query.$and = [
+        ...((query.$and as unknown[] | undefined) ?? []),
+        {
+          $and: [
+            { status: { $ne: 'overdue' } },
+            { $or: [{ dueDate: null }, { dueDate: { $exists: false } }, { dueDate: { $gte: tomorrowStart } }] },
+          ],
+        },
+      ];
     }
 
     if (searchParam) {
@@ -249,12 +274,18 @@ export async function GET(request: NextRequest) {
     }
 
     const sortSpec: Record<string, 1 | -1> =
-      sort === 'amount' ? { totalIncludingTax: -1, createdAt: -1 } : { date: -1, createdAt: -1 };
+      sort === 'number_asc'
+        ? { invoiceNumberYear: 1, invoiceNumberSequence: 1, createdAt: 1 }
+        : sort === 'amount'
+          ? { totalIncludingTax: -1, createdAt: -1 }
+          : sort === 'date'
+            ? { date: -1, createdAt: -1 }
+            : { invoiceNumberYear: -1, invoiceNumberSequence: -1, createdAt: -1 };
 
     const [items, total] = await Promise.all([
       Invoice.find(query)
         .select(
-          '_id invoiceNumber quoteId quoteNumber date dueDate status totalExcludingTax totalVat totalIncludingTax depositPercentage depositAmount clientId clientSnapshot.fullName clientSnapshot.email'
+          '_id invoiceNumber quoteId quoteNumber sentAt date dueDate status totalExcludingTax totalVat totalIncludingTax depositPercentage depositAmount recurrence.isActive reminderState clientId clientSnapshot.fullName clientSnapshot.email'
         )
         .sort(sortSpec)
         .skip(skip)
@@ -321,9 +352,25 @@ export async function GET(request: NextRequest) {
         ...normalized,
         _id: invoiceId,
         quoteId: normalized.quoteId ? String(normalized.quoteId) : null,
+        sentAt: normalized.sentAt ? new Date(normalized.sentAt).toISOString() : null,
         clientId: String(normalized.clientId),
         depositAmount: depositTarget > 0 ? depositTarget : null,
         depositPaidAt: depositTarget > 0 ? depositPaidAtByInvoiceId.get(invoiceId) ?? null : null,
+        recurrence: {
+          isActive: normalized.recurrence?.isActive === true,
+        },
+        reminderState: {
+          level: Number.isFinite(normalized.reminderState?.level)
+            ? Math.max(0, Math.min(4, Math.round(Number(normalized.reminderState?.level))))
+            : 0,
+          lastSentAt: normalized.reminderState?.lastSentAt
+            ? new Date(normalized.reminderState.lastSentAt).toISOString()
+            : null,
+          nextScheduledAt: normalized.reminderState?.nextScheduledAt
+            ? new Date(normalized.reminderState.nextScheduledAt).toISOString()
+            : null,
+          isPaused: normalized.reminderState?.isPaused === true,
+        },
         amountPaid,
         remainingAmount,
         paymentProgressPercent,
@@ -400,6 +447,7 @@ export async function POST(request: NextRequest) {
             quoteNumber: quote.quoteNumber,
             date: new Date(),
             dueDate: parsed.data.dueDate ?? null,
+          subject: parsed.data.subject ?? quote.subject ?? null,
             status: 'unpaid',
             clientId: quote.clientId,
             clientSnapshot: {
@@ -478,6 +526,25 @@ export async function POST(request: NextRequest) {
     }
 
     const computedLineItems = parsed.data.lineItems.map((item) => {
+      if (item.lineType === 'free_text') {
+        return {
+          lineType: 'free_text' as const,
+          productId: null,
+          productImageUrl: null,
+          name: item.name,
+          quantity: 1,
+          unitPriceExcludingTax: 0,
+          baseUnitPriceExcludingTax: 0,
+          discountPercentage: 0,
+          vatRate: 0,
+          totalExcludingTaxBeforeDiscount: 0,
+          discountAmountExcludingTax: 0,
+          totalExcludingTax: 0,
+          vatAmount: 0,
+          totalIncludingTax: 0,
+        };
+      }
+
       const computed = computeQuoteLine({
         quantity: item.quantity,
         unitPriceExcludingTax: item.unitPriceExcludingTax,
@@ -487,8 +554,9 @@ export async function POST(request: NextRequest) {
       });
 
       return {
-        productId: item.productId ? new mongoose.Types.ObjectId(item.productId) : null,
-        productImageUrl: item.productImageUrl ?? null,
+        lineType: (item.lineType === 'catalog' ? 'catalog' : item.lineType === 'item' ? 'item' : 'custom') as 'catalog' | 'custom' | 'item',
+        productId: item.lineType === 'catalog' && item.productId ? new mongoose.Types.ObjectId(item.productId) : null,
+        productImageUrl: item.lineType === 'catalog' ? item.productImageUrl ?? null : null,
         name: item.name,
         quantity: computed.quantity,
         unitPriceExcludingTax: computed.unitPriceExcludingTax,
@@ -510,6 +578,7 @@ export async function POST(request: NextRequest) {
           invoiceNumber,
           date: parsed.data.date ?? new Date(),
           dueDate: parsed.data.dueDate ?? null,
+          subject: parsed.data.subject ?? null,
           status: 'unpaid',
           clientId: client._id,
           clientSnapshot: {

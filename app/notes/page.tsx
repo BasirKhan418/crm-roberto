@@ -507,7 +507,6 @@ export default function NotesPage() {
   const activeTabNotes = groupedNotes[activeTab];
   const activeTabTotalPages = Math.max(1, Math.ceil(activeTabNotes.length / TAB_PAGE_SIZE));
   const activeTabPage = Math.min(tabPageByStatus[activeTab], activeTabTotalPages);
-  const pagedActiveTabNotes = activeTabNotes.slice((activeTabPage - 1) * TAB_PAGE_SIZE, activeTabPage * TAB_PAGE_SIZE);
 
   function setTabPage(status: NoteStatus, page: number) {
     const total = Math.max(1, Math.ceil(groupedNotes[status].length / TAB_PAGE_SIZE));
@@ -778,15 +777,18 @@ export default function NotesPage() {
             <EmptyState message={t.empty} />
           ) : (
             <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as NoteStatus)} className="space-y-4">
-              <TabsList className="h-auto w-full justify-start gap-1 border border-border/80 bg-muted/10 p-1">
-                <TabsTrigger value="overdue" className="min-h-7 flex-none px-3 py-1.5 text-sm">
-                  {t.overdue} ({groupedNotes.overdue.length})
+              <TabsList className="grid h-auto! w-full grid-cols-3 items-stretch gap-1 border border-border/80 bg-muted/10 p-1">
+                <TabsTrigger value="overdue" className="h-auto! min-h-10 min-w-0 flex-col gap-0.5 whitespace-normal px-2 py-1.5 text-center text-xs sm:text-sm">
+                  <span className="wrap-break-word leading-tight">{t.overdue}</span>
+                  <span className="text-[11px] leading-none">({groupedNotes.overdue.length})</span>
                 </TabsTrigger>
-                <TabsTrigger value="today" className="min-h-7 flex-none px-3 py-1.5 text-sm">
-                  {t.today} ({groupedNotes.today.length})
+                <TabsTrigger value="today" className="h-auto! min-h-10 min-w-0 flex-col gap-0.5 whitespace-normal px-2 py-1.5 text-center text-xs sm:text-sm">
+                  <span className="wrap-break-word leading-tight">{t.today}</span>
+                  <span className="text-[11px] leading-none">({groupedNotes.today.length})</span>
                 </TabsTrigger>
-                <TabsTrigger value="upcoming" className="min-h-7 flex-none px-3 py-1.5 text-sm">
-                  {t.upcoming} ({groupedNotes.upcoming.length})
+                <TabsTrigger value="upcoming" className="h-auto! min-h-10 min-w-0 flex-col gap-0.5 whitespace-normal px-2 py-1.5 text-center text-xs sm:text-sm">
+                  <span className="wrap-break-word leading-tight">{t.upcoming}</span>
+                  <span className="text-[11px] leading-none">({groupedNotes.upcoming.length})</span>
                 </TabsTrigger>
               </TabsList>
 

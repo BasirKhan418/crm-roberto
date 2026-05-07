@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import ConnectDb from '@/db/connectDb';
 import Invoice from '@/db/models/Invoice';
+import Quote from '@/db/models/Quote';
 import { createActivityLog } from '@/db/repository/activity';
 import { deleteQuoteById, getQuoteById, updateQuoteById } from '@/db/repository/quote';
 import { buildQuoteConversation } from '@/lib/quote-conversation';
@@ -26,6 +27,17 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     if (!quote) {
       return NextResponse.json({ success: false, message: 'Quote not found' }, { status: 404 });
     }
+
+    // Mark the quote as read by the owner. Fire-and-forget: we don't want
+    // to block the detail page on this. Explicitly setting `ownerHasUnread`
+    // tells the schema hook not to auto-flip it back to `true`.
+    Quote.updateOne(
+      { _id: quote._id, user: me.user.id },
+      { $set: { ownerHasUnread: false } },
+      { timestamps: false, strict: false }
+    ).catch(() => {
+      // Silent: viewed-at tracking must not break the detail page.
+    });
 
     let convertedAt: Date | null = null;
     let convertedInvoiceNumber: string | null = null;

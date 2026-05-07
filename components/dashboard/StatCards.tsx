@@ -51,6 +51,8 @@ export default function StatCards() {
       subUnpaidInvoices: 'Awaiting full payment',
       subNextActionDate: 'Most urgent upcoming date',
       noDate: 'No action date',
+      riskLevel: 'Risk level',
+      subRiskLevel: 'Combined overdue follow-ups and invoices',
     },
     fr: {
       loadError: 'Impossible de charger les statistiques.',
@@ -68,6 +70,8 @@ export default function StatCards() {
       subUnpaidInvoices: 'En attente de paiement complet',
       subNextActionDate: 'Date prioritaire a venir',
       noDate: 'Aucune date d\'action',
+      riskLevel: 'Niveau de risque',
+      subRiskLevel: 'Combinaison suivis + factures en retard',
     },
   }[locale];
 
@@ -184,10 +188,10 @@ export default function StatCards() {
       href: '/notes',
     },
     {
-      label: locale === 'fr' ? 'Niveau de risque' : 'Risk level',
+      label: t.riskLevel,
       value: riskCount,
       type: 'count' as const,
-      subLabel: locale === 'fr' ? 'Combinaison suivis + factures en retard' : 'Combined overdue follow-ups and invoices',
+      subLabel: t.subRiskLevel,
       Icon: AlertTriangleIcon,
       border: 'border border-amber-200/70 dark:border-amber-900/50',
       iconBg: 'bg-amber-50 dark:bg-amber-950/35',

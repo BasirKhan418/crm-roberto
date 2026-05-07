@@ -19,6 +19,7 @@ interface CatalogueApiResponse {
 interface LineItemsBuilderProps {
   lineItems: QuoteLineItem[];
   onChange: (items: QuoteLineItem[]) => void;
+  mode?: 'quote' | 'invoice';
 }
 
 const EMPTY_ROW: QuoteLineItem = {
@@ -30,9 +31,10 @@ const EMPTY_ROW: QuoteLineItem = {
   unitPriceExcludingTax: 0,
   discountPercentage: 0,
   vatRate: 17,
+  lineType: 'custom',
 };
 
-export default function LineItemsBuilder({ lineItems, onChange }: LineItemsBuilderProps) {
+export default function LineItemsBuilder({ lineItems, onChange, mode = 'quote' }: LineItemsBuilderProps) {
   const { locale } = useLocale();
   const t = {
     en: {
@@ -48,6 +50,9 @@ export default function LineItemsBuilder({ lineItems, onChange }: LineItemsBuild
       noItemsTitle: 'No items yet',
       noItemsSubtitle: 'Click Add a line to start building this quote.',
       addLine: 'Add a line',
+      addProductService: 'Add product / service',
+      addFreeTextLine: 'Add free text',
+      addCustomLine: 'Add custom line',
       pickerTitle: 'Add product / service',
       pickerSearch: 'Search...',
       pickerEmpty: 'No products found',
@@ -67,6 +72,9 @@ export default function LineItemsBuilder({ lineItems, onChange }: LineItemsBuild
       noItemsTitle: 'Aucune ligne',
       noItemsSubtitle: 'Cliquez sur Ajouter une ligne pour commencer ce devis.',
       addLine: 'Ajouter une ligne',
+      addProductService: 'Ajouter produit / service',
+      addFreeTextLine: 'Ajouter texte libre',
+      addCustomLine: 'Ajouter ligne personnalisee',
       pickerTitle: 'Ajouter un produit / service',
       pickerSearch: 'Rechercher...',
       pickerEmpty: 'Aucun produit trouv\u00e9',
@@ -115,7 +123,20 @@ export default function LineItemsBuilder({ lineItems, onChange }: LineItemsBuild
   );
 
   const addBlankRow = useCallback(() => {
-    onChange([...lineItems, { ...EMPTY_ROW }]);
+    onChange([...lineItems, { ...EMPTY_ROW, lineType: 'custom' }]);
+    setPickerOpen(false);
+    setPickerSearch('');
+  }, [lineItems, onChange]);
+
+  const addFreeTextRow = useCallback(() => {
+    onChange([
+      ...lineItems,
+      {
+        ...EMPTY_ROW,
+        lineType: 'free_text',
+        vatRate: 0,
+      },
+    ]);
     setPickerOpen(false);
     setPickerSearch('');
   }, [lineItems, onChange]);
@@ -123,6 +144,7 @@ export default function LineItemsBuilder({ lineItems, onChange }: LineItemsBuild
   const addProductRow = useCallback(
     (product: CatalogueItemOption) => {
       const newRow: QuoteLineItem = {
+        lineType: 'catalog',
         productId: product._id,
         productImageUrl:
           product.attachmentUrl && /\.(png|jpe?g|webp|gif|svg)(\?.*)?$/i.test(product.attachmentUrl)
@@ -220,12 +242,14 @@ export default function LineItemsBuilder({ lineItems, onChange }: LineItemsBuild
             </div>
 
             {/* Footer: add blank — always visible, pinned above keyboard */}
-            <div className="shrink-0 border-t border-border/70 px-4 py-3">
-              <Button type="button" variant="outline" className="w-full" onClick={addBlankRow}>
-                <PlusIcon className="size-4" />
-                {t.pickerAddBlank}
-              </Button>
-            </div>
+            {mode === 'quote' ? (
+              <div className="shrink-0 border-t border-border/70 px-4 py-3">
+                <Button type="button" variant="outline" className="w-full" onClick={addBlankRow}>
+                  <PlusIcon className="size-4" />
+                  {t.pickerAddBlank}
+                </Button>
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}
@@ -268,12 +292,29 @@ export default function LineItemsBuilder({ lineItems, onChange }: LineItemsBuild
           </div>
         )}
 
-        <div className="pt-1 md:pt-0">
-          <Button type="button" variant="outline" className="h-10 w-full gap-2 border-primary/30 text-sm font-semibold text-primary hover:bg-primary/5 md:w-auto md:font-medium" onClick={() => setPickerOpen(true)}>
-            <PlusIcon className="size-4" />
-            {t.addLine}
-          </Button>
-        </div>
+        {mode === 'invoice' ? (
+          <div className="grid grid-cols-1 gap-2 pt-1 md:grid-cols-3 md:pt-0">
+            <Button type="button" className="h-10 w-full gap-2 bg-primary text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90" onClick={() => setPickerOpen(true)}>
+              <PlusIcon className="size-4" />
+              {t.addProductService}
+            </Button>
+            <Button type="button" variant="outline" className="h-10 w-full gap-2 border-primary/40 text-sm font-semibold text-primary hover:bg-primary/10 hover:text-primary" onClick={addFreeTextRow}>
+              <PlusIcon className="size-4" />
+              {t.addFreeTextLine}
+            </Button>
+            <Button type="button" variant="outline" className="h-10 w-full gap-2 border-primary/40 text-sm font-semibold text-primary hover:bg-primary/10 hover:text-primary" onClick={addBlankRow}>
+              <PlusIcon className="size-4" />
+              {t.addCustomLine}
+            </Button>
+          </div>
+        ) : (
+          <div className="pt-1 md:pt-0">
+            <Button type="button" className="h-10 w-full gap-2 bg-primary text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 md:w-auto" onClick={() => setPickerOpen(true)}>
+              <PlusIcon className="size-4" />
+              {t.addLine}
+            </Button>
+          </div>
+        )}
       </section>
     </>
   );

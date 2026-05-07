@@ -3,13 +3,14 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-import { DownloadIcon, EllipsisVerticalIcon, EyeIcon, PencilIcon, SendIcon, Trash2Icon } from 'lucide-react';
+import { ArrowDownIcon, ArrowUpIcon, BellIcon, DownloadIcon, EllipsisVerticalIcon, EyeIcon, PencilIcon, PlusIcon, SendIcon, Trash2Icon } from 'lucide-react';
 
 import type { InvoiceListItem } from '@/hooks/useInvoices';
 import { InvoiceStatusBadge } from '@/components/ui/InvoiceStatusBadge';
 import { formatInvoiceDisplayNumber } from '@/lib/i18n/messages';
 import { PriceDisplay } from '@/components/ui/PriceDisplay';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -42,6 +43,82 @@ function getDueDateStyle(dueDate: string | null | undefined, status: string) {
   return { color: 'var(--color-text-secondary)' };
 }
 
+function ReminderStateBadge({
+  invoice,
+  locale,
+  compact,
+}: {
+  invoice: InvoiceListItem;
+  locale: 'en' | 'fr';
+  compact?: boolean;
+}) {
+  const level = Math.max(0, Math.min(4, Math.round(Number(invoice.reminderState?.level ?? 0))));
+  if (level <= 0 || invoice.status === 'paid') {
+    return null;
+  }
+
+  const lastSentAt = invoice.reminderState?.lastSentAt ?? null;
+  const isPaused = invoice.reminderState?.isPaused === true;
+
+  const dateLabel = lastSentAt
+    ? new Intl.DateTimeFormat(locale === 'fr' ? 'fr-FR' : 'en-GB', {
+        day: '2-digit',
+        month: '2-digit',
+      }).format(new Date(lastSentAt))
+    : null;
+
+  let label: string;
+  if (isPaused) {
+    label = locale === 'fr' ? `Relances en pause · niveau ${level}` : `Reminders paused · level ${level}`;
+  } else if (level === 4) {
+    label = locale === 'fr'
+      ? (dateLabel ? `Mise en demeure envoyée · ${dateLabel}` : 'Mise en demeure envoyée')
+      : dateLabel
+        ? `Formal notice sent · ${dateLabel}`
+        : 'Formal notice sent';
+  } else {
+    const levelTxt = locale === 'fr' ? `Rappel ${level} envoyé` : `Reminder ${level} sent`;
+    label = dateLabel ? `${levelTxt} · ${dateLabel}` : levelTxt;
+  }
+
+  const tone = isPaused
+    ? 'bg-slate-100 text-slate-700 dark:bg-slate-800/60 dark:text-slate-300'
+    : level === 4
+      ? 'bg-red-100 text-red-800 dark:bg-red-950/40 dark:text-red-300'
+      : level === 3
+        ? 'bg-orange-100 text-orange-800 dark:bg-orange-950/40 dark:text-orange-300'
+        : level === 2
+          ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300'
+          : 'bg-sky-100 text-sky-800 dark:bg-sky-950/40 dark:text-sky-300';
+
+  return (
+    <span
+      className={`inline-flex max-w-full items-center gap-1.5 rounded-full px-2.5 py-1 font-semibold shadow-xs ring-1 ring-inset ring-current/10 whitespace-nowrap ${tone} ${compact ? 'text-[11px]' : 'text-xs'}`}
+      title={label}
+    >
+      <BellIcon className={compact ? 'size-3.5' : 'size-4'} />
+      {label}
+    </span>
+  );
+}
+
+function getReminderActionLabel(invoice: InvoiceListItem, locale: 'en' | 'fr'): string {
+  const level = Math.max(0, Math.min(4, Math.round(Number(invoice.reminderState?.level ?? 0))));
+  const hasReminderBeenSent = level > 0 || Boolean(invoice.reminderState?.lastSentAt);
+  const formalNoticeAlreadySent =
+    level >= 4 && Boolean(invoice.reminderState?.formalNoticeSentAt ?? invoice.reminderState?.lastSentAt);
+
+  if (formalNoticeAlreadySent) {
+    return locale === 'fr' ? 'Renvoyer (exceptionnel)' : 'Resend (exceptional)';
+  }
+
+  if (!hasReminderBeenSent) {
+    return locale === 'fr' ? 'Envoyer rappel' : 'Send reminder';
+  }
+
+  return locale === 'fr' ? 'Envoyer rappel à nouveau' : 'Send reminder again';
+}
+
 interface InvoiceTableProps {
   items: InvoiceListItem[];
   loading: boolean;
@@ -63,6 +140,9 @@ interface InvoiceTableProps {
     view: string;
     edit: string;
     send: string;
+    sendInvoice: string;
+    sendReminder: string;
+    recordPayment?: string;
     downloadPdf: string;
     delete: string;
   };
@@ -71,6 +151,13 @@ interface InvoiceTableProps {
   onDelete: (invoice: InvoiceListItem) => void;
   onDownload: (invoice: InvoiceListItem) => Promise<void>;
   onSend: (invoice: InvoiceListItem) => void;
+  onSendReminder?: (invoice: InvoiceListItem) => void;
+  onRecordPayment?: (invoice: InvoiceListItem) => void;
+  numberSortOrder?: 'asc' | 'desc';
+  onToggleNumberSort?: () => void;
+  selectedInvoiceIds?: string[];
+  onToggleInvoiceSelection?: (invoiceId: string, checked: boolean) => void;
+  onToggleSelectAllVisible?: (checked: boolean) => void;
 }
 
 export type InvoiceTableColumnKey =
@@ -96,9 +183,38 @@ export default function InvoiceTable({
   onDelete,
   onDownload,
   onSend,
+  onSendReminder,
+  onRecordPayment,
+  numberSortOrder = 'desc',
+  onToggleNumberSort,
+  selectedInvoiceIds = [],
+  onToggleInvoiceSelection,
+  onToggleSelectAllVisible,
 }: InvoiceTableProps) {
   const router = useRouter();
   const priceLocale = locale === 'fr' ? 'fr-FR' : 'en-GB';
+
+  async function markInvoiceAsRead(invoice: InvoiceListItem) {
+    window.dispatchEvent(new CustomEvent('sidebar-badges:mark-read', { detail: { entityType: 'invoice', id: invoice._id } }));
+
+    try {
+      await fetch('/api/sidebar/mark-read', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entityType: 'invoice', id: invoice._id }),
+        keepalive: true,
+      });
+    } catch {
+      // Navigation should still work even if the sidebar sync fails.
+    }
+
+    window.dispatchEvent(new Event('sidebar-badges:refresh'));
+  }
+
+  async function openInvoice(invoice: InvoiceListItem) {
+    await markInvoiceAsRead(invoice);
+    router.push(`/invoices/${invoice._id}`);
+  }
 
   function hasDeposit(invoice: InvoiceListItem) {
     return typeof invoice.depositAmount === 'number' && invoice.depositAmount > 0;
@@ -122,9 +238,12 @@ export default function InvoiceTable({
 
   const showDepositColumns = items.some((invoice) => hasDeposit(invoice) || Boolean(invoice.depositPaidAt));
   const isVisible = (column: InvoiceTableColumnKey) => visibleColumns?.[column] !== false;
+  const selectionEnabled = typeof onToggleInvoiceSelection === 'function';
+  const selectedIdsSet = new Set(selectedInvoiceIds);
+  const allVisibleSelected = items.length > 0 && items.every((invoice) => selectedIdsSet.has(invoice._id));
 
   function renderPrimaryAction(invoice: InvoiceListItem, className?: string) {
-    // unpaid → send
+    // unpaid → send invoice
     if (invoice.status === 'unpaid') {
       return (
         <Button
@@ -137,7 +256,27 @@ export default function InvoiceTable({
           }}
         >
           <SendIcon className="size-3.5" />
-          {labels.send}
+          {labels.sendInvoice}
+        </Button>
+      );
+    }
+
+    // overdue or partial_paid → send reminder (Relancer)
+    if ((invoice.status === 'overdue' || invoice.status === 'partial_paid') && onSendReminder) {
+      const reminderActionLabel = getReminderActionLabel(invoice, locale);
+
+      return (
+        <Button
+          type="button"
+          size="sm"
+          className={`h-8 px-3 text-xs ${className ?? ''}`}
+          onClick={(event) => {
+            event.stopPropagation();
+            onSendReminder(invoice);
+          }}
+        >
+          <BellIcon className="size-3.5" />
+          {reminderActionLabel}
         </Button>
       );
     }
@@ -145,7 +284,14 @@ export default function InvoiceTable({
     // all other statuses → view
     return (
       <Button type="button" size="sm" className={`h-8 px-3 text-xs ${className ?? ''}`} asChild>
-        <Link href={`/invoices/${invoice._id}`}>
+        <Link
+          href={`/invoices/${invoice._id}`}
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            void openInvoice(invoice);
+          }}
+        >
           <EyeIcon className="size-3.5" />
           {labels.view}
         </Link>
@@ -166,12 +312,19 @@ export default function InvoiceTable({
         </DropdownMenuTrigger>
         <DropdownMenuContent align={align} className="w-52">
           <DropdownMenuItem asChild>
-            <Link href={`/invoices/${invoice._id}`}>
+            <Link
+              href={`/invoices/${invoice._id}`}
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                void openInvoice(invoice);
+              }}
+            >
               <EyeIcon className="size-4" />
               {labels.view}
             </Link>
           </DropdownMenuItem>
-          {invoice.status === 'unpaid' ? (
+          {!invoice.quoteId && !invoice.sentAt ? (
             <DropdownMenuItem asChild>
               <Link href={`/invoices/${invoice._id}/edit`}>
                 <PencilIcon className="size-4" />
@@ -179,10 +332,22 @@ export default function InvoiceTable({
               </Link>
             </DropdownMenuItem>
           ) : null}
-          <DropdownMenuItem onSelect={() => onSend(invoice)}>
+          <DropdownMenuItem onSelect={() => onSend(invoice)} disabled={invoice.status === 'paid'}>
             <SendIcon className="size-4" />
-            {labels.send}
+            {labels.sendInvoice}
           </DropdownMenuItem>
+          {onSendReminder && invoice.status !== 'paid' ? (
+            <DropdownMenuItem onSelect={() => onSendReminder(invoice)}>
+              <BellIcon className="size-4" />
+              {getReminderActionLabel(invoice, locale)}
+            </DropdownMenuItem>
+          ) : null}
+          {onRecordPayment && invoice.status !== 'paid' ? (
+            <DropdownMenuItem onSelect={() => onRecordPayment(invoice)}>
+              <PlusIcon className="size-4" />
+              {labels.recordPayment ?? (locale === 'fr' ? 'Enregistrer un paiement' : 'Record payment')}
+            </DropdownMenuItem>
+          ) : null}
           <DropdownMenuItem onSelect={() => void onDownload(invoice)}>
             <DownloadIcon className="size-4" />
             {labels.downloadPdf}
@@ -234,9 +399,19 @@ export default function InvoiceTable({
                   key={invoice._id}
                   className="cursor-pointer rounded-xl border border-border/60 bg-card shadow-xs"
                   style={{ borderLeftWidth: '3px', borderLeftColor: STATUS_ACCENT[invoice.status], backgroundColor: STATUS_ROW_BG[invoice.status] }}
-                  onClick={() => router.push(`/invoices/${invoice._id}`)}
+                  onClick={() => {
+                    void openInvoice(invoice);
+                  }}
                 >
                   <div className="flex items-start justify-between gap-3 px-4 pt-4.5">
+                    {selectionEnabled ? (
+                      <Checkbox
+                        checked={selectedIdsSet.has(invoice._id)}
+                        onCheckedChange={(checked) => onToggleInvoiceSelection?.(invoice._id, Boolean(checked))}
+                        onClick={(event) => event.stopPropagation()}
+                        aria-label={`Select ${displayInvoiceNumber}`}
+                      />
+                    ) : null}
                     <div className="min-w-0">
                       {isVisible('client') ? (
                         <Link
@@ -256,6 +431,7 @@ export default function InvoiceTable({
                     </div>
                     <div className="flex flex-col items-end gap-1.5 shrink-0">
                       {isVisible('status') ? <InvoiceStatusBadge status={invoice.status} locale={locale} className="mt-0.5" /> : null}
+                      <ReminderStateBadge invoice={invoice} locale={locale} compact />
                       {invoice.status === 'partial_paid' ? (
                         <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700 dark:bg-amber-950/30 dark:text-amber-400">
                           <span className="size-1.5 rounded-full bg-amber-500 animate-ping" />
@@ -345,7 +521,31 @@ export default function InvoiceTable({
         <Table className="min-w-280">
           <TableHeader>
             <TableRow className="hover:bg-transparent">
-              <TableHead className="h-11 pl-5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.invoiceNumber}</TableHead>
+              {selectionEnabled ? (
+                <TableHead className="h-11 w-12 pl-4 pr-3">
+                  <Checkbox
+                    checked={allVisibleSelected}
+                    onCheckedChange={(checked) => onToggleSelectAllVisible?.(Boolean(checked))}
+                    aria-label={locale === 'fr' ? 'Tout selectionner' : 'Select all visible'}
+                  />
+                </TableHead>
+              ) : null}
+              <TableHead className="h-11 pl-5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                {onToggleNumberSort ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground"
+                    onClick={onToggleNumberSort}
+                  >
+                    {labels.invoiceNumber}
+                    {numberSortOrder === 'asc' ? <ArrowUpIcon className="size-3.5" /> : <ArrowDownIcon className="size-3.5" />}
+                  </Button>
+                ) : (
+                  labels.invoiceNumber
+                )}
+              </TableHead>
               {isVisible('client') ? <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.client}</TableHead> : null}
               {isVisible('date') ? <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.date}</TableHead> : null}
               {isVisible('dueDate') ? <TableHead className="h-11 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{labels.dueDate}</TableHead> : null}
@@ -363,6 +563,7 @@ export default function InvoiceTable({
             {loading
               ? Array.from({ length: 6 }).map((_, idx) => (
                   <TableRow key={`invoice-skeleton-${idx}`}>
+                    {selectionEnabled ? <TableCell className="py-4 pl-4 pr-3"><Skeleton className="h-4 w-4 rounded" /></TableCell> : null}
                     <TableCell className="py-4 pl-5"><Skeleton className="h-4 w-28" /></TableCell>
                     {isVisible('client') ? <TableCell className="py-4"><Skeleton className="h-4 w-28" /></TableCell> : null}
                     {isVisible('date') ? <TableCell className="py-4"><Skeleton className="h-4 w-24" /></TableCell> : null}
@@ -389,8 +590,19 @@ export default function InvoiceTable({
                       key={invoice._id}
                       className="group cursor-pointer border-b border-border/45 transition-colors last:border-0 hover:bg-muted/20"
                       style={{ backgroundColor: STATUS_ROW_BG[invoice.status] }}
-                      onClick={() => router.push(`/invoices/${invoice._id}`)}
+                      onClick={() => {
+                        void openInvoice(invoice);
+                      }}
                     >
+                      {selectionEnabled ? (
+                        <TableCell className="py-4 pl-4 pr-3 align-middle" onClick={(event) => event.stopPropagation()}>
+                          <Checkbox
+                            checked={selectedIdsSet.has(invoice._id)}
+                            onCheckedChange={(checked) => onToggleInvoiceSelection?.(invoice._id, Boolean(checked))}
+                            aria-label={`Select ${displayInvoiceNumber}`}
+                          />
+                        </TableCell>
+                      ) : null}
                       <TableCell
                         className="py-4 pl-5 align-middle"
                         style={{ borderLeft: `3px solid ${STATUS_ACCENT[invoice.status]}` }}
@@ -398,7 +610,11 @@ export default function InvoiceTable({
                         <Link
                           href={`/invoices/${invoice._id}`}
                           className="text-sm font-semibold text-foreground hover:text-(--color-text-info) hover:underline"
-                          onClick={(event) => event.stopPropagation()}
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            void openInvoice(invoice);
+                          }}
                         >
                           {displayInvoiceNumber}
                         </Link>
@@ -468,7 +684,10 @@ export default function InvoiceTable({
                       ) : null}
                       {isVisible('status') ? (
                         <TableCell className="py-4 align-middle">
-                          <InvoiceStatusBadge status={invoice.status} locale={locale} />
+                          <div className="flex flex-col items-start gap-1">
+                            <InvoiceStatusBadge status={invoice.status} locale={locale} />
+                            <ReminderStateBadge invoice={invoice} locale={locale} />
+                          </div>
                         </TableCell>
                       ) : null}
                       <TableCell className="py-4 pr-4 align-middle">
