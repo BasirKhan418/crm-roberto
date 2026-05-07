@@ -14,16 +14,9 @@ const setConnectionRedis = (): Valkey => {
         throw new Error('REDIS_HOST environment variable is required');
     }
     
-    if (!redisPassword) {
-        throw new Error('REDIS_PASSWORD environment variable is required');
-    }
-    
-    const redisConfig = {
+    const redisConfig: any = {
         host: redisHost,
         port: process.env.REDIS_PORT ? Number(process.env.REDIS_PORT) : 6379,
-        username: process.env.REDIS_USER || 'default',
-        password: redisPassword,
-        tls: {},
         maxRetriesPerRequest: 3,
         retryDelayOnClusterDown: 300,
         retryDelayOnFailover: 100,
@@ -32,6 +25,15 @@ const setConnectionRedis = (): Valkey => {
         connectTimeout: 10000,
         commandTimeout: 5000,
     };
+
+    if (process.env.REDIS_USER) {
+        redisConfig.username = process.env.REDIS_USER;
+    }
+    
+    if (redisPassword) {
+        redisConfig.password = redisPassword;
+        redisConfig.tls = {};
+    }
 
     redisInstance = new Valkey(redisConfig);
     
