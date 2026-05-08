@@ -35,7 +35,17 @@ export async function POST(request: NextRequest) {
     }
 
     const pepper = process.env.PASSWORD_PEPPER || "";
-    const isValid = await argon2.verify(admin.password, password + pepper);
+    let isValid = await argon2.verify(admin.password, password + pepper);
+
+    // Backward compatibility for admins seeded before PASSWORD_PEPPER was configured.
+    if (!isValid && pepper) {
+      const legacyValid = await argon2.verify(admin.password, password);
+      if (legacyValid) {
+        isValid = true;
+        admin.password = await argon2.hash(password + pepper);
+        await admin.save();
+      }
+    }
 
     if (!isValid) {
       return NextResponse.json(
