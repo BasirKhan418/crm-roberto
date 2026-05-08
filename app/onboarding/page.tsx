@@ -324,7 +324,8 @@ export default function IdentitySetupPage() {
       })
 
       if (!uploadRes.ok) {
-        throw new Error(t.step2UploadFailed)
+        const errText = await uploadRes.text().catch(() => uploadRes.status.toString())
+        throw new Error(`S3 PUT failed (${uploadRes.status}): ${errText}`)
       }
 
       const updateRes = await fetch("/api/cprofile/logo", {
@@ -342,7 +343,8 @@ export default function IdentitySetupPage() {
       }
 
       setLogoUrl(presignJson.fileUrl)
-    } catch {
+    } catch (err) {
+      console.error('[Logo upload error]', err)
       toast.error(t.step2UploadFailed)
     } finally {
       setLogoUploading(false)
