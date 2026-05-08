@@ -10,19 +10,9 @@ export const runtime = 'nodejs';
 
 async function createConnectedAccountWithFallback() {
   try {
-    return await stripe.accounts.create({ type: 'express' });
+    return await stripe.accounts.create({ type: 'standard' } as Stripe.AccountCreateParams);
   } catch (error) {
-    const message = error instanceof Error ? error.message.toLowerCase() : '';
-    const isIndiaLossLiabilityRestriction =
-      message.includes('platforms in in') && message.includes('loss-liable');
-
-    if (!isIndiaLossLiabilityRestriction) {
-      throw error;
-    }
-
-    // India platforms can be restricted from loss-liable Connect setups.
-    // Fallback to Standard connected accounts where Stripe handles liability.
-    return stripe.accounts.create({ type: 'standard' } as Stripe.AccountCreateParams);
+    throw error;
   }
 }
 
