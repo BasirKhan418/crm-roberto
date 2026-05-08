@@ -29,7 +29,7 @@ export const updateUserPasswordWithCurrent = async (
             return { message: "User not found", success: false };
         }
 
-        const pepper = process.env.PASSWORD_PEPPER;
+        const pepper = process.env.PASSWORD_PEPPER || "";
         const isValid = await argon2.verify(user.password, currentPassword + pepper);
         if (!isValid) {
             return { message: "Current password is incorrect", success: false };

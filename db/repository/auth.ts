@@ -36,7 +36,7 @@ const loginUser = async (email: string, password: string) => {
             return { message: "Your account has been suspended. Please contact support.", success: false };
         }
 
-        const pepper = process.env.PASSWORD_PEPPER;
+        const pepper = process.env.PASSWORD_PEPPER || "";
 
         const isValid = await argon2.verify(
             user.password,           // stored hash

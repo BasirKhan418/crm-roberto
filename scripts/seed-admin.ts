@@ -61,6 +61,7 @@ async function main() {
 
   await Admin.create({ name, email: email.toLowerCase(), password: hashedPassword });
   console.log(`✔  Admin account created: "${name}" (${email.toLowerCase()})`);
+  console.log(`🔐  Password used: "${password}"`);
 
   await mongoose.disconnect();
   process.exit(0);

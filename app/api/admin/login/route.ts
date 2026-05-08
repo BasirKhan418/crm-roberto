@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const pepper = process.env.PASSWORD_PEPPER;
+    const pepper = process.env.PASSWORD_PEPPER || "";
     const isValid = await argon2.verify(admin.password, password + pepper);
 
     if (!isValid) {
