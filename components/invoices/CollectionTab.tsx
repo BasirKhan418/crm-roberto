@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useSWRConfig } from 'swr';
 import useSWR from 'swr';
 import useSWRInfinite from 'swr/infinite';
-import { CheckCircle2Icon, ChevronDownIcon, DownloadIcon, ForwardIcon, GavelIcon, Loader2Icon, MailIcon, PowerIcon, SendIcon } from 'lucide-react';
+import { CheckCircle2Icon, CheckIcon, ChevronDownIcon, DownloadIcon, ForwardIcon, GavelIcon, InfoIcon, Loader2Icon, MailIcon, PowerIcon, SendIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import SendReminderModal from '@/components/invoices/SendReminderModal';
@@ -22,7 +22,18 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { formatInvoiceDisplayNumber, resolveTranslatedError, translate } from '@/lib/i18n/messages';
 import { cn } from '@/lib/utils';
 
@@ -63,6 +74,8 @@ interface LegalRecoveryEligibilityData {
   formalNoticeDeadline?: string | Date | null;
   legalRecoveryInitiatedAt?: string | Date | null;
   legalRecoverySentToCourtAt?: string | Date | null;
+  legalRecoveryRegisteredMailNumber?: string | null;
+  legalRecoveryRegisteredMailDate?: string | Date | null;
   jurisdiction?: string | null;
   courtLocation?: LegalRecoveryCourtLocation | null;
   courtSelectionRequired?: boolean;
@@ -81,6 +94,8 @@ interface ReminderState {
   formalNoticeDeadline?: string | Date | null;
   legalRecoveryInitiatedAt?: string | Date | null;
   legalRecoverySentToCourtAt?: string | Date | null;
+  legalRecoveryRegisteredMailNumber?: string | null;
+  legalRecoveryRegisteredMailDate?: string | Date | null;
 }
 
 interface ReminderLogItem {
@@ -204,6 +219,10 @@ export default function CollectionTab({
   const [updatingState, setUpdatingState] = useState(false);
   const [showCourtDetails, setShowCourtDetails] = useState(false);
   const [markingLegalRecoverySent, setMarkingLegalRecoverySent] = useState(false);
+  const [showRegisteredMailModal, setShowRegisteredMailModal] = useState(false);
+  const [registeredMailNumber, setRegisteredMailNumber] = useState('');
+  const [registeredMailDate, setRegisteredMailDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [registeredMailError, setRegisteredMailError] = useState<string | null>(null);
   const { mutate: globalMutate } = useSWRConfig();
 
   const t = useCallback(
@@ -521,16 +540,53 @@ export default function CollectionTab({
     }
   }
 
-  async function markLegalRecoveryAsSentToCourt() {
+  function openRegisteredMailModal() {
     if (markingLegalRecoverySent) {
       return;
     }
+    setRegisteredMailNumber('');
+    setRegisteredMailDate(new Date().toISOString().slice(0, 10));
+    setRegisteredMailError(null);
+    setShowRegisteredMailModal(true);
+  }
+
+  async function submitRegisteredMailConfirmation() {
+    if (markingLegalRecoverySent) {
+      return;
+    }
+
+    const trimmedNumber = registeredMailNumber.trim();
+    if (!trimmedNumber) {
+      setRegisteredMailError(t('reminders.legalRecovery.confirmRegisteredMail.numberRequired'));
+      return;
+    }
+    if (!registeredMailDate) {
+      setRegisteredMailError(t('reminders.legalRecovery.confirmRegisteredMail.dateRequired'));
+      return;
+    }
+    const parsedDate = new Date(registeredMailDate);
+    if (!Number.isFinite(parsedDate.getTime())) {
+      setRegisteredMailError(t('reminders.legalRecovery.confirmRegisteredMail.dateRequired'));
+      return;
+    }
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+    if (parsedDate.getTime() > todayEnd.getTime()) {
+      setRegisteredMailError(t('reminders.legalRecovery.confirmRegisteredMail.dateInFuture'));
+      return;
+    }
+    setRegisteredMailError(null);
 
     setMarkingLegalRecoverySent(true);
 
     try {
       const response = await fetch(`/api/invoices/${invoiceId}/reminders/legal-recovery/sent-to-court`, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          registeredMailNumber: trimmedNumber,
+          registeredMailDate,
+        }),
       });
       const payload = (await response.json()) as { success?: boolean; message?: string };
       if (!response.ok || !payload.success) {
@@ -538,6 +594,7 @@ export default function CollectionTab({
       }
 
       toast.success(t('reminders.legalRecovery.markSentToCourtSuccess'));
+      setShowRegisteredMailModal(false);
       await Promise.resolve(onInvoiceRefresh());
       await mutateLegalRecovery();
       await mutate();
@@ -546,7 +603,9 @@ export default function CollectionTab({
         window.dispatchEvent(new CustomEvent('reminder-logs:refresh', { detail: { invoiceId } }));
       }
     } catch (actionError) {
-      toast.error(resolveTranslatedError(locale, actionError, t('reminders.legalRecovery.markSentToCourtFailed')));
+      const message = resolveTranslatedError(locale, actionError, t('reminders.legalRecovery.markSentToCourtFailed'));
+      setRegisteredMailError(message);
+      toast.error(message);
     } finally {
       setMarkingLegalRecoverySent(false);
     }
@@ -813,6 +872,14 @@ export default function CollectionTab({
       selectedCourt?.configured === true;
     const generatedAt = legalRecovery.legalRecoveryInitiatedAt ?? reminderState?.legalRecoveryInitiatedAt ?? null;
     const sentToCourtAt = legalRecovery.legalRecoverySentToCourtAt ?? reminderState?.legalRecoverySentToCourtAt ?? null;
+    const registeredMailNumberValue = legalRecovery.legalRecoveryRegisteredMailNumber ?? reminderState?.legalRecoveryRegisteredMailNumber ?? null;
+    const registeredMailDateValue = legalRecovery.legalRecoveryRegisteredMailDate ?? reminderState?.legalRecoveryRegisteredMailDate ?? null;
+    const registeredMailSummaryLabel = sentToCourtAt && registeredMailNumberValue
+      ? t('reminders.legalRecovery.registeredMailSummary', {
+          number: registeredMailNumberValue,
+          date: formatSentDate(registeredMailDateValue ?? sentToCourtAt) || '-',
+        })
+      : null;
     const isAmountExceedsThreshold = legalRecovery.reason === 'amount_exceeds_threshold';
     const statusBadgeLabel = legalRecovery.eligible
       ? t('reminders.legalRecovery.statusEligible')
@@ -887,11 +954,24 @@ export default function CollectionTab({
           <div className="flex min-w-0 items-start gap-2">
             <GavelIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
             <div className="min-w-0 space-y-0.5">
-              <p className="text-sm font-semibold text-foreground">
-                {t('reminders.legalRecovery.sectionTitle')}
-              </p>
-              <p className="wrap-break-word text-xs text-muted-foreground">
-                {t('reminders.legalRecovery.sectionDescription')}
+              <p className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+                <span>{t('reminders.legalRecovery.sectionTitle')}</span>
+                <TooltipProvider delayDuration={150}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label={t('reminders.legalRecovery.steps.infoTooltip')}
+                        className="inline-flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground hover:text-foreground"
+                      >
+                        <InfoIcon className="size-3.5" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" align="start" className="max-w-xs text-xs leading-relaxed">
+                      {t('reminders.legalRecovery.steps.infoTooltip')}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </p>
             </div>
           </div>
@@ -942,22 +1022,13 @@ export default function CollectionTab({
                 ) : null}
               </div>
               <p className="text-xs text-muted-foreground">{trackingStatusDescription}</p>
+              {registeredMailSummaryLabel ? (
+                <p className="flex items-start gap-1 text-xs font-medium text-foreground">
+                  <MailIcon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+                  <span className="wrap-break-word">{registeredMailSummaryLabel}</span>
+                </p>
+              ) : null}
             </div>
-            {generatedAt && !sentToCourtAt ? (
-              <Button
-                type="button"
-                size={isCompact ? 'sm' : 'default'}
-                variant="outline"
-                className="w-full sm:w-auto"
-                disabled={markingLegalRecoverySent || downloadingLegalRecoveryKind !== null}
-                onClick={() => void markLegalRecoveryAsSentToCourt()}
-              >
-                {markingLegalRecoverySent
-                  ? <Loader2Icon className={(isCompact ? 'size-3.5' : 'size-4') + ' animate-spin'} />
-                  : <CheckCircle2Icon className={isCompact ? 'size-3.5' : 'size-4'} />}
-                <span className="truncate">{t('reminders.legalRecovery.markSentToCourt')}</span>
-              </Button>
-            ) : null}
           </div>
         </div>
 
@@ -970,109 +1041,224 @@ export default function CollectionTab({
           </div>
         ) : null}
 
-        <div className="space-y-2">
-          <p className="text-xs font-medium text-foreground">{t('reminders.legalRecovery.courtSelectionLabel')}</p>
-          <Select
-            value={selectedCourtLocation ?? undefined}
-            onValueChange={(value) => {
-              void updateLegalRecoveryCourtSelection(value as LegalRecoveryCourtLocation);
-            }}
-            disabled={isInvoicePaid || savingLegalRecoveryCourt || downloadingLegalRecoveryKind !== null}
-          >
-            <SelectTrigger className="h-9 w-full sm:max-w-sm">
-              <SelectValue placeholder={t('reminders.settings.legalRecoverySection.courtLocationNone')} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="luxembourg">
-                {t('reminders.settings.legalRecoverySection.courtLocationLuxembourg')}
-              </SelectItem>
-              <SelectItem value="esch_sur_alzette">
-                {t('reminders.settings.legalRecoverySection.courtLocationEschSurAlzette')}
-              </SelectItem>
-              <SelectItem value="diekirch">
-                {t('reminders.settings.legalRecoverySection.courtLocationDiekirch')}
-              </SelectItem>
-            </SelectContent>
-          </Select>
-          <p className="text-xs text-muted-foreground">{t('reminders.legalRecovery.courtSelectionHelp')}</p>
-          {selectedCourt?.configured ? (
-            <div className="mt-1 rounded-md border border-border/50 bg-muted/30 text-xs text-muted-foreground">
-              <button
-                type="button"
-                onClick={() => setShowCourtDetails((v) => !v)}
-                className="flex w-full items-center justify-between px-3 py-2 text-left"
+        {(() => {
+          const step1Done = hasCourtSelection && selectedCourt?.configured === true;
+          const step2Done = Boolean(generatedAt);
+          const step3Done = Boolean(sentToCourtAt);
+          const step2Unlocked = step1Done;
+          const step3Unlocked = step2Done;
+
+          const stepHeader = (n: 1 | 2 | 3, title: string, done: boolean, unlocked: boolean) => (
+            <div className="flex items-center gap-2">
+              <span
+                className={cn(
+                  'flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold',
+                  done
+                    ? 'border-emerald-300 bg-emerald-100 text-emerald-800 dark:border-emerald-800/60 dark:bg-emerald-950/40 dark:text-emerald-300'
+                    : unlocked
+                      ? 'border-primary/40 bg-primary/10 text-primary'
+                      : 'border-border bg-muted text-muted-foreground'
+                )}
               >
-                <span className="font-medium text-foreground">{t('reminders.settings.legalRecoverySection.courtNameLabel')}: {selectedCourt.courtName}</span>
-                <ChevronDownIcon className={cn('h-3.5 w-3.5 shrink-0 transition-transform', showCourtDetails && 'rotate-180')} />
-              </button>
-              {showCourtDetails ? (
-                <div className="border-t border-border/50 px-3 py-2 space-y-0.5">
-                  {selectedCourt.courtAddress ? <p>{selectedCourt.courtAddress}{selectedCourt.courtCity ? `, ${selectedCourt.courtCity}` : ''}</p> : null}
-                  {selectedCourt.representativeName ? <p><span className="font-medium text-foreground">{t('reminders.settings.legalRecoverySection.representativeNameLabel')}:</span> {selectedCourt.representativeName}{selectedCourt.representativeTitle ? ` — ${selectedCourt.representativeTitle}` : ''}</p> : null}
-                  {selectedCourt.creditorProfession ? <p><span className="font-medium text-foreground">{t('reminders.settings.legalRecoverySection.creditorProfessionLabel')}:</span> {selectedCourt.creditorProfession}</p> : null}
-                </div>
+                {done ? <CheckIcon className="size-3.5" /> : n}
+              </span>
+              <p className={cn('text-sm font-semibold', unlocked || done ? 'text-foreground' : 'text-muted-foreground')}>
+                {title}
+              </p>
+              {done ? (
+                <Badge className="border-0 bg-emerald-100 text-[10px] uppercase tracking-wider text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
+                  {t('reminders.legalRecovery.steps.stepDone')}
+                </Badge>
               ) : null}
             </div>
-          ) : null}
-        </div>
+          );
 
-        {legalRecovery.eligible && !hasCourtSelection ? (
-          <div className="rounded-md border border-orange-200 bg-orange-50 px-3 py-2 text-xs text-orange-900 dark:border-orange-900/60 dark:bg-orange-950/30 dark:text-orange-200">
-            <span className="min-w-0 wrap-break-word">{t('reminders.legalRecovery.selectCourtRequired')}</span>
-          </div>
-        ) : null}
+          return (
+            <div className="space-y-3">
+              {/* Step 1: Select jurisdiction */}
+              <div
+                className={cn(
+                  'rounded-lg border p-3',
+                  step1Done ? 'border-emerald-200/60 bg-emerald-50/30 dark:border-emerald-900/40 dark:bg-emerald-950/10' : 'border-border/70 bg-card'
+                )}
+              >
+                {stepHeader(1, t('reminders.legalRecovery.steps.step1Title'), step1Done, true)}
+                <p className="mt-1 ml-8 text-xs text-muted-foreground">
+                  {t('reminders.legalRecovery.steps.step1Description')}
+                </p>
+                <div className="mt-3 ml-8 space-y-2">
+                  <p className="text-xs font-medium text-foreground">{t('reminders.legalRecovery.courtSelectionLabel')}</p>
+                  <Select
+                    value={selectedCourtLocation ?? undefined}
+                    onValueChange={(value) => {
+                      void updateLegalRecoveryCourtSelection(value as LegalRecoveryCourtLocation);
+                    }}
+                    disabled={isInvoicePaid || savingLegalRecoveryCourt || downloadingLegalRecoveryKind !== null}
+                  >
+                    <SelectTrigger className="h-9 w-full sm:max-w-sm">
+                      <SelectValue placeholder={t('reminders.settings.legalRecoverySection.courtLocationNone')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="luxembourg">
+                        {t('reminders.settings.legalRecoverySection.courtLocationLuxembourg')}
+                      </SelectItem>
+                      <SelectItem value="esch_sur_alzette">
+                        {t('reminders.settings.legalRecoverySection.courtLocationEschSurAlzette')}
+                      </SelectItem>
+                      <SelectItem value="diekirch">
+                        {t('reminders.settings.legalRecoverySection.courtLocationDiekirch')}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">{t('reminders.legalRecovery.courtSelectionHelp')}</p>
+                  {selectedCourt?.configured ? (
+                    <div className="mt-1 rounded-md border border-border/50 bg-muted/30 text-xs text-muted-foreground">
+                      <button
+                        type="button"
+                        onClick={() => setShowCourtDetails((v) => !v)}
+                        className="flex w-full items-center justify-between px-3 py-2 text-left"
+                      >
+                        <span className="font-medium text-foreground">{t('reminders.settings.legalRecoverySection.courtNameLabel')}: {selectedCourt.courtName}</span>
+                        <ChevronDownIcon className={cn('h-3.5 w-3.5 shrink-0 transition-transform', showCourtDetails && 'rotate-180')} />
+                      </button>
+                      {showCourtDetails ? (
+                        <div className="border-t border-border/50 px-3 py-2 space-y-0.5">
+                          {selectedCourt.courtAddress ? <p>{selectedCourt.courtAddress}{selectedCourt.courtCity ? `, ${selectedCourt.courtCity}` : ''}</p> : null}
+                          {selectedCourt.representativeName ? <p><span className="font-medium text-foreground">{t('reminders.settings.legalRecoverySection.representativeNameLabel')}:</span> {selectedCourt.representativeName}{selectedCourt.representativeTitle ? ` — ${selectedCourt.representativeTitle}` : ''}</p> : null}
+                          {selectedCourt.creditorProfession ? <p><span className="font-medium text-foreground">{t('reminders.settings.legalRecoverySection.creditorProfessionLabel')}:</span> {selectedCourt.creditorProfession}</p> : null}
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
 
-        {legalRecovery.eligible && hasCourtSelection && selectedCourt?.configured === false ? (
-          <div className="flex flex-col gap-2 rounded-md border border-orange-200 bg-orange-50 px-3 py-2 text-xs text-orange-900 dark:border-orange-900/60 dark:bg-orange-950/30 dark:text-orange-200 sm:flex-row sm:items-center sm:justify-between">
-            <span className="min-w-0 wrap-break-word">{t('reminders.legalRecovery.configureCourt')}</span>
-            <Link
-              href="/settings/reminders?section=legalRecovery"
-              className="shrink-0 text-xs font-semibold underline-offset-2 hover:underline"
-            >
-              {t('reminders.actions.openSettings')}
-            </Link>
-          </div>
-        ) : null}
+                  {legalRecovery.eligible && !hasCourtSelection ? (
+                    <div className="rounded-md border border-orange-200 bg-orange-50 px-3 py-2 text-xs text-orange-900 dark:border-orange-900/60 dark:bg-orange-950/30 dark:text-orange-200">
+                      <span className="min-w-0 wrap-break-word">{t('reminders.legalRecovery.selectCourtRequired')}</span>
+                    </div>
+                  ) : null}
 
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-          <span className="wrap-break-word">{claimLabel}</span>
-          <span aria-hidden>•</span>
-          <span className="wrap-break-word">{thresholdLabel}</span>
-        </div>
+                  {legalRecovery.eligible && hasCourtSelection && selectedCourt?.configured === false ? (
+                    <div className="flex flex-col gap-2 rounded-md border border-orange-200 bg-orange-50 px-3 py-2 text-xs text-orange-900 dark:border-orange-900/60 dark:bg-orange-950/30 dark:text-orange-200 sm:flex-row sm:items-center sm:justify-between">
+                      <span className="min-w-0 wrap-break-word">{t('reminders.legalRecovery.configureCourt')}</span>
+                      <Link
+                        href="/settings/reminders?section=legalRecovery"
+                        className="shrink-0 text-xs font-semibold underline-offset-2 hover:underline"
+                      >
+                        {t('reminders.actions.openSettings')}
+                      </Link>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
 
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-          <Button
-            type="button"
-            size={isCompact ? 'sm' : 'default'}
-            className="w-full min-w-0 sm:w-auto"
-            disabled={!canGenerateLegalRecoveryDocuments || downloadingLegalRecoveryKind !== null || savingLegalRecoveryCourt}
-            onClick={() => void downloadLegalRecoveryArtifact('payment-order')}
-          >
-            {downloadingLegalRecoveryKind === 'payment-order'
-              ? <Loader2Icon className={(isCompact ? 'size-3.5' : 'size-4') + ' animate-spin'} />
-              : <DownloadIcon className={isCompact ? 'size-3.5' : 'size-4'} />}
-            <span className="truncate">{t('reminders.actions.downloadPaymentOrder')}</span>
-          </Button>
-          <Button
-            type="button"
-            size={isCompact ? 'sm' : 'default'}
-            variant="outline"
-            className="w-full min-w-0 sm:w-auto"
-            disabled={!canGenerateLegalRecoveryDocuments || downloadingLegalRecoveryKind !== null || savingLegalRecoveryCourt}
-            onClick={() => void downloadLegalRecoveryArtifact('recovery-file')}
-          >
-            {downloadingLegalRecoveryKind === 'recovery-file'
-              ? <Loader2Icon className={(isCompact ? 'size-3.5' : 'size-4') + ' animate-spin'} />
-              : <DownloadIcon className={isCompact ? 'size-3.5' : 'size-4'} />}
-            <span className="truncate">{t('reminders.actions.downloadRecoveryFile')}</span>
-          </Button>
-        </div>
+              {/* Step 2: Download documents */}
+              <div
+                className={cn(
+                  'rounded-lg border p-3',
+                  step2Done
+                    ? 'border-emerald-200/60 bg-emerald-50/30 dark:border-emerald-900/40 dark:bg-emerald-950/10'
+                    : step2Unlocked
+                      ? 'border-border/70 bg-card'
+                      : 'border-border/60 bg-muted/30 opacity-70'
+                )}
+                aria-disabled={!step2Unlocked}
+              >
+                {stepHeader(2, t('reminders.legalRecovery.steps.step2Title'), step2Done, step2Unlocked)}
+                <p className="mt-1 ml-8 text-xs text-muted-foreground">
+                  {step2Unlocked
+                    ? t('reminders.legalRecovery.steps.step2Description')
+                    : t('reminders.legalRecovery.steps.step2Locked')}
+                </p>
+                <div className="mt-3 ml-8 space-y-3">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                    <span className="wrap-break-word">{claimLabel}</span>
+                    <span aria-hidden>•</span>
+                    <span className="wrap-break-word">{thresholdLabel}</span>
+                  </div>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                    <Button
+                      type="button"
+                      size={isCompact ? 'sm' : 'default'}
+                      className="w-full min-w-0 sm:w-auto"
+                      disabled={!step2Unlocked || !canGenerateLegalRecoveryDocuments || downloadingLegalRecoveryKind !== null || savingLegalRecoveryCourt}
+                      onClick={() => void downloadLegalRecoveryArtifact('payment-order')}
+                    >
+                      {downloadingLegalRecoveryKind === 'payment-order'
+                        ? <Loader2Icon className={(isCompact ? 'size-3.5' : 'size-4') + ' animate-spin'} />
+                        : <DownloadIcon className={isCompact ? 'size-3.5' : 'size-4'} />}
+                      <span className="truncate">{t('reminders.actions.downloadPaymentOrder')}</span>
+                    </Button>
+                    <Button
+                      type="button"
+                      size={isCompact ? 'sm' : 'default'}
+                      variant="outline"
+                      className="w-full min-w-0 sm:w-auto"
+                      disabled={!step2Unlocked || !canGenerateLegalRecoveryDocuments || downloadingLegalRecoveryKind !== null || savingLegalRecoveryCourt}
+                      onClick={() => void downloadLegalRecoveryArtifact('recovery-file')}
+                    >
+                      {downloadingLegalRecoveryKind === 'recovery-file'
+                        ? <Loader2Icon className={(isCompact ? 'size-3.5' : 'size-4') + ' animate-spin'} />
+                        : <DownloadIcon className={isCompact ? 'size-3.5' : 'size-4'} />}
+                      <span className="truncate">{t('reminders.actions.downloadRecoveryFile')}</span>
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Step 3: Mark as sent to court */}
+              <div
+                className={cn(
+                  'rounded-lg border p-3',
+                  step3Done
+                    ? 'border-emerald-200/60 bg-emerald-50/30 dark:border-emerald-900/40 dark:bg-emerald-950/10'
+                    : step3Unlocked
+                      ? 'border-border/70 bg-card'
+                      : 'border-border/60 bg-muted/30 opacity-70'
+                )}
+                aria-disabled={!step3Unlocked}
+              >
+                {stepHeader(3, t('reminders.legalRecovery.steps.step3Title'), step3Done, step3Unlocked)}
+                <p className="mt-1 ml-8 text-xs text-muted-foreground">
+                  {step3Done
+                    ? t('reminders.legalRecovery.steps.step3Done')
+                    : step3Unlocked
+                      ? t('reminders.legalRecovery.steps.step3Description')
+                      : t('reminders.legalRecovery.steps.step3Locked')}
+                </p>
+                {step3Done ? (
+                  registeredMailSummaryLabel ? (
+                    <p className="mt-2 ml-8 flex items-start gap-1 text-xs font-medium text-foreground">
+                      <MailIcon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+                      <span className="wrap-break-word">{registeredMailSummaryLabel}</span>
+                    </p>
+                  ) : null
+                ) : (
+                  <div className="mt-3 ml-8">
+                    <Button
+                      type="button"
+                      size={isCompact ? 'sm' : 'default'}
+                      variant="outline"
+                      className="w-full min-w-0 sm:w-auto"
+                      disabled={!step3Unlocked || markingLegalRecoverySent || downloadingLegalRecoveryKind !== null}
+                      onClick={() => openRegisteredMailModal()}
+                    >
+                      {markingLegalRecoverySent
+                        ? <Loader2Icon className={(isCompact ? 'size-3.5' : 'size-4') + ' animate-spin'} />
+                        : <CheckCircle2Icon className={isCompact ? 'size-3.5' : 'size-4'} />}
+                      <span className="truncate">{t('reminders.legalRecovery.markSentToCourt')}</span>
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
       </div>
     );
   })();
 
   return (
-    <div className={cn((showControls && showHistory) || legalRecoveryNode ? 'space-y-4' : '')}>
+    <div className={cn('min-w-0', (showControls && showHistory) || legalRecoveryNode ? 'space-y-4' : '')}>
       {showControls ? controlsNode : null}
       {legalRecoveryNode}
       {showHistory ? historyNode : null}
@@ -1161,6 +1347,115 @@ export default function CollectionTab({
           }
         }}
       />
+
+      <Dialog
+        open={showRegisteredMailModal}
+        onOpenChange={(open) => {
+          if (markingLegalRecoverySent) {
+            return;
+          }
+          setShowRegisteredMailModal(open);
+          if (!open) {
+            setRegisteredMailError(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MailIcon className="size-4" />
+              {t('reminders.legalRecovery.confirmRegisteredMail.title')}
+            </DialogTitle>
+            <DialogDescription>
+              {t('reminders.legalRecovery.confirmRegisteredMail.description')}
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            className="space-y-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void submitRegisteredMailConfirmation();
+            }}
+          >
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="registered-mail-number">
+                  {t('reminders.legalRecovery.confirmRegisteredMail.numberLabel')}
+                  <span className="ml-0.5 text-rose-600">*</span>
+                </Label>
+                <Input
+                  id="registered-mail-number"
+                  value={registeredMailNumber}
+                  onChange={(event) => setRegisteredMailNumber(event.target.value)}
+                  placeholder={t('reminders.legalRecovery.confirmRegisteredMail.numberPlaceholder')}
+                  maxLength={64}
+                  required
+                  autoFocus
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="registered-mail-date">
+                  {t('reminders.legalRecovery.confirmRegisteredMail.dateLabel')}
+                  <span className="ml-0.5 text-rose-600">*</span>
+                </Label>
+                <Input
+                  id="registered-mail-date"
+                  type="date"
+                  value={registeredMailDate}
+                  onChange={(event) => setRegisteredMailDate(event.target.value)}
+                  max={new Date().toISOString().slice(0, 10)}
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="rounded-md border border-border/60 bg-muted/30 px-3 py-3">
+              <p className="text-xs font-medium text-foreground">
+                {t('reminders.legalRecovery.confirmRegisteredMail.findHint')}
+              </p>
+              <div className="mt-2 flex justify-center">
+                <div className="rounded-md border border-border/70 bg-background p-3 text-center text-[11px] text-muted-foreground">
+                  <div className="flex items-center justify-center gap-2">
+                    <span className="inline-flex h-7 w-7 items-center justify-center rounded bg-yellow-300 font-bold text-black">R</span>
+                    <div className="text-left leading-tight">
+                      <p className="text-[10px] font-semibold text-foreground">LUXEMBOURG</p>
+                      <p className="text-[10px]">0205 30267</p>
+                    </div>
+                  </div>
+                  <div className="mt-2 inline-block rounded border border-blue-500 px-2 py-0.5 font-mono text-[11px] font-semibold text-foreground">
+                    RR 0205 30267 LU
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {registeredMailError ? (
+              <p className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-200">
+                {registeredMailError}
+              </p>
+            ) : null}
+
+            <DialogFooter className="gap-2 sm:gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={markingLegalRecoverySent}
+                onClick={() => setShowRegisteredMailModal(false)}
+              >
+                {t('reminders.legalRecovery.confirmRegisteredMail.cancel')}
+              </Button>
+              <Button type="submit" disabled={markingLegalRecoverySent}>
+                {markingLegalRecoverySent ? (
+                  <Loader2Icon className="size-4 animate-spin" />
+                ) : (
+                  <CheckCircle2Icon className="size-4" />
+                )}
+                <span>{t('reminders.legalRecovery.confirmRegisteredMail.submit')}</span>
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

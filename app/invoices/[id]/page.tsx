@@ -669,7 +669,7 @@ export default function InvoiceDetailPage() {
           </div>
 
           <div className="grid gap-3 print:hidden lg:grid-cols-2">
-            <section className="space-y-2">
+            <section className="min-w-0 space-y-2">
               <header className="mb-2 flex flex-col gap-0.5">
                 <h2 className="font-heading text-sm font-semibold">{translate(locale as Locale, 'invoices.sections.recurrence')}</h2>
                 <p className="text-xs text-muted-foreground">{translate(locale as Locale, 'invoices.sections.recurrenceDescription')}</p>
@@ -689,7 +689,7 @@ export default function InvoiceDetailPage() {
               />
             </section>
 
-            <section data-tour-invoice-collection className="space-y-2">
+            <section data-tour-invoice-collection className="min-w-0 space-y-2">
               <header className="mb-2 flex flex-col gap-0.5">
                 <h2 className="font-heading text-sm font-semibold">{translate(locale as Locale, 'invoices.sections.reminders')}</h2>
                 <p className="text-xs text-muted-foreground">{translate(locale as Locale, 'invoices.sections.remindersDescription')}</p>
@@ -843,26 +843,26 @@ export default function InvoiceDetailPage() {
             </section>
 
             <section className="mb-4 flex justify-end">
-              <div className="w-full max-w-sm rounded-xl border border-border/70 bg-card p-3">
-                <div className="flex items-center justify-between border-b border-border/60 py-2 text-sm">
+              <div className="w-full sm:max-w-sm rounded-xl border border-border/70 bg-card p-3">
+                <div className="flex items-center justify-between gap-3 border-b border-border/60 py-2 text-sm">
                   <span className="text-muted-foreground">{t.totalExcl}</span>
-                  <PriceDisplay cents={derivedTotals?.totalExcludingTaxBeforeDiscount ?? 0} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} />
+                  <PriceDisplay cents={derivedTotals?.totalExcludingTaxBeforeDiscount ?? 0} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="whitespace-nowrap tabular-nums" />
                 </div>
-                <div className="flex items-center justify-between border-b border-border/60 py-2 text-sm">
+                <div className="flex items-center justify-between gap-3 border-b border-border/60 py-2 text-sm">
                   <span className="text-muted-foreground">{t.discountAmount}</span>
-                  <span className="text-destructive">- <PriceDisplay cents={derivedTotals?.totalDiscountExcludingTax ?? 0} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} /></span>
+                  <span className="whitespace-nowrap text-destructive tabular-nums">- <PriceDisplay cents={derivedTotals?.totalDiscountExcludingTax ?? 0} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} /></span>
                 </div>
-                <div className="flex items-center justify-between border-b border-border/60 py-2 text-sm">
+                <div className="flex items-center justify-between gap-3 border-b border-border/60 py-2 text-sm">
                   <span className="text-muted-foreground">{t.totalNet}</span>
-                  <PriceDisplay cents={derivedTotals?.totalExcludingTax ?? 0} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} />
+                  <PriceDisplay cents={derivedTotals?.totalExcludingTax ?? 0} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="whitespace-nowrap tabular-nums" />
                 </div>
-                <div className="flex items-center justify-between border-b border-border/60 py-2 text-sm">
+                <div className="flex items-center justify-between gap-3 border-b border-border/60 py-2 text-sm">
                   <span className="text-muted-foreground">{t.totalVat}</span>
-                  <PriceDisplay cents={derivedTotals?.totalVat ?? 0} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} />
+                  <PriceDisplay cents={derivedTotals?.totalVat ?? 0} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="whitespace-nowrap tabular-nums" />
                 </div>
-                <div className="flex items-center justify-between py-2 text-base font-semibold">
+                <div className="flex items-center justify-between gap-3 py-2 text-base font-semibold">
                   <span>{t.totalIncl}</span>
-                  <PriceDisplay cents={derivedTotals?.totalIncludingTax ?? 0} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="font-semibold" />
+                  <PriceDisplay cents={derivedTotals?.totalIncludingTax ?? 0} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="whitespace-nowrap font-semibold tabular-nums" />
                 </div>
               </div>
             </section>
@@ -1022,18 +1022,18 @@ export default function InvoiceDetailPage() {
                   <h2 className="font-heading text-base font-semibold">{translate(locale as Locale, 'invoices.sections.summary')}</h2>
                   <p className="text-xs text-muted-foreground">{translate(locale as Locale, 'invoices.sections.summaryDescription')}</p>
                 </header>
-                <div className="grid gap-3 sm:grid-cols-3">
+                <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
                   <div className="rounded-xl border border-border/60 bg-background px-3 py-3">
                     <p className="text-xs text-muted-foreground">{t.totalInvoiceAmount}</p>
-                    <PriceDisplay cents={invoice.totalIncludingTax} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="mt-1 text-base font-semibold text-foreground" />
+                    <PriceDisplay cents={invoice.totalIncludingTax} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="mt-1 block whitespace-nowrap text-base font-semibold text-foreground tabular-nums" />
                   </div>
                   <div className="rounded-xl border border-border/60 bg-background px-3 py-3">
                     <p className="text-xs text-muted-foreground">{t.totalPaid}</p>
-                    <PriceDisplay cents={totalPaidAmount} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="mt-1 text-base font-semibold text-foreground" />
+                    <PriceDisplay cents={totalPaidAmount} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="mt-1 block whitespace-nowrap text-base font-semibold text-foreground tabular-nums" />
                   </div>
                   <div className="rounded-xl border border-border/60 bg-background px-3 py-3">
                     <p className="text-xs text-muted-foreground">{t.remaining}</p>
-                    <PriceDisplay cents={remainingAmount} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="mt-1 text-base font-semibold text-foreground" />
+                    <PriceDisplay cents={remainingAmount} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="mt-1 block whitespace-nowrap text-base font-semibold text-foreground tabular-nums" />
                   </div>
                 </div>
               </section>

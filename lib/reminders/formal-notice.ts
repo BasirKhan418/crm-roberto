@@ -55,6 +55,7 @@ export interface InvoiceForPdf {
     discountAmountExcludingTax: number;
     vatRate: number;
     totalExcludingTax: number;
+    lineType?: 'catalog' | 'custom' | 'free_text' | 'item' | null;
   }>;
   clientSnapshot: {
     fullName: string;

@@ -16,10 +16,12 @@ type InvoiceDoc = {
   reminderState?: {
     legalRecoveryInitiatedAt?: Date | null;
     legalRecoverySentToCourtAt?: Date | null;
+    legalRecoveryRegisteredMailNumber?: string | null;
+    legalRecoveryRegisteredMailDate?: Date | null;
   } | null;
 } | null;
 
-export async function POST(_request: NextRequest, { params }: RouteParams) {
+export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     const me = await getMe(true);
     if (!me.success || !me.user) {
@@ -29,6 +31,48 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
     const { id } = await params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json({ success: false, message: 'Invoice not found' }, { status: 404 });
+    }
+
+    const body = (await request.json().catch(() => ({}))) as {
+      registeredMailNumber?: unknown;
+      registeredMailDate?: unknown;
+    };
+
+    const rawNumber = typeof body.registeredMailNumber === 'string' ? body.registeredMailNumber.trim() : '';
+    const rawDate = typeof body.registeredMailDate === 'string' ? body.registeredMailDate.trim() : '';
+
+    if (!rawNumber) {
+      return NextResponse.json(
+        { success: false, message: 'Registered mail number is required.' },
+        { status: 400 }
+      );
+    }
+    if (rawNumber.length > 64) {
+      return NextResponse.json(
+        { success: false, message: 'Registered mail number is too long.' },
+        { status: 400 }
+      );
+    }
+    if (!rawDate) {
+      return NextResponse.json(
+        { success: false, message: 'Registered mail date is required.' },
+        { status: 400 }
+      );
+    }
+
+    const parsedDate = new Date(rawDate);
+    if (!Number.isFinite(parsedDate.getTime())) {
+      return NextResponse.json(
+        { success: false, message: 'Invalid registered mail date.' },
+        { status: 400 }
+      );
+    }
+    const now = new Date();
+    if (parsedDate.getTime() > now.getTime() + 24 * 60 * 60 * 1000) {
+      return NextResponse.json(
+        { success: false, message: 'Registered mail date cannot be in the future.' },
+        { status: 400 }
+      );
     }
 
     await ConnectDb();
@@ -56,12 +100,13 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
         success: true,
         data: {
           sentToCourtAt: invoice.reminderState.legalRecoverySentToCourtAt,
+          registeredMailNumber: invoice.reminderState.legalRecoveryRegisteredMailNumber ?? null,
+          registeredMailDate: invoice.reminderState.legalRecoveryRegisteredMailDate ?? null,
           firstTime: false,
         },
       });
     }
 
-    const now = new Date();
     const updateResult = await Invoice.updateOne(
       {
         _id: id,
@@ -74,6 +119,8 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
       {
         $set: {
           'reminderState.legalRecoverySentToCourtAt': now,
+          'reminderState.legalRecoveryRegisteredMailNumber': rawNumber,
+          'reminderState.legalRecoveryRegisteredMailDate': parsedDate,
         },
       }
     );
@@ -96,6 +143,8 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
         metadata: {
           generatedAt: invoice.reminderState?.legalRecoveryInitiatedAt ?? null,
           sentToCourtAt,
+          registeredMailNumber: rawNumber,
+          registeredMailDate: parsedDate,
         },
       });
     }
@@ -104,6 +153,8 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
       success: true,
       data: {
         sentToCourtAt,
+        registeredMailNumber: rawNumber,
+        registeredMailDate: parsedDate,
         firstTime,
       },
     });

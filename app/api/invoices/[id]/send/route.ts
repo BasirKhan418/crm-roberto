@@ -155,6 +155,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       discountAmountExcludingTax: item.discountAmountExcludingTax,
       vatRate: item.vatRate,
       totalExcludingTax: item.totalExcludingTax,
+      lineType: item.lineType ?? null,
     }));
     const depositPercentage = typeof invoice.depositPercentage === 'number' ? invoice.depositPercentage : 100;
 

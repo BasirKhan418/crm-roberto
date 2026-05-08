@@ -294,22 +294,22 @@ export default function LineItemsBuilder({ lineItems, onChange, mode = 'quote' }
 
         {mode === 'invoice' ? (
           <div className="grid grid-cols-1 gap-2 pt-1 md:grid-cols-3 md:pt-0">
-            <Button type="button" variant="outline" className="h-10 w-full gap-2 border-primary/30 text-sm font-semibold text-primary hover:bg-primary/5" onClick={() => setPickerOpen(true)}>
+            <Button type="button" className="h-10 w-full gap-2 bg-primary text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90" onClick={() => setPickerOpen(true)}>
               <PlusIcon className="size-4" />
               {t.addProductService}
             </Button>
-            <Button type="button" variant="outline" className="h-10 w-full gap-2 text-sm font-medium" onClick={addFreeTextRow}>
+            <Button type="button" variant="outline" className="h-10 w-full gap-2 border-primary/40 text-sm font-semibold text-primary hover:bg-primary/10 hover:text-primary" onClick={addFreeTextRow}>
               <PlusIcon className="size-4" />
               {t.addFreeTextLine}
             </Button>
-            <Button type="button" variant="outline" className="h-10 w-full gap-2 text-sm font-medium" onClick={addBlankRow}>
+            <Button type="button" variant="outline" className="h-10 w-full gap-2 border-primary/40 text-sm font-semibold text-primary hover:bg-primary/10 hover:text-primary" onClick={addBlankRow}>
               <PlusIcon className="size-4" />
               {t.addCustomLine}
             </Button>
           </div>
         ) : (
           <div className="pt-1 md:pt-0">
-            <Button type="button" variant="outline" className="h-10 w-full gap-2 border-primary/30 text-sm font-semibold text-primary hover:bg-primary/5 md:w-auto md:font-medium" onClick={() => setPickerOpen(true)}>
+            <Button type="button" className="h-10 w-full gap-2 bg-primary text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 md:w-auto" onClick={() => setPickerOpen(true)}>
               <PlusIcon className="size-4" />
               {t.addLine}
             </Button>
