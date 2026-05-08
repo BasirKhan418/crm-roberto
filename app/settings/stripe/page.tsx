@@ -163,7 +163,8 @@ export default function StripeSettingsPage({ embedded = false }: StripeSettingsP
       return;
     }
     if (statusParam === 'connect_not_enabled') {
-      toast.error(t.statusConnectNotEnabled);
+      const msg = new URLSearchParams(window.location.search).get('msg');
+      toast.error(`${t.statusConnectNotEnabled}${msg ? ` — Erro Stripe: ${msg}` : ''}`);
       return;
     }
     if (statusParam === 'india_restricted') {
@@ -171,7 +172,8 @@ export default function StripeSettingsPage({ embedded = false }: StripeSettingsP
       return;
     }
     if (statusParam === 'connect_error') {
-      toast.error(t.statusConnectError);
+      const msg = new URLSearchParams(window.location.search).get('msg');
+      toast.error(`${t.statusConnectError}${msg ? ` — Erro Stripe: ${msg}` : ''}`);
     }
   }, [
     t.statusComplete,

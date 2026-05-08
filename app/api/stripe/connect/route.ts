@@ -50,20 +50,25 @@ export async function GET(request: NextRequest) {
     return await startConnectOnboarding(request);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to start Stripe onboarding';
+    console.error('[stripe/connect] ERROR COMPLETO:', error);
+    console.error('[stripe/connect] MENSAGEM:', message);
+
     const isConnectNotEnabled = message.toLowerCase().includes('signed up for connect');
     const isIndiaLossLiabilityRestriction =
       message.toLowerCase().includes('platforms in in') && message.toLowerCase().includes('loss-liable');
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
 
+    const encodedMsg = encodeURIComponent(message.slice(0, 200));
+
     if (isConnectNotEnabled) {
-      return NextResponse.redirect(new URL('/settings/stripe?status=connect_not_enabled', appUrl));
+      return NextResponse.redirect(new URL(`/settings/stripe?status=connect_not_enabled&msg=${encodedMsg}`, appUrl));
     }
 
     if (isIndiaLossLiabilityRestriction) {
       return NextResponse.redirect(new URL('/settings/stripe?status=india_restricted', appUrl));
     }
 
-    return NextResponse.redirect(new URL('/settings/stripe?status=connect_error', appUrl));
+    return NextResponse.redirect(new URL(`/settings/stripe?status=connect_error&msg=${encodedMsg}`, appUrl));
   }
 }
 
