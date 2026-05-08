@@ -19,7 +19,7 @@ type SentLevelBucket = {
 
 // Keep legacy partial-payment statuses to avoid dropping historical invoices
 // from dashboard collection counters.
-const COLLECTION_STATUSES = ['unpaid', 'partial_paid', 'overdue', 'deposit_paid', 'initial_paid'] as const;
+const COLLECTION_STATUSES = ['unpaid', 'partial_paid', 'overdue', 'deposit_paid', 'initial_paid'] as unknown as string[];
 
 export async function GET() {
   try {
@@ -71,7 +71,7 @@ export async function GET() {
       }),
       Invoice.countDocuments({
         userId: me.user.id,
-        status: { $in: ['unpaid', 'partial_paid', 'deposit_paid', 'initial_paid'] },
+        status: { $in: ['unpaid', 'partial_paid', 'deposit_paid', 'initial_paid'] as unknown as string[] },
         'reminderState.formalNoticeDeadline': { $lt: now },
       }),
       Invoice.find({
