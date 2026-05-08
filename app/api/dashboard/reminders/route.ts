@@ -68,12 +68,12 @@ export async function GET() {
         userId: me.user.id,
         status: { $in: COLLECTION_STATUSES },
         'reminderState.isPaused': true,
-      }),
+      } as mongoose.FilterQuery<unknown>),
       Invoice.countDocuments({
         userId: me.user.id,
-        status: { $in: ['unpaid', 'partial_paid', 'deposit_paid', 'initial_paid'] as unknown as string[] },
+        status: { $in: ['unpaid', 'partial_paid', 'deposit_paid', 'initial_paid'] },
         'reminderState.formalNoticeDeadline': { $lt: now },
-      }),
+      } as mongoose.FilterQuery<unknown>),
       Invoice.find({
         userId: me.user.id,
         'recurrence.isActive': true,
