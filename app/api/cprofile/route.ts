@@ -66,8 +66,8 @@ export const POST = async (request: NextRequest) => {
         const cookieStore = await cookies();
         cookieStore.set("token", newToken, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "strict",
+            secure: process.env.COOKIE_SECURE === "true",
+            sameSite: "lax",
             maxAge: 7 * 24 * 60 * 60,
             path: "/",
         });

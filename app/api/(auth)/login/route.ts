@@ -19,8 +19,8 @@ export async function POST(request: NextRequest) {
             const token = jwt.sign({ sub: result.user._id, name: result.user.name, email: result.user.email, isOnboardingComplete: result.user.isOnboardingComplete, isEmailVerified: result.user.isEmailVerified }, process.env.JWT_SECRET || "", { expiresIn: '7d' });
             cookieStore.set("token", token, {
                 httpOnly: true,
-                secure: process.env.NODE_ENV === 'production',
-                sameSite: "strict",
+                secure: process.env.COOKIE_SECURE === 'true',
+                sameSite: "lax",
                 maxAge: 7 * 24 * 60 * 60,
                 path: "/",
             });
