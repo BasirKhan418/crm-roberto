@@ -23,6 +23,9 @@ const ConnectEmailClient = async () => {
         user: emailUser,
         pass: emailPassword,
       },
+      connectionTimeout: 8000,
+      socketTimeout: 10000,
+      greetingTimeout: 8000,
     });
 
     console.info('[email] transporter-ready', {
