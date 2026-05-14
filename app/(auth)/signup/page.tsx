@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { ArrowRight, Loader2, Eye, EyeOff, MailCheck } from "lucide-react";
+import { ArrowRight, Loader2, Eye, EyeOff, MailCheck, Building2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -40,7 +40,6 @@ type InvitationDetails = {
   invitationExpiresAt: string;
   companyName?: string | null;
   companySlug?: string | null;
-  companyOwnerName?: string | null;
   companyLogoUrl?: string | null;
 };
 
@@ -72,6 +71,20 @@ function formatRole(role: string, locale: "en" | "fr") {
   return byLocale[role as keyof typeof byLocale] || role.replace(/_/g, " ");
 }
 
+function formatInvitationExpiry(value: string | Date | null | undefined, locale: "en" | "fr") {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+
+  return new Intl.DateTimeFormat(locale === "fr" ? "fr-FR" : "en-GB", {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
 const messages = {
   en: {
     title: "Invitation Required",
@@ -81,16 +94,18 @@ const messages = {
     waitForInvite: "No invitation link yet?",
     waitForInviteBody:
       "Ask your company administrator to invite you from Settings > Users. Once invited, open the invitation link to finish signup.",
+    newCompanyPrompt: "Need to onboard a new company?",
+    newCompanyCta: "Create workspace",
     alreadyAccount: "Already have an account?",
     loginCta: "Log In",
     acceptTitle: "Accept Invitation",
     acceptSubtitle: "Set your password to finish joining your company workspace.",
     invitedEmail: "Invited email",
     invitedRole: "Assigned role",
+    invitationExpires: "Invitation expires",
     workspace: "Company workspace",
-    workspaceOwner: "Workspace owner",
     workspaceUnknown: "Workspace name unavailable",
-    workspaceOwnerUnknown: "Owner name unavailable",
+    workspaceLogoAlt: "Workspace logo",
     fullName: "Full name",
     password: "Password",
     confirmPassword: "Confirm password",
@@ -108,6 +123,8 @@ const messages = {
     waitForInvite: "Pas encore de lien d'invitation ?",
     waitForInviteBody:
       "Demandez a votre administrateur d'entreprise de vous inviter depuis Parametres > Utilisateurs. Ensuite ouvrez le lien recu pour terminer l'inscription.",
+    newCompanyPrompt: "Besoin d'onboarder une nouvelle entreprise ?",
+    newCompanyCta: "Creer un espace",
     alreadyAccount: "Vous avez deja un compte ?",
     loginCta: "Connexion",
     acceptTitle: "Accepter l'invitation",
@@ -115,10 +132,10 @@ const messages = {
       "Definissez votre mot de passe pour finaliser votre acces a l'espace entreprise.",
     invitedEmail: "E-mail invite",
     invitedRole: "Role attribue",
+    invitationExpires: "Invitation valide jusqu'au",
     workspace: "Espace entreprise",
-    workspaceOwner: "Responsable de l'espace",
     workspaceUnknown: "Nom de l'espace indisponible",
-    workspaceOwnerUnknown: "Nom du responsable indisponible",
+    workspaceLogoAlt: "Logo de l'espace",
     fullName: "Nom complet",
     password: "Mot de passe",
     confirmPassword: "Confirmer le mot de passe",
@@ -224,8 +241,8 @@ export default function SignupPage() {
       }
 
       toast.success(t.acceptSuccess);
-      const isOnboardingComplete = Boolean(result?.data?.isOnboardingComplete);
-      router.push(isOnboardingComplete ? "/dashboard" : "/onboarding");
+      const redirectTo = typeof result?.data?.redirectTo === "string" ? result.data.redirectTo : "/dashboard";
+      router.push(redirectTo);
     } catch {
       toast.error(t.acceptFailed);
     } finally {
@@ -234,6 +251,8 @@ export default function SignupPage() {
   }
 
   const showInvitationAccept = Boolean(invitationToken);
+  const workspaceName = invitation?.companyName || invitation?.companySlug || t.workspaceUnknown;
+  const formattedExpiry = formatInvitationExpiry(invitation?.invitationExpiresAt, locale);
 
   return (
     <div className="space-y-8">
@@ -266,44 +285,67 @@ export default function SignupPage() {
               {t.loginCta}
             </Link>
           </p>
+          <p className="text-center text-sm text-zinc-500">
+            {t.newCompanyPrompt}{" "}
+            <Link href="/workspace-setup" className="font-semibold text-[#001e3c] hover:underline underline-offset-4">
+              {t.newCompanyCta}
+            </Link>
+          </p>
         </div>
       ) : (
         <>
-          <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-sm">
+          <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-linear-to-br from-white via-zinc-50 to-blue-50/60 text-sm shadow-[0_16px_38px_-28px_rgba(0,30,60,0.6)]">
             {isLoadingInvitation ? (
-              <div className="flex items-center gap-2 text-zinc-600">
+              <div className="flex items-center gap-2 p-4 text-zinc-600">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 <span>{t.validating}</span>
               </div>
             ) : invitationError ? (
-              <p className="font-medium text-red-600">{invitationError}</p>
+              <p className="p-4 font-medium text-red-600">{invitationError}</p>
             ) : invitation ? (
-              <div className="grid gap-3 md:grid-cols-2">
-                <div className="min-w-0">
-                  <p className="text-xs uppercase tracking-wider text-zinc-500">{t.invitedEmail}</p>
-                  <p className="font-medium text-zinc-800 break-all">{invitation.email}</p>
+              <div className="space-y-4 p-4 sm:p-5">
+                <div className="flex items-center gap-3 rounded-xl border border-zinc-200/90 bg-white/85 p-3 backdrop-blur">
+                  <div className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-zinc-100 ring-1 ring-zinc-200">
+                    <Building2 className="h-5 w-5 text-zinc-500" />
+                    {invitation.companyLogoUrl ? (
+                      // Tenant logos may come from dynamic external URLs not covered by Next image optimizer patterns.
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={invitation.companyLogoUrl}
+                        alt={t.workspaceLogoAlt}
+                        loading="lazy"
+                        className="absolute inset-0 h-full w-full object-cover"
+                      />
+                    ) : null}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">{t.workspace}</p>
+                    <p className="truncate text-base font-semibold text-zinc-900">{workspaceName}</p>
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <p className="text-xs uppercase tracking-wider text-zinc-500">{t.invitedRole}</p>
-                  <p className="font-medium text-zinc-800 wrap-break-word">{formatRole(invitation.role, locale)}</p>
-                </div>
-                <div className="min-w-0 md:col-span-2">
-                  <p className="text-xs uppercase tracking-wider text-zinc-500">{t.workspace}</p>
-                  <p className="font-medium text-zinc-800 wrap-break-word">
-                    {invitation.companyName || invitation.companySlug || t.workspaceUnknown}
-                  </p>
-                </div>
-                <div className="min-w-0 md:col-span-2">
-                  <p className="text-xs uppercase tracking-wider text-zinc-500">{t.workspaceOwner}</p>
-                  <p className="font-medium text-zinc-800 wrap-break-word">
-                    {invitation.companyOwnerName || t.workspaceOwnerUnknown}
-                  </p>
+
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="min-w-0">
+                    <p className="text-xs uppercase tracking-wider text-zinc-500">{t.invitedEmail}</p>
+                    <p className="break-all font-medium text-zinc-800">{invitation.email}</p>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs uppercase tracking-wider text-zinc-500">{t.invitedRole}</p>
+                    <p className="wrap-break-word font-medium text-zinc-800">{formatRole(invitation.role, locale)}</p>
+                  </div>
+                  <div className="min-w-0 md:col-span-2">
+                    <p className="text-xs uppercase tracking-wider text-zinc-500">{t.invitationExpires}</p>
+                    <p className="wrap-break-word font-medium text-zinc-800">{formattedExpiry || "-"}</p>
+                  </div>
                 </div>
               </div>
             ) : null}
           </div>
 
-          <form onSubmit={handleSubmit(onAccept)} className="space-y-4">
+          <form
+            onSubmit={handleSubmit(onAccept)}
+            className="space-y-4 rounded-2xl border border-zinc-200 bg-white p-5 shadow-[0_14px_28px_-24px_rgba(0,0,0,0.75)]"
+          >
             <div className="space-y-1.5">
               <Label htmlFor="name" className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
                 {t.fullName}

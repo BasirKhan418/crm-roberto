@@ -57,22 +57,15 @@ export async function getCompanyInvitationBranding(companyId: string) {
     return { success: false as const, message: "Company not found" };
   }
 
-  let ownerUserName: string | null = null;
   let profileCompanyName: string | null = null;
-  let profileOwnerName: string | null = null;
   let profileLogoUrl: string | null = null;
 
   if (company.ownerUserId && mongoose.Types.ObjectId.isValid(String(company.ownerUserId))) {
-    const [ownerUser, companyProfile] = await Promise.all([
-      User.findById(company.ownerUserId).select("name").lean<{ name?: string } | null>(),
-      CompanyProfile.findOne({ user: company.ownerUserId })
-        .select("companyName ownerName logoUrl")
-        .lean<{ companyName?: string; ownerName?: string; logoUrl?: string | null } | null>(),
-    ]);
+    const companyProfile = await CompanyProfile.findOne({ user: company.ownerUserId })
+      .select("companyName logoUrl")
+      .lean<{ companyName?: string; logoUrl?: string | null } | null>();
 
-    ownerUserName = ownerUser?.name?.trim() || null;
     profileCompanyName = companyProfile?.companyName?.trim() || null;
-    profileOwnerName = companyProfile?.ownerName?.trim() || null;
     profileLogoUrl = companyProfile?.logoUrl?.trim() || null;
   }
 
@@ -81,7 +74,6 @@ export async function getCompanyInvitationBranding(companyId: string) {
     branding: {
       companyName: profileCompanyName || company.name?.trim() || null,
       companySlug: company.slug?.trim() || null,
-      ownerName: profileOwnerName || ownerUserName,
       logoUrl: profileLogoUrl,
     },
   };
@@ -146,6 +138,71 @@ export async function ensureUserCompanyContext(params: {
     companyId: String(company._id),
     role,
   };
+}
+
+export async function createCompanyOwnerAccount(params: {
+  companyName: string;
+  ownerName: string;
+  email: string;
+  passwordHash: string;
+  locale?: "en" | "fr";
+}) {
+  await ConnectDb();
+
+  const normalizedEmail = params.email.trim().toLowerCase();
+  const existingUser = await User.findOne({ email: normalizedEmail }).select("_id").lean();
+  if (existingUser) {
+    return { success: false, message: "A user already exists with this email" as const };
+  }
+
+  const companyName = params.companyName.trim();
+  const ownerName = params.ownerName.trim();
+  const slug = await buildUniqueCompanySlug(companyName || ownerName || normalizedEmail);
+
+  const ownerUser = await User.create({
+    name: ownerName,
+    email: normalizedEmail,
+    password: params.passwordHash,
+    locale: params.locale || "fr",
+    isEmailVerified: true,
+    account_status: "active",
+    role: "administrator",
+    invitationStatus: "accepted",
+    isOnboardingComplete: false,
+  });
+
+  try {
+    const company = await Company.create({
+      name: companyName,
+      slug,
+      status: "active",
+      ownerUserId: ownerUser._id,
+    });
+
+    ownerUser.companyId = company._id;
+    await ownerUser.save();
+
+    return {
+      success: true as const,
+      message: "Company owner account created",
+      user: {
+        _id: ownerUser._id,
+        name: ownerUser.name,
+        email: ownerUser.email,
+        locale: ownerUser.locale,
+        isOnboardingComplete: ownerUser.isOnboardingComplete,
+        isEmailVerified: ownerUser.isEmailVerified,
+        role: ownerUser.role,
+        companyId: String(company._id),
+      },
+    };
+  } catch (error) {
+    await User.deleteOne({ _id: ownerUser._id });
+    return {
+      success: false,
+      message: `Failed to create company workspace: ${String(error)}`,
+    };
+  }
 }
 
 export async function listCompanyUsers(companyId: string) {
@@ -277,6 +334,7 @@ export async function acceptCompanyInvitation(params: {
   invitedUser.isEmailVerified = true;
   invitedUser.account_status = "active";
   invitedUser.invitationStatus = "accepted";
+  invitedUser.isOnboardingComplete = true;
   invitedUser.invitationTokenHash = null;
   invitedUser.invitationExpiresAt = null;
   invitedUser.failedLoginCount = 0;
@@ -355,7 +413,6 @@ export async function getInvitationByToken(token: string) {
       invitationExpiresAt: user.invitationExpiresAt,
       companyName: branding?.companyName || null,
       companySlug: branding?.companySlug || null,
-      companyOwnerName: branding?.ownerName || null,
       companyLogoUrl: branding?.logoUrl || null,
     },
   };

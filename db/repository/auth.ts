@@ -36,7 +36,7 @@ const loginUser = async (email: string, password: string) => {
     try {
         await ConnectDb();
         const user = await User.findOne({ email, isEmailVerified: true }).select(
-            "+password name email locale isOnboardingComplete isEmailVerified account_status role companyId accessRevokedAt forceLogoutAfter failedLoginCount lockedUntil"
+            "+password name email locale isOnboardingComplete isEmailVerified account_status role companyId invitedBy accessRevokedAt forceLogoutAfter failedLoginCount lockedUntil"
         );
 
         if (!user) {
@@ -96,7 +96,12 @@ const loginUser = async (email: string, password: string) => {
         user.companyId = ensuredCompany.companyId;
         user.role = ensuredCompany.role;
 
-        // Self-heal onboarding status if a company profile already exists.
+        // Invited members should not be forced through company onboarding.
+        if (!user.isOnboardingComplete && user.invitedBy) {
+            user.isOnboardingComplete = true;
+        }
+
+        // Self-heal onboarding status if a company profile already exists for this owner user.
         if (!user.isOnboardingComplete) {
             const existingProfile = await CompanyProfile.exists({ user: user._id });
             if (existingProfile) {

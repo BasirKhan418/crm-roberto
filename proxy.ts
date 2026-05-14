@@ -14,7 +14,7 @@ const bypassRoutePrefixes = ['/sign'];
 const protectedRoutePrefixes = ['/dashboard', '/clients', '/suppliers', '/notes', '/follow-up-tracking', '/profile', '/products', '/quotes', '/invoices', '/catalogue', '/settings'];
 const adminProtectedPrefixes = ['/admin'];
 const adminPublicRoutes = ['/admin/login'];
-const publicRoutes = ['/', '/login', '/signup', '/forgot-password'];
+const publicRoutes = ['/', '/login', '/signup', '/workspace-setup', '/forgot-password'];
 
 function matchesRoutePrefix(pathname: string, route: string): boolean {
   return pathname === route || pathname.startsWith(`${route}/`);

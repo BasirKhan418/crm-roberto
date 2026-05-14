@@ -37,7 +37,9 @@ const loginMessages = {
     forgotPassword: "Forgot password?",
     loginButton: "Login",
     signupPrompt: "New to the executive platform?",
-    signupCta: "Signup",
+    signupCta: "Accept invitation",
+    workspacePrompt: "Need to onboard a new company?",
+    workspaceCta: "Create workspace",
     toastLoginSuccess: "Login successful! Redirecting to dashboard...",
     toastLoginFailed: "Login failed. Please check your credentials and try again.",
     toastLoginError: "An error occurred during login. Please try again.",
@@ -50,7 +52,9 @@ const loginMessages = {
     forgotPassword: "Mot de passe oubli\u00e9\u00a0?",
     loginButton: "Connexion",
     signupPrompt: "Nouveau sur la plateforme executive\u00a0?",
-    signupCta: "Inscription",
+    signupCta: "Accepter l'invitation",
+    workspacePrompt: "Besoin d'onboarder une nouvelle entreprise ?",
+    workspaceCta: "Creer un espace",
     toastLoginSuccess: "Connexion r\u00e9ussie\u00a0! Redirection vers le tableau de bord...",
     toastLoginFailed: "\u00c9chec de la connexion. Veuillez v\u00e9rifier vos identifiants et r\u00e9essayer.",
     toastLoginError: "Une erreur s'est produite lors de la connexion. Veuillez r\u00e9essayer.",
@@ -202,6 +206,12 @@ export default function LoginPage() {
         {t.signupPrompt}{" "}
         <Link href="/signup" className="font-semibold text-[#001e3c] hover:underline underline-offset-4">
           {t.signupCta}
+        </Link>
+      </p>
+      <p className="text-center text-sm text-zinc-500">
+        {t.workspacePrompt}{" "}
+        <Link href="/workspace-setup" className="font-semibold text-[#001e3c] hover:underline underline-offset-4">
+          {t.workspaceCta}
         </Link>
       </p>
     </div>

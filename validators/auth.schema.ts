@@ -25,6 +25,20 @@ export const signupSchema = z.object({
   password: passwordSchema,
 });
 
+export const createWorkspaceSchema = z
+  .object({
+    companyName: z.string().trim().min(1, i18nKey('validation.companyNameRequired')),
+    name: z.string().trim().min(1, i18nKey('validation.nameRequired')),
+    email: emailSchema,
+    password: passwordSchema,
+    confirmPassword: z.string().min(1, i18nKey('validation.confirmPasswordRequired')),
+    bootstrapCode: z.string().trim().optional(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    path: ['confirmPassword'],
+    message: i18nKey('validation.passwordsDoNotMatch'),
+  });
+
 // Login Schema
 export const loginSchema = z.object({
   email: emailSchema,

@@ -44,6 +44,7 @@ export async function POST(request: NextRequest) {
       message: result.message,
       data: {
         isOnboardingComplete: result.user.isOnboardingComplete,
+        redirectTo: "/dashboard",
       },
     });
   } catch (error) {

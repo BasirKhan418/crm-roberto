@@ -115,7 +115,6 @@ export async function POST(request: NextRequest) {
       role: validation.data.role,
       expiresAt: result.invitationExpiresAt,
       companyName: branding?.companyName || undefined,
-      companyOwnerName: branding?.ownerName || undefined,
       companyLogoUrl: branding?.logoUrl || undefined,
       locale,
     });

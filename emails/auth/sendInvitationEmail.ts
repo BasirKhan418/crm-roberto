@@ -11,7 +11,6 @@ type SendInvitationEmailParams = {
   role: string;
   expiresAt?: Date | string | null;
   companyName?: string;
-  companyOwnerName?: string;
   companyLogoUrl?: string;
   locale?: Locale;
 };
@@ -54,7 +53,6 @@ const t = {
     greeting: (name?: string) => (name ? `Hello ${name},` : "Hello,"),
     intro: (workspaceName: string) => `You have been invited to join the ${workspaceName} workspace in CRM Roberto.`,
     workspace: (workspaceName: string) => `Workspace: ${workspaceName}`,
-    owner: (name: string) => `Company owner: ${name}`,
     invitedBy: (name: string) => `Invited by: ${name}`,
     role: (role: string) => `Assigned role: ${role}`,
     expiresAt: (value: string) => `Invitation expires: ${value}`,
@@ -68,14 +66,12 @@ const t = {
       roleLabel: string;
       workspaceName: string;
       invitedByName?: string;
-      companyOwnerName?: string;
       expiresAt?: string;
     }) => {
       const intro = params.inviteeName ? `Hello ${params.inviteeName},` : "Hello,";
       const invitedByLine = params.invitedByName ? `Invited by: ${params.invitedByName}\n` : "";
-      const ownerLine = params.companyOwnerName ? `Company owner: ${params.companyOwnerName}\n` : "";
       const expiresLine = params.expiresAt ? `Invitation expires: ${params.expiresAt}\n` : "";
-      return `${intro}\n\nYou have been invited to join the ${params.workspaceName} workspace in CRM Roberto.\n\nWorkspace: ${params.workspaceName}\nAssigned role: ${params.roleLabel}\n${ownerLine}${invitedByLine}${expiresLine}\nAccept invitation: ${params.invitationUrl}\n\nIf you were not expecting this invitation, you can ignore this email.`;
+      return `${intro}\n\nYou have been invited to join the ${params.workspaceName} workspace in CRM Roberto.\n\nWorkspace: ${params.workspaceName}\nAssigned role: ${params.roleLabel}\n${invitedByLine}${expiresLine}\nAccept invitation: ${params.invitationUrl}\n\nIf you were not expecting this invitation, you can ignore this email.`;
     },
   },
   fr: {
@@ -84,7 +80,6 @@ const t = {
     greeting: (name?: string) => (name ? `Bonjour ${name},` : "Bonjour,"),
     intro: (workspaceName: string) => `Vous avez ete invite a rejoindre l'espace ${workspaceName} sur CRM Roberto.`,
     workspace: (workspaceName: string) => `Espace : ${workspaceName}`,
-    owner: (name: string) => `Responsable entreprise : ${name}`,
     invitedBy: (name: string) => `Invite par : ${name}`,
     role: (role: string) => `Role attribue : ${role}`,
     expiresAt: (value: string) => `Invitation valide jusqu'au : ${value}`,
@@ -98,14 +93,12 @@ const t = {
       roleLabel: string;
       workspaceName: string;
       invitedByName?: string;
-      companyOwnerName?: string;
       expiresAt?: string;
     }) => {
       const intro = params.inviteeName ? `Bonjour ${params.inviteeName},` : "Bonjour,";
       const invitedByLine = params.invitedByName ? `Invite par : ${params.invitedByName}\n` : "";
-      const ownerLine = params.companyOwnerName ? `Responsable entreprise : ${params.companyOwnerName}\n` : "";
       const expiresLine = params.expiresAt ? `Invitation valide jusqu'au : ${params.expiresAt}\n` : "";
-      return `${intro}\n\nVous avez ete invite a rejoindre l'espace ${params.workspaceName} sur CRM Roberto.\n\nEspace : ${params.workspaceName}\nRole attribue : ${params.roleLabel}\n${ownerLine}${invitedByLine}${expiresLine}\nAccepter l'invitation : ${params.invitationUrl}\n\nSi vous n'attendiez pas cette invitation, vous pouvez ignorer cet e-mail.`;
+      return `${intro}\n\nVous avez ete invite a rejoindre l'espace ${params.workspaceName} sur CRM Roberto.\n\nEspace : ${params.workspaceName}\nRole attribue : ${params.roleLabel}\n${invitedByLine}${expiresLine}\nAccepter l'invitation : ${params.invitationUrl}\n\nSi vous n'attendiez pas cette invitation, vous pouvez ignorer cet e-mail.`;
     },
   },
 } as const;
@@ -133,7 +126,6 @@ export async function sendInvitationEmail({
   role,
   expiresAt,
   companyName,
-  companyOwnerName,
   companyLogoUrl,
   locale = "fr",
 }: SendInvitationEmailParams) {
@@ -155,12 +147,6 @@ export async function sendInvitationEmail({
       `<p style="margin:0 0 8px;font-size:14px;color:#374151;line-height:1.6;">${escapeHtml(labels.workspace(workspaceName))}</p>`,
       `<p style="margin:0 0 8px;font-size:14px;color:#374151;line-height:1.6;">${escapeHtml(labels.role(roleLabel))}</p>`,
     ];
-
-    if (companyOwnerName) {
-      detailRows.push(
-        `<p style="margin:0 0 8px;font-size:14px;color:#374151;line-height:1.6;">${escapeHtml(labels.owner(companyOwnerName))}</p>`
-      );
-    }
 
     if (invitedByName) {
       detailRows.push(
@@ -218,7 +204,6 @@ export async function sendInvitationEmail({
         invitationUrl,
         workspaceName,
         roleLabel,
-        companyOwnerName,
         invitedByName,
         expiresAt: formattedExpiry || undefined,
       }),
