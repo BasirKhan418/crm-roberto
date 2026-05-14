@@ -48,12 +48,15 @@ const ActivityLogSchema = new mongoose.Schema(
         "invoice_recurrence_stopped",
         "invoice_recurrence_generated",
         "invoice_recurrence_due",
+        "ticket_created",
+        "ticket_replied",
+        "ticket_resolved",
       ],
     },
 
     entityType: {
       type: String,
-      enum: ["client", "supplier", "note", "product", "quote", "invoice", "reminder", "recurrence"],
+      enum: ["client", "supplier", "note", "product", "quote", "invoice", "reminder", "recurrence", "ticket"],
       required: true,
     },
 

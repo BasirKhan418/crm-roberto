@@ -98,6 +98,17 @@ function buildActivityPath(item: ActivityItem): string | null {
     return null;
   }
 
+  if (item.entityType === 'ticket') {
+    const linkedType = item.metadata?.linkedType;
+    const linkedId = item.metadata?.linkedId;
+
+    if (linkedType === 'expense' && typeof linkedId === 'string' && linkedId.trim()) {
+      return `/expenses/${linkedId.trim()}`;
+    }
+
+    return '/dashboard';
+  }
+
   if (item.entityType === 'note') {
     return '/notes';
   }

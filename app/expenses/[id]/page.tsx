@@ -12,6 +12,7 @@ import {
   ExternalLinkIcon,
   FileUpIcon,
   Loader2Icon,
+  MessageSquarePlusIcon,
   MoreHorizontalIcon,
   PaperclipIcon,
   PencilIcon,
@@ -26,6 +27,9 @@ import { ExpenseMoneyDisplay } from '@/components/expenses/expense-money-display
 import { ExpenseStatusBadge } from '@/components/expenses/expense-status-badge';
 import { MarkPaidDialog } from '@/components/expenses/mark-paid-dialog';
 import { useLocale } from '@/components/providers/locale-provider';
+import { CreateTicketDialog } from '@/components/tickets/create-ticket-dialog';
+import { TicketStatusBadge } from '@/components/tickets/ticket-status-badge';
+import { TicketUnreadIndicator } from '@/components/tickets/ticket-unread-indicator';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -49,6 +53,7 @@ import ErrorMessage from '@/components/ui/ErrorMessage';
 import { useAuthMe } from '@/hooks/useAuthMe';
 import { useExpenseDetail } from '@/hooks/useExpenseDetail';
 import { createInlineExpenseSupplier, useExpenseLookups } from '@/hooks/useExpenseLookups';
+import { useTickets } from '@/hooks/useTickets';
 import {
   EXPENSE_MAX_FILE_SIZE_BYTES,
   formatFileSizeMb,
@@ -120,6 +125,29 @@ function resolveUserLabel(
   return value.name || value.email || value._id;
 }
 
+function resolveAssignedUsersLabel(
+  assignedTo?: Array<
+    | string
+    | {
+        _id: string;
+        name?: string;
+        email?: string;
+      }
+  >
+) {
+  if (!assignedTo || assignedTo.length === 0) return '-';
+
+  const labels = assignedTo
+    .map((entry) => {
+      if (!entry) return null;
+      if (typeof entry === 'string') return entry;
+      return entry.name || entry.email || entry._id;
+    })
+    .filter(Boolean) as string[];
+
+  return labels.length > 0 ? labels.join(', ') : '-';
+}
+
 function formatBytes(value: number) {
   if (!Number.isFinite(value) || value <= 0) return '0 KB';
   const kb = value / 1024;
@@ -172,6 +200,7 @@ export default function ExpenseDetailPage() {
   const [markPaidOpen, setMarkPaidOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [previewAttachment, setPreviewAttachment] = useState<ExpenseAttachment | null>(null);
+  const [ticketDialogOpen, setTicketDialogOpen] = useState(false);
 
   const t = useMemo(
     () =>
@@ -246,6 +275,12 @@ export default function ExpenseDetailPage() {
           auditBy: 'By',
           auditAt: 'At',
           noTickets: 'No linked tickets yet.',
+          linkedTicketsLoading: 'Loading linked tickets...',
+          linkedTicketsError: 'Unable to load linked tickets',
+          createLinkedTicket: 'Create linked ticket',
+          ticketCreated: 'Ticket created',
+          ticketAssignedTo: 'Assigned to',
+          ticketUpdatedAt: 'Updated at',
           statusDraftHint: 'This expense is still draft. Complete fields and activate from edit dialog.',
         },
         fr: {
@@ -318,6 +353,12 @@ export default function ExpenseDetailPage() {
           auditBy: 'Par',
           auditAt: 'Date',
           noTickets: 'Aucun ticket lie.',
+          linkedTicketsLoading: 'Chargement des tickets lies...',
+          linkedTicketsError: 'Impossible de charger les tickets lies',
+          createLinkedTicket: 'Creer un ticket lie',
+          ticketCreated: 'Ticket cree',
+          ticketAssignedTo: 'Assigne a',
+          ticketUpdatedAt: 'Mis a jour le',
           statusDraftHint: 'Cette depense est brouillon. Completez et activez depuis le formulaire de modification.',
         },
       })[locale],
@@ -325,6 +366,25 @@ export default function ExpenseDetailPage() {
   );
 
   const canManageExpenses = hasPermission(user?.role, 'expenses.manage');
+  const canViewTickets = hasPermission(user?.role, 'tickets.view');
+  const canManageTickets = hasPermission(user?.role, 'tickets.manage');
+
+  const {
+    tickets: linkedTickets,
+    loading: linkedTicketsLoading,
+    error: linkedTicketsError,
+    refetch: refetchLinkedTickets,
+  } = useTickets(
+    {
+      linkedType: 'expense',
+      linkedId: expenseId,
+      sortBy: 'updatedAt',
+      sortOrder: 'desc',
+      page: 1,
+      limit: 20,
+    },
+    Boolean(expenseId) && canViewTickets
+  );
 
   function pushFeedback(type: 'success' | 'error', message: string) {
     setFeedback({ type, message });
@@ -906,15 +966,48 @@ export default function ExpenseDetailPage() {
             {activeTab === 'tickets' ? (
               <Card className="border-border/70">
                 <CardHeader>
-                  <CardTitle className="text-base">{t.ticketsTab}</CardTitle>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <CardTitle className="text-base">{t.ticketsTab}</CardTitle>
+                    {canManageTickets ? (
+                      <Button type="button" variant="outline" size="sm" onClick={() => setTicketDialogOpen(true)}>
+                        <MessageSquarePlusIcon className="size-3.5" />
+                        {t.createLinkedTicket}
+                      </Button>
+                    ) : null}
+                  </div>
                 </CardHeader>
-                <CardContent>
-                  {!expense.linkedTickets || expense.linkedTickets.length === 0 ? (
+                <CardContent className="space-y-2.5">
+                  {!canViewTickets ? (
+                    <p className="text-sm text-muted-foreground">{t.noTickets}</p>
+                  ) : linkedTicketsLoading ? (
+                    <p className="text-sm text-muted-foreground">{t.linkedTicketsLoading}</p>
+                  ) : linkedTicketsError ? (
+                    <p className="text-sm text-destructive">
+                      {t.linkedTicketsError}: {linkedTicketsError}
+                    </p>
+                  ) : linkedTickets.length === 0 ? (
                     <p className="text-sm text-muted-foreground">{t.noTickets}</p>
                   ) : (
-                    <pre className="overflow-auto rounded-lg border border-border/60 bg-muted/20 p-3 text-xs">
-                      {JSON.stringify(expense.linkedTickets, null, 2)}
-                    </pre>
+                    linkedTickets.map((ticket) => (
+                      <div key={ticket._id} className="rounded-lg border border-border/60 p-3">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div className="min-w-0 space-y-0.5">
+                            <p className="truncate text-sm font-medium">{ticket.title}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {ticket.type} - {t.ticketUpdatedAt}: {formatDateTime(ticket.updatedAt)}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {t.ticketAssignedTo}: {resolveAssignedUsersLabel(ticket.assignedTo)}
+                            </p>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <TicketUnreadIndicator unreadCount={ticket.unreadCount} locale={locale} />
+                            <TicketStatusBadge status={ticket.status} locale={locale} />
+                          </div>
+                        </div>
+                      </div>
+                    ))
                   )}
                 </CardContent>
               </Card>
@@ -978,6 +1071,24 @@ export default function ExpenseDetailPage() {
         }
         locale={locale}
       />
+
+      {expense ? (
+        <CreateTicketDialog
+          open={ticketDialogOpen}
+          onOpenChange={setTicketDialogOpen}
+          locale={locale}
+          prefill={{
+            linkedType: 'expense',
+            linkedId: expense._id,
+            linkedLabel: `${resolveEntityLabel(expense.supplierId)} - ${expense.supplierRef || expense._id}`,
+            title: `${resolveEntityLabel(expense.supplierId)} - ${expense.supplierRef || expense._id}`,
+          }}
+          onCreated={async () => {
+            await Promise.all([refetchLinkedTickets(), refetch()]);
+            pushFeedback('success', t.ticketCreated);
+          }}
+        />
+      ) : null}
 
       <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
         <AlertDialogContent>

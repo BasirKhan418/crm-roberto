@@ -16,7 +16,7 @@ interface ActivityListQueryOptions extends ListQueryOptions {
 export interface ActivityRecord {
   _id: string;
   action: string;
-  entityType: 'client' | 'supplier' | 'note' | 'product' | 'quote' | 'invoice';
+  entityType: 'client' | 'supplier' | 'note' | 'product' | 'quote' | 'invoice' | 'ticket';
   entityName: string;
   entityId?: string | null;
   metadata?: Record<string, unknown> | null;

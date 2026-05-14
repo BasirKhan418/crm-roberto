@@ -177,6 +177,9 @@ const messages = {
         invoice_payment_received: 'Payment received',
         invoice_payment_updated: 'Payment updated',
         invoice_payment_deleted: 'Payment deleted',
+        ticket_created: 'Ticket assigned',
+        ticket_replied: 'Reply received',
+        ticket_resolved: 'Resolved',
       },
       headlines: {
         client_created: 'Client added',
@@ -219,6 +222,9 @@ const messages = {
         invoice_payment_received: 'Payment received',
         invoice_payment_updated: 'Payment updated',
         invoice_payment_deleted: 'Payment deleted',
+        ticket_created: 'New ticket assigned',
+        ticket_replied: 'New ticket reply',
+        ticket_resolved: 'Ticket resolved',
       },
       relative: {
         justNow: 'Just now',
@@ -891,6 +897,9 @@ const messages = {
         invoice_payment_received: 'Paiement reçu',
         invoice_payment_updated: 'Paiement modifié',
         invoice_payment_deleted: 'Paiement supprimé',
+        ticket_created: 'Ticket assigné',
+        ticket_replied: 'Réponse reçue',
+        ticket_resolved: 'Résolu',
       },
       headlines: {
         client_created: 'Client ajouté',
@@ -933,6 +942,9 @@ const messages = {
         invoice_payment_received: 'Paiement reçu',
         invoice_payment_updated: 'Paiement modifié',
         invoice_payment_deleted: 'Paiement supprimé',
+        ticket_created: 'Nouveau ticket assigné',
+        ticket_replied: 'Nouvelle réponse sur le ticket',
+        ticket_resolved: 'Ticket résolu',
       },
       relative: {
         justNow: "À l'instant",

@@ -9,6 +9,7 @@ import { ArrowLeftIcon, CircleUserRoundIcon, KeyRoundIcon, LayoutDashboardIcon, 
 import { LanguageThemeToggle } from "@/components/language-theme-toggle"
 import { NotificationsBell } from "@/components/notifications-bell"
 import { useLocale } from "@/components/providers/locale-provider"
+import { GlobalTicketCreate } from "@/components/tickets/global-ticket-create"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
@@ -180,6 +181,7 @@ export function SiteHeader({ title = "Documents" }: { title?: string }) {
         ) : null}
 
         <div className="order-2 flex shrink-0 items-center gap-2 lg:order-3 lg:ml-auto">
+          <GlobalTicketCreate />
           <NotificationsBell />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
