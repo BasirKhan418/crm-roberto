@@ -15,8 +15,22 @@ export type ExpenseListItem = {
   remainingBalanceCents?: number;
   status: ExpenseStatus;
   paymentStatus: ExpensePaymentStatus;
-  categoryId?: string | null;
-  supplierId?: string | null;
+  categoryId?:
+    | string
+    | null
+    | {
+        _id: string;
+        name?: string;
+      };
+  supplierId?:
+    | string
+    | null
+    | {
+        _id: string;
+        fullName?: string;
+        companyName?: string | null;
+      };
+  attachmentsCount?: number;
   createdAt: string;
 };
 
@@ -48,6 +62,8 @@ type ExpensesFilters = {
   paymentStatus?: ExpensePaymentStatus;
   categoryId?: string;
   supplierId?: string;
+  periodStart?: string;
+  periodEnd?: string;
   search?: string;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
@@ -77,6 +93,8 @@ export function useExpenses(filters?: ExpensesFilters) {
     if (filters?.paymentStatus) params.set('paymentStatus', filters.paymentStatus);
     if (filters?.categoryId) params.set('categoryId', filters.categoryId);
     if (filters?.supplierId) params.set('supplierId', filters.supplierId);
+    if (filters?.periodStart) params.set('periodStart', filters.periodStart);
+    if (filters?.periodEnd) params.set('periodEnd', filters.periodEnd);
     if (filters?.search) params.set('search', filters.search);
     if (filters?.sortBy) params.set('sortBy', filters.sortBy);
     if (filters?.sortOrder) params.set('sortOrder', filters.sortOrder);

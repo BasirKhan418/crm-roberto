@@ -466,13 +466,48 @@ export async function listExpenses(params: {
       .sort(parseSort(params.options))
       .skip(skip)
       .limit(params.options.limit)
+      .populate("supplierId", "fullName companyName")
+      .populate("categoryId", "name")
       .lean(),
     Expense.countDocuments(query),
   ]);
 
+  const expenseObjectIds = items
+    .map((item) => {
+      const rawId = item._id;
+      const asString = typeof rawId === "string" ? rawId : String(rawId);
+      return isValidObjectId(asString) ? new mongoose.Types.ObjectId(asString) : null;
+    })
+    .filter(Boolean) as mongoose.Types.ObjectId[];
+
+  const attachmentCountRows =
+    expenseObjectIds.length > 0
+      ? await ExpenseAttachment.aggregate<{
+          _id: mongoose.Types.ObjectId;
+          count: number;
+        }>([
+          {
+            $match: {
+              expenseId: { $in: expenseObjectIds },
+            },
+          },
+          {
+            $group: {
+              _id: "$expenseId",
+              count: { $sum: 1 },
+            },
+          },
+        ])
+      : [];
+
+  const attachmentCountByExpenseId = new Map(
+    attachmentCountRows.map((row) => [String(row._id), row.count])
+  );
+
   return {
     items: items.map((item) => ({
       ...item,
+      attachmentsCount: attachmentCountByExpenseId.get(String(item._id)) || 0,
       remainingBalanceCents: buildRemainingBalance(item),
     })),
     pagination: buildPagination(params.options.page, params.options.limit, total),
@@ -505,6 +540,8 @@ export async function getExpenseById(params: {
     .populate("categoryId")
     .populate("clientId")
     .populate("invoiceId")
+    .populate("createdBy", "name email")
+    .populate("updatedBy", "name email")
     .lean();
 
   if (!expense) {
@@ -528,6 +565,7 @@ export async function getExpenseById(params: {
       ...expense,
       remainingBalanceCents: buildRemainingBalance(expense),
       attachments,
+      linkedTickets: [],
       auditLogs,
     },
   };

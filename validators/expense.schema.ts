@@ -203,6 +203,18 @@ export const expenseEmailIngestSchema = z.object({
   attachments: z.array(expenseAttachmentMetadataSchema).min(1),
 });
 
+export const expenseLookupQuerySchema = z.object({
+  search: z.string().trim().max(120).optional(),
+  limit: z.preprocess(toNumber, z.number().int().positive().max(100).optional()),
+});
+
+export const createExpenseInlineSupplierSchema = z.object({
+  fullName: z.string().trim().min(1).max(160),
+  contactName: z.preprocess(toNullableString, z.string().trim().max(160).nullable().optional()),
+  email: z.preprocess(toNullableString, z.string().trim().email().nullable().optional()),
+  phone: z.preprocess(toNullableString, z.string().trim().max(80).nullable().optional()),
+});
+
 export type CreateManualExpenseDTO = z.infer<typeof createManualExpenseSchema>;
 export type CreateDraftExpenseDTO = z.infer<typeof createDraftExpenseSchema>;
 export type UpdateExpenseDTO = z.infer<typeof updateExpenseSchema>;
@@ -216,3 +228,5 @@ export type DeleteExpenseAttachmentDTO = z.infer<typeof deleteExpenseAttachmentS
 export type ExpenseActionDTO = z.infer<typeof expenseActionSchema>;
 export type ExpenseUploadPresignDTO = z.infer<typeof expenseUploadPresignSchema>;
 export type ExpenseEmailIngestDTO = z.infer<typeof expenseEmailIngestSchema>;
+export type ExpenseLookupQueryDTO = z.infer<typeof expenseLookupQuerySchema>;
+export type CreateExpenseInlineSupplierDTO = z.infer<typeof createExpenseInlineSupplierSchema>;

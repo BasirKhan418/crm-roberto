@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import type { ExpensePaymentStatus, ExpenseStatus } from '@/lib/expenses/constants';
 
-type ExpenseAttachment = {
+export type ExpenseAttachment = {
   _id: string;
   originalName: string;
   displayName: string;
@@ -14,7 +14,35 @@ type ExpenseAttachment = {
   url: string;
 };
 
-type ExpenseDetail = {
+export type ExpenseAuditLog = {
+  _id: string;
+  action: string;
+  fieldName?: string | null;
+  oldValue?: unknown;
+  newValue?: unknown;
+  performedAt?: string | null;
+  source?: string;
+  performedBy?:
+    | string
+    | {
+        _id: string;
+        name?: string;
+        email?: string;
+      };
+};
+
+export type PopulatedEntity =
+  | string
+  | {
+      _id: string;
+      fullName?: string;
+      companyName?: string;
+      invoiceNumber?: string;
+      name?: string;
+    }
+  | null;
+
+export type ExpenseDetail = {
   _id: string;
   status: ExpenseStatus;
   paymentStatus: ExpensePaymentStatus;
@@ -23,10 +51,40 @@ type ExpenseDetail = {
   amountInclVatCents: number;
   amountPaidCents: number;
   remainingBalanceCents: number;
+  vatRate: number;
+  paymentMethod?: string | null;
+  paidAt?: string | null;
+  dueDate?: string | null;
   supplierRef?: string | null;
+  expenseType?: string;
   notes?: string | null;
   expenseDate?: string | null;
+  projectId?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  createdBy?:
+    | string
+    | {
+        _id: string;
+        name?: string;
+        email?: string;
+      }
+    | null;
+  updatedBy?:
+    | string
+    | {
+        _id: string;
+        name?: string;
+        email?: string;
+      }
+    | null;
+  supplierId?: PopulatedEntity;
+  categoryId?: PopulatedEntity;
+  clientId?: PopulatedEntity;
+  invoiceId?: PopulatedEntity;
   attachments?: ExpenseAttachment[];
+  linkedTickets?: Array<Record<string, unknown>>;
+  auditLogs?: ExpenseAuditLog[];
 };
 
 type ExpenseDetailResponse = {

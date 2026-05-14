@@ -96,6 +96,7 @@ export async function listAuditLogsForEntity(params: {
     entityType: params.entityType,
     entityId: params.entityId,
   })
+    .populate("performedBy", "name email")
     .sort({ performedAt: -1 })
     .lean();
 
