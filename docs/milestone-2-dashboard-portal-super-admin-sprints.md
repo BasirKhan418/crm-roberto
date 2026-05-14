@@ -3,8 +3,6 @@
 Financial Dashboard, Accountant Portal, Accounting Exports, Super Admin, Advanced Permissions, Connection Logs  
 Version: 1 - May 2026  
 Target milestone: Day 9 to Day 15  
-Payment milestone: $350 after validation  
-Quality bonus target: $100 after final review
 
 ## 1. Purpose
 

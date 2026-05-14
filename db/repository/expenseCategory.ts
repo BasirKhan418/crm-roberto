@@ -122,8 +122,27 @@ export async function updateExpenseCategory(
   const updatePayload: Record<string, unknown> = {};
 
   if (typeof input.name === "string" && input.name.trim()) {
-    updatePayload.name = input.name.trim();
-    updatePayload.slug = toSlug(input.name);
+    const trimmedName = input.name.trim();
+    const nextSlug = toSlug(trimmedName);
+
+    if (!nextSlug) {
+      return { success: false as const, message: "Invalid category name" };
+    }
+
+    const conflict = await ExpenseCategory.findOne({
+      companyId,
+      slug: nextSlug,
+      _id: { $ne: categoryId },
+    })
+      .select("_id")
+      .lean();
+
+    if (conflict) {
+      return { success: false as const, message: "Category already exists" };
+    }
+
+    updatePayload.name = trimmedName;
+    updatePayload.slug = nextSlug;
   }
 
   if (typeof input.isEnabled === "boolean") {

@@ -3,7 +3,6 @@
 Expenses Module, Ticket-Chat, Roles Foundation, Invitations, Audit Trail  
 Version: 1 - May 2026  
 Target milestone: Day 1 to Day 8  
-Payment milestone: $350 after validation
 
 ## 1. Purpose
 
