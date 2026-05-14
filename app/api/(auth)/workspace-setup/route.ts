@@ -20,6 +20,16 @@ export async function POST(request: NextRequest) {
     const requiredBootstrapCode = (process.env.COMPANY_BOOTSTRAP_CODE || "").trim();
     const providedBootstrapCode = (validation.data.bootstrapCode || "").trim();
 
+    if (process.env.NODE_ENV === "production" && !requiredBootstrapCode) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Company workspace setup is not configured. Contact support.",
+        },
+        { status: 503 }
+      );
+    }
+
     if (requiredBootstrapCode && providedBootstrapCode !== requiredBootstrapCode) {
       return NextResponse.json(
         {
