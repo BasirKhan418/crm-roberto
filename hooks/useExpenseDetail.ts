@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
+import type { ExpensePaymentStatus, ExpenseStatus } from '@/lib/expenses/constants';
+
 type ExpenseAttachment = {
   _id: string;
   originalName: string;
@@ -14,8 +16,8 @@ type ExpenseAttachment = {
 
 type ExpenseDetail = {
   _id: string;
-  status: string;
-  paymentStatus: string;
+  status: ExpenseStatus;
+  paymentStatus: ExpensePaymentStatus;
   amountExclVatCents: number;
   vatAmountCents: number;
   amountInclVatCents: number;

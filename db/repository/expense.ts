@@ -3,11 +3,13 @@ import mongoose from "mongoose";
 import ConnectDb from "@/db/connectDb";
 import Expense from "@/db/models/Expense";
 import ExpenseAttachment from "@/db/models/ExpenseAttachment";
+import Supplier from "@/db/models/Supplier";
 import { computeAmountInclVatCents, computeRemainingBalanceCents, computeVatAmountCents } from "@/lib/expense-calculations";
 import type { ListQueryOptions, PaginationMeta } from "@/utils/api/query";
 import { buildPagination } from "@/utils/api/query";
 import type {
   CreateDraftExpenseDTO,
+  ExpenseAttachmentMetadataDTO,
   CreateManualExpenseDTO,
   ExpenseListFilterDTO,
   MarkExpensePaidDTO,
@@ -25,6 +27,13 @@ type AccessScope = {
   userId?: string;
 };
 
+type AttachmentNamingExpense = {
+  supplierId?: unknown;
+  supplierRef?: string | null;
+  expenseDate?: Date | null;
+  amountInclVatCents?: number;
+};
+
 function isValidObjectId(value: string) {
   return mongoose.Types.ObjectId.isValid(value);
 }
@@ -38,6 +47,186 @@ function buildRemainingBalance(expense: {
   amountPaidCents?: number;
 }) {
   return computeRemainingBalanceCents(expense.amountInclVatCents || 0, expense.amountPaidCents || 0);
+}
+
+function sanitizeFileNamePart(value: string) {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/(^_+|_+$)/g, "")
+    .slice(0, 70);
+}
+
+function normalizeExtension(extension: string | undefined, fallbackName?: string | null) {
+  const fromExtension = extension?.replace(/^\./, "").toLowerCase().trim();
+  if (fromExtension && /^[a-z0-9]+$/.test(fromExtension)) {
+    return fromExtension;
+  }
+
+  const fromName = fallbackName?.split(".").pop()?.toLowerCase().trim();
+  if (fromName && /^[a-z0-9]+$/.test(fromName)) {
+    return fromName;
+  }
+
+  return "bin";
+}
+
+function formatDateForFileName(value?: Date | null) {
+  if (!value) return null;
+
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+
+  const year = String(date.getUTCFullYear());
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  return `${year}${month}${day}`;
+}
+
+function formatAmountForFileName(cents?: number) {
+  if (typeof cents !== "number" || cents <= 0) return null;
+
+  const value = (cents / 100).toFixed(2).replace(".", "_");
+  return `${value}eur`;
+}
+
+function extractSupplierId(value: unknown): string | null {
+  if (!value) return null;
+
+  if (typeof value === "string") {
+    return isValidObjectId(value) ? value : null;
+  }
+
+  if (typeof value === "object") {
+    const maybeId = (value as { _id?: unknown })._id;
+    if (typeof maybeId === "string") {
+      return isValidObjectId(maybeId) ? maybeId : null;
+    }
+    if (maybeId instanceof mongoose.Types.ObjectId) {
+      return String(maybeId);
+    }
+  }
+
+  if (value instanceof mongoose.Types.ObjectId) {
+    return String(value);
+  }
+
+  return null;
+}
+
+async function resolveSupplierName(value: unknown): Promise<string | null> {
+  if (!value) return null;
+
+  if (typeof value === "object") {
+    const fullName = (value as { fullName?: unknown }).fullName;
+    if (typeof fullName === "string" && fullName.trim()) {
+      return fullName.trim();
+    }
+  }
+
+  const supplierId = extractSupplierId(value);
+  if (!supplierId) return null;
+
+  const supplier = await Supplier.findById(supplierId).select("fullName").lean<{ fullName?: string } | null>();
+  return supplier?.fullName?.trim() || null;
+}
+
+function hasCanonicalAttachmentNamingData(expense: AttachmentNamingExpense, supplierName: string | null) {
+  return Boolean(
+    supplierName &&
+      expense.expenseDate &&
+      typeof expense.amountInclVatCents === "number" &&
+      expense.amountInclVatCents > 0
+  );
+}
+
+async function buildAttachmentDisplayName(params: {
+  expense: AttachmentNamingExpense;
+  extension?: string;
+  fallbackName: string;
+}) {
+  const supplierName = await resolveSupplierName(params.expense.supplierId);
+  if (!hasCanonicalAttachmentNamingData(params.expense, supplierName)) {
+    return params.fallbackName;
+  }
+
+  const supplierPart = sanitizeFileNamePart(supplierName || "expense");
+  const datePart = formatDateForFileName(params.expense.expenseDate) || "draft";
+  const amountPart = formatAmountForFileName(params.expense.amountInclVatCents) || "amount";
+  const extension = normalizeExtension(params.extension, params.fallbackName);
+
+  return `${supplierPart}_${datePart}_${amountPart}.${extension}`;
+}
+
+async function syncAttachmentDisplayNames(params: {
+  companyId: string;
+  expenseId: string;
+  expense: AttachmentNamingExpense;
+}) {
+  const supplierName = await resolveSupplierName(params.expense.supplierId);
+  if (!hasCanonicalAttachmentNamingData(params.expense, supplierName)) {
+    return;
+  }
+
+  const attachments = await ExpenseAttachment.find({
+    companyId: params.companyId,
+    expenseId: params.expenseId,
+  })
+    .sort({ createdAt: 1 })
+    .lean();
+
+  if (attachments.length === 0) {
+    return;
+  }
+
+  const supplierPart = sanitizeFileNamePart(supplierName || "expense");
+  const datePart = formatDateForFileName(params.expense.expenseDate) || "draft";
+  const amountPart = formatAmountForFileName(params.expense.amountInclVatCents) || "amount";
+  const base = `${supplierPart}_${datePart}_${amountPart}`;
+
+  const updates = attachments
+    .map((attachment, index) => {
+      const extension = normalizeExtension(attachment.extension, attachment.originalName);
+      const suffix = attachments.length > 1 ? `_${index + 1}` : "";
+      const displayName = `${base}${suffix}.${extension}`;
+
+      if (displayName === attachment.displayName) {
+        return null;
+      }
+
+      return {
+        updateOne: {
+          filter: { _id: attachment._id },
+          update: { $set: { displayName } },
+        },
+      };
+    })
+    .filter(Boolean) as Array<{
+    updateOne: {
+      filter: { _id: mongoose.Types.ObjectId };
+      update: { $set: { displayName: string } };
+    };
+  }>;
+
+  if (updates.length > 0) {
+    await ExpenseAttachment.bulkWrite(updates);
+  }
+}
+
+function addAccessScopeToQuery(query: Record<string, unknown>, access?: AccessScope) {
+  if (access?.ownOnly && access.userId) {
+    return {
+      ...query,
+      createdBy: access.userId,
+    };
+  }
+
+  return query;
+}
+
+function escapeRegex(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function canActivateExpense(expense: {
@@ -85,6 +274,17 @@ export async function createDraftFromAttachment(params: {
   const vatAmountCents = computeVatAmountCents(amountExclVatCents, vatRate);
   const amountInclVatCents = computeAmountInclVatCents(amountExclVatCents, vatAmountCents);
 
+  const displayName = await buildAttachmentDisplayName({
+    expense: {
+      supplierId: params.payload.supplierId ?? null,
+      supplierRef: params.payload.supplierRef ?? null,
+      expenseDate: params.payload.expenseDate ?? null,
+      amountInclVatCents,
+    },
+    extension: params.payload.attachment.extension,
+    fallbackName: params.payload.attachment.displayName,
+  });
+
   const draft = await Expense.create({
     companyId: params.companyId,
     status: "draft",
@@ -108,7 +308,7 @@ export async function createDraftFromAttachment(params: {
     expenseId: draft._id,
     uploadedBy: params.createdBy,
     originalName: params.payload.attachment.originalName,
-    displayName: params.payload.attachment.displayName,
+    displayName,
     mimeType: params.payload.attachment.mimeType,
     extension: params.payload.attachment.extension,
     sizeBytes: params.payload.attachment.sizeBytes,
@@ -244,9 +444,18 @@ export async function listExpenses(params: {
   }
 
   if (params.options.search) {
+    const searchRegex = new RegExp(escapeRegex(params.options.search), "i");
+    const supplierMatches = await Supplier.find({ fullName: { $regex: searchRegex } })
+      .select("_id")
+      .limit(200)
+      .lean<{ _id: mongoose.Types.ObjectId }[]>();
+
+    const supplierIds = supplierMatches.map((supplier) => supplier._id);
+
     query.$or = [
-      { supplierRef: { $regex: params.options.search, $options: "i" } },
-      { notes: { $regex: params.options.search, $options: "i" } },
+      { supplierRef: { $regex: searchRegex } },
+      { notes: { $regex: searchRegex } },
+      ...(supplierIds.length > 0 ? [{ supplierId: { $in: supplierIds } }] : []),
     ];
   }
 
@@ -329,6 +538,7 @@ export async function updateExpense(params: {
   expenseId: string;
   updatedBy: string;
   payload: UpdateExpenseDTO;
+  access?: AccessScope;
   ipAddress?: string | null;
 }) {
   await ConnectDb();
@@ -341,11 +551,16 @@ export async function updateExpense(params: {
     return { success: false as const, message: "Invalid expense update context" };
   }
 
-  const existing = await Expense.findOne({
-    _id: params.expenseId,
-    companyId: params.companyId,
-    deletedAt: null,
-  }).lean<Record<string, unknown> | null>();
+  const scopedQuery = addAccessScopeToQuery(
+    {
+      _id: params.expenseId,
+      companyId: params.companyId,
+      deletedAt: null,
+    },
+    params.access
+  );
+
+  const existing = await Expense.findOne(scopedQuery).lean<Record<string, unknown> | null>();
 
   if (!existing) {
     return { success: false as const, message: "Expense not found" };
@@ -399,7 +614,7 @@ export async function updateExpense(params: {
   };
 
   const updated = await Expense.findOneAndUpdate(
-    { _id: params.expenseId, companyId: params.companyId, deletedAt: null },
+    scopedQuery,
     { $set: updatePayload },
     { returnDocument: "after", runValidators: true }
   ).lean<Record<string, unknown> | null>();
@@ -419,6 +634,20 @@ export async function updateExpense(params: {
     ipAddress: params.ipAddress,
   });
 
+  await syncAttachmentDisplayNames({
+    companyId: params.companyId,
+    expenseId: params.expenseId,
+    expense: {
+      supplierId: updated.supplierId,
+      supplierRef: typeof updated.supplierRef === "string" ? updated.supplierRef : null,
+      expenseDate: (updated.expenseDate as Date | null) ?? null,
+      amountInclVatCents:
+        typeof updated.amountInclVatCents === "number"
+          ? updated.amountInclVatCents
+          : Number(updated.amountInclVatCents || 0),
+    },
+  });
+
   return {
     success: true as const,
     expense: {
@@ -432,12 +661,18 @@ export async function archiveExpense(params: {
   companyId: string;
   expenseId: string;
   updatedBy: string;
+  access?: AccessScope;
   ipAddress?: string | null;
 }) {
   await ConnectDb();
 
-  const updated = await Expense.findOneAndUpdate(
+  const scopedQuery = addAccessScopeToQuery(
     { _id: params.expenseId, companyId: params.companyId, deletedAt: null },
+    params.access
+  );
+
+  const updated = await Expense.findOneAndUpdate(
+    scopedQuery,
     {
       $set: {
         status: "archived",
@@ -469,13 +704,19 @@ export async function softDeleteExpense(params: {
   companyId: string;
   expenseId: string;
   updatedBy: string;
+  access?: AccessScope;
   ipAddress?: string | null;
 }) {
   await ConnectDb();
 
+  const scopedQuery = addAccessScopeToQuery(
+    { _id: params.expenseId, companyId: params.companyId, deletedAt: null },
+    params.access
+  );
+
   const now = new Date();
   const deleted = await Expense.findOneAndUpdate(
-    { _id: params.expenseId, companyId: params.companyId, deletedAt: null },
+    scopedQuery,
     {
       $set: {
         deletedAt: now,
@@ -506,16 +747,22 @@ export async function duplicateExpense(params: {
   companyId: string;
   expenseId: string;
   duplicatedBy: string;
+  access?: AccessScope;
   copyAttachments?: boolean;
   ipAddress?: string | null;
 }) {
   await ConnectDb();
 
-  const source = await Expense.findOne({
-    _id: params.expenseId,
-    companyId: params.companyId,
-    deletedAt: null,
-  }).lean<Record<string, unknown> | null>();
+  const scopedQuery = addAccessScopeToQuery(
+    {
+      _id: params.expenseId,
+      companyId: params.companyId,
+      deletedAt: null,
+    },
+    params.access
+  );
+
+  const source = await Expense.findOne(scopedQuery).lean<Record<string, unknown> | null>();
 
   if (!source) {
     return { success: false as const, message: "Expense not found" };
@@ -582,6 +829,17 @@ export async function duplicateExpense(params: {
     }
   }
 
+  await syncAttachmentDisplayNames({
+    companyId: params.companyId,
+    expenseId: String(created._id),
+    expense: {
+      supplierId: created.supplierId,
+      supplierRef: created.supplierRef,
+      expenseDate: created.expenseDate,
+      amountInclVatCents: created.amountInclVatCents,
+    },
+  });
+
   await recordAuditLog({
     entityType: "expense",
     entityId: String(created._id),
@@ -606,15 +864,21 @@ export async function markExpensePaid(params: {
   expenseId: string;
   updatedBy: string;
   payload: MarkExpensePaidDTO;
+  access?: AccessScope;
   ipAddress?: string | null;
 }) {
   await ConnectDb();
 
-  const expense = await Expense.findOne({
-    _id: params.expenseId,
-    companyId: params.companyId,
-    deletedAt: null,
-  });
+  const scopedQuery = addAccessScopeToQuery(
+    {
+      _id: params.expenseId,
+      companyId: params.companyId,
+      deletedAt: null,
+    },
+    params.access
+  );
+
+  const expense = await Expense.findOne(scopedQuery);
 
   if (!expense) {
     return { success: false as const, message: "Expense not found" };
@@ -644,5 +908,193 @@ export async function markExpensePaid(params: {
       ...expense.toObject(),
       remainingBalanceCents: buildRemainingBalance(expense),
     },
+  };
+}
+
+export async function listExpenseAttachments(params: {
+  companyId: string;
+  expenseId: string;
+  access?: AccessScope;
+}) {
+  await ConnectDb();
+
+  if (!isValidObjectId(params.companyId) || !isValidObjectId(params.expenseId)) {
+    return { success: false as const, message: "Invalid expense context" };
+  }
+
+  const expenseQuery = addAccessScopeToQuery(
+    {
+      _id: params.expenseId,
+      companyId: params.companyId,
+      deletedAt: null,
+    },
+    params.access
+  );
+
+  const expense = await Expense.findOne(expenseQuery).select("_id").lean();
+  if (!expense) {
+    return { success: false as const, message: "Expense not found" };
+  }
+
+  const attachments = await ExpenseAttachment.find({
+    companyId: params.companyId,
+    expenseId: params.expenseId,
+  })
+    .sort({ createdAt: -1 })
+    .lean();
+
+  return {
+    success: true as const,
+    attachments,
+  };
+}
+
+export async function createExpenseAttachment(params: {
+  companyId: string;
+  expenseId: string;
+  uploadedBy: string;
+  payload: ExpenseAttachmentMetadataDTO;
+  access?: AccessScope;
+  ipAddress?: string | null;
+}) {
+  await ConnectDb();
+
+  if (
+    !isValidObjectId(params.companyId) ||
+    !isValidObjectId(params.expenseId) ||
+    !isValidObjectId(params.uploadedBy)
+  ) {
+    return { success: false as const, message: "Invalid attachment context" };
+  }
+
+  const expenseQuery = addAccessScopeToQuery(
+    {
+      _id: params.expenseId,
+      companyId: params.companyId,
+      deletedAt: null,
+    },
+    params.access
+  );
+
+  const expense = await Expense.findOne(expenseQuery)
+    .select("supplierId supplierRef expenseDate amountInclVatCents")
+    .lean<AttachmentNamingExpense | null>();
+
+  if (!expense) {
+    return { success: false as const, message: "Expense not found" };
+  }
+
+  const displayName = await buildAttachmentDisplayName({
+    expense,
+    extension: params.payload.extension,
+    fallbackName: params.payload.displayName,
+  });
+
+  const attachment = await ExpenseAttachment.create({
+    companyId: params.companyId,
+    expenseId: params.expenseId,
+    uploadedBy: params.uploadedBy,
+    originalName: params.payload.originalName,
+    displayName,
+    mimeType: params.payload.mimeType,
+    extension: normalizeExtension(params.payload.extension, params.payload.originalName),
+    sizeBytes: params.payload.sizeBytes,
+    storageKey: params.payload.storageKey,
+    url: params.payload.url,
+    checksum: params.payload.checksum ?? null,
+  });
+
+  await syncAttachmentDisplayNames({
+    companyId: params.companyId,
+    expenseId: params.expenseId,
+    expense,
+  });
+
+  const refreshed = await ExpenseAttachment.findById(attachment._id).lean();
+
+  await recordAuditLog({
+    entityType: "expense",
+    entityId: params.expenseId,
+    companyId: params.companyId,
+    action: "updated",
+    fieldName: "attachments",
+    oldValue: null,
+    newValue: {
+      attachmentId: String(attachment._id),
+      displayName: refreshed?.displayName || attachment.displayName,
+    },
+    performedBy: params.uploadedBy,
+    source: "api",
+    ipAddress: params.ipAddress,
+  });
+
+  return {
+    success: true as const,
+    attachment: refreshed || attachment.toObject(),
+  };
+}
+
+export async function deleteExpenseAttachment(params: {
+  companyId: string;
+  expenseId: string;
+  attachmentId: string;
+  deletedBy: string;
+  access?: AccessScope;
+  ipAddress?: string | null;
+}) {
+  await ConnectDb();
+
+  if (
+    !isValidObjectId(params.companyId) ||
+    !isValidObjectId(params.expenseId) ||
+    !isValidObjectId(params.attachmentId) ||
+    !isValidObjectId(params.deletedBy)
+  ) {
+    return { success: false as const, message: "Invalid attachment context" };
+  }
+
+  const expenseQuery = addAccessScopeToQuery(
+    {
+      _id: params.expenseId,
+      companyId: params.companyId,
+      deletedAt: null,
+    },
+    params.access
+  );
+
+  const expense = await Expense.findOne(expenseQuery).select("_id").lean();
+  if (!expense) {
+    return { success: false as const, message: "Expense not found" };
+  }
+
+  const deletedAttachment = await ExpenseAttachment.findOneAndDelete({
+    _id: params.attachmentId,
+    companyId: params.companyId,
+    expenseId: params.expenseId,
+  }).lean();
+
+  if (!deletedAttachment) {
+    return { success: false as const, message: "Attachment not found" };
+  }
+
+  await recordAuditLog({
+    entityType: "expense",
+    entityId: params.expenseId,
+    companyId: params.companyId,
+    action: "updated",
+    fieldName: "attachments",
+    oldValue: {
+      attachmentId: String(deletedAttachment._id),
+      displayName: deletedAttachment.displayName,
+    },
+    newValue: null,
+    performedBy: params.deletedBy,
+    source: "api",
+    ipAddress: params.ipAddress,
+  });
+
+  return {
+    success: true as const,
+    attachment: deletedAttachment,
   };
 }

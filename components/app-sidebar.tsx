@@ -14,7 +14,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { Building2Icon, FileTextIcon, LayoutDashboard, LayoutDashboardIcon, NotebookPenIcon, PackageSearchIcon, ReceiptTextIcon, SettingsIcon, TruckIcon, UsersIcon } from "lucide-react"
+import { Building2Icon, FileTextIcon, LayoutDashboard, LayoutDashboardIcon, NotebookPenIcon, PackageSearchIcon, ReceiptTextIcon, SettingsIcon, TruckIcon, UsersIcon, WalletCardsIcon } from "lucide-react"
 import { useLocale } from "@/components/providers/locale-provider"
 import { useSidebarBadges } from "@/hooks/useSidebarBadges"
 
@@ -25,6 +25,7 @@ type NavKey =
   | "catalogue"
   | "quotes"
   | "invoices"
+  | "expenses"
   | "notes"
   | "settings"
   | "companyProfile"
@@ -40,6 +41,7 @@ const navItems: ReadonlyArray<{
   { key: "catalogue", url: "/catalogue", icon: <PackageSearchIcon /> },
   { key: "quotes", url: "/quotes", icon: <ReceiptTextIcon /> },
   { key: "invoices", url: "/invoices", icon: <FileTextIcon /> },
+  { key: "expenses", url: "/expenses", icon: <WalletCardsIcon /> },
   { key: "notes", url: "/notes", icon: <NotebookPenIcon /> },
   { key: "settings", url: "/settings", icon: <SettingsIcon /> },
   { key: "companyProfile", url: "/profile", icon: <Building2Icon /> },
@@ -63,6 +65,7 @@ const sidebarMessages = {
       catalogue: "Products & Services",
       quotes: "Quotes",
       notes: "Notes",
+      expenses: "Expenses",
       settings: "Settings",
       invoices: "Invoices",
       companyProfile: "Company profile",
@@ -85,6 +88,7 @@ const sidebarMessages = {
       catalogue: "Produits & Services",
       quotes: "Devis",
       notes: "Notes",
+      expenses: "Depenses",
       settings: "Paramètres",
       invoices: "Factures",
       companyProfile: "Profil d'entreprise",

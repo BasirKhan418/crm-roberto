@@ -6,6 +6,10 @@ import {
   EXPENSE_STATUS,
   EXPENSE_TYPES,
 } from "@/lib/expenses/constants";
+import {
+  EXPENSE_ALLOWED_MIME_TYPES,
+  EXPENSE_MAX_FILE_SIZE_BYTES,
+} from "@/lib/expenses/upload";
 
 const toNumber = (value: unknown) => {
   if (typeof value === "number") return value;
@@ -51,6 +55,18 @@ const requiredDateSchema = z.coerce.date();
 const objectIdSchema = z.string().trim().min(1, "Invalid ID");
 const optionalObjectIdSchema = z.preprocess(toNullableString, z.string().trim().min(1).nullable().optional());
 
+export const expenseAttachmentMetadataSchema = z.object({
+  originalName: z.string().trim().min(1),
+  displayName: z.string().trim().min(1),
+  mimeType: z.enum(EXPENSE_ALLOWED_MIME_TYPES),
+  extension: z.string().trim().min(1),
+  sizeBytes: z
+    .preprocess(toNumber, z.number().int().nonnegative().max(EXPENSE_MAX_FILE_SIZE_BYTES)),
+  storageKey: z.string().trim().min(1),
+  url: z.string().trim().url(),
+  checksum: z.preprocess(toNullableString, z.string().trim().nullable().optional()),
+});
+
 export const createManualExpenseSchema = z.object({
   amountExclVatCents: moneyToCentsSchema,
   vatRate: z.preprocess(toNumber, z.number().min(0).max(100)).default(0),
@@ -78,16 +94,7 @@ export const createDraftExpenseSchema = z.object({
   vatRate: z.preprocess(toNumber, z.number().min(0).max(100).optional()),
   supplierRef: z.preprocess(toNullableString, z.string().trim().max(140).nullable().optional()),
   notes: z.preprocess(toNullableString, z.string().trim().max(4000).nullable().optional()),
-  attachment: z.object({
-    originalName: z.string().trim().min(1),
-    displayName: z.string().trim().min(1),
-    mimeType: z.string().trim().min(1),
-    extension: z.string().trim().min(1),
-    sizeBytes: z.preprocess(toNumber, z.number().int().nonnegative()),
-    storageKey: z.string().trim().min(1),
-    url: z.string().trim().url(),
-    checksum: z.preprocess(toNullableString, z.string().trim().nullable().optional()),
-  }),
+  attachment: expenseAttachmentMetadataSchema,
 });
 
 export const updateExpenseSchema = z
@@ -149,6 +156,53 @@ export const markExpensePaidSchema = z.object({
   paymentMethod: z.enum(EXPENSE_PAYMENT_METHODS),
 });
 
+export const createExpenseAttachmentSchema = z.object({
+  attachment: expenseAttachmentMetadataSchema,
+});
+
+export const deleteExpenseAttachmentSchema = z.object({
+  attachmentId: objectIdSchema,
+});
+
+export const expenseActionSchema = z.discriminatedUnion("action", [
+  z.object({
+    action: z.literal("duplicate"),
+    copyAttachments: z.boolean().optional(),
+  }),
+  z.object({
+    action: z.literal("archive"),
+  }),
+  z.object({
+    action: z.literal("mark_paid"),
+    paidAt: requiredDateSchema,
+    paymentMethod: z.enum(EXPENSE_PAYMENT_METHODS),
+  }),
+  z.object({
+    action: z.literal("attach_file"),
+    attachment: expenseAttachmentMetadataSchema,
+  }),
+]);
+
+export const expenseUploadPresignSchema = z.object({
+  fileName: z.string().trim().min(1).max(260),
+  fileType: z.enum(EXPENSE_ALLOWED_MIME_TYPES),
+  fileSize: z
+    .preprocess(toNumber, z.number().int().positive().max(EXPENSE_MAX_FILE_SIZE_BYTES)),
+});
+
+export const expenseEmailIngestSchema = z.object({
+  companyId: objectIdSchema,
+  createdBy: objectIdSchema.optional(),
+  expenseDate: optionalDateSchema.optional(),
+  supplierId: optionalObjectIdSchema,
+  categoryId: optionalObjectIdSchema,
+  amountExclVatCents: optionalMoneyToCentsSchema,
+  vatRate: z.preprocess(toNumber, z.number().min(0).max(100).optional()),
+  supplierRef: z.preprocess(toNullableString, z.string().trim().max(140).nullable().optional()),
+  notes: z.preprocess(toNullableString, z.string().trim().max(4000).nullable().optional()),
+  attachments: z.array(expenseAttachmentMetadataSchema).min(1),
+});
+
 export type CreateManualExpenseDTO = z.infer<typeof createManualExpenseSchema>;
 export type CreateDraftExpenseDTO = z.infer<typeof createDraftExpenseSchema>;
 export type UpdateExpenseDTO = z.infer<typeof updateExpenseSchema>;
@@ -156,3 +210,9 @@ export type ExpenseListFilterDTO = z.infer<typeof expenseListFilterSchema>;
 export type CreateExpenseCategoryDTO = z.infer<typeof createExpenseCategorySchema>;
 export type UpdateExpenseCategoryDTO = z.infer<typeof updateExpenseCategorySchema>;
 export type MarkExpensePaidDTO = z.infer<typeof markExpensePaidSchema>;
+export type ExpenseAttachmentMetadataDTO = z.infer<typeof expenseAttachmentMetadataSchema>;
+export type CreateExpenseAttachmentDTO = z.infer<typeof createExpenseAttachmentSchema>;
+export type DeleteExpenseAttachmentDTO = z.infer<typeof deleteExpenseAttachmentSchema>;
+export type ExpenseActionDTO = z.infer<typeof expenseActionSchema>;
+export type ExpenseUploadPresignDTO = z.infer<typeof expenseUploadPresignSchema>;
+export type ExpenseEmailIngestDTO = z.infer<typeof expenseEmailIngestSchema>;
