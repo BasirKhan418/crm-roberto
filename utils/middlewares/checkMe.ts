@@ -1,8 +1,10 @@
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 import ConnectDb from "@/db/connectDb";
+import Company from "@/db/models/Company";
 import User from "@/db/models/User";
 import { ensureUserCompanyContext } from "@/db/repository/company";
+import { normalizeRole, type AppRole } from "@/lib/permissions";
 
 interface JwtUserPayload {
     sub: string;
@@ -81,7 +83,7 @@ const checkMe = async (fch:boolean) => {
                                 };
                             }
 
-                            let role = user.role;
+                            let role: AppRole = normalizeRole(user.role);
                             let companyId = user.companyId ? String(user.companyId) : null;
 
                             if (!companyId) {
@@ -95,8 +97,21 @@ const checkMe = async (fch:boolean) => {
                                     return { message: ensured.message, success: false };
                                 }
 
-                                role = ensured.role;
+                                role = normalizeRole(ensured.role) as AppRole;
                                 companyId = ensured.companyId || null;
+                            } else if (role !== "super_admin") {
+                                const company = await Company.findById(companyId)
+                                    .select("ownerUserId")
+                                    .lean<{ ownerUserId?: string | null } | null>();
+
+                                const isCompanyOwner = Boolean(
+                                    company?.ownerUserId && String(company.ownerUserId) === String(user._id)
+                                );
+
+                                if (isCompanyOwner && role !== "administrator") {
+                                    role = "administrator";
+                                    await User.updateOne({ _id: user._id }, { $set: { role } });
+                                }
                             }
 
                             if(fch){

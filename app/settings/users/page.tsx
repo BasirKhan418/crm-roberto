@@ -98,6 +98,7 @@ const texts = {
       'Invitation created, email delivery failed, and link copied for manual sharing.',
     loadUsersFailed: 'Unable to load users.',
     updateUserFailed: 'Unable to update user.',
+    selfActionProtected: 'You cannot edit your own role or access from this screen.',
     active: 'Active',
     suspended: 'Suspended',
     pending: 'Pending',
@@ -145,6 +146,7 @@ const texts = {
       "Invitation creee, e-mail non envoye, lien copie pour partage manuel.",
     loadUsersFailed: 'Impossible de charger les utilisateurs.',
     updateUserFailed: "Impossible de mettre a jour l'utilisateur.",
+    selfActionProtected: "Vous ne pouvez pas modifier votre propre role ou acces depuis cet ecran.",
     active: 'Actif',
     suspended: 'Suspendu',
     pending: 'En attente',
@@ -429,6 +431,7 @@ export default function SettingsUsersPage() {
                 <tbody>
                   {users.map((companyUser) => {
                     const isSuspended = companyUser.account_status === 'suspended';
+                    const isCurrentUser = companyUser._id === user?.id;
                     return (
                       <tr key={companyUser._id} className="border-b align-top">
                         <td className="px-2 py-3 font-medium">{companyUser.name || '-'}</td>
@@ -448,7 +451,8 @@ export default function SettingsUsersPage() {
                               type="button"
                               variant="outline"
                               size="sm"
-                              disabled={!canUpdateUsers}
+                              disabled={!canUpdateUsers || isCurrentUser}
+                              title={isCurrentUser ? t.selfActionProtected : undefined}
                               onClick={() =>
                                 void updateUser(companyUser._id, {
                                   account_status: isSuspended ? 'active' : 'suspended',
@@ -461,7 +465,8 @@ export default function SettingsUsersPage() {
                               type="button"
                               variant="outline"
                               size="sm"
-                              disabled={!canUpdateUsers}
+                              disabled={!canUpdateUsers || isCurrentUser}
+                              title={isCurrentUser ? t.selfActionProtected : undefined}
                               onClick={() =>
                                 void updateUser(companyUser._id, {
                                   role: companyUser.role === 'read_only' ? 'standard_user' : 'read_only',
@@ -474,7 +479,8 @@ export default function SettingsUsersPage() {
                               type="button"
                               variant="destructive"
                               size="sm"
-                              disabled={!canUpdateUsers}
+                              disabled={!canUpdateUsers || isCurrentUser}
+                              title={isCurrentUser ? t.selfActionProtected : undefined}
                               onClick={() => void updateUser(companyUser._id, { revokeAccess: true })}
                             >
                               {t.revoke}

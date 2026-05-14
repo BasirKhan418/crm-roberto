@@ -166,9 +166,12 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ success: false, message: actionPermission.message }, { status: 403 });
     }
 
-    if (validation.data.userId === me.user.id && validation.data.revokeAccess) {
+    if (validation.data.userId === me.user.id) {
       return NextResponse.json(
-        { success: false, message: "You cannot revoke your own access" },
+        {
+          success: false,
+          message: "You cannot change your own role or access from user management. Ask another administrator.",
+        },
         { status: 400 }
       );
     }

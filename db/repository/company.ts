@@ -103,10 +103,31 @@ export async function ensureUserCompanyContext(params: {
   }
 
   if (user.companyId) {
+    const normalizedRole = normalizeRole(user.role);
+
+    if (normalizedRole !== "super_admin") {
+      const company = await Company.findById(user.companyId)
+        .select("ownerUserId")
+        .lean<{ ownerUserId?: mongoose.Types.ObjectId | null } | null>();
+
+      const isCompanyOwner = Boolean(
+        company?.ownerUserId && String(company.ownerUserId) === String(user._id)
+      );
+
+      if (isCompanyOwner && normalizedRole !== "administrator") {
+        await User.updateOne({ _id: user._id }, { $set: { role: "administrator" } });
+        return {
+          success: true,
+          companyId: String(user.companyId),
+          role: "administrator" as const,
+        };
+      }
+    }
+
     return {
       success: true,
       companyId: String(user.companyId),
-      role: normalizeRole(user.role),
+      role: normalizedRole,
     };
   }
 
@@ -120,7 +141,8 @@ export async function ensureUserCompanyContext(params: {
     ownerUserId: user._id,
   });
 
-  const role = normalizeRole(user.role || "administrator");
+  const existingRole = normalizeRole(user.role);
+  const role = existingRole === "super_admin" ? "super_admin" : "administrator";
 
   await User.updateOne(
     { _id: user._id },
