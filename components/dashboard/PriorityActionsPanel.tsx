@@ -94,6 +94,15 @@ interface SmartActionsData {
       };
     }>;
   };
+  ticketsWithoutReply48h: {
+    count: number;
+    target: {
+      _id: string;
+      title: string;
+      status: string;
+      updatedAt?: string | null;
+    } | null;
+  };
 }
 
 interface SmartActionsResponse {
@@ -359,6 +368,11 @@ export default function PriorityActionsPanel({
       overdueInvoices: (count: number) => `${count} overdue invoices`,
       noOverdueInvoices: 'No overdue invoices to remind',
       overdueInvoicesDescription: 'Past due date and still not fully paid.',
+      ticketsNoReply: (count: number) => `${count} tickets waiting over 48h`,
+      noTicketsNoReply: 'No waiting tickets older than 48h',
+      ticketsNoReplyDescription: 'Waiting tickets without reply for at least 48 hours.',
+      reviewTicketsAction: 'Review tickets',
+      openTicketAction: 'Open ticket',
       sendReminderActionButton: 'Send reminder',
       reviewInvoicesAction: 'Review invoices',
       invoiceRowsTitle: 'Invoices needing action',
@@ -426,6 +440,11 @@ export default function PriorityActionsPanel({
       overdueInvoices: (count: number) => `${count} factures en retard`,
       noOverdueInvoices: 'Aucune facture en retard',
       overdueInvoicesDescription: "Date d'\u00e9ch\u00e9ance d\u00e9pass\u00e9e et facture non r\u00e9gl\u00e9e.",
+      ticketsNoReply: (count: number) => `${count} tickets en attente depuis plus de 48 h`,
+      noTicketsNoReply: 'Aucun ticket en attente depuis plus de 48 h',
+      ticketsNoReplyDescription: 'Tickets en attente sans r\u00e9ponse depuis au moins 48 heures.',
+      reviewTicketsAction: 'Voir tickets',
+      openTicketAction: 'Ouvrir ticket',
       sendReminderActionButton: 'Envoyer rappel',
       reviewInvoicesAction: 'Voir factures',
       invoiceRowsTitle: 'Factures à traiter',
@@ -599,6 +618,8 @@ export default function PriorityActionsPanel({
   const overdueInvoiceTarget = smartActionsData?.overdueInvoices.target ?? null;
   const overdueInvoiceCount = smartActionsData?.overdueInvoices.count ?? 0;
   const overdueInvoiceItems = smartActionsData?.overdueInvoices.items ?? [];
+  const noReplyTicketTarget = smartActionsData?.ticketsWithoutReply48h.target ?? null;
+  const noReplyTicketCount = smartActionsData?.ticketsWithoutReply48h.count ?? 0;
   const isAcceptedInvoiceLoading = actionLoadingKey === 'accepted-to-invoice';
 
   useEffect(() => {
@@ -775,6 +796,23 @@ export default function PriorityActionsPanel({
 
                   <div className="min-w-0 space-y-2 rounded-2xl border border-border/60 bg-card p-2.5 sm:p-3 md:col-span-2">
                     <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t.alerts}</p>
+                    <SmartActionRow
+                      title={noReplyTicketCount > 0 ? t.ticketsNoReply(noReplyTicketCount) : t.noTicketsNoReply}
+                      description={t.ticketsNoReplyDescription}
+                      buttonLabel={noReplyTicketCount > 0 ? t.openTicketAction : t.reviewTicketsAction}
+                      tone={noReplyTicketCount > 0 ? 'urgent' : 'neutral'}
+                      Icon={Clock3Icon}
+                      onClick={() => {
+                        if (!noReplyTicketTarget) {
+                          router.push('/tickets?status=waiting&assignedToMe=true');
+                          return;
+                        }
+
+                        router.push(`/tickets/${noReplyTicketTarget._id}`);
+                      }}
+                      disabled={smartActionsLoading}
+                    />
+
                     <SmartActionRow
                       title={overdueInvoiceCount > 0 ? t.overdueInvoices(overdueInvoiceCount) : t.noOverdueInvoices}
                       description={t.overdueInvoicesDescription}

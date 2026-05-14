@@ -1004,6 +1004,9 @@ export default function ExpenseDetailPage() {
                           <div className="flex items-center gap-2">
                             <TicketUnreadIndicator unreadCount={ticket.unreadCount} locale={locale} />
                             <TicketStatusBadge status={ticket.status} locale={locale} />
+                            <Button asChild type="button" variant="outline" size="sm">
+                              <Link href={`/tickets/${ticket._id}`}>{locale === 'fr' ? 'Ouvrir' : 'Open'}</Link>
+                            </Button>
                           </div>
                         </div>
                       </div>

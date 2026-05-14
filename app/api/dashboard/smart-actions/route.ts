@@ -9,6 +9,7 @@ import Invoice from '@/db/models/Invoice';
 import Note from '@/db/models/Note';
 import Quote from '@/db/models/Quote';
 import { getCompanyProfileByUserId } from '@/db/repository/cprofile';
+import { listTicketsWithoutReplyForReminder } from '@/db/repository/ticket';
 import { extractClientSnapshot } from '@/lib/address';
 import { sendInvoice } from '@/lib/email';
 import { resolveLocaleFromRequest } from '@/lib/i18n/locale';
@@ -60,6 +61,13 @@ interface OverdueInvoiceTarget {
   };
 }
 
+interface TicketNoReplyTarget {
+  _id: string;
+  title: string;
+  status: string;
+  updatedAt?: string | null;
+}
+
 interface SmartActionsResponse {
   pendingQuoteFollowUps: {
     count: number;
@@ -78,6 +86,10 @@ interface SmartActionsResponse {
     count: number;
     target: OverdueInvoiceTarget | null;
     items: OverdueInvoiceTarget[];
+  };
+  ticketsWithoutReply48h: {
+    count: number;
+    target: TicketNoReplyTarget | null;
   };
 }
 
@@ -115,7 +127,7 @@ function getLastDateMapFromAggregation(rows: Array<{ _id: mongoose.Types.ObjectI
   return map;
 }
 
-async function buildSmartActions(userId: string): Promise<SmartActionsResponse> {
+async function buildSmartActions(userId: string, companyId?: string | null): Promise<SmartActionsResponse> {
   await ConnectDb();
 
   const userObjectId = toObjectId(userId);
@@ -220,6 +232,23 @@ async function buildSmartActions(userId: string): Promise<SmartActionsResponse> 
     clientSnapshot: { fullName: string; email?: string | null };
   }>;
 
+  const staleTicketsResult = companyId
+    ? await listTicketsWithoutReplyForReminder({
+        companyId,
+        olderThanHours: 48,
+        limit: 30,
+      })
+    : { success: true as const, items: [] as unknown[] };
+
+  const staleTickets = staleTicketsResult.success
+    ? (staleTicketsResult.items as Array<{
+        _id: mongoose.Types.ObjectId;
+        title: string;
+        status: string;
+        updatedAt?: Date | null;
+      }>)
+    : [];
+
   return {
     pendingQuoteFollowUps: {
       count: pendingFollowUps.length,
@@ -299,6 +328,17 @@ async function buildSmartActions(userId: string): Promise<SmartActionsResponse> 
           email: invoice.clientSnapshot?.email ?? null,
         },
       })),
+    },
+    ticketsWithoutReply48h: {
+      count: staleTickets.length,
+      target: staleTickets[0]
+        ? {
+            _id: String(staleTickets[0]._id),
+            title: staleTickets[0].title,
+            status: staleTickets[0].status,
+            updatedAt: staleTickets[0].updatedAt ? new Date(staleTickets[0].updatedAt).toISOString() : null,
+          }
+        : null,
     },
   };
 }
@@ -590,7 +630,7 @@ export async function GET() {
       return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
     }
 
-    const data = await buildSmartActions(me.user.id);
+    const data = await buildSmartActions(me.user.id, me.user.companyId ?? null);
     return NextResponse.json({ success: true, data });
   } catch (error) {
     return NextResponse.json({ success: false, message: `Error loading smart actions: ${String(error)}` }, { status: 500 });

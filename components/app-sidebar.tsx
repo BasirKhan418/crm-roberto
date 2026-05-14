@@ -14,7 +14,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { Building2Icon, FileTextIcon, LayoutDashboard, LayoutDashboardIcon, NotebookPenIcon, PackageSearchIcon, ReceiptTextIcon, SettingsIcon, TruckIcon, UsersIcon, WalletCardsIcon } from "lucide-react"
+import { Building2Icon, FileTextIcon, LayoutDashboard, LayoutDashboardIcon, MessageSquareIcon, NotebookPenIcon, PackageSearchIcon, ReceiptTextIcon, SettingsIcon, TruckIcon, UsersIcon, WalletCardsIcon } from "lucide-react"
 import { useLocale } from "@/components/providers/locale-provider"
 import { useSidebarBadges } from "@/hooks/useSidebarBadges"
 
@@ -25,6 +25,7 @@ type NavKey =
   | "catalogue"
   | "quotes"
   | "invoices"
+  | "tickets"
   | "expenses"
   | "notes"
   | "settings"
@@ -41,6 +42,7 @@ const navItems: ReadonlyArray<{
   { key: "catalogue", url: "/catalogue", icon: <PackageSearchIcon /> },
   { key: "quotes", url: "/quotes", icon: <ReceiptTextIcon /> },
   { key: "invoices", url: "/invoices", icon: <FileTextIcon /> },
+  { key: "tickets", url: "/tickets", icon: <MessageSquareIcon /> },
   { key: "expenses", url: "/expenses", icon: <WalletCardsIcon /> },
   { key: "notes", url: "/notes", icon: <NotebookPenIcon /> },
   { key: "settings", url: "/settings", icon: <SettingsIcon /> },
@@ -57,6 +59,7 @@ const sidebarMessages = {
       rejected: (n: number) => `${n} new rejected`,
       paid: (n: number) => `${n} new paid`,
       overdue: (n: number) => `${n} new overdue`,
+      unreadTickets: (n: number) => `${n} unread tickets`,
     },
     nav: {
       dashboard: "Dashboard",
@@ -68,6 +71,7 @@ const sidebarMessages = {
       expenses: "Expenses",
       settings: "Settings",
       invoices: "Invoices",
+      tickets: "Tickets",
       companyProfile: "Company profile",
     },
   },
@@ -80,6 +84,7 @@ const sidebarMessages = {
       rejected: (n: number) => `${n} nouveau(x) refusé(s)`,
       paid: (n: number) => `${n} nouvelle(s) payée(s)`,
       overdue: (n: number) => `${n} nouvelle(s) en retard`,
+      unreadTickets: (n: number) => `${n} ticket(s) non lu(s)`,
     },
     nav: {
       dashboard: "Tableau de bord",
@@ -91,6 +96,7 @@ const sidebarMessages = {
       expenses: "Depenses",
       settings: "Paramètres",
       invoices: "Factures",
+      tickets: "Tickets",
       companyProfile: "Profil d'entreprise",
     },
   },
@@ -171,6 +177,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                       <StatusBadge count={paid} tone="green" title={t.badgeTitles.paid(paid)} />
                       <StatusBadge count={pending} tone="orange" title={t.badgeTitles.pending(pending)} />
                       <StatusBadge count={overdue} tone="red" title={t.badgeTitles.overdue(overdue)} />
+                    </span>
+                  )
+                }
+              } else if (item.key === "tickets") {
+                const unread = badges.tickets.unread
+                if (unread > 0) {
+                  badgeNode = (
+                    <span className="ml-auto flex items-center gap-1">
+                      <StatusBadge count={unread} tone="red" title={t.badgeTitles.unreadTickets(unread)} />
                     </span>
                   )
                 }

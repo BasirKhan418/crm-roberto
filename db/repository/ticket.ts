@@ -1060,3 +1060,56 @@ export async function listTicketsWithoutReplyForReminder(params: {
     items,
   };
 }
+
+export async function getMyTicketSummary(params: {
+  companyId: string;
+  userId: string;
+}) {
+  await ConnectDb();
+
+  if (!isValidObjectId(params.companyId) || !isValidObjectId(params.userId)) {
+    return {
+      success: false as const,
+      message: "Invalid ticket summary context",
+      data: {
+        open: 0,
+        waiting: 0,
+        unread: 0,
+      },
+    };
+  }
+
+  const companyObjectId = toObjectId(params.companyId);
+  const userObjectId = toObjectId(params.userId);
+
+  const myScope: Record<string, unknown> = {
+    companyId: companyObjectId,
+    archivedAt: null,
+    $or: [{ createdBy: userObjectId }, { assignedTo: userObjectId }],
+  };
+
+  const [open, waiting, unread] = await Promise.all([
+    Ticket.countDocuments({
+      ...myScope,
+      status: { $in: ["open", "replied"] },
+    }),
+    Ticket.countDocuments({
+      ...myScope,
+      status: "waiting",
+    }),
+    Ticket.countDocuments({
+      companyId: companyObjectId,
+      archivedAt: null,
+      unreadBy: userObjectId,
+    }),
+  ]);
+
+  return {
+    success: true as const,
+    data: {
+      open,
+      waiting,
+      unread,
+    },
+  };
+}

@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 
 import ActivityFeed from '@/components/dashboard/ActivityFeed';
 import CollectionWidget from '@/components/dashboard/CollectionWidget';
+import MyTicketsWidget from '@/components/dashboard/MyTicketsWidget';
 import PriorityActionsPanel from '@/components/dashboard/PriorityActionsPanel';
 import QuickAddButtons from '@/components/dashboard/QuickAddButtons';
 import RecentQuotes from '@/components/dashboard/RecentQuotes';
@@ -19,7 +20,7 @@ import { Button } from '@/components/ui/button';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import { useDashboard } from '@/hooks/useDashboard';
 
-type DashboardBlockKey = 'smartActions' | 'stats' | 'collection' | 'activity' | 'recentQuotes' | 'recurrences';
+type DashboardBlockKey = 'smartActions' | 'stats' | 'myTickets' | 'collection' | 'activity' | 'recentQuotes' | 'recurrences';
 type DashboardPrefs = {
   order: DashboardBlockKey[];
   visible: Record<DashboardBlockKey, boolean>;
@@ -28,10 +29,11 @@ type DashboardPrefs = {
 const DASHBOARD_PREFS_KEY = 'crm.dashboard.blocks.v3';
 const LEGACY_DASHBOARD_PREFS_KEY = 'crm.dashboard.blocks.v1';
 const LEGACY_DASHBOARD_PREFS_KEY_V2 = 'crm.dashboard.blocks.v2';
-const DEFAULT_BLOCK_ORDER: DashboardBlockKey[] = ['smartActions', 'stats', 'collection', 'activity', 'recentQuotes', 'recurrences'];
+const DEFAULT_BLOCK_ORDER: DashboardBlockKey[] = ['smartActions', 'stats', 'myTickets', 'collection', 'activity', 'recentQuotes', 'recurrences'];
 const DEFAULT_BLOCK_VISIBILITY: Record<DashboardBlockKey, boolean> = {
   smartActions: true,
   stats: true,
+  myTickets: true,
   collection: true,
   activity: true,
   recentQuotes: true,
@@ -60,6 +62,7 @@ function normalizeDashboardPrefs(raw: unknown): DashboardPrefs {
   const visible: Record<DashboardBlockKey, boolean> = {
     smartActions: typeof visibleCandidate.smartActions === 'boolean' ? visibleCandidate.smartActions : DEFAULT_BLOCK_VISIBILITY.smartActions,
     stats: typeof visibleCandidate.stats === 'boolean' ? visibleCandidate.stats : DEFAULT_BLOCK_VISIBILITY.stats,
+    myTickets: typeof visibleCandidate.myTickets === 'boolean' ? visibleCandidate.myTickets : DEFAULT_BLOCK_VISIBILITY.myTickets,
     collection: typeof visibleCandidate.collection === 'boolean' ? visibleCandidate.collection : DEFAULT_BLOCK_VISIBILITY.collection,
     activity: typeof visibleCandidate.activity === 'boolean' ? visibleCandidate.activity : DEFAULT_BLOCK_VISIBILITY.activity,
     recentQuotes: typeof visibleCandidate.recentQuotes === 'boolean' ? visibleCandidate.recentQuotes : DEFAULT_BLOCK_VISIBILITY.recentQuotes,
@@ -93,6 +96,7 @@ function DashboardPageContent() {
       moveDown: 'Move down',
       blockSmartActions: 'Smart Actions',
       blockStats: 'Top insights',
+      blockMyTickets: 'My tickets',
       blockCollection: 'Collection',
       blockActivity: 'Recent Activity',
       blockRecentQuotes: 'Recent Quotes',
@@ -113,6 +117,7 @@ function DashboardPageContent() {
       moveDown: 'Descendre',
       blockSmartActions: 'Actions intelligentes',
       blockStats: 'Indicateurs clés',
+      blockMyTickets: 'Mes tickets',
       blockCollection: 'Recouvrement',
       blockActivity: 'Activité récente',
       blockRecentQuotes: 'Devis récents',
@@ -135,12 +140,13 @@ function DashboardPageContent() {
     () => ({
       smartActions: t.blockSmartActions,
       stats: t.blockStats,
+      myTickets: t.blockMyTickets,
       collection: t.blockCollection,
       activity: t.blockActivity,
       recentQuotes: t.blockRecentQuotes,
       recurrences: t.blockRecurrences,
     }),
-    [t.blockActivity, t.blockCollection, t.blockRecurrences, t.blockRecentQuotes, t.blockSmartActions, t.blockStats],
+    [t.blockActivity, t.blockCollection, t.blockMyTickets, t.blockRecurrences, t.blockRecentQuotes, t.blockSmartActions, t.blockStats],
   );
 
   useEffect(() => {
@@ -271,6 +277,14 @@ function DashboardPageContent() {
             return (
               <div key={blockKey} data-tour-dashboard-collection>
                 <CollectionWidget />
+              </div>
+            );
+          }
+
+          if (blockKey === 'myTickets') {
+            return (
+              <div key={blockKey} data-tour-dashboard-my-tickets>
+                <MyTicketsWidget />
               </div>
             );
           }

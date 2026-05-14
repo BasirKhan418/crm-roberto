@@ -14,11 +14,15 @@ export interface SidebarBadges {
     pending: number;
     overdue: number;
   };
+  tickets: {
+    unread: number;
+  };
 }
 
 const EMPTY_BADGES: SidebarBadges = {
   quotes: { accepted: 0, pending: 0, rejected: 0 },
   invoices: { paid: 0, pending: 0, overdue: 0 },
+  tickets: { unread: 0 },
 };
 
 interface SidebarQuoteItem {
@@ -36,6 +40,9 @@ interface SidebarInvoiceItem {
 interface SidebarBadgeItemsPayload {
   quotes: SidebarQuoteItem[];
   invoices: SidebarInvoiceItem[];
+  tickets?: {
+    unreadCount?: number;
+  };
 }
 
 interface SidebarSeenState {
@@ -79,6 +86,7 @@ function computeCounts(items: SidebarBadgeItemsPayload, seen: SidebarSeenState):
   const next: SidebarBadges = {
     quotes: { accepted: 0, pending: 0, rejected: 0 },
     invoices: { paid: 0, pending: 0, overdue: 0 },
+    tickets: { unread: 0 },
   };
 
   for (const item of items.quotes) {
@@ -95,13 +103,15 @@ function computeCounts(items: SidebarBadgeItemsPayload, seen: SidebarSeenState):
     }
   }
 
+  next.tickets.unread = Math.max(0, Number(items.tickets?.unreadCount || 0));
+
   return next;
 }
 
 export function useSidebarBadges() {
   const [badges, setBadges] = useState<SidebarBadges>(EMPTY_BADGES);
   const fetchRef = useRef<() => Promise<void>>(async () => {});
-  const itemsRef = useRef<SidebarBadgeItemsPayload>({ quotes: [], invoices: [] });
+  const itemsRef = useRef<SidebarBadgeItemsPayload>({ quotes: [], invoices: [], tickets: { unreadCount: 0 } });
   const pathname = usePathname();
 
   useEffect(() => {
@@ -116,6 +126,9 @@ export function useSidebarBadges() {
         itemsRef.current = {
           quotes: payload.data.quotes ?? [],
           invoices: payload.data.invoices ?? [],
+          tickets: {
+            unreadCount: payload.data.tickets?.unreadCount ?? 0,
+          },
         };
         setBadges(computeCounts(itemsRef.current, readSeenState()));
       } catch {

@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import ConnectDb from '@/db/connectDb';
 import Invoice from '@/db/models/Invoice';
 import Quote from '@/db/models/Quote';
+import Ticket from '@/db/models/Ticket';
 import getMe from '@/utils/middlewares/useMe';
 
 interface QuoteSidebarItem {
@@ -18,6 +19,10 @@ interface InvoiceSidebarItem {
   updatedAt: string;
 }
 
+interface TicketSidebarMeta {
+  unreadCount: number;
+}
+
 export async function GET() {
   try {
     const me = await getMe(true);
@@ -30,13 +35,20 @@ export async function GET() {
     const userObjectId = new mongoose.Types.ObjectId(me.user.id);
     const now = new Date();
 
-    const [quoteDocs, invoiceDocs] = await Promise.all([
+    const [quoteDocs, invoiceDocs, unreadTicketCount] = await Promise.all([
       Quote.find({ user: userObjectId })
         .select('_id status createdAt updatedAt')
         .lean<Array<{ _id: mongoose.Types.ObjectId; status?: string; createdAt?: Date | null; updatedAt?: Date | null }>>(),
       Invoice.find({ userId: userObjectId })
         .select('_id status dueDate createdAt updatedAt')
         .lean<Array<{ _id: mongoose.Types.ObjectId; status?: string; dueDate?: Date | null; createdAt?: Date | null; updatedAt?: Date | null }>>(),
+      me.user.companyId && mongoose.Types.ObjectId.isValid(me.user.companyId)
+        ? Ticket.countDocuments({
+            companyId: new mongoose.Types.ObjectId(me.user.companyId),
+            archivedAt: null,
+            unreadBy: userObjectId,
+          })
+        : Promise.resolve(0),
     ]);
 
     const quotes: QuoteSidebarItem[] = quoteDocs.flatMap((quote) => {
@@ -65,7 +77,11 @@ export async function GET() {
       return { id: String(invoice._id), bucket, updatedAt: touchedAt.toISOString() };
     });
 
-    return NextResponse.json({ success: true, data: { quotes, invoices } });
+    const tickets: TicketSidebarMeta = {
+      unreadCount: unreadTicketCount,
+    };
+
+    return NextResponse.json({ success: true, data: { quotes, invoices, tickets } });
   } catch (error) {
     return NextResponse.json(
       { success: false, message: `Error fetching sidebar badges: ${String(error)}` },

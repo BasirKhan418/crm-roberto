@@ -6,8 +6,10 @@ import {
   softDeleteExpense,
   updateExpense,
 } from "@/db/repository/expense";
+import { listLinkedTickets } from "@/db/repository/ticket";
 import { authorizeExpenseRoute } from "@/app/api/expenses/_shared";
 import { checkExpensePermission } from "@/lib/expenses/access";
+import { getTicketPermissionState } from "@/lib/tickets/access";
 import { updateExpenseSchema } from "@/validators/expense.schema";
 import { buildValidationError } from "@/utils/api/validation";
 import { getClientIp } from "@/utils/api/request";
@@ -39,7 +41,36 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       return NextResponse.json(result, { status: 404 });
     }
 
-    return NextResponse.json({ success: true, expense: result.expense }, { status: 200 });
+    const ticketPermission = getTicketPermissionState(auth.context.user.role);
+    let linkedTickets: Array<Record<string, unknown>> = [];
+
+    if (ticketPermission.canView && auth.context.user.companyId) {
+      const linkedTicketResult = await listLinkedTickets({
+        companyId: auth.context.user.companyId,
+        linkedType: "expense",
+        linkedId: id,
+        access: {
+          userId: auth.context.user.id,
+          ownOrAssignedOnly: ticketPermission.ownOrAssignedOnly,
+        },
+        limit: 30,
+      });
+
+      if (linkedTicketResult.success) {
+        linkedTickets = linkedTicketResult.items;
+      }
+    }
+
+    return NextResponse.json(
+      {
+        success: true,
+        expense: {
+          ...result.expense,
+          linkedTickets,
+        },
+      },
+      { status: 200 }
+    );
   } catch (error) {
     return NextResponse.json(
       { success: false, message: `Error fetching expense detail: ${String(error)}` },
