@@ -89,6 +89,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(result, { status: 400 });
     }
 
+    if (!result.token) {
+      return NextResponse.json(
+        { success: false, message: "Invitation token generation failed" },
+        { status: 500 }
+      );
+    }
+
     const baseUrl = getAppBaseUrl(request);
     const invitationUrl = `${baseUrl}/signup?invitationToken=${encodeURIComponent(result.token)}`;
 

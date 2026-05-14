@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BellIcon, CreditCardIcon, LayoutGridIcon, UsersIcon } from 'lucide-react';
+import { BellIcon, CreditCardIcon, LayoutGridIcon, ReceiptTextIcon, UsersIcon } from 'lucide-react';
 
 import CrmShell from '@/components/crm-shell';
 import { useLocale } from '@/components/providers/locale-provider';
@@ -13,7 +13,7 @@ import { hasPermission } from '@/lib/permissions';
 import { cn } from '@/lib/utils';
 
 type SettingsNavItem = {
-  key: 'overview' | 'reminders' | 'stripe' | 'users';
+  key: 'overview' | 'reminders' | 'stripe' | 'users' | 'expenses';
   href: string;
   icon: ReactNode;
 };
@@ -35,6 +35,11 @@ const settingsNavItems: SettingsNavItem[] = [
     icon: <CreditCardIcon className="size-4" />,
   },
   {
+    key: 'expenses',
+    href: '/settings/expenses',
+    icon: <ReceiptTextIcon className="size-4" />,
+  },
+  {
     key: 'users',
     href: '/settings/users',
     icon: <UsersIcon className="size-4" />,
@@ -50,6 +55,7 @@ const settingsMessages = {
       overview: 'Overview',
       reminders: 'Reminders',
       stripe: 'Payments',
+      expenses: 'Expenses',
       users: 'Users',
     },
   },
@@ -61,6 +67,7 @@ const settingsMessages = {
       overview: 'Vue d\'ensemble',
       reminders: 'Relances',
       stripe: 'Paiements',
+      expenses: 'Depenses',
       users: 'Utilisateurs',
     },
   },
@@ -72,10 +79,12 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
   const { user } = useAuthMe();
   const t = settingsMessages[locale];
   const canViewUsers = hasPermission(user?.role, 'users.view');
+  const canViewExpenses = hasPermission(user?.role, 'expenses.view');
 
   const visibleNavItems = settingsNavItems.filter((item) => {
-    if (item.key !== 'users') return true;
-    return canViewUsers;
+    if (item.key === 'users') return canViewUsers;
+    if (item.key === 'expenses') return canViewExpenses;
+    return true;
   });
 
   return (
