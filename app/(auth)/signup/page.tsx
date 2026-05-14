@@ -38,7 +38,37 @@ type InvitationDetails = {
   name?: string;
   role: string;
   invitationExpiresAt: string;
+  companyName?: string | null;
+  companySlug?: string | null;
 };
+
+const roleLabels = {
+  en: {
+    super_admin: "Super admin",
+    administrator: "Administrator",
+    manager: "Manager",
+    standard_user: "Standard user",
+    secretary: "Secretary",
+    technician: "Technician",
+    read_only: "Read-only",
+    external_accountant: "External accountant",
+  },
+  fr: {
+    super_admin: "Super administrateur",
+    administrator: "Administrateur",
+    manager: "Manager",
+    standard_user: "Utilisateur standard",
+    secretary: "Secretaire",
+    technician: "Technicien",
+    read_only: "Lecture seule",
+    external_accountant: "Comptable externe",
+  },
+} as const;
+
+function formatRole(role: string, locale: "en" | "fr") {
+  const byLocale = roleLabels[locale];
+  return byLocale[role as keyof typeof byLocale] || role.replace(/_/g, " ");
+}
 
 const messages = {
   en: {
@@ -55,6 +85,8 @@ const messages = {
     acceptSubtitle: "Set your password to finish joining your company workspace.",
     invitedEmail: "Invited email",
     invitedRole: "Assigned role",
+    workspace: "Company workspace",
+    workspaceUnknown: "Workspace name unavailable",
     fullName: "Full name",
     password: "Password",
     confirmPassword: "Confirm password",
@@ -79,6 +111,8 @@ const messages = {
       "Definissez votre mot de passe pour finaliser votre acces a l'espace entreprise.",
     invitedEmail: "E-mail invite",
     invitedRole: "Role attribue",
+    workspace: "Espace entreprise",
+    workspaceUnknown: "Nom de l'espace indisponible",
     fullName: "Nom complet",
     password: "Mot de passe",
     confirmPassword: "Confirmer le mot de passe",
@@ -238,14 +272,20 @@ export default function SignupPage() {
             ) : invitationError ? (
               <p className="font-medium text-red-600">{invitationError}</p>
             ) : invitation ? (
-              <div className="grid gap-2 sm:grid-cols-2">
-                <div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="min-w-0">
                   <p className="text-xs uppercase tracking-wider text-zinc-500">{t.invitedEmail}</p>
-                  <p className="font-medium text-zinc-800">{invitation.email}</p>
+                  <p className="font-medium text-zinc-800 break-all">{invitation.email}</p>
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-xs uppercase tracking-wider text-zinc-500">{t.invitedRole}</p>
-                  <p className="font-medium text-zinc-800">{invitation.role}</p>
+                  <p className="font-medium text-zinc-800 wrap-break-word">{formatRole(invitation.role, locale)}</p>
+                </div>
+                <div className="min-w-0 md:col-span-2">
+                  <p className="text-xs uppercase tracking-wider text-zinc-500">{t.workspace}</p>
+                  <p className="font-medium text-zinc-800 wrap-break-word">
+                    {invitation.companyName || invitation.companySlug || t.workspaceUnknown}
+                  </p>
                 </div>
               </div>
             ) : null}

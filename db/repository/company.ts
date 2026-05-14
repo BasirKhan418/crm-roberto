@@ -262,7 +262,7 @@ export async function getInvitationByToken(token: string) {
 
   const invitationTokenHash = hashInvitationToken(token);
   const user = await User.findOne({ invitationTokenHash })
-    .select("name email role invitationStatus invitationExpiresAt")
+    .select("name email role invitationStatus invitationExpiresAt companyId")
     .lean<
       | {
           name?: string;
@@ -270,6 +270,7 @@ export async function getInvitationByToken(token: string) {
           role?: string;
           invitationStatus?: string;
           invitationExpiresAt?: Date | null;
+          companyId?: mongoose.Types.ObjectId | string | null;
         }
       | null
     >();
@@ -286,6 +287,18 @@ export async function getInvitationByToken(token: string) {
     return { success: false, message: "Invitation expired" };
   }
 
+  let companyName: string | null = null;
+  let companySlug: string | null = null;
+
+  if (user.companyId && mongoose.Types.ObjectId.isValid(String(user.companyId))) {
+    const company = await Company.findById(user.companyId)
+      .select("name slug")
+      .lean<{ name?: string; slug?: string } | null>();
+
+    companyName = company?.name?.trim() || null;
+    companySlug = company?.slug?.trim() || null;
+  }
+
   return {
     success: true,
     invitation: {
@@ -293,6 +306,8 @@ export async function getInvitationByToken(token: string) {
       name: user.name,
       role: normalizeRole(user.role),
       invitationExpiresAt: user.invitationExpiresAt,
+      companyName,
+      companySlug,
     },
   };
 }
