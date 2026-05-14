@@ -40,6 +40,8 @@ type InvitationDetails = {
   invitationExpiresAt: string;
   companyName?: string | null;
   companySlug?: string | null;
+  companyOwnerName?: string | null;
+  companyLogoUrl?: string | null;
 };
 
 const roleLabels = {
@@ -86,7 +88,9 @@ const messages = {
     invitedEmail: "Invited email",
     invitedRole: "Assigned role",
     workspace: "Company workspace",
+    workspaceOwner: "Workspace owner",
     workspaceUnknown: "Workspace name unavailable",
+    workspaceOwnerUnknown: "Owner name unavailable",
     fullName: "Full name",
     password: "Password",
     confirmPassword: "Confirm password",
@@ -112,7 +116,9 @@ const messages = {
     invitedEmail: "E-mail invite",
     invitedRole: "Role attribue",
     workspace: "Espace entreprise",
+    workspaceOwner: "Responsable de l'espace",
     workspaceUnknown: "Nom de l'espace indisponible",
+    workspaceOwnerUnknown: "Nom du responsable indisponible",
     fullName: "Nom complet",
     password: "Mot de passe",
     confirmPassword: "Confirmer le mot de passe",
@@ -285,6 +291,12 @@ export default function SignupPage() {
                   <p className="text-xs uppercase tracking-wider text-zinc-500">{t.workspace}</p>
                   <p className="font-medium text-zinc-800 wrap-break-word">
                     {invitation.companyName || invitation.companySlug || t.workspaceUnknown}
+                  </p>
+                </div>
+                <div className="min-w-0 md:col-span-2">
+                  <p className="text-xs uppercase tracking-wider text-zinc-500">{t.workspaceOwner}</p>
+                  <p className="font-medium text-zinc-800 wrap-break-word">
+                    {invitation.companyOwnerName || t.workspaceOwnerUnknown}
                   </p>
                 </div>
               </div>

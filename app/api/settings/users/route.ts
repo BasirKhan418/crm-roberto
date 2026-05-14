@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import {
   createCompanyInvitation,
+  getCompanyInvitationBranding,
   listCompanyUsers,
   updateCompanyUser,
 } from "@/db/repository/company";
@@ -103,6 +104,8 @@ export async function POST(request: NextRequest) {
     const locale = resolveLocaleFromRequest(request, {
       rawLocale: me.user.locale || null,
     });
+    const brandingResult = await getCompanyInvitationBranding(me.user.companyId);
+    const branding = brandingResult.success ? brandingResult.branding : null;
 
     const emailDelivery = await sendInvitationEmail({
       email: validation.data.email,
@@ -111,6 +114,9 @@ export async function POST(request: NextRequest) {
       inviteeName: validation.data.name,
       role: validation.data.role,
       expiresAt: result.invitationExpiresAt,
+      companyName: branding?.companyName || undefined,
+      companyOwnerName: branding?.ownerName || undefined,
+      companyLogoUrl: branding?.logoUrl || undefined,
       locale,
     });
 

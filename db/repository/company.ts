@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 
 import ConnectDb from "@/db/connectDb";
 import Company from "@/db/models/Company";
+import CompanyProfile from "@/db/models/CompanyProfile";
 import User from "@/db/models/User";
 import { createInvitationExpiry, generateInvitationToken, hashInvitationToken } from "@/lib/invitation-token";
 import { normalizeRole } from "@/lib/permissions";
@@ -31,6 +32,59 @@ async function buildUniqueCompanySlug(name: string) {
 function objectIdOrNull(value?: string | null) {
   if (!value || !mongoose.Types.ObjectId.isValid(value)) return null;
   return new mongoose.Types.ObjectId(value);
+}
+
+export async function getCompanyInvitationBranding(companyId: string) {
+  await ConnectDb();
+
+  const companyObjectId = objectIdOrNull(companyId);
+  if (!companyObjectId) {
+    return { success: false as const, message: "Invalid company" };
+  }
+
+  const company = await Company.findById(companyObjectId)
+    .select("name slug ownerUserId")
+    .lean<
+      | {
+          name?: string;
+          slug?: string;
+          ownerUserId?: mongoose.Types.ObjectId | null;
+        }
+      | null
+    >();
+
+  if (!company) {
+    return { success: false as const, message: "Company not found" };
+  }
+
+  let ownerUserName: string | null = null;
+  let profileCompanyName: string | null = null;
+  let profileOwnerName: string | null = null;
+  let profileLogoUrl: string | null = null;
+
+  if (company.ownerUserId && mongoose.Types.ObjectId.isValid(String(company.ownerUserId))) {
+    const [ownerUser, companyProfile] = await Promise.all([
+      User.findById(company.ownerUserId).select("name").lean<{ name?: string } | null>(),
+      CompanyProfile.findOne({ user: company.ownerUserId })
+        .select("companyName ownerName logoUrl")
+        .lean<{ companyName?: string; ownerName?: string; logoUrl?: string | null } | null>(),
+    ]);
+
+    ownerUserName = ownerUser?.name?.trim() || null;
+    profileCompanyName = companyProfile?.companyName?.trim() || null;
+    profileOwnerName = companyProfile?.ownerName?.trim() || null;
+    profileLogoUrl = companyProfile?.logoUrl?.trim() || null;
+  }
+
+  return {
+    success: true as const,
+    branding: {
+      companyName: profileCompanyName || company.name?.trim() || null,
+      companySlug: company.slug?.trim() || null,
+      ownerName: profileOwnerName || ownerUserName,
+      logoUrl: profileLogoUrl,
+    },
+  };
 }
 
 type CompanyScopedUser = {
@@ -287,17 +341,10 @@ export async function getInvitationByToken(token: string) {
     return { success: false, message: "Invitation expired" };
   }
 
-  let companyName: string | null = null;
-  let companySlug: string | null = null;
-
-  if (user.companyId && mongoose.Types.ObjectId.isValid(String(user.companyId))) {
-    const company = await Company.findById(user.companyId)
-      .select("name slug")
-      .lean<{ name?: string; slug?: string } | null>();
-
-    companyName = company?.name?.trim() || null;
-    companySlug = company?.slug?.trim() || null;
-  }
+  const brandingResult = user.companyId
+    ? await getCompanyInvitationBranding(String(user.companyId))
+    : null;
+  const branding = brandingResult?.success ? brandingResult.branding : null;
 
   return {
     success: true,
@@ -306,8 +353,10 @@ export async function getInvitationByToken(token: string) {
       name: user.name,
       role: normalizeRole(user.role),
       invitationExpiresAt: user.invitationExpiresAt,
-      companyName,
-      companySlug,
+      companyName: branding?.companyName || null,
+      companySlug: branding?.companySlug || null,
+      companyOwnerName: branding?.ownerName || null,
+      companyLogoUrl: branding?.logoUrl || null,
     },
   };
 }
