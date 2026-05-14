@@ -468,11 +468,41 @@ export async function updateCompanyUser(params: {
     user.account_status = params.account_status;
   }
 
-  if (params.revokeAccess) {
+  if (params.revokeAccess === true) {
+    if (user.invitationStatus !== "pending") {
+      return {
+        success: false,
+        message: "Only pending invitations can be revoked",
+      };
+    }
+
     const now = new Date();
     user.accessRevokedAt = now;
     user.forceLogoutAfter = now;
-    user.invitationStatus = user.invitationStatus === "pending" ? "revoked" : user.invitationStatus;
+    user.invitationStatus = "revoked";
+  }
+
+  if (params.revokeAccess === false) {
+    if (user.invitationStatus !== "revoked") {
+      return {
+        success: false,
+        message: "Only revoked invitations can be restored",
+      };
+    }
+
+    const now = new Date();
+    if (user.invitationExpiresAt && user.invitationExpiresAt < now) {
+      user.invitationStatus = "expired";
+      await user.save();
+      return {
+        success: false,
+        message: "Invitation expired and cannot be restored",
+      };
+    }
+
+    user.invitationStatus = "pending";
+    user.accessRevokedAt = null;
+    user.forceLogoutAfter = null;
   }
 
   await user.save();

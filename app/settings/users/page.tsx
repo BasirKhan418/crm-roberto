@@ -10,6 +10,16 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { useLocale } from '@/components/providers/locale-provider';
 import { hasPermission } from '@/lib/permissions';
 
@@ -30,6 +40,22 @@ type InviteFormState = {
   email: string;
   name: string;
   role: string;
+};
+
+type UserActionType =
+  | 'suspend'
+  | 'activate'
+  | 'set_read_only'
+  | 'set_standard'
+  | 'revoke_invitation'
+  | 'unrevoke_invitation';
+
+type PendingUserAction = {
+  userId: string;
+  userEmail: string;
+  type: UserActionType;
+  payload: Record<string, unknown>;
+  destructive?: boolean;
 };
 
 const ROLE_OPTIONS = [
@@ -86,9 +112,13 @@ const texts = {
     actionsColumn: 'Actions',
     suspend: 'Suspend',
     activate: 'Activate',
-    revoke: 'Revoke',
+    revokeInvitation: 'Revoke invitation',
+    unrevokeInvitation: 'Unrevoke invitation',
     makeReadOnly: 'Set read-only',
     makeStandard: 'Set standard',
+    confirmActionTitle: 'Confirm action',
+    confirmCancel: 'Cancel',
+    confirmProceed: 'Proceed',
     copiedInvite: 'Invitation link copied.',
     createdInvite: 'Invitation created successfully.',
     inviteEmailSent: 'Invitation email sent successfully.',
@@ -133,9 +163,13 @@ const texts = {
     actionsColumn: 'Actions',
     suspend: 'Suspendre',
     activate: 'Activer',
-    revoke: 'Revoquer',
+    revokeInvitation: "Revoquer l'invitation",
+    unrevokeInvitation: "Retablir l'invitation",
     makeReadOnly: 'Passer en lecture seule',
     makeStandard: 'Passer standard',
+    confirmActionTitle: "Confirmer l'action",
+    confirmCancel: 'Annuler',
+    confirmProceed: 'Continuer',
     copiedInvite: "Lien d'invitation copie.",
     createdInvite: 'Invitation creee avec succes.',
     inviteEmailSent: "E-mail d'invitation envoye avec succes.",
@@ -190,6 +224,8 @@ export default function SettingsUsersPage() {
     name: '',
     role: 'standard_user',
   });
+  const [pendingAction, setPendingAction] = useState<PendingUserAction | null>(null);
+  const [isApplyingAction, setIsApplyingAction] = useState(false);
 
   const canViewUsers = useMemo(() => hasPermission(user?.role, 'users.view'), [user?.role]);
   const canInviteUsers = useMemo(() => hasPermission(user?.role, 'users.invite'), [user?.role]);
@@ -279,7 +315,7 @@ export default function SettingsUsersPage() {
   }
 
   async function updateUser(userId: string, payload: Record<string, unknown>) {
-    if (!canUpdateUsers) return;
+    if (!canUpdateUsers) return false;
 
     try {
       const response = await fetch('/api/settings/users', {
@@ -290,11 +326,41 @@ export default function SettingsUsersPage() {
       const result = await response.json();
       if (!response.ok || !result.success) {
         toast.error(result.message || t.updateUserFailed);
-        return;
+        return false;
       }
       void loadUsers();
+      return true;
     } catch {
       toast.error(t.updateUserFailed);
+      return false;
+    }
+  }
+
+  function queueUserAction(action: PendingUserAction) {
+    if (!canUpdateUsers) return;
+    setPendingAction(action);
+  }
+
+  function getActionLabel(actionType: UserActionType) {
+    if (actionType === 'suspend') return t.suspend;
+    if (actionType === 'activate') return t.activate;
+    if (actionType === 'set_read_only') return t.makeReadOnly;
+    if (actionType === 'set_standard') return t.makeStandard;
+    if (actionType === 'unrevoke_invitation') return t.unrevokeInvitation;
+    return t.revokeInvitation;
+  }
+
+  async function onConfirmPendingAction() {
+    if (!pendingAction) return;
+
+    setIsApplyingAction(true);
+    try {
+      const success = await updateUser(pendingAction.userId, pendingAction.payload);
+      if (success) {
+        setPendingAction(null);
+      }
+    } finally {
+      setIsApplyingAction(false);
     }
   }
 
@@ -432,6 +498,10 @@ export default function SettingsUsersPage() {
                   {users.map((companyUser) => {
                     const isSuspended = companyUser.account_status === 'suspended';
                     const isCurrentUser = companyUser._id === user?.id;
+                    const invitationStatus = companyUser.invitationStatus || 'none';
+                    const canToggleInvitationRevocation =
+                      invitationStatus === 'pending' || invitationStatus === 'revoked';
+                    const isInvitationRevoked = invitationStatus === 'revoked';
                     return (
                       <tr key={companyUser._id} className="border-b align-top">
                         <td className="px-2 py-3 font-medium">{companyUser.name || '-'}</td>
@@ -451,11 +521,17 @@ export default function SettingsUsersPage() {
                               type="button"
                               variant="outline"
                               size="sm"
-                              disabled={!canUpdateUsers || isCurrentUser}
+                              disabled={!canUpdateUsers || isCurrentUser || isApplyingAction}
                               title={isCurrentUser ? t.selfActionProtected : undefined}
                               onClick={() =>
-                                void updateUser(companyUser._id, {
-                                  account_status: isSuspended ? 'active' : 'suspended',
+                                queueUserAction({
+                                  userId: companyUser._id,
+                                  userEmail: companyUser.email,
+                                  type: isSuspended ? 'activate' : 'suspend',
+                                  payload: {
+                                    account_status: isSuspended ? 'active' : 'suspended',
+                                  },
+                                  destructive: !isSuspended,
                                 })
                               }
                             >
@@ -465,26 +541,41 @@ export default function SettingsUsersPage() {
                               type="button"
                               variant="outline"
                               size="sm"
-                              disabled={!canUpdateUsers || isCurrentUser}
+                              disabled={!canUpdateUsers || isCurrentUser || isApplyingAction}
                               title={isCurrentUser ? t.selfActionProtected : undefined}
                               onClick={() =>
-                                void updateUser(companyUser._id, {
-                                  role: companyUser.role === 'read_only' ? 'standard_user' : 'read_only',
+                                queueUserAction({
+                                  userId: companyUser._id,
+                                  userEmail: companyUser.email,
+                                  type: companyUser.role === 'read_only' ? 'set_standard' : 'set_read_only',
+                                  payload: {
+                                    role: companyUser.role === 'read_only' ? 'standard_user' : 'read_only',
+                                  },
                                 })
                               }
                             >
                               {companyUser.role === 'read_only' ? t.makeStandard : t.makeReadOnly}
                             </Button>
-                            <Button
-                              type="button"
-                              variant="destructive"
-                              size="sm"
-                              disabled={!canUpdateUsers || isCurrentUser}
-                              title={isCurrentUser ? t.selfActionProtected : undefined}
-                              onClick={() => void updateUser(companyUser._id, { revokeAccess: true })}
-                            >
-                              {t.revoke}
-                            </Button>
+                            {canToggleInvitationRevocation ? (
+                              <Button
+                                type="button"
+                                variant={isInvitationRevoked ? 'outline' : 'destructive'}
+                                size="sm"
+                                disabled={!canUpdateUsers || isCurrentUser || isApplyingAction}
+                                title={isCurrentUser ? t.selfActionProtected : undefined}
+                                onClick={() =>
+                                  queueUserAction({
+                                    userId: companyUser._id,
+                                    userEmail: companyUser.email,
+                                    type: isInvitationRevoked ? 'unrevoke_invitation' : 'revoke_invitation',
+                                    payload: { revokeAccess: !isInvitationRevoked },
+                                    destructive: !isInvitationRevoked,
+                                  })
+                                }
+                              >
+                                {isInvitationRevoked ? t.unrevokeInvitation : t.revokeInvitation}
+                              </Button>
+                            ) : null}
                           </div>
                         </td>
                       </tr>
@@ -496,6 +587,39 @@ export default function SettingsUsersPage() {
           )}
         </CardContent>
       </Card>
+
+      <AlertDialog
+        open={Boolean(pendingAction)}
+        onOpenChange={(open) => {
+          if (!open && !isApplyingAction) {
+            setPendingAction(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t.confirmActionTitle}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingAction
+                ? `${getActionLabel(pendingAction.type)}: ${pendingAction.userEmail}`
+                : ''}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isApplyingAction}>{t.confirmCancel}</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={!pendingAction || isApplyingAction}
+              className={pendingAction?.destructive ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' : undefined}
+              onClick={(event) => {
+                event.preventDefault();
+                void onConfirmPendingAction();
+              }}
+            >
+              {isApplyingAction ? <Loader2 className="h-4 w-4 animate-spin" /> : t.confirmProceed}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

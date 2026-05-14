@@ -38,4 +38,13 @@ export const updateCompanyUserSchema = z.object({
     .optional(),
   account_status: z.enum(["active", "suspended"]).optional(),
   revokeAccess: z.boolean().optional(),
-});
+}).refine(
+  (value) =>
+    value.role !== undefined ||
+    value.account_status !== undefined ||
+    value.revokeAccess !== undefined,
+  {
+    message: "At least one user update action is required",
+    path: ["userId"],
+  }
+);
