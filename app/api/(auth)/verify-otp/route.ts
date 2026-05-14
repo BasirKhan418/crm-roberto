@@ -3,9 +3,9 @@ import { verifyOtp } from "@/utils/otp/verifyotp";
 import { markEmailAsVerified } from "@/db/repository/auth";
 import getUserByEmail from "@/db/repository/getUserByEmail";
 import { buildValidationError } from "@/utils/api/validation";
-import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
 import { z } from "zod";
+import { signAuthToken } from "@/lib/auth-session";
 
 const verifyOtpSchema = z.object({
     email: z.string().email("Invalid email"),
@@ -27,11 +27,7 @@ export async function POST(request: NextRequest) {
 
             const userResult = await getUserByEmail(email);
             if (userResult.success && userResult.user) {
-                const token = jwt.sign(
-                    { sub: userResult.user._id, name: userResult.user.name, email: userResult.user.email, isOnboardingComplete: userResult.user.isOnboardingComplete, isEmailVerified: userResult.user.isEmailVerified },
-                    process.env.JWT_SECRET || "",
-                    { expiresIn: "7d" }
-                );
+                const token = signAuthToken(userResult.user);
                 const cookieStore = await cookies();
                 cookieStore.set("token", token, {
                     httpOnly: true,

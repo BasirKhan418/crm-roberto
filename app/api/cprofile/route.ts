@@ -6,9 +6,9 @@ import getMe from "@/utils/middlewares/useMe";
 import User from "@/db/models/User";
 import ConnectDb from "@/db/connectDb";
 import { sendWelcomeEmail } from "@/emails/auth/sendWelcomeEmail";
-import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
 import { resolveLocaleFromRequest } from "@/lib/i18n/locale";
+import { signAuthToken } from "@/lib/auth-session";
 export const POST = async (request: NextRequest) => {
     try{
         const data = await request.json() as Record<string, unknown>;
@@ -58,11 +58,16 @@ export const POST = async (request: NextRequest) => {
             await sendWelcomeEmail({ email: me.user.email, name: me.user.name || "User", locale });
         }
 
-        const newToken = jwt.sign(
-            { sub: me.user.id, name: me.user.name, email: me.user.email, isOnboardingComplete: true, isEmailVerified: me.user.isEmailVerified },
-            process.env.JWT_SECRET || "",
-            { expiresIn: "7d" }
-        );
+        const newToken = signAuthToken({
+            id: me.user.id,
+            name: me.user.name,
+            email: me.user.email,
+            locale: me.user.locale,
+            isOnboardingComplete: true,
+            isEmailVerified: me.user.isEmailVerified,
+            role: me.user.role,
+            companyId: me.user.companyId,
+        });
         const cookieStore = await cookies();
         cookieStore.set("token", newToken, {
             httpOnly: true,

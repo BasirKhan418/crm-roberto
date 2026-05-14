@@ -15,10 +15,14 @@ export async function GET(request: NextRequest) {
             const cookieStore = await cookies();
             cookieStore.delete("token");
 
-            const isSuspended = typeof me.message === "string" && me.message.toLowerCase().includes("suspended");
+            const lowerMessage = typeof me.message === "string" ? me.message.toLowerCase() : "";
+            const isForbiddenState =
+                lowerMessage.includes("suspended") ||
+                lowerMessage.includes("revoked") ||
+                lowerMessage.includes("locked");
             return NextResponse.json(
                 { message: me.message || "Unauthorized", success: false },
-                { status: isSuspended ? 403 : 401 }
+                { status: isForbiddenState ? 403 : 401 }
             );
         }
 

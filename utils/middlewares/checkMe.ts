@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 import ConnectDb from "@/db/connectDb";
 import User from "@/db/models/User";
+import { ensureUserCompanyContext } from "@/db/repository/company";
 
 interface JwtUserPayload {
     sub: string;
@@ -10,6 +11,9 @@ interface JwtUserPayload {
     locale?: 'en' | 'fr';
     isOnboardingComplete?: boolean;
     isEmailVerified?: boolean;
+    role?: string;
+    companyId?: string | null;
+    iat?: number;
 }
 
 interface DbUserProjection {
@@ -20,6 +24,11 @@ interface DbUserProjection {
     isOnboardingComplete?: boolean;
     isEmailVerified?: boolean;
     account_status?: "active" | "suspended";
+    role?: string;
+    companyId?: string | null;
+    accessRevokedAt?: Date | null;
+    forceLogoutAfter?: Date | null;
+    lockedUntil?: Date | null;
 }
 
 const checkMe = async (fch:boolean) => {
@@ -34,12 +43,14 @@ const checkMe = async (fch:boolean) => {
 
                             await ConnectDb();
                             const user = await User.findById(decoded.sub)
-                                .select("name email locale isOnboardingComplete isEmailVerified account_status")
+                                .select("name email locale isOnboardingComplete isEmailVerified account_status role companyId accessRevokedAt forceLogoutAfter lockedUntil")
                                 .lean<DbUserProjection | null>();
 
                             if (!user) {
                                 return { message: "User not found", success: false };
                             }
+
+                            const now = new Date();
 
                             if (user.account_status === "suspended") {
                                 return {
@@ -48,10 +59,50 @@ const checkMe = async (fch:boolean) => {
                                 };
                             }
 
-                            if(fch){
-                                            return { message: "User data fetched successfully", success: true, user: { id: String(user._id), name: user.name, email: user.email, locale: user.locale, isOnboardingComplete: user.isOnboardingComplete, isEmailVerified: user.isEmailVerified } };
+                            if (user.accessRevokedAt && user.accessRevokedAt <= now) {
+                                return {
+                                    message: "Your access has been revoked. Please contact support.",
+                                    success: false,
+                                };
                             }
-                            return { message: "User data fetched successfully", success: true, user: { id: String(user._id), name: user.name, email: user.email, locale: user.locale, isOnboardingComplete: user.isOnboardingComplete, isEmailVerified: user.isEmailVerified } };
+
+                            if (user.lockedUntil && user.lockedUntil > now) {
+                                return {
+                                    message: "Your account is temporarily locked. Please try again later.",
+                                    success: false,
+                                };
+                            }
+
+                            const tokenIssuedAt = decoded.iat ? new Date(decoded.iat * 1000) : null;
+                            if (tokenIssuedAt && user.forceLogoutAfter && tokenIssuedAt <= user.forceLogoutAfter) {
+                                return {
+                                    message: "Session expired. Please login again.",
+                                    success: false,
+                                };
+                            }
+
+                            let role = user.role;
+                            let companyId = user.companyId ? String(user.companyId) : null;
+
+                            if (!companyId) {
+                                const ensured = await ensureUserCompanyContext({
+                                    userId: String(user._id),
+                                    fallbackName: user.name,
+                                    fallbackEmail: user.email,
+                                });
+
+                                if (!ensured.success) {
+                                    return { message: ensured.message, success: false };
+                                }
+
+                                role = ensured.role;
+                                companyId = ensured.companyId || null;
+                            }
+
+                            if(fch){
+                                            return { message: "User data fetched successfully", success: true, user: { id: String(user._id), name: user.name, email: user.email, locale: user.locale, isOnboardingComplete: user.isOnboardingComplete, isEmailVerified: user.isEmailVerified, role, companyId } };
+                            }
+                            return { message: "User data fetched successfully", success: true, user: { id: String(user._id), name: user.name, email: user.email, locale: user.locale, isOnboardingComplete: user.isOnboardingComplete, isEmailVerified: user.isEmailVerified, role, companyId } };
           }
           catch{
               return { message: "Invalid token", success: false };
