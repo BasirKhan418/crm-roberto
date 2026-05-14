@@ -609,7 +609,7 @@ export default function SettingsUsersPage() {
             <AlertDialogCancel disabled={isApplyingAction}>{t.confirmCancel}</AlertDialogCancel>
             <AlertDialogAction
               disabled={!pendingAction || isApplyingAction}
-              className={pendingAction?.destructive ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' : undefined}
+              className={pendingAction?.destructive ? 'bg-destructive text-white hover:bg-destructive/90' : 'text-white'}
               onClick={(event) => {
                 event.preventDefault();
                 void onConfirmPendingAction();
