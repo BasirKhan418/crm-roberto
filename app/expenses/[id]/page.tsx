@@ -26,6 +26,16 @@ import { ExpenseMoneyDisplay } from '@/components/expenses/expense-money-display
 import { ExpenseStatusBadge } from '@/components/expenses/expense-status-badge';
 import { MarkPaidDialog } from '@/components/expenses/mark-paid-dialog';
 import { useLocale } from '@/components/providers/locale-provider';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -160,6 +170,7 @@ export default function ExpenseDetailPage() {
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [markPaidOpen, setMarkPaidOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [previewAttachment, setPreviewAttachment] = useState<ExpenseAttachment | null>(null);
 
   const t = useMemo(
@@ -223,6 +234,9 @@ export default function ExpenseDetailPage() {
           deleteSuccessExpense: 'Expense deleted',
           confirmArchive: 'Archive this expense?',
           confirmDelete: 'Delete this expense? This cannot be undone.',
+          confirmDeleteTitle: 'Confirm expense deletion',
+          confirmDeleteCancel: 'Cancel',
+          confirmDeleteAction: 'Delete expense',
           confirmDeleteAttachment: 'Delete this attachment?',
           noAudit: 'No audit events recorded yet.',
           auditAction: 'Action',
@@ -292,6 +306,9 @@ export default function ExpenseDetailPage() {
           deleteSuccessExpense: 'Depense supprimee',
           confirmArchive: 'Archiver cette depense ?',
           confirmDelete: 'Supprimer cette depense ? Action irreversible.',
+          confirmDeleteTitle: 'Confirmer suppression depense',
+          confirmDeleteCancel: 'Annuler',
+          confirmDeleteAction: 'Supprimer depense',
           confirmDeleteAttachment: 'Supprimer cette piece jointe ?',
           noAudit: 'Aucun evenement audit enregistre.',
           auditAction: 'Action',
@@ -352,7 +369,6 @@ export default function ExpenseDetailPage() {
 
   async function runDelete() {
     if (!expense) return;
-    if (!window.confirm(t.confirmDelete)) return;
 
     setActionLoading('delete');
 
@@ -605,7 +621,7 @@ export default function ExpenseDetailPage() {
                             <ArchiveIcon className="size-4" />
                             {t.archive}
                           </DropdownMenuItem>
-                          <DropdownMenuItem variant="destructive" onSelect={() => void runDelete()}>
+                          <DropdownMenuItem variant="destructive" onSelect={() => setDeleteConfirmOpen(true)}>
                             <Trash2Icon className="size-4" />
                             {t.delete}
                           </DropdownMenuItem>
@@ -962,6 +978,36 @@ export default function ExpenseDetailPage() {
         }
         locale={locale}
       />
+
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t.confirmDeleteTitle}</AlertDialogTitle>
+            <AlertDialogDescription>{t.confirmDelete}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel asChild>
+              <Button type="button" variant="outline" disabled={actionLoading === 'delete'}>
+                {t.confirmDeleteCancel}
+              </Button>
+            </AlertDialogCancel>
+            <AlertDialogAction asChild>
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={actionLoading === 'delete'}
+                onClick={() => {
+                  setDeleteConfirmOpen(false);
+                  void runDelete();
+                }}
+              >
+                {actionLoading === 'delete' ? <Loader2Icon className="size-4 animate-spin" /> : null}
+                {t.confirmDeleteAction}
+              </Button>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </CrmShell>
   );
 }

@@ -26,6 +26,16 @@ import { ExpenseMoneyDisplay } from '@/components/expenses/expense-money-display
 import { ExpenseStatusBadge } from '@/components/expenses/expense-status-badge';
 import { MarkPaidDialog } from '@/components/expenses/mark-paid-dialog';
 import { useLocale } from '@/components/providers/locale-provider';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -197,6 +207,7 @@ export default function ExpensesPage() {
   const [editingExpense, setEditingExpense] = useState<ExpenseDetail | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [markPaidTarget, setMarkPaidTarget] = useState<ExpenseListItem | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ExpenseListItem | null>(null);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [actionFeedback, setActionFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
@@ -331,6 +342,11 @@ export default function ExpensesPage() {
       editLoadFailed: 'Failed to load expense detail for editing',
       confirmArchive: 'Archive this expense?',
       confirmDelete: 'Delete this expense? This cannot be undone.',
+      confirmDeleteTitle: 'Confirm expense deletion',
+      confirmDeleteDescription: (label: string) =>
+        `You are about to permanently remove this expense (${label}). This action cannot be undone.`,
+      confirmDeleteCancel: 'Cancel',
+      confirmDeleteAction: 'Delete expense',
       lookupsLoading: 'Loading lookups...',
       lookupsErrorTitle: 'Lookup data unavailable',
     },
@@ -416,6 +432,11 @@ export default function ExpensesPage() {
       editLoadFailed: 'Impossible de charger la depense pour modification',
       confirmArchive: 'Archiver cette depense ?',
       confirmDelete: 'Supprimer cette depense ? Cette action est irreversible.',
+      confirmDeleteTitle: 'Confirmer suppression depense',
+      confirmDeleteDescription: (label: string) =>
+        `Vous allez supprimer definitivement cette depense (${label}). Cette action est irreversible.`,
+      confirmDeleteCancel: 'Annuler',
+      confirmDeleteAction: 'Supprimer depense',
       lookupsLoading: 'Chargement des referentiels...',
       lookupsErrorTitle: 'Referentiels indisponibles',
     },
@@ -707,10 +728,6 @@ export default function ExpensesPage() {
   }
 
   async function runDelete(expenseId: string) {
-    if (!window.confirm(t.confirmDelete)) {
-      return;
-    }
-
     setActionLoadingId(expenseId);
 
     try {
@@ -1228,7 +1245,7 @@ export default function ExpensesPage() {
                                 </DropdownMenuItem>
                               ) : null}
                               {canManageExpenses ? (
-                                <DropdownMenuItem variant="destructive" onSelect={() => void runDelete(expense._id)}>
+                                <DropdownMenuItem variant="destructive" onSelect={() => setDeleteTarget(expense)}>
                                   <Trash2Icon className="size-4" />
                                   {t.delete}
                                 </DropdownMenuItem>
@@ -1316,7 +1333,7 @@ export default function ExpensesPage() {
                                   </DropdownMenuItem>
                                 ) : null}
                                 {canManageExpenses ? (
-                                  <DropdownMenuItem variant="destructive" onSelect={() => void runDelete(expense._id)}>
+                                  <DropdownMenuItem variant="destructive" onSelect={() => setDeleteTarget(expense)}>
                                     <Trash2Icon className="size-4" />
                                     {t.delete}
                                   </DropdownMenuItem>
@@ -1427,6 +1444,52 @@ export default function ExpensesPage() {
           setFeedback('success', t.markPaidSuccess);
         }}
       />
+
+      <AlertDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteTarget(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t.confirmDeleteTitle}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget ? t.confirmDeleteDescription(deleteTarget.supplierRef || getSupplierName(deleteTarget)) : ''}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel asChild>
+              <Button type="button" variant="outline" disabled={Boolean(deleteTarget && actionLoadingId === deleteTarget._id)}>
+                {t.confirmDeleteCancel}
+              </Button>
+            </AlertDialogCancel>
+            <AlertDialogAction asChild>
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={!deleteTarget || actionLoadingId === deleteTarget._id}
+                onClick={() => {
+                  if (!deleteTarget) {
+                    return;
+                  }
+
+                  const targetId = deleteTarget._id;
+                  setDeleteTarget(null);
+                  void runDelete(targetId);
+                }}
+              >
+                {deleteTarget && actionLoadingId === deleteTarget._id ? (
+                  <Loader2Icon className="size-4 animate-spin" />
+                ) : null}
+                {t.confirmDeleteAction}
+              </Button>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </CrmShell>
   );
 }

@@ -4,6 +4,16 @@ import { useEffect, useState } from 'react';
 
 import { Loader2Icon } from 'lucide-react';
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -40,6 +50,7 @@ export function MarkPaidDialog({
   const [paidAt, setPaidAt] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const remainingCents = Math.max(amountInclVatCents - amountPaidCents, 0);
 
@@ -49,6 +60,7 @@ export function MarkPaidDialog({
     setPaymentMethod('');
     setPaidAt(new Date().toISOString().slice(0, 10));
     setError(null);
+    setConfirmOpen(false);
   }, [open]);
 
   const t = {
@@ -60,6 +72,11 @@ export function MarkPaidDialog({
       methodLabel: 'Payment method',
       cancel: 'Cancel',
       submit: 'Apply payment',
+      sectionTitle: 'Payment confirmation data',
+      confirmTitle: 'Confirm mark as paid',
+      confirmDescription:
+        'This action marks the expense as fully paid using the selected method and date.',
+      confirmAction: 'Confirm',
       methodRequired: 'Payment method is required',
       dateRequired: 'Payment date is required',
       failed: 'Failed to mark expense as paid',
@@ -72,22 +89,43 @@ export function MarkPaidDialog({
       methodLabel: 'Mode de paiement',
       cancel: 'Annuler',
       submit: 'Appliquer paiement',
+      sectionTitle: 'Donnees de confirmation paiement',
+      confirmTitle: 'Confirmer marquage paye',
+      confirmDescription:
+        'Cette action marque la depense comme integralement payee avec la date et le mode saisis.',
+      confirmAction: 'Confirmer',
       methodRequired: 'Mode de paiement requis',
       dateRequired: 'Date de paiement requise',
       failed: 'Echec mise a jour paiement',
     },
   }[locale];
 
-  async function handleSubmit() {
-    if (!expenseId) return;
+  function validateFields() {
+    if (!expenseId) return false;
 
     if (!paymentMethod) {
       setError(t.methodRequired);
-      return;
+      return false;
     }
 
     if (!paidAt) {
       setError(t.dateRequired);
+      return false;
+    }
+
+    return true;
+  }
+
+  function requestSubmit() {
+    if (!validateFields()) {
+      return;
+    }
+
+    setConfirmOpen(true);
+  }
+
+  async function handleSubmit() {
+    if (!validateFields()) {
       return;
     }
 
@@ -130,7 +168,10 @@ export function MarkPaidDialog({
           <DialogDescription>{t.description}</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3">
+        <div className="rounded-xl border border-border/70 p-4">
+          <p className="mb-3 text-sm font-semibold">{t.sectionTitle}</p>
+
+          <div className="space-y-3">
           <div className="space-y-1.5">
             <Label>{t.remainingLabel}</Label>
             <p className="rounded-md border border-border/70 bg-muted/20 px-2.5 py-2 text-sm font-medium">
@@ -158,6 +199,7 @@ export function MarkPaidDialog({
               ))}
             </select>
           </div>
+          </div>
 
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
         </div>
@@ -166,11 +208,40 @@ export function MarkPaidDialog({
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>
             {t.cancel}
           </Button>
-          <Button type="button" onClick={() => void handleSubmit()} disabled={saving || !expenseId}>
+          <Button type="button" onClick={requestSubmit} disabled={saving || !expenseId}>
             {saving ? <Loader2Icon className="size-4 animate-spin" /> : null}
             {t.submit}
           </Button>
         </DialogFooter>
+
+        <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t.confirmTitle}</AlertDialogTitle>
+              <AlertDialogDescription>{t.confirmDescription}</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel asChild>
+                <Button type="button" variant="outline" disabled={saving}>
+                  {t.cancel}
+                </Button>
+              </AlertDialogCancel>
+              <AlertDialogAction asChild>
+                <Button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => {
+                    setConfirmOpen(false);
+                    void handleSubmit();
+                  }}
+                >
+                  {saving ? <Loader2Icon className="size-4 animate-spin" /> : null}
+                  {t.confirmAction}
+                </Button>
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </DialogContent>
     </Dialog>
   );

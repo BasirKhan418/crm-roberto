@@ -4,6 +4,16 @@ import { FormEvent, useEffect, useState } from 'react';
 
 import { Loader2Icon, PlusIcon } from 'lucide-react';
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -150,6 +160,8 @@ export function ExpenseFormDialog({
   const [saving, setSaving] = useState(false);
   const [supplierCreating, setSupplierCreating] = useState(false);
   const [inlineSupplierName, setInlineSupplierName] = useState('');
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmTarget, setConfirmTarget] = useState<SaveTarget>('default');
 
   useEffect(() => {
     if (!open) {
@@ -159,6 +171,7 @@ export function ExpenseFormDialog({
     setValues(buildInitialValues(initialExpense));
     setError(null);
     setInlineSupplierName('');
+    setConfirmOpen(false);
   }, [initialExpense, open]);
 
   const t = {
@@ -184,11 +197,20 @@ export function ExpenseFormDialog({
       client: 'Linked client',
       project: 'Project placeholder',
       invoice: 'Linked invoice',
+      financialSection: 'Financial fields',
+      relationSection: 'Supplier and links',
+      paymentSection: 'Payment tracking',
+      extraSection: 'Classification and notes',
       create: 'Create expense',
       save: 'Save changes',
       saveDraft: 'Save as draft',
       activateDraft: 'Activate draft',
       cancel: 'Cancel',
+      confirmEditTitle: 'Confirm expense update',
+      confirmEditDescriptionDefault: 'This will save your edits and update expense history.',
+      confirmEditDescriptionActivate: 'This will activate this draft and make it actionable.',
+      confirmEditCancel: 'Cancel',
+      confirmEditAction: 'Confirm update',
       addSupplier: 'Quick add supplier',
       addSupplierPlaceholder: 'Supplier name',
       createSupplier: 'Add',
@@ -220,11 +242,20 @@ export function ExpenseFormDialog({
       client: 'Client lie',
       project: 'Projet (placeholder)',
       invoice: 'Facture liee',
+      financialSection: 'Champs financiers',
+      relationSection: 'Fournisseur et liaisons',
+      paymentSection: 'Suivi paiement',
+      extraSection: 'Classification et notes',
       create: 'Creer la depense',
       save: 'Enregistrer',
       saveDraft: 'Sauvegarder brouillon',
       activateDraft: 'Activer brouillon',
       cancel: 'Annuler',
+      confirmEditTitle: 'Confirmer la mise a jour',
+      confirmEditDescriptionDefault: 'Cette action enregistre vos modifications et met a jour l\'historique.',
+      confirmEditDescriptionActivate: 'Cette action active le brouillon et le rend exploitable.',
+      confirmEditCancel: 'Annuler',
+      confirmEditAction: 'Confirmer',
       addSupplier: 'Ajout rapide fournisseur',
       addSupplierPlaceholder: 'Nom du fournisseur',
       createSupplier: 'Ajouter',
@@ -256,6 +287,18 @@ export function ExpenseFormDialog({
       Boolean(values.categoryId) &&
       Boolean(values.supplierId)
     );
+  }
+
+  function requestSubmit(saveTarget: SaveTarget, event?: FormEvent<HTMLFormElement>) {
+    event?.preventDefault();
+
+    if (mode === 'edit') {
+      setConfirmTarget(saveTarget);
+      setConfirmOpen(true);
+      return;
+    }
+
+    void submit(saveTarget);
   }
 
   async function handleCreateSupplier() {
@@ -373,249 +416,277 @@ export function ExpenseFormDialog({
   }
 
   const title = mode === 'create' ? t.createTitle : t.editTitle;
+  const selectClassName = 'h-9 w-full rounded-lg border border-input bg-background px-2.5 text-sm';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-4xl">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{t.description}</DialogDescription>
         </DialogHeader>
 
-        <form className="space-y-4" onSubmit={(event) => void submit('default', event)}>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            <div className="space-y-1.5">
-              <Label>{t.amountExclVat}</Label>
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                value={values.amountExclVat}
-                onChange={(event) => updateField('amountExclVat', event.target.value)}
-              />
+        <form className="space-y-5" onSubmit={(event) => requestSubmit('default', event)}>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-lg border border-border/70 bg-muted/20 p-3">
+              <p className="text-xs text-muted-foreground">{t.amountInclVatPreview}</p>
+              <p className="text-sm font-semibold">{amountInclVat.toFixed(2)}</p>
             </div>
-
-            <div className="space-y-1.5">
-              <Label>{t.vatRate}</Label>
-              <select
-                className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
-                value={values.vatRate}
-                onChange={(event) => updateField('vatRate', event.target.value)}
-              >
-                {EXPENSE_VAT_RATES.map((rate) => (
-                  <option key={rate} value={String(rate)}>
-                    {rate}%
-                  </option>
-                ))}
-                {!EXPENSE_VAT_RATES.includes(vatRate as (typeof EXPENSE_VAT_RATES)[number]) ? (
-                  <option value={values.vatRate}>{values.vatRate}%</option>
-                ) : null}
-              </select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>{t.amountInclVatPreview}</Label>
-              <Input type="text" readOnly value={amountInclVat.toFixed(2)} />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>{t.expenseDate}</Label>
-              <Input
-                type="date"
-                value={values.expenseDate}
-                onChange={(event) => updateField('expenseDate', event.target.value)}
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>{t.supplier}</Label>
-              <select
-                className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
-                value={values.supplierId}
-                onChange={(event) => updateField('supplierId', event.target.value)}
-              >
-                <option value="">{t.selectPlaceholder}</option>
-                {suppliers.map((supplier) => (
-                  <option key={supplier._id} value={supplier._id}>
-                    {supplier.fullName}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>{t.category}</Label>
-              <select
-                className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
-                value={values.categoryId}
-                onChange={(event) => updateField('categoryId', event.target.value)}
-              >
-                <option value="">{t.selectPlaceholder}</option>
-                {categories.map((category) => (
-                  <option key={category._id} value={category._id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-1.5 sm:col-span-2 lg:col-span-3">
-              <Label>{t.addSupplier}</Label>
-              <div className="flex gap-2">
-                <Input
-                  value={inlineSupplierName}
-                  onChange={(event) => setInlineSupplierName(event.target.value)}
-                  placeholder={t.addSupplierPlaceholder}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => void handleCreateSupplier()}
-                  disabled={supplierCreating || !inlineSupplierName.trim()}
-                >
-                  {supplierCreating ? <Loader2Icon className="size-4 animate-spin" /> : <PlusIcon className="size-4" />}
-                  {t.createSupplier}
-                </Button>
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>{t.paymentMethod}</Label>
-              <select
-                className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
-                value={values.paymentMethod}
-                onChange={(event) => updateField('paymentMethod', event.target.value)}
-              >
-                <option value="">{t.noneOption}</option>
-                {EXPENSE_PAYMENT_METHODS.map((method) => (
-                  <option key={method} value={method}>
-                    {method}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>{t.paymentStatus}</Label>
-              <select
-                className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
-                value={values.paymentStatus}
-                onChange={(event) => updateField('paymentStatus', event.target.value)}
-              >
-                {EXPENSE_PAYMENT_STATUS.map((status) => (
-                  <option key={status} value={status}>
-                    {status}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>{t.amountPaid}</Label>
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                value={values.amountPaid}
-                onChange={(event) => updateField('amountPaid', event.target.value)}
-                disabled={values.paymentStatus === 'paid' || values.paymentStatus === 'unpaid'}
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>{t.remainingPreview}</Label>
-              <Input type="text" readOnly value={remaining.toFixed(2)} />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>{t.paidAt}</Label>
-              <Input
-                type="date"
-                value={values.paidAt}
-                onChange={(event) => updateField('paidAt', event.target.value)}
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>{t.dueDate}</Label>
-              <Input
-                type="date"
-                value={values.dueDate}
-                onChange={(event) => updateField('dueDate', event.target.value)}
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>{t.supplierRef}</Label>
-              <Input
-                value={values.supplierRef}
-                onChange={(event) => updateField('supplierRef', event.target.value)}
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>{t.expenseType}</Label>
-              <select
-                className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
-                value={values.expenseType}
-                onChange={(event) => updateField('expenseType', event.target.value)}
-              >
-                {EXPENSE_TYPES.map((type) => (
-                  <option key={type} value={type}>
-                    {type}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>{t.client}</Label>
-              <select
-                className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
-                value={values.clientId}
-                onChange={(event) => updateField('clientId', event.target.value)}
-              >
-                <option value="">{t.noneOption}</option>
-                {clients.map((client) => (
-                  <option key={client._id} value={client._id}>
-                    {client.fullName}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>{t.project}</Label>
-              <Input
-                value={values.projectId}
-                onChange={(event) => updateField('projectId', event.target.value)}
-              />
-            </div>
-
-            <div className="space-y-1.5 sm:col-span-2 lg:col-span-3">
-              <Label>{t.invoice}</Label>
-              <select
-                className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
-                value={values.invoiceId}
-                onChange={(event) => updateField('invoiceId', event.target.value)}
-              >
-                <option value="">{t.noneOption}</option>
-                {invoices.map((invoice) => (
-                  <option key={invoice._id} value={invoice._id}>
-                    {invoice.invoiceNumber || invoice._id}
-                  </option>
-                ))}
-              </select>
+            <div className="rounded-lg border border-border/70 bg-muted/20 p-3">
+              <p className="text-xs text-muted-foreground">{t.remainingPreview}</p>
+              <p className="text-sm font-semibold">{remaining.toFixed(2)}</p>
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            <Label>{t.notes}</Label>
-            <Textarea
-              rows={4}
-              value={values.notes}
-              onChange={(event) => updateField('notes', event.target.value)}
-            />
+          <div className="rounded-xl border border-border/70 p-4">
+            <div className="mb-3">
+              <h4 className="text-sm font-semibold">{t.financialSection}</h4>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="space-y-1.5">
+                <Label>{t.amountExclVat}</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={values.amountExclVat}
+                  onChange={(event) => updateField('amountExclVat', event.target.value)}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>{t.vatRate}</Label>
+                <select
+                  className={selectClassName}
+                  value={values.vatRate}
+                  onChange={(event) => updateField('vatRate', event.target.value)}
+                >
+                  {EXPENSE_VAT_RATES.map((rate) => (
+                    <option key={rate} value={String(rate)}>
+                      {rate}%
+                    </option>
+                  ))}
+                  {!EXPENSE_VAT_RATES.includes(vatRate as (typeof EXPENSE_VAT_RATES)[number]) ? (
+                    <option value={values.vatRate}>{values.vatRate}%</option>
+                  ) : null}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>{t.expenseDate}</Label>
+                <Input
+                  type="date"
+                  value={values.expenseDate}
+                  onChange={(event) => updateField('expenseDate', event.target.value)}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>{t.dueDate}</Label>
+                <Input
+                  type="date"
+                  value={values.dueDate}
+                  onChange={(event) => updateField('dueDate', event.target.value)}
+                />
+              </div>
+
+              <div className="space-y-1.5 sm:col-span-2 lg:col-span-2">
+                <Label>{t.supplierRef}</Label>
+                <Input
+                  value={values.supplierRef}
+                  onChange={(event) => updateField('supplierRef', event.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-border/70 p-4">
+            <div className="mb-3">
+              <h4 className="text-sm font-semibold">{t.relationSection}</h4>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="space-y-1.5">
+                <Label>{t.supplier}</Label>
+                <select
+                  className={selectClassName}
+                  value={values.supplierId}
+                  onChange={(event) => updateField('supplierId', event.target.value)}
+                >
+                  <option value="">{t.selectPlaceholder}</option>
+                  {suppliers.map((supplier) => (
+                    <option key={supplier._id} value={supplier._id}>
+                      {supplier.fullName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>{t.category}</Label>
+                <select
+                  className={selectClassName}
+                  value={values.categoryId}
+                  onChange={(event) => updateField('categoryId', event.target.value)}
+                >
+                  <option value="">{t.selectPlaceholder}</option>
+                  {categories.map((category) => (
+                    <option key={category._id} value={category._id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>{t.client}</Label>
+                <select
+                  className={selectClassName}
+                  value={values.clientId}
+                  onChange={(event) => updateField('clientId', event.target.value)}
+                >
+                  <option value="">{t.noneOption}</option>
+                  {clients.map((client) => (
+                    <option key={client._id} value={client._id}>
+                      {client.fullName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5 sm:col-span-2 lg:col-span-3">
+                <Label>{t.addSupplier}</Label>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Input
+                    value={inlineSupplierName}
+                    onChange={(event) => setInlineSupplierName(event.target.value)}
+                    placeholder={t.addSupplierPlaceholder}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => void handleCreateSupplier()}
+                    disabled={supplierCreating || !inlineSupplierName.trim()}
+                  >
+                    {supplierCreating ? <Loader2Icon className="size-4 animate-spin" /> : <PlusIcon className="size-4" />}
+                    {t.createSupplier}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-1.5 sm:col-span-2 lg:col-span-3">
+                <Label>{t.invoice}</Label>
+                <select
+                  className={selectClassName}
+                  value={values.invoiceId}
+                  onChange={(event) => updateField('invoiceId', event.target.value)}
+                >
+                  <option value="">{t.noneOption}</option>
+                  {invoices.map((invoice) => (
+                    <option key={invoice._id} value={invoice._id}>
+                      {invoice.invoiceNumber || invoice._id}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5 sm:col-span-2 lg:col-span-3">
+                <Label>{t.project}</Label>
+                <Input
+                  value={values.projectId}
+                  onChange={(event) => updateField('projectId', event.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-border/70 p-4">
+            <div className="mb-3">
+              <h4 className="text-sm font-semibold">{t.paymentSection}</h4>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="space-y-1.5">
+                <Label>{t.paymentStatus}</Label>
+                <select
+                  className={selectClassName}
+                  value={values.paymentStatus}
+                  onChange={(event) => updateField('paymentStatus', event.target.value)}
+                >
+                  {EXPENSE_PAYMENT_STATUS.map((status) => (
+                    <option key={status} value={status}>
+                      {status}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>{t.paymentMethod}</Label>
+                <select
+                  className={selectClassName}
+                  value={values.paymentMethod}
+                  onChange={(event) => updateField('paymentMethod', event.target.value)}
+                >
+                  <option value="">{t.noneOption}</option>
+                  {EXPENSE_PAYMENT_METHODS.map((method) => (
+                    <option key={method} value={method}>
+                      {method}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>{t.amountPaid}</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={values.amountPaid}
+                  onChange={(event) => updateField('amountPaid', event.target.value)}
+                  disabled={values.paymentStatus === 'paid' || values.paymentStatus === 'unpaid'}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>{t.paidAt}</Label>
+                <Input
+                  type="date"
+                  value={values.paidAt}
+                  onChange={(event) => updateField('paidAt', event.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-border/70 p-4">
+            <div className="mb-3">
+              <h4 className="text-sm font-semibold">{t.extraSection}</h4>
+            </div>
+            <div className="grid gap-3">
+              <div className="space-y-1.5">
+                <Label>{t.expenseType}</Label>
+                <select
+                  className={selectClassName}
+                  value={values.expenseType}
+                  onChange={(event) => updateField('expenseType', event.target.value)}
+                >
+                  {EXPENSE_TYPES.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>{t.notes}</Label>
+                <Textarea
+                  rows={4}
+                  value={values.notes}
+                  onChange={(event) => updateField('notes', event.target.value)}
+                />
+              </div>
+            </div>
           </div>
 
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
@@ -630,13 +701,13 @@ export function ExpenseFormDialog({
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => void submit('default')}
+                  onClick={() => requestSubmit('default')}
                   disabled={saving}
                 >
                   {saving ? <Loader2Icon className="size-4 animate-spin" /> : null}
                   {t.saveDraft}
                 </Button>
-                <Button type="button" onClick={() => void submit('activate')} disabled={saving}>
+                <Button type="button" onClick={() => requestSubmit('activate')} disabled={saving}>
                   {saving ? <Loader2Icon className="size-4 animate-spin" /> : null}
                   {t.activateDraft}
                 </Button>
@@ -649,6 +720,39 @@ export function ExpenseFormDialog({
             )}
           </DialogFooter>
         </form>
+
+        {mode === 'edit' ? (
+          <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>{t.confirmEditTitle}</AlertDialogTitle>
+                <AlertDialogDescription>
+                  {confirmTarget === 'activate' ? t.confirmEditDescriptionActivate : t.confirmEditDescriptionDefault}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel asChild>
+                  <Button type="button" variant="outline" disabled={saving}>
+                    {t.confirmEditCancel}
+                  </Button>
+                </AlertDialogCancel>
+                <AlertDialogAction asChild>
+                  <Button
+                    type="button"
+                    disabled={saving}
+                    onClick={() => {
+                      setConfirmOpen(false);
+                      void submit(confirmTarget);
+                    }}
+                  >
+                    {saving ? <Loader2Icon className="size-4 animate-spin" /> : null}
+                    {confirmTarget === 'activate' ? t.activateDraft : t.confirmEditAction}
+                  </Button>
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        ) : null}
       </DialogContent>
     </Dialog>
   );
