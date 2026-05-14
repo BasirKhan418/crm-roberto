@@ -12,6 +12,8 @@ import {
 } from "@/validators/invitation.schema";
 import { buildValidationError } from "@/utils/api/validation";
 import { canManageTargetRole, requirePermission } from "@/lib/permissions";
+import { sendInvitationEmail } from "@/emails/auth/sendInvitationEmail";
+import { resolveLocaleFromRequest } from "@/lib/i18n/locale";
 
 function getAppBaseUrl(request: NextRequest) {
   const configured = process.env.NEXT_PUBLIC_APP_URL;
@@ -98,14 +100,35 @@ export async function POST(request: NextRequest) {
 
     const baseUrl = getAppBaseUrl(request);
     const invitationUrl = `${baseUrl}/signup?invitationToken=${encodeURIComponent(result.token)}`;
+    const locale = resolveLocaleFromRequest(request, {
+      rawLocale: me.user.locale || null,
+    });
+
+    const emailDelivery = await sendInvitationEmail({
+      email: validation.data.email,
+      invitationUrl,
+      invitedByName: me.user.name,
+      inviteeName: validation.data.name,
+      role: validation.data.role,
+      expiresAt: result.invitationExpiresAt,
+      locale,
+    });
+
+    const responseMessage = emailDelivery.success
+      ? "Invitation created and email sent"
+      : "Invitation created, but email delivery failed";
 
     return NextResponse.json({
       success: true,
-      message: "Invitation created",
+      message: responseMessage,
       data: {
         userId: result.userId,
         invitationExpiresAt: result.invitationExpiresAt,
         invitationUrl,
+        emailDelivery: {
+          success: emailDelivery.success,
+          message: emailDelivery.message,
+        },
       },
     });
   } catch (error) {

@@ -91,6 +91,11 @@ const texts = {
     makeStandard: 'Set standard',
     copiedInvite: 'Invitation link copied.',
     createdInvite: 'Invitation created successfully.',
+    inviteEmailSent: 'Invitation email sent successfully.',
+    inviteEmailSentAndCopied: 'Invitation email sent and link copied.',
+    inviteEmailFailed: 'Invitation created, but email delivery failed. Share the link manually.',
+    inviteEmailFailedAndCopied:
+      'Invitation created, email delivery failed, and link copied for manual sharing.',
     loadUsersFailed: 'Unable to load users.',
     updateUserFailed: 'Unable to update user.',
     active: 'Active',
@@ -100,6 +105,9 @@ const texts = {
     revoked: 'Revoked',
     refresh: 'Refresh',
     invitationLinkLabel: 'Last invitation link',
+    invitationEmailStatusLabel: 'Email delivery',
+    invitationEmailSentStatus: 'Sent',
+    invitationEmailFailedStatus: 'Failed',
   },
   fr: {
     pageTitle: 'Utilisateurs de la societe',
@@ -129,6 +137,12 @@ const texts = {
     makeStandard: 'Passer standard',
     copiedInvite: "Lien d'invitation copie.",
     createdInvite: 'Invitation creee avec succes.',
+    inviteEmailSent: "E-mail d'invitation envoye avec succes.",
+    inviteEmailSentAndCopied: "E-mail d'invitation envoye et lien copie.",
+    inviteEmailFailed:
+      "Invitation creee, mais l'envoi de l'e-mail a echoue. Partagez le lien manuellement.",
+    inviteEmailFailedAndCopied:
+      "Invitation creee, e-mail non envoye, lien copie pour partage manuel.",
     loadUsersFailed: 'Impossible de charger les utilisateurs.',
     updateUserFailed: "Impossible de mettre a jour l'utilisateur.",
     active: 'Actif',
@@ -138,6 +152,9 @@ const texts = {
     revoked: 'Revoquee',
     refresh: 'Actualiser',
     invitationLinkLabel: "Dernier lien d'invitation",
+    invitationEmailStatusLabel: "Envoi e-mail",
+    invitationEmailSentStatus: 'Envoye',
+    invitationEmailFailedStatus: 'Echec',
   },
 } as const;
 
@@ -162,6 +179,10 @@ export default function SettingsUsersPage() {
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [isInviting, setIsInviting] = useState(false);
   const [lastInvitationLink, setLastInvitationLink] = useState('');
+  const [lastInvitationEmailStatus, setLastInvitationEmailStatus] = useState<{
+    success: boolean;
+    message: string;
+  } | null>(null);
   const [inviteForm, setInviteForm] = useState<InviteFormState>({
     email: '',
     name: '',
@@ -217,14 +238,33 @@ export default function SettingsUsersPage() {
       }
 
       const invitationUrl = result?.data?.invitationUrl as string | undefined;
+      const emailDelivery = result?.data?.emailDelivery as { success?: boolean; message?: string } | undefined;
+      const emailSent = Boolean(emailDelivery?.success);
+
+      let copied = false;
       if (invitationUrl) {
         setLastInvitationLink(invitationUrl);
         try {
           await navigator.clipboard.writeText(invitationUrl);
-          toast.success(t.copiedInvite);
+          copied = true;
         } catch {
-          toast.success(t.createdInvite);
+          copied = false;
         }
+      }
+
+      if (emailDelivery) {
+        setLastInvitationEmailStatus({
+          success: emailSent,
+          message: emailDelivery.message || '',
+        });
+      } else {
+        setLastInvitationEmailStatus(null);
+      }
+
+      if (emailSent) {
+        toast.success(copied ? t.inviteEmailSentAndCopied : t.inviteEmailSent);
+      } else {
+        toast.error(copied ? t.inviteEmailFailedAndCopied : t.inviteEmailFailed);
       }
 
       setInviteForm({ email: '', name: '', role: 'standard_user' });
@@ -337,6 +377,17 @@ export default function SettingsUsersPage() {
                 <div className="min-w-0 text-right text-xs text-muted-foreground">
                   <p className="font-medium">{t.invitationLinkLabel}</p>
                   <p className="truncate">{lastInvitationLink}</p>
+                  {lastInvitationEmailStatus ? (
+                    <p
+                      className={`mt-1 truncate ${
+                        lastInvitationEmailStatus.success ? 'text-emerald-600' : 'text-destructive'
+                      }`}
+                    >
+                      {t.invitationEmailStatusLabel}: {lastInvitationEmailStatus.success
+                        ? t.invitationEmailSentStatus
+                        : t.invitationEmailFailedStatus}
+                    </p>
+                  ) : null}
                 </div>
               ) : null}
             </div>
