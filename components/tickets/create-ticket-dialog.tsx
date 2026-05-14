@@ -90,6 +90,7 @@ export function CreateTicketDialog({
             linkedType: 'Type de lien',
             linkedId: 'ID de la ressource',
             linkedHint: 'Expense, invoice, supplier ou client ID.',
+            linkedIdHint: 'Si vous choisissez un type de lien, collez son ID (depuis l URL).',
             linkedPrefill: 'Lien pre-rempli',
             attachments: 'Pieces jointes',
             addFiles: 'Ajouter des fichiers',
@@ -100,6 +101,7 @@ export function CreateTicketDialog({
             creating: 'Creation...',
             requiredTitle: 'Le titre doit contenir au moins 3 caracteres.',
             requiredBody: 'Ajoutez un message ou au moins une piece jointe.',
+            requiredLinkedId: 'Selectionnez Aucun lien ou renseignez un ID de ressource.',
             created: 'Ticket cree avec succes.',
             failed: 'Impossible de creer le ticket.',
             refreshRecipients: 'Actualiser',
@@ -129,6 +131,7 @@ export function CreateTicketDialog({
             linkedType: 'Linked type',
             linkedId: 'Linked record ID',
             linkedHint: 'Expense, invoice, supplier, or client ID.',
+            linkedIdHint: 'If you choose a linked type, paste its record ID (from the page URL).',
             linkedPrefill: 'Prefilled link',
             attachments: 'Attachments',
             addFiles: 'Add files',
@@ -139,6 +142,7 @@ export function CreateTicketDialog({
             creating: 'Creating...',
             requiredTitle: 'Title must contain at least 3 characters.',
             requiredBody: 'Add a message or at least one attachment.',
+            requiredLinkedId: 'Either select no linked type or provide a linked record ID.',
             created: 'Ticket created successfully.',
             failed: 'Failed to create ticket.',
             refreshRecipients: 'Refresh',
@@ -211,6 +215,11 @@ export function CreateTicketDialog({
       return;
     }
 
+    if (linkedType && !linkedId.trim()) {
+      setFeedback({ type: 'error', message: t.requiredLinkedId });
+      return;
+    }
+
     setSubmitting(true);
     setFeedback(null);
 
@@ -237,7 +246,13 @@ export function CreateTicketDialog({
     } catch (submitError) {
       setFeedback({
         type: 'error',
-        message: submitError instanceof Error ? submitError.message : t.failed,
+        message:
+          submitError instanceof Error &&
+          submitError.message.toLowerCase().includes('linkedid is required when linkedtype is set')
+            ? t.requiredLinkedId
+            : submitError instanceof Error
+              ? submitError.message
+              : t.failed,
       });
     } finally {
       setSubmitting(false);
@@ -368,7 +383,13 @@ export function CreateTicketDialog({
             </div>
             <div className="space-y-1.5">
               <Label>{t.linkedId}</Label>
-              <Input value={linkedId} onChange={(event) => setLinkedId(event.target.value)} />
+              <Input
+                value={linkedId}
+                onChange={(event) => setLinkedId(event.target.value)}
+                disabled={!linkedType}
+                placeholder={linkedType ? 'e.g. 683f... (24 chars)' : '-'}
+              />
+              <p className="text-[11px] text-muted-foreground">{t.linkedIdHint}</p>
             </div>
           </div>
 
