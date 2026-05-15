@@ -37,6 +37,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -275,6 +276,11 @@ export default function ExpensesPage() {
     }
   }, [page, pagination.totalPages]);
 
+  const draftExpenses = useMemo(
+    () => expenses.filter((expense) => expense.status === 'draft'),
+    [expenses]
+  );
+
   const t = {
     en: {
       shellTitle: 'Expenses',
@@ -299,9 +305,25 @@ export default function ExpensesPage() {
       browseFiles: 'Browse files',
       choosePhoto: 'Capture photo',
       uploadQueueTitle: 'Upload Queue',
-      uploadQueueSubtitle: 'Track progress, retry failures, and open created drafts.',
+      uploadQueueSubtitle: 'Track progress, OCR stage, retry failures, and open created drafts.',
       retry: 'Retry',
       openDraft: 'Open draft',
+      openAndValidate: 'Open and validate',
+      validateExpense: 'Validate expense',
+      ocrVisibilityHint: 'OCR auto-detection stage is shown during draft creation.',
+      ocrReviewHint: 'OCR pass completed. Review extracted values in the draft.',
+      uploadStatusLabels: {
+        queued: 'Queued',
+        presigning: 'Preparing upload URL',
+        uploading: 'Uploading file',
+        creating_draft: 'OCR auto-detection + draft creation',
+        success: 'Draft ready',
+        error: 'Failed',
+      },
+      draftsSectionTitle: 'Drafts to validate',
+      draftsSectionSubtitle: 'Quick access to draft expenses with direct validation CTA.',
+      draftsCountLabel: (count: number) => `${count} Draft${count > 1 ? 's' : ''}`,
+      noDraftsInView: 'No draft in the current page.',
       filtersTitle: 'Filters and sorting',
       searchLabel: 'Search',
       searchPlaceholder: 'Supplier, reference, notes...',
@@ -392,9 +414,25 @@ export default function ExpensesPage() {
       browseFiles: 'Parcourir',
       choosePhoto: 'Capturer',
       uploadQueueTitle: "File d'upload",
-      uploadQueueSubtitle: 'Suivez la progression, relancez les échecs, et ouvrez les brouillons créés.',
+      uploadQueueSubtitle: 'Suivez la progression, le statut OCR, relancez les échecs, et ouvrez les brouillons créés.',
       retry: 'Relancer',
       openDraft: 'Ouvrir brouillon',
+      openAndValidate: 'Ouvrir et valider',
+      validateExpense: 'Valider la dépense',
+      ocrVisibilityHint: "Le statut d'auto-détection OCR est visible pendant la création du brouillon.",
+      ocrReviewHint: 'Passage OCR terminé. Vérifiez les valeurs extraites dans le brouillon.',
+      uploadStatusLabels: {
+        queued: 'En file',
+        presigning: "Préparation URL d'upload",
+        uploading: 'Upload en cours',
+        creating_draft: 'Auto-détection OCR + création brouillon',
+        success: 'Brouillon prêt',
+        error: 'Échec',
+      },
+      draftsSectionTitle: 'Brouillons à valider',
+      draftsSectionSubtitle: 'Accès rapide aux brouillons avec action directe de validation.',
+      draftsCountLabel: (count: number) => `${count} brouillon${count > 1 ? 's' : ''}`,
+      noDraftsInView: 'Aucun brouillon sur la page courante.',
       filtersTitle: 'Filtres et tri',
       searchLabel: 'Recherche',
       searchPlaceholder: 'Fournisseur, référence, notes...',
@@ -965,9 +1003,15 @@ export default function ExpensesPage() {
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium">{item.fileName}</p>
                       <p className="text-xs text-muted-foreground">
-                        {item.status}
+                        {t.uploadStatusLabels[item.status as keyof typeof t.uploadStatusLabels] || item.status}
                         {item.source === 'photo' ? ' - camera' : item.source === 'drop' ? ' - drag/drop' : ' - import'}
                       </p>
+                      {item.status === 'creating_draft' ? (
+                        <p className="text-[11px] text-muted-foreground">{t.ocrVisibilityHint}</p>
+                      ) : null}
+                      {item.status === 'success' ? (
+                        <p className="text-[11px] text-muted-foreground">{t.ocrReviewHint}</p>
+                      ) : null}
                     </div>
                     <div className="flex items-center gap-2">
                       {item.status === 'success' ? (
@@ -1006,7 +1050,7 @@ export default function ExpensesPage() {
                       <Button asChild type="button" variant="outline" size="sm">
                         <Link href={`/expenses/${item.expenseId}`}>
                           <ExternalLinkIcon className="size-3.5" />
-                          {t.openDraft}
+                          {t.openAndValidate}
                         </Link>
                       </Button>
                     ) : null}
@@ -1016,6 +1060,59 @@ export default function ExpensesPage() {
             </CardContent>
           </Card>
         ) : null}
+
+        <Card className="border-border/70" data-tour-expenses-drafts>
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <CardTitle className="text-base">{t.draftsSectionTitle}</CardTitle>
+                <CardDescription>{t.draftsSectionSubtitle}</CardDescription>
+              </div>
+              <Badge variant="secondary">{t.draftsCountLabel(draftExpenses.length)}</Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-2.5">
+            {draftExpenses.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{t.noDraftsInView}</p>
+            ) : (
+              draftExpenses.slice(0, 5).map((expense) => {
+                const rowLoading = actionLoadingId === expense._id;
+
+                return (
+                  <div key={expense._id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/60 p-2.5">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">{getSupplierName(expense)}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatDateDisplay(expense.expenseDate)} · {getCategoryName(expense)}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <ExpenseMoneyDisplay
+                        cents={expense.amountInclVatCents || 0}
+                        locale={locale === 'fr' ? 'fr-FR' : 'en-GB'}
+                        className="text-sm font-medium"
+                      />
+                      <Button asChild type="button" size="sm" variant="outline">
+                        <Link href={`/expenses/${expense._id}`}>{t.openDraft}</Link>
+                      </Button>
+                      {canManageExpenses ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => void openEditExpense(expense._id)}
+                          disabled={rowLoading}
+                        >
+                          {rowLoading ? <Loader2Icon className="size-3.5 animate-spin" /> : null}
+                          {t.validateExpense}
+                        </Button>
+                      ) : null}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </CardContent>
+        </Card>
 
         <Card className="border-border/70" data-tour-expenses-filters>
           <CardHeader className="pb-2">
@@ -1175,7 +1272,10 @@ export default function ExpensesPage() {
           <CardHeader className="pb-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <CardTitle className="text-base">{t.listTitle}</CardTitle>
+                <div className="flex items-center gap-2">
+                  <CardTitle className="text-base">{t.listTitle}</CardTitle>
+                  <Badge variant="outline">{t.draftsCountLabel(draftExpenses.length)}</Badge>
+                </div>
                 <CardDescription>{t.listSubtitle}</CardDescription>
               </div>
               <div className="flex items-center gap-2">

@@ -69,8 +69,8 @@ export const expenseAttachmentMetadataSchema = z.object({
 
 export const createManualExpenseSchema = z.object({
   amountExclVatCents: moneyToCentsSchema,
-  vatRate: z.preprocess(toNumber, z.number().min(0).max(100)).default(0),
-  expenseDate: requiredDateSchema,
+  vatRate: z.preprocess(toNumber, z.number().min(0).max(100)).default(17),
+  expenseDate: requiredDateSchema.default(() => new Date()),
   supplierId: objectIdSchema,
   categoryId: objectIdSchema,
   paymentMethod: z.enum(EXPENSE_PAYMENT_METHODS).optional(),
@@ -91,7 +91,7 @@ export const createDraftExpenseSchema = z.object({
   supplierId: optionalObjectIdSchema,
   categoryId: optionalObjectIdSchema,
   amountExclVatCents: optionalMoneyToCentsSchema,
-  vatRate: z.preprocess(toNumber, z.number().min(0).max(100).optional()),
+  vatRate: z.preprocess(toNumber, z.number().min(0).max(100).optional()).default(17),
   supplierRef: z.preprocess(toNullableString, z.string().trim().max(140).nullable().optional()),
   notes: z.preprocess(toNullableString, z.string().trim().max(4000).nullable().optional()),
   attachment: expenseAttachmentMetadataSchema,

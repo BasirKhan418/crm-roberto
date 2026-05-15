@@ -72,30 +72,57 @@ type FormValues = {
   invoiceId: string;
 };
 
-const INITIAL_VALUES: FormValues = {
-  amountExclVat: '',
-  vatRate: '20',
-  expenseDate: '',
-  supplierId: '',
-  categoryId: '',
-  paymentMethod: '',
-  paymentStatus: 'unpaid',
-  amountPaid: '',
-  paidAt: '',
-  dueDate: '',
-  supplierRef: '',
-  expenseType: 'business',
-  notes: '',
-  clientId: '',
-  projectId: '',
-  invoiceId: '',
-};
+const DEFAULT_VAT_RATE = '17';
+const DEFAULT_DUE_DATE_DELAY_DAYS = 7;
 
 function toInputDate(value?: string | null) {
   if (!value) return '';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
   return date.toISOString().slice(0, 10);
+}
+
+function toInputDateFromDate(value: Date) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+
+  const year = String(date.getFullYear());
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function addDaysToInputDate(value: string, days: number) {
+  if (!value) return '';
+
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return '';
+
+  date.setDate(date.getDate() + days);
+  return toInputDateFromDate(date);
+}
+
+function buildDefaultFormValues(): FormValues {
+  const expenseDate = toInputDateFromDate(new Date());
+
+  return {
+    amountExclVat: '',
+    vatRate: DEFAULT_VAT_RATE,
+    expenseDate,
+    supplierId: '',
+    categoryId: '',
+    paymentMethod: '',
+    paymentStatus: 'unpaid',
+    amountPaid: '',
+    paidAt: '',
+    dueDate: addDaysToInputDate(expenseDate, DEFAULT_DUE_DATE_DELAY_DAYS),
+    supplierRef: '',
+    expenseType: 'business',
+    notes: '',
+    clientId: '',
+    projectId: '',
+    invoiceId: '',
+  };
 }
 
 function resolveEntityId(value: unknown): string {
@@ -119,20 +146,24 @@ function toTwoDecimals(value: number) {
 
 function buildInitialValues(expense?: ExpenseDetail | null): FormValues {
   if (!expense) {
-    return INITIAL_VALUES;
+    return buildDefaultFormValues();
   }
 
+  const expenseDate = toInputDate(expense.expenseDate) || toInputDateFromDate(new Date());
+  const dueDate = toInputDate(expense.dueDate) || addDaysToInputDate(expenseDate, DEFAULT_DUE_DATE_DELAY_DAYS);
+
   return {
+    ...buildDefaultFormValues(),
     amountExclVat: toDecimalFromCents(expense.amountExclVatCents),
-    vatRate: String(typeof expense.vatRate === 'number' ? expense.vatRate : 20),
-    expenseDate: toInputDate(expense.expenseDate),
+    vatRate: String(typeof expense.vatRate === 'number' ? expense.vatRate : 17),
+    expenseDate,
     supplierId: resolveEntityId(expense.supplierId),
     categoryId: resolveEntityId(expense.categoryId),
     paymentMethod: expense.paymentMethod || '',
     paymentStatus: expense.paymentStatus || 'unpaid',
     amountPaid: toDecimalFromCents(expense.amountPaidCents),
     paidAt: toInputDate(expense.paidAt),
-    dueDate: toInputDate(expense.dueDate),
+    dueDate,
     supplierRef: expense.supplierRef || '',
     expenseType: expense.expenseType || 'business',
     notes: expense.notes || '',
@@ -155,7 +186,7 @@ export function ExpenseFormDialog({
   onCreateSupplier,
   onSaved,
 }: ExpenseFormDialogProps) {
-  const [values, setValues] = useState<FormValues>(INITIAL_VALUES);
+  const [values, setValues] = useState<FormValues>(() => buildDefaultFormValues());
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [supplierCreating, setSupplierCreating] = useState(false);
@@ -178,7 +209,7 @@ export function ExpenseFormDialog({
     en: {
       createTitle: 'Create Expense',
       editTitle: initialExpense?.status === 'draft' ? 'Edit Draft Expense' : 'Edit Expense',
-      description: 'Fill all required fields. Draft activation requires amount, date, category, and supplier.',
+      description: 'Fill all required fields. Expense validation requires amount, date, category, and supplier.',
       amountExclVat: 'Amount excl. VAT',
       vatRate: 'VAT rate',
       amountInclVatPreview: 'Amount incl. VAT (preview)',
@@ -204,11 +235,11 @@ export function ExpenseFormDialog({
       create: 'Create expense',
       save: 'Save changes',
       saveDraft: 'Save as draft',
-      activateDraft: 'Activate draft',
+      activateDraft: 'Validate expense',
       cancel: 'Cancel',
       confirmEditTitle: 'Confirm expense update',
       confirmEditDescriptionDefault: 'This will save your edits and update expense history.',
-      confirmEditDescriptionActivate: 'This will activate this draft and make it actionable.',
+      confirmEditDescriptionActivate: 'This will validate the expense and make it actionable.',
       confirmEditCancel: 'Cancel',
       confirmEditAction: 'Confirm update',
       addSupplier: 'Quick add supplier',
@@ -216,7 +247,7 @@ export function ExpenseFormDialog({
       createSupplier: 'Add',
       selectPlaceholder: 'Select',
       noneOption: 'None',
-      requiredFieldsError: 'Amount, date, category, and supplier are required to activate draft.',
+      requiredFieldsError: 'Amount, date, category, and supplier are required to validate the expense.',
       saveFailed: 'Failed to save expense',
       createSupplierFailed: 'Failed to create supplier',
     },
@@ -249,11 +280,11 @@ export function ExpenseFormDialog({
       create: 'Créer la dépense',
       save: 'Enregistrer',
       saveDraft: 'Sauvegarder brouillon',
-      activateDraft: 'Activer brouillon',
+      activateDraft: 'Valider la dépense',
       cancel: 'Annuler',
       confirmEditTitle: 'Confirmer la mise à jour',
       confirmEditDescriptionDefault: "Cette action enregistre vos modifications et met à jour l'historique.",
-      confirmEditDescriptionActivate: 'Cette action active le brouillon et le rend exploitable.',
+      confirmEditDescriptionActivate: 'Cette action valide la dépense et la rend exploitable.',
       confirmEditCancel: 'Annuler',
       confirmEditAction: 'Confirmer',
       addSupplier: 'Ajout rapide fournisseur',
@@ -278,6 +309,22 @@ export function ExpenseFormDialog({
 
   function updateField<K extends keyof FormValues>(field: K, next: FormValues[K]) {
     setValues((previous) => ({ ...previous, [field]: next }));
+  }
+
+  function handleExpenseDateChange(nextDate: string) {
+    setValues((previous) => {
+      const previousAutoDueDate = addDaysToInputDate(previous.expenseDate, DEFAULT_DUE_DATE_DELAY_DAYS);
+      const shouldAutoUpdateDueDate = !previous.dueDate || previous.dueDate === previousAutoDueDate;
+
+      return {
+        ...previous,
+        expenseDate: nextDate,
+        dueDate:
+          shouldAutoUpdateDueDate && nextDate
+            ? addDaysToInputDate(nextDate, DEFAULT_DUE_DATE_DELAY_DAYS)
+            : previous.dueDate,
+      };
+    });
   }
 
   function canActivateDraft() {
@@ -456,20 +503,40 @@ export function ExpenseFormDialog({
 
               <div className="space-y-1.5">
                 <Label>{t.vatRate}</Label>
-                <select
-                  className={selectClassName}
+                <Input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  list="expense-vat-presets"
                   value={values.vatRate}
                   onChange={(event) => updateField('vatRate', event.target.value)}
-                >
+                />
+                <datalist id="expense-vat-presets">
                   {EXPENSE_VAT_RATES.map((rate) => (
                     <option key={rate} value={String(rate)}>
                       {rate}%
                     </option>
                   ))}
-                  {!EXPENSE_VAT_RATES.includes(vatRate as (typeof EXPENSE_VAT_RATES)[number]) ? (
-                    <option value={values.vatRate}>{values.vatRate}%</option>
-                  ) : null}
-                </select>
+                </datalist>
+                <div className="flex flex-wrap gap-1.5">
+                  {EXPENSE_VAT_RATES.map((rate) => {
+                    const isActive = Number(values.vatRate) === rate;
+
+                    return (
+                      <Button
+                        key={rate}
+                        type="button"
+                        size="sm"
+                        variant={isActive ? 'default' : 'outline'}
+                        className="h-7 px-2 text-xs"
+                        onClick={() => updateField('vatRate', String(rate))}
+                      >
+                        {rate}%
+                      </Button>
+                    );
+                  })}
+                </div>
               </div>
 
               <div className="space-y-1.5">
@@ -477,7 +544,7 @@ export function ExpenseFormDialog({
                 <Input
                   type="date"
                   value={values.expenseDate}
-                  onChange={(event) => updateField('expenseDate', event.target.value)}
+                  onChange={(event) => handleExpenseDateChange(event.target.value)}
                 />
               </div>
 

@@ -38,7 +38,7 @@ const ExpenseSchema = new mongoose.Schema(
       required: true,
       min: 0,
       max: 100,
-      default: 0,
+      default: 17,
     },
     vatAmountCents: {
       type: Number,

@@ -25,7 +25,7 @@ export const DEFAULT_EXPENSE_CATEGORY_NAMES = [
   "Miscellaneous",
 ] as const;
 
-export const EXPENSE_VAT_RATES = [0, 5.5, 10, 20] as const;
+export const EXPENSE_VAT_RATES = [0, 3, 8, 14, 17] as const;
 
 export type ExpenseStatus = (typeof EXPENSE_STATUS)[number];
 export type ExpensePaymentStatus = (typeof EXPENSE_PAYMENT_STATUS)[number];

@@ -1,9 +1,13 @@
 import mongoose from "mongoose";
 
 import ConnectDb from "@/db/connectDb";
+import "@/db/models/Client";
 import Expense from "@/db/models/Expense";
 import ExpenseAttachment from "@/db/models/ExpenseAttachment";
+import "@/db/models/ExpenseCategory";
+import "@/db/models/Invoice";
 import Supplier from "@/db/models/Supplier";
+import "@/db/models/User";
 import { computeAmountInclVatCents, computeRemainingBalanceCents, computeVatAmountCents } from "@/lib/expense-calculations";
 import type { ListQueryOptions, PaginationMeta } from "@/utils/api/query";
 import { buildPagination } from "@/utils/api/query";
@@ -34,6 +38,9 @@ type AttachmentNamingExpense = {
   amountInclVatCents?: number;
 };
 
+const DEFAULT_EXPENSE_VAT_RATE = 17;
+const DEFAULT_DUE_DATE_DELAY_DAYS = 7;
+
 function isValidObjectId(value: string) {
   return mongoose.Types.ObjectId.isValid(value);
 }
@@ -47,6 +54,12 @@ function buildRemainingBalance(expense: {
   amountPaidCents?: number;
 }) {
   return computeRemainingBalanceCents(expense.amountInclVatCents || 0, expense.amountPaidCents || 0);
+}
+
+function addDays(value: Date, days: number) {
+  const next = new Date(value);
+  next.setDate(next.getDate() + days);
+  return next;
 }
 
 function sanitizeFileNamePart(value: string) {
@@ -270,15 +283,17 @@ export async function createDraftFromAttachment(params: {
   }
 
   const amountExclVatCents = params.payload.amountExclVatCents || 0;
-  const vatRate = params.payload.vatRate || 0;
+  const vatRate = params.payload.vatRate ?? DEFAULT_EXPENSE_VAT_RATE;
   const vatAmountCents = computeVatAmountCents(amountExclVatCents, vatRate);
   const amountInclVatCents = computeAmountInclVatCents(amountExclVatCents, vatAmountCents);
+  const expenseDate = params.payload.expenseDate ?? new Date();
+  const dueDate = addDays(expenseDate, DEFAULT_DUE_DATE_DELAY_DAYS);
 
   const displayName = await buildAttachmentDisplayName({
     expense: {
       supplierId: params.payload.supplierId ?? null,
       supplierRef: params.payload.supplierRef ?? null,
-      expenseDate: params.payload.expenseDate ?? null,
+      expenseDate,
       amountInclVatCents,
     },
     extension: params.payload.attachment.extension,
@@ -294,7 +309,8 @@ export async function createDraftFromAttachment(params: {
     vatAmountCents,
     amountInclVatCents,
     amountPaidCents: 0,
-    expenseDate: params.payload.expenseDate ?? null,
+    expenseDate,
+    dueDate,
     supplierId: params.payload.supplierId || null,
     categoryId: params.payload.categoryId || null,
     supplierRef: params.payload.supplierRef ?? null,
@@ -352,6 +368,7 @@ export async function createManualExpense(params: {
   const vatAmountCents = computeVatAmountCents(params.payload.amountExclVatCents, params.payload.vatRate);
   const amountInclVatCents = computeAmountInclVatCents(params.payload.amountExclVatCents, vatAmountCents);
   const amountPaidCents = Math.min(params.payload.amountPaidCents || 0, amountInclVatCents);
+  const dueDate = params.payload.dueDate ?? addDays(params.payload.expenseDate, DEFAULT_DUE_DATE_DELAY_DAYS);
 
   const paymentStatus = params.payload.paymentStatus || derivePaymentStatus(amountInclVatCents, amountPaidCents);
 
@@ -369,7 +386,7 @@ export async function createManualExpense(params: {
     paymentMethod: params.payload.paymentMethod ?? null,
     amountPaidCents,
     paidAt: params.payload.paidAt ?? null,
-    dueDate: params.payload.dueDate ?? null,
+    dueDate,
     supplierRef: params.payload.supplierRef ?? null,
     expenseType: params.payload.expenseType,
     notes: params.payload.notes ?? null,

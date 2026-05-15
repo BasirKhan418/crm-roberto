@@ -181,6 +181,14 @@ function inferMimeFromFile(file: File) {
   return null;
 }
 
+function isImageMimeType(mimeType?: string) {
+  return typeof mimeType === 'string' && mimeType.startsWith('image/');
+}
+
+function isPdfMimeType(mimeType?: string) {
+  return mimeType === 'application/pdf';
+}
+
 export default function ExpenseDetailPage() {
   const params = useParams<{ id: string }>();
   const expenseId = typeof params?.id === 'string' ? params.id : '';
@@ -281,7 +289,10 @@ export default function ExpenseDetailPage() {
           ticketCreated: 'Ticket created',
           ticketAssignedTo: 'Assigned to',
           ticketUpdatedAt: 'Updated at',
-          statusDraftHint: 'This expense is still draft. Complete fields and activate from edit dialog.',
+          statusDraftHint: 'This expense is still draft. Complete fields and validate it from the edit dialog.',
+          draftAttachmentPreview: 'Imported file preview',
+          draftAttachmentPreviewHint: 'Visual preview of the first file linked to this draft.',
+          openAttachmentsTab: 'Open attachments tab',
         },
         fr: {
           shellTitle: 'Détail dépense',
@@ -359,7 +370,10 @@ export default function ExpenseDetailPage() {
           ticketCreated: 'Ticket créé',
           ticketAssignedTo: 'Assigné à',
           ticketUpdatedAt: 'Mis à jour le',
-          statusDraftHint: 'Cette dépense est brouillon. Complétez et activez depuis le formulaire de modification.',
+          statusDraftHint: 'Cette dépense est brouillon. Complétez et validez depuis le formulaire de modification.',
+          draftAttachmentPreview: 'Aperçu du fichier importé',
+          draftAttachmentPreviewHint: 'Aperçu visuel du premier fichier lié à ce brouillon.',
+          openAttachmentsTab: 'Ouvrir les pièces jointes',
         },
       })[locale],
     [locale]
@@ -713,6 +727,51 @@ export default function ExpenseDetailPage() {
 
             {activeTab === 'summary' ? (
               <div className="grid gap-4 lg:grid-cols-3">
+                {expense.status === 'draft' && expense.attachments && expense.attachments.length > 0 ? (
+                  <Card className="border-border/70 lg:col-span-3">
+                    <CardHeader className="pb-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <CardTitle className="text-base">{t.draftAttachmentPreview}</CardTitle>
+                          <CardDescription>{t.draftAttachmentPreviewHint}</CardDescription>
+                        </div>
+                        <Button type="button" size="sm" variant="outline" onClick={() => setActiveTab('attachments')}>
+                          {t.openAttachmentsTab}
+                        </Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      {isImageMimeType(expense.attachments[0]?.mimeType) ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={expense.attachments[0]?.url}
+                          alt={expense.attachments[0]?.displayName || 'Draft attachment'}
+                          className="max-h-90 w-full rounded-lg border border-border/60 object-contain"
+                        />
+                      ) : isPdfMimeType(expense.attachments[0]?.mimeType) ? (
+                        <iframe
+                          src={expense.attachments[0]?.url}
+                          title={expense.attachments[0]?.displayName || 'Draft attachment'}
+                          className="h-90 w-full rounded-lg border border-border/60"
+                        />
+                      ) : (
+                        <div className="rounded-lg border border-border/60 p-3">
+                          <p className="text-sm font-medium">{expense.attachments[0]?.displayName || '-'}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">{expense.attachments[0]?.mimeType || '-'}</p>
+                          <div className="mt-3">
+                            <Button asChild type="button" variant="outline" size="sm">
+                              <a href={expense.attachments[0]?.url || '#'} target="_blank" rel="noopener noreferrer">
+                                <ExternalLinkIcon className="size-3.5" />
+                                {t.openFile}
+                              </a>
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ) : null}
+
                 <Card className="border-border/70 lg:col-span-2">
                   <CardHeader>
                     <CardTitle className="text-base">{t.financial}</CardTitle>
