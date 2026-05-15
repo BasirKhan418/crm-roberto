@@ -175,12 +175,16 @@ async function createTicketNotifications(params: {
   action: TicketMessageAction;
   snapshot: TicketNotificationSnapshot;
   messagePreview?: string | null;
+  includeActorEmail?: boolean;
 }) {
-  const recipients = uniqueObjectIdStrings(
-    params.recipientIds.filter((id) => id !== params.actorId)
-  );
+  const recipients = uniqueObjectIdStrings(params.recipientIds);
+  const activityRecipients = recipients.filter((id) => id !== params.actorId);
+  const emailRecipients = uniqueObjectIdStrings([
+    ...activityRecipients,
+    params.includeActorEmail ? params.actorId : null,
+  ]);
 
-  if (recipients.length === 0) {
+  if (activityRecipients.length === 0 && emailRecipients.length === 0) {
     return;
   }
 
@@ -195,7 +199,7 @@ async function createTicketNotifications(params: {
   } as const;
 
   await Promise.all(
-    recipients.map(async (recipientId) => {
+    activityRecipients.map(async (recipientId) => {
       try {
         await createActivityLog(recipientId, {
           action: params.action,
@@ -218,7 +222,7 @@ async function createTicketNotifications(params: {
   );
 
   const users = await User.find({
-    _id: { $in: [...recipients, params.actorId].map((id) => toObjectId(id)) },
+    _id: { $in: uniqueObjectIdStrings([...emailRecipients, params.actorId]).map((id) => toObjectId(id)) },
     companyId: toObjectId(params.companyId),
   })
     .select("_id name email")
@@ -233,6 +237,12 @@ async function createTicketNotifications(params: {
     ticket_resolved: `Ticket resolved: ${params.snapshot.title}`,
   };
 
+  const actorSubjectByAction: Record<TicketMessageAction, string> = {
+    ticket_created: `Ticket created: ${params.snapshot.title}`,
+    ticket_replied: `Reply posted: ${params.snapshot.title}`,
+    ticket_resolved: `Ticket resolved: ${params.snapshot.title}`,
+  };
+
   const bodyByAction: Record<TicketMessageAction, string> = {
     ticket_created: `${actorName} created a ticket and assigned you.\n\nTitle: ${params.snapshot.title}`,
     ticket_replied: `${actorName} replied to the ticket.\n\nTitle: ${params.snapshot.title}${
@@ -241,20 +251,33 @@ async function createTicketNotifications(params: {
     ticket_resolved: `${actorName} marked the ticket as resolved.\n\nTitle: ${params.snapshot.title}`,
   };
 
+  const actorBodyByAction: Record<TicketMessageAction, string> = {
+    ticket_created: `You created a new ticket.\n\nTitle: ${params.snapshot.title}`,
+    ticket_replied: `You posted a ticket reply.\n\nTitle: ${params.snapshot.title}`,
+    ticket_resolved: `You marked the ticket as resolved.\n\nTitle: ${params.snapshot.title}`,
+  };
+
   await Promise.all(
-    recipients.map(async (recipientId) => {
+    emailRecipients.map(async (recipientId) => {
       const recipient = userById.get(recipientId);
       if (!recipient?.email) {
         return;
       }
 
       try {
-        await sendTicketEmailNotification({
+        const isActorRecipient = recipientId === params.actorId;
+        const result = await sendTicketEmailNotification({
           to: recipient.email,
-          subject: subjectByAction[params.action],
-          body: bodyByAction[params.action],
+          subject: isActorRecipient
+            ? actorSubjectByAction[params.action]
+            : subjectByAction[params.action],
+          body: isActorRecipient ? actorBodyByAction[params.action] : bodyByAction[params.action],
           title: "CRM Roberto",
         });
+
+        if (!result.success) {
+          throw new Error(result.message || "Ticket email notification failed");
+        }
       } catch (error) {
         console.error("[tickets] failed to send ticket notification email", {
           recipientId,
@@ -338,7 +361,7 @@ export async function createTicket(params: {
 
   await createTicketNotifications({
     companyId: params.companyId,
-    recipientIds: unreadBy,
+    recipientIds: uniqueObjectIdStrings([params.createdBy, ...resolvedAssigneeIds]),
     actorId: params.createdBy,
     action: "ticket_created",
     snapshot: {
@@ -350,6 +373,7 @@ export async function createTicket(params: {
       linkedId: created.linkedId ? String(created.linkedId) : null,
     },
     messagePreview: params.payload.body ?? null,
+    includeActorEmail: true,
   });
 
   const ticket = await Ticket.findById(created._id)

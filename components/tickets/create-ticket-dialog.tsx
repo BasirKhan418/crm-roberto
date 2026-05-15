@@ -1,6 +1,6 @@
 'use client';
 
-import { ChangeEvent, useEffect, useMemo, useState } from 'react';
+import { ChangeEvent, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   Loader2Icon,
@@ -36,6 +36,31 @@ import {
 } from '@/hooks/useTickets';
 
 const FILE_ACCEPT = '.pdf,.jpg,.jpeg,.png,.heic';
+
+function getFileSignature(file: File) {
+  return `${file.name.toLowerCase()}::${file.size}::${file.lastModified}`;
+}
+
+function mergeUniqueFiles(current: File[], incoming: File[]) {
+  if (incoming.length === 0) {
+    return current;
+  }
+
+  const known = new Set(current.map((file) => getFileSignature(file)));
+  const merged = [...current];
+
+  for (const file of incoming) {
+    const signature = getFileSignature(file);
+    if (known.has(signature)) {
+      continue;
+    }
+
+    known.add(signature);
+    merged.push(file);
+  }
+
+  return merged;
+}
 
 type LinkedRecordOption = { _id: string; label: string; sub?: string };
 type ExpenseApiItem = {
@@ -85,6 +110,7 @@ export function CreateTicketDialog({
   const [linkedRecords, setLinkedRecords] = useState<LinkedRecordOption[]>([]);
   const [linkedRecordsLoading, setLinkedRecordsLoading] = useState(false);
   const [linkedLabel, setLinkedLabel] = useState('');
+  const submitInFlightRef = useRef(false);
 
   const { users, loading: recipientsLoading, error: recipientsError, refetch: refetchRecipients } =
     useTicketRecipients(recipientSearch.trim() || undefined, 40);
@@ -177,7 +203,9 @@ export function CreateTicketDialog({
             message: 'Message',
             recipients: 'Destinataires',
             recipientsSearch: 'Rechercher un collaborateur...',
+            recipientsLoading: 'Chargement des destinataires...',
             recipientsEmpty: 'Aucun utilisateur trouvé.',
+            recipientsLoadFailed: 'Impossible de charger les destinataires.',
             linkedSection: 'Lien optionnel',
             linkedType: 'Type de lien',
             linkedRecord: 'Enregistrement lié',
@@ -221,7 +249,9 @@ export function CreateTicketDialog({
             message: 'Message',
             recipients: 'Recipients',
             recipientsSearch: 'Search teammate...',
+            recipientsLoading: 'Loading recipients...',
             recipientsEmpty: 'No users found.',
+            recipientsLoadFailed: 'Failed to load recipients.',
             linkedSection: 'Optional link',
             linkedType: 'Linked type',
             linkedRecord: 'Linked record',
@@ -294,7 +324,7 @@ export function CreateTicketDialog({
   function onFilesSelected(event: ChangeEvent<HTMLInputElement>) {
     const selected = event.target.files ? Array.from(event.target.files) : [];
     if (selected.length > 0) {
-      setFiles((previous) => [...previous, ...selected]);
+      setFiles((previous) => mergeUniqueFiles(previous, selected));
     }
     event.target.value = '';
   }
@@ -304,6 +334,10 @@ export function CreateTicketDialog({
   }
 
   async function handleSubmit() {
+    if (submitInFlightRef.current) {
+      return;
+    }
+
     const trimmedTitle = title.trim();
     const trimmedBody = body.trim();
 
@@ -322,6 +356,7 @@ export function CreateTicketDialog({
       return;
     }
 
+    submitInFlightRef.current = true;
     setSubmitting(true);
     setFeedback(null);
 
@@ -346,17 +381,17 @@ export function CreateTicketDialog({
 
       onOpenChange(false);
     } catch (submitError) {
+      console.error('[tickets] create failed', submitError);
       setFeedback({
         type: 'error',
         message:
           submitError instanceof Error &&
           submitError.message.toLowerCase().includes('linkedid is required when linkedtype is set')
             ? t.requiredLinkedId
-            : submitError instanceof Error
-              ? submitError.message
-              : t.failed,
+            : t.failed,
       });
     } finally {
+      submitInFlightRef.current = false;
       setSubmitting(false);
     }
   }
@@ -428,9 +463,9 @@ export function CreateTicketDialog({
 
             <div className="max-h-36 space-y-2 overflow-y-auto pr-1">
               {recipientsLoading ? (
-                <p className="text-xs text-muted-foreground">{t.creating}</p>
+                <p className="text-xs text-muted-foreground">{t.recipientsLoading}</p>
               ) : recipientsError ? (
-                <p className="text-xs text-destructive">{recipientsError}</p>
+                <p className="text-xs text-destructive">{t.recipientsLoadFailed}</p>
               ) : users.length === 0 ? (
                 <p className="text-xs text-muted-foreground">{t.recipientsEmpty}</p>
               ) : (

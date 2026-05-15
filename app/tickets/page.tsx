@@ -276,7 +276,11 @@ export default function TicketsPage() {
     searchInput || statusFilter || typeFilter || linkedTypeFilter || linkedIdFilter.trim() || assignedToMe || createdByMe || unreadOnly
   );
 
-  const renderedError = error || (!canViewTickets && !authLoading ? t.forbiddenHelp : null);
+  const renderedError = !canViewTickets && !authLoading
+    ? t.forbiddenHelp
+    : error
+      ? t.loadError
+      : null;
 
   return (
     <CrmShell title={t.shellTitle} contentClassName="gap-4 px-4 py-3 lg:px-6 lg:py-4">

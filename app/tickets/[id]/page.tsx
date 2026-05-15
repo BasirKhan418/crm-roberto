@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeftIcon, Loader2Icon, PaperclipIcon, RefreshCwIcon, SendIcon } from 'lucide-react';
+import { ArrowLeftIcon, ExternalLinkIcon, Loader2Icon, PaperclipIcon, RefreshCwIcon, SendIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import CrmShell from '@/components/crm-shell';
@@ -30,6 +30,50 @@ import { TICKET_STATUSES, type TicketStatus, type TicketType } from '@/lib/ticke
 import { hasPermission } from '@/lib/permissions';
 
 const FILE_ACCEPT = '.pdf,.jpg,.jpeg,.png,.heic';
+
+function getFileSignature(file: File) {
+  return `${file.name.toLowerCase()}::${file.size}::${file.lastModified}`;
+}
+
+function mergeUniqueFiles(current: File[], incoming: File[]) {
+  if (incoming.length === 0) {
+    return current;
+  }
+
+  const known = new Set(current.map((file) => getFileSignature(file)));
+  const merged = [...current];
+
+  for (const file of incoming) {
+    const signature = getFileSignature(file);
+    if (known.has(signature)) {
+      continue;
+    }
+
+    known.add(signature);
+    merged.push(file);
+  }
+
+  return merged;
+}
+
+function formatFileSize(sizeBytes: number | undefined) {
+  const value = typeof sizeBytes === 'number' ? sizeBytes : Number.NaN;
+  if (!Number.isFinite(value) || value <= 0) {
+    return '';
+  }
+
+  if (value < 1024) {
+    return `${value} B`;
+  }
+
+  if (value < 1024 * 1024) {
+    const kib = value / 1024;
+    return `${kib % 1 === 0 ? kib.toFixed(0) : kib.toFixed(1)} KB`;
+  }
+
+  const mib = value / (1024 * 1024);
+  return `${mib % 1 === 0 ? mib.toFixed(0) : mib.toFixed(1)} MB`;
+}
 
 function formatDateTime(value: string | undefined, locale: 'en' | 'fr') {
   if (!value) return '-';
@@ -122,6 +166,8 @@ export default function TicketDetailPage() {
   const [updatingStatus, setUpdatingStatus] = useState(false);
 
   const markedReadRef = useRef<string | null>(null);
+  const sendingReplyRef = useRef(false);
+  const updatingStatusRef = useRef(false);
 
   const t = {
     en: {
@@ -143,6 +189,7 @@ export default function TicketDetailPage() {
       replyTitle: 'Reply',
       replyPlaceholder: 'Write your message here...',
       attachments: 'Attachments',
+      messageAttachments: 'Attached files',
       addFiles: 'Add files',
       removeFile: 'Remove',
       sendReply: 'Send reply',
@@ -184,6 +231,7 @@ export default function TicketDetailPage() {
       replyTitle: 'Répondre',
       replyPlaceholder: 'Écrivez votre message...',
       attachments: 'Pièces jointes',
+      messageAttachments: 'Fichiers joints',
       addFiles: 'Ajouter des fichiers',
       removeFile: 'Retirer',
       sendReply: 'Envoyer la réponse',
@@ -252,7 +300,7 @@ export default function TicketDetailPage() {
   function onFilesSelected(event: ChangeEvent<HTMLInputElement>) {
     const selected = event.target.files ? Array.from(event.target.files) : [];
     if (selected.length > 0) {
-      setReplyFiles((previous) => [...previous, ...selected]);
+      setReplyFiles((previous) => mergeUniqueFiles(previous, selected));
     }
     event.target.value = '';
   }
@@ -262,7 +310,7 @@ export default function TicketDetailPage() {
   }
 
   async function handleSendReply() {
-    if (!ticket?._id || sendingReply || !canReply) {
+    if (!ticket?._id || sendingReply || sendingReplyRef.current || !canReply) {
       return;
     }
 
@@ -271,6 +319,7 @@ export default function TicketDetailPage() {
       return;
     }
 
+    sendingReplyRef.current = true;
     setSendingReply(true);
 
     try {
@@ -286,14 +335,16 @@ export default function TicketDetailPage() {
       setReplyFiles([]);
       await refetch();
     } catch (sendError) {
-      toast.error(sendError instanceof Error ? sendError.message : t.replyFailed);
+      console.error('[tickets] reply failed', sendError);
+      toast.error(t.replyFailed);
     } finally {
+      sendingReplyRef.current = false;
       setSendingReply(false);
     }
   }
 
   async function handleStatusUpdate() {
-    if (!ticket?._id || updatingStatus || !canManageTickets) {
+    if (!ticket?._id || updatingStatus || updatingStatusRef.current || !canManageTickets) {
       return;
     }
 
@@ -301,14 +352,17 @@ export default function TicketDetailPage() {
       return;
     }
 
+    updatingStatusRef.current = true;
     setUpdatingStatus(true);
     try {
       await changeTicketStatus({ ticketId: ticket._id, status: statusDraft });
       toast.success(t.statusUpdated);
       await refetch();
     } catch (statusError) {
-      toast.error(statusError instanceof Error ? statusError.message : t.statusUpdateFailed);
+      console.error('[tickets] status update failed', statusError);
+      toast.error(t.statusUpdateFailed);
     } finally {
+      updatingStatusRef.current = false;
       setUpdatingStatus(false);
     }
   }
@@ -333,7 +387,7 @@ export default function TicketDetailPage() {
 
       {!authLoading && !canViewTickets ? <ErrorMessage message={t.forbiddenTitle} /> : null}
 
-      {error && canViewTickets ? <ErrorMessage message={error || t.loadError} /> : null}
+      {error && canViewTickets ? <ErrorMessage message={t.loadError} /> : null}
 
       {loading ? (
         <div className="space-y-3">
@@ -485,18 +539,39 @@ export default function TicketDetailPage() {
                       {message.body ? <p className="mt-1 whitespace-pre-wrap wrap-break-word text-sm text-foreground">{message.body}</p> : null}
 
                       {Array.isArray(message.attachments) && message.attachments.length > 0 ? (
-                        <div className="mt-2 space-y-1">
-                          {message.attachments.map((attachment, index) => (
-                            <a
-                              key={`${attachment.url}-${index}`}
-                              href={attachment.url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="block truncate text-xs text-primary hover:underline"
-                            >
-                              {attachment.displayName || attachment.originalName}
-                            </a>
-                          ))}
+                        <div className="mt-2 rounded-lg border border-primary/20 bg-primary/5 p-2">
+                          <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-primary">
+                            {t.messageAttachments}
+                          </p>
+                          <div className="space-y-1.5">
+                            {message.attachments.map((attachment, index) => {
+                              const fileName = attachment.displayName || attachment.originalName;
+                              const fileMeta = [formatFileSize(attachment.sizeBytes), attachment.extension?.toUpperCase()]
+                                .filter(Boolean)
+                                .join(' · ');
+
+                              return (
+                                <a
+                                  key={`${attachment.url}-${index}`}
+                                  href={attachment.url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="group flex items-center justify-between gap-2 rounded-md border border-border/60 bg-card px-2.5 py-1.5 hover:border-primary/40"
+                                >
+                                  <span className="flex min-w-0 items-center gap-1.5">
+                                    <PaperclipIcon className="size-3.5 shrink-0 text-primary" />
+                                    <span className="truncate text-xs font-medium text-foreground group-hover:text-primary">
+                                      {fileName}
+                                    </span>
+                                  </span>
+                                  <span className="flex shrink-0 items-center gap-1 text-[10px] text-muted-foreground">
+                                    {fileMeta ? <span>{fileMeta}</span> : null}
+                                    <ExternalLinkIcon className="size-3" />
+                                  </span>
+                                </a>
+                              );
+                            })}
+                          </div>
                         </div>
                       ) : null}
                     </div>

@@ -95,7 +95,8 @@ export default function MyTicketsWidget() {
         }
 
         setSummary({ open: 0, waiting: 0, unread: 0 });
-        setError(caughtError instanceof Error ? caughtError.message : t.loadError);
+        console.error('[tickets] summary load failed', caughtError);
+        setError(t.loadError);
       } finally {
         if (!controller.signal.aborted) {
           setLoading(false);
