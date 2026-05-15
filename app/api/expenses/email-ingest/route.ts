@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
           supplierId: parsed.data.supplierId,
           categoryId: parsed.data.categoryId,
           amountExclVatCents: parsed.data.amountExclVatCents,
-          vatRate: parsed.data.vatRate,
+          vatRate: parsed.data.vatRate ?? 17,
           supplierRef: parsed.data.supplierRef,
           notes: parsed.data.notes,
           attachment,
