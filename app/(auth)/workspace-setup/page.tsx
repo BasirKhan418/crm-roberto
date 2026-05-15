@@ -51,18 +51,18 @@ const messages = {
     invitationSignup: "Accept invitation",
   },
   fr: {
-    heading: "Creer un espace entreprise",
-    subtitle: "Utilisez ce flux pour onboarder un nouveau proprietaire d'entreprise tout en gardant l'inscription des membres par invitation.",
+    heading: "Créer un espace entreprise",
+    subtitle: "Utilisez ce flux pour onboarder un nouveau propriétaire d'entreprise tout en gardant l'inscription des membres par invitation.",
     companyName: "Nom de l'entreprise",
-    ownerName: "Nom du proprietaire",
-    email: "E-mail du proprietaire",
+    ownerName: "Nom du propriétaire",
+    email: "E-mail du propriétaire",
     password: "Mot de passe",
     confirmPassword: "Confirmer le mot de passe",
-    bootstrapCode: "Code de creation (si fourni)",
-    submit: "Creer l'espace",
-    success: "Espace cree. Redirection vers l'onboarding...",
-    failed: "Impossible de creer l'espace.",
-    haveAccount: "Vous avez deja un compte ?",
+    bootstrapCode: "Code de création (si fourni)",
+    submit: "Créer l'espace",
+    success: "Espace créé. Redirection vers l'onboarding...",
+    failed: "Impossible de créer l'espace.",
+    haveAccount: "Vous avez déjà un compte ?",
     login: "Connexion",
     haveInvite: "Vous avez un lien d'invitation ?",
     invitationSignup: "Accepter l'invitation",
@@ -122,14 +122,14 @@ export default function WorkspaceSetupPage() {
   }
 
   return (
-    <div className="space-y-8">
-      <div className="space-y-1.5">
-        <h1 className="font-heading text-3xl font-semibold tracking-tight text-zinc-900">{t.heading}</h1>
-        <p className="text-sm text-muted-foreground">{t.subtitle}</p>
+    <div className="space-y-4">
+      <div className="space-y-1">
+        <h1 className="font-heading text-2xl font-semibold tracking-tight text-zinc-900">{t.heading}</h1>
+        <p className="text-xs text-muted-foreground">{t.subtitle}</p>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <div className="space-y-1.5">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
+        <div className="space-y-1">
           <Label htmlFor="companyName" className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
             {t.companyName}
           </Label>
@@ -137,7 +137,7 @@ export default function WorkspaceSetupPage() {
             id="companyName"
             autoComplete="organization"
             className={cn(
-              "h-11 bg-zinc-50 border-zinc-200 text-zinc-900 rounded-lg focus-visible:ring-2 focus-visible:ring-[#001e3c]/20 focus-visible:border-[#001e3c] transition-all placeholder:text-zinc-300",
+              "h-9 bg-zinc-50 border-zinc-200 text-zinc-900 rounded-lg focus-visible:ring-2 focus-visible:ring-[#001e3c]/20 focus-visible:border-[#001e3c] transition-all placeholder:text-zinc-300",
               errors.companyName && "border-red-400 focus-visible:ring-red-200 focus-visible:border-red-400"
             )}
             {...register("companyName")}
@@ -147,7 +147,7 @@ export default function WorkspaceSetupPage() {
           ) : null}
         </div>
 
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           <Label htmlFor="name" className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
             {t.ownerName}
           </Label>
@@ -155,7 +155,7 @@ export default function WorkspaceSetupPage() {
             id="name"
             autoComplete="name"
             className={cn(
-              "h-11 bg-zinc-50 border-zinc-200 text-zinc-900 rounded-lg focus-visible:ring-2 focus-visible:ring-[#001e3c]/20 focus-visible:border-[#001e3c] transition-all placeholder:text-zinc-300",
+              "h-9 bg-zinc-50 border-zinc-200 text-zinc-900 rounded-lg focus-visible:ring-2 focus-visible:ring-[#001e3c]/20 focus-visible:border-[#001e3c] transition-all placeholder:text-zinc-300",
               errors.name && "border-red-400 focus-visible:ring-red-200 focus-visible:border-red-400"
             )}
             {...register("name")}
@@ -165,7 +165,7 @@ export default function WorkspaceSetupPage() {
           ) : null}
         </div>
 
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           <Label htmlFor="email" className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
             {t.email}
           </Label>
@@ -174,7 +174,7 @@ export default function WorkspaceSetupPage() {
             type="email"
             autoComplete="email"
             className={cn(
-              "h-11 bg-zinc-50 border-zinc-200 text-zinc-900 rounded-lg focus-visible:ring-2 focus-visible:ring-[#001e3c]/20 focus-visible:border-[#001e3c] transition-all placeholder:text-zinc-300",
+              "h-9 bg-zinc-50 border-zinc-200 text-zinc-900 rounded-lg focus-visible:ring-2 focus-visible:ring-[#001e3c]/20 focus-visible:border-[#001e3c] transition-all placeholder:text-zinc-300",
               errors.email && "border-red-400 focus-visible:ring-red-200 focus-visible:border-red-400"
             )}
             {...register("email")}
@@ -184,7 +184,7 @@ export default function WorkspaceSetupPage() {
           ) : null}
         </div>
 
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           <Label htmlFor="password" className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
             {t.password}
           </Label>
@@ -194,7 +194,7 @@ export default function WorkspaceSetupPage() {
               type={showPassword ? "text" : "password"}
               autoComplete="new-password"
               className={cn(
-                "h-11 bg-zinc-50 border-zinc-200 text-zinc-900 rounded-lg focus-visible:ring-2 focus-visible:ring-[#001e3c]/20 focus-visible:border-[#001e3c] transition-all placeholder:text-zinc-300 pr-10",
+                "h-9 bg-zinc-50 border-zinc-200 text-zinc-900 rounded-lg focus-visible:ring-2 focus-visible:ring-[#001e3c]/20 focus-visible:border-[#001e3c] transition-all placeholder:text-zinc-300 pr-10",
                 errors.password && "border-red-400 focus-visible:ring-red-200 focus-visible:border-red-400"
               )}
               {...register("password")}
@@ -213,7 +213,7 @@ export default function WorkspaceSetupPage() {
           ) : null}
         </div>
 
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           <Label htmlFor="confirmPassword" className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
             {t.confirmPassword}
           </Label>
@@ -223,7 +223,7 @@ export default function WorkspaceSetupPage() {
               type={showConfirmPassword ? "text" : "password"}
               autoComplete="new-password"
               className={cn(
-                "h-11 bg-zinc-50 border-zinc-200 text-zinc-900 rounded-lg focus-visible:ring-2 focus-visible:ring-[#001e3c]/20 focus-visible:border-[#001e3c] transition-all placeholder:text-zinc-300 pr-10",
+                "h-9 bg-zinc-50 border-zinc-200 text-zinc-900 rounded-lg focus-visible:ring-2 focus-visible:ring-[#001e3c]/20 focus-visible:border-[#001e3c] transition-all placeholder:text-zinc-300 pr-10",
                 errors.confirmPassword && "border-red-400 focus-visible:ring-red-200 focus-visible:border-red-400"
               )}
               {...register("confirmPassword")}
@@ -242,19 +242,19 @@ export default function WorkspaceSetupPage() {
           ) : null}
         </div>
 
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           <Label htmlFor="bootstrapCode" className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
             {t.bootstrapCode}
           </Label>
           <Input
             id="bootstrapCode"
-            className="h-11 bg-zinc-50 border-zinc-200 text-zinc-900 rounded-lg focus-visible:ring-2 focus-visible:ring-[#001e3c]/20 focus-visible:border-[#001e3c] transition-all placeholder:text-zinc-300"
+            className="h-9 bg-zinc-50 border-zinc-200 text-zinc-900 rounded-lg focus-visible:ring-2 focus-visible:ring-[#001e3c]/20 focus-visible:border-[#001e3c] transition-all placeholder:text-zinc-300"
             {...register("bootstrapCode")}
           />
         </div>
 
         <Button
-          className="w-full h-11 bg-[#001e3c] hover:bg-[#002b54] text-white rounded-lg text-sm font-semibold transition-all active:scale-[0.98] shadow-sm mt-2"
+          className="w-full h-9 bg-[#001e3c] hover:bg-[#002b54] text-white rounded-lg text-sm font-semibold transition-all active:scale-[0.98] shadow-sm mt-1"
           type="submit"
           disabled={isSubmitting}
         >

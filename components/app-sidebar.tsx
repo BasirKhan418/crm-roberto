@@ -93,7 +93,7 @@ const sidebarMessages = {
       catalogue: "Produits & Services",
       quotes: "Devis",
       notes: "Notes",
-      expenses: "Depenses",
+      expenses: "Dépenses",
       settings: "Paramètres",
       invoices: "Factures",
       tickets: "Tickets",

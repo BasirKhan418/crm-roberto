@@ -39,7 +39,7 @@ const roleLabels: Record<Locale, Record<string, string>> = {
     administrator: "Administrateur",
     manager: "Manager",
     standard_user: "Utilisateur standard",
-    secretary: "Secretaire",
+    secretary: "Secrétaire",
     technician: "Technicien",
     read_only: "Lecture seule",
     external_accountant: "Comptable externe",
@@ -75,13 +75,13 @@ const t = {
     },
   },
   fr: {
-    subject: (workspaceName: string) => `Vous etes invite a rejoindre ${workspaceName}`,
-    heading: (workspaceName: string) => `Invitation a ${workspaceName}`,
+    subject: (workspaceName: string) => `Vous êtes invité à rejoindre ${workspaceName}`,
+    heading: (workspaceName: string) => `Invitation à ${workspaceName}`,
     greeting: (name?: string) => (name ? `Bonjour ${name},` : "Bonjour,"),
-    intro: (workspaceName: string) => `Vous avez ete invite a rejoindre l'espace ${workspaceName} sur CRM Roberto.`,
+    intro: (workspaceName: string) => `Vous avez été invité à rejoindre l'espace ${workspaceName} sur CRM Roberto.`,
     workspace: (workspaceName: string) => `Espace : ${workspaceName}`,
-    invitedBy: (name: string) => `Invite par : ${name}`,
-    role: (role: string) => `Role attribue : ${role}`,
+    invitedBy: (name: string) => `Invité par : ${name}`,
+    role: (role: string) => `Rôle attribué : ${role}`,
     expiresAt: (value: string) => `Invitation valide jusqu'au : ${value}`,
     cta: "Accepter l'invitation",
     fallback:
@@ -96,9 +96,9 @@ const t = {
       expiresAt?: string;
     }) => {
       const intro = params.inviteeName ? `Bonjour ${params.inviteeName},` : "Bonjour,";
-      const invitedByLine = params.invitedByName ? `Invite par : ${params.invitedByName}\n` : "";
+      const invitedByLine = params.invitedByName ? `Invité par : ${params.invitedByName}\n` : "";
       const expiresLine = params.expiresAt ? `Invitation valide jusqu'au : ${params.expiresAt}\n` : "";
-      return `${intro}\n\nVous avez ete invite a rejoindre l'espace ${params.workspaceName} sur CRM Roberto.\n\nEspace : ${params.workspaceName}\nRole attribue : ${params.roleLabel}\n${invitedByLine}${expiresLine}\nAccepter l'invitation : ${params.invitationUrl}\n\nSi vous n'attendiez pas cette invitation, vous pouvez ignorer cet e-mail.`;
+      return `${intro}\n\nVous avez été invité à rejoindre l'espace ${params.workspaceName} sur CRM Roberto.\n\nEspace : ${params.workspaceName}\nRôle attribué : ${params.roleLabel}\n${invitedByLine}${expiresLine}\nAccepter l'invitation : ${params.invitationUrl}\n\nSi vous n'attendiez pas cette invitation, vous pouvez ignorer cet e-mail.`;
     },
   },
 } as const;

@@ -154,7 +154,7 @@ export function SiteHeader({ title = "Documents" }: { title?: string }) {
             orientation="vertical"
             className="mx-1 hidden data-[orientation=vertical]:h-4 lg:block"
           />
-          <h1 className="min-w-0 truncate text-base font-medium">{title}</h1>
+          <h1 className="min-w-0 text-base font-medium">{title}</h1>
         </div>
 
         {!isDashboard ? (

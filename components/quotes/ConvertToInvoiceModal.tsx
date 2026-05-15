@@ -46,9 +46,9 @@ const translations = {
   },
   fr: {
     title: 'Convertir en facture',
-    description: 'Definissez l\'echeance et les notes avant la conversion du devis signe.',
+    description: "Définissez l'échéance et les notes avant la conversion du devis signé.",
     dueDateLabel: '\u00c9ch\u00e9ance',
-    dueDateRequired: "L'echeance est obligatoire",
+    dueDateRequired: "L'échéance est obligatoire",
     notesLabel: 'Notes / conditions',
     notesPlaceholder: 'Ajoutez des notes de facture ou conditions de paiement...',
     cancel: 'Annuler',

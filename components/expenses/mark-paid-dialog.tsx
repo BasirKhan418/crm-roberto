@@ -82,21 +82,21 @@ export function MarkPaidDialog({
       failed: 'Failed to mark expense as paid',
     },
     fr: {
-      title: 'Marquer la depense payee',
-      description: 'Enregistrez le mode et la date. Cette action solde integralement la depense.',
-      remainingLabel: 'Reste a payer',
+      title: 'Marquer la dépense payée',
+      description: 'Enregistrez le mode et la date. Cette action solde intégralement la dépense.',
+      remainingLabel: 'Reste à payer',
       dateLabel: 'Date de paiement',
       methodLabel: 'Mode de paiement',
       cancel: 'Annuler',
       submit: 'Appliquer paiement',
-      sectionTitle: 'Donnees de confirmation paiement',
-      confirmTitle: 'Confirmer marquage paye',
+      sectionTitle: 'Données de confirmation paiement',
+      confirmTitle: 'Confirmer marquage payé',
       confirmDescription:
-        'Cette action marque la depense comme integralement payee avec la date et le mode saisis.',
+        'Cette action marque la dépense comme intégralement payée avec la date et le mode saisis.',
       confirmAction: 'Confirmer',
       methodRequired: 'Mode de paiement requis',
       dateRequired: 'Date de paiement requise',
-      failed: 'Echec mise a jour paiement',
+      failed: 'Échec mise à jour paiement',
     },
   }[locale];
 

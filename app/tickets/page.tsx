@@ -94,7 +94,7 @@ function buildTypeLabel(type: TicketType, locale: 'en' | 'fr') {
       dispute: 'Dispute',
     },
     fr: {
-      accounting: 'Comptabilite',
+      accounting: 'Comptabilité',
       validation: 'Validation',
       document: 'Document',
       dispute: 'Litige',
@@ -113,7 +113,7 @@ function buildLinkedTypeLabel(type: TicketLinkedType, locale: 'en' | 'fr') {
       client: 'Client',
     },
     fr: {
-      expense: 'Depense',
+      expense: 'Dépense',
       invoice: 'Facture',
       supplier: 'Fournisseur',
       client: 'Client',
@@ -217,42 +217,44 @@ export default function TicketsPage() {
       next: 'Next',
       linkedRecord: 'Linked record',
       loadError: 'Could not load tickets.',
+      statusLabels: { open: 'Open', waiting: 'Waiting', replied: 'Replied', resolved: 'Resolved', archived: 'Archived' },
     },
     fr: {
       shellTitle: 'Tickets',
       heading: 'Espace Tickets',
-      subtitle: 'Suivez les discussions, debloquez les attentes, et fluidifiez la communication interne.',
-      forbiddenTitle: "Vous n'avez pas acces aux tickets",
-      forbiddenHelp: "Demandez a un administrateur d'activer les permissions tickets.",
+      subtitle: 'Suivez les discussions, débloquez les attentes, et fluidifiez la communication interne.',
+      forbiddenTitle: "Vous n'avez pas accès aux tickets",
+      forbiddenHelp: "Demandez à un administrateur d'activer les permissions tickets.",
       search: 'Recherche',
       searchPlaceholder: 'Rechercher titre ou message...',
       status: 'Statut',
       type: 'Type',
-      linkedType: 'Type lie',
+      linkedType: 'Type lié',
       linkedId: 'ID de la ressource',
-      assignedToMe: 'Assignes a moi',
-      createdByMe: 'Crees par moi',
+      assignedToMe: 'Assignés à moi',
+      createdByMe: 'Créés par moi',
       unreadOnly: 'Non lus uniquement',
       rows: 'Lignes',
       all: 'Tous',
       filters: 'Filtres',
-      resetFilters: 'Reinitialiser',
+      resetFilters: 'Réinitialiser',
       refresh: 'Actualiser',
       newTicket: 'Nouveau ticket',
       noTickets: 'Aucun ticket pour ces filtres.',
       ticketTitle: 'Ticket',
       participants: 'Participants',
-      linked: 'Lie',
-      lastUpdate: 'Derniere mise a jour',
+      linked: 'Lié',
+      lastUpdate: 'Dernière mise à jour',
       open: 'Ouvrir',
-      createdBy: 'Cree par',
-      assigned: 'Assigne',
-      unassigned: 'Non assigne',
+      createdBy: 'Créé par',
+      assigned: 'Assigné',
+      unassigned: 'Non assigné',
       pageInfo: (current: number, total: number, count: number) => `Page ${current}/${total || 1} - ${count} tickets`,
-      previous: 'Precedent',
+      previous: 'Précédent',
       next: 'Suivant',
-      linkedRecord: 'Ressource liee',
+      linkedRecord: 'Ressource liée',
       loadError: 'Impossible de charger les tickets.',
+      statusLabels: { open: 'Ouvert', waiting: 'En attente', replied: 'Répondu', resolved: 'Résolu', archived: 'Archivé' },
     },
   }[locale];
 
@@ -278,7 +280,7 @@ export default function TicketsPage() {
 
   return (
     <CrmShell title={t.shellTitle} contentClassName="gap-4 px-4 py-3 lg:px-6 lg:py-4">
-      <div className="flex flex-col gap-2.5 rounded-2xl bg-card/70 p-3 text-left shadow-sm sm:p-4 lg:flex-row lg:items-end lg:justify-between">
+      <div className="flex flex-col gap-2.5 rounded-2xl bg-card/70 p-3 text-left shadow-sm sm:p-4 lg:flex-row lg:items-end lg:justify-between" data-tour-tickets-header>
         <div className="min-w-0">
           <h1 className="font-heading text-2xl font-bold tracking-tight text-foreground">{t.heading}</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">{t.subtitle}</p>
@@ -288,7 +290,7 @@ export default function TicketsPage() {
             {loading ? <Loader2Icon className="size-4 animate-spin" /> : <RefreshCwIcon className="size-4" />}
             {t.refresh}
           </Button>
-          <Button type="button" onClick={() => setCreateOpen(true)} disabled={!canViewTickets}>
+          <Button type="button" onClick={() => setCreateOpen(true)} disabled={!canViewTickets} data-tour-new-ticket>
             <MessageSquarePlusIcon className="size-4" />
             {t.newTicket}
           </Button>
@@ -299,7 +301,7 @@ export default function TicketsPage() {
         <ErrorMessage message={`${t.forbiddenTitle}. ${t.forbiddenHelp}`} />
       ) : null}
 
-      <section className="space-y-3 rounded-2xl border border-border/70 bg-card p-3 sm:p-4" aria-label={t.filters}>
+      <section className="space-y-3 rounded-2xl border border-border/70 bg-card p-3 sm:p-4" aria-label={t.filters} data-tour-tickets-filters>
         <div className="flex items-center gap-2">
           <FilterIcon className="size-4 text-muted-foreground" />
           <p className="text-sm font-semibold text-foreground">{t.filters}</p>
@@ -319,7 +321,7 @@ export default function TicketsPage() {
             <select className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm" value={statusFilter} onChange={(event) => { setStatusFilter((event.target.value || '') as TicketStatus | ''); setPage(1); }}>
               <option value="">{t.all}</option>
               {TICKET_STATUSES.map((status) => (
-                <option key={status} value={status}>{status}</option>
+                <option key={status} value={status}>{t.statusLabels[status as keyof typeof t.statusLabels] ?? status}</option>
               ))}
             </select>
           </div>
@@ -385,7 +387,7 @@ export default function TicketsPage() {
 
       {renderedError && canViewTickets ? <ErrorMessage message={renderedError || t.loadError} /> : null}
 
-      <section className="space-y-2">
+      <section className="space-y-2" data-tour-tickets-list>
         {loading ? (
           <div className="space-y-2 rounded-2xl border border-border/70 bg-card p-3 sm:p-4">
             {Array.from({ length: 6 }).map((_, index) => (

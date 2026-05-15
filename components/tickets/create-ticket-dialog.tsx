@@ -37,6 +37,17 @@ import {
 
 const FILE_ACCEPT = '.pdf,.jpg,.jpeg,.png,.heic';
 
+type LinkedRecordOption = { _id: string; label: string; sub?: string };
+type ExpenseApiItem = {
+  _id: string;
+  expenseDate?: string | null;
+  supplierRef?: string | null;
+  supplierId?: null | string | { _id: string; fullName?: string; companyName?: string | null };
+};
+type InvoiceApiItem = { _id: string; invoiceNumber: string; clientSnapshot?: { fullName?: string } };
+type ClientApiItem = { _id: string; fullName: string; companyName?: string | null; email?: string | null };
+type SupplierApiItem = { _id: string; fullName: string; contactName?: string | null; email?: string | null };
+
 type LinkedPrefill = {
   linkedType?: TicketLinkedType | null;
   linkedId?: string | null;
@@ -70,49 +81,133 @@ export function CreateTicketDialog({
   const [files, setFiles] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [linkedRecordSearch, setLinkedRecordSearch] = useState('');
+  const [linkedRecords, setLinkedRecords] = useState<LinkedRecordOption[]>([]);
+  const [linkedRecordsLoading, setLinkedRecordsLoading] = useState(false);
+  const [linkedLabel, setLinkedLabel] = useState('');
 
   const { users, loading: recipientsLoading, error: recipientsError, refetch: refetchRecipients } =
     useTicketRecipients(recipientSearch.trim() || undefined, 40);
+
+  useEffect(() => {
+    if (!linkedType || linkedId) {
+      if (!linkedType) setLinkedRecords([]);
+      return;
+    }
+
+    setLinkedRecordsLoading(true);
+    const controller = new AbortController();
+    const q = linkedRecordSearch.trim();
+
+    const urls: Record<string, string> = {
+      expense: `/api/expenses?limit=20${q ? `&search=${encodeURIComponent(q)}` : ''}`,
+      invoice: `/api/invoices?limit=20${q ? `&search=${encodeURIComponent(q)}` : ''}`,
+      client: `/api/clients?limit=20${q ? `&search=${encodeURIComponent(q)}` : ''}`,
+      supplier: `/api/suppliers?limit=20${q ? `&search=${encodeURIComponent(q)}` : ''}`,
+    };
+
+    const timer = setTimeout(() => {
+      fetch(urls[linkedType], { signal: controller.signal })
+        .then((res) => res.json())
+        .then((json) => {
+          let records: LinkedRecordOption[] = [];
+          if (linkedType === 'expense') {
+            const items = (json.items ?? json.data ?? []) as ExpenseApiItem[];
+            records = items.map((item) => {
+              const sup =
+                typeof item.supplierId === 'object' && item.supplierId
+                  ? (item.supplierId.companyName || item.supplierId.fullName || '')
+                  : '';
+              const label = item.supplierRef || sup || `#${item._id.slice(-6)}`;
+              const sub = item.expenseDate
+                ? new Date(item.expenseDate).toLocaleDateString(
+                    locale === 'fr' ? 'fr-FR' : 'en-GB',
+                    { day: '2-digit', month: 'short', year: 'numeric' },
+                  )
+                : '';
+              return { _id: item._id, label, sub };
+            });
+          } else if (linkedType === 'invoice') {
+            const items = (json.data ?? []) as InvoiceApiItem[];
+            records = items.map((item) => ({
+              _id: item._id,
+              label: item.invoiceNumber,
+              sub: item.clientSnapshot?.fullName ?? '',
+            }));
+          } else if (linkedType === 'client') {
+            const items = (json.data ?? []) as ClientApiItem[];
+            records = items.map((item) => ({
+              _id: item._id,
+              label: item.fullName,
+              sub: item.companyName || item.email || '',
+            }));
+          } else {
+            const items = (json.data ?? []) as SupplierApiItem[];
+            records = items.map((item) => ({
+              _id: item._id,
+              label: item.fullName,
+              sub: item.contactName || item.email || '',
+            }));
+          }
+          setLinkedRecords(records);
+          setLinkedRecordsLoading(false);
+        })
+        .catch((err: unknown) => {
+          if ((err as Error).name !== 'AbortError') {
+            setLinkedRecords([]);
+            setLinkedRecordsLoading(false);
+          }
+        });
+    }, 300);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [linkedType, linkedRecordSearch, linkedId, locale]);
 
   const t = useMemo(
     () =>
       locale === 'fr'
         ? {
-            title: 'Creer un ticket',
+            title: 'Créer un ticket',
             description: 'Discutez un sujet interne et assignez les bons destinataires.',
             ticketTitle: 'Titre',
             ticketType: 'Type',
             message: 'Message',
             recipients: 'Destinataires',
             recipientsSearch: 'Rechercher un collaborateur...',
-            recipientsEmpty: 'Aucun utilisateur trouve.',
+            recipientsEmpty: 'Aucun utilisateur trouvé.',
             linkedSection: 'Lien optionnel',
             linkedType: 'Type de lien',
-            linkedId: 'ID de la ressource',
-            linkedHint: 'Expense, invoice, supplier ou client ID.',
-            linkedIdHint: 'Si vous choisissez un type de lien, collez son ID (depuis l URL).',
-            linkedPrefill: 'Lien pre-rempli',
-            attachments: 'Pieces jointes',
+            linkedRecord: 'Enregistrement lié',
+            linkedHint: 'Optionnel – liez ce ticket à une dépense, une facture, un fournisseur ou un client.',
+            linkedSearch: 'Rechercher un enregistrement...',
+            linkedLoading: 'Chargement...',
+            linkedEmpty: 'Aucun enregistrement trouvé.',
+            linkedChange: 'Changer',
+            linkedPrefill: 'Lien pré-rempli',
+            attachments: 'Pièces jointes',
             addFiles: 'Ajouter des fichiers',
-            noFiles: 'Aucun fichier ajoute.',
+            noFiles: 'Aucun fichier ajouté.',
             removeFile: 'Retirer',
             cancel: 'Annuler',
-            create: 'Creer le ticket',
-            creating: 'Creation...',
-            requiredTitle: 'Le titre doit contenir au moins 3 caracteres.',
-            requiredBody: 'Ajoutez un message ou au moins une piece jointe.',
-            requiredLinkedId: 'Selectionnez Aucun lien ou renseignez un ID de ressource.',
-            created: 'Ticket cree avec succes.',
-            failed: 'Impossible de creer le ticket.',
+            create: 'Créer le ticket',
+            creating: 'Création...',
+            requiredTitle: 'Le titre doit contenir au moins 3 caractères.',
+            requiredBody: 'Ajoutez un message ou au moins une pièce jointe.',
+            requiredLinkedId: 'Sélectionnez Aucun lien ou choisissez un enregistrement dans la liste.',
+            created: 'Ticket créé avec succès.',
+            failed: 'Impossible de créer le ticket.',
             refreshRecipients: 'Actualiser',
             types: {
-              accounting: 'Comptabilite',
+              accounting: 'Comptabilité',
               validation: 'Validation',
               document: 'Document',
               dispute: 'Litige',
             },
             linkedTypes: {
-              expense: 'Depense',
+              expense: 'Dépense',
               invoice: 'Facture',
               supplier: 'Fournisseur',
               client: 'Client',
@@ -129,9 +224,12 @@ export function CreateTicketDialog({
             recipientsEmpty: 'No users found.',
             linkedSection: 'Optional link',
             linkedType: 'Linked type',
-            linkedId: 'Linked record ID',
-            linkedHint: 'Expense, invoice, supplier, or client ID.',
-            linkedIdHint: 'If you choose a linked type, paste its record ID (from the page URL).',
+            linkedRecord: 'Linked record',
+            linkedHint: 'Optional – link this ticket to an expense, invoice, supplier, or client.',
+            linkedSearch: 'Search records...',
+            linkedLoading: 'Loading...',
+            linkedEmpty: 'No records found.',
+            linkedChange: 'Change',
             linkedPrefill: 'Prefilled link',
             attachments: 'Attachments',
             addFiles: 'Add files',
@@ -142,7 +240,7 @@ export function CreateTicketDialog({
             creating: 'Creating...',
             requiredTitle: 'Title must contain at least 3 characters.',
             requiredBody: 'Add a message or at least one attachment.',
-            requiredLinkedId: 'Either select no linked type or provide a linked record ID.',
+            requiredLinkedId: 'Either select no linked type or choose a record from the list.',
             created: 'Ticket created successfully.',
             failed: 'Failed to create ticket.',
             refreshRecipients: 'Refresh',
@@ -172,6 +270,10 @@ export function CreateTicketDialog({
     setBody(prefill?.body?.trim() || '');
     setLinkedType(prefill?.linkedType || '');
     setLinkedId(prefill?.linkedId?.trim() || '');
+    setLinkedLabel(prefill?.linkedLabel?.trim() || '');
+    setLinkedRecordSearch('');
+    setLinkedRecords([]);
+    setLinkedRecordsLoading(false);
     setRecipientSearch('');
     setSelectedRecipientIds([]);
     setFiles([]);
@@ -371,7 +473,13 @@ export function CreateTicketDialog({
               <select
                 className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
                 value={linkedType}
-                onChange={(event) => setLinkedType((event.target.value || '') as TicketLinkedType | '')}
+                onChange={(event) => {
+                  setLinkedType((event.target.value || '') as TicketLinkedType | '');
+                  setLinkedId('');
+                  setLinkedLabel('');
+                  setLinkedRecordSearch('');
+                  setLinkedRecords([]);
+                }}
               >
                 <option value="">-</option>
                 {TICKET_LINKED_TYPES.map((option) => (
@@ -381,16 +489,59 @@ export function CreateTicketDialog({
                 ))}
               </select>
             </div>
-            <div className="space-y-1.5">
-              <Label>{t.linkedId}</Label>
-              <Input
-                value={linkedId}
-                onChange={(event) => setLinkedId(event.target.value)}
-                disabled={!linkedType}
-                placeholder={linkedType ? 'e.g. 683f... (24 chars)' : '-'}
-              />
-              <p className="text-[11px] text-muted-foreground">{t.linkedIdHint}</p>
-            </div>
+            {linkedType && !linkedId ? (
+              <div className="sm:col-span-2 space-y-2 rounded-lg border border-border/60 p-3">
+                <Input
+                  value={linkedRecordSearch}
+                  onChange={(event) => setLinkedRecordSearch(event.target.value)}
+                  placeholder={t.linkedSearch}
+                />
+                <div className="max-h-40 space-y-1 overflow-y-auto pr-1">
+                  {linkedRecordsLoading ? (
+                    <p className="text-xs text-muted-foreground">{t.linkedLoading}</p>
+                  ) : linkedRecords.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">{t.linkedEmpty}</p>
+                  ) : (
+                    linkedRecords.map((record) => (
+                      <button
+                        key={record._id}
+                        type="button"
+                        onClick={() => {
+                          setLinkedId(record._id);
+                          setLinkedLabel(record.label);
+                        }}
+                        className="w-full rounded-md border border-border/60 px-2 py-1.5 text-left hover:bg-muted/50 focus:outline-none focus:ring-1 focus:ring-ring"
+                      >
+                        <span className="block truncate text-sm font-medium">{record.label}</span>
+                        {record.sub ? (
+                          <span className="block truncate text-xs text-muted-foreground">{record.sub}</span>
+                        ) : null}
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            ) : linkedType && linkedId ? (
+              <div className="space-y-1.5">
+                <Label>{t.linkedRecord}</Label>
+                <div className="flex items-center gap-2 rounded-md border border-input bg-muted/30 px-2.5 py-2">
+                  <span className="flex-1 truncate text-sm font-medium">{linkedLabel || linkedId}</span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => {
+                      setLinkedId('');
+                      setLinkedLabel('');
+                    }}
+                  >
+                    <XIcon className="size-3 mr-1" />
+                    {t.linkedChange}
+                  </Button>
+                </div>
+              </div>
+            ) : null}
           </div>
 
           <div className="space-y-2 rounded-lg border border-border/60 p-3">

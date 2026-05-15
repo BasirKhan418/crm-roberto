@@ -201,7 +201,7 @@ function QuotesPageContent() {
       totalHT: 'Total HT',
       totalTVA: 'Total TVA',
       totalTTC: 'Total TTC',
-      totalAccepted: 'Total accepte',
+      totalAccepted: 'Total accepté',
       actionRejected: (n: number) => `${n} devis refusé${n === 1 ? '' : 's'} par le client — à relancer ou réviser`,
       actionRejectedHint: 'Disparaît lorsque vous marquez chaque devis refusé comme « Traité »',
       actionAccepted: (n: number) => `${n} devis accepté${n === 1 ? '' : 's'} — prêt${n === 1 ? '' : 's'} à facturer`,

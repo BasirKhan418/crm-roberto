@@ -28,10 +28,11 @@ export function GlobalTicketCreate() {
         variant="outline"
         size="sm"
         className="h-9 rounded-full px-3"
+        aria-label={label}
         onClick={() => setOpen(true)}
       >
         <MessageSquarePlusIcon className="size-4" />
-        <span>{label}</span>
+        <span className="hidden sm:inline">{label}</span>
       </Button>
 
       <CreateTicketDialog open={open} onOpenChange={setOpen} locale={locale} />

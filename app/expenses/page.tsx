@@ -13,6 +13,7 @@ import {
   FilePlus2Icon,
   Loader2Icon,
   MoreHorizontalIcon,
+  PaperclipIcon,
   PencilIcon,
   RefreshCwIcon,
   SearchIcon,
@@ -160,14 +161,29 @@ function getCategoryName(expense: ExpenseListItem) {
   return '-';
 }
 
+function getPaymentPillClass(paymentStatus: string, status: string) {
+  if (status === 'draft' || status === 'archived') return 'bg-muted text-muted-foreground';
+  if (paymentStatus === 'paid') return 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:ring-emerald-800';
+  if (paymentStatus === 'partial') return 'bg-amber-50 text-amber-700 ring-1 ring-amber-200 dark:bg-amber-950/50 dark:text-amber-300 dark:ring-amber-800';
+  return 'bg-rose-50 text-rose-700 ring-1 ring-rose-200 dark:bg-rose-950/50 dark:text-rose-300 dark:ring-rose-800';
+}
+
+function getCardAccentClass(status: string, paymentStatus: string) {
+  if (status === 'archived') return 'border-l-slate-400';
+  if (status === 'draft') return 'border-l-zinc-400';
+  if (paymentStatus === 'paid') return 'border-l-emerald-500';
+  if (paymentStatus === 'partial') return 'border-l-amber-400';
+  return 'border-l-rose-500';
+}
+
 function getSortByOptions(locale: 'en' | 'fr') {
   if (locale === 'fr') {
     return [
-      { value: 'expenseDate', label: 'Date depense' },
+      { value: 'expenseDate', label: 'Date dépense' },
       { value: 'amountInclVatCents', label: 'Montant TTC' },
-      { value: 'supplierRef', label: 'Reference' },
+      { value: 'supplierRef', label: 'Référence' },
       { value: 'status', label: 'Statut' },
-      { value: 'createdAt', label: 'Date creation' },
+      { value: 'createdAt', label: 'Date création' },
     ];
   }
 
@@ -304,6 +320,9 @@ export default function ExpensesPage() {
       all: 'All',
       listTitle: 'Expenses list',
       listSubtitle: 'Complete list with actions, drill-down, and payment controls.',
+      paymentStatusLabels: { paid: 'Paid', unpaid: 'Unpaid', partial: 'Partial' },
+      statusLabels: { draft: 'Draft', active: 'Active', archived: 'Archived' },
+      tableRemaining: 'Remaining',
       refresh: 'Refresh',
       noExpenses: 'No expenses found for the selected filters.',
       tableDate: 'Date',
@@ -351,98 +370,117 @@ export default function ExpensesPage() {
       lookupsErrorTitle: 'Lookup data unavailable',
     },
     fr: {
-      shellTitle: 'Depenses',
-      heading: 'Espace Depenses',
-      subtitle: 'Capturez des fichiers, creez des depenses manuelles et gerez tout le cycle de vie.',
-      forbiddenTitle: "Vous n'avez pas acces aux depenses",
-      forbiddenHelp: "Demandez a un administrateur d'activer les permissions depenses.",
+      shellTitle: 'Dépenses',
+      heading: 'Espace Dépenses',
+      subtitle: 'Capturez des fichiers, créez des dépenses manuelles et gérez tout le cycle de vie.',
+      forbiddenTitle: "Vous n'avez pas accès aux dépenses",
+      forbiddenHelp: "Demandez à un administrateur d'activer les permissions dépenses.",
       takePhoto: 'Prendre une photo',
-      takePhotoHint: 'Capture mobile pour les recus.',
+      takePhotoHint: 'Capture mobile pour les reçus.',
       importFile: 'Importer un fichier',
-      importFileHint: 'Upload PDF/JPEG/PNG/HEIC et creation d\'un brouillon par fichier.',
-      forwardEmail: 'Transferer par email',
-      forwardEmailHint: 'Le point d\'ingestion est pret pour la phase suivante.',
-      dragDrop: 'Glisser-deposer',
-      dragDropHint: 'Deposez des fichiers ici sur desktop pour creer des brouillons.',
-      dragDropMobileHint: 'Point d\'entree desktop. Utilisez Importer ou Photo sur mobile.',
-      createManual: 'Creer manuellement',
-      createManualHint: 'Ouvre le formulaire complet de depense.',
+      importFileHint: "Upload PDF/JPEG/PNG/HEIC et création d'un brouillon par fichier.",
+      forwardEmail: 'Transférer par email',
+      forwardEmailHint: "Le point d'ingestion est prêt pour la phase suivante.",
+      dragDrop: 'Glisser-déposer',
+      dragDropHint: 'Déposez des fichiers ici sur desktop pour créer des brouillons.',
+      dragDropMobileHint: "Point d'entrée desktop. Utilisez Importer ou Photo sur mobile.",
+      createManual: 'Créer manuellement',
+      createManualHint: 'Ouvre le formulaire complet de dépense.',
       copy: 'Copier',
-      copied: 'Copie',
+      copied: 'Copié',
       pendingSetup: 'Configuration en attente',
       browseFiles: 'Parcourir',
       choosePhoto: 'Capturer',
-      uploadQueueTitle: 'File d\'upload',
-      uploadQueueSubtitle: 'Suivez la progression, relancez les echecs, et ouvrez les brouillons crees.',
+      uploadQueueTitle: "File d'upload",
+      uploadQueueSubtitle: 'Suivez la progression, relancez les échecs, et ouvrez les brouillons créés.',
       retry: 'Relancer',
       openDraft: 'Ouvrir brouillon',
       filtersTitle: 'Filtres et tri',
       searchLabel: 'Recherche',
-      searchPlaceholder: 'Fournisseur, reference, notes...',
+      searchPlaceholder: 'Fournisseur, référence, notes...',
       statusLabel: 'Statut',
       paymentStatusLabel: 'Paiement',
-      categoryLabel: 'Categorie',
+      categoryLabel: 'Catégorie',
       supplierLabel: 'Fournisseur',
-      periodStartLabel: 'Debut periode',
-      periodEndLabel: 'Fin periode',
+      periodStartLabel: 'Début période',
+      periodEndLabel: 'Fin période',
       sortByLabel: 'Trier par',
       sortOrderLabel: 'Ordre',
       rowsPerPage: 'Lignes',
       clearFilters: 'Effacer',
       asc: 'Croissant',
-      desc: 'Decroissant',
+      desc: 'Décroissant',
       all: 'Tous',
-      listTitle: 'Liste des depenses',
-      listSubtitle: 'Liste complete avec actions, detail et controle paiement.',
+      listTitle: 'Liste des dépenses',
+      listSubtitle: 'Liste complète avec actions, détail et contrôle paiement.',
+      paymentStatusLabels: { paid: 'Payée', unpaid: 'Impayée', partial: 'Partiel' },
+      statusLabels: { draft: 'Brouillon', active: 'Active', archived: 'Archivée' },
+      tableRemaining: 'Restant',
       refresh: 'Actualiser',
-      noExpenses: 'Aucune depense pour ces filtres.',
+      noExpenses: 'Aucune dépense pour ces filtres.',
       tableDate: 'Date',
       tableSupplier: 'Fournisseur',
-      tableCategory: 'Categorie',
-      tableReference: 'Reference',
+      tableCategory: 'Catégorie',
+      tableReference: 'Référence',
       tableAmount: 'TTC',
       tablePayment: 'Paiement',
-      tableState: 'Etat',
+      tableState: 'État',
       tableAttachments: 'Fichiers',
       tableAction: 'Actions',
       open: 'Ouvrir',
       edit: 'Modifier',
       duplicate: 'Dupliquer',
       archive: 'Archiver',
-      markPaid: 'Marquer payee',
+      markPaid: 'Marquer payée',
       delete: 'Supprimer',
       noReference: '-',
-      pageInfo: (current: number, total: number, count: number) => `Page ${current}/${total || 1} - ${count} elements`,
-      previous: 'Precedent',
+      pageInfo: (current: number, total: number, count: number) => `Page ${current}/${total || 1} - ${count} éléments`,
+      previous: 'Précédent',
       next: 'Suivant',
       fileTooLarge: `Fichier trop volumineux. Maximum ${formatFileSizeMb(EXPENSE_MAX_FILE_SIZE_BYTES)} MB`,
-      unsupportedFile: 'Type non supporte. Autorises: PDF, JPEG, PNG, HEIC.',
-      failedPresign: "Impossible de generer l'URL d'upload",
-      failedUpload: "Echec de l'upload",
-      failedDraft: 'Impossible de creer le brouillon',
-      copiedEmail: 'Adresse de transfert copiee',
-      mobileCaptureNote: 'Si la capture camera est non supportee, choisissez une image manuellement.',
-      actionDuplicateSuccess: 'Depense dupliquee',
-      actionCreateSuccess: 'Depense creee',
-      actionUpdateSuccess: 'Depense mise a jour',
-      actionArchiveSuccess: 'Depense archivee',
-      actionDeleteSuccess: 'Depense supprimee',
-      markPaidSuccess: 'Depense marquee payee',
-      actionFailed: 'Echec action',
-      editLoadFailed: 'Impossible de charger la depense pour modification',
-      confirmArchive: 'Archiver cette depense ?',
-      confirmDelete: 'Supprimer cette depense ? Cette action est irreversible.',
-      confirmDeleteTitle: 'Confirmer suppression depense',
+      unsupportedFile: 'Type non supporté. Autorisés : PDF, JPEG, PNG, HEIC.',
+      failedPresign: "Impossible de générer l'URL d'upload",
+      failedUpload: "Échec de l'upload",
+      failedDraft: 'Impossible de créer le brouillon',
+      copiedEmail: 'Adresse de transfert copiée',
+      mobileCaptureNote: 'Si la capture caméra est non supportée, choisissez une image manuellement.',
+      actionDuplicateSuccess: 'Dépense dupliquée',
+      actionCreateSuccess: 'Dépense créée',
+      actionUpdateSuccess: 'Dépense mise à jour',
+      actionArchiveSuccess: 'Dépense archivée',
+      actionDeleteSuccess: 'Dépense supprimée',
+      markPaidSuccess: 'Dépense marquée payée',
+      actionFailed: 'Échec action',
+      editLoadFailed: 'Impossible de charger la dépense pour modification',
+      confirmArchive: 'Archiver cette dépense ?',
+      confirmDelete: 'Supprimer cette dépense ? Cette action est irréversible.',
+      confirmDeleteTitle: 'Confirmer suppression dépense',
       confirmDeleteDescription: (label: string) =>
-        `Vous allez supprimer definitivement cette depense (${label}). Cette action est irreversible.`,
+        `Vous allez supprimer définitivement cette dépense (${label}). Cette action est irréversible.`,
       confirmDeleteCancel: 'Annuler',
-      confirmDeleteAction: 'Supprimer depense',
-      lookupsLoading: 'Chargement des referentiels...',
-      lookupsErrorTitle: 'Referentiels indisponibles',
+      confirmDeleteAction: 'Supprimer dépense',
+      lookupsLoading: 'Chargement des référentiels...',
+      lookupsErrorTitle: 'Référentiels indisponibles',
     },
   }[locale];
 
   const sortByOptions = useMemo(() => getSortByOptions(locale), [locale]);
+
+  const activeFiltersCount = useMemo(
+    () =>
+      [
+        debouncedSearch,
+        statusFilter,
+        paymentStatusFilter,
+        categoryFilter,
+        supplierFilter,
+        periodStart,
+        periodEnd,
+        sortBy !== 'expenseDate' ? sortBy : '',
+        sortOrder !== 'desc' ? sortOrder : '',
+      ].filter(Boolean).length,
+    [debouncedSearch, statusFilter, paymentStatusFilter, categoryFilter, supplierFilter, periodStart, periodEnd, sortBy, sortOrder]
+  );
 
   const forwardAddress = useMemo(() => {
     if (!user?.companyId) {
@@ -790,108 +828,105 @@ export default function ExpensesPage() {
   return (
     <CrmShell title={t.shellTitle}>
       <div className="space-y-5">
-        <section className="space-y-1.5">
+        <section className="space-y-1.5" data-tour-expenses-header>
           <h1 className="font-heading text-2xl font-semibold tracking-tight">{t.heading}</h1>
           <p className="text-sm text-muted-foreground">{t.subtitle}</p>
           <p className="text-xs text-muted-foreground">{t.mobileCaptureNote}</p>
         </section>
 
-        <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-          <Card className="border-border/70">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">{t.takePhoto}</CardTitle>
-              <CardDescription>{t.takePhotoHint}</CardDescription>
+        <section className="grid grid-cols-2 gap-3 xl:grid-cols-5" data-tour-expenses-capture>
+          <Card size="sm" className="border-border/70">
+            <CardHeader className="flex-1 pb-2">
+              <CardTitle>{t.takePhoto}</CardTitle>
+              <CardDescription className="text-xs">{t.takePhotoHint}</CardDescription>
             </CardHeader>
             <CardContent>
               <Button
                 type="button"
+                size="sm"
                 className="w-full"
                 onClick={() => photoInputRef.current?.click()}
                 disabled={!canManageExpenses}
               >
-                <CameraIcon className="size-4" />
-                {t.choosePhoto}
+                <CameraIcon className="size-4 shrink-0" />
+                <span className="truncate">{t.choosePhoto}</span>
               </Button>
             </CardContent>
           </Card>
 
-          <Card className="border-border/70">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">{t.importFile}</CardTitle>
-              <CardDescription>{t.importFileHint}</CardDescription>
+          <Card size="sm" className="border-border/70">
+            <CardHeader className="flex-1 pb-2">
+              <CardTitle>{t.importFile}</CardTitle>
+              <CardDescription className="text-xs">{t.importFileHint}</CardDescription>
             </CardHeader>
             <CardContent>
               <Button
                 type="button"
+                size="sm"
                 className="w-full"
                 variant="outline"
                 onClick={() => importInputRef.current?.click()}
                 disabled={!canManageExpenses}
               >
-                <UploadIcon className="size-4" />
-                {t.browseFiles}
+                <UploadIcon className="size-4 shrink-0" />
+                <span className="truncate">{t.browseFiles}</span>
               </Button>
             </CardContent>
           </Card>
 
-          <Card className="border-border/70">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">{t.forwardEmail}</CardTitle>
-              <CardDescription>{t.forwardEmailHint}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <div className="rounded-lg border border-border/60 bg-muted/30 px-2 py-1.5 text-xs font-medium text-foreground/80">
-                {forwardAddress}
-              </div>
-              <div className="flex items-center gap-2">
-                <Button type="button" variant="outline" size="sm" onClick={() => void copyForwardAddress()}>
-                  <CopyIcon className="size-3.5" />
-                  {copyFeedback ? t.copied : t.copy}
-                </Button>
-                <span className="text-[11px] text-muted-foreground">{t.pendingSetup}</span>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-border/70">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">{t.dragDrop}</CardTitle>
-              <CardDescription>{isMobile ? t.dragDropMobileHint : t.dragDropHint}</CardDescription>
+          <Card size="sm" className="border-border/70">
+            <CardHeader className="flex-1 pb-2">
+              <CardTitle>{t.forwardEmail}</CardTitle>
+              <CardDescription className="text-xs">{t.forwardEmailHint}</CardDescription>
             </CardHeader>
             <CardContent>
-              <div
-                role="presentation"
-                onDrop={handleDrop}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                className={`flex min-h-24 items-center justify-center rounded-lg border border-dashed px-3 text-xs transition ${
-                  isMobile
-                    ? 'border-border/50 bg-muted/20 text-muted-foreground'
-                    : isDragActive
-                      ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-border/70 bg-muted/10 text-muted-foreground'
-                }`}
-              >
-                {isMobile ? t.dragDropMobileHint : t.dragDropHint}
-              </div>
+              <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => void copyForwardAddress()}>
+                <CopyIcon className="size-4 shrink-0" />
+                <span className="truncate">{copyFeedback ? t.copied : t.copy}</span>
+              </Button>
             </CardContent>
           </Card>
 
-          <Card className="border-border/70">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">{t.createManual}</CardTitle>
-              <CardDescription>{t.createManualHint}</CardDescription>
+          <div className="hidden md:block">
+            <Card size="sm" className="border-border/70 h-full">
+              <CardHeader className="flex-1 pb-2">
+                <CardTitle>{t.dragDrop}</CardTitle>
+                <CardDescription className="text-xs">{t.dragDropHint}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div
+                  role="presentation"
+                  onDrop={handleDrop}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  className={`flex min-h-10 items-center justify-center rounded-lg border border-dashed px-3 text-xs transition ${
+                    isDragActive
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border/70 bg-muted/10 text-muted-foreground'
+                  }`}
+                >
+                  {t.dragDropHint}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card size="sm" className="border-border/70">
+            <CardHeader className="flex-1 pb-2">
+              <CardTitle>{t.createManual}</CardTitle>
+              <CardDescription className="text-xs">{t.createManualHint}</CardDescription>
             </CardHeader>
             <CardContent>
               <Button
                 type="button"
+                size="sm"
                 className="w-full"
                 variant="secondary"
                 onClick={() => setManualDialogOpen(true)}
                 disabled={!canManageExpenses}
               >
-                <FilePlus2Icon className="size-4" />
-                {t.createManual}
+                <FilePlus2Icon className="size-4 shrink-0" />
+                <span className="truncate">{t.createManual}</span>
               </Button>
             </CardContent>
           </Card>
@@ -982,13 +1017,13 @@ export default function ExpensesPage() {
           </Card>
         ) : null}
 
-        <Card className="border-border/70">
+        <Card className="border-border/70" data-tour-expenses-filters>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">{t.filtersTitle}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
-              <div className="space-y-1.5 md:col-span-2 xl:col-span-2">
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 xl:grid-cols-8">
+              <div className="space-y-1.5 col-span-2 xl:col-span-2">
                 <Label>{t.searchLabel}</Label>
                 <div className="relative">
                   <SearchIcon className="pointer-events-none absolute top-2 left-2.5 size-4 text-muted-foreground" />
@@ -1011,7 +1046,7 @@ export default function ExpensesPage() {
                   <option value="">{t.all}</option>
                   {EXPENSE_STATUS.map((status) => (
                     <option key={status} value={status}>
-                      {status}
+                      {t.statusLabels[status as keyof typeof t.statusLabels] ?? status}
                     </option>
                   ))}
                 </select>
@@ -1027,7 +1062,7 @@ export default function ExpensesPage() {
                   <option value="">{t.all}</option>
                   {EXPENSE_PAYMENT_STATUS.map((status) => (
                     <option key={status} value={status}>
-                      {status}
+                      {t.paymentStatusLabels[status as keyof typeof t.paymentStatusLabels] ?? status}
                     </option>
                   ))}
                 </select>
@@ -1067,12 +1102,12 @@ export default function ExpensesPage() {
 
               <div className="space-y-1.5">
                 <Label>{t.periodStartLabel}</Label>
-                <Input type="date" value={periodStart} onChange={(event) => setPeriodStart(event.target.value)} />
+                <Input type="date" value={periodStart} onChange={(event) => setPeriodStart(event.target.value)} className="h-8 text-sm" />
               </div>
 
               <div className="space-y-1.5">
                 <Label>{t.periodEndLabel}</Label>
-                <Input type="date" value={periodEnd} onChange={(event) => setPeriodEnd(event.target.value)} />
+                <Input type="date" value={periodEnd} onChange={(event) => setPeriodEnd(event.target.value)} className="h-8 text-sm" />
               </div>
 
               <div className="space-y-1.5">
@@ -1118,6 +1153,11 @@ export default function ExpensesPage() {
               </div>
 
               <Button type="button" variant="outline" size="sm" onClick={resetFilters}>
+                {activeFiltersCount > 0 ? (
+                  <span className="inline-flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                    {activeFiltersCount}
+                  </span>
+                ) : null}
                 {t.clearFilters}
               </Button>
             </div>
@@ -1131,7 +1171,7 @@ export default function ExpensesPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-border/70">
+        <Card className="border-border/70" data-tour-expenses-list>
           <CardHeader className="pb-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
@@ -1171,13 +1211,13 @@ export default function ExpensesPage() {
                   const rowLoading = actionLoadingId === expense._id;
 
                   return (
-                    <div key={expense._id} className="rounded-xl border border-border/70 p-3">
+                    <div key={expense._id} className={`rounded-xl border border-border/70 border-l-4 p-3 pl-3.5 ${getCardAccentClass(expense.status, expense.paymentStatus)}`}>
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <p className="truncate text-sm font-semibold">{getSupplierName(expense)}</p>
                           <p className="text-xs text-muted-foreground">{formatDateDisplay(expense.expenseDate)}</p>
                         </div>
-                        <ExpenseStatusBadge status={expense.status} paymentStatus={expense.paymentStatus} />
+                        <ExpenseStatusBadge status={expense.status} paymentStatus={expense.paymentStatus} locale={locale} />
                       </div>
 
                       <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
@@ -1191,7 +1231,19 @@ export default function ExpensesPage() {
                         </div>
                         <div className="rounded-md border border-border/60 p-2">
                           <p className="text-muted-foreground">{t.tablePayment}</p>
-                          <p className="text-sm font-medium">{expense.paymentStatus}</p>
+                          <span className={`mt-0.5 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${getPaymentPillClass(expense.paymentStatus, expense.status)}`}>
+                            {t.paymentStatusLabels[expense.paymentStatus as keyof typeof t.paymentStatusLabels] ?? expense.paymentStatus}
+                          </span>
+                          {expense.paymentStatus === 'partial' && (expense.remainingBalanceCents ?? 0) > 0 ? (
+                            <p className="mt-0.5 text-xs text-amber-600 dark:text-amber-400">
+                              {t.tableRemaining}:{' '}
+                              <ExpenseMoneyDisplay
+                                cents={expense.remainingBalanceCents ?? 0}
+                                locale={locale === 'fr' ? 'fr-FR' : 'en-GB'}
+                                className="inline font-medium"
+                              />
+                            </p>
+                          ) : null}
                         </div>
                         <div className="rounded-md border border-border/60 p-2">
                           <p className="text-muted-foreground">{t.tableCategory}</p>
@@ -1199,7 +1251,10 @@ export default function ExpensesPage() {
                         </div>
                         <div className="rounded-md border border-border/60 p-2">
                           <p className="text-muted-foreground">{t.tableAttachments}</p>
-                          <p className="text-sm font-medium">{expense.attachmentsCount || 0}</p>
+                          <span className="inline-flex items-center gap-1 text-sm font-medium">
+                            <PaperclipIcon className="size-3.5 text-muted-foreground" />
+                            {expense.attachmentsCount || 0}
+                          </span>
                         </div>
                       </div>
 
@@ -1266,7 +1321,7 @@ export default function ExpensesPage() {
                     <TableHead>{t.tableSupplier}</TableHead>
                     <TableHead>{t.tableCategory}</TableHead>
                     <TableHead>{t.tableReference}</TableHead>
-                    <TableHead>{t.tableAmount}</TableHead>
+                    <TableHead className="text-right">{t.tableAmount}</TableHead>
                     <TableHead>{t.tablePayment}</TableHead>
                     <TableHead>{t.tableState}</TableHead>
                     <TableHead>{t.tableAttachments}</TableHead>
@@ -1278,19 +1333,34 @@ export default function ExpensesPage() {
                     const rowLoading = actionLoadingId === expense._id;
 
                     return (
-                      <TableRow key={expense._id}>
-                        <TableCell>{formatDateDisplay(expense.expenseDate)}</TableCell>
-                        <TableCell className="max-w-44 truncate">{getSupplierName(expense)}</TableCell>
+                      <TableRow key={expense._id} className="cursor-pointer">
+                        <TableCell className="whitespace-nowrap text-muted-foreground">{formatDateDisplay(expense.expenseDate)}</TableCell>
+                        <TableCell className="max-w-44 truncate font-medium">{getSupplierName(expense)}</TableCell>
                         <TableCell className="max-w-44 truncate">{getCategoryName(expense)}</TableCell>
-                        <TableCell className="max-w-44 truncate">{expense.supplierRef || t.noReference}</TableCell>
-                        <TableCell>
-                          <ExpenseMoneyDisplay cents={expense.amountInclVatCents || 0} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} />
+                        <TableCell className="max-w-44 truncate">
+                          {expense.supplierRef ? (
+                            expense.supplierRef
+                          ) : (
+                            <span className="text-muted-foreground/40">{t.noReference}</span>
+                          )}
                         </TableCell>
-                        <TableCell>{expense.paymentStatus}</TableCell>
-                        <TableCell>
-                          <ExpenseStatusBadge status={expense.status} paymentStatus={expense.paymentStatus} />
+                        <TableCell className="text-right tabular-nums">
+                          <ExpenseMoneyDisplay cents={expense.amountInclVatCents || 0} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="font-medium" />
                         </TableCell>
-                        <TableCell>{expense.attachmentsCount || 0}</TableCell>
+                        <TableCell>
+                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${getPaymentPillClass(expense.paymentStatus, expense.status)}`}>
+                            {t.paymentStatusLabels[expense.paymentStatus as keyof typeof t.paymentStatusLabels] ?? expense.paymentStatus}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <ExpenseStatusBadge status={expense.status} paymentStatus={expense.paymentStatus} locale={locale} />
+                        </TableCell>
+                        <TableCell>
+                          <span className="inline-flex items-center gap-1 tabular-nums text-sm">
+                            <PaperclipIcon className="size-3.5 shrink-0 text-muted-foreground" />
+                            {expense.attachmentsCount || 0}
+                          </span>
+                        </TableCell>
                         <TableCell>
                           <div className="flex items-center justify-end gap-1.5">
                             {rowLoading ? <Loader2Icon className="size-4 animate-spin text-muted-foreground" /> : null}

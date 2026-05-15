@@ -54,7 +54,7 @@ const loginMessages = {
     signupPrompt: "Nouveau sur la plateforme executive\u00a0?",
     signupCta: "Accepter l'invitation",
     workspacePrompt: "Besoin d'onboarder une nouvelle entreprise ?",
-    workspaceCta: "Creer un espace",
+    workspaceCta: "Créer un espace",
     toastLoginSuccess: "Connexion r\u00e9ussie\u00a0! Redirection vers le tableau de bord...",
     toastLoginFailed: "\u00c9chec de la connexion. Veuillez v\u00e9rifier vos identifiants et r\u00e9essayer.",
     toastLoginError: "Une erreur s'est produite lors de la connexion. Veuillez r\u00e9essayer.",

@@ -807,7 +807,7 @@ const messages = {
       priceIncludingTaxNonNegative: 'Le prix TTC ne peut pas être négatif',
       invalidUserId: 'Identifiant utilisateur invalide',
       invalidPhone:
-        'Numero de telephone invalide. Formats acceptes : numeros internationaux comme +352 ou 00352, et numeros locaux.',
+        'Numéro de téléphone invalide. Formats acceptés : numéros internationaux comme +352 ou 00352, et numéros locaux.',
       companyNameRequired: "Le nom de l'entreprise est requis",
       firstNameRequired: 'Le prénom est requis',
       lastNameRequired: 'Le nom est requis',

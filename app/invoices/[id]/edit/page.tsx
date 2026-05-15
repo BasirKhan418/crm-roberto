@@ -124,8 +124,8 @@ export default function EditInvoicePage() {
       saved: 'Facture mise \u00e0 jour avec succ\u00e8s',
       loadFailed: 'Impossible de charger la facture',
       updateFailed: 'Impossible de mettre \u00e0 jour la facture',
-      locked: 'Seules les factures manuelles non envoyees peuvent etre modifiees',
-      readOnlyInfo: 'Cette facture est en lecture seule car elle provient d\'un devis ou a deja ete envoyee.',
+      locked: 'Seules les factures manuelles non envoy\u00e9es peuvent \u00eatre modifi\u00e9es',
+      readOnlyInfo: 'Cette facture est en lecture seule car elle provient d\'un devis ou a d\u00e9j\u00e0 \u00e9t\u00e9 envoy\u00e9e.',
     },
   }[locale as 'en' | 'fr'];
 
