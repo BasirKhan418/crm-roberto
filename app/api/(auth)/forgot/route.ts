@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     try{
         const { email ,status,otp, locale: rawLocale } = await request.json() as {
             email: string;
-            status: string;
+            status?: "forgot" | "verify";
             otp?: string;
             locale?: string;
         };
@@ -47,26 +47,35 @@ export async function POST(request: NextRequest) {
             const ttl = 5 * 60; 
             const result = await generateOtp(`forgot:${email}`, generatedOtp, ttl);
             if (!result.success) {
-                const retryAfterSeconds = typeof (result as { retryAfterSeconds?: unknown }).retryAfterSeconds === 'number'
-                    ? (result as { retryAfterSeconds: number }).retryAfterSeconds
-                    : 5 * 60;
+                if (result.reason === "rate_limit" || result.reason === "cooldown") {
+                    const retryAfterSeconds = result.retryAfterSeconds ?? 5 * 60;
+
+                    return NextResponse.json(
+                        {
+                            message: result.message,
+                            success: false,
+                            rateLimit: {
+                                maxRequests: 5,
+                                windowSeconds: 5 * 60,
+                                retryAfterSeconds,
+                                reason: result.reason,
+                            },
+                        },
+                        {
+                            status: 429,
+                            headers: {
+                                'Retry-After': String(retryAfterSeconds),
+                            },
+                        },
+                    );
+                }
 
                 return NextResponse.json(
                     {
                         message: result.message,
                         success: false,
-                        rateLimit: {
-                            maxRequests: 5,
-                            windowSeconds: 5 * 60,
-                            retryAfterSeconds,
-                        },
                     },
-                    {
-                        status: 429,
-                        headers: {
-                            'Retry-After': String(retryAfterSeconds),
-                        },
-                    }
+                    { status: 503 }
                 );
             }
 
@@ -89,16 +98,30 @@ export async function POST(request: NextRequest) {
 
             return NextResponse.json({ message: "If that email is registered, a reset code has been sent.", success: true },{ status: 200 });
         }
-        //handle otp verification for forgot password
-        if (typeof otp !== "string" || !otp.trim()) {
-            return NextResponse.json({ message: "OTP is required", success: false },{ status: 400 });
+
+        if(status === "verify"){
+            //handle otp verification for forgot password
+            if (typeof otp !== "string" || !otp.trim()) {
+                return NextResponse.json({ message: "OTP is required", success: false },{ status: 400 });
+            }
+            const verifyResult = await verifyOtp(`forgot:${email}`, otp);
+            if(verifyResult.success){
+                const jwtSecret = process.env.JWT_SECRET;
+                if (!jwtSecret) {
+                    console.error("[forgot] JWT_SECRET missing");
+                    return NextResponse.json({ message: "Server configuration error", success: false }, { status: 500 });
+                }
+
+                const token = jwt.sign({ email, purpose: "password_reset" }, jwtSecret, { expiresIn: '15m' });
+                return NextResponse.json({ message: "OTP verified successfully", success: true, token },{ status: 200 });
+            }
+            return NextResponse.json(
+                { message: verifyResult.message, success: false },
+                { status: verifyResult.reason === "store_unavailable" ? 503 : 400 }
+            );
         }
-        const verifyResult = await verifyOtp(`forgot:${email}`, otp);
-        if(verifyResult.success){
-            const token = jwt.sign({ email }, process.env.JWT_SECRET ||"", { expiresIn: '15m' });
-            return NextResponse.json({ message: "OTP verified successfully", success: true, token },{ status: 200 });
-        }
-        return NextResponse.json({ message: verifyResult.message, success: false },{ status: 400 });
+
+        return NextResponse.json({ message: "Invalid status value", success: false }, { status: 400 });
         
     }
     catch(error){
