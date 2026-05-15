@@ -155,10 +155,12 @@ async function createTicketAttachments(params: {
 function buildNotificationRecipients(ticket: {
   createdBy: unknown;
   assignedTo?: unknown[];
+  participantIds?: unknown[];
 }, excludeUserId?: string) {
   const participants = uniqueObjectIdStrings([
     toIdString(ticket.createdBy),
     ...((ticket.assignedTo || []).map((entry: unknown) => toIdString(entry))),
+    ...((ticket.participantIds || []).map((entry: unknown) => toIdString(entry))),
   ]);
 
   if (!excludeUserId) {
@@ -166,6 +168,17 @@ function buildNotificationRecipients(ticket: {
   }
 
   return participants.filter((participantId) => participantId !== excludeUserId);
+}
+
+async function listTicketParticipantIds(params: { companyId: string; ticketId: string }) {
+  const authorIds = await TicketMessage.find({
+    companyId: toObjectId(params.companyId),
+    ticketId: toObjectId(params.ticketId),
+  }).distinct("authorId");
+
+  return uniqueObjectIdStrings(
+    authorIds.map((authorId: unknown) => toIdString(authorId))
+  );
 }
 
 async function createTicketNotifications(params: {
@@ -704,6 +717,10 @@ export async function addTicketMessage(params: {
   const assigneeIds = uniqueObjectIdStrings(
     (ticket.assignedTo || []).map((assignee) => String(assignee))
   );
+  const participantIds = await listTicketParticipantIds({
+    companyId: params.companyId,
+    ticketId: params.ticketId,
+  });
   const isAuthorAssigned = assigneeIds.includes(params.authorId);
   const hasAssignees = assigneeIds.length > 0;
 
@@ -720,7 +737,13 @@ export async function addTicketMessage(params: {
 
   const unreadBy = uniqueObjectIdStrings([
     ...((ticket.unreadBy || []).map((entry: unknown) => String(entry))),
-    ...buildNotificationRecipients(ticket, params.authorId),
+    ...buildNotificationRecipients(
+      {
+        ...ticket,
+        participantIds,
+      },
+      params.authorId
+    ),
   ]).filter((userId) => userId !== params.authorId);
 
   await Ticket.updateOne(
@@ -752,7 +775,13 @@ export async function addTicketMessage(params: {
 
   await createTicketNotifications({
     companyId: params.companyId,
-    recipientIds: buildNotificationRecipients(ticket, params.authorId),
+    recipientIds: buildNotificationRecipients(
+      {
+        ...ticket,
+        participantIds,
+      },
+      params.authorId
+    ),
     actorId: params.authorId,
     action: "ticket_replied",
     snapshot: {
@@ -840,10 +869,23 @@ export async function changeTicketStatus(params: {
     archivedAt: nextStatus === "archived" ? new Date() : null,
   };
 
+  let participantIds: string[] = [];
+
   if (nextStatus === "resolved") {
+    participantIds = await listTicketParticipantIds({
+      companyId: params.companyId,
+      ticketId: params.ticketId,
+    });
+
     const unreadBy = uniqueObjectIdStrings([
       ...((ticket.unreadBy || []).map((entry: unknown) => String(entry))),
-      ...buildNotificationRecipients(ticket, params.updatedBy),
+      ...buildNotificationRecipients(
+        {
+          ...ticket,
+          participantIds,
+        },
+        params.updatedBy
+      ),
     ]).filter((userId) => userId !== params.updatedBy);
 
     updatePayload.unreadBy = unreadBy;
@@ -872,7 +914,13 @@ export async function changeTicketStatus(params: {
   if (nextStatus === "resolved") {
     await createTicketNotifications({
       companyId: params.companyId,
-      recipientIds: buildNotificationRecipients(ticket, params.updatedBy),
+      recipientIds: buildNotificationRecipients(
+        {
+          ...ticket,
+          participantIds,
+        },
+        params.updatedBy
+      ),
       actorId: params.updatedBy,
       action: "ticket_resolved",
       snapshot: {
