@@ -20,6 +20,7 @@ export async function GET(request: NextRequest) {
                 i18nKey("auth.accountSuspended"),
                 i18nKey("auth.accountRevoked"),
                 i18nKey("auth.accountTemporarilyLocked"),
+                i18nKey("auth.externalAccountantPortalOnly"),
             ]);
             const lowerMessage = typeof me.message === "string" ? me.message.toLowerCase() : "";
             const isForbiddenState =

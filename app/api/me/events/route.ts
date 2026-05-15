@@ -1,28 +1,39 @@
 import { NextRequest } from "next/server";
-import jwt from "jsonwebtoken";
 
 import ConnectDb from "@/db/connectDb";
 import User from "@/db/models/User";
 import { onAccountStatusChanged } from "@/lib/account-status-events";
+import { createI18nKey as i18nKey } from "@/lib/i18n/messages";
+import checkMe from "@/utils/middlewares/checkMe";
 
-type JwtPayload = {
-  sub: string;
+type StreamUserProjection = {
+  account_status?: "active" | "suspended";
+  role?: string;
 };
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
-  const token = request.cookies.get("token")?.value;
-  if (!token) {
-    return new Response("Unauthorized", { status: 401 });
+  const me = await checkMe(true);
+  if (!me.success || !me.user) {
+    const forbiddenStateMessages = new Set([
+      i18nKey("auth.accountSuspended"),
+      i18nKey("auth.accountRevoked"),
+      i18nKey("auth.accountTemporarilyLocked"),
+      i18nKey("auth.externalAccountantPortalOnly"),
+    ]);
+    const lowerMessage = typeof me.message === "string" ? me.message.toLowerCase() : "";
+    const isForbiddenState =
+      (typeof me.message === "string" && forbiddenStateMessages.has(me.message)) ||
+      lowerMessage.includes("suspended") ||
+      lowerMessage.includes("revoked") ||
+      lowerMessage.includes("locked") ||
+      lowerMessage.includes("portal");
+
+    return new Response(me.message || "Unauthorized", { status: isForbiddenState ? 403 : 401 });
   }
 
-  let decoded: JwtPayload;
-  try {
-    decoded = jwt.verify(token, process.env.JWT_SECRET || "") as JwtPayload;
-  } catch {
-    return new Response("Unauthorized", { status: 401 });
-  }
+  const userId = me.user.id;
 
   await ConnectDb();
 
@@ -54,13 +65,13 @@ export async function GET(request: NextRequest) {
 
       const checkUserStatus = async () => {
         try {
-          const user = await User.findById(decoded.sub)
-            .select("account_status")
-            .lean<{ account_status?: "active" | "suspended" } | null>();
+          const user = await User.findById(userId)
+            .select("account_status role")
+            .lean<StreamUserProjection | null>();
 
-          if (!user || user.account_status === "suspended") {
+          if (!user || user.account_status === "suspended" || user.role === "external_accountant") {
             sendEvent("suspended", {
-              reason: "account_suspended",
+              reason: user?.role === "external_accountant" ? "access_restricted" : "account_suspended",
               at: Date.now(),
             });
             close();
@@ -71,7 +82,7 @@ export async function GET(request: NextRequest) {
       };
 
       unsubscribe = onAccountStatusChanged((event) => {
-        if (event.userId !== decoded.sub) return;
+        if (event.userId !== userId) return;
 
         if (event.account_status === "suspended") {
           sendEvent("suspended", {

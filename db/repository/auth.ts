@@ -85,6 +85,22 @@ const loginUser = async (email: string, password: string) => {
             return { message: i18nKey("auth.invalidPassword"), success: false };
         }
 
+        if (user.role === "external_accountant") {
+            if (Number(user.failedLoginCount || 0) !== 0 || user.lockedUntil) {
+                await User.updateOne(
+                    { _id: user._id },
+                    {
+                        $set: {
+                            failedLoginCount: 0,
+                            lockedUntil: null,
+                        },
+                    }
+                );
+            }
+
+            return { message: i18nKey("auth.externalAccountantPortalOnly"), success: false };
+        }
+
         const ensuredCompany = await ensureUserCompanyContext({
             userId: String(user._id),
             fallbackName: user.name,

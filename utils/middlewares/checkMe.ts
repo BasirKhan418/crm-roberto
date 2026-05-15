@@ -87,6 +87,13 @@ const checkMe = async (fch:boolean) => {
                             let role: AppRole = normalizeRole(user.role);
                             let companyId = user.companyId ? String(user.companyId) : null;
 
+                            if (role === "external_accountant") {
+                                return {
+                                    message: i18nKey("auth.externalAccountantPortalOnly"),
+                                    success: false,
+                                };
+                            }
+
                             if (!companyId) {
                                 const ensured = await ensureUserCompanyContext({
                                     userId: String(user._id),
