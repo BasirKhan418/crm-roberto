@@ -1,6 +1,7 @@
 import { NextResponse, NextRequest } from "next/server";
 import { signupSchema } from "@/validators/auth.schema";
 import { buildValidationError } from "@/utils/api/validation";
+import { createI18nKey as i18nKey } from "@/lib/i18n/messages";
 export async function POST(request: NextRequest) {
     try {
         const { name, email, password } = await request.json() as {
@@ -18,12 +19,13 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
             {
                 success: false,
-                message: "Signup is invitation-only. Ask your administrator for an invitation.",
+                message: i18nKey("auth.signupInvitationOnly"),
             },
             { status: 403 }
         );
     }
     catch (error) {
-        return NextResponse.json({ message: "Error registering user" + error, success: false });
+        console.error("POST /api/(auth)/signup failed", error);
+        return NextResponse.json({ message: i18nKey("auth.registerError"), success: false }, { status: 500 });
     }
 }

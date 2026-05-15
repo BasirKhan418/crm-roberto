@@ -6,6 +6,7 @@ import Company from "@/db/models/Company";
 import CompanyProfile from "@/db/models/CompanyProfile";
 import User from "@/db/models/User";
 import { createInvitationExpiry, generateInvitationToken, hashInvitationToken } from "@/lib/invitation-token";
+import { createI18nKey as i18nKey } from "@/lib/i18n/messages";
 import { normalizeRole } from "@/lib/permissions";
 
 function sanitizeSlug(value: string) {
@@ -99,7 +100,7 @@ export async function ensureUserCompanyContext(params: {
     .lean<CompanyScopedUser | null>();
 
   if (!user) {
-    return { success: false, message: "User not found" as const };
+    return { success: false, message: i18nKey("auth.userNotFound") };
   }
 
   if (user.companyId) {
@@ -257,7 +258,7 @@ export async function createCompanyInvitation(params: {
   const invitedByObjectId = objectIdOrNull(params.invitedByUserId);
 
   if (!companyObjectId || !invitedByObjectId) {
-    return { success: false, message: "Invalid invitation context" };
+    return { success: false, message: i18nKey("users.invalidInvitationContext") };
   }
 
   const existing = await User.findOne({ email: params.email }).select(
@@ -269,7 +270,7 @@ export async function createCompanyInvitation(params: {
   const invitationExpiresAt = createInvitationExpiry();
 
   if (existing && String(existing.companyId || "") !== String(companyObjectId)) {
-    return { success: false, message: "This email already belongs to another company" };
+    return { success: false, message: i18nKey("users.emailBelongsAnotherCompany") };
   }
 
   if (existing) {
@@ -287,7 +288,7 @@ export async function createCompanyInvitation(params: {
 
     return {
       success: true,
-      message: "Invitation created",
+      message: i18nKey("users.invitationCreated"),
       token,
       userId: String(existing._id),
       invitationExpiresAt,
@@ -314,7 +315,7 @@ export async function createCompanyInvitation(params: {
 
   return {
     success: true,
-    message: "Invitation created",
+    message: i18nKey("users.invitationCreated"),
     token,
     userId: String(invitedUser._id),
     invitationExpiresAt,
@@ -335,18 +336,18 @@ export async function acceptCompanyInvitation(params: {
   );
 
   if (!invitedUser) {
-    return { success: false, message: "Invalid invitation token" };
+    return { success: false, message: i18nKey("users.invalidInvitationToken") };
   }
 
   if (invitedUser.invitationStatus !== "pending") {
-    return { success: false, message: "Invitation is no longer valid" };
+    return { success: false, message: i18nKey("users.invitationNoLongerValid") };
   }
 
   const isExpired = !invitedUser.invitationExpiresAt || invitedUser.invitationExpiresAt < new Date();
   if (isExpired) {
     invitedUser.invitationStatus = "expired";
     await invitedUser.save();
-    return { success: false, message: "Invitation expired" };
+    return { success: false, message: i18nKey("users.invitationExpired") };
   }
 
   invitedUser.password = params.passwordHash;
@@ -377,7 +378,7 @@ export async function acceptCompanyInvitation(params: {
 
   return {
     success: true,
-    message: "Invitation accepted",
+    message: i18nKey("users.invitationAccepted"),
     user: {
       _id: invitedUser._id,
       name: invitedUser.name,
@@ -410,15 +411,15 @@ export async function getInvitationByToken(token: string) {
     >();
 
   if (!user) {
-    return { success: false, message: "Invalid invitation token" };
+    return { success: false, message: i18nKey("users.invalidInvitationToken") };
   }
 
   if (user.invitationStatus !== "pending") {
-    return { success: false, message: "Invitation is no longer valid" };
+    return { success: false, message: i18nKey("users.invitationNoLongerValid") };
   }
 
   if (!user.invitationExpiresAt || user.invitationExpiresAt < new Date()) {
-    return { success: false, message: "Invitation expired" };
+    return { success: false, message: i18nKey("users.invitationExpired") };
   }
 
   const brandingResult = user.companyId
@@ -452,12 +453,12 @@ export async function updateCompanyUser(params: {
   const companyObjectId = objectIdOrNull(params.companyId);
   const userObjectId = objectIdOrNull(params.userId);
   if (!companyObjectId || !userObjectId) {
-    return { success: false, message: "Invalid user context" };
+    return { success: false, message: i18nKey("users.invalidUserContext") };
   }
 
   const user = await User.findOne({ _id: userObjectId, companyId: companyObjectId });
   if (!user) {
-    return { success: false, message: "User not found" };
+    return { success: false, message: i18nKey("users.userNotFound") };
   }
 
   if (params.role) {
@@ -472,7 +473,7 @@ export async function updateCompanyUser(params: {
     if (user.invitationStatus !== "pending") {
       return {
         success: false,
-        message: "Only pending invitations can be revoked",
+        message: i18nKey("users.onlyPendingInvitationRevocable"),
       };
     }
 
@@ -486,7 +487,7 @@ export async function updateCompanyUser(params: {
     if (user.invitationStatus !== "revoked") {
       return {
         success: false,
-        message: "Only revoked invitations can be restored",
+        message: i18nKey("users.onlyRevokedInvitationRestorable"),
       };
     }
 
@@ -496,7 +497,7 @@ export async function updateCompanyUser(params: {
       await user.save();
       return {
         success: false,
-        message: "Invitation expired and cannot be restored",
+        message: i18nKey("users.invitationExpiredCannotRestore"),
       };
     }
 
@@ -509,7 +510,7 @@ export async function updateCompanyUser(params: {
 
   return {
     success: true,
-    message: "User updated",
+    message: i18nKey("users.userUpdated"),
     user: {
       _id: user._id,
       name: user.name,

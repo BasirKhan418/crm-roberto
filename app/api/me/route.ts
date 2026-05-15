@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 
 import ConnectDb from "@/db/connectDb";
 import User from "@/db/models/User";
+import { createI18nKey as i18nKey } from "@/lib/i18n/messages";
 import checkMe from "@/utils/middlewares/checkMe";
 
 export async function GET(request: NextRequest) {
@@ -15,8 +16,14 @@ export async function GET(request: NextRequest) {
             const cookieStore = await cookies();
             cookieStore.delete("token");
 
+            const forbiddenStateMessages = new Set([
+                i18nKey("auth.accountSuspended"),
+                i18nKey("auth.accountRevoked"),
+                i18nKey("auth.accountTemporarilyLocked"),
+            ]);
             const lowerMessage = typeof me.message === "string" ? me.message.toLowerCase() : "";
             const isForbiddenState =
+                (typeof me.message === "string" && forbiddenStateMessages.has(me.message)) ||
                 lowerMessage.includes("suspended") ||
                 lowerMessage.includes("revoked") ||
                 lowerMessage.includes("locked");
@@ -32,7 +39,11 @@ export async function GET(request: NextRequest) {
             user: me.user,
         });
     } catch (error) {
-        return NextResponse.json({ message: "Error fetching user data" + error, success: false }, { status: 500 });
+        console.error("GET /api/me failed", error);
+        return NextResponse.json(
+            { message: i18nKey("auth.fetchUserError"), success: false },
+            { status: 500 }
+        );
     }
 }
 

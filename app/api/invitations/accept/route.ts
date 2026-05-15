@@ -4,6 +4,7 @@ import argon2 from "argon2";
 
 import { acceptCompanyInvitation } from "@/db/repository/company";
 import { signAuthToken } from "@/lib/auth-session";
+import { createI18nKey as i18nKey } from "@/lib/i18n/messages";
 import { buildValidationError } from "@/utils/api/validation";
 import { acceptInvitationSchema } from "@/validators/invitation.schema";
 
@@ -48,8 +49,9 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
+    console.error("POST /api/invitations/accept failed", error);
     return NextResponse.json(
-      { success: false, message: `Error accepting invitation ${error}` },
+      { success: false, message: i18nKey("users.acceptInvitationError") },
       { status: 500 }
     );
   }

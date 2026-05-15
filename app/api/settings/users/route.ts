@@ -14,6 +14,7 @@ import {
 import { buildValidationError } from "@/utils/api/validation";
 import { canManageTargetRole, requirePermission } from "@/lib/permissions";
 import { sendInvitationEmail } from "@/emails/auth/sendInvitationEmail";
+import { createI18nKey as i18nKey } from "@/lib/i18n/messages";
 import { resolveLocaleFromRequest } from "@/lib/i18n/locale";
 
 function getAppBaseUrl(request: NextRequest) {
@@ -30,12 +31,17 @@ export async function GET() {
     }
 
     if (!me.user.companyId) {
-      return NextResponse.json({ success: false, message: "Company context missing" }, { status: 400 });
+      return NextResponse.json(
+        { success: false, message: i18nKey("users.companyContextMissing") },
+        { status: 400 }
+      );
     }
 
     const permission = requirePermission(me.user.role, "users.view");
     if (!permission.success) {
-      return NextResponse.json({ success: false, message: permission.message }, { status: 403 });
+      const message =
+        permission.message === "Forbidden" ? i18nKey("users.forbidden") : permission.message;
+      return NextResponse.json({ success: false, message }, { status: 403 });
     }
 
     const result = await listCompanyUsers(me.user.companyId);
@@ -54,7 +60,11 @@ export async function GET() {
 
     return NextResponse.json({ success: true, users }, { status: 200 });
   } catch (error) {
-    return NextResponse.json({ success: false, message: `Error fetching users ${error}` }, { status: 500 });
+    console.error("GET /api/settings/users failed", error);
+    return NextResponse.json(
+      { success: false, message: i18nKey("users.fetchUsersError") },
+      { status: 500 }
+    );
   }
 }
 
@@ -66,12 +76,17 @@ export async function POST(request: NextRequest) {
     }
 
     if (!me.user.companyId) {
-      return NextResponse.json({ success: false, message: "Company context missing" }, { status: 400 });
+      return NextResponse.json(
+        { success: false, message: i18nKey("users.companyContextMissing") },
+        { status: 400 }
+      );
     }
 
     const permission = requirePermission(me.user.role, "users.invite");
     if (!permission.success) {
-      return NextResponse.json({ success: false, message: permission.message }, { status: 403 });
+      const message =
+        permission.message === "Forbidden" ? i18nKey("users.forbidden") : permission.message;
+      return NextResponse.json({ success: false, message }, { status: 403 });
     }
 
     const body = await request.json();
@@ -94,7 +109,7 @@ export async function POST(request: NextRequest) {
 
     if (!result.token) {
       return NextResponse.json(
-        { success: false, message: "Invitation token generation failed" },
+        { success: false, message: i18nKey("users.invitationTokenGenerationFailed") },
         { status: 500 }
       );
     }
@@ -120,8 +135,8 @@ export async function POST(request: NextRequest) {
     });
 
     const responseMessage = emailDelivery.success
-      ? "Invitation created and email sent"
-      : "Invitation created, but email delivery failed";
+      ? i18nKey("users.invitationCreatedAndEmailSent")
+      : i18nKey("users.invitationCreatedEmailFailed");
 
     return NextResponse.json({
       success: true,
@@ -137,7 +152,11 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    return NextResponse.json({ success: false, message: `Error inviting user ${error}` }, { status: 500 });
+    console.error("POST /api/settings/users failed", error);
+    return NextResponse.json(
+      { success: false, message: i18nKey("users.inviteUserError") },
+      { status: 500 }
+    );
   }
 }
 
@@ -149,7 +168,10 @@ export async function PATCH(request: NextRequest) {
     }
 
     if (!me.user.companyId) {
-      return NextResponse.json({ success: false, message: "Company context missing" }, { status: 400 });
+      return NextResponse.json(
+        { success: false, message: i18nKey("users.companyContextMissing") },
+        { status: 400 }
+      );
     }
 
     const body = await request.json();
@@ -163,14 +185,16 @@ export async function PATCH(request: NextRequest) {
       : requirePermission(me.user.role, "users.revoke");
 
     if (!actionPermission.success) {
-      return NextResponse.json({ success: false, message: actionPermission.message }, { status: 403 });
+      const message =
+        actionPermission.message === "Forbidden" ? i18nKey("users.forbidden") : actionPermission.message;
+      return NextResponse.json({ success: false, message }, { status: 403 });
     }
 
     if (validation.data.userId === me.user.id) {
       return NextResponse.json(
         {
           success: false,
-          message: "You cannot change your own role or access from user management. Ask another administrator.",
+          message: i18nKey("users.cannotSelfManage"),
         },
         { status: 400 }
       );
@@ -183,12 +207,18 @@ export async function PATCH(request: NextRequest) {
 
     const target = usersResult.users.find((user) => String(user._id) === validation.data.userId);
     if (!target) {
-      return NextResponse.json({ success: false, message: "User not found" }, { status: 404 });
+      return NextResponse.json(
+        { success: false, message: i18nKey("users.userNotFound") },
+        { status: 404 }
+      );
     }
 
     const targetRole = validation.data.role ?? target.role;
     if (!canManageTargetRole(me.user.role, targetRole)) {
-      return NextResponse.json({ success: false, message: "Forbidden" }, { status: 403 });
+      return NextResponse.json(
+        { success: false, message: i18nKey("users.forbidden") },
+        { status: 403 }
+      );
     }
 
     const result = await updateCompanyUser({
@@ -201,6 +231,10 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json(result, { status: result.success ? 200 : 400 });
   } catch (error) {
-    return NextResponse.json({ success: false, message: `Error updating user ${error}` }, { status: 500 });
+    console.error("PATCH /api/settings/users failed", error);
+    return NextResponse.json(
+      { success: false, message: i18nKey("users.updateUserError") },
+      { status: 500 }
+    );
   }
 }

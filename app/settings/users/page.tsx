@@ -21,6 +21,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useLocale } from '@/components/providers/locale-provider';
+import { resolveTranslatedError, resolveTranslatedText } from '@/lib/i18n/messages';
 import { hasPermission } from '@/lib/permissions';
 
 type CompanyUser = {
@@ -82,7 +83,7 @@ const ROLE_LABELS = {
     administrator: 'Administrateur',
     manager: 'Manager',
     standard_user: 'Utilisateur standard',
-    secretary: 'Secretaire',
+    secretary: 'Secrétaire',
     technician: 'Technicien',
     read_only: 'Lecture seule',
     external_accountant: 'Comptable externe',
@@ -139,6 +140,10 @@ const texts = {
     invitationEmailStatusLabel: 'Email delivery',
     invitationEmailSentStatus: 'Sent',
     invitationEmailFailedStatus: 'Failed',
+    suspendedHelp: 'Sign-in is blocked while this account is suspended.',
+    revokedHelp: 'This invitation is revoked and cannot be used until restored.',
+    confirmActionDescription: (actionLabel: string, userEmail: string) =>
+      `${actionLabel}: ${userEmail}`,
   },
   fr: {
     pageTitle: 'Utilisateurs de la société',
@@ -191,6 +196,10 @@ const texts = {
     invitationEmailStatusLabel: "Envoi e-mail",
     invitationEmailSentStatus: 'Envoyé',
     invitationEmailFailedStatus: 'Échec',
+    suspendedHelp: 'La connexion est bloquée tant que ce compte est suspendu.',
+    revokedHelp: "Cette invitation est révoquée et inutilisable tant qu'elle n'est pas rétablie.",
+    confirmActionDescription: (actionLabel: string, userEmail: string) =>
+      `${actionLabel} : ${userEmail}`,
   },
 } as const;
 
@@ -238,18 +247,22 @@ export default function SettingsUsersPage() {
     setIsLoadingUsers(true);
     try {
       const response = await fetch('/api/settings/users', { cache: 'no-store' });
-      const result = await response.json();
+      const result = (await response.json()) as {
+        success?: boolean;
+        message?: string;
+        users?: CompanyUser[];
+      };
       if (!response.ok || !result.success) {
-        toast.error(result.message || t.loadUsersFailed);
+        toast.error(resolveTranslatedText(locale, result.message, t.loadUsersFailed));
         return;
       }
-      setUsers((result.users || []) as CompanyUser[]);
-    } catch {
-      toast.error(t.loadUsersFailed);
+      setUsers(result.users || []);
+    } catch (error) {
+      toast.error(resolveTranslatedError(locale, error, t.loadUsersFailed));
     } finally {
       setIsLoadingUsers(false);
     }
-  }, [t.loadUsersFailed]);
+  }, [locale, t.loadUsersFailed]);
 
   useEffect(() => {
     if (!loading && canViewUsers) {
@@ -269,9 +282,16 @@ export default function SettingsUsersPage() {
         body: JSON.stringify(inviteForm),
       });
 
-      const result = await response.json();
+      const result = (await response.json()) as {
+        success?: boolean;
+        message?: string;
+        data?: {
+          invitationUrl?: string;
+          emailDelivery?: { success?: boolean; message?: string };
+        };
+      };
       if (!response.ok || !result.success) {
-        toast.error(result.message || t.updateUserFailed);
+        toast.error(resolveTranslatedText(locale, result.message, t.updateUserFailed));
         return;
       }
 
@@ -307,8 +327,8 @@ export default function SettingsUsersPage() {
 
       setInviteForm({ email: '', name: '', role: 'standard_user' });
       void loadUsers();
-    } catch {
-      toast.error(t.updateUserFailed);
+    } catch (error) {
+      toast.error(resolveTranslatedError(locale, error, t.updateUserFailed));
     } finally {
       setIsInviting(false);
     }
@@ -323,15 +343,15 @@ export default function SettingsUsersPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, ...payload }),
       });
-      const result = await response.json();
+      const result = (await response.json()) as { success?: boolean; message?: string };
       if (!response.ok || !result.success) {
-        toast.error(result.message || t.updateUserFailed);
+        toast.error(resolveTranslatedText(locale, result.message, t.updateUserFailed));
         return false;
       }
       void loadUsers();
       return true;
-    } catch {
-      toast.error(t.updateUserFailed);
+    } catch (error) {
+      toast.error(resolveTranslatedError(locale, error, t.updateUserFailed));
       return false;
     }
   }
@@ -511,9 +531,15 @@ export default function SettingsUsersPage() {
                           <Badge variant={isSuspended ? 'destructive' : 'default'}>
                             {isSuspended ? t.suspended : t.active}
                           </Badge>
+                          {isSuspended ? (
+                            <p className="mt-1 text-xs text-muted-foreground">{t.suspendedHelp}</p>
+                          ) : null}
                         </td>
                         <td className="px-2 py-3">
                           <InvitationBadge status={companyUser.invitationStatus} locale={locale} />
+                          {isInvitationRevoked ? (
+                            <p className="mt-1 text-xs text-muted-foreground">{t.revokedHelp}</p>
+                          ) : null}
                         </td>
                         <td className="px-2 py-3">
                           <div className="flex justify-end gap-2">
@@ -601,7 +627,7 @@ export default function SettingsUsersPage() {
             <AlertDialogTitle>{t.confirmActionTitle}</AlertDialogTitle>
             <AlertDialogDescription>
               {pendingAction
-                ? `${getActionLabel(pendingAction.type)}: ${pendingAction.userEmail}`
+                ? t.confirmActionDescription(getActionLabel(pendingAction.type), pendingAction.userEmail)
                 : ''}
             </AlertDialogDescription>
           </AlertDialogHeader>

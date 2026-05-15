@@ -4,6 +4,7 @@ import { loginUser } from "@/db/repository/auth";
 import { buildValidationError } from "@/utils/api/validation";
 import { cookies } from "next/headers";
 import { signAuthToken } from "@/lib/auth-session";
+import { createI18nKey as i18nKey } from "@/lib/i18n/messages";
 export async function POST(request: NextRequest) {
     try{
         const cookieStore = await cookies();
@@ -34,6 +35,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(result);
     }
     catch(error){
-        return NextResponse.json({ message: "Error logging in  user"+error, success: false });
+        console.error("POST /api/(auth)/login failed", error);
+        return NextResponse.json({ message: i18nKey("auth.loginError"), success: false }, { status: 500 });
     }
 }

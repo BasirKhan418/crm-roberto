@@ -4,6 +4,7 @@ import argon2 from "argon2";
 import User from "../models/User";
 import CompanyProfile from "../models/CompanyProfile";
 import { ensureUserCompanyContext } from "@/db/repository/company";
+import { createI18nKey as i18nKey } from "@/lib/i18n/messages";
 
 const MAX_FAILED_LOGIN_ATTEMPTS = 5;
 const LOCK_MINUTES = 15;
@@ -16,18 +17,19 @@ const registerUser = async (_name: string, email: string, _password: string) => 
 
         if (existingUser) {
             return {
-                message: "Signup is invitation-only. Ask your administrator for an invitation.",
+                message: i18nKey("auth.signupInvitationOnly"),
                 success: false,
             };
         }
 
         return {
-            message: "Signup is invitation-only. Ask your administrator for an invitation.",
+            message: i18nKey("auth.signupInvitationOnly"),
             success: false,
         };
     }
     catch(error){
-        return { message: "Error registering user"+error, success: false };
+        console.error("registerUser failed", error);
+        return { message: i18nKey("auth.registerError"), success: false };
     }
 };
 
@@ -40,21 +42,21 @@ const loginUser = async (email: string, password: string) => {
         );
 
         if (!user) {
-            return { message: "User not found", success: false };
+            return { message: i18nKey("auth.userNotFound"), success: false };
         }
 
         const now = new Date();
 
         if (user.account_status === 'suspended') {
-            return { message: "Your account has been suspended. Please contact support.", success: false };
+            return { message: i18nKey("auth.accountSuspended"), success: false };
         }
 
         if (user.accessRevokedAt && user.accessRevokedAt <= now) {
-            return { message: "Your access has been revoked. Please contact support.", success: false };
+            return { message: i18nKey("auth.accountRevoked"), success: false };
         }
 
         if (user.lockedUntil && user.lockedUntil > now) {
-            return { message: "Your account is temporarily locked. Please try again later.", success: false };
+            return { message: i18nKey("auth.accountTemporarilyLocked"), success: false };
         }
 
         const pepper = process.env.PASSWORD_PEPPER || "";
@@ -80,7 +82,7 @@ const loginUser = async (email: string, password: string) => {
                 }
             );
 
-            return { message: "Invalid password", success: false };
+            return { message: i18nKey("auth.invalidPassword"), success: false };
         }
 
         const ensuredCompany = await ensureUserCompanyContext({
@@ -114,9 +116,10 @@ const loginUser = async (email: string, password: string) => {
         user.lastLoginAt = now;
         await user.save();
 
-        return { message: "Login successful", success: true, user };
+        return { message: i18nKey("auth.loginSuccessful"), success: true, user };
     } catch (error) {
-        return { message: "Error logging in user" + error, success: false };
+        console.error("loginUser failed", error);
+        return { message: i18nKey("auth.loginError"), success: false };
     }
 };
 
@@ -125,16 +128,17 @@ const markEmailAsVerified = async (email: string) => {
         await ConnectDb();
         const user = await User.findOne({ email });
         if (!user) {
-            return { message: "User not found", success: false };
+            return { message: i18nKey("auth.userNotFound"), success: false };
         }
         user.isEmailVerified = true;
         if (user.account_status !== 'suspended') {
             user.account_status = 'active';
         }
         await user.save();
-        return { message: "Email marked as verified", success: true };
+        return { message: i18nKey("auth.emailMarkedVerified"), success: true };
     } catch (error) {
-        return { message: "Error marking email as verified" + error, success: false };
+        console.error("markEmailAsVerified failed", error);
+        return { message: i18nKey("auth.verifyEmailError"), success: false };
     }
 }
 

@@ -4,6 +4,7 @@ import ConnectDb from "@/db/connectDb";
 import Company from "@/db/models/Company";
 import User from "@/db/models/User";
 import { ensureUserCompanyContext } from "@/db/repository/company";
+import { createI18nKey as i18nKey } from "@/lib/i18n/messages";
 import { normalizeRole, type AppRole } from "@/lib/permissions";
 
 interface JwtUserPayload {
@@ -38,7 +39,7 @@ const checkMe = async (fch:boolean) => {
             const cookieStore = await cookies();
           const token = cookieStore.get("token")?.value;
           if(!token){
-              return { message: "No token found", success: false }
+              return { message: i18nKey("auth.noToken"), success: false }
           }
           try{
                             const decoded = jwt.verify(token, process.env.JWT_SECRET || "") as JwtUserPayload;
@@ -49,28 +50,28 @@ const checkMe = async (fch:boolean) => {
                                 .lean<DbUserProjection | null>();
 
                             if (!user) {
-                                return { message: "User not found", success: false };
+                                return { message: i18nKey("auth.userNotFound"), success: false };
                             }
 
                             const now = new Date();
 
                             if (user.account_status === "suspended") {
                                 return {
-                                    message: "Your account has been suspended. Please contact support.",
+                                    message: i18nKey("auth.accountSuspended"),
                                     success: false,
                                 };
                             }
 
                             if (user.accessRevokedAt && user.accessRevokedAt <= now) {
                                 return {
-                                    message: "Your access has been revoked. Please contact support.",
+                                    message: i18nKey("auth.accountRevoked"),
                                     success: false,
                                 };
                             }
 
                             if (user.lockedUntil && user.lockedUntil > now) {
                                 return {
-                                    message: "Your account is temporarily locked. Please try again later.",
+                                    message: i18nKey("auth.accountTemporarilyLocked"),
                                     success: false,
                                 };
                             }
@@ -78,7 +79,7 @@ const checkMe = async (fch:boolean) => {
                             const tokenIssuedAt = decoded.iat ? new Date(decoded.iat * 1000) : null;
                             if (tokenIssuedAt && user.forceLogoutAfter && tokenIssuedAt <= user.forceLogoutAfter) {
                                 return {
-                                    message: "Session expired. Please login again.",
+                                    message: i18nKey("auth.sessionExpired"),
                                     success: false,
                                 };
                             }
@@ -115,17 +116,19 @@ const checkMe = async (fch:boolean) => {
                             }
 
                             if(fch){
-                                            return { message: "User data fetched successfully", success: true, user: { id: String(user._id), name: user.name, email: user.email, locale: user.locale, isOnboardingComplete: user.isOnboardingComplete, isEmailVerified: user.isEmailVerified, role, companyId } };
+                                            return { message: i18nKey("auth.userFetched"), success: true, user: { id: String(user._id), name: user.name, email: user.email, locale: user.locale, isOnboardingComplete: user.isOnboardingComplete, isEmailVerified: user.isEmailVerified, role, companyId } };
                             }
-                            return { message: "User data fetched successfully", success: true, user: { id: String(user._id), name: user.name, email: user.email, locale: user.locale, isOnboardingComplete: user.isOnboardingComplete, isEmailVerified: user.isEmailVerified, role, companyId } };
+                            return { message: i18nKey("auth.userFetched"), success: true, user: { id: String(user._id), name: user.name, email: user.email, locale: user.locale, isOnboardingComplete: user.isOnboardingComplete, isEmailVerified: user.isEmailVerified, role, companyId } };
           }
-          catch{
-              return { message: "Invalid token", success: false };
+          catch(error){
+              console.error("checkMe token validation failed", error);
+              return { message: i18nKey("auth.invalidToken"), success: false };
           }
   
       }
       catch(error){
-          return { message: "Error fetching user data"+error, success: false };
+          console.error("checkMe failed", error);
+          return { message: i18nKey("auth.fetchUserError"), success: false };
       }
 }
 

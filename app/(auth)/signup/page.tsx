@@ -59,7 +59,7 @@ const roleLabels = {
     administrator: "Administrateur",
     manager: "Manager",
     standard_user: "Utilisateur standard",
-    secretary: "Secretaire",
+    secretary: "Secrétaire",
     technician: "Technicien",
     read_only: "Lecture seule",
     external_accountant: "Comptable externe",
