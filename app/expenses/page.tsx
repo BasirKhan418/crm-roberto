@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { ChangeEvent, DragEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -199,7 +198,6 @@ function getSortByOptions(locale: 'en' | 'fr') {
 }
 
 export default function ExpensesPage() {
-  const router = useRouter();
   const { locale } = useLocale();
   const { user, loading: authLoading } = useAuthMe();
   const isMobile = useIsMobile();
@@ -359,6 +357,7 @@ export default function ExpensesPage() {
       tableAction: 'Actions',
       open: 'Open',
       edit: 'Edit',
+      addAttachment: 'Add attachment',
       duplicate: 'Duplicate',
       archive: 'Archive',
       markPaid: 'Mark paid',
@@ -468,6 +467,7 @@ export default function ExpensesPage() {
       tableAction: 'Actions',
       open: 'Ouvrir',
       edit: 'Modifier',
+      addAttachment: 'Ajouter pièce jointe',
       duplicate: 'Dupliquer',
       archive: 'Archiver',
       markPaid: 'Marquer payée',
@@ -1367,48 +1367,74 @@ export default function ExpensesPage() {
 
                         <div className="flex items-center gap-1.5">
                           {rowLoading ? <Loader2Icon className="size-4 animate-spin text-muted-foreground" /> : null}
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button type="button" variant="outline" size="icon" className="size-8" disabled={rowLoading}>
-                                <MoreHorizontalIcon className="size-4" />
+                          {canManageExpenses ? (
+                            <>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className="size-8"
+                                title={t.edit}
+                                aria-label={t.edit}
+                                onClick={() => void openEditExpense(expense._id)}
+                                disabled={rowLoading}
+                              >
+                                <PencilIcon className="size-4" />
                               </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-44">
-                              <DropdownMenuItem onSelect={() => router.push(`/expenses/${expense._id}`)}>
-                                {t.open}
-                              </DropdownMenuItem>
-                              {canManageExpenses ? (
-                                <DropdownMenuItem onSelect={() => void openEditExpense(expense._id)}>
-                                  <PencilIcon className="size-4" />
-                                  {t.edit}
-                                </DropdownMenuItem>
-                              ) : null}
-                              {canManageExpenses ? (
-                                <DropdownMenuItem onSelect={() => void runDuplicate(expense._id)}>
-                                  <CopyIcon className="size-4" />
-                                  {t.duplicate}
-                                </DropdownMenuItem>
-                              ) : null}
-                              {canManageExpenses && expense.status !== 'archived' ? (
-                                <DropdownMenuItem onSelect={() => void runArchive(expense._id)}>
-                                  <ArchiveIcon className="size-4" />
-                                  {t.archive}
-                                </DropdownMenuItem>
-                              ) : null}
-                              {canManageExpenses && expense.paymentStatus !== 'paid' ? (
-                                <DropdownMenuItem onSelect={() => setMarkPaidTarget(expense)}>
-                                  <CheckCircle2Icon className="size-4" />
-                                  {t.markPaid}
-                                </DropdownMenuItem>
-                              ) : null}
-                              {canManageExpenses ? (
-                                <DropdownMenuItem variant="destructive" onSelect={() => setDeleteTarget(expense)}>
-                                  <Trash2Icon className="size-4" />
-                                  {t.delete}
-                                </DropdownMenuItem>
-                              ) : null}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className="size-8"
+                                title={t.markPaid}
+                                aria-label={t.markPaid}
+                                onClick={() => setMarkPaidTarget(expense)}
+                                disabled={rowLoading || expense.paymentStatus === 'paid'}
+                              >
+                                <CheckCircle2Icon className="size-4" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className="size-8"
+                                title={t.duplicate}
+                                aria-label={t.duplicate}
+                                onClick={() => void runDuplicate(expense._id)}
+                                disabled={rowLoading}
+                              >
+                                <CopyIcon className="size-4" />
+                              </Button>
+                              <Button asChild type="button" variant="outline" size="icon" className="size-8">
+                                <Link
+                                  href={`/expenses/${expense._id}?tab=attachments`}
+                                  title={t.addAttachment}
+                                  aria-label={t.addAttachment}
+                                >
+                                  <PaperclipIcon className="size-4" />
+                                </Link>
+                              </Button>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button type="button" variant="outline" size="icon" className="size-8" disabled={rowLoading}>
+                                    <MoreHorizontalIcon className="size-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-44">
+                                  {expense.status !== 'archived' ? (
+                                    <DropdownMenuItem onSelect={() => void runArchive(expense._id)}>
+                                      <ArchiveIcon className="size-4" />
+                                      {t.archive}
+                                    </DropdownMenuItem>
+                                  ) : null}
+                                  <DropdownMenuItem variant="destructive" onSelect={() => setDeleteTarget(expense)}>
+                                    <Trash2Icon className="size-4" />
+                                    {t.delete}
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </>
+                          ) : null}
                         </div>
                       </div>
                     </div>
@@ -1470,48 +1496,74 @@ export default function ExpensesPage() {
                               <Link href={`/expenses/${expense._id}`}>{t.open}</Link>
                             </Button>
 
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button type="button" variant="outline" size="icon" className="size-8" disabled={rowLoading}>
-                                  <MoreHorizontalIcon className="size-4" />
+                            {canManageExpenses ? (
+                              <>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  className="size-8"
+                                  title={t.edit}
+                                  aria-label={t.edit}
+                                  onClick={() => void openEditExpense(expense._id)}
+                                  disabled={rowLoading}
+                                >
+                                  <PencilIcon className="size-4" />
                                 </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="w-44">
-                                <DropdownMenuItem onSelect={() => router.push(`/expenses/${expense._id}`)}>
-                                  {t.open}
-                                </DropdownMenuItem>
-                                {canManageExpenses ? (
-                                  <DropdownMenuItem onSelect={() => void openEditExpense(expense._id)}>
-                                    <PencilIcon className="size-4" />
-                                    {t.edit}
-                                  </DropdownMenuItem>
-                                ) : null}
-                                {canManageExpenses ? (
-                                  <DropdownMenuItem onSelect={() => void runDuplicate(expense._id)}>
-                                    <CopyIcon className="size-4" />
-                                    {t.duplicate}
-                                  </DropdownMenuItem>
-                                ) : null}
-                                {canManageExpenses && expense.status !== 'archived' ? (
-                                  <DropdownMenuItem onSelect={() => void runArchive(expense._id)}>
-                                    <ArchiveIcon className="size-4" />
-                                    {t.archive}
-                                  </DropdownMenuItem>
-                                ) : null}
-                                {canManageExpenses && expense.paymentStatus !== 'paid' ? (
-                                  <DropdownMenuItem onSelect={() => setMarkPaidTarget(expense)}>
-                                    <CheckCircle2Icon className="size-4" />
-                                    {t.markPaid}
-                                  </DropdownMenuItem>
-                                ) : null}
-                                {canManageExpenses ? (
-                                  <DropdownMenuItem variant="destructive" onSelect={() => setDeleteTarget(expense)}>
-                                    <Trash2Icon className="size-4" />
-                                    {t.delete}
-                                  </DropdownMenuItem>
-                                ) : null}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  className="size-8"
+                                  title={t.markPaid}
+                                  aria-label={t.markPaid}
+                                  onClick={() => setMarkPaidTarget(expense)}
+                                  disabled={rowLoading || expense.paymentStatus === 'paid'}
+                                >
+                                  <CheckCircle2Icon className="size-4" />
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  className="size-8"
+                                  title={t.duplicate}
+                                  aria-label={t.duplicate}
+                                  onClick={() => void runDuplicate(expense._id)}
+                                  disabled={rowLoading}
+                                >
+                                  <CopyIcon className="size-4" />
+                                </Button>
+                                <Button asChild type="button" variant="outline" size="icon" className="size-8">
+                                  <Link
+                                    href={`/expenses/${expense._id}?tab=attachments`}
+                                    title={t.addAttachment}
+                                    aria-label={t.addAttachment}
+                                  >
+                                    <PaperclipIcon className="size-4" />
+                                  </Link>
+                                </Button>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button type="button" variant="outline" size="icon" className="size-8" disabled={rowLoading}>
+                                      <MoreHorizontalIcon className="size-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end" className="w-44">
+                                    {expense.status !== 'archived' ? (
+                                      <DropdownMenuItem onSelect={() => void runArchive(expense._id)}>
+                                        <ArchiveIcon className="size-4" />
+                                        {t.archive}
+                                      </DropdownMenuItem>
+                                    ) : null}
+                                    <DropdownMenuItem variant="destructive" onSelect={() => setDeleteTarget(expense)}>
+                                      <Trash2Icon className="size-4" />
+                                      {t.delete}
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </>
+                            ) : null}
                           </div>
                         </TableCell>
                       </TableRow>

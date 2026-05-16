@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
-import { useMemo, useRef, useState } from 'react';
+import { useParams, useSearchParams } from 'next/navigation';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 import {
@@ -202,6 +202,7 @@ function isPdfMimeType(mimeType?: string) {
 
 export default function ExpenseDetailPage() {
   const params = useParams<{ id: string }>();
+  const searchParams = useSearchParams();
   const expenseId = typeof params?.id === 'string' ? params.id : '';
   const { locale } = useLocale();
   const { user, loading: authLoading } = useAuthMe();
@@ -220,6 +221,19 @@ export default function ExpenseDetailPage() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [previewAttachment, setPreviewAttachment] = useState<ExpenseAttachment | null>(null);
   const [ticketDialogOpen, setTicketDialogOpen] = useState(false);
+
+  const requestedTab = searchParams.get('tab');
+
+  useEffect(() => {
+    if (
+      requestedTab === 'summary' ||
+      requestedTab === 'attachments' ||
+      requestedTab === 'audit' ||
+      requestedTab === 'tickets'
+    ) {
+      setActiveTab(requestedTab);
+    }
+  }, [requestedTab]);
 
   const t = useMemo(
     () =>
@@ -265,6 +279,7 @@ export default function ExpenseDetailPage() {
           openFile: 'Open file',
           preview: 'Preview',
           uploadAttachment: 'Upload attachment',
+          addAttachment: 'Add attachment',
           replaceFileHint: `Allowed: PDF/JPEG/PNG/HEIC. Max ${formatFileSizeMb(EXPENSE_MAX_FILE_SIZE_BYTES)} MB`,
           deleteAttachment: 'Delete',
           noAttachments: 'No attachments linked to this expense yet.',
@@ -347,6 +362,7 @@ export default function ExpenseDetailPage() {
           openFile: 'Ouvrir fichier',
           preview: 'Aperçu',
           uploadAttachment: 'Ajouter pièce jointe',
+          addAttachment: 'Ajouter pièce jointe',
           replaceFileHint: `Autorisés : PDF/JPEG/PNG/HEIC. Max ${formatFileSizeMb(EXPENSE_MAX_FILE_SIZE_BYTES)} MB`,
           deleteAttachment: 'Supprimer',
           noAttachments: 'Aucune pièce jointe sur cette dépense.',
@@ -421,6 +437,13 @@ export default function ExpenseDetailPage() {
         return null;
       });
     }, 3000);
+  }
+
+  function openAttachmentUpload() {
+    setActiveTab('attachments');
+    window.setTimeout(() => {
+      fileInputRef.current?.click();
+    }, 0);
   }
 
   async function runAction(action: 'duplicate' | 'archive') {
@@ -683,38 +706,50 @@ export default function ExpenseDetailPage() {
                       {formatDate(expense.expenseDate)} - {expense.supplierRef || '-'}
                     </CardDescription>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <ExpenseStatusBadge status={expense.status} paymentStatus={expense.paymentStatus} locale={locale} />
                     {canManageExpenses ? (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button type="button" variant="outline" size="icon" className="size-8" disabled={Boolean(actionLoading)}>
-                            {actionLoading ? <Loader2Icon className="size-4 animate-spin" /> : <MoreHorizontalIcon className="size-4" />}
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-44">
-                          <DropdownMenuItem onSelect={() => setEditDialogOpen(true)}>
-                              <PencilIcon className="size-4" />
-                            {t.edit}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onSelect={() => setMarkPaidOpen(true)} disabled={expense.paymentStatus === 'paid'}>
-                            <CheckCircle2Icon className="size-4" />
-                            {t.markPaid}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onSelect={() => void runAction('duplicate')}>
-                            <CopyIcon className="size-4" />
-                            {t.duplicate}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onSelect={() => void runAction('archive')} disabled={expense.status === 'archived'}>
-                            <ArchiveIcon className="size-4" />
-                            {t.archive}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem variant="destructive" onSelect={() => setDeleteConfirmOpen(true)}>
-                            <Trash2Icon className="size-4" />
-                            {t.delete}
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      <>
+                        <Button type="button" variant="outline" size="sm" onClick={() => setEditDialogOpen(true)} disabled={Boolean(actionLoading)}>
+                          <PencilIcon className="size-4" />
+                          {t.edit}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setMarkPaidOpen(true)}
+                          disabled={Boolean(actionLoading) || expense.paymentStatus === 'paid'}
+                        >
+                          <CheckCircle2Icon className="size-4" />
+                          {t.markPaid}
+                        </Button>
+                        <Button type="button" variant="outline" size="sm" onClick={() => void runAction('duplicate')} disabled={Boolean(actionLoading)}>
+                          <CopyIcon className="size-4" />
+                          {t.duplicate}
+                        </Button>
+                        <Button type="button" variant="outline" size="sm" onClick={openAttachmentUpload} disabled={attachmentsBusy || Boolean(actionLoading)}>
+                          {attachmentsBusy ? <Loader2Icon className="size-4 animate-spin" /> : <PaperclipIcon className="size-4" />}
+                          {t.addAttachment}
+                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button type="button" variant="outline" size="icon" className="size-8" disabled={Boolean(actionLoading)}>
+                              {actionLoading ? <Loader2Icon className="size-4 animate-spin" /> : <MoreHorizontalIcon className="size-4" />}
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-44">
+                            <DropdownMenuItem onSelect={() => void runAction('archive')} disabled={expense.status === 'archived'}>
+                              <ArchiveIcon className="size-4" />
+                              {t.archive}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem variant="destructive" onSelect={() => setDeleteConfirmOpen(true)}>
+                              <Trash2Icon className="size-4" />
+                              {t.delete}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </>
                     ) : null}
                   </div>
                 </div>
