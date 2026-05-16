@@ -1694,6 +1694,7 @@ export default function ExpensesPage() {
               <Button
                 type="button"
                 variant="destructive"
+                className="bg-destructive text-white hover:bg-destructive/90 hover:text-white"
                 disabled={!deleteTarget || actionLoadingId === deleteTarget._id}
                 onClick={() => {
                   if (!deleteTarget) {

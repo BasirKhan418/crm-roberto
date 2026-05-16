@@ -1221,6 +1221,7 @@ export default function ExpenseDetailPage() {
               <Button
                 type="button"
                 variant="destructive"
+                className="bg-destructive text-white hover:bg-destructive/90 hover:text-white"
                 disabled={actionLoading === 'delete'}
                 onClick={() => {
                   setDeleteConfirmOpen(false);
