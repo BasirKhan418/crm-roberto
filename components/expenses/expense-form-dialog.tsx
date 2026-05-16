@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 
 import { CircleHelpIcon, Loader2Icon, PlusIcon } from 'lucide-react';
 import { toast } from 'sonner';
@@ -43,10 +43,17 @@ import {
   getExpensePaymentStatusLabel,
   getExpenseTypeLabel,
 } from '@/lib/expenses/labels';
+import { formatInvoiceDisplayNumber } from '@/lib/i18n/messages';
 
 type Mode = 'create' | 'edit';
 
 type SaveTarget = 'default' | 'activate';
+
+type ExpenseLookupSearchResponse = {
+  success: boolean;
+  message?: string;
+  invoices?: ExpenseLookupInvoice[];
+};
 
 type ExpenseFormDialogProps = {
   open: boolean;
@@ -155,6 +162,54 @@ function toTwoDecimals(value: number) {
   return Math.round(value * 100) / 100;
 }
 
+function formatInvoiceDateLabel(value: string | undefined, locale: 'en' | 'fr') {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+  return new Intl.DateTimeFormat(locale === 'fr' ? 'fr-FR' : 'en-GB', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(date);
+}
+
+function formatInvoiceAmountLabel(value: number | undefined, locale: 'en' | 'fr') {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return '-';
+  return new Intl.NumberFormat(locale === 'fr' ? 'fr-FR' : 'en-GB', {
+    style: 'currency',
+    currency: 'EUR',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value / 100);
+}
+
+function buildInvoiceOptionLabel(invoice: ExpenseLookupInvoice, locale: 'en' | 'fr') {
+  const rawInvoiceNumber = invoice.invoiceNumber || invoice._id;
+  const invoiceNumber = invoice.invoiceNumber
+    ? formatInvoiceDisplayNumber(locale, invoice.invoiceNumber)
+    : rawInvoiceNumber;
+  const clientName = invoice.clientSnapshot?.fullName || invoice.clientSnapshot?.companyName || '-';
+  const amount = formatInvoiceAmountLabel(invoice.totalIncludingTax, locale);
+  const date = formatInvoiceDateLabel(invoice.date, locale);
+  return `${invoiceNumber} - ${clientName} - ${amount} - ${date}`;
+}
+
+function buildInvoiceSearchText(invoice: ExpenseLookupInvoice, locale: 'en' | 'fr') {
+  const rawInvoiceNumber = invoice.invoiceNumber || invoice._id;
+  const displayInvoiceNumber = invoice.invoiceNumber
+    ? formatInvoiceDisplayNumber(locale, invoice.invoiceNumber)
+    : rawInvoiceNumber;
+  const clientName = invoice.clientSnapshot?.fullName || '';
+  const companyName = invoice.clientSnapshot?.companyName || '';
+  const amountCents = typeof invoice.totalIncludingTax === 'number' ? Math.max(0, Math.round(invoice.totalIncludingTax)) : 0;
+  const amountLabel = formatInvoiceAmountLabel(invoice.totalIncludingTax, locale);
+  const dateLabel = formatInvoiceDateLabel(invoice.date, locale);
+
+  return `${rawInvoiceNumber} ${displayInvoiceNumber} ${clientName} ${companyName} ${amountLabel} ${(
+    amountCents / 100
+  ).toFixed(2)} ${Math.round(amountCents / 100)} ${dateLabel}`.toLowerCase();
+}
+
 function buildInitialValues(expense?: ExpenseDetail | null): FormValues {
   if (!expense) {
     return buildDefaultFormValues();
@@ -205,6 +260,10 @@ export function ExpenseFormDialog({
   const [inlineSupplierName, setInlineSupplierName] = useState('');
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmTarget, setConfirmTarget] = useState<SaveTarget>('default');
+  const [invoiceSearchInput, setInvoiceSearchInput] = useState('');
+  const [debouncedInvoiceSearch, setDebouncedInvoiceSearch] = useState('');
+  const [remoteInvoices, setRemoteInvoices] = useState<ExpenseLookupInvoice[]>([]);
+  const [invoiceLookupLoading, setInvoiceLookupLoading] = useState(false);
 
   useEffect(() => {
     if (!open) {
@@ -215,7 +274,81 @@ export function ExpenseFormDialog({
     setError(null);
     setInlineSupplierName('');
     setConfirmOpen(false);
+    setInvoiceSearchInput('');
+    setDebouncedInvoiceSearch('');
   }, [initialExpense, open]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setDebouncedInvoiceSearch(invoiceSearchInput.trim());
+    }, 250);
+
+    return () => window.clearTimeout(timeout);
+  }, [invoiceSearchInput, open]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const normalizedSearch = debouncedInvoiceSearch.trim();
+
+    if (!normalizedSearch) {
+      setRemoteInvoices(invoices);
+      setInvoiceLookupLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    const controller = new AbortController();
+
+    async function fetchInvoiceLookups() {
+      setInvoiceLookupLoading(true);
+
+      try {
+        const params = new URLSearchParams();
+        params.set('search', normalizedSearch);
+        params.set('limit', '80');
+
+        const response = await fetch(`/api/expenses/lookups?${params.toString()}`, {
+          cache: 'no-store',
+          signal: controller.signal,
+        });
+
+        const payload = (await response.json().catch(() => null)) as ExpenseLookupSearchResponse | null;
+
+        if (!response.ok || !payload?.success) {
+          throw new Error(payload?.message || 'Failed to load invoice lookups');
+        }
+
+        if (!cancelled) {
+          setRemoteInvoices(payload.invoices || []);
+        }
+      } catch (lookupError) {
+        const isAbortError =
+          lookupError instanceof Error && lookupError.name === 'AbortError';
+
+        if (!cancelled && !isAbortError) {
+          setRemoteInvoices([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setInvoiceLookupLoading(false);
+        }
+      }
+    }
+
+    void fetchInvoiceLookups();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [debouncedInvoiceSearch, invoices, open]);
 
   const t = {
     en: {
@@ -266,6 +399,10 @@ export function ExpenseFormDialog({
       createSupplier: 'Add',
       selectPlaceholder: 'Select',
       noneOption: 'None',
+      invoiceSearch: 'Search linked invoice',
+      invoiceSearchPlaceholder: 'Search by invoice number, client name, or amount...',
+      invoiceSearchLoading: 'Searching invoices...',
+      invoiceNoResults: 'No invoice matches this search.',
       requiredFieldsError: 'Amount, date, category, and supplier are required to validate the expense.',
       paidByRequiredWithPayment: 'Paid by is required when payment status is Paid or Partial.',
       saveFailed: 'Failed to save expense',
@@ -319,6 +456,10 @@ export function ExpenseFormDialog({
       createSupplier: 'Ajouter',
       selectPlaceholder: 'Sélectionner',
       noneOption: 'Aucun',
+      invoiceSearch: 'Recherche facture liée',
+      invoiceSearchPlaceholder: 'Rechercher par numéro, client ou montant...',
+      invoiceSearchLoading: 'Recherche des factures...',
+      invoiceNoResults: 'Aucune facture ne correspond à cette recherche.',
       requiredFieldsError: 'Montant, date, catégorie et fournisseur requis pour activer le brouillon.',
       paidByRequiredWithPayment: 'Le champ payé par est requis lorsque le statut est Payé ou Partiel.',
       saveFailed: 'Échec enregistrement dépense',
@@ -341,6 +482,30 @@ export function ExpenseFormDialog({
           ? amountPaid
           : 0;
   const remaining = toTwoDecimals(Math.max(amountInclVat - computedAmountPaid, 0));
+
+  const invoiceOptions = useMemo(() => {
+    const normalizedSearch = debouncedInvoiceSearch.trim().toLowerCase();
+    const source = normalizedSearch ? remoteInvoices : invoices;
+    const selectedInvoice =
+      (values.invoiceId ? invoices.find((invoice) => invoice._id === values.invoiceId) : undefined) ||
+      (values.invoiceId ? remoteInvoices.find((invoice) => invoice._id === values.invoiceId) : undefined);
+
+    const byId = new Map<string, ExpenseLookupInvoice>();
+    source.forEach((invoice) => {
+      byId.set(invoice._id, invoice);
+    });
+
+    if (selectedInvoice && !byId.has(selectedInvoice._id)) {
+      byId.set(selectedInvoice._id, selectedInvoice);
+    }
+
+    const merged = Array.from(byId.values());
+    if (!normalizedSearch) {
+      return merged;
+    }
+
+    return merged.filter((invoice) => buildInvoiceSearchText(invoice, locale).includes(normalizedSearch));
+  }, [debouncedInvoiceSearch, invoices, locale, remoteInvoices, values.invoiceId]);
 
   function updateField<K extends keyof FormValues>(field: K, next: FormValues[K]) {
     setValues((previous) => ({ ...previous, [field]: next }));
@@ -690,15 +855,24 @@ export function ExpenseFormDialog({
 
               <div className="space-y-1.5 sm:col-span-2 lg:col-span-3">
                 <Label>{t.invoice}</Label>
+                <Input
+                  value={invoiceSearchInput}
+                  onChange={(event) => setInvoiceSearchInput(event.target.value)}
+                  placeholder={t.invoiceSearchPlaceholder}
+                />
+                {invoiceLookupLoading ? <p className="text-xs text-muted-foreground">{t.invoiceSearchLoading}</p> : null}
+                {!invoiceLookupLoading && debouncedInvoiceSearch && invoiceOptions.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">{t.invoiceNoResults}</p>
+                ) : null}
                 <select
                   className={selectClassName}
                   value={values.invoiceId}
                   onChange={(event) => updateField('invoiceId', event.target.value)}
                 >
                   <option value="">{t.noneOption}</option>
-                  {invoices.map((invoice) => (
+                  {invoiceOptions.map((invoice) => (
                     <option key={invoice._id} value={invoice._id}>
-                      {invoice.invoiceNumber || invoice._id}
+                      {buildInvoiceOptionLabel(invoice, locale)}
                     </option>
                   ))}
                 </select>

@@ -24,6 +24,40 @@ async function getCompanyUserIds(companyId: string) {
   return users.map((user) => user._id);
 }
 
+function escapeRegexForQuery(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function parseAmountQueryToCents(value: string): number | null {
+  const trimmed = value.trim();
+  if (!trimmed || !/[0-9]/.test(trimmed)) {
+    return null;
+  }
+
+  const amountLike = /^[\d\s.,€$]+$/.test(trimmed);
+  if (!amountLike) {
+    return null;
+  }
+
+  let normalized = trimmed.replace(/[€$\s]/g, "");
+
+  const hasComma = normalized.includes(",");
+  const hasDot = normalized.includes(".");
+
+  if (hasComma && hasDot) {
+    normalized = normalized.replace(/\./g, "").replace(",", ".");
+  } else if (hasComma) {
+    normalized = normalized.replace(",", ".");
+  }
+
+  const amount = Number(normalized);
+  if (!Number.isFinite(amount)) {
+    return null;
+  }
+
+  return Math.max(0, Math.round(amount * 100));
+}
+
 export async function GET(request: NextRequest) {
   try {
     const auth = await authorizeExpenseRoute("view");
@@ -81,18 +115,52 @@ export async function GET(request: NextRequest) {
       .limit(limit)
       .lean();
 
-    const invoicesPromise = Invoice.find({
+    const invoiceQuery: Record<string, unknown> = {
       userId: { $in: companyUserIds },
-      ...(search
-        ? {
-            $or: [
-              { invoiceNumber: { $regex: search, $options: "i" } },
-              { "clientSnapshot.fullName": { $regex: search, $options: "i" } },
-            ],
-          }
-        : {}),
-    })
-      .select("_id invoiceNumber totalIncludingTax status clientSnapshot.fullName")
+    };
+
+    if (search) {
+      const escapedSearch = escapeRegexForQuery(search);
+      const invoiceNumberSearchCandidates = new Set<string>([search]);
+
+      if (/^inv/i.test(search)) {
+        invoiceNumberSearchCandidates.add(search.replace(/^inv/i, "FAC"));
+      }
+
+      if (/^fac/i.test(search)) {
+        invoiceNumberSearchCandidates.add(search.replace(/^fac/i, "INV"));
+      }
+
+      const amountCents = parseAmountQueryToCents(search);
+
+      const invoiceSearchConditions: Record<string, unknown>[] = [
+        { "clientSnapshot.fullName": { $regex: escapedSearch, $options: "i" } },
+        { "clientSnapshot.companyName": { $regex: escapedSearch, $options: "i" } },
+      ];
+
+      for (const candidate of invoiceNumberSearchCandidates) {
+        invoiceSearchConditions.push({
+          invoiceNumber: { $regex: escapeRegexForQuery(candidate), $options: "i" },
+        });
+      }
+
+      if (typeof amountCents === "number") {
+        const hasDecimalPart = /[,.]\d{1,2}$/.test(search.trim());
+        const margin = hasDecimalPart ? 1 : 99;
+
+        invoiceSearchConditions.push({
+          totalIncludingTax: {
+            $gte: Math.max(0, amountCents - margin),
+            $lte: amountCents + margin,
+          },
+        });
+      }
+
+      invoiceQuery.$or = invoiceSearchConditions;
+    }
+
+    const invoicesPromise = Invoice.find(invoiceQuery)
+      .select("_id invoiceNumber date totalIncludingTax status clientSnapshot.fullName clientSnapshot.companyName")
       .sort({ createdAt: -1 })
       .limit(limit)
       .lean();

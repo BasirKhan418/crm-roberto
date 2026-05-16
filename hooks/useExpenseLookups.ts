@@ -26,10 +26,12 @@ export type ExpenseLookupClient = {
 export type ExpenseLookupInvoice = {
   _id: string;
   invoiceNumber?: string;
+  date?: string;
   status?: string;
   totalIncludingTax?: number;
   clientSnapshot?: {
     fullName?: string;
+    companyName?: string | null;
   };
 };
 

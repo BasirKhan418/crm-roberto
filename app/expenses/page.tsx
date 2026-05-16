@@ -51,6 +51,7 @@ import EmptyState from '@/components/ui/EmptyState';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Table,
@@ -62,6 +63,7 @@ import {
 } from '@/components/ui/table';
 import { useAuthMe } from '@/hooks/useAuthMe';
 import { ExpenseDetail } from '@/hooks/useExpenseDetail';
+import { useExpensesActionCount } from '@/hooks/useExpensesActionCount';
 import { createInlineExpenseSupplier, useExpenseLookups } from '@/hooks/useExpenseLookups';
 import { ExpenseListItem, useExpenses } from '@/hooks/useExpenses';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -114,6 +116,8 @@ type GenericApiResponse = {
   message?: string;
   expense?: Record<string, unknown>;
 };
+
+type ExpenseQuickFilterKey = 'all' | 'drafts' | 'unpaid' | 'partial' | 'paid' | 'archived';
 
 const extensionToMime: Record<string, (typeof EXPENSE_ALLOWED_MIME_TYPES)[number]> = {
   pdf: 'application/pdf',
@@ -417,6 +421,7 @@ export default function ExpensesPage() {
       draftsCountLabel: (count: number) => `${count} Draft${count > 1 ? 's' : ''}`,
       noDraftsInView: 'No draft in the current page.',
       filtersTitle: 'Filters and sorting',
+      quickFiltersLabel: 'Quick filters',
       searchLabel: 'Search',
       searchPlaceholder: 'Supplier, reference, notes...',
       statusLabel: 'Status',
@@ -554,6 +559,7 @@ export default function ExpensesPage() {
       draftsCountLabel: (count: number) => `${count} brouillon${count > 1 ? 's' : ''}`,
       noDraftsInView: 'Aucun brouillon sur la page courante.',
       filtersTitle: 'Filtres et tri',
+      quickFiltersLabel: 'Filtres rapides',
       searchLabel: 'Recherche',
       searchPlaceholder: 'Fournisseur, référence, notes...',
       statusLabel: 'Statut',
@@ -663,6 +669,53 @@ export default function ExpensesPage() {
     [debouncedSearch, statusFilter, paymentStatusFilter, categoryFilter, supplierFilter, periodStart, periodEnd, sortBy, sortOrder]
   );
 
+  const expenseCountsRefreshKey = pagination.total + expenses.length + Number(loading);
+  const { allCount, draftsCount, unpaidCount, partialCount, paidCount, archivedCount } = useExpensesActionCount(expenseCountsRefreshKey);
+
+  const activeQuickFilter = useMemo<ExpenseQuickFilterKey>(() => {
+    if (statusFilter === 'draft') return 'drafts';
+    if (statusFilter === 'archived') return 'archived';
+    if ((statusFilter === 'active' || !statusFilter) && paymentStatusFilter === 'unpaid') return 'unpaid';
+    if ((statusFilter === 'active' || !statusFilter) && paymentStatusFilter === 'partial') return 'partial';
+    if ((statusFilter === 'active' || !statusFilter) && paymentStatusFilter === 'paid') return 'paid';
+    return 'all';
+  }, [paymentStatusFilter, statusFilter]);
+
+  function applyQuickFilter(filter: ExpenseQuickFilterKey) {
+    if (filter === 'all') {
+      setStatusFilter('');
+      setPaymentStatusFilter('');
+      return;
+    }
+
+    if (filter === 'drafts') {
+      setStatusFilter('draft');
+      setPaymentStatusFilter('');
+      return;
+    }
+
+    if (filter === 'archived') {
+      setStatusFilter('archived');
+      setPaymentStatusFilter('');
+      return;
+    }
+
+    if (filter === 'unpaid') {
+      setStatusFilter('active');
+      setPaymentStatusFilter('unpaid');
+      return;
+    }
+
+    if (filter === 'partial') {
+      setStatusFilter('active');
+      setPaymentStatusFilter('partial');
+      return;
+    }
+
+    setStatusFilter('active');
+    setPaymentStatusFilter('paid');
+  }
+
   const expensesKpiCards = useMemo<KpiCard[]>(
     () => [
       {
@@ -685,10 +738,10 @@ export default function ExpensesPage() {
         amount: unpaidExpenses.reduce((sum, expense) => sum + getRemainingCents(expense), 0),
         variant: 'red-bold',
         icon: 'alert-triangle',
-        active: paymentStatusFilter === 'unpaid' && !statusFilter,
+        active: paymentStatusFilter === 'unpaid' && (statusFilter === 'active' || !statusFilter),
         onClick: () => {
+          setStatusFilter('active');
           setPaymentStatusFilter('unpaid');
-          setStatusFilter('');
         },
       },
       {
@@ -698,10 +751,10 @@ export default function ExpensesPage() {
         amount: partialExpenses.reduce((sum, expense) => sum + getRemainingCents(expense), 0),
         variant: 'orange',
         icon: 'clock',
-        active: paymentStatusFilter === 'partial' && !statusFilter,
+        active: paymentStatusFilter === 'partial' && (statusFilter === 'active' || !statusFilter),
         onClick: () => {
+          setStatusFilter('active');
           setPaymentStatusFilter('partial');
-          setStatusFilter('');
         },
       },
       {
@@ -711,10 +764,10 @@ export default function ExpensesPage() {
         amount: paidExpenses.reduce((sum, expense) => sum + Math.max(0, Math.round(expense.amountPaidCents || 0)), 0),
         variant: 'green-bold',
         icon: 'check-circle',
-        active: paymentStatusFilter === 'paid' && !statusFilter,
+        active: paymentStatusFilter === 'paid' && (statusFilter === 'active' || !statusFilter),
         onClick: () => {
+          setStatusFilter('active');
           setPaymentStatusFilter('paid');
-          setStatusFilter('');
         },
       },
     ],
@@ -1425,6 +1478,52 @@ export default function ExpensesPage() {
             <CardTitle className="text-base">{t.filtersTitle}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
+            <Tabs value={activeQuickFilter} onValueChange={(value) => applyQuickFilter(value as ExpenseQuickFilterKey)}>
+              <div className="space-y-1.5">
+                <Label>{t.quickFiltersLabel}</Label>
+                <div className="overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  <TabsList className="inline-flex h-auto min-w-max items-center gap-1 rounded-lg border border-border/80 bg-muted/10 p-1 shadow-xs">
+                    <TabsTrigger value="all" className="min-h-6 rounded-md border border-transparent px-3 py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
+                      <span>{t.all}</span>
+                      <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-slate-600 px-1.5 text-[10px] font-semibold leading-none text-white shadow-sm">
+                        {allCount > 99 ? '99+' : allCount}
+                      </span>
+                    </TabsTrigger>
+                    <TabsTrigger value="drafts" className="min-h-6 rounded-md border border-border/80 px-3 py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
+                      <span>{t.kpiDrafts}</span>
+                      <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-600 px-1.5 text-[10px] font-semibold leading-none text-white shadow-sm">
+                        {draftsCount > 99 ? '99+' : draftsCount}
+                      </span>
+                    </TabsTrigger>
+                    <TabsTrigger value="unpaid" className="min-h-6 rounded-md border border-border/80 px-3 py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
+                      <span>{t.kpiUnpaid}</span>
+                      <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-600 px-1.5 text-[10px] font-semibold leading-none text-white shadow-sm">
+                        {unpaidCount > 99 ? '99+' : unpaidCount}
+                      </span>
+                    </TabsTrigger>
+                    <TabsTrigger value="partial" className="min-h-6 rounded-md border border-border/80 px-3 py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
+                      <span>{t.kpiPartial}</span>
+                      <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-600 px-1.5 text-[10px] font-semibold leading-none text-white shadow-sm">
+                        {partialCount > 99 ? '99+' : partialCount}
+                      </span>
+                    </TabsTrigger>
+                    <TabsTrigger value="paid" className="min-h-6 rounded-md border border-border/80 px-3 py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
+                      <span>{t.kpiPaid}</span>
+                      <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-600 px-1.5 text-[10px] font-semibold leading-none text-white shadow-sm">
+                        {paidCount > 99 ? '99+' : paidCount}
+                      </span>
+                    </TabsTrigger>
+                    <TabsTrigger value="archived" className="min-h-6 rounded-md border border-border/80 px-3 py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
+                      <span>{t.statusLabels.archived}</span>
+                      <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-slate-600 px-1.5 text-[10px] font-semibold leading-none text-white shadow-sm">
+                        {archivedCount > 99 ? '99+' : archivedCount}
+                      </span>
+                    </TabsTrigger>
+                  </TabsList>
+                </div>
+              </div>
+            </Tabs>
+
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
               <div className="space-y-1.5 sm:col-span-2 xl:col-span-2">
                 <Label>{t.searchLabel}</Label>
