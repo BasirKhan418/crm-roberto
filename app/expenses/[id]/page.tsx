@@ -51,10 +51,12 @@ import {
 } from '@/components/ui/dropdown-menu';
 import EmptyState from '@/components/ui/EmptyState';
 import ErrorMessage from '@/components/ui/ErrorMessage';
+import { Input } from '@/components/ui/input';
 import { useAuthMe } from '@/hooks/useAuthMe';
 import { useExpenseDetail } from '@/hooks/useExpenseDetail';
 import { createInlineExpenseSupplier, useExpenseLookups } from '@/hooks/useExpenseLookups';
 import { useTickets } from '@/hooks/useTickets';
+import { canPermanentlyDeleteExpense, canRestoreArchivedExpense } from '@/lib/expenses/access';
 import {
   EXPENSE_MAX_FILE_SIZE_BYTES,
   formatFileSizeMb,
@@ -204,6 +206,7 @@ const AUDIT_ACTION_LABELS = {
 } as const;
 
 const ATTACHMENT_OTHER_REASON_MIN_CHARS = 10;
+const EXPENSE_DELETE_REASON_MIN_CHARS = 10;
 
 function toLocaleString(locale: 'en' | 'fr') {
   return locale === 'fr' ? 'fr-FR' : 'en-GB';
@@ -564,6 +567,9 @@ export default function ExpenseDetailPage() {
   const [settleExpenseOpen, setSettleExpenseOpen] = useState(false);
   const [addPaymentOpen, setAddPaymentOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteReason, setDeleteReason] = useState('');
+  const [deleteValidationError, setDeleteValidationError] = useState<string | null>(null);
   const [deleteAttachmentDialogOpen, setDeleteAttachmentDialogOpen] = useState(false);
   const [attachmentToDelete, setAttachmentToDelete] = useState<ExpenseAttachment | null>(null);
   const [attachmentDeleteReason, setAttachmentDeleteReason] = useState('');
@@ -658,14 +664,24 @@ export default function ExpenseDetailPage() {
           settleExpenseSuccess: 'Expense settled',
           addPayment: 'Add payment',
           addPaymentSuccess: 'Payment added',
+          restore: 'Restore',
+          restoreSuccess: 'Expense restored',
           delete: 'Delete',
           actionFailed: 'Action failed',
+          archivedReadOnlyHint: 'Archived expenses are read-only. Restore first to edit, pay, or add attachments.',
           duplicateSuccess: 'Expense duplicated',
           archiveSuccess: 'Expense archived',
           deleteSuccessExpense: 'Expense deleted',
           confirmArchive: 'Archive this expense?',
           confirmDelete: 'Delete this expense? This cannot be undone.',
           confirmDeleteTitle: 'Confirm expense deletion',
+          confirmDeletePasswordLabel: 'Confirm with your password',
+          confirmDeletePasswordPlaceholder: 'Enter your account password',
+          confirmDeleteReasonLabel: 'Deletion reason',
+          confirmDeleteReasonPlaceholder: 'Explain why this accounting record must be permanently deleted',
+          confirmDeleteReasonHint: `Minimum ${EXPENSE_DELETE_REASON_MIN_CHARS} characters`,
+          confirmDeletePasswordRequired: 'Password confirmation is required',
+          confirmDeleteReasonRequired: `Deletion reason must contain at least ${EXPENSE_DELETE_REASON_MIN_CHARS} characters`,
           confirmDeleteCancel: 'Cancel',
           confirmDeleteAction: 'Delete expense',
           confirmDeleteAttachment: 'Delete this attachment?',
@@ -762,14 +778,24 @@ export default function ExpenseDetailPage() {
           settleExpenseSuccess: 'Dépense soldée',
           addPayment: 'Ajouter un paiement',
           addPaymentSuccess: 'Paiement ajouté',
+          restore: 'Restaurer',
+          restoreSuccess: 'Dépense restaurée',
           delete: 'Supprimer',
           actionFailed: 'Échec action',
+          archivedReadOnlyHint: "Les dépenses archivées sont en lecture seule. Restaurez d'abord pour modifier, payer ou ajouter des pièces.",
           duplicateSuccess: 'Dépense dupliquée',
           archiveSuccess: 'Dépense archivée',
           deleteSuccessExpense: 'Dépense supprimée',
           confirmArchive: 'Archiver cette dépense ?',
           confirmDelete: 'Supprimer cette dépense ? Action irréversible.',
           confirmDeleteTitle: 'Confirmer suppression dépense',
+          confirmDeletePasswordLabel: 'Confirmez avec votre mot de passe',
+          confirmDeletePasswordPlaceholder: 'Saisissez le mot de passe du compte',
+          confirmDeleteReasonLabel: 'Motif de suppression',
+          confirmDeleteReasonPlaceholder: 'Expliquez pourquoi cet enregistrement comptable doit être supprimé définitivement',
+          confirmDeleteReasonHint: `Minimum ${EXPENSE_DELETE_REASON_MIN_CHARS} caractères`,
+          confirmDeletePasswordRequired: 'La confirmation par mot de passe est obligatoire',
+          confirmDeleteReasonRequired: `Le motif doit contenir au moins ${EXPENSE_DELETE_REASON_MIN_CHARS} caractères`,
           confirmDeleteCancel: 'Annuler',
           confirmDeleteAction: 'Supprimer dépense',
           confirmDeleteAttachment: 'Supprimer cette pièce jointe ?',
@@ -801,6 +827,8 @@ export default function ExpenseDetailPage() {
   );
 
   const canManageExpenses = hasPermission(user?.role, 'expenses.manage');
+  const canPermanentlyDelete = canPermanentlyDeleteExpense(user?.role);
+  const canRestoreArchived = canRestoreArchivedExpense(user?.role);
   const canViewTickets = hasPermission(user?.role, 'tickets.view');
   const canManageTickets = hasPermission(user?.role, 'tickets.manage');
 
@@ -826,6 +854,8 @@ export default function ExpenseDetailPage() {
     [expense?.auditLogs]
   );
 
+  const isExpenseArchived = expense?.status === 'archived';
+
   function pushFeedback(type: 'success' | 'error', message: string) {
     setFeedback({ type, message });
     window.setTimeout(() => {
@@ -843,8 +873,17 @@ export default function ExpenseDetailPage() {
     }, 0);
   }
 
-  async function runAction(action: 'duplicate' | 'archive') {
+  async function runAction(action: 'duplicate' | 'archive' | 'restore') {
     if (!expense) return;
+
+    if (isExpenseArchived && action !== 'restore') {
+      pushFeedback('error', t.archivedReadOnlyHint);
+      return;
+    }
+
+    if (!isExpenseArchived && action === 'restore') {
+      return;
+    }
 
     if (action === 'archive' && !window.confirm(t.confirmArchive)) {
       return;
@@ -856,7 +895,13 @@ export default function ExpenseDetailPage() {
       const response = await fetch(`/api/expenses/${expense._id}/actions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(action === 'duplicate' ? { action: 'duplicate', copyAttachments: true } : { action: 'archive' }),
+        body: JSON.stringify(
+          action === 'duplicate'
+            ? { action: 'duplicate', copyAttachments: true }
+            : action === 'restore'
+              ? { action: 'restore' }
+              : { action: 'archive' }
+        ),
       });
 
       const payload = (await response.json().catch(() => null)) as GenericApiResponse | null;
@@ -866,7 +911,14 @@ export default function ExpenseDetailPage() {
       }
 
       await refetch();
-      pushFeedback('success', action === 'duplicate' ? t.duplicateSuccess : t.archiveSuccess);
+      pushFeedback(
+        'success',
+        action === 'duplicate'
+          ? t.duplicateSuccess
+          : action === 'restore'
+            ? t.restoreSuccess
+            : t.archiveSuccess
+      );
     } catch (actionError) {
       pushFeedback('error', actionError instanceof Error ? actionError.message : t.actionFailed);
     } finally {
@@ -877,11 +929,31 @@ export default function ExpenseDetailPage() {
   async function runDelete() {
     if (!expense) return;
 
+    const normalizedPassword = deletePassword.trim();
+    const normalizedReason = deleteReason.trim();
+
+    if (!normalizedPassword) {
+      setDeleteValidationError(t.confirmDeletePasswordRequired);
+      return;
+    }
+
+    if (normalizedReason.length < EXPENSE_DELETE_REASON_MIN_CHARS) {
+      setDeleteValidationError(t.confirmDeleteReasonRequired);
+      return;
+    }
+
+    setDeleteValidationError(null);
+
     setActionLoading('delete');
 
     try {
       const response = await fetch(`/api/expenses/${expense._id}?mode=delete`, {
         method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          password: normalizedPassword,
+          deleteReason: normalizedReason,
+        }),
       });
 
       const payload = (await response.json().catch(() => null)) as GenericApiResponse | null;
@@ -890,8 +962,12 @@ export default function ExpenseDetailPage() {
         throw new Error(payload?.message || t.actionFailed);
       }
 
+      setDeleteConfirmOpen(false);
       pushFeedback('success', t.deleteSuccessExpense);
       toast.success(t.deleteSuccessExpense);
+      setDeletePassword('');
+      setDeleteReason('');
+      setDeleteValidationError(null);
       window.setTimeout(() => {
         window.location.href = '/expenses';
       }, 500);
@@ -904,6 +980,10 @@ export default function ExpenseDetailPage() {
 
   async function uploadAttachment(file: File) {
     if (!expense) return;
+
+    if (expense.status === 'archived') {
+      throw new Error(t.archivedReadOnlyHint);
+    }
 
     const mimeType = inferMimeFromFile(file);
     if (!mimeType) {
@@ -987,6 +1067,11 @@ export default function ExpenseDetailPage() {
       return;
     }
 
+    if (expense.status === 'archived') {
+      setAttachmentError(t.archivedReadOnlyHint);
+      return;
+    }
+
     setAttachmentsBusy(true);
     setAttachmentError(null);
 
@@ -1007,6 +1092,11 @@ export default function ExpenseDetailPage() {
   }
 
   function openDeleteAttachmentDialog(attachment: ExpenseAttachment) {
+    if (expense?.status === 'archived') {
+      setAttachmentError(t.archivedReadOnlyHint);
+      return;
+    }
+
     setAttachmentToDelete(attachment);
     setAttachmentDeleteReason('');
     setAttachmentDeleteReasonDetails('');
@@ -1158,7 +1248,13 @@ export default function ExpenseDetailPage() {
                     <ExpenseStatusBadge status={expense.status} paymentStatus={expense.paymentStatus} locale={locale} />
                     {canManageExpenses ? (
                       <>
-                        <Button type="button" variant="outline" size="sm" onClick={() => setEditDialogOpen(true)} disabled={Boolean(actionLoading)}>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setEditDialogOpen(true)}
+                          disabled={Boolean(actionLoading) || isExpenseArchived}
+                        >
                           <PencilIcon className="size-4" />
                           {t.edit}
                         </Button>
@@ -1167,7 +1263,7 @@ export default function ExpenseDetailPage() {
                           variant="outline"
                           size="sm"
                           onClick={() => setSettleExpenseOpen(true)}
-                          disabled={Boolean(actionLoading) || expense.paymentStatus === 'paid'}
+                          disabled={Boolean(actionLoading) || expense.paymentStatus === 'paid' || isExpenseArchived}
                         >
                           <CheckCircle2Icon className="size-4" />
                           {t.settleExpense}
@@ -1177,16 +1273,28 @@ export default function ExpenseDetailPage() {
                           variant="outline"
                           size="sm"
                           onClick={() => setAddPaymentOpen(true)}
-                          disabled={Boolean(actionLoading) || expense.paymentStatus === 'paid'}
+                          disabled={Boolean(actionLoading) || expense.paymentStatus === 'paid' || isExpenseArchived}
                         >
                           <MessageSquarePlusIcon className="size-4" />
                           {t.addPayment}
                         </Button>
-                        <Button type="button" variant="outline" size="sm" onClick={() => void runAction('duplicate')} disabled={Boolean(actionLoading)}>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => void runAction('duplicate')}
+                          disabled={Boolean(actionLoading) || isExpenseArchived}
+                        >
                           <CopyIcon className="size-4" />
                           {t.duplicate}
                         </Button>
-                        <Button type="button" variant="outline" size="sm" onClick={openAttachmentUpload} disabled={attachmentsBusy || Boolean(actionLoading)}>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={openAttachmentUpload}
+                          disabled={attachmentsBusy || Boolean(actionLoading) || isExpenseArchived}
+                        >
                           {attachmentsBusy ? <Loader2Icon className="size-4 animate-spin" /> : <PaperclipIcon className="size-4" />}
                           {t.addAttachment}
                         </Button>
@@ -1197,14 +1305,32 @@ export default function ExpenseDetailPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-44">
-                            <DropdownMenuItem onSelect={() => void runAction('archive')} disabled={expense.status === 'archived'}>
-                              <ArchiveIcon className="size-4" />
-                              {t.archive}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem variant="destructive" onSelect={() => setDeleteConfirmOpen(true)}>
-                              <Trash2Icon className="size-4" />
-                              {t.delete}
-                            </DropdownMenuItem>
+                            {!isExpenseArchived ? (
+                              <DropdownMenuItem onSelect={() => void runAction('archive')}>
+                                <ArchiveIcon className="size-4" />
+                                {t.archive}
+                              </DropdownMenuItem>
+                            ) : null}
+                            {isExpenseArchived && canRestoreArchived ? (
+                              <DropdownMenuItem onSelect={() => void runAction('restore')}>
+                                <RefreshCwIcon className="size-4" />
+                                {t.restore}
+                              </DropdownMenuItem>
+                            ) : null}
+                            {canPermanentlyDelete ? (
+                              <DropdownMenuItem
+                                variant="destructive"
+                                onSelect={() => {
+                                  setDeletePassword('');
+                                  setDeleteReason('');
+                                  setDeleteValidationError(null);
+                                  setDeleteConfirmOpen(true);
+                                }}
+                              >
+                                <Trash2Icon className="size-4" />
+                                {t.delete}
+                              </DropdownMenuItem>
+                            ) : null}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </>
@@ -1213,6 +1339,9 @@ export default function ExpenseDetailPage() {
                 </div>
                 {expense.status === 'draft' ? (
                   <p className="text-xs text-amber-700 dark:text-amber-400">{t.statusDraftHint}</p>
+                ) : null}
+                {expense.status === 'archived' ? (
+                  <p className="text-xs text-slate-700 dark:text-slate-300">{t.archivedReadOnlyHint}</p>
                 ) : null}
               </CardHeader>
 
@@ -1516,7 +1645,7 @@ export default function ExpenseDetailPage() {
                         type="button"
                         variant="outline"
                         onClick={() => fileInputRef.current?.click()}
-                        disabled={attachmentsBusy}
+                        disabled={attachmentsBusy || isExpenseArchived}
                       >
                         {attachmentsBusy ? <Loader2Icon className="size-4 animate-spin" /> : <FileUpIcon className="size-4" />}
                         {t.uploadAttachment}
@@ -1567,7 +1696,7 @@ export default function ExpenseDetailPage() {
                                 variant="destructive"
                                 size="sm"
                                 onClick={() => openDeleteAttachmentDialog(attachment)}
-                                disabled={attachmentsBusy}
+                                disabled={attachmentsBusy || isExpenseArchived}
                               >
                                 <Trash2Icon className="size-3.5" />
                                 {t.deleteAttachment}
@@ -1864,12 +1993,57 @@ export default function ExpenseDetailPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+      <AlertDialog
+        open={deleteConfirmOpen}
+        onOpenChange={(open) => {
+          setDeleteConfirmOpen(open);
+          if (!open) {
+            setDeletePassword('');
+            setDeleteReason('');
+            setDeleteValidationError(null);
+          }
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{t.confirmDeleteTitle}</AlertDialogTitle>
             <AlertDialogDescription>{t.confirmDelete}</AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="expense-detail-delete-password">{t.confirmDeletePasswordLabel}</Label>
+              <Input
+                id="expense-detail-delete-password"
+                type="password"
+                value={deletePassword}
+                onChange={(event) => {
+                  setDeletePassword(event.target.value);
+                  setDeleteValidationError(null);
+                }}
+                placeholder={t.confirmDeletePasswordPlaceholder}
+                autoComplete="current-password"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="expense-detail-delete-reason">{t.confirmDeleteReasonLabel}</Label>
+              <Textarea
+                id="expense-detail-delete-reason"
+                value={deleteReason}
+                onChange={(event) => {
+                  setDeleteReason(event.target.value);
+                  setDeleteValidationError(null);
+                }}
+                placeholder={t.confirmDeleteReasonPlaceholder}
+                rows={3}
+              />
+              <p className="text-xs text-muted-foreground">{t.confirmDeleteReasonHint}</p>
+            </div>
+
+            {deleteValidationError ? (
+              <p className="text-xs font-medium text-destructive">{deleteValidationError}</p>
+            ) : null}
+          </div>
           <AlertDialogFooter>
             <AlertDialogCancel asChild>
               <Button type="button" variant="outline" disabled={actionLoading === 'delete'}>
@@ -1883,7 +2057,6 @@ export default function ExpenseDetailPage() {
                 className="bg-destructive text-white hover:bg-destructive/90 hover:text-white"
                 disabled={actionLoading === 'delete'}
                 onClick={() => {
-                  setDeleteConfirmOpen(false);
                   void runDelete();
                 }}
               >

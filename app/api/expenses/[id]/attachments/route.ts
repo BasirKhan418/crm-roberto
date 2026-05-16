@@ -17,6 +17,13 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
+function resolveExpenseAttachmentStatus(message?: string) {
+  const normalized = (message || "").toLowerCase();
+  if (normalized.includes("not found")) return 404;
+  if (normalized.includes("forbidden")) return 403;
+  return 400;
+}
+
 export async function GET(_request: NextRequest, { params }: RouteParams) {
   try {
     const auth = await authorizeExpenseRoute("view");
@@ -69,7 +76,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!created.success) {
-      return NextResponse.json(created, { status: 404 });
+      return NextResponse.json(created, { status: resolveExpenseAttachmentStatus(created.message) });
     }
 
     return NextResponse.json(
@@ -115,7 +122,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!deleted.success) {
-      return NextResponse.json(deleted, { status: 404 });
+      return NextResponse.json(deleted, { status: resolveExpenseAttachmentStatus(deleted.message) });
     }
 
     return NextResponse.json({ success: true, attachment: deleted.attachment }, { status: 200 });

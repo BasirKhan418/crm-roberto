@@ -1,18 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
+import argon2 from "argon2";
 
 import {
   archiveExpense,
   getExpenseById,
   softDeleteExpense,
-  updateExpense,
+  updateExpense
 } from "@/db/repository/expense";
 import { listLinkedTickets } from "@/db/repository/ticket";
 import { authorizeExpenseRoute } from "@/app/api/expenses/_shared";
-import { checkExpensePermission } from "@/lib/expenses/access";
+import { canPermanentlyDeleteExpense } from "@/lib/expenses/access";
 import { getTicketPermissionState } from "@/lib/tickets/access";
-import { updateExpenseSchema } from "@/validators/expense.schema";
+import { permanentDeleteExpenseSchema, updateExpenseSchema } from "@/validators/expense.schema";
 import { buildValidationError } from "@/utils/api/validation";
 import { getClientIp } from "@/utils/api/request";
+import ConnectDb from "@/db/connectDb";
+import User from "@/db/models/User";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -125,13 +128,64 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     if (mode === "delete") {
-      const deletePermission = checkExpensePermission(auth.context.user.role, "delete");
-      if (!deletePermission.success) {
+      if (!canPermanentlyDeleteExpense(auth.context.user.role)) {
         return NextResponse.json(
-          { success: false, message: deletePermission.message },
-          { status: deletePermission.status }
+          { success: false, message: "Only Super Admin can permanently delete expenses" },
+          { status: 403 }
         );
       }
+
+      let body: unknown = {};
+      try {
+        body = await request.json();
+      } catch {
+        body = {};
+      }
+
+      const parsedDeleteRequest = permanentDeleteExpenseSchema.safeParse(body);
+      if (!parsedDeleteRequest.success) {
+        return NextResponse.json(buildValidationError(parsedDeleteRequest.error), { status: 400 });
+      }
+
+      await ConnectDb();
+      const actor = await User.findById(auth.context.user.id).select("+password");
+      if (!actor) {
+        return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+      }
+
+      const pepper = process.env.PASSWORD_PEPPER || "";
+      let isPasswordValid = await argon2.verify(
+        actor.password,
+        `${parsedDeleteRequest.data.password}${pepper}`
+      );
+
+      // Backward compatibility for accounts created before PASSWORD_PEPPER was configured.
+      if (!isPasswordValid && pepper) {
+        isPasswordValid = await argon2.verify(actor.password, parsedDeleteRequest.data.password);
+      }
+
+      if (!isPasswordValid) {
+        return NextResponse.json(
+          { success: false, message: "Password confirmation failed" },
+          { status: 403 }
+        );
+      }
+
+      const { id } = await params;
+      const removed = await softDeleteExpense({
+        companyId: auth.context.user.companyId || "",
+        expenseId: id,
+        updatedBy: auth.context.user.id,
+        deleteReason: parsedDeleteRequest.data.deleteReason,
+        access: auth.context.accessScope,
+        ipAddress: getClientIp(request),
+      });
+
+      if (!removed.success) {
+        return NextResponse.json(removed, { status: removed.message.includes("not found") ? 404 : 400 });
+      }
+
+      return NextResponse.json({ success: true, expense: removed.expense }, { status: 200 });
     }
 
     const { id } = await params;
@@ -152,19 +206,8 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: true, expense: archived.expense }, { status: 200 });
     }
 
-    const removed = await softDeleteExpense({
-      companyId: auth.context.user.companyId || "",
-      expenseId: id,
-      updatedBy: auth.context.user.id,
-      access: auth.context.accessScope,
-      ipAddress: getClientIp(request),
-    });
 
-    if (!removed.success) {
-      return NextResponse.json(removed, { status: 404 });
-    }
-
-    return NextResponse.json({ success: true, expense: removed.expense }, { status: 200 });
+    return NextResponse.json({ success: false, message: "Unsupported delete mode" }, { status: 400 });
   } catch (error) {
     return NextResponse.json(
       { success: false, message: `Error removing expense: ${String(error)}` },

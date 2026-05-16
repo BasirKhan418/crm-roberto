@@ -16,6 +16,7 @@ import {
   EXPENSE_PAYMENT_METHODS,
   type ExpenseAttachmentDeleteReason,
 } from "@/lib/expenses/constants";
+import { normalizeRole } from "@/lib/permissions";
 import type { ListQueryOptions, PaginationMeta } from "@/utils/api/query";
 import { buildPagination } from "@/utils/api/query";
 import type {
@@ -44,6 +45,7 @@ type AttachmentNamingExpense = {
   supplierRef?: string | null;
   expenseDate?: Date | null;
   amountInclVatCents?: number;
+  status?: string | null;
 };
 
 type ExpensePaymentLineRecord = {
@@ -61,6 +63,11 @@ type ExpensePaymentLineRecord = {
 
 const DEFAULT_EXPENSE_VAT_RATE = 17;
 const DEFAULT_DUE_DATE_DELAY_DAYS = 7;
+
+function canRestoreArchivedWithRole(role: string | null | undefined) {
+  const normalized = normalizeRole(role);
+  return normalized === "super_admin" || normalized === "administrator";
+}
 
 function isValidObjectId(value: string) {
   return mongoose.Types.ObjectId.isValid(value);
@@ -669,6 +676,8 @@ export async function listExpenses(params: {
 
   if (params.filters?.status) {
     query.status = params.filters.status;
+  } else {
+    query.status = { $ne: "archived" };
   }
 
   if (params.filters?.paymentStatus) {
@@ -879,6 +888,13 @@ export async function updateExpense(params: {
     return { success: false as const, message: "Expense not found" };
   }
 
+  if (existing.status === "archived") {
+    return {
+      success: false as const,
+      message: "Archived expenses are read-only. Restore the expense before editing.",
+    };
+  }
+
   const nextData: Record<string, unknown> = {
     ...existing,
     ...params.payload,
@@ -1023,10 +1039,19 @@ export async function softDeleteExpense(params: {
   companyId: string;
   expenseId: string;
   updatedBy: string;
+  deleteReason: string;
   access?: AccessScope;
   ipAddress?: string | null;
 }) {
   await ConnectDb();
+
+  const deleteReason = typeof params.deleteReason === "string" ? params.deleteReason.trim() : "";
+  if (deleteReason.length < 10) {
+    return {
+      success: false as const,
+      message: "Deletion reason must contain at least 10 characters",
+    };
+  }
 
   const scopedQuery = addAccessScopeToQuery(
     { _id: params.expenseId, companyId: params.companyId, deletedAt: null },
@@ -1059,6 +1084,19 @@ export async function softDeleteExpense(params: {
     entityId: params.expenseId,
     companyId: params.companyId,
     action: "deleted",
+    fieldName: "lifecycle",
+    oldValue: {
+      status: deleted.status,
+      paymentStatus: deleted.paymentStatus,
+      amountInclVatCents: toPositiveCents(deleted.amountInclVatCents),
+      amountPaidCents: toPositiveCents(deleted.amountPaidCents),
+      supplierRef: typeof deleted.supplierRef === "string" ? deleted.supplierRef : null,
+      deleteReason,
+    },
+    newValue: {
+      deletedAt: now,
+      status: "deleted",
+    },
     performedBy: params.updatedBy,
     source: "api",
     ipAddress: params.ipAddress,
@@ -1090,6 +1128,13 @@ export async function duplicateExpense(params: {
 
   if (!source) {
     return { success: false as const, message: "Expense not found" };
+  }
+
+  if (source.status === "archived") {
+    return {
+      success: false as const,
+      message: "Archived expenses are read-only and cannot be duplicated",
+    };
   }
 
   const clonePayload: Record<string, unknown> = {
@@ -1210,6 +1255,13 @@ export async function markExpensePaid(params: {
     return { success: false as const, message: "Expense not found" };
   }
 
+  if (expense.status === "archived") {
+    return {
+      success: false as const,
+      message: "Archived expenses are read-only and cannot receive payments",
+    };
+  }
+
   const paymentLines = await ensureLegacyPaymentLines({
     companyId: params.companyId,
     expense: expense.toObject() as Record<string, unknown>,
@@ -1305,6 +1357,13 @@ export async function addExpensePayment(params: {
 
   if (!expense) {
     return { success: false as const, message: "Expense not found" };
+  }
+
+  if (expense.status === "archived") {
+    return {
+      success: false as const,
+      message: "Archived expenses are read-only and cannot receive payments",
+    };
   }
 
   const paymentLines = await ensureLegacyPaymentLines({
@@ -1408,7 +1467,7 @@ export async function listExpenseAttachments(params: {
     params.access
   );
 
-  const expense = await Expense.findOne(expenseQuery).select("_id").lean();
+  const expense = await Expense.findOne(expenseQuery).select("_id status").lean();
   if (!expense) {
     return { success: false as const, message: "Expense not found" };
   }
@@ -1454,11 +1513,18 @@ export async function createExpenseAttachment(params: {
   );
 
   const expense = await Expense.findOne(expenseQuery)
-    .select("supplierId supplierRef expenseDate amountInclVatCents")
+    .select("supplierId supplierRef expenseDate amountInclVatCents status")
     .lean<AttachmentNamingExpense | null>();
 
   if (!expense) {
     return { success: false as const, message: "Expense not found" };
+  }
+
+  if (expense.status === "archived") {
+    return {
+      success: false as const,
+      message: "Archived expenses are read-only and cannot receive new attachments",
+    };
   }
 
   const displayName = await buildAttachmentDisplayName({
@@ -1560,6 +1626,13 @@ export async function deleteExpenseAttachment(params: {
     return { success: false as const, message: "Expense not found" };
   }
 
+  if ((expense as { status?: string | null }).status === "archived") {
+    return {
+      success: false as const,
+      message: "Archived expenses are read-only and attachments cannot be removed",
+    };
+  }
+
   const deletedAttachment = await ExpenseAttachment.findOneAndDelete({
     _id: params.attachmentId,
     companyId: params.companyId,
@@ -1593,4 +1666,68 @@ export async function deleteExpenseAttachment(params: {
     success: true as const,
     attachment: deletedAttachment,
   };
+}
+
+export async function restoreArchivedExpense(params: {
+  companyId: string;
+  expenseId: string;
+  updatedBy: string;
+  updatedByRole?: string | null;
+  access?: AccessScope;
+  ipAddress?: string | null;
+}) {
+  await ConnectDb();
+
+  if (
+    !isValidObjectId(params.companyId) ||
+    !isValidObjectId(params.expenseId) ||
+    !isValidObjectId(params.updatedBy)
+  ) {
+    return { success: false as const, message: "Invalid expense restore context" };
+  }
+
+  if (!canRestoreArchivedWithRole(params.updatedByRole)) {
+    return { success: false as const, message: "Forbidden" };
+  }
+
+  const scopedQuery = addAccessScopeToQuery(
+    {
+      _id: params.expenseId,
+      companyId: params.companyId,
+      deletedAt: null,
+      status: "archived",
+    },
+    params.access
+  );
+
+  const restored = await Expense.findOneAndUpdate(
+    scopedQuery,
+    {
+      $set: {
+        status: "active",
+        archivedAt: null,
+        updatedBy: params.updatedBy,
+      },
+    },
+    { returnDocument: "after" }
+  ).lean();
+
+  if (!restored) {
+    return { success: false as const, message: "Archived expense not found" };
+  }
+
+  await recordAuditLog({
+    entityType: "expense",
+    entityId: params.expenseId,
+    companyId: params.companyId,
+    action: "status_changed",
+    fieldName: "status",
+    oldValue: "archived",
+    newValue: "active",
+    performedBy: params.updatedBy,
+    source: "api",
+    ipAddress: params.ipAddress,
+  });
+
+  return { success: true as const, expense: restored };
 }

@@ -10,6 +10,15 @@ type ExpensePermissionState = {
   canDelete: boolean;
 };
 
+export function canPermanentlyDeleteExpense(role: string | null | undefined): boolean {
+  return normalizeRole(role) === "super_admin";
+}
+
+export function canRestoreArchivedExpense(role: string | null | undefined): boolean {
+  const normalizedRole = normalizeRole(role);
+  return normalizedRole === "super_admin" || normalizedRole === "administrator";
+}
+
 export function getExpensePermissionState(role: string | null | undefined): ExpensePermissionState {
   const normalizedRole = normalizeRole(role);
 
@@ -18,7 +27,7 @@ export function getExpensePermissionState(role: string | null | undefined): Expe
     ownOnly: normalizedRole === "standard_user",
     canView: hasPermission(normalizedRole, "expenses.view"),
     canManage: hasPermission(normalizedRole, "expenses.manage"),
-    canDelete: hasPermission(normalizedRole, "expenses.delete"),
+    canDelete: canPermanentlyDeleteExpense(normalizedRole),
   };
 }
 
@@ -36,7 +45,7 @@ export function checkExpensePermission(
     return { success: false, message: "Forbidden", status: 403 };
   }
 
-  if (permission === "delete" && !state.canDelete) {
+  if (permission === "delete" && !canPermanentlyDeleteExpense(state.role)) {
     return { success: false, message: "Forbidden", status: 403 };
   }
 

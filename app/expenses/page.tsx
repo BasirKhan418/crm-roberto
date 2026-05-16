@@ -51,6 +51,7 @@ import EmptyState from '@/components/ui/EmptyState';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Table,
   TableBody,
@@ -65,6 +66,7 @@ import { createInlineExpenseSupplier, useExpenseLookups } from '@/hooks/useExpen
 import { ExpenseListItem, useExpenses } from '@/hooks/useExpenses';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { EXPENSE_PAYMENT_STATUS, EXPENSE_STATUS } from '@/lib/expenses/constants';
+import { canPermanentlyDeleteExpense, canRestoreArchivedExpense } from '@/lib/expenses/access';
 import {
   EXPENSE_ALLOWED_MIME_TYPES,
   EXPENSE_MAX_FILE_SIZE_BYTES,
@@ -122,6 +124,7 @@ const extensionToMime: Record<string, (typeof EXPENSE_ALLOWED_MIME_TYPES)[number
 };
 
 const ACCEPTED_FILES = '.pdf,.jpg,.jpeg,.png,.heic';
+const MIN_DELETE_REASON_LENGTH = 10;
 
 function createUploadId() {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -274,6 +277,9 @@ export default function ExpensesPage() {
   const [settleExpenseTarget, setSettleExpenseTarget] = useState<ExpenseListItem | null>(null);
   const [addPaymentTarget, setAddPaymentTarget] = useState<ExpenseListItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ExpenseListItem | null>(null);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteReason, setDeleteReason] = useState('');
+  const [deleteValidationError, setDeleteValidationError] = useState<string | null>(null);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [actionFeedback, setActionFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
@@ -294,6 +300,8 @@ export default function ExpensesPage() {
 
   const canViewExpenses = hasPermission(user?.role, 'expenses.view');
   const canManageExpenses = hasPermission(user?.role, 'expenses.manage');
+  const canPermanentlyDelete = canPermanentlyDeleteExpense(user?.role);
+  const canRestoreArchived = canRestoreArchivedExpense(user?.role);
 
   const {
     categories,
@@ -472,16 +480,27 @@ export default function ExpensesPage() {
       actionCreateSuccess: 'Expense created',
       actionUpdateSuccess: 'Expense updated',
       actionArchiveSuccess: 'Expense archived',
+      actionRestoreSuccess: 'Expense restored',
       actionDeleteSuccess: 'Expense deleted',
       settleExpenseSuccess: 'Expense settled',
       addPaymentSuccess: 'Payment added',
       actionFailed: 'Action failed',
       editLoadFailed: 'Failed to load expense detail for editing',
+      restore: 'Restore',
+      archivedHiddenHint: 'Archived expenses are hidden by default. Select Status = Archived to view them.',
+      archivedReadOnlyHint: 'Archived expenses are read-only. Restore first to edit, pay, attach files, or duplicate.',
       confirmArchive: 'Archive this expense?',
       confirmDelete: 'Delete this expense? This cannot be undone.',
       confirmDeleteTitle: 'Confirm expense deletion',
       confirmDeleteDescription: (label: string) =>
         `You are about to permanently remove this expense (${label}). This action cannot be undone.`,
+      confirmDeletePasswordLabel: 'Confirm with your password',
+      confirmDeletePasswordPlaceholder: 'Enter your account password',
+      confirmDeleteReasonLabel: 'Deletion reason',
+      confirmDeleteReasonPlaceholder: 'Explain why this accounting record must be permanently deleted',
+      confirmDeleteReasonHint: `Minimum ${MIN_DELETE_REASON_LENGTH} characters`,
+      confirmDeletePasswordRequired: 'Password confirmation is required',
+      confirmDeleteReasonRequired: `Deletion reason must contain at least ${MIN_DELETE_REASON_LENGTH} characters`,
       confirmDeleteCancel: 'Cancel',
       confirmDeleteAction: 'Delete expense',
       lookupsLoading: 'Loading lookups...',
@@ -598,16 +617,27 @@ export default function ExpensesPage() {
       actionCreateSuccess: 'Dépense créée',
       actionUpdateSuccess: 'Dépense mise à jour',
       actionArchiveSuccess: 'Dépense archivée',
+      actionRestoreSuccess: 'Dépense restaurée',
       actionDeleteSuccess: 'Dépense supprimée',
       settleExpenseSuccess: 'Dépense soldée',
       addPaymentSuccess: 'Paiement ajouté',
       actionFailed: 'Échec action',
       editLoadFailed: 'Impossible de charger la dépense pour modification',
+      restore: 'Restaurer',
+      archivedHiddenHint: "Les dépenses archivées sont masquées par défaut. Choisissez Statut = Archivée pour les afficher.",
+      archivedReadOnlyHint: "Les dépenses archivées sont en lecture seule. Restaurez d'abord pour modifier, payer, ajouter des pièces ou dupliquer.",
       confirmArchive: 'Archiver cette dépense ?',
       confirmDelete: 'Supprimer cette dépense ? Cette action est irréversible.',
       confirmDeleteTitle: 'Confirmer suppression dépense',
       confirmDeleteDescription: (label: string) =>
         `Vous allez supprimer définitivement cette dépense (${label}). Cette action est irréversible.`,
+      confirmDeletePasswordLabel: 'Confirmez avec votre mot de passe',
+      confirmDeletePasswordPlaceholder: 'Saisissez le mot de passe du compte',
+      confirmDeleteReasonLabel: 'Motif de suppression',
+      confirmDeleteReasonPlaceholder: 'Expliquez pourquoi cet enregistrement comptable doit être supprimé définitivement',
+      confirmDeleteReasonHint: `Minimum ${MIN_DELETE_REASON_LENGTH} caractères`,
+      confirmDeletePasswordRequired: 'La confirmation par mot de passe est obligatoire',
+      confirmDeleteReasonRequired: `Le motif doit contenir au moins ${MIN_DELETE_REASON_LENGTH} caractères`,
       confirmDeleteCancel: 'Annuler',
       confirmDeleteAction: 'Supprimer dépense',
       lookupsLoading: 'Chargement des référentiels...',
@@ -1020,12 +1050,42 @@ export default function ExpensesPage() {
     }
   }
 
-  async function runDelete(expenseId: string) {
+  async function runRestore(expenseId: string) {
+    setActionLoadingId(expenseId);
+
+    try {
+      const response = await fetch(`/api/expenses/${expenseId}/actions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'restore' }),
+      });
+
+      const payload = (await response.json().catch(() => null)) as GenericApiResponse | null;
+
+      if (!response.ok || !payload?.success) {
+        throw new Error(payload?.message || t.actionFailed);
+      }
+
+      await refetch();
+      setFeedback('success', t.actionRestoreSuccess);
+    } catch (restoreError) {
+      setFeedback('error', restoreError instanceof Error ? restoreError.message : t.actionFailed);
+    } finally {
+      setActionLoadingId(null);
+    }
+  }
+
+  async function runDelete(expenseId: string, password: string, deleteReason: string) {
     setActionLoadingId(expenseId);
 
     try {
       const response = await fetch(`/api/expenses/${expenseId}?mode=delete`, {
         method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          password,
+          deleteReason,
+        }),
       });
 
       const payload = (await response.json().catch(() => null)) as GenericApiResponse | null;
@@ -1037,6 +1097,10 @@ export default function ExpensesPage() {
       await refetch();
       setFeedback('success', t.actionDeleteSuccess);
       toast.success(t.actionDeleteSuccess);
+      setDeleteTarget(null);
+      setDeletePassword('');
+      setDeleteReason('');
+      setDeleteValidationError(null);
     } catch (deleteError) {
       setFeedback('error', deleteError instanceof Error ? deleteError.message : t.actionFailed);
     } finally {
@@ -1507,6 +1571,8 @@ export default function ExpensesPage() {
                 {t.lookupsErrorTitle}: {lookupsError}
               </p>
             ) : null}
+            <p className="text-xs text-muted-foreground">{t.archivedHiddenHint}</p>
+            {statusFilter === 'archived' ? <p className="text-xs text-muted-foreground">{t.archivedReadOnlyHint}</p> : null}
           </CardContent>
         </Card>
 
@@ -1551,6 +1617,7 @@ export default function ExpensesPage() {
               <div className="space-y-2.5">
                 {expenses.map((expense) => {
                   const rowLoading = actionLoadingId === expense._id;
+                  const isArchived = expense.status === 'archived';
 
                   return (
                     <div
@@ -1626,7 +1693,7 @@ export default function ExpensesPage() {
                                 title={t.edit}
                                 aria-label={t.edit}
                                 onClick={() => void openEditExpense(expense._id)}
-                                disabled={rowLoading}
+                                disabled={rowLoading || isArchived}
                               >
                                 <PencilIcon className="size-4" />
                               </Button>
@@ -1638,7 +1705,7 @@ export default function ExpensesPage() {
                                 title={t.settleExpense}
                                 aria-label={t.settleExpense}
                                 onClick={() => setSettleExpenseTarget(expense)}
-                                disabled={rowLoading || expense.paymentStatus === 'paid'}
+                                disabled={rowLoading || expense.paymentStatus === 'paid' || isArchived}
                               >
                                 <CheckCircle2Icon className="size-4" />
                               </Button>
@@ -1650,7 +1717,7 @@ export default function ExpensesPage() {
                                 title={t.addPayment}
                                 aria-label={t.addPayment}
                                 onClick={() => setAddPaymentTarget(expense)}
-                                disabled={rowLoading || expense.paymentStatus === 'paid'}
+                                disabled={rowLoading || expense.paymentStatus === 'paid' || isArchived}
                               >
                                 <FilePlus2Icon className="size-4" />
                               </Button>
@@ -1662,19 +1729,25 @@ export default function ExpensesPage() {
                                 title={t.duplicate}
                                 aria-label={t.duplicate}
                                 onClick={() => void runDuplicate(expense._id)}
-                                disabled={rowLoading}
+                                disabled={rowLoading || isArchived}
                               >
                                 <CopyIcon className="size-4" />
                               </Button>
-                              <Button asChild type="button" variant="outline" size="icon" className="size-8">
-                                <Link
-                                  href={`/expenses/${expense._id}?tab=attachments`}
-                                  title={t.addAttachment}
-                                  aria-label={t.addAttachment}
-                                >
+                              {isArchived ? (
+                                <Button type="button" variant="outline" size="icon" className="size-8" disabled>
                                   <PaperclipIcon className="size-4" />
-                                </Link>
-                              </Button>
+                                </Button>
+                              ) : (
+                                <Button asChild type="button" variant="outline" size="icon" className="size-8">
+                                  <Link
+                                    href={`/expenses/${expense._id}?tab=attachments`}
+                                    title={t.addAttachment}
+                                    aria-label={t.addAttachment}
+                                  >
+                                    <PaperclipIcon className="size-4" />
+                                  </Link>
+                                </Button>
+                              )}
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                   <Button type="button" variant="outline" size="icon" className="size-8" disabled={rowLoading}>
@@ -1682,16 +1755,32 @@ export default function ExpensesPage() {
                                   </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end" className="w-44">
-                                  {expense.status !== 'archived' ? (
+                                  {!isArchived ? (
                                     <DropdownMenuItem onSelect={() => void runArchive(expense._id)}>
                                       <ArchiveIcon className="size-4" />
                                       {t.archive}
                                     </DropdownMenuItem>
                                   ) : null}
-                                  <DropdownMenuItem variant="destructive" onSelect={() => setDeleteTarget(expense)}>
-                                    <Trash2Icon className="size-4" />
-                                    {t.delete}
-                                  </DropdownMenuItem>
+                                  {isArchived && canRestoreArchived ? (
+                                    <DropdownMenuItem onSelect={() => void runRestore(expense._id)}>
+                                      <RefreshCwIcon className="size-4" />
+                                      {t.restore}
+                                    </DropdownMenuItem>
+                                  ) : null}
+                                  {canPermanentlyDelete ? (
+                                    <DropdownMenuItem
+                                      variant="destructive"
+                                      onSelect={() => {
+                                        setDeletePassword('');
+                                        setDeleteReason('');
+                                        setDeleteValidationError(null);
+                                        setDeleteTarget(expense);
+                                      }}
+                                    >
+                                      <Trash2Icon className="size-4" />
+                                      {t.delete}
+                                    </DropdownMenuItem>
+                                  ) : null}
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             </>
@@ -1722,6 +1811,7 @@ export default function ExpensesPage() {
                 <TableBody>
                   {expenses.map((expense) => {
                     const rowLoading = actionLoadingId === expense._id;
+                    const isArchived = expense.status === 'archived';
 
                     return (
                       <TableRow key={expense._id} className={`cursor-pointer ${getTableRowToneClass(expense.status, expense.paymentStatus)}`}>
@@ -1775,7 +1865,7 @@ export default function ExpensesPage() {
                                   title={t.edit}
                                   aria-label={t.edit}
                                   onClick={() => void openEditExpense(expense._id)}
-                                  disabled={rowLoading}
+                                  disabled={rowLoading || isArchived}
                                 >
                                   <PencilIcon className="size-4" />
                                 </Button>
@@ -1787,7 +1877,7 @@ export default function ExpensesPage() {
                                   title={t.settleExpense}
                                   aria-label={t.settleExpense}
                                   onClick={() => setSettleExpenseTarget(expense)}
-                                  disabled={rowLoading || expense.paymentStatus === 'paid'}
+                                  disabled={rowLoading || expense.paymentStatus === 'paid' || isArchived}
                                 >
                                   <CheckCircle2Icon className="size-4" />
                                 </Button>
@@ -1799,7 +1889,7 @@ export default function ExpensesPage() {
                                   title={t.addPayment}
                                   aria-label={t.addPayment}
                                   onClick={() => setAddPaymentTarget(expense)}
-                                  disabled={rowLoading || expense.paymentStatus === 'paid'}
+                                  disabled={rowLoading || expense.paymentStatus === 'paid' || isArchived}
                                 >
                                   <FilePlus2Icon className="size-4" />
                                 </Button>
@@ -1811,19 +1901,25 @@ export default function ExpensesPage() {
                                   title={t.duplicate}
                                   aria-label={t.duplicate}
                                   onClick={() => void runDuplicate(expense._id)}
-                                  disabled={rowLoading}
+                                  disabled={rowLoading || isArchived}
                                 >
                                   <CopyIcon className="size-4" />
                                 </Button>
-                                <Button asChild type="button" variant="outline" size="icon" className="size-8">
-                                  <Link
-                                    href={`/expenses/${expense._id}?tab=attachments`}
-                                    title={t.addAttachment}
-                                    aria-label={t.addAttachment}
-                                  >
+                                {isArchived ? (
+                                  <Button type="button" variant="outline" size="icon" className="size-8" disabled>
                                     <PaperclipIcon className="size-4" />
-                                  </Link>
-                                </Button>
+                                  </Button>
+                                ) : (
+                                  <Button asChild type="button" variant="outline" size="icon" className="size-8">
+                                    <Link
+                                      href={`/expenses/${expense._id}?tab=attachments`}
+                                      title={t.addAttachment}
+                                      aria-label={t.addAttachment}
+                                    >
+                                      <PaperclipIcon className="size-4" />
+                                    </Link>
+                                  </Button>
+                                )}
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild>
                                     <Button type="button" variant="outline" size="icon" className="size-8" disabled={rowLoading}>
@@ -1831,16 +1927,32 @@ export default function ExpensesPage() {
                                     </Button>
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent align="end" className="w-44">
-                                    {expense.status !== 'archived' ? (
+                                    {!isArchived ? (
                                       <DropdownMenuItem onSelect={() => void runArchive(expense._id)}>
                                         <ArchiveIcon className="size-4" />
                                         {t.archive}
                                       </DropdownMenuItem>
                                     ) : null}
-                                    <DropdownMenuItem variant="destructive" onSelect={() => setDeleteTarget(expense)}>
-                                      <Trash2Icon className="size-4" />
-                                      {t.delete}
-                                    </DropdownMenuItem>
+                                    {isArchived && canRestoreArchived ? (
+                                      <DropdownMenuItem onSelect={() => void runRestore(expense._id)}>
+                                        <RefreshCwIcon className="size-4" />
+                                        {t.restore}
+                                      </DropdownMenuItem>
+                                    ) : null}
+                                    {canPermanentlyDelete ? (
+                                      <DropdownMenuItem
+                                        variant="destructive"
+                                        onSelect={() => {
+                                          setDeletePassword('');
+                                          setDeleteReason('');
+                                          setDeleteValidationError(null);
+                                          setDeleteTarget(expense);
+                                        }}
+                                      >
+                                        <Trash2Icon className="size-4" />
+                                        {t.delete}
+                                      </DropdownMenuItem>
+                                    ) : null}
                                   </DropdownMenuContent>
                                 </DropdownMenu>
                               </>
@@ -1974,6 +2086,9 @@ export default function ExpensesPage() {
         onOpenChange={(open) => {
           if (!open) {
             setDeleteTarget(null);
+            setDeletePassword('');
+            setDeleteReason('');
+            setDeleteValidationError(null);
           }
         }}
       >
@@ -1984,6 +2099,39 @@ export default function ExpensesPage() {
               {deleteTarget ? t.confirmDeleteDescription(deleteTarget.supplierRef || getSupplierName(deleteTarget)) : ''}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="expense-delete-password">{t.confirmDeletePasswordLabel}</Label>
+              <Input
+                id="expense-delete-password"
+                type="password"
+                value={deletePassword}
+                onChange={(event) => {
+                  setDeletePassword(event.target.value);
+                  setDeleteValidationError(null);
+                }}
+                placeholder={t.confirmDeletePasswordPlaceholder}
+                autoComplete="current-password"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="expense-delete-reason">{t.confirmDeleteReasonLabel}</Label>
+              <Textarea
+                id="expense-delete-reason"
+                value={deleteReason}
+                onChange={(event) => {
+                  setDeleteReason(event.target.value);
+                  setDeleteValidationError(null);
+                }}
+                placeholder={t.confirmDeleteReasonPlaceholder}
+                rows={3}
+              />
+              <p className="text-xs text-muted-foreground">{t.confirmDeleteReasonHint}</p>
+            </div>
+            {deleteValidationError ? (
+              <p className="text-xs font-medium text-destructive">{deleteValidationError}</p>
+            ) : null}
+          </div>
           <AlertDialogFooter>
             <AlertDialogCancel asChild>
               <Button type="button" variant="outline" disabled={Boolean(deleteTarget && actionLoadingId === deleteTarget._id)}>
@@ -2001,9 +2149,22 @@ export default function ExpensesPage() {
                     return;
                   }
 
+                  const normalizedPassword = deletePassword.trim();
+                  const normalizedReason = deleteReason.trim();
+
+                  if (!normalizedPassword) {
+                    setDeleteValidationError(t.confirmDeletePasswordRequired);
+                    return;
+                  }
+
+                  if (normalizedReason.length < MIN_DELETE_REASON_LENGTH) {
+                    setDeleteValidationError(t.confirmDeleteReasonRequired);
+                    return;
+                  }
+
+                  setDeleteValidationError(null);
                   const targetId = deleteTarget._id;
-                  setDeleteTarget(null);
-                  void runDelete(targetId);
+                  void runDelete(targetId, normalizedPassword, normalizedReason);
                 }}
               >
                 {deleteTarget && actionLoadingId === deleteTarget._id ? (

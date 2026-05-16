@@ -29,12 +29,20 @@ type RolePermissionsMap = Record<AppRole, readonly AppPermission[]>;
 
 const ROLE_PERMISSIONS: RolePermissionsMap = {
   super_admin: APP_PERMISSIONS,
-  administrator: APP_PERMISSIONS,
+  administrator: [
+    "users.view",
+    "users.invite",
+    "users.update_role",
+    "users.revoke",
+    "expenses.view",
+    "expenses.manage",
+    "tickets.view",
+    "tickets.manage",
+  ],
   manager: [
     "users.view",
     "expenses.view",
     "expenses.manage",
-    "expenses.delete",
     "tickets.view",
     "tickets.manage",
   ],

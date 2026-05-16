@@ -6,6 +6,7 @@ import {
   createExpenseAttachment,
   duplicateExpense,
   markExpensePaid,
+  restoreArchivedExpense,
 } from "@/db/repository/expense";
 import { authorizeExpenseRoute } from "@/app/api/expenses/_shared";
 import { expenseActionSchema } from "@/validators/expense.schema";
@@ -14,6 +15,13 @@ import { getClientIp } from "@/utils/api/request";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
+}
+
+function resolveActionStatus(message?: string) {
+  const normalizedMessage = (message || "").toLowerCase();
+  if (normalizedMessage.includes("forbidden")) return 403;
+  if (normalizedMessage.includes("not found")) return 404;
+  return 400;
 }
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
@@ -46,7 +54,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       });
 
       if (!duplicated.success) {
-        return NextResponse.json(duplicated, { status: 404 });
+        return NextResponse.json(duplicated, { status: resolveActionStatus(duplicated.message) });
       }
 
       return NextResponse.json({ success: true, expense: duplicated.expense }, { status: 201 });
@@ -62,10 +70,27 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       });
 
       if (!archived.success) {
-        return NextResponse.json(archived, { status: 404 });
+        return NextResponse.json(archived, { status: resolveActionStatus(archived.message) });
       }
 
       return NextResponse.json({ success: true, expense: archived.expense }, { status: 200 });
+    }
+
+    if (parsed.data.action === "restore") {
+      const restored = await restoreArchivedExpense({
+        companyId,
+        expenseId: id,
+        updatedBy: userId,
+        updatedByRole: auth.context.user.role,
+        access: auth.context.accessScope,
+        ipAddress,
+      });
+
+      if (!restored.success) {
+        return NextResponse.json(restored, { status: resolveActionStatus(restored.message) });
+      }
+
+      return NextResponse.json({ success: true, expense: restored.expense }, { status: 200 });
     }
 
     if (parsed.data.action === "mark_paid") {
@@ -83,7 +108,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       });
 
       if (!marked.success) {
-        return NextResponse.json(marked, { status: 404 });
+        return NextResponse.json(marked, { status: resolveActionStatus(marked.message) });
       }
 
       return NextResponse.json({ success: true, expense: marked.expense }, { status: 200 });
@@ -105,7 +130,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       });
 
       if (!paymentAdded.success) {
-        return NextResponse.json(paymentAdded, { status: 404 });
+        return NextResponse.json(paymentAdded, { status: resolveActionStatus(paymentAdded.message) });
       }
 
       return NextResponse.json({ success: true, expense: paymentAdded.expense }, { status: 200 });
@@ -121,7 +146,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!attachmentResult.success) {
-      return NextResponse.json(attachmentResult, { status: 404 });
+      return NextResponse.json(attachmentResult, { status: resolveActionStatus(attachmentResult.message) });
     }
 
     return NextResponse.json(

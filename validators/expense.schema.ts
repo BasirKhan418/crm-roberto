@@ -232,6 +232,11 @@ export const deleteExpenseAttachmentSchema = z.object({
   }
 });
 
+export const permanentDeleteExpenseSchema = z.object({
+  password: z.string().trim().min(1, "Password confirmation is required").max(256),
+  deleteReason: z.string().trim().min(10, "Deletion reason must contain at least 10 characters").max(500),
+});
+
 export const expenseActionSchema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("duplicate"),
@@ -239,6 +244,9 @@ export const expenseActionSchema = z.discriminatedUnion("action", [
   }),
   z.object({
     action: z.literal("archive"),
+  }),
+  z.object({
+    action: z.literal("restore"),
   }),
   z.object({
     action: z.literal("mark_paid"),
@@ -302,6 +310,7 @@ export type AddExpensePaymentDTO = z.infer<typeof addExpensePaymentSchema>;
 export type ExpenseAttachmentMetadataDTO = z.infer<typeof expenseAttachmentMetadataSchema>;
 export type CreateExpenseAttachmentDTO = z.infer<typeof createExpenseAttachmentSchema>;
 export type DeleteExpenseAttachmentDTO = z.infer<typeof deleteExpenseAttachmentSchema>;
+export type PermanentDeleteExpenseDTO = z.infer<typeof permanentDeleteExpenseSchema>;
 export type ExpenseActionDTO = z.infer<typeof expenseActionSchema>;
 export type ExpenseUploadPresignDTO = z.infer<typeof expenseUploadPresignSchema>;
 export type ExpenseEmailIngestDTO = z.infer<typeof expenseEmailIngestSchema>;
