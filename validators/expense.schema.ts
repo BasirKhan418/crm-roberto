@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import {
+  EXPENSE_ATTACHMENT_DELETE_REASONS,
   EXPENSE_PAID_BY,
   EXPENSE_PAYMENT_METHODS,
   EXPENSE_PAYMENT_STATUS,
@@ -214,6 +215,21 @@ export const createExpenseAttachmentSchema = z.object({
 
 export const deleteExpenseAttachmentSchema = z.object({
   attachmentId: objectIdSchema,
+  reason: z.enum(EXPENSE_ATTACHMENT_DELETE_REASONS),
+  reasonDetails: z.preprocess(toNullableString, z.string().trim().max(500).nullable().optional()),
+}).superRefine((input, context) => {
+  if (input.reason !== "other") {
+    return;
+  }
+
+  const details = typeof input.reasonDetails === "string" ? input.reasonDetails.trim() : "";
+  if (details.length < 10) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Reason details must contain at least 10 characters when reason is 'other'",
+      path: ["reasonDetails"],
+    });
+  }
 });
 
 export const expenseActionSchema = z.discriminatedUnion("action", [

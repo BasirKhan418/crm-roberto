@@ -10,7 +10,12 @@ import "@/db/models/Invoice";
 import Supplier from "@/db/models/Supplier";
 import "@/db/models/User";
 import { computeAmountInclVatCents, computeRemainingBalanceCents, computeVatAmountCents } from "@/lib/expense-calculations";
-import { EXPENSE_PAID_BY, EXPENSE_PAYMENT_METHODS } from "@/lib/expenses/constants";
+import {
+  EXPENSE_ATTACHMENT_DELETE_REASONS,
+  EXPENSE_PAID_BY,
+  EXPENSE_PAYMENT_METHODS,
+  type ExpenseAttachmentDeleteReason,
+} from "@/lib/expenses/constants";
 import type { ListQueryOptions, PaginationMeta } from "@/utils/api/query";
 import { buildPagination } from "@/utils/api/query";
 import type {
@@ -111,6 +116,15 @@ function toValidExpensePaymentMethod(value: unknown) {
 function toValidExpensePaidBy(value: unknown) {
   if (typeof value !== "string") return null;
   return EXPENSE_PAID_BY.includes(value as (typeof EXPENSE_PAID_BY)[number]) ? value : null;
+}
+
+function toValidAttachmentDeleteReason(value: unknown): ExpenseAttachmentDeleteReason | null {
+  if (typeof value !== "string") return null;
+  return EXPENSE_ATTACHMENT_DELETE_REASONS.includes(
+    value as (typeof EXPENSE_ATTACHMENT_DELETE_REASONS)[number]
+  )
+    ? (value as ExpenseAttachmentDeleteReason)
+    : null;
 }
 
 function toDateOrNull(value: unknown) {
@@ -1243,6 +1257,17 @@ export async function markExpensePaid(params: {
     entityId: params.expenseId,
     companyId: params.companyId,
     action: "marked_paid",
+    fieldName: "payments",
+    oldValue: {
+      paymentStatus: currentSummary.paymentStatus,
+    },
+    newValue: {
+      amountPaidCents: remainingCents,
+      paidAt: params.payload.paidAt,
+      paymentMethod: params.payload.paymentMethod,
+      paidBy: params.payload.paidBy,
+      paymentStatus: paymentSummary.paymentStatus,
+    },
     performedBy: params.updatedBy,
     source: "api",
     ipAddress: params.ipAddress,
@@ -1338,6 +1363,17 @@ export async function addExpensePayment(params: {
     entityId: params.expenseId,
     companyId: params.companyId,
     action: "payment_added",
+    fieldName: "payments",
+    oldValue: {
+      paymentStatus: currentSummary.paymentStatus,
+    },
+    newValue: {
+      amountPaidCents: paymentAmountCents,
+      paidAt: params.payload.paidAt,
+      paymentMethod: params.payload.paymentMethod,
+      paidBy: params.payload.paidBy,
+      paymentStatus: paymentSummary.paymentStatus,
+    },
     performedBy: params.updatedBy,
     source: "api",
     ipAddress: params.ipAddress,
@@ -1461,6 +1497,7 @@ export async function createExpenseAttachment(params: {
     fieldName: "attachments",
     oldValue: null,
     newValue: {
+      changeType: "added",
       attachmentId: String(attachment._id),
       displayName: refreshed?.displayName || attachment.displayName,
     },
@@ -1479,6 +1516,8 @@ export async function deleteExpenseAttachment(params: {
   companyId: string;
   expenseId: string;
   attachmentId: string;
+  reason: ExpenseAttachmentDeleteReason;
+  reasonDetails?: string | null;
   deletedBy: string;
   access?: AccessScope;
   ipAddress?: string | null;
@@ -1492,6 +1531,19 @@ export async function deleteExpenseAttachment(params: {
     !isValidObjectId(params.deletedBy)
   ) {
     return { success: false as const, message: "Invalid attachment context" };
+  }
+
+  const reason = toValidAttachmentDeleteReason(params.reason);
+  if (!reason) {
+    return { success: false as const, message: "Invalid attachment deletion reason" };
+  }
+
+  const reasonDetails = typeof params.reasonDetails === "string" ? params.reasonDetails.trim() : "";
+  if (reason === "other" && reasonDetails.length < 10) {
+    return {
+      success: false as const,
+      message: "Reason details are required when attachment deletion reason is 'other'",
+    };
   }
 
   const expenseQuery = addAccessScopeToQuery(
@@ -1525,8 +1577,11 @@ export async function deleteExpenseAttachment(params: {
     action: "updated",
     fieldName: "attachments",
     oldValue: {
+      changeType: "removed",
       attachmentId: String(deletedAttachment._id),
       displayName: deletedAttachment.displayName,
+      deletionReason: reason,
+      deletionReasonDetails: reason === "other" ? reasonDetails : null,
     },
     newValue: null,
     performedBy: params.deletedBy,

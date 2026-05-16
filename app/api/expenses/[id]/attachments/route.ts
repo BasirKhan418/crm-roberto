@@ -107,6 +107,8 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       companyId: auth.context.user.companyId || "",
       expenseId: id,
       attachmentId: parsed.data.attachmentId,
+      reason: parsed.data.reason,
+      reasonDetails: parsed.data.reasonDetails ?? null,
       deletedBy: auth.context.user.id,
       access: auth.context.accessScope,
       ipAddress: getClientIp(request),

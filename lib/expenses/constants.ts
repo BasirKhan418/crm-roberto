@@ -9,6 +9,14 @@ export const EXPENSE_PAYMENT_METHODS = [
 ] as const;
 export const EXPENSE_PAID_BY = ["company", "private", "employee", "associate"] as const;
 export const EXPENSE_TYPES = ["business", "personal_reimbursable"] as const;
+export const EXPENSE_ATTACHMENT_DELETE_REASONS = [
+  "wrong_document",
+  "unreadable_document",
+  "duplicate_document",
+  "wrong_supplier",
+  "test_document",
+  "other",
+] as const;
 
 export const DEFAULT_EXPENSE_CATEGORY_NAMES = [
   "Fuel",
@@ -33,3 +41,4 @@ export type ExpensePaymentStatus = (typeof EXPENSE_PAYMENT_STATUS)[number];
 export type ExpensePaymentMethod = (typeof EXPENSE_PAYMENT_METHODS)[number];
 export type ExpensePaidBy = (typeof EXPENSE_PAID_BY)[number];
 export type ExpenseType = (typeof EXPENSE_TYPES)[number];
+export type ExpenseAttachmentDeleteReason = (typeof EXPENSE_ATTACHMENT_DELETE_REASONS)[number];

@@ -61,7 +61,9 @@ import {
   getExpenseFileExtension,
   isExpenseMimeTypeAllowed,
 } from '@/lib/expenses/upload';
+import { EXPENSE_ATTACHMENT_DELETE_REASONS } from '@/lib/expenses/constants';
 import {
+  getExpenseAttachmentDeleteReasonLabel,
   getExpenseEnumLabel,
   getExpensePaidByLabel,
   getExpensePaymentMethodLabel,
@@ -69,6 +71,8 @@ import {
   getExpenseTypeLabel,
 } from '@/lib/expenses/labels';
 import { hasPermission } from '@/lib/permissions';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 
 type GenericApiResponse = {
   success: boolean;
@@ -85,18 +89,138 @@ type ExpenseAttachment = {
   url: string;
 };
 
-function formatDate(value?: string | Date | null) {
-  if (!value) return '-';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '-';
-  return date.toLocaleDateString('fr-FR');
+type AuditLogEntry = {
+  action: string;
+  fieldName?: string | null;
+  oldValue?: unknown;
+  newValue?: unknown;
+};
+
+type AttachmentAuditPayload = {
+  displayName: string | null;
+  deletionReason: string | null;
+  deletionReasonDetails: string | null;
+};
+
+type PaymentAuditPayload = {
+  amountPaidCents: number | null;
+  paidAt: string | null;
+  paymentMethod: string | null;
+  paidBy: string | null;
+};
+
+const TECHNICAL_AUDIT_FIELDS = new Set([
+  '_id',
+  'companyId',
+  'createdAt',
+  'updatedAt',
+  'createdBy',
+  'updatedBy',
+  'deletedAt',
+  'archivedAt',
+  '__v',
+]);
+
+const MONEY_AUDIT_FIELDS = new Set([
+  'amountExclVatCents',
+  'vatAmountCents',
+  'amountInclVatCents',
+  'amountPaidCents',
+  'remainingBalanceCents',
+]);
+
+const DATE_AUDIT_FIELDS = new Set(['expenseDate', 'dueDate', 'paidAt']);
+
+const AUDIT_FIELD_LABELS = {
+  en: {
+    amountExclVatCents: 'Amount excl. VAT',
+    vatAmountCents: 'VAT amount',
+    amountInclVatCents: 'Amount incl. VAT',
+    amountPaidCents: 'Paid amount',
+    expenseDate: 'Expense date',
+    dueDate: 'Due date',
+    paidAt: 'Paid at',
+    paymentMethod: 'Payment method',
+    paidBy: 'Paid by',
+    paymentStatus: 'Payment status',
+    status: 'Lifecycle status',
+    supplierRef: 'Reference',
+    expenseType: 'Type',
+    supplierId: 'Supplier',
+    categoryId: 'Category',
+    clientId: 'Client',
+    invoiceId: 'Invoice',
+    projectId: 'Project',
+    notes: 'Notes',
+    attachments: 'Attachment',
+    payments: 'Payment',
+  },
+  fr: {
+    amountExclVatCents: 'Montant HT',
+    vatAmountCents: 'Montant TVA',
+    amountInclVatCents: 'Montant TTC',
+    amountPaidCents: 'Montant payé',
+    expenseDate: 'Date dépense',
+    dueDate: 'Date limite',
+    paidAt: 'Date paiement',
+    paymentMethod: 'Mode de paiement',
+    paidBy: 'Payé par',
+    paymentStatus: 'Statut paiement',
+    status: 'Statut cycle',
+    supplierRef: 'Référence',
+    expenseType: 'Type',
+    supplierId: 'Fournisseur',
+    categoryId: 'Catégorie',
+    clientId: 'Client',
+    invoiceId: 'Facture',
+    projectId: 'Projet',
+    notes: 'Notes',
+    attachments: 'Pièce jointe',
+    payments: 'Paiement',
+  },
+} as const;
+
+const AUDIT_ACTION_LABELS = {
+  en: {
+    created: 'Creation',
+    updated: 'Modification',
+    deleted: 'Deletion',
+    archived: 'Archived',
+    duplicated: 'Duplicated',
+    status_changed: 'Status changed',
+    marked_paid: 'Expense settled',
+    payment_added: 'Payment added',
+  },
+  fr: {
+    created: 'Création',
+    updated: 'Modification',
+    deleted: 'Suppression',
+    archived: 'Archivage',
+    duplicated: 'Duplication',
+    status_changed: 'Statut modifié',
+    marked_paid: 'Dépense soldée',
+    payment_added: 'Paiement ajouté',
+  },
+} as const;
+
+const ATTACHMENT_OTHER_REASON_MIN_CHARS = 10;
+
+function toLocaleString(locale: 'en' | 'fr') {
+  return locale === 'fr' ? 'fr-FR' : 'en-GB';
 }
 
-function formatDateTime(value?: string | Date | null) {
+function formatDate(value?: string | Date | null, locale: 'en' | 'fr' = 'fr') {
   if (!value) return '-';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '-';
-  return date.toLocaleString('fr-FR');
+  return date.toLocaleDateString(toLocaleString(locale));
+}
+
+function formatDateTime(value?: string | Date | null, locale: 'en' | 'fr' = 'fr') {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+  return date.toLocaleString(toLocaleString(locale));
 }
 
 function resolveEntityLabel(
@@ -163,21 +287,208 @@ function formatBytes(value: number) {
   return `${(kb / 1024).toFixed(2)} MB`;
 }
 
-function formatAuditValue(value: unknown, locale: 'en' | 'fr') {
-  if (value == null) return '-';
-  if (typeof value === 'string') {
-    return getExpenseEnumLabel(value, locale);
-  }
+function formatAuditCurrency(cents: number, locale: 'en' | 'fr') {
+  return new Intl.NumberFormat(toLocaleString(locale), {
+    style: 'currency',
+    currency: 'EUR',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(cents / 100);
+}
 
-  if (typeof value === 'number' || typeof value === 'boolean') {
-    return String(value);
+function normalizeAuditValue(value: unknown): unknown {
+  if (typeof value !== 'string') return value;
+
+  const trimmed = value.trim();
+  if (!trimmed) return value;
+
+  if (
+    !trimmed.startsWith('{') &&
+    !trimmed.startsWith('[') &&
+    !trimmed.startsWith('"')
+  ) {
+    return value;
   }
 
   try {
-    return JSON.stringify(value);
+    return JSON.parse(trimmed);
   } catch {
-    return String(value);
+    return value;
   }
+}
+
+function toAttachmentAuditPayload(value: unknown): AttachmentAuditPayload | null {
+  const normalized = normalizeAuditValue(value);
+  if (!normalized || typeof normalized !== 'object' || Array.isArray(normalized)) {
+    return null;
+  }
+
+  const payload = normalized as Record<string, unknown>;
+  return {
+    displayName: typeof payload.displayName === 'string' ? payload.displayName : null,
+    deletionReason: typeof payload.deletionReason === 'string' ? payload.deletionReason : null,
+    deletionReasonDetails:
+      typeof payload.deletionReasonDetails === 'string' ? payload.deletionReasonDetails : null,
+  };
+}
+
+function toPaymentAuditPayload(value: unknown): PaymentAuditPayload | null {
+  const normalized = normalizeAuditValue(value);
+  if (!normalized || typeof normalized !== 'object' || Array.isArray(normalized)) {
+    return null;
+  }
+
+  const payload = normalized as Record<string, unknown>;
+  const amountRaw = payload.amountPaidCents;
+  const amountPaidCents = typeof amountRaw === 'number' && Number.isFinite(amountRaw)
+    ? Math.round(amountRaw)
+    : null;
+
+  return {
+    amountPaidCents,
+    paidAt: typeof payload.paidAt === 'string' ? payload.paidAt : null,
+    paymentMethod: typeof payload.paymentMethod === 'string' ? payload.paymentMethod : null,
+    paidBy: typeof payload.paidBy === 'string' ? payload.paidBy : null,
+  };
+}
+
+function formatAuditField(fieldName: string | null | undefined, locale: 'en' | 'fr') {
+  if (!fieldName) return '-';
+  const labels = AUDIT_FIELD_LABELS[locale] as Record<string, string>;
+  return labels[fieldName] || fieldName;
+}
+
+function formatAuditAction(log: AuditLogEntry, locale: 'en' | 'fr') {
+  const oldAttachment = toAttachmentAuditPayload(log.oldValue);
+  const newAttachment = toAttachmentAuditPayload(log.newValue);
+
+  if (log.fieldName === 'attachments' || oldAttachment || newAttachment) {
+    if (oldAttachment?.displayName && !newAttachment?.displayName) {
+      return locale === 'fr'
+        ? `Pièce jointe supprimée: ${oldAttachment.displayName}`
+        : `Attachment removed: ${oldAttachment.displayName}`;
+    }
+
+    if (newAttachment?.displayName && !oldAttachment?.displayName) {
+      return locale === 'fr'
+        ? `Pièce jointe ajoutée: ${newAttachment.displayName}`
+        : `Attachment added: ${newAttachment.displayName}`;
+    }
+  }
+
+  if (log.action === 'payment_added' || log.action === 'marked_paid') {
+    const payment = toPaymentAuditPayload(log.newValue);
+    const amountPart =
+      payment?.amountPaidCents != null ? `: ${formatAuditCurrency(payment.amountPaidCents, locale)}` : '';
+    const base = AUDIT_ACTION_LABELS[locale][log.action] || log.action;
+    return `${base}${amountPart}`;
+  }
+
+  return AUDIT_ACTION_LABELS[locale][log.action as keyof (typeof AUDIT_ACTION_LABELS)['en']] || getExpenseEnumLabel(log.action, locale);
+}
+
+function formatAttachmentAuditValue(value: unknown, locale: 'en' | 'fr') {
+  const attachment = toAttachmentAuditPayload(value);
+  if (!attachment?.displayName) return '-';
+
+  if (!attachment.deletionReason) {
+    return attachment.displayName;
+  }
+
+  const reasonLabel = getExpenseAttachmentDeleteReasonLabel(attachment.deletionReason, locale);
+  const details = (attachment.deletionReasonDetails || '').trim();
+
+  if (!details) {
+    return `${attachment.displayName} (${reasonLabel})`;
+  }
+
+  return `${attachment.displayName} (${reasonLabel}: ${details})`;
+}
+
+function formatPaymentAuditValue(value: unknown, locale: 'en' | 'fr') {
+  const payment = toPaymentAuditPayload(value);
+  if (!payment) return '-';
+
+  const parts: string[] = [];
+  if (payment.amountPaidCents != null) {
+    parts.push(formatAuditCurrency(payment.amountPaidCents, locale));
+  }
+  if (payment.paidAt) {
+    parts.push(formatDate(payment.paidAt, locale));
+  }
+  if (payment.paymentMethod) {
+    parts.push(getExpensePaymentMethodLabel(payment.paymentMethod, locale));
+  }
+  if (payment.paidBy) {
+    parts.push(getExpensePaidByLabel(payment.paidBy, locale));
+  }
+
+  return parts.length > 0 ? parts.join(' · ') : '-';
+}
+
+function formatAuditValue(value: unknown, locale: 'en' | 'fr', fieldName?: string | null) {
+  const normalizedValue = normalizeAuditValue(value);
+
+  if (fieldName === 'attachments') {
+    return formatAttachmentAuditValue(normalizedValue, locale);
+  }
+
+  if (fieldName === 'payments') {
+    return formatPaymentAuditValue(normalizedValue, locale);
+  }
+
+  if (normalizedValue == null) return '-';
+
+  if (normalizedValue instanceof Date) {
+    return DATE_AUDIT_FIELDS.has(fieldName || '')
+      ? formatDate(normalizedValue, locale)
+      : formatDateTime(normalizedValue, locale);
+  }
+
+  if (typeof normalizedValue === 'number') {
+    if (MONEY_AUDIT_FIELDS.has(fieldName || '')) {
+      return formatAuditCurrency(normalizedValue, locale);
+    }
+    return String(normalizedValue);
+  }
+
+  if (typeof normalizedValue === 'boolean') {
+    return normalizedValue ? (locale === 'fr' ? 'Oui' : 'Yes') : locale === 'fr' ? 'Non' : 'No';
+  }
+
+  if (typeof normalizedValue === 'string') {
+    if (MONEY_AUDIT_FIELDS.has(fieldName || '')) {
+      const cents = Number(normalizedValue);
+      if (Number.isFinite(cents)) {
+        return formatAuditCurrency(Math.round(cents), locale);
+      }
+    }
+
+    if (DATE_AUDIT_FIELDS.has(fieldName || '')) {
+      return formatDate(normalizedValue, locale);
+    }
+
+    if (fieldName === 'createdAt' || fieldName === 'updatedAt') {
+      return formatDateTime(normalizedValue, locale);
+    }
+
+    return getExpenseEnumLabel(normalizedValue, locale);
+  }
+
+  try {
+    return JSON.stringify(normalizedValue);
+  } catch {
+    return String(normalizedValue);
+  }
+}
+
+function shouldHideAuditLog(log: AuditLogEntry) {
+  if (!log.fieldName) return false;
+  if (log.fieldName === 'attachments' || log.fieldName === 'payments') {
+    return false;
+  }
+
+  return log.action === 'updated' && TECHNICAL_AUDIT_FIELDS.has(log.fieldName);
 }
 
 function inferMimeFromFile(file: File) {
@@ -253,6 +564,11 @@ export default function ExpenseDetailPage() {
   const [settleExpenseOpen, setSettleExpenseOpen] = useState(false);
   const [addPaymentOpen, setAddPaymentOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteAttachmentDialogOpen, setDeleteAttachmentDialogOpen] = useState(false);
+  const [attachmentToDelete, setAttachmentToDelete] = useState<ExpenseAttachment | null>(null);
+  const [attachmentDeleteReason, setAttachmentDeleteReason] = useState('');
+  const [attachmentDeleteReasonDetails, setAttachmentDeleteReasonDetails] = useState('');
+  const [attachmentDeleteReasonError, setAttachmentDeleteReasonError] = useState<string | null>(null);
   const [previewAttachment, setPreviewAttachment] = useState<ExpenseAttachment | null>(null);
   const [ticketDialogOpen, setTicketDialogOpen] = useState(false);
 
@@ -322,6 +638,15 @@ export default function ExpenseDetailPage() {
           addAttachment: 'Add attachment',
           replaceFileHint: `Allowed: PDF/JPEG/PNG/HEIC. Max ${formatFileSizeMb(EXPENSE_MAX_FILE_SIZE_BYTES)} MB`,
           deleteAttachment: 'Delete',
+          deleteAttachmentDialogTitle: 'Delete attachment',
+          deleteAttachmentDialogDescription: 'Select a reason before deleting this attachment.',
+          deleteAttachmentReasonLabel: 'Deletion reason',
+          deleteAttachmentReasonPlaceholder: 'Select a reason',
+          deleteAttachmentReasonRequired: 'A deletion reason is required',
+          deleteAttachmentReasonDetailsLabel: 'Reason details',
+          deleteAttachmentReasonDetailsPlaceholder: 'Provide details (minimum 10 characters)',
+          deleteAttachmentReasonDetailsMin: 'Please enter at least 10 characters for Other',
+          deleteAttachmentConfirmAction: 'Delete attachment',
           noAttachments: 'No attachments linked to this expense yet.',
           uploadFailed: 'Attachment upload failed',
           uploadSuccess: 'Attachment uploaded',
@@ -417,6 +742,15 @@ export default function ExpenseDetailPage() {
           addAttachment: 'Ajouter pièce jointe',
           replaceFileHint: `Autorisés : PDF/JPEG/PNG/HEIC. Max ${formatFileSizeMb(EXPENSE_MAX_FILE_SIZE_BYTES)} MB`,
           deleteAttachment: 'Supprimer',
+          deleteAttachmentDialogTitle: 'Supprimer la pièce jointe',
+          deleteAttachmentDialogDescription: 'Sélectionnez un motif avant de supprimer cette pièce jointe.',
+          deleteAttachmentReasonLabel: 'Motif de suppression',
+          deleteAttachmentReasonPlaceholder: 'Sélectionner un motif',
+          deleteAttachmentReasonRequired: 'Le motif de suppression est obligatoire',
+          deleteAttachmentReasonDetailsLabel: 'Détails du motif',
+          deleteAttachmentReasonDetailsPlaceholder: 'Précisez le motif (minimum 10 caractères)',
+          deleteAttachmentReasonDetailsMin: 'Veuillez saisir au moins 10 caractères pour Autre',
+          deleteAttachmentConfirmAction: 'Supprimer la pièce jointe',
           noAttachments: 'Aucune pièce jointe sur cette dépense.',
           uploadFailed: 'Échec upload pièce jointe',
           uploadSuccess: 'Pièce jointe ajoutée',
@@ -485,6 +819,11 @@ export default function ExpenseDetailPage() {
       limit: 20,
     },
     Boolean(expenseId) && canViewTickets
+  );
+
+  const visibleAuditLogs = useMemo(
+    () => (expense?.auditLogs || []).filter((log) => !shouldHideAuditLog(log as AuditLogEntry)),
+    [expense?.auditLogs]
   );
 
   function pushFeedback(type: 'success' | 'error', message: string) {
@@ -667,9 +1006,28 @@ export default function ExpenseDetailPage() {
     }
   }
 
-  async function handleDeleteAttachment(attachmentId: string) {
+  function openDeleteAttachmentDialog(attachment: ExpenseAttachment) {
+    setAttachmentToDelete(attachment);
+    setAttachmentDeleteReason('');
+    setAttachmentDeleteReasonDetails('');
+    setAttachmentDeleteReasonError(null);
+    setDeleteAttachmentDialogOpen(true);
+  }
+
+  function closeDeleteAttachmentDialog() {
+    setDeleteAttachmentDialogOpen(false);
+    setAttachmentToDelete(null);
+    setAttachmentDeleteReason('');
+    setAttachmentDeleteReasonDetails('');
+    setAttachmentDeleteReasonError(null);
+  }
+
+  async function handleDeleteAttachment(params: {
+    attachmentId: string;
+    reason: string;
+    reasonDetails?: string;
+  }) {
     if (!expense || !canManageExpenses) return;
-    if (!window.confirm(t.confirmDeleteAttachment)) return;
 
     setAttachmentsBusy(true);
     setAttachmentError(null);
@@ -678,7 +1036,7 @@ export default function ExpenseDetailPage() {
       const response = await fetch(`/api/expenses/${expense._id}/attachments`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ attachmentId }),
+        body: JSON.stringify(params),
       });
 
       const payload = (await response.json().catch(() => null)) as GenericApiResponse | null;
@@ -689,6 +1047,7 @@ export default function ExpenseDetailPage() {
 
       await refetch();
       pushFeedback('success', t.deleteSuccess);
+      closeDeleteAttachmentDialog();
     } catch (deleteError) {
       const message = deleteError instanceof Error ? deleteError.message : t.actionFailed;
       setAttachmentError(message);
@@ -696,6 +1055,37 @@ export default function ExpenseDetailPage() {
     } finally {
       setAttachmentsBusy(false);
     }
+  }
+
+  async function confirmAttachmentDeletion() {
+    if (!attachmentToDelete) {
+      return;
+    }
+
+    const normalizedReason = attachmentDeleteReason.trim();
+    if (!normalizedReason) {
+      setAttachmentDeleteReasonError(t.deleteAttachmentReasonRequired);
+      return;
+    }
+
+    if (!EXPENSE_ATTACHMENT_DELETE_REASONS.includes(normalizedReason as (typeof EXPENSE_ATTACHMENT_DELETE_REASONS)[number])) {
+      setAttachmentDeleteReasonError(t.deleteAttachmentReasonRequired);
+      return;
+    }
+
+    const normalizedDetails = attachmentDeleteReasonDetails.trim();
+    if (normalizedReason === 'other' && normalizedDetails.length < ATTACHMENT_OTHER_REASON_MIN_CHARS) {
+      setAttachmentDeleteReasonError(t.deleteAttachmentReasonDetailsMin);
+      return;
+    }
+
+    setAttachmentDeleteReasonError(null);
+
+    await handleDeleteAttachment({
+      attachmentId: attachmentToDelete._id,
+      reason: normalizedReason,
+      reasonDetails: normalizedReason === 'other' ? normalizedDetails : undefined,
+    });
   }
 
   if (authLoading) {
@@ -1176,7 +1566,7 @@ export default function ExpenseDetailPage() {
                                 type="button"
                                 variant="destructive"
                                 size="sm"
-                                onClick={() => void handleDeleteAttachment(attachment._id)}
+                                onClick={() => openDeleteAttachmentDialog(attachment)}
                                 disabled={attachmentsBusy}
                               >
                                 <Trash2Icon className="size-3.5" />
@@ -1198,27 +1588,27 @@ export default function ExpenseDetailPage() {
                   <CardTitle className="text-base">{t.auditTab}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2.5">
-                  {!expense.auditLogs || expense.auditLogs.length === 0 ? (
+                  {visibleAuditLogs.length === 0 ? (
                     <p className="text-sm text-muted-foreground">{t.noAudit}</p>
                   ) : (
-                    expense.auditLogs.map((log) => (
+                    visibleAuditLogs.map((log) => (
                       <div key={log._id} className="rounded-lg border border-slate-200/70 bg-slate-50/70 p-3 dark:border-slate-800/60 dark:bg-slate-900/35">
                         <div className="grid gap-2 text-xs sm:grid-cols-3 lg:grid-cols-6">
                           <div>
                             <p className="text-muted-foreground">{t.auditAction}</p>
-                            <p className="font-medium">{log.action}</p>
+                            <p className="font-medium">{formatAuditAction(log as AuditLogEntry, locale)}</p>
                           </div>
                           <div>
                             <p className="text-muted-foreground">{t.auditField}</p>
-                            <p className="font-medium">{log.fieldName || '-'}</p>
+                            <p className="font-medium">{formatAuditField(log.fieldName, locale)}</p>
                           </div>
                           <div>
                             <p className="text-muted-foreground">{t.auditFrom}</p>
-                            <p className="line-clamp-2 font-medium">{formatAuditValue(log.oldValue, locale)}</p>
+                            <p className="line-clamp-2 font-medium">{formatAuditValue(log.oldValue, locale, log.fieldName)}</p>
                           </div>
                           <div>
                             <p className="text-muted-foreground">{t.auditTo}</p>
-                            <p className="line-clamp-2 font-medium">{formatAuditValue(log.newValue, locale)}</p>
+                            <p className="line-clamp-2 font-medium">{formatAuditValue(log.newValue, locale, log.fieldName)}</p>
                           </div>
                           <div>
                             <p className="text-muted-foreground">{t.auditBy}</p>
@@ -1226,7 +1616,7 @@ export default function ExpenseDetailPage() {
                           </div>
                           <div>
                             <p className="text-muted-foreground">{t.auditAt}</p>
-                            <p className="font-medium">{formatDateTime(log.performedAt)}</p>
+                            <p className="font-medium">{formatDateTime(log.performedAt, locale)}</p>
                           </div>
                         </div>
                       </div>
@@ -1382,6 +1772,97 @@ export default function ExpenseDetailPage() {
           }}
         />
       ) : null}
+
+      <AlertDialog
+        open={deleteAttachmentDialogOpen}
+        onOpenChange={(open) => {
+          if (attachmentsBusy) return;
+          if (!open) {
+            closeDeleteAttachmentDialog();
+            return;
+          }
+          setDeleteAttachmentDialogOpen(true);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t.deleteAttachmentDialogTitle}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t.deleteAttachmentDialogDescription}
+              {attachmentToDelete ? (
+                <span className="mt-1 block font-medium text-foreground">{attachmentToDelete.displayName}</span>
+              ) : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="expense-attachment-delete-reason">{t.deleteAttachmentReasonLabel}</Label>
+              <select
+                id="expense-attachment-delete-reason"
+                className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
+                value={attachmentDeleteReason}
+                onChange={(event) => {
+                  setAttachmentDeleteReason(event.target.value);
+                  setAttachmentDeleteReasonError(null);
+                }}
+                disabled={attachmentsBusy}
+              >
+                <option value="">{t.deleteAttachmentReasonPlaceholder}</option>
+                {EXPENSE_ATTACHMENT_DELETE_REASONS.map((reason) => (
+                  <option key={reason} value={reason}>
+                    {getExpenseAttachmentDeleteReasonLabel(reason, locale)}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {attachmentDeleteReason === 'other' ? (
+              <div className="space-y-1.5">
+                <Label htmlFor="expense-attachment-delete-reason-details">{t.deleteAttachmentReasonDetailsLabel}</Label>
+                <Textarea
+                  id="expense-attachment-delete-reason-details"
+                  value={attachmentDeleteReasonDetails}
+                  onChange={(event) => {
+                    setAttachmentDeleteReasonDetails(event.target.value);
+                    setAttachmentDeleteReasonError(null);
+                  }}
+                  placeholder={t.deleteAttachmentReasonDetailsPlaceholder}
+                  disabled={attachmentsBusy}
+                  rows={3}
+                />
+              </div>
+            ) : null}
+
+            {attachmentDeleteReasonError ? (
+              <p className="text-xs font-medium text-destructive">{attachmentDeleteReasonError}</p>
+            ) : null}
+          </div>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel asChild>
+              <Button type="button" variant="outline" disabled={attachmentsBusy}>
+                {t.confirmDeleteCancel}
+              </Button>
+            </AlertDialogCancel>
+            <AlertDialogAction asChild>
+              <Button
+                type="button"
+                variant="destructive"
+                className="bg-destructive text-white hover:bg-destructive/90 hover:text-white"
+                disabled={attachmentsBusy}
+                onClick={(event) => {
+                  event.preventDefault();
+                  void confirmAttachmentDeletion();
+                }}
+              >
+                {attachmentsBusy ? <Loader2Icon className="size-4 animate-spin" /> : null}
+                {t.deleteAttachmentConfirmAction}
+              </Button>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
         <AlertDialogContent>

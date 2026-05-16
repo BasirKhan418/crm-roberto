@@ -1,4 +1,5 @@
 import type {
+  ExpenseAttachmentDeleteReason,
   ExpensePaidBy,
   ExpensePaymentMethod,
   ExpensePaymentStatus,
@@ -8,7 +9,13 @@ import type {
 
 export type ExpenseLabelLocale = 'en' | 'fr';
 
-type ExpenseEnumValue = ExpenseStatus | ExpensePaymentStatus | ExpensePaymentMethod | ExpensePaidBy | ExpenseType;
+type ExpenseEnumValue =
+  | ExpenseStatus
+  | ExpensePaymentStatus
+  | ExpensePaymentMethod
+  | ExpensePaidBy
+  | ExpenseType
+  | ExpenseAttachmentDeleteReason;
 
 const EN_LABELS: Record<ExpenseEnumValue, string> = {
   draft: 'Draft',
@@ -28,6 +35,12 @@ const EN_LABELS: Record<ExpenseEnumValue, string> = {
   associate: 'Associate',
   business: 'Business',
   personal_reimbursable: 'Personal reimbursable',
+  wrong_document: 'Wrong document',
+  unreadable_document: 'Unreadable document',
+  duplicate_document: 'Duplicate document',
+  wrong_supplier: 'Wrong supplier',
+  test_document: 'Test document',
+  other: 'Other',
 };
 
 const FR_LABELS: Record<ExpenseEnumValue, string> = {
@@ -48,6 +61,12 @@ const FR_LABELS: Record<ExpenseEnumValue, string> = {
   associate: 'Associé',
   business: 'Professionnelle',
   personal_reimbursable: 'Personnel remboursable',
+  wrong_document: 'Mauvais document',
+  unreadable_document: 'Document illisible',
+  duplicate_document: 'Document en double',
+  wrong_supplier: 'Mauvais fournisseur',
+  test_document: 'Document de test',
+  other: 'Autre',
 };
 
 function resolveLabelMap(locale: ExpenseLabelLocale) {
@@ -100,4 +119,11 @@ export function getExpenseTypeLabel(
 
 export function getExpenseEnumLabel(value: string, locale: ExpenseLabelLocale) {
   return resolveEnumLabel(value, locale);
+}
+
+export function getExpenseAttachmentDeleteReasonLabel(
+  reason: ExpenseAttachmentDeleteReason | string | null | undefined,
+  locale: ExpenseLabelLocale
+) {
+  return resolveEnumLabel(reason, locale);
 }
