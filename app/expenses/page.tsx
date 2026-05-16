@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { ChangeEvent, DragEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -247,8 +248,18 @@ function getSortByOptions(locale: 'en' | 'fr') {
   ];
 }
 
+function resolveExpenseIdFromActionPayload(payload: GenericApiResponse | null) {
+  if (!payload?.expense || typeof payload.expense !== 'object') {
+    return null;
+  }
+
+  const candidateId = (payload.expense as { _id?: unknown })._id;
+  return typeof candidateId === 'string' && candidateId.trim() ? candidateId : null;
+}
+
 export default function ExpensesPage() {
   const { locale } = useLocale();
+  const router = useRouter();
   const { user, loading: authLoading } = useAuthMe();
   const isMobile = useIsMobile();
 
@@ -1058,11 +1069,11 @@ export default function ExpensesPage() {
     }
   }
 
-  async function runDuplicate(expenseId: string) {
-    setActionLoadingId(expenseId);
+  async function runDuplicate(expense: ExpenseListItem) {
+    setActionLoadingId(expense._id);
 
     try {
-      const response = await fetch(`/api/expenses/${expenseId}/actions`, {
+      const response = await fetch(`/api/expenses/${expense._id}/actions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'duplicate', copyAttachments: true }),
@@ -1074,8 +1085,22 @@ export default function ExpensesPage() {
         throw new Error(payload?.message || t.actionFailed);
       }
 
-      await refetch();
+      const duplicatedExpenseId = resolveExpenseIdFromActionPayload(payload);
+      const copyLabel = expense.supplierRef?.trim() || getSupplierName(expense) || expense._id;
+      toast.success(t.actionDuplicateSuccess);
       setFeedback('success', t.actionDuplicateSuccess);
+
+      if (!duplicatedExpenseId) {
+        await refetch();
+        return;
+      }
+
+      const query = new URLSearchParams({
+        fromDuplicate: '1',
+        copiedFrom: expense._id,
+        copiedLabel: copyLabel,
+      });
+      router.push(`/expenses/${duplicatedExpenseId}?${query.toString()}`);
     } catch (duplicateError) {
       setFeedback('error', duplicateError instanceof Error ? duplicateError.message : t.actionFailed);
     } finally {
@@ -1844,7 +1869,7 @@ export default function ExpensesPage() {
                                 className="size-8"
                                 title={t.duplicate}
                                 aria-label={t.duplicate}
-                                onClick={() => void runDuplicate(expense._id)}
+                                onClick={() => void runDuplicate(expense)}
                                 disabled={rowLoading || isArchived}
                               >
                                 <CopyIcon className="size-4" />
@@ -2018,7 +2043,7 @@ export default function ExpensesPage() {
                                   className="size-8"
                                   title={t.duplicate}
                                   aria-label={t.duplicate}
-                                  onClick={() => void runDuplicate(expense._id)}
+                                  onClick={() => void runDuplicate(expense)}
                                   disabled={rowLoading || isArchived}
                                 >
                                   <CopyIcon className="size-4" />

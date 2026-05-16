@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useParams, useSearchParams } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -81,6 +81,7 @@ import { Textarea } from '@/components/ui/textarea';
 type GenericApiResponse = {
   success: boolean;
   message?: string;
+  expense?: Record<string, unknown>;
 };
 
 type ExpenseAttachment = {
@@ -564,8 +565,18 @@ function getRemainingAmountClass(paymentStatus: string, remainingBalanceCents: n
   return 'border-rose-200/75 bg-rose-50/65 dark:border-rose-900/45 dark:bg-rose-950/30';
 }
 
+function resolveExpenseIdFromActionPayload(payload: GenericApiResponse | null) {
+  if (!payload?.expense || typeof payload.expense !== 'object') {
+    return null;
+  }
+
+  const candidateId = (payload.expense as { _id?: unknown })._id;
+  return typeof candidateId === 'string' && candidateId.trim() ? candidateId : null;
+}
+
 export default function ExpenseDetailPage() {
   const params = useParams<{ id: string }>();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const expenseId = typeof params?.id === 'string' ? params.id : '';
   const { locale } = useLocale();
@@ -597,6 +608,10 @@ export default function ExpenseDetailPage() {
   const [ticketDialogOpen, setTicketDialogOpen] = useState(false);
 
   const requestedTab = searchParams.get('tab');
+  const openedFromDuplicate = searchParams.get('fromDuplicate') === '1';
+  const copiedFromExpenseId = (searchParams.get('copiedFrom') || '').trim();
+  const copiedSourceLabel = (searchParams.get('copiedLabel') || '').trim();
+  const duplicateContextLabel = copiedSourceLabel || copiedFromExpenseId;
 
   useEffect(() => {
     if (
@@ -691,6 +706,12 @@ export default function ExpenseDetailPage() {
           actionFailed: 'Action failed',
           archivedReadOnlyHint: 'Archived expenses are read-only. Restore first to edit, pay, or add attachments.',
           duplicateSuccess: 'Expense duplicated',
+          duplicateContextTitle: 'Copy created successfully',
+          duplicateContextDescription: (label: string) =>
+            label
+              ? `This expense is a copy of ${label}.`
+              : 'This expense was created from a duplicate action.',
+          openSourceExpense: 'Open source expense',
           archiveSuccess: 'Expense archived',
           deleteSuccessExpense: 'Expense deleted',
           confirmArchive: 'Archive this expense?',
@@ -813,6 +834,12 @@ export default function ExpenseDetailPage() {
           actionFailed: 'Échec action',
           archivedReadOnlyHint: "Les dépenses archivées sont en lecture seule. Restaurez d'abord pour modifier, payer ou ajouter des pièces.",
           duplicateSuccess: 'Dépense dupliquée',
+          duplicateContextTitle: 'Copie créée avec succès',
+          duplicateContextDescription: (label: string) =>
+            label
+              ? `Cette dépense est une copie de ${label}.`
+              : 'Cette dépense provient d\'une action de duplication.',
+          openSourceExpense: 'Ouvrir la dépense source',
           archiveSuccess: 'Dépense archivée',
           deleteSuccessExpense: 'Dépense supprimée',
           confirmArchive: 'Archiver cette dépense ?',
@@ -975,15 +1002,34 @@ export default function ExpenseDetailPage() {
         throw new Error(payload?.message || t.actionFailed);
       }
 
+      if (action === 'duplicate') {
+        const duplicatedExpenseId = resolveExpenseIdFromActionPayload(payload);
+        const copyLabel = expense.supplierRef?.trim() || resolveEntityLabel(expense.supplierId) || expense._id;
+
+        toast.success(t.duplicateSuccess);
+        pushFeedback('success', t.duplicateSuccess);
+
+        if (!duplicatedExpenseId) {
+          await refetch();
+          return;
+        }
+
+        const query = new URLSearchParams({
+          fromDuplicate: '1',
+          copiedFrom: expense._id,
+          copiedLabel: copyLabel,
+        });
+        router.push(`/expenses/${duplicatedExpenseId}?${query.toString()}`);
+        return;
+      }
+
       await refetch();
       if (action === 'archive') {
         setArchiveConfirmOpen(false);
       }
       pushFeedback(
         'success',
-        action === 'duplicate'
-          ? t.duplicateSuccess
-          : action === 'restore'
+        action === 'restore'
             ? t.restoreSuccess
             : t.archiveSuccess
       );
@@ -1292,6 +1338,24 @@ export default function ExpenseDetailPage() {
             </p>
           ) : null}
         </div>
+
+        {openedFromDuplicate ? (
+          <Card className="border-sky-200/80 bg-sky-50/55 dark:border-sky-900/45 dark:bg-sky-950/20">
+            <CardContent className="flex flex-wrap items-center justify-between gap-2 p-3">
+              <div>
+                <p className="text-sm font-semibold text-sky-900 dark:text-sky-100">{t.duplicateContextTitle}</p>
+                <p className="text-xs text-sky-800/85 dark:text-sky-200/85">{t.duplicateContextDescription(duplicateContextLabel)}</p>
+              </div>
+              {copiedFromExpenseId ? (
+                <Button asChild type="button" variant="outline" size="sm">
+                  <Link href={`/expenses/${copiedFromExpenseId}`}>
+                    {t.openSourceExpense}
+                  </Link>
+                </Button>
+              ) : null}
+            </CardContent>
+          </Card>
+        ) : null}
 
         {loading ? (
           <div className="flex min-h-52 items-center justify-center">
