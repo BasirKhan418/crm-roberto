@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useMemo, useRef, useState } from 'react';
+import { toast } from 'sonner';
 
 import {
   ArchiveIcon,
@@ -274,6 +275,7 @@ export default function ExpenseDetailPage() {
           archive: 'Archive',
           edit: 'Edit',
           markPaid: 'Mark paid',
+          markPaidSuccess: 'Expense marked as paid',
           delete: 'Delete',
           actionFailed: 'Action failed',
           duplicateSuccess: 'Expense duplicated',
@@ -355,6 +357,7 @@ export default function ExpenseDetailPage() {
           archive: 'Archiver',
           edit: 'Modifier',
           markPaid: 'Marquer payée',
+          markPaidSuccess: 'Dépense marquée payée',
           delete: 'Supprimer',
           actionFailed: 'Échec action',
           duplicateSuccess: 'Dépense dupliquée',
@@ -468,6 +471,7 @@ export default function ExpenseDetailPage() {
       }
 
       pushFeedback('success', t.deleteSuccessExpense);
+      toast.success(t.deleteSuccessExpense);
       window.setTimeout(() => {
         window.location.href = '/expenses';
       }, 500);
@@ -1124,7 +1128,7 @@ export default function ExpenseDetailPage() {
           locale={locale}
           onSaved={async () => {
             await refetch();
-            pushFeedback('success', t.markPaid);
+            pushFeedback('success', t.markPaidSuccess);
           }}
         />
       ) : null}

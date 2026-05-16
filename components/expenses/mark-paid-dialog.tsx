@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 
 import { Loader2Icon } from 'lucide-react';
+import { toast } from 'sonner';
 
 import {
   AlertDialog,
@@ -79,6 +80,7 @@ export function MarkPaidDialog({
       confirmDescription:
         'This action marks the expense as fully paid using the selected method and date.',
       confirmAction: 'Confirm',
+      success: 'Expense marked as paid',
       methodRequired: 'Payment method is required',
       dateRequired: 'Payment date is required',
       failed: 'Failed to mark expense as paid',
@@ -97,6 +99,7 @@ export function MarkPaidDialog({
       confirmDescription:
         'Cette action marque la dépense comme intégralement payée avec la date et le mode saisis.',
       confirmAction: 'Confirmer',
+      success: 'Dépense marquée payée',
       methodRequired: 'Mode de paiement requis',
       dateRequired: 'Date de paiement requise',
       failed: 'Échec mise à jour paiement',
@@ -155,6 +158,7 @@ export function MarkPaidDialog({
       }
 
       await onSaved();
+      toast.success(t.success);
       onOpenChange(false);
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : t.failed);

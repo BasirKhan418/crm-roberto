@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from 'react';
 
 import { Loader2Icon, PlusIcon } from 'lucide-react';
+import { toast } from 'sonner';
 
 import {
   AlertDialog,
@@ -241,6 +242,9 @@ export function ExpenseFormDialog({
       save: 'Save changes',
       saveDraft: 'Save as draft',
       activateDraft: 'Validate expense',
+      createSuccess: 'Expense created',
+      updateSuccess: 'Expense updated',
+      activateSuccess: 'Expense validated',
       cancel: 'Cancel',
       confirmEditTitle: 'Confirm expense update',
       confirmEditDescriptionDefault: 'This will save your edits and update expense history.',
@@ -286,6 +290,9 @@ export function ExpenseFormDialog({
       save: 'Enregistrer',
       saveDraft: 'Sauvegarder brouillon',
       activateDraft: 'Valider la dépense',
+      createSuccess: 'Dépense créée',
+      updateSuccess: 'Dépense mise à jour',
+      activateSuccess: 'Dépense validée',
       cancel: 'Annuler',
       confirmEditTitle: 'Confirmer la mise à jour',
       confirmEditDescriptionDefault: "Cette action enregistre vos modifications et met à jour l'historique.",
@@ -436,6 +443,7 @@ export function ExpenseFormDialog({
         }
 
         await onSaved(result.expense);
+        toast.success(saveTarget === 'activate' ? t.activateSuccess : t.updateSuccess);
         onOpenChange(false);
         return;
       }
@@ -459,6 +467,7 @@ export function ExpenseFormDialog({
       }
 
       await onSaved(result.expense);
+      toast.success(t.createSuccess);
       onOpenChange(false);
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : t.saveFailed);

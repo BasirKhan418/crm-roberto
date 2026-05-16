@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ChangeEvent, DragEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { toast } from 'sonner';
 
 import {
   ArchiveIcon,
@@ -819,6 +820,7 @@ export default function ExpensesPage() {
 
       await refetch();
       setFeedback('success', t.actionDeleteSuccess);
+      toast.success(t.actionDeleteSuccess);
     } catch (deleteError) {
       setFeedback('error', deleteError instanceof Error ? deleteError.message : t.actionFailed);
     } finally {
