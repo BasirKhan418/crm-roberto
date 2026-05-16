@@ -27,6 +27,7 @@ import { ExpenseMoneyDisplay } from '@/components/expenses/expense-money-display
 import { ExpenseStatusBadge } from '@/components/expenses/expense-status-badge';
 import { MarkPaidDialog } from '@/components/expenses/mark-paid-dialog';
 import { useLocale } from '@/components/providers/locale-provider';
+import KpiCards, { type KpiCard } from '@/components/ui/KpiCards';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -171,10 +172,58 @@ function getPaymentPillClass(paymentStatus: string, status: string) {
 
 function getCardAccentClass(status: string, paymentStatus: string) {
   if (status === 'archived') return 'border-l-slate-400';
-  if (status === 'draft') return 'border-l-zinc-400';
+  if (status === 'draft') return 'border-l-amber-500';
   if (paymentStatus === 'paid') return 'border-l-emerald-500';
   if (paymentStatus === 'partial') return 'border-l-amber-400';
   return 'border-l-rose-500';
+}
+
+function getRemainingCents(expense: ExpenseListItem) {
+  if (typeof expense.remainingBalanceCents === 'number') {
+    return Math.max(0, expense.remainingBalanceCents);
+  }
+
+  return Math.max(0, (expense.amountInclVatCents || 0) - (expense.amountPaidCents || 0));
+}
+
+function getExpenseSurfaceClass(status: string, paymentStatus: string) {
+  if (status === 'draft') {
+    return 'border-amber-200/80 bg-amber-50/55 dark:border-amber-900/40 dark:bg-amber-950/20';
+  }
+
+  if (status === 'archived') {
+    return 'border-slate-200/80 bg-slate-50/70 dark:border-slate-800/70 dark:bg-slate-900/35';
+  }
+
+  if (paymentStatus === 'paid') {
+    return 'border-emerald-200/75 bg-emerald-50/45 dark:border-emerald-900/35 dark:bg-emerald-950/18';
+  }
+
+  if (paymentStatus === 'partial') {
+    return 'border-amber-200/70 bg-amber-50/35 dark:border-amber-900/30 dark:bg-amber-950/15';
+  }
+
+  return 'border-rose-200/70 bg-rose-50/35 dark:border-rose-900/30 dark:bg-rose-950/15';
+}
+
+function getTableRowToneClass(status: string, paymentStatus: string) {
+  if (status === 'draft') {
+    return 'bg-amber-50/35 hover:bg-amber-100/40 dark:bg-amber-950/12 dark:hover:bg-amber-950/22';
+  }
+
+  if (status === 'archived') {
+    return 'bg-slate-50/55 hover:bg-slate-100/55 dark:bg-slate-900/20 dark:hover:bg-slate-900/35';
+  }
+
+  if (paymentStatus === 'paid') {
+    return 'bg-emerald-50/30 hover:bg-emerald-100/35 dark:bg-emerald-950/10 dark:hover:bg-emerald-950/20';
+  }
+
+  if (paymentStatus === 'partial') {
+    return 'bg-amber-50/20 hover:bg-amber-100/35 dark:bg-amber-950/8 dark:hover:bg-amber-950/18';
+  }
+
+  return 'bg-rose-50/25 hover:bg-rose-100/35 dark:bg-rose-950/10 dark:hover:bg-rose-950/22';
 }
 
 function getSortByOptions(locale: 'en' | 'fr') {
@@ -280,6 +329,36 @@ export default function ExpensesPage() {
     [expenses]
   );
 
+  const unpaidExpenses = useMemo(
+    () => expenses.filter((expense) => expense.status !== 'draft' && expense.status !== 'archived' && expense.paymentStatus === 'unpaid'),
+    [expenses]
+  );
+
+  const partialExpenses = useMemo(
+    () => expenses.filter((expense) => expense.status !== 'draft' && expense.status !== 'archived' && expense.paymentStatus === 'partial'),
+    [expenses]
+  );
+
+  const paidExpenses = useMemo(
+    () => expenses.filter((expense) => expense.status !== 'draft' && expense.status !== 'archived' && expense.paymentStatus === 'paid'),
+    [expenses]
+  );
+
+  const totalsInView = useMemo(
+    () =>
+      expenses.reduce(
+        (accumulator, expense) => {
+          accumulator.totalTtc += Math.max(0, Math.round(expense.amountInclVatCents || 0));
+          accumulator.totalPaid += Math.max(0, Math.round(expense.amountPaidCents || 0));
+          accumulator.totalRemaining += getRemainingCents(expense);
+
+          return accumulator;
+        },
+        { totalTtc: 0, totalPaid: 0, totalRemaining: 0 }
+      ),
+    [expenses]
+  );
+
   const t = {
     en: {
       shellTitle: 'Expenses',
@@ -319,6 +398,11 @@ export default function ExpensesPage() {
         success: 'Draft ready',
         error: 'Failed',
       },
+      uploadSourceLabels: {
+        photo: 'camera',
+        drop: 'drag/drop',
+        import: 'import',
+      },
       draftsSectionTitle: 'Drafts to validate',
       draftsSectionSubtitle: 'Quick access to draft expenses with direct validation CTA.',
       draftsCountLabel: (count: number) => `${count} Draft${count > 1 ? 's' : ''}`,
@@ -343,6 +427,14 @@ export default function ExpensesPage() {
       listSubtitle: 'Complete list with actions, drill-down, and payment controls.',
       paymentStatusLabels: { paid: 'Paid', unpaid: 'Unpaid', partial: 'Partial' },
       statusLabels: { draft: 'Draft', active: 'Active', archived: 'Archived' },
+      kpiDrafts: 'Drafts',
+      kpiUnpaid: 'Unpaid',
+      kpiPartial: 'Partially paid',
+      kpiPaid: 'Paid',
+      kpiTotalTtc: 'Total incl. VAT in view',
+      kpiTotalPaid: 'Paid in view',
+      kpiTotalRemaining: 'Remaining in view',
+      kpiScopeFootnote: (count: number, total: number) => `${count} shown / ${total} total`,
       tableRemaining: 'Remaining',
       refresh: 'Refresh',
       noExpenses: 'No expenses found for the selected filters.',
@@ -429,6 +521,11 @@ export default function ExpensesPage() {
         success: 'Brouillon prêt',
         error: 'Échec',
       },
+      uploadSourceLabels: {
+        photo: 'caméra',
+        drop: 'glisser-déposer',
+        import: 'import',
+      },
       draftsSectionTitle: 'Brouillons à valider',
       draftsSectionSubtitle: 'Accès rapide aux brouillons avec action directe de validation.',
       draftsCountLabel: (count: number) => `${count} brouillon${count > 1 ? 's' : ''}`,
@@ -453,6 +550,14 @@ export default function ExpensesPage() {
       listSubtitle: 'Liste complète avec actions, détail et contrôle paiement.',
       paymentStatusLabels: { paid: 'Payée', unpaid: 'Impayée', partial: 'Partiel' },
       statusLabels: { draft: 'Brouillon', active: 'Active', archived: 'Archivée' },
+      kpiDrafts: 'Brouillons',
+      kpiUnpaid: 'Impayées',
+      kpiPartial: 'Paiement partiel',
+      kpiPaid: 'Payées',
+      kpiTotalTtc: 'Total TTC affiché',
+      kpiTotalPaid: 'Payé affiché',
+      kpiTotalRemaining: 'Reste affiché',
+      kpiScopeFootnote: (count: number, total: number) => `${count} affichées / ${total} total`,
       tableRemaining: 'Restant',
       refresh: 'Actualiser',
       noExpenses: 'Aucune dépense pour ces filtres.',
@@ -519,6 +624,110 @@ export default function ExpensesPage() {
         sortOrder !== 'desc' ? sortOrder : '',
       ].filter(Boolean).length,
     [debouncedSearch, statusFilter, paymentStatusFilter, categoryFilter, supplierFilter, periodStart, periodEnd, sortBy, sortOrder]
+  );
+
+  const expensesKpiCards = useMemo<KpiCard[]>(
+    () => [
+      {
+        key: 'drafts',
+        label: t.kpiDrafts,
+        count: draftExpenses.length,
+        amount: draftExpenses.reduce((sum, expense) => sum + Math.max(0, Math.round(expense.amountInclVatCents || 0)), 0),
+        variant: 'orange-bold',
+        icon: 'clock',
+        active: statusFilter === 'draft',
+        onClick: () => {
+          setStatusFilter('draft');
+          setPaymentStatusFilter('');
+        },
+      },
+      {
+        key: 'unpaid',
+        label: t.kpiUnpaid,
+        count: unpaidExpenses.length,
+        amount: unpaidExpenses.reduce((sum, expense) => sum + getRemainingCents(expense), 0),
+        variant: 'red-bold',
+        icon: 'alert-triangle',
+        active: paymentStatusFilter === 'unpaid' && !statusFilter,
+        onClick: () => {
+          setPaymentStatusFilter('unpaid');
+          setStatusFilter('');
+        },
+      },
+      {
+        key: 'partial',
+        label: t.kpiPartial,
+        count: partialExpenses.length,
+        amount: partialExpenses.reduce((sum, expense) => sum + getRemainingCents(expense), 0),
+        variant: 'orange',
+        icon: 'clock',
+        active: paymentStatusFilter === 'partial' && !statusFilter,
+        onClick: () => {
+          setPaymentStatusFilter('partial');
+          setStatusFilter('');
+        },
+      },
+      {
+        key: 'paid',
+        label: t.kpiPaid,
+        count: paidExpenses.length,
+        amount: paidExpenses.reduce((sum, expense) => sum + Math.max(0, Math.round(expense.amountPaidCents || 0)), 0),
+        variant: 'green-bold',
+        icon: 'check-circle',
+        active: paymentStatusFilter === 'paid' && !statusFilter,
+        onClick: () => {
+          setPaymentStatusFilter('paid');
+          setStatusFilter('');
+        },
+      },
+    ],
+    [
+      draftExpenses,
+      paidExpenses,
+      partialExpenses,
+      paymentStatusFilter,
+      statusFilter,
+      t.kpiDrafts,
+      t.kpiPartial,
+      t.kpiPaid,
+      t.kpiUnpaid,
+      unpaidExpenses,
+    ]
+  );
+
+  const expensesTotalsCards = useMemo<KpiCard[]>(
+    () => [
+      {
+        key: 'visible-total-ttc',
+        label: t.kpiTotalTtc,
+        amount: totalsInView.totalTtc,
+        variant: 'slate',
+        icon: 'receipt',
+        footnote: t.kpiScopeFootnote(expenses.length, pagination.total || expenses.length),
+      },
+      {
+        key: 'visible-total-paid',
+        label: t.kpiTotalPaid,
+        amount: totalsInView.totalPaid,
+        variant: 'green',
+        icon: 'check-circle',
+      },
+      {
+        key: 'visible-total-remaining',
+        label: t.kpiTotalRemaining,
+        amount: totalsInView.totalRemaining,
+        variant: 'red',
+        icon: 'alert-triangle',
+      },
+    ],
+    [
+      expenses.length,
+      pagination.total,
+      t,
+      totalsInView.totalPaid,
+      totalsInView.totalRemaining,
+      totalsInView.totalTtc,
+    ]
   );
 
   const forwardAddress = useMemo(() => {
@@ -868,14 +1077,34 @@ export default function ExpensesPage() {
   return (
     <CrmShell title={t.shellTitle}>
       <div className="space-y-5">
-        <section className="space-y-1.5" data-tour-expenses-header>
+        <section
+          className="space-y-3 rounded-2xl border border-slate-200/80 bg-gradient-to-r from-slate-50 via-white to-amber-50/40 p-4 shadow-sm dark:border-slate-800/70 dark:from-slate-950/45 dark:via-slate-950/25 dark:to-amber-950/15"
+          data-tour-expenses-header
+        >
           <h1 className="font-heading text-2xl font-semibold tracking-tight">{t.heading}</h1>
           <p className="text-sm text-muted-foreground">{t.subtitle}</p>
           <p className="text-xs text-muted-foreground">{t.mobileCaptureNote}</p>
+
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="rounded-full border border-amber-200 bg-amber-100/70 px-2.5 py-1 font-medium text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/35 dark:text-amber-200">
+              {t.draftsCountLabel(draftExpenses.length)}
+            </span>
+            <span className="rounded-full border border-rose-200 bg-rose-100/70 px-2.5 py-1 font-medium text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/35 dark:text-rose-200">
+              {t.paymentStatusLabels.unpaid}: {unpaidExpenses.length}
+            </span>
+            <span className="rounded-full border border-emerald-200 bg-emerald-100/70 px-2.5 py-1 font-medium text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/35 dark:text-emerald-200">
+              {t.paymentStatusLabels.paid}: {paidExpenses.length}
+            </span>
+          </div>
         </section>
 
-        <section className="grid grid-cols-2 gap-3 xl:grid-cols-5" data-tour-expenses-capture>
-          <Card size="sm" className="border-border/70">
+        <section className="space-y-3" data-tour-expenses-kpis>
+          <KpiCards cards={expensesKpiCards} locale={locale as 'en' | 'fr'} loading={loading} />
+          {!loading ? <KpiCards cards={expensesTotalsCards} locale={locale as 'en' | 'fr'} cols={3} /> : null}
+        </section>
+
+        <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5" data-tour-expenses-capture>
+          <Card size="sm" className="border-sky-200/80 bg-sky-50/60 dark:border-sky-900/40 dark:bg-sky-950/20">
             <CardHeader className="flex-1 pb-2">
               <CardTitle>{t.takePhoto}</CardTitle>
               <CardDescription className="text-xs">{t.takePhotoHint}</CardDescription>
@@ -894,7 +1123,7 @@ export default function ExpensesPage() {
             </CardContent>
           </Card>
 
-          <Card size="sm" className="border-border/70">
+          <Card size="sm" className="border-teal-200/80 bg-teal-50/60 dark:border-teal-900/40 dark:bg-teal-950/20">
             <CardHeader className="flex-1 pb-2">
               <CardTitle>{t.importFile}</CardTitle>
               <CardDescription className="text-xs">{t.importFileHint}</CardDescription>
@@ -914,7 +1143,7 @@ export default function ExpensesPage() {
             </CardContent>
           </Card>
 
-          <Card size="sm" className="border-border/70">
+          <Card size="sm" className="border-amber-200/80 bg-amber-50/60 dark:border-amber-900/40 dark:bg-amber-950/20">
             <CardHeader className="flex-1 pb-2">
               <CardTitle>{t.forwardEmail}</CardTitle>
               <CardDescription className="text-xs">{t.forwardEmailHint}</CardDescription>
@@ -927,8 +1156,8 @@ export default function ExpensesPage() {
             </CardContent>
           </Card>
 
-          <div className="hidden md:block">
-            <Card size="sm" className="border-border/70 h-full">
+          <div className="hidden lg:block">
+            <Card size="sm" className="h-full border-slate-200/80 bg-slate-50/70 dark:border-slate-800/70 dark:bg-slate-950/25">
               <CardHeader className="flex-1 pb-2">
                 <CardTitle>{t.dragDrop}</CardTitle>
                 <CardDescription className="text-xs">{t.dragDropHint}</CardDescription>
@@ -942,7 +1171,7 @@ export default function ExpensesPage() {
                   className={`flex min-h-10 items-center justify-center rounded-lg border border-dashed px-3 text-xs transition ${
                     isDragActive
                       ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-border/70 bg-muted/10 text-muted-foreground'
+                      : 'border-slate-300 bg-slate-100/70 text-slate-600 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-300'
                   }`}
                 >
                   {t.dragDropHint}
@@ -951,7 +1180,7 @@ export default function ExpensesPage() {
             </Card>
           </div>
 
-          <Card size="sm" className="border-border/70">
+          <Card size="sm" className="border-emerald-200/80 bg-emerald-50/60 dark:border-emerald-900/40 dark:bg-emerald-950/20">
             <CardHeader className="flex-1 pb-2">
               <CardTitle>{t.createManual}</CardTitle>
               <CardDescription className="text-xs">{t.createManualHint}</CardDescription>
@@ -993,7 +1222,7 @@ export default function ExpensesPage() {
         />
 
         {uploads.length > 0 ? (
-          <Card className="border-border/70">
+          <Card className="border-sky-200/80 bg-sky-50/45 dark:border-sky-900/35 dark:bg-sky-950/14">
             <CardHeader className="pb-2">
               <CardTitle className="text-base">{t.uploadQueueTitle}</CardTitle>
               <CardDescription>{t.uploadQueueSubtitle}</CardDescription>
@@ -1006,7 +1235,8 @@ export default function ExpensesPage() {
                       <p className="truncate text-sm font-medium">{item.fileName}</p>
                       <p className="text-xs text-muted-foreground">
                         {t.uploadStatusLabels[item.status as keyof typeof t.uploadStatusLabels] || item.status}
-                        {item.source === 'photo' ? ' - camera' : item.source === 'drop' ? ' - drag/drop' : ' - import'}
+                        {' - '}
+                        {t.uploadSourceLabels[item.source]}
                       </p>
                       {item.status === 'creating_draft' ? (
                         <p className="text-[11px] text-muted-foreground">{t.ocrVisibilityHint}</p>
@@ -1063,7 +1293,7 @@ export default function ExpensesPage() {
           </Card>
         ) : null}
 
-        <Card className="border-border/70" data-tour-expenses-drafts>
+        <Card className="border-amber-200/80 bg-amber-50/45 dark:border-amber-900/35 dark:bg-amber-950/14" data-tour-expenses-drafts>
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between gap-2">
               <div>
@@ -1081,7 +1311,10 @@ export default function ExpensesPage() {
                 const rowLoading = actionLoadingId === expense._id;
 
                 return (
-                  <div key={expense._id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/60 p-2.5">
+                  <div
+                    key={expense._id}
+                    className={`flex flex-wrap items-center justify-between gap-2 rounded-lg border p-2.5 ${getExpenseSurfaceClass(expense.status, expense.paymentStatus)}`}
+                  >
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium">{getSupplierName(expense)}</p>
                       <p className="text-xs text-muted-foreground">
@@ -1116,13 +1349,13 @@ export default function ExpensesPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-border/70" data-tour-expenses-filters>
+        <Card className="border-slate-200/80 bg-slate-50/45 dark:border-slate-800/70 dark:bg-slate-950/16" data-tour-expenses-filters>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">{t.filtersTitle}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 xl:grid-cols-8">
-              <div className="space-y-1.5 col-span-2 xl:col-span-2">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
+              <div className="space-y-1.5 sm:col-span-2 xl:col-span-2">
                 <Label>{t.searchLabel}</Label>
                 <div className="relative">
                   <SearchIcon className="pointer-events-none absolute top-2 left-2.5 size-4 text-muted-foreground" />
@@ -1270,7 +1503,7 @@ export default function ExpensesPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-border/70" data-tour-expenses-list>
+        <Card className="border-slate-200/80 bg-white/80 dark:border-slate-800/70 dark:bg-slate-950/12" data-tour-expenses-list>
           <CardHeader className="pb-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
@@ -1313,7 +1546,10 @@ export default function ExpensesPage() {
                   const rowLoading = actionLoadingId === expense._id;
 
                   return (
-                    <div key={expense._id} className={`rounded-xl border border-border/70 border-l-4 p-3 pl-3.5 ${getCardAccentClass(expense.status, expense.paymentStatus)}`}>
+                    <div
+                      key={expense._id}
+                      className={`rounded-xl border border-l-4 p-3 pl-3.5 ${getCardAccentClass(expense.status, expense.paymentStatus)} ${getExpenseSurfaceClass(expense.status, expense.paymentStatus)}`}
+                    >
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <p className="truncate text-sm font-semibold">{getSupplierName(expense)}</p>
@@ -1461,7 +1697,7 @@ export default function ExpensesPage() {
                     const rowLoading = actionLoadingId === expense._id;
 
                     return (
-                      <TableRow key={expense._id} className="cursor-pointer">
+                      <TableRow key={expense._id} className={`cursor-pointer ${getTableRowToneClass(expense.status, expense.paymentStatus)}`}>
                         <TableCell className="whitespace-nowrap text-muted-foreground">{formatDateDisplay(expense.expenseDate)}</TableCell>
                         <TableCell className="max-w-44 truncate font-medium">{getSupplierName(expense)}</TableCell>
                         <TableCell className="max-w-44 truncate">{getCategoryName(expense)}</TableCell>

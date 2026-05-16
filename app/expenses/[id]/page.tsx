@@ -201,6 +201,38 @@ function isPdfMimeType(mimeType?: string) {
   return mimeType === 'application/pdf';
 }
 
+function getExpenseDetailHeroClass(status: string, paymentStatus: string) {
+  if (status === 'draft') {
+    return 'border-amber-200/80 bg-amber-50/55 dark:border-amber-900/45 dark:bg-amber-950/20';
+  }
+
+  if (status === 'archived') {
+    return 'border-slate-200/80 bg-slate-50/70 dark:border-slate-800/70 dark:bg-slate-900/30';
+  }
+
+  if (paymentStatus === 'paid') {
+    return 'border-emerald-200/80 bg-emerald-50/55 dark:border-emerald-900/45 dark:bg-emerald-950/20';
+  }
+
+  if (paymentStatus === 'partial') {
+    return 'border-amber-200/75 bg-amber-50/45 dark:border-amber-900/40 dark:bg-amber-950/18';
+  }
+
+  return 'border-rose-200/75 bg-rose-50/45 dark:border-rose-900/40 dark:bg-rose-950/18';
+}
+
+function getRemainingAmountClass(paymentStatus: string, remainingBalanceCents: number) {
+  if (remainingBalanceCents <= 0 || paymentStatus === 'paid') {
+    return 'border-emerald-200/75 bg-emerald-50/65 dark:border-emerald-900/45 dark:bg-emerald-950/30';
+  }
+
+  if (paymentStatus === 'partial') {
+    return 'border-amber-200/75 bg-amber-50/65 dark:border-amber-900/45 dark:bg-amber-950/30';
+  }
+
+  return 'border-rose-200/75 bg-rose-50/65 dark:border-rose-900/45 dark:bg-rose-950/30';
+}
+
 export default function ExpenseDetailPage() {
   const params = useParams<{ id: string }>();
   const searchParams = useSearchParams();
@@ -322,6 +354,10 @@ export default function ExpenseDetailPage() {
           draftAttachmentPreview: 'Imported file preview',
           draftAttachmentPreviewHint: 'Visual preview of the first file linked to this draft.',
           openAttachmentsTab: 'Open attachments tab',
+          heroAmountInclVat: 'Total incl. VAT',
+          heroAmountPaid: 'Paid to date',
+          heroRemaining: 'Outstanding balance',
+          heroAttachments: 'Attached files',
         },
         fr: {
           shellTitle: 'Détail dépense',
@@ -406,6 +442,10 @@ export default function ExpenseDetailPage() {
           draftAttachmentPreview: 'Aperçu du fichier importé',
           draftAttachmentPreviewHint: 'Aperçu visuel du premier fichier lié à ce brouillon.',
           openAttachmentsTab: 'Ouvrir les pièces jointes',
+          heroAmountInclVat: 'Total TTC',
+          heroAmountPaid: 'Déjà payé',
+          heroRemaining: 'Solde restant',
+          heroAttachments: 'Fichiers joints',
         },
       })[locale],
     [locale]
@@ -700,8 +740,8 @@ export default function ExpenseDetailPage() {
           <EmptyState message={t.notFound} />
         ) : (
           <>
-            <Card className="border-border/70">
-              <CardHeader className="pb-2">
+            <Card className={getExpenseDetailHeroClass(expense.status, expense.paymentStatus)}>
+              <CardHeader className="pb-3">
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="space-y-1">
                     <CardTitle className="text-base">{resolveEntityLabel(expense.supplierId)}</CardTitle>
@@ -760,9 +800,43 @@ export default function ExpenseDetailPage() {
                   <p className="text-xs text-amber-700 dark:text-amber-400">{t.statusDraftHint}</p>
                 ) : null}
               </CardHeader>
+
+              <CardContent className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="rounded-lg border border-sky-200/75 bg-sky-50/70 p-2.5 dark:border-sky-900/45 dark:bg-sky-950/30">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-sky-700/80 dark:text-sky-300/80">{t.heroAmountInclVat}</p>
+                  <ExpenseMoneyDisplay
+                    cents={expense.amountInclVatCents || 0}
+                    locale={locale === 'fr' ? 'fr-FR' : 'en-GB'}
+                    className="mt-1 text-sm font-semibold"
+                  />
+                </div>
+
+                <div className="rounded-lg border border-emerald-200/75 bg-emerald-50/70 p-2.5 dark:border-emerald-900/45 dark:bg-emerald-950/30">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-emerald-700/80 dark:text-emerald-300/80">{t.heroAmountPaid}</p>
+                  <ExpenseMoneyDisplay
+                    cents={expense.amountPaidCents || 0}
+                    locale={locale === 'fr' ? 'fr-FR' : 'en-GB'}
+                    className="mt-1 text-sm font-semibold"
+                  />
+                </div>
+
+                <div className={`rounded-lg border p-2.5 ${getRemainingAmountClass(expense.paymentStatus, expense.remainingBalanceCents || 0)}`}>
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-foreground/70">{t.heroRemaining}</p>
+                  <ExpenseMoneyDisplay
+                    cents={expense.remainingBalanceCents || 0}
+                    locale={locale === 'fr' ? 'fr-FR' : 'en-GB'}
+                    className="mt-1 text-sm font-semibold"
+                  />
+                </div>
+
+                <div className="rounded-lg border border-teal-200/75 bg-teal-50/70 p-2.5 dark:border-teal-900/45 dark:bg-teal-950/25">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-teal-700/80 dark:text-teal-300/80">{t.heroAttachments}</p>
+                  <p className="mt-1 text-sm font-semibold tabular-nums">{expense.attachments?.length || 0}</p>
+                </div>
+              </CardContent>
             </Card>
 
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 rounded-xl border border-slate-200/80 bg-slate-50/60 p-1.5 dark:border-slate-800/70 dark:bg-slate-950/25">
               <Button type="button" size="sm" variant={activeTab === 'summary' ? 'default' : 'outline'} onClick={() => setActiveTab('summary')}>
                 {t.summaryTab}
               </Button>
@@ -780,7 +854,7 @@ export default function ExpenseDetailPage() {
             {activeTab === 'summary' ? (
               <div className="grid gap-4 lg:grid-cols-3">
                 {expense.status === 'draft' && expense.attachments && expense.attachments.length > 0 ? (
-                  <Card className="border-border/70 lg:col-span-3">
+                  <Card className="border-amber-200/80 bg-amber-50/45 dark:border-amber-900/35 dark:bg-amber-950/14 lg:col-span-3">
                     <CardHeader className="pb-2">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div>
@@ -824,35 +898,35 @@ export default function ExpenseDetailPage() {
                   </Card>
                 ) : null}
 
-                <Card className="border-border/70 lg:col-span-2">
+                <Card className="border-sky-200/80 bg-sky-50/40 dark:border-sky-900/35 dark:bg-sky-950/14 lg:col-span-2">
                   <CardHeader>
                     <CardTitle className="text-base">{t.financial}</CardTitle>
                   </CardHeader>
                   <CardContent className="grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-lg border border-border/60 p-3">
+                    <div className="rounded-lg border border-slate-200/70 bg-slate-50/70 p-3 dark:border-slate-800/65 dark:bg-slate-900/35">
                       <p className="text-xs text-muted-foreground">{t.amountExclVat}</p>
                       <ExpenseMoneyDisplay cents={expense.amountExclVatCents || 0} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="text-sm font-medium" />
                     </div>
-                    <div className="rounded-lg border border-border/60 p-3">
+                    <div className="rounded-lg border border-amber-200/70 bg-amber-50/70 p-3 dark:border-amber-900/65 dark:bg-amber-950/30">
                       <p className="text-xs text-muted-foreground">{t.vatAmount}</p>
                       <ExpenseMoneyDisplay cents={expense.vatAmountCents || 0} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="text-sm font-medium" />
                     </div>
-                    <div className="rounded-lg border border-border/60 p-3">
+                    <div className="rounded-lg border border-sky-200/70 bg-sky-50/70 p-3 dark:border-sky-900/65 dark:bg-sky-950/30">
                       <p className="text-xs text-muted-foreground">{t.amountInclVat}</p>
                       <ExpenseMoneyDisplay cents={expense.amountInclVatCents || 0} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="text-sm font-medium" />
                     </div>
-                    <div className="rounded-lg border border-border/60 p-3">
+                    <div className="rounded-lg border border-emerald-200/70 bg-emerald-50/70 p-3 dark:border-emerald-900/65 dark:bg-emerald-950/30">
                       <p className="text-xs text-muted-foreground">{t.amountPaid}</p>
                       <ExpenseMoneyDisplay cents={expense.amountPaidCents || 0} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="text-sm font-medium" />
                     </div>
-                    <div className="rounded-lg border border-border/60 p-3 sm:col-span-2">
+                    <div className={`rounded-lg border p-3 sm:col-span-2 ${getRemainingAmountClass(expense.paymentStatus, expense.remainingBalanceCents || 0)}`}>
                       <p className="text-xs text-muted-foreground">{t.remaining}</p>
                       <ExpenseMoneyDisplay cents={expense.remainingBalanceCents || 0} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="text-sm font-medium" />
                     </div>
                   </CardContent>
                 </Card>
 
-                <Card className="border-border/70">
+                <Card className="border-slate-200/80 bg-slate-50/45 dark:border-slate-800/70 dark:bg-slate-950/16">
                   <CardHeader>
                     <CardTitle className="text-base">{t.summary}</CardTitle>
                   </CardHeader>
@@ -884,7 +958,7 @@ export default function ExpenseDetailPage() {
                   </CardContent>
                 </Card>
 
-                <Card className="border-border/70 lg:col-span-2">
+                <Card className="border-sky-200/80 bg-sky-50/38 dark:border-sky-900/35 dark:bg-sky-950/12 lg:col-span-2">
                   <CardHeader>
                     <CardTitle className="text-base">{t.links}</CardTitle>
                   </CardHeader>
@@ -922,7 +996,7 @@ export default function ExpenseDetailPage() {
                   </CardContent>
                 </Card>
 
-                <Card className="border-border/70">
+                <Card className="border-slate-200/80 bg-slate-50/45 dark:border-slate-800/70 dark:bg-slate-950/16">
                   <CardHeader>
                     <CardTitle className="text-base">{t.lifecycle}</CardTitle>
                   </CardHeader>
@@ -950,7 +1024,7 @@ export default function ExpenseDetailPage() {
                   </CardContent>
                 </Card>
 
-                <Card className="border-border/70 lg:col-span-3">
+                <Card className="border-amber-200/80 bg-amber-50/32 dark:border-amber-900/35 dark:bg-amber-950/12 lg:col-span-3">
                   <CardHeader>
                     <CardTitle className="text-base">{t.notes}</CardTitle>
                   </CardHeader>
@@ -962,7 +1036,7 @@ export default function ExpenseDetailPage() {
             ) : null}
 
             {activeTab === 'attachments' ? (
-              <Card className="border-border/70">
+              <Card className="border-sky-200/80 bg-sky-50/38 dark:border-sky-900/35 dark:bg-sky-950/12">
                 <CardHeader>
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div>
@@ -1000,7 +1074,7 @@ export default function ExpenseDetailPage() {
                     <p className="text-sm text-muted-foreground">{t.noAttachments}</p>
                   ) : (
                     expense.attachments.map((attachment) => (
-                      <div key={attachment._id} className="rounded-lg border border-border/60 p-3">
+                      <div key={attachment._id} className="rounded-lg border border-sky-200/65 bg-sky-50/55 p-3 dark:border-sky-900/40 dark:bg-sky-950/20">
                         <div className="flex flex-wrap items-start justify-between gap-2">
                           <div className="min-w-0">
                             <p className="truncate text-sm font-medium">{attachment.displayName}</p>
@@ -1041,7 +1115,7 @@ export default function ExpenseDetailPage() {
             ) : null}
 
             {activeTab === 'audit' ? (
-              <Card className="border-border/70">
+              <Card className="border-slate-200/80 bg-slate-50/45 dark:border-slate-800/70 dark:bg-slate-950/16">
                 <CardHeader>
                   <CardTitle className="text-base">{t.auditTab}</CardTitle>
                 </CardHeader>
@@ -1050,7 +1124,7 @@ export default function ExpenseDetailPage() {
                     <p className="text-sm text-muted-foreground">{t.noAudit}</p>
                   ) : (
                     expense.auditLogs.map((log) => (
-                      <div key={log._id} className="rounded-lg border border-border/60 p-3">
+                      <div key={log._id} className="rounded-lg border border-slate-200/70 bg-slate-50/70 p-3 dark:border-slate-800/60 dark:bg-slate-900/35">
                         <div className="grid gap-2 text-xs sm:grid-cols-3 lg:grid-cols-6">
                           <div>
                             <p className="text-muted-foreground">{t.auditAction}</p>
@@ -1085,7 +1159,7 @@ export default function ExpenseDetailPage() {
             ) : null}
 
             {activeTab === 'tickets' ? (
-              <Card className="border-border/70">
+              <Card className="border-teal-200/80 bg-teal-50/38 dark:border-teal-900/35 dark:bg-teal-950/12">
                 <CardHeader>
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <CardTitle className="text-base">{t.ticketsTab}</CardTitle>
@@ -1110,7 +1184,7 @@ export default function ExpenseDetailPage() {
                     <p className="text-sm text-muted-foreground">{t.noTickets}</p>
                   ) : (
                     linkedTickets.map((ticket) => (
-                      <div key={ticket._id} className="rounded-lg border border-border/60 p-3">
+                      <div key={ticket._id} className="rounded-lg border border-teal-200/70 bg-teal-50/65 p-3 dark:border-teal-900/40 dark:bg-teal-950/22">
                         <div className="flex flex-wrap items-start justify-between gap-2">
                           <div className="min-w-0 space-y-0.5">
                             <p className="truncate text-sm font-medium">{ticket.title}</p>
