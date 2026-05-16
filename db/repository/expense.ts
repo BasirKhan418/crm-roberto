@@ -371,6 +371,19 @@ export async function createManualExpense(params: {
   const dueDate = params.payload.dueDate ?? addDays(params.payload.expenseDate, DEFAULT_DUE_DATE_DELAY_DAYS);
 
   const paymentStatus = params.payload.paymentStatus || derivePaymentStatus(amountInclVatCents, amountPaidCents);
+  const normalizedAmountPaidCents = paymentStatus === "unpaid" ? 0 : amountPaidCents;
+  const paymentDetails =
+    paymentStatus === "unpaid"
+      ? {
+          paymentMethod: null,
+          paidBy: null,
+          paidAt: null,
+        }
+      : {
+          paymentMethod: params.payload.paymentMethod ?? null,
+          paidBy: params.payload.paidBy ?? null,
+          paidAt: params.payload.paidAt ?? null,
+        };
 
   const created = await Expense.create({
     companyId: params.companyId,
@@ -383,9 +396,10 @@ export async function createManualExpense(params: {
     expenseDate: params.payload.expenseDate,
     supplierId: params.payload.supplierId,
     categoryId: params.payload.categoryId,
-    paymentMethod: params.payload.paymentMethod ?? null,
-    amountPaidCents,
-    paidAt: params.payload.paidAt ?? null,
+    paymentMethod: paymentDetails.paymentMethod,
+    paidBy: paymentDetails.paidBy,
+    amountPaidCents: normalizedAmountPaidCents,
+    paidAt: paymentDetails.paidAt,
     dueDate,
     supplierRef: params.payload.supplierRef ?? null,
     expenseType: params.payload.expenseType,
@@ -647,10 +661,12 @@ export async function updateExpense(params: {
     paymentStatus === "unpaid"
       ? {
           paymentMethod: null,
+          paidBy: null,
           paidAt: null,
         }
       : {
           paymentMethod: nextData.paymentMethod ?? null,
+          paidBy: nextData.paidBy ?? null,
           paidAt: nextData.paidAt ?? null,
         };
 
@@ -677,6 +693,7 @@ export async function updateExpense(params: {
     amountPaidCents,
     paymentStatus,
     paymentMethod: paymentDetails.paymentMethod,
+    paidBy: paymentDetails.paidBy,
     paidAt: paymentDetails.paidAt,
     updatedBy: params.updatedBy,
   };
@@ -856,6 +873,7 @@ export async function duplicateExpense(params: {
     supplierId: source.supplierId,
     categoryId: source.categoryId,
     paymentMethod: null,
+    paidBy: null,
     amountPaidCents: 0,
     paidAt: null,
     dueDate: source.dueDate,
@@ -956,6 +974,7 @@ export async function markExpensePaid(params: {
   expense.paymentStatus = "paid";
   expense.amountPaidCents = expense.amountInclVatCents;
   expense.paymentMethod = params.payload.paymentMethod;
+  expense.paidBy = params.payload.paidBy ?? null;
   expense.paidAt = params.payload.paidAt;
   expense.updatedBy = toObjectId(params.updatedBy);
 

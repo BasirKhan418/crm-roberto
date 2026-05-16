@@ -63,6 +63,7 @@ import {
 } from '@/lib/expenses/upload';
 import {
   getExpenseEnumLabel,
+  getExpensePaidByLabel,
   getExpensePaymentMethodLabel,
   getExpenseStatusLabel,
   getExpenseTypeLabel,
@@ -261,6 +262,7 @@ export default function ExpenseDetailPage() {
           date: 'Expense date',
           dueDate: 'Due date',
           paidAt: 'Paid at',
+          paidBy: 'Paid by',
           reference: 'Reference',
           supplier: 'Supplier',
           category: 'Category',
@@ -344,6 +346,7 @@ export default function ExpenseDetailPage() {
           date: 'Date dépense',
           dueDate: 'Date limite',
           paidAt: 'Date paiement',
+          paidBy: 'Payé par',
           reference: 'Référence',
           supplier: 'Fournisseur',
           category: 'Catégorie',
@@ -870,6 +873,12 @@ export default function ExpenseDetailPage() {
                       <p className="text-xs text-muted-foreground">{t.paymentMethod}</p>
                       <p className="font-medium">
                         {expense.paymentMethod ? getExpensePaymentMethodLabel(expense.paymentMethod, locale) : '-'}
+                      </p>
+                    </div>
+                    <div className="rounded-md border border-border/60 p-2">
+                      <p className="text-xs text-muted-foreground">{t.paidBy}</p>
+                      <p className="font-medium">
+                        {expense.paidBy ? getExpensePaidByLabel(expense.paidBy, locale) : '-'}
                       </p>
                     </div>
                   </CardContent>

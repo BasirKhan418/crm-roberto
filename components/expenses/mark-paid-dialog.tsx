@@ -26,8 +26,8 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { EXPENSE_PAYMENT_METHODS } from '@/lib/expenses/constants';
-import { getExpensePaymentMethodLabel } from '@/lib/expenses/labels';
+import { EXPENSE_PAID_BY, EXPENSE_PAYMENT_METHODS } from '@/lib/expenses/constants';
+import { getExpensePaidByLabel, getExpensePaymentMethodLabel } from '@/lib/expenses/labels';
 
 type MarkPaidDialogProps = {
   open: boolean;
@@ -49,6 +49,7 @@ export function MarkPaidDialog({
   onSaved,
 }: MarkPaidDialogProps) {
   const [paymentMethod, setPaymentMethod] = useState('');
+  const [paidBy, setPaidBy] = useState('');
   const [paidAt, setPaidAt] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,6 +61,7 @@ export function MarkPaidDialog({
     if (!open) return;
 
     setPaymentMethod('');
+    setPaidBy('');
     setPaidAt(new Date().toISOString().slice(0, 10));
     setError(null);
     setConfirmOpen(false);
@@ -72,6 +74,8 @@ export function MarkPaidDialog({
       remainingLabel: 'Remaining balance',
       dateLabel: 'Paid at',
       methodLabel: 'Payment method',
+      paidByLabel: 'Paid by',
+      paidByPlaceholder: 'Select payer',
       methodPlaceholder: 'Select a method',
       cancel: 'Cancel',
       submit: 'Apply payment',
@@ -91,6 +95,8 @@ export function MarkPaidDialog({
       remainingLabel: 'Reste à payer',
       dateLabel: 'Date de paiement',
       methodLabel: 'Mode de paiement',
+      paidByLabel: 'Payé par',
+      paidByPlaceholder: 'Sélectionner le payeur',
       methodPlaceholder: 'Sélectionner un mode',
       cancel: 'Annuler',
       submit: 'Appliquer paiement',
@@ -146,6 +152,7 @@ export function MarkPaidDialog({
           action: 'mark_paid',
           paidAt,
           paymentMethod,
+          paidBy: paidBy || undefined,
         }),
       });
 
@@ -202,6 +209,22 @@ export function MarkPaidDialog({
               {EXPENSE_PAYMENT_METHODS.map((method) => (
                 <option key={method} value={method}>
                   {getExpensePaymentMethodLabel(method, locale)}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>{t.paidByLabel}</Label>
+            <select
+              className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
+              value={paidBy}
+              onChange={(event) => setPaidBy(event.target.value)}
+            >
+              <option value="">{t.paidByPlaceholder}</option>
+              {EXPENSE_PAID_BY.map((payer) => (
+                <option key={payer} value={payer}>
+                  {getExpensePaidByLabel(payer, locale)}
                 </option>
               ))}
             </select>

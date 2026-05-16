@@ -1,4 +1,5 @@
 import type {
+  ExpensePaidBy,
   ExpensePaymentMethod,
   ExpensePaymentStatus,
   ExpenseStatus,
@@ -7,7 +8,7 @@ import type {
 
 export type ExpenseLabelLocale = 'en' | 'fr';
 
-type ExpenseEnumValue = ExpenseStatus | ExpensePaymentStatus | ExpensePaymentMethod | ExpenseType;
+type ExpenseEnumValue = ExpenseStatus | ExpensePaymentStatus | ExpensePaymentMethod | ExpensePaidBy | ExpenseType;
 
 const EN_LABELS: Record<ExpenseEnumValue, string> = {
   draft: 'Draft',
@@ -21,6 +22,10 @@ const EN_LABELS: Record<ExpenseEnumValue, string> = {
   cash: 'Cash',
   direct_debit: 'Direct debit',
   cheque: 'Cheque',
+  company: 'Company',
+  private: 'Private',
+  employee: 'Employee',
+  associate: 'Associate',
   business: 'Business',
   personal_reimbursable: 'Personal reimbursable',
 };
@@ -37,6 +42,10 @@ const FR_LABELS: Record<ExpenseEnumValue, string> = {
   cash: 'Espèces',
   direct_debit: 'Prélèvement',
   cheque: 'Chèque',
+  company: 'Société',
+  private: 'Privé',
+  employee: 'Employé',
+  associate: 'Associé',
   business: 'Professionnelle',
   personal_reimbursable: 'Personnel remboursable',
 };
@@ -73,6 +82,13 @@ export function getExpensePaymentMethodLabel(
   locale: ExpenseLabelLocale
 ) {
   return resolveEnumLabel(paymentMethod, locale);
+}
+
+export function getExpensePaidByLabel(
+  paidBy: ExpensePaidBy | string | null | undefined,
+  locale: ExpenseLabelLocale
+) {
+  return resolveEnumLabel(paidBy, locale);
 }
 
 export function getExpenseTypeLabel(

@@ -30,12 +30,14 @@ import { Textarea } from '@/components/ui/textarea';
 import type { ExpenseLookupCategory, ExpenseLookupClient, ExpenseLookupInvoice, ExpenseLookupSupplier } from '@/hooks/useExpenseLookups';
 import type { ExpenseDetail } from '@/hooks/useExpenseDetail';
 import {
+  EXPENSE_PAID_BY,
   EXPENSE_PAYMENT_METHODS,
   EXPENSE_PAYMENT_STATUS,
   EXPENSE_TYPES,
   EXPENSE_VAT_RATES,
 } from '@/lib/expenses/constants';
 import {
+  getExpensePaidByLabel,
   getExpensePaymentMethodLabel,
   getExpensePaymentStatusLabel,
   getExpenseTypeLabel,
@@ -66,6 +68,7 @@ type FormValues = {
   supplierId: string;
   categoryId: string;
   paymentMethod: string;
+  paidBy: string;
   paymentStatus: string;
   amountPaid: string;
   paidAt: string;
@@ -118,6 +121,7 @@ function buildDefaultFormValues(): FormValues {
     supplierId: '',
     categoryId: '',
     paymentMethod: '',
+    paidBy: '',
     paymentStatus: 'unpaid',
     amountPaid: '',
     paidAt: '',
@@ -166,6 +170,7 @@ function buildInitialValues(expense?: ExpenseDetail | null): FormValues {
     supplierId: resolveEntityId(expense.supplierId),
     categoryId: resolveEntityId(expense.categoryId),
     paymentMethod: expense.paymentMethod || '',
+    paidBy: expense.paidBy || '',
     paymentStatus: expense.paymentStatus || 'unpaid',
     amountPaid: toDecimalFromCents(expense.amountPaidCents),
     paidAt: toInputDate(expense.paidAt),
@@ -223,6 +228,7 @@ export function ExpenseFormDialog({
       supplier: 'Supplier',
       category: 'Category',
       paymentMethod: 'Payment method',
+      paidBy: 'Paid by',
       paymentStatus: 'Payment status',
       amountPaid: 'Amount already paid',
       amountPaidAutoFilledPaid: 'Amount automatically filled because status = paid.',
@@ -272,6 +278,7 @@ export function ExpenseFormDialog({
       supplier: 'Fournisseur',
       category: 'Catégorie',
       paymentMethod: 'Mode de paiement',
+      paidBy: 'Payé par',
       paymentStatus: 'Statut paiement',
       amountPaid: 'Montant déjà payé',
       amountPaidAutoFilledPaid: 'Montant rempli automatiquement car le statut = payé.',
@@ -398,6 +405,7 @@ export function ExpenseFormDialog({
         supplierId: values.supplierId || undefined,
         categoryId: values.categoryId || undefined,
         paymentMethod: values.paymentMethod || undefined,
+        paidBy: values.paidBy || undefined,
         paymentStatus: values.paymentStatus || undefined,
         amountPaidCents:
           values.paymentStatus === 'unpaid'
@@ -713,6 +721,22 @@ export function ExpenseFormDialog({
                   {EXPENSE_PAYMENT_METHODS.map((method) => (
                     <option key={method} value={method}>
                       {getExpensePaymentMethodLabel(method, locale)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>{t.paidBy}</Label>
+                <select
+                  className={selectClassName}
+                  value={values.paidBy}
+                  onChange={(event) => updateField('paidBy', event.target.value)}
+                >
+                  <option value="">{t.noneOption}</option>
+                  {EXPENSE_PAID_BY.map((payer) => (
+                    <option key={payer} value={payer}>
+                      {getExpensePaidByLabel(payer, locale)}
                     </option>
                   ))}
                 </select>

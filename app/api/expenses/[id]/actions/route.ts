@@ -75,6 +75,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         payload: {
           paidAt: parsed.data.paidAt,
           paymentMethod: parsed.data.paymentMethod,
+          paidBy: parsed.data.paidBy,
         },
         access: auth.context.accessScope,
         ipAddress,

@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import {
+  EXPENSE_PAID_BY,
   EXPENSE_PAYMENT_METHODS,
   EXPENSE_PAYMENT_STATUS,
   EXPENSE_STATUS,
@@ -74,6 +75,7 @@ export const createManualExpenseSchema = z.object({
   supplierId: objectIdSchema,
   categoryId: objectIdSchema,
   paymentMethod: z.enum(EXPENSE_PAYMENT_METHODS).optional(),
+  paidBy: z.enum(EXPENSE_PAID_BY).optional(),
   paymentStatus: z.enum(EXPENSE_PAYMENT_STATUS).optional(),
   amountPaidCents: optionalMoneyToCentsSchema,
   paidAt: optionalDateSchema.optional(),
@@ -107,6 +109,7 @@ export const updateExpenseSchema = z
     supplierId: optionalObjectIdSchema,
     categoryId: optionalObjectIdSchema,
     paymentMethod: z.enum(EXPENSE_PAYMENT_METHODS).nullable().optional(),
+    paidBy: z.enum(EXPENSE_PAID_BY).nullable().optional(),
     amountPaidCents: optionalMoneyToCentsSchema,
     paidAt: optionalDateSchema.optional(),
     dueDate: optionalDateSchema.optional(),
@@ -154,6 +157,7 @@ export const updateExpenseCategorySchema = z
 export const markExpensePaidSchema = z.object({
   paidAt: requiredDateSchema,
   paymentMethod: z.enum(EXPENSE_PAYMENT_METHODS),
+  paidBy: z.enum(EXPENSE_PAID_BY).optional(),
 });
 
 export const createExpenseAttachmentSchema = z.object({
@@ -176,6 +180,7 @@ export const expenseActionSchema = z.discriminatedUnion("action", [
     action: z.literal("mark_paid"),
     paidAt: requiredDateSchema,
     paymentMethod: z.enum(EXPENSE_PAYMENT_METHODS),
+    paidBy: z.enum(EXPENSE_PAID_BY).optional(),
   }),
   z.object({
     action: z.literal("attach_file"),

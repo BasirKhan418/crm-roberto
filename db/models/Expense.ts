@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 
 import {
+  EXPENSE_PAID_BY,
   EXPENSE_PAYMENT_METHODS,
   EXPENSE_PAYMENT_STATUS,
   EXPENSE_STATUS,
@@ -72,6 +73,11 @@ const ExpenseSchema = new mongoose.Schema(
     paymentMethod: {
       type: String,
       enum: EXPENSE_PAYMENT_METHODS,
+      default: null,
+    },
+    paidBy: {
+      type: String,
+      enum: EXPENSE_PAID_BY,
       default: null,
     },
     amountPaidCents: {

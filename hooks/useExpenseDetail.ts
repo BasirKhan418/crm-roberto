@@ -53,6 +53,7 @@ export type ExpenseDetail = {
   remainingBalanceCents: number;
   vatRate: number;
   paymentMethod?: string | null;
+  paidBy?: string | null;
   paidAt?: string | null;
   dueDate?: string | null;
   supplierRef?: string | null;

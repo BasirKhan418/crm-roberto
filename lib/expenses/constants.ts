@@ -7,6 +7,7 @@ export const EXPENSE_PAYMENT_METHODS = [
   "direct_debit",
   "cheque",
 ] as const;
+export const EXPENSE_PAID_BY = ["company", "private", "employee", "associate"] as const;
 export const EXPENSE_TYPES = ["business", "personal_reimbursable"] as const;
 
 export const DEFAULT_EXPENSE_CATEGORY_NAMES = [
@@ -30,4 +31,5 @@ export const EXPENSE_VAT_RATES = [0, 3, 8, 14, 17] as const;
 export type ExpenseStatus = (typeof EXPENSE_STATUS)[number];
 export type ExpensePaymentStatus = (typeof EXPENSE_PAYMENT_STATUS)[number];
 export type ExpensePaymentMethod = (typeof EXPENSE_PAYMENT_METHODS)[number];
+export type ExpensePaidBy = (typeof EXPENSE_PAID_BY)[number];
 export type ExpenseType = (typeof EXPENSE_TYPES)[number];
