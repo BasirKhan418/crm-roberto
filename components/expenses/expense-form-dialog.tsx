@@ -210,6 +210,61 @@ function buildInvoiceSearchText(invoice: ExpenseLookupInvoice, locale: 'en' | 'f
   ).toFixed(2)} ${Math.round(amountCents / 100)} ${dateLabel}`.toLowerCase();
 }
 
+function toInvoiceLookupFromExpense(expense: ExpenseDetail | null | undefined): ExpenseLookupInvoice | null {
+  const invoiceValue = expense?.invoiceId;
+  if (!invoiceValue || typeof invoiceValue === 'string') {
+    return null;
+  }
+
+  const clientSnapshotValue = invoiceValue.clientSnapshot;
+  const clientSnapshot =
+    clientSnapshotValue && typeof clientSnapshotValue === 'object'
+      ? {
+          fullName:
+            typeof clientSnapshotValue.fullName === 'string'
+              ? clientSnapshotValue.fullName
+              : undefined,
+          companyName:
+            typeof clientSnapshotValue.companyName === 'string'
+              ? clientSnapshotValue.companyName
+              : undefined,
+        }
+      : undefined;
+
+  return {
+    _id: invoiceValue._id,
+    invoiceNumber:
+      typeof invoiceValue.invoiceNumber === 'string' ? invoiceValue.invoiceNumber : undefined,
+    date: typeof invoiceValue.date === 'string' ? invoiceValue.date : undefined,
+    status: typeof invoiceValue.status === 'string' ? invoiceValue.status : undefined,
+    totalIncludingTax:
+      typeof invoiceValue.totalIncludingTax === 'number'
+        ? invoiceValue.totalIncludingTax
+        : undefined,
+    clientSnapshot,
+  };
+}
+
+function getExpenseIdFromPayload(payload: Record<string, unknown> | null | undefined) {
+  if (!payload) return null;
+  const id = payload._id;
+  return typeof id === 'string' ? id : null;
+}
+
+function dispatchExpenseRefresh(expenseId?: string | null) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  window.dispatchEvent(
+    new CustomEvent('expenses:refresh', {
+      detail: {
+        expenseId: expenseId || undefined,
+      },
+    })
+  );
+}
+
 function buildInitialValues(expense?: ExpenseDetail | null): FormValues {
   if (!expense) {
     return buildDefaultFormValues();
@@ -486,9 +541,11 @@ export function ExpenseFormDialog({
   const invoiceOptions = useMemo(() => {
     const normalizedSearch = debouncedInvoiceSearch.trim().toLowerCase();
     const source = normalizedSearch ? remoteInvoices : invoices;
+    const initialInvoice = toInvoiceLookupFromExpense(initialExpense);
     const selectedInvoice =
       (values.invoiceId ? invoices.find((invoice) => invoice._id === values.invoiceId) : undefined) ||
-      (values.invoiceId ? remoteInvoices.find((invoice) => invoice._id === values.invoiceId) : undefined);
+      (values.invoiceId ? remoteInvoices.find((invoice) => invoice._id === values.invoiceId) : undefined) ||
+      (initialInvoice && initialInvoice._id === values.invoiceId ? initialInvoice : undefined);
 
     const byId = new Map<string, ExpenseLookupInvoice>();
     source.forEach((invoice) => {
@@ -505,7 +562,7 @@ export function ExpenseFormDialog({
     }
 
     return merged.filter((invoice) => buildInvoiceSearchText(invoice, locale).includes(normalizedSearch));
-  }, [debouncedInvoiceSearch, invoices, locale, remoteInvoices, values.invoiceId]);
+  }, [debouncedInvoiceSearch, initialExpense, invoices, locale, remoteInvoices, values.invoiceId]);
 
   function updateField<K extends keyof FormValues>(field: K, next: FormValues[K]) {
     setValues((previous) => ({ ...previous, [field]: next }));
@@ -589,7 +646,8 @@ export function ExpenseFormDialog({
         notes: values.notes || undefined,
         clientId: values.clientId || undefined,
         projectId: values.projectId || undefined,
-        invoiceId: values.invoiceId || undefined,
+        // Keep explicit null so invoice unlink operations are persisted.
+        invoiceId: values.invoiceId || null,
       };
 
       if (mode === 'create') {
@@ -641,6 +699,7 @@ export function ExpenseFormDialog({
           throw new Error(result?.message || t.saveFailed);
         }
 
+        dispatchExpenseRefresh(getExpenseIdFromPayload(result.expense) || initialExpense._id);
         await onSaved(result.expense);
         toast.success(saveTarget === 'activate' ? t.activateSuccess : t.updateSuccess);
         onOpenChange(false);
@@ -665,6 +724,7 @@ export function ExpenseFormDialog({
         throw new Error(result?.message || t.saveFailed);
       }
 
+      dispatchExpenseRefresh(getExpenseIdFromPayload(result.expense));
       await onSaved(result.expense);
       toast.success(t.createSuccess);
       onOpenChange(false);

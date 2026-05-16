@@ -31,6 +31,7 @@ import { useLocale } from '@/components/providers/locale-provider';
 import { CreateTicketDialog } from '@/components/tickets/create-ticket-dialog';
 import { TicketStatusBadge } from '@/components/tickets/ticket-status-badge';
 import { TicketUnreadIndicator } from '@/components/tickets/ticket-unread-indicator';
+import { InvoiceStatusBadge } from '@/components/ui/InvoiceStatusBadge';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -72,6 +73,7 @@ import {
   getExpenseStatusLabel,
   getExpenseTypeLabel,
 } from '@/lib/expenses/labels';
+import { formatInvoiceDisplayNumber, getInvoiceStatusLabel } from '@/lib/i18n/messages';
 import { hasPermission } from '@/lib/permissions';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -208,6 +210,8 @@ const AUDIT_ACTION_LABELS = {
 const ATTACHMENT_OTHER_REASON_MIN_CHARS = 10;
 const EXPENSE_DELETE_REASON_MIN_CHARS = 10;
 
+type LinkedInvoiceStatus = 'unpaid' | 'partial_paid' | 'paid' | 'overdue';
+
 function toLocaleString(locale: 'en' | 'fr') {
   return locale === 'fr' ? 'fr-FR' : 'en-GB';
 }
@@ -224,6 +228,19 @@ function formatDateTime(value?: string | Date | null, locale: 'en' | 'fr' = 'fr'
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '-';
   return date.toLocaleString(toLocaleString(locale));
+}
+
+function formatMoneyFromCents(cents: number, locale: 'en' | 'fr' = 'fr') {
+  return new Intl.NumberFormat(toLocaleString(locale), {
+    style: 'currency',
+    currency: 'EUR',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(cents / 100);
+}
+
+function isLinkedInvoiceStatus(value: unknown): value is LinkedInvoiceStatus {
+  return value === 'unpaid' || value === 'partial_paid' || value === 'paid' || value === 'overdue';
 }
 
 function resolveEntityLabel(
@@ -623,6 +640,7 @@ export default function ExpenseDetailPage() {
           category: 'Category',
           client: 'Client',
           invoice: 'Invoice',
+          openInvoice: 'Open invoice',
           project: 'Project',
           type: 'Type',
           paymentMethod: 'Payment method',
@@ -737,6 +755,7 @@ export default function ExpenseDetailPage() {
           category: 'Catégorie',
           client: 'Client',
           invoice: 'Facture',
+          openInvoice: 'Ouvrir facture',
           project: 'Projet',
           type: 'Type',
           paymentMethod: 'Mode de paiement',
@@ -855,6 +874,41 @@ export default function ExpenseDetailPage() {
   );
 
   const isExpenseArchived = expense?.status === 'archived';
+
+  const linkedInvoiceSummary = useMemo(() => {
+    const invoiceValue = expense?.invoiceId;
+    if (!invoiceValue || typeof invoiceValue === 'string') {
+      return null;
+    }
+
+    const hasDisplayInvoiceNumber = typeof invoiceValue.invoiceNumber === 'string' && invoiceValue.invoiceNumber.trim();
+    const displayNumber = hasDisplayInvoiceNumber
+      ? formatInvoiceDisplayNumber(locale, invoiceValue.invoiceNumber as string)
+      : invoiceValue._id;
+
+    const clientName =
+      invoiceValue.clientSnapshot?.fullName ||
+      invoiceValue.clientSnapshot?.companyName ||
+      invoiceValue.companyName ||
+      '-';
+
+    const amountCents =
+      typeof invoiceValue.totalIncludingTax === 'number'
+        ? Math.max(0, Math.round(invoiceValue.totalIncludingTax))
+        : null;
+
+    const status = isLinkedInvoiceStatus(invoiceValue.status) ? invoiceValue.status : null;
+    const statusLabel = status ? getInvoiceStatusLabel(locale, status) : '-';
+
+    return {
+      id: invoiceValue._id,
+      displayNumber,
+      clientName,
+      amountLabel: amountCents === null ? '-' : formatMoneyFromCents(amountCents, locale),
+      status,
+      statusLabel,
+    };
+  }, [expense?.invoiceId, locale]);
 
   function pushFeedback(type: 'success' | 'error', message: string) {
     setFeedback({ type, message });
@@ -1572,9 +1626,32 @@ export default function ExpenseDetailPage() {
                       <p className="text-xs text-muted-foreground">{t.client}</p>
                       <p className="font-medium">{resolveEntityLabel(expense.clientId)}</p>
                     </div>
-                    <div className="rounded-md border border-border/60 p-2">
+                    <div className="rounded-md border border-border/60 p-2 sm:col-span-2">
                       <p className="text-xs text-muted-foreground">{t.invoice}</p>
-                      <p className="font-medium">{resolveEntityLabel(expense.invoiceId)}</p>
+                      {linkedInvoiceSummary ? (
+                        <div className="space-y-2">
+                          <p className="text-sm font-medium">
+                            {`${linkedInvoiceSummary.displayNumber} - ${linkedInvoiceSummary.clientName} - ${linkedInvoiceSummary.amountLabel} - ${linkedInvoiceSummary.statusLabel}`}
+                          </p>
+                          <div className="flex flex-wrap items-center gap-2">
+                            {linkedInvoiceSummary.status ? (
+                              <InvoiceStatusBadge status={linkedInvoiceSummary.status} locale={locale} />
+                            ) : null}
+                            <Button asChild type="button" variant="outline" size="sm">
+                              <Link href={`/invoices/${linkedInvoiceSummary.id}`}>{t.openInvoice}</Link>
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <p className="font-medium">{resolveEntityLabel(expense.invoiceId)}</p>
+                          {typeof expense.invoiceId === 'string' ? (
+                            <Button asChild type="button" variant="outline" size="sm">
+                              <Link href={`/invoices/${expense.invoiceId}`}>{t.openInvoice}</Link>
+                            </Button>
+                          ) : null}
+                        </div>
+                      )}
                     </div>
                     <div className="rounded-md border border-border/60 p-2">
                       <p className="text-xs text-muted-foreground">{t.reference}</p>

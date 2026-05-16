@@ -136,6 +136,32 @@ export function useExpenses(filters?: ExpensesFilters) {
     void refetch();
   }, [refetch]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    function handleRefresh() {
+      void refetch();
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'visible') {
+        void refetch();
+      }
+    }
+
+    window.addEventListener('focus', handleRefresh);
+    window.addEventListener('expenses:refresh', handleRefresh as EventListener);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('focus', handleRefresh);
+      window.removeEventListener('expenses:refresh', handleRefresh as EventListener);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [refetch]);
+
   return {
     expenses,
     pagination,

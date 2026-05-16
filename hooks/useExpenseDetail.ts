@@ -56,6 +56,13 @@ export type PopulatedEntity =
       companyName?: string;
       invoiceNumber?: string;
       name?: string;
+      date?: string | null;
+      status?: string;
+      totalIncludingTax?: number;
+      clientSnapshot?: {
+        fullName?: string;
+        companyName?: string | null;
+      };
     }
   | null;
 
@@ -149,6 +156,41 @@ export function useExpenseDetail(expenseId?: string) {
   useEffect(() => {
     void refetch();
   }, [refetch]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    function handleWindowFocus() {
+      void refetch();
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'visible') {
+        void refetch();
+      }
+    }
+
+    function handleExpenseRefresh(event: Event) {
+      const customEvent = event as CustomEvent<{ expenseId?: string }>;
+      const eventExpenseId = customEvent.detail?.expenseId;
+
+      if (!eventExpenseId || !expenseId || eventExpenseId === expenseId) {
+        void refetch();
+      }
+    }
+
+    window.addEventListener('focus', handleWindowFocus);
+    window.addEventListener('expenses:refresh', handleExpenseRefresh as EventListener);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('focus', handleWindowFocus);
+      window.removeEventListener('expenses:refresh', handleExpenseRefresh as EventListener);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [expenseId, refetch]);
 
   return {
     expense,
