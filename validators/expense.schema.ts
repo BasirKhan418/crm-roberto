@@ -68,25 +68,63 @@ export const expenseAttachmentMetadataSchema = z.object({
   checksum: z.preprocess(toNullableString, z.string().trim().nullable().optional()),
 });
 
-export const createManualExpenseSchema = z.object({
-  amountExclVatCents: moneyToCentsSchema,
-  vatRate: z.preprocess(toNumber, z.number().min(0).max(100)).default(17),
-  expenseDate: requiredDateSchema.default(() => new Date()),
-  supplierId: objectIdSchema,
-  categoryId: objectIdSchema,
-  paymentMethod: z.enum(EXPENSE_PAYMENT_METHODS).optional(),
-  paidBy: z.enum(EXPENSE_PAID_BY).optional(),
-  paymentStatus: z.enum(EXPENSE_PAYMENT_STATUS).optional(),
-  amountPaidCents: optionalMoneyToCentsSchema,
-  paidAt: optionalDateSchema.optional(),
-  dueDate: optionalDateSchema.optional(),
-  supplierRef: z.preprocess(toNullableString, z.string().trim().max(140).nullable().optional()),
-  expenseType: z.enum(EXPENSE_TYPES).default("business"),
-  notes: z.preprocess(toNullableString, z.string().trim().max(4000).nullable().optional()),
-  clientId: optionalObjectIdSchema,
-  projectId: z.preprocess(toNullableString, z.string().trim().max(120).nullable().optional()),
-  invoiceId: optionalObjectIdSchema,
-});
+export const createManualExpenseSchema = z
+  .object({
+    amountExclVatCents: moneyToCentsSchema,
+    vatRate: z.preprocess(toNumber, z.number().min(0).max(100)).default(17),
+    expenseDate: requiredDateSchema.default(() => new Date()),
+    supplierId: objectIdSchema,
+    categoryId: objectIdSchema,
+    paymentMethod: z.enum(EXPENSE_PAYMENT_METHODS).optional(),
+    paidBy: z.enum(EXPENSE_PAID_BY).optional(),
+    paymentStatus: z.enum(EXPENSE_PAYMENT_STATUS).optional(),
+    amountPaidCents: optionalMoneyToCentsSchema,
+    paidAt: optionalDateSchema.optional(),
+    dueDate: optionalDateSchema.optional(),
+    supplierRef: z.preprocess(toNullableString, z.string().trim().max(140).nullable().optional()),
+    expenseType: z.enum(EXPENSE_TYPES).default("business"),
+    notes: z.preprocess(toNullableString, z.string().trim().max(4000).nullable().optional()),
+    clientId: optionalObjectIdSchema,
+    projectId: z.preprocess(toNullableString, z.string().trim().max(120).nullable().optional()),
+    invoiceId: optionalObjectIdSchema,
+  })
+  .superRefine((input, context) => {
+    const hasPositivePayment = typeof input.amountPaidCents === "number" && input.amountPaidCents > 0;
+    const wantsPaidStatus =
+      input.paymentStatus === "partial" || input.paymentStatus === "paid";
+
+    if (input.paymentStatus === "unpaid" && hasPositivePayment) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Amount paid must be zero when payment status is unpaid",
+        path: ["amountPaidCents"],
+      });
+    }
+
+    if (input.paymentStatus === "partial" && !hasPositivePayment) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Amount paid is required when payment status is partial",
+        path: ["amountPaidCents"],
+      });
+    }
+
+    if ((hasPositivePayment || wantsPaidStatus) && !input.paymentMethod) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Payment method is required when an initial payment is recorded",
+        path: ["paymentMethod"],
+      });
+    }
+
+    if ((hasPositivePayment || wantsPaidStatus) && !input.paidAt) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Payment date is required when an initial payment is recorded",
+        path: ["paidAt"],
+      });
+    }
+  });
 
 export const createDraftExpenseSchema = z.object({
   expenseDate: optionalDateSchema.optional(),
@@ -102,16 +140,11 @@ export const createDraftExpenseSchema = z.object({
 export const updateExpenseSchema = z
   .object({
     status: z.enum(EXPENSE_STATUS).optional(),
-    paymentStatus: z.enum(EXPENSE_PAYMENT_STATUS).optional(),
     amountExclVatCents: optionalMoneyToCentsSchema,
     vatRate: z.preprocess(toNumber, z.number().min(0).max(100).optional()),
     expenseDate: optionalDateSchema.optional(),
     supplierId: optionalObjectIdSchema,
     categoryId: optionalObjectIdSchema,
-    paymentMethod: z.enum(EXPENSE_PAYMENT_METHODS).nullable().optional(),
-    paidBy: z.enum(EXPENSE_PAID_BY).nullable().optional(),
-    amountPaidCents: optionalMoneyToCentsSchema,
-    paidAt: optionalDateSchema.optional(),
     dueDate: optionalDateSchema.optional(),
     supplierRef: z.preprocess(toNullableString, z.string().trim().max(140).nullable().optional()),
     expenseType: z.enum(EXPENSE_TYPES).optional(),

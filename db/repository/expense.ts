@@ -4,11 +4,13 @@ import ConnectDb from "@/db/connectDb";
 import "@/db/models/Client";
 import Expense from "@/db/models/Expense";
 import ExpenseAttachment from "@/db/models/ExpenseAttachment";
+import ExpensePaymentLine from "@/db/models/ExpensePaymentLine";
 import "@/db/models/ExpenseCategory";
 import "@/db/models/Invoice";
 import Supplier from "@/db/models/Supplier";
 import "@/db/models/User";
 import { computeAmountInclVatCents, computeRemainingBalanceCents, computeVatAmountCents } from "@/lib/expense-calculations";
+import { EXPENSE_PAID_BY, EXPENSE_PAYMENT_METHODS } from "@/lib/expenses/constants";
 import type { ListQueryOptions, PaginationMeta } from "@/utils/api/query";
 import { buildPagination } from "@/utils/api/query";
 import type {
@@ -39,6 +41,19 @@ type AttachmentNamingExpense = {
   amountInclVatCents?: number;
 };
 
+type ExpensePaymentLineRecord = {
+  _id: mongoose.Types.ObjectId | string;
+  companyId: mongoose.Types.ObjectId | string;
+  expenseId: mongoose.Types.ObjectId | string;
+  amountPaidCents: number;
+  paidAt: Date;
+  paymentMethod?: string | null;
+  paidBy?: string | null;
+  createdBy?: unknown;
+  createdAt?: Date;
+  updatedAt?: Date;
+};
+
 const DEFAULT_EXPENSE_VAT_RATE = 17;
 const DEFAULT_DUE_DATE_DELAY_DAYS = 7;
 
@@ -48,6 +63,176 @@ function isValidObjectId(value: string) {
 
 function toObjectId(value: string) {
   return new mongoose.Types.ObjectId(value);
+}
+
+function extractObjectIdString(value: unknown): string | null {
+  if (!value) return null;
+
+  if (typeof value === "string") {
+    return isValidObjectId(value) ? value : null;
+  }
+
+  if (value instanceof mongoose.Types.ObjectId) {
+    return String(value);
+  }
+
+  if (typeof value === "object") {
+    const maybeId = (value as { _id?: unknown })._id;
+    if (typeof maybeId === "string" && isValidObjectId(maybeId)) {
+      return maybeId;
+    }
+    if (maybeId instanceof mongoose.Types.ObjectId) {
+      return String(maybeId);
+    }
+  }
+
+  return null;
+}
+
+function toPositiveCents(value: unknown) {
+  if (typeof value !== "number") {
+    return 0;
+  }
+
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+
+  return Math.max(0, Math.round(value));
+}
+
+function toValidExpensePaymentMethod(value: unknown) {
+  if (typeof value !== "string") return null;
+  return EXPENSE_PAYMENT_METHODS.includes(value as (typeof EXPENSE_PAYMENT_METHODS)[number])
+    ? value
+    : null;
+}
+
+function toValidExpensePaidBy(value: unknown) {
+  if (typeof value !== "string") return null;
+  return EXPENSE_PAID_BY.includes(value as (typeof EXPENSE_PAID_BY)[number]) ? value : null;
+}
+
+function toDateOrNull(value: unknown) {
+  if (!value) return null;
+
+  const date = value instanceof Date ? value : new Date(String(value));
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+async function listExpensePaymentLines(params: {
+  companyId: string;
+  expenseId: string;
+  includeCreator?: boolean;
+}) {
+  let query = ExpensePaymentLine.find({
+    companyId: params.companyId,
+    expenseId: params.expenseId,
+  }).sort({ paidAt: -1, createdAt: -1 });
+
+  if (params.includeCreator) {
+    query = query.populate("createdBy", "name email");
+  }
+
+  return query.lean<ExpensePaymentLineRecord[]>();
+}
+
+function summarizeExpensePayments(params: {
+  amountInclVatCents: number;
+  paymentLines: ExpensePaymentLineRecord[];
+}) {
+  const totalAmountCents = Math.max(0, toPositiveCents(params.amountInclVatCents));
+  const rawPaidCents = params.paymentLines.reduce((sum, line) => {
+    return sum + toPositiveCents(line.amountPaidCents);
+  }, 0);
+
+  const amountPaidCents = Math.min(rawPaidCents, totalAmountCents);
+  const paymentStatus = derivePaymentStatus(totalAmountCents, amountPaidCents);
+  const latestPayment = params.paymentLines[0] || null;
+
+  return {
+    amountPaidCents,
+    paymentStatus,
+    paymentMethod: latestPayment?.paymentMethod ?? null,
+    paidBy: latestPayment?.paidBy ?? null,
+    paidAt: latestPayment?.paidAt ?? null,
+  };
+}
+
+function applyExpensePaymentSummary(expense: {
+  amountPaidCents?: number;
+  paymentStatus?: string;
+  paymentMethod?: string | null;
+  paidBy?: string | null;
+  paidAt?: Date | null;
+}, summary: {
+  amountPaidCents: number;
+  paymentStatus: string;
+  paymentMethod: string | null;
+  paidBy: string | null;
+  paidAt: Date | null;
+}) {
+  expense.amountPaidCents = summary.amountPaidCents;
+  expense.paymentStatus = summary.paymentStatus;
+  expense.paymentMethod = summary.paymentMethod;
+  expense.paidBy = summary.paidBy;
+  expense.paidAt = summary.paidAt;
+}
+
+async function ensureLegacyPaymentLines(params: {
+  companyId: string;
+  expense: Record<string, unknown>;
+  fallbackCreatedBy?: string;
+}) {
+  const expenseId = extractObjectIdString(params.expense._id);
+  if (!expenseId) {
+    return [] as ExpensePaymentLineRecord[];
+  }
+
+  const existingLines = await listExpensePaymentLines({
+    companyId: params.companyId,
+    expenseId,
+  });
+
+  if (existingLines.length > 0) {
+    return existingLines;
+  }
+
+  const existingAmountPaidCents = toPositiveCents(params.expense.amountPaidCents);
+  const existingAmountInclVatCents = toPositiveCents(params.expense.amountInclVatCents);
+  const legacyPaidCents = Math.min(existingAmountPaidCents, existingAmountInclVatCents);
+
+  if (legacyPaidCents <= 0) {
+    return existingLines;
+  }
+
+  const createdBy =
+    params.fallbackCreatedBy ||
+    extractObjectIdString(params.expense.updatedBy) ||
+    extractObjectIdString(params.expense.createdBy);
+
+  if (!createdBy || !isValidObjectId(createdBy)) {
+    return existingLines;
+  }
+
+  const paidAt =
+    toDateOrNull(params.expense.paidAt) ||
+    toDateOrNull(params.expense.updatedAt) ||
+    toDateOrNull(params.expense.createdAt) ||
+    new Date();
+
+  const createdLegacyLine = await ExpensePaymentLine.create({
+    companyId: params.companyId,
+    expenseId,
+    amountPaidCents: legacyPaidCents,
+    paidAt,
+    paymentMethod: toValidExpensePaymentMethod(params.expense.paymentMethod),
+    paidBy: toValidExpensePaidBy(params.expense.paidBy),
+    createdBy,
+    source: "legacy_migration",
+  });
+
+  return [createdLegacyLine.toObject() as ExpensePaymentLineRecord];
 }
 
 function buildRemainingBalance(expense: {
@@ -368,28 +553,12 @@ export async function createManualExpense(params: {
 
   const vatAmountCents = computeVatAmountCents(params.payload.amountExclVatCents, params.payload.vatRate);
   const amountInclVatCents = computeAmountInclVatCents(params.payload.amountExclVatCents, vatAmountCents);
-  const amountPaidCents = Math.min(params.payload.amountPaidCents || 0, amountInclVatCents);
   const dueDate = params.payload.dueDate ?? addDays(params.payload.expenseDate, DEFAULT_DUE_DATE_DELAY_DAYS);
-
-  const paymentStatus = params.payload.paymentStatus || derivePaymentStatus(amountInclVatCents, amountPaidCents);
-  const normalizedAmountPaidCents = paymentStatus === "unpaid" ? 0 : amountPaidCents;
-  const paymentDetails =
-    paymentStatus === "unpaid"
-      ? {
-          paymentMethod: null,
-          paidBy: null,
-          paidAt: null,
-        }
-      : {
-          paymentMethod: params.payload.paymentMethod ?? null,
-          paidBy: params.payload.paidBy ?? null,
-          paidAt: params.payload.paidAt ?? null,
-        };
 
   const created = await Expense.create({
     companyId: params.companyId,
     status: "active",
-    paymentStatus,
+    paymentStatus: "unpaid",
     amountExclVatCents: params.payload.amountExclVatCents,
     vatRate: params.payload.vatRate,
     vatAmountCents,
@@ -397,10 +566,10 @@ export async function createManualExpense(params: {
     expenseDate: params.payload.expenseDate,
     supplierId: params.payload.supplierId,
     categoryId: params.payload.categoryId,
-    paymentMethod: paymentDetails.paymentMethod,
-    paidBy: paymentDetails.paidBy,
-    amountPaidCents: normalizedAmountPaidCents,
-    paidAt: paymentDetails.paidAt,
+    paymentMethod: null,
+    paidBy: null,
+    amountPaidCents: 0,
+    paidAt: null,
     dueDate,
     supplierRef: params.payload.supplierRef ?? null,
     expenseType: params.payload.expenseType,
@@ -411,6 +580,42 @@ export async function createManualExpense(params: {
     createdBy: params.createdBy,
     updatedBy: params.createdBy,
   });
+
+  const requestedInitialPaymentCents =
+    params.payload.paymentStatus === "paid"
+      ? amountInclVatCents
+      : toPositiveCents(params.payload.amountPaidCents);
+
+  const initialPaymentCents =
+    params.payload.paymentStatus === "unpaid"
+      ? 0
+      : Math.min(requestedInitialPaymentCents, amountInclVatCents);
+
+  if (initialPaymentCents > 0) {
+    await ExpensePaymentLine.create({
+      companyId: params.companyId,
+      expenseId: created._id,
+      amountPaidCents: initialPaymentCents,
+      paidAt: params.payload.paidAt ?? params.payload.expenseDate ?? new Date(),
+      paymentMethod: toValidExpensePaymentMethod(params.payload.paymentMethod),
+      paidBy: toValidExpensePaidBy(params.payload.paidBy),
+      createdBy: params.createdBy,
+      source: "manual_create",
+    });
+  }
+
+  const paymentLines = await listExpensePaymentLines({
+    companyId: params.companyId,
+    expenseId: String(created._id),
+  });
+  const paymentSummary = summarizeExpensePayments({
+    amountInclVatCents,
+    paymentLines,
+  });
+
+  applyExpensePaymentSummary(created, paymentSummary);
+  created.updatedBy = toObjectId(params.createdBy);
+  await created.save();
 
   await recordAuditLog({
     entityType: "expense",
@@ -580,7 +785,12 @@ export async function getExpenseById(params: {
     return { success: false as const, message: "Expense not found" };
   }
 
-  const [attachments, auditLogs] = await Promise.all([
+  await ensureLegacyPaymentLines({
+    companyId: params.companyId,
+    expense: expense as Record<string, unknown>,
+  });
+
+  const [attachments, auditLogs, payments] = await Promise.all([
     ExpenseAttachment.find({ companyId: params.companyId, expenseId: params.expenseId })
       .sort({ createdAt: -1 })
       .lean(),
@@ -589,14 +799,33 @@ export async function getExpenseById(params: {
       entityType: "expense",
       entityId: params.expenseId,
     }),
+    listExpensePaymentLines({
+      companyId: params.companyId,
+      expenseId: params.expenseId,
+      includeCreator: true,
+    }),
   ]);
+
+  const paymentSummary = summarizeExpensePayments({
+    amountInclVatCents: toPositiveCents(expense.amountInclVatCents),
+    paymentLines: payments,
+  });
 
   return {
     success: true as const,
     expense: {
       ...expense,
-      remainingBalanceCents: buildRemainingBalance(expense),
+      amountPaidCents: paymentSummary.amountPaidCents,
+      paymentStatus: paymentSummary.paymentStatus,
+      paymentMethod: paymentSummary.paymentMethod,
+      paidBy: paymentSummary.paidBy,
+      paidAt: paymentSummary.paidAt,
+      remainingBalanceCents: computeRemainingBalanceCents(
+        toPositiveCents(expense.amountInclVatCents),
+        paymentSummary.amountPaidCents
+      ),
       attachments,
+      payments,
       linkedTickets: [],
       auditLogs,
     },
@@ -649,27 +878,17 @@ export async function updateExpense(params: {
   const vatAmountCents = computeVatAmountCents(amountExclVatCents, vatRate);
   const amountInclVatCents = computeAmountInclVatCents(amountExclVatCents, vatAmountCents);
 
-  const amountPaidCentsRaw =
-    typeof nextData.amountPaidCents === "number"
-      ? nextData.amountPaidCents
-      : Number(existing.amountPaidCents || 0);
-  const shouldResetToUnpaid = params.payload.paymentStatus === "unpaid";
-  const amountPaidCents = shouldResetToUnpaid ? 0 : Math.min(Math.max(0, amountPaidCentsRaw), amountInclVatCents);
+  const paymentLines = await ensureLegacyPaymentLines({
+    companyId: params.companyId,
+    expense: existing,
+    fallbackCreatedBy: params.updatedBy,
+  });
+  const paymentSummary = summarizeExpensePayments({
+    amountInclVatCents,
+    paymentLines,
+  });
 
   const status = (nextData.status as string) || (existing.status as string);
-  const paymentStatus = shouldResetToUnpaid ? "unpaid" : derivePaymentStatus(amountInclVatCents, amountPaidCents);
-  const paymentDetails =
-    paymentStatus === "unpaid"
-      ? {
-          paymentMethod: null,
-          paidBy: null,
-          paidAt: null,
-        }
-      : {
-          paymentMethod: nextData.paymentMethod ?? null,
-          paidBy: nextData.paidBy ?? null,
-          paidAt: nextData.paidAt ?? null,
-        };
 
   const activateCandidate = {
     amountInclVatCents,
@@ -691,11 +910,11 @@ export async function updateExpense(params: {
     vatRate,
     vatAmountCents,
     amountInclVatCents,
-    amountPaidCents,
-    paymentStatus,
-    paymentMethod: paymentDetails.paymentMethod,
-    paidBy: paymentDetails.paidBy,
-    paidAt: paymentDetails.paidAt,
+    amountPaidCents: paymentSummary.amountPaidCents,
+    paymentStatus: paymentSummary.paymentStatus,
+    paymentMethod: paymentSummary.paymentMethod,
+    paidBy: paymentSummary.paidBy,
+    paidAt: paymentSummary.paidAt,
     updatedBy: params.updatedBy,
   };
 
@@ -815,6 +1034,11 @@ export async function softDeleteExpense(params: {
   if (!deleted) {
     return { success: false as const, message: "Expense not found" };
   }
+
+  await ExpensePaymentLine.deleteMany({
+    companyId: params.companyId,
+    expenseId: params.expenseId,
+  });
 
   await recordAuditLog({
     entityType: "expense",
@@ -972,11 +1196,44 @@ export async function markExpensePaid(params: {
     return { success: false as const, message: "Expense not found" };
   }
 
-  expense.paymentStatus = "paid";
-  expense.amountPaidCents = expense.amountInclVatCents;
-  expense.paymentMethod = params.payload.paymentMethod;
-  expense.paidBy = params.payload.paidBy ?? null;
-  expense.paidAt = params.payload.paidAt;
+  const paymentLines = await ensureLegacyPaymentLines({
+    companyId: params.companyId,
+    expense: expense.toObject() as Record<string, unknown>,
+    fallbackCreatedBy: params.updatedBy,
+  });
+
+  const totalAmountCents = toPositiveCents(expense.amountInclVatCents);
+  const currentSummary = summarizeExpensePayments({
+    amountInclVatCents: totalAmountCents,
+    paymentLines,
+  });
+  const remainingCents = computeRemainingBalanceCents(totalAmountCents, currentSummary.amountPaidCents);
+
+  if (remainingCents <= 0) {
+    return { success: false as const, message: "Expense is already fully paid" };
+  }
+
+  await ExpensePaymentLine.create({
+    companyId: params.companyId,
+    expenseId: params.expenseId,
+    amountPaidCents: remainingCents,
+    paidAt: params.payload.paidAt,
+    paymentMethod: toValidExpensePaymentMethod(params.payload.paymentMethod),
+    paidBy: toValidExpensePaidBy(params.payload.paidBy),
+    createdBy: params.updatedBy,
+    source: "settle_expense",
+  });
+
+  const refreshedPaymentLines = await listExpensePaymentLines({
+    companyId: params.companyId,
+    expenseId: params.expenseId,
+  });
+  const paymentSummary = summarizeExpensePayments({
+    amountInclVatCents: totalAmountCents,
+    paymentLines: refreshedPaymentLines,
+  });
+
+  applyExpensePaymentSummary(expense, paymentSummary);
   expense.updatedBy = toObjectId(params.updatedBy);
 
   await expense.save();
@@ -1025,15 +1282,24 @@ export async function addExpensePayment(params: {
     return { success: false as const, message: "Expense not found" };
   }
 
-  const totalAmountCents = Math.max(0, Number(expense.amountInclVatCents || 0));
-  const currentPaidCents = Math.min(Math.max(0, Number(expense.amountPaidCents || 0)), totalAmountCents);
-  const remainingCents = computeRemainingBalanceCents(totalAmountCents, currentPaidCents);
+  const paymentLines = await ensureLegacyPaymentLines({
+    companyId: params.companyId,
+    expense: expense.toObject() as Record<string, unknown>,
+    fallbackCreatedBy: params.updatedBy,
+  });
+
+  const totalAmountCents = toPositiveCents(expense.amountInclVatCents);
+  const currentSummary = summarizeExpensePayments({
+    amountInclVatCents: totalAmountCents,
+    paymentLines,
+  });
+  const remainingCents = computeRemainingBalanceCents(totalAmountCents, currentSummary.amountPaidCents);
 
   if (remainingCents <= 0) {
     return { success: false as const, message: "Expense is already fully paid" };
   }
 
-  const paymentAmountCents = Math.max(0, Math.round(params.payload.amountPaidCents || 0));
+  const paymentAmountCents = toPositiveCents(params.payload.amountPaidCents);
   if (paymentAmountCents <= 0) {
     return { success: false as const, message: "Payment amount must be greater than zero" };
   }
@@ -1042,13 +1308,27 @@ export async function addExpensePayment(params: {
     return { success: false as const, message: "Payment amount exceeds remaining balance" };
   }
 
-  const nextAmountPaidCents = Math.min(currentPaidCents + paymentAmountCents, totalAmountCents);
+  await ExpensePaymentLine.create({
+    companyId: params.companyId,
+    expenseId: params.expenseId,
+    amountPaidCents: paymentAmountCents,
+    paidAt: params.payload.paidAt,
+    paymentMethod: toValidExpensePaymentMethod(params.payload.paymentMethod),
+    paidBy: toValidExpensePaidBy(params.payload.paidBy),
+    createdBy: params.updatedBy,
+    source: "add_payment",
+  });
 
-  expense.amountPaidCents = nextAmountPaidCents;
-  expense.paymentStatus = derivePaymentStatus(totalAmountCents, nextAmountPaidCents);
-  expense.paymentMethod = params.payload.paymentMethod;
-  expense.paidBy = params.payload.paidBy ?? null;
-  expense.paidAt = params.payload.paidAt;
+  const refreshedPaymentLines = await listExpensePaymentLines({
+    companyId: params.companyId,
+    expenseId: params.expenseId,
+  });
+  const paymentSummary = summarizeExpensePayments({
+    amountInclVatCents: totalAmountCents,
+    paymentLines: refreshedPaymentLines,
+  });
+
+  applyExpensePaymentSummary(expense, paymentSummary);
   expense.updatedBy = toObjectId(params.updatedBy);
 
   await expense.save();

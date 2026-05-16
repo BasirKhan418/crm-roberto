@@ -304,6 +304,11 @@ export default function ExpenseDetailPage() {
           project: 'Project',
           type: 'Type',
           paymentMethod: 'Payment method',
+          paymentHistory: 'Payment history',
+          paymentHistoryHint: 'Each payment is recorded as a separate line for accounting traceability.',
+          paymentRecordedBy: 'Recorded by',
+          paymentRecordedAt: 'Recorded at',
+          noPaymentHistory: 'No payment lines recorded yet.',
           notes: 'Notes',
           status: 'Status',
           createdBy: 'Created by',
@@ -394,6 +399,11 @@ export default function ExpenseDetailPage() {
           project: 'Projet',
           type: 'Type',
           paymentMethod: 'Mode de paiement',
+          paymentHistory: 'Historique des paiements',
+          paymentHistoryHint: 'Chaque paiement est enregistré en ligne distincte pour une traçabilité comptable.',
+          paymentRecordedBy: 'Saisi par',
+          paymentRecordedAt: 'Saisi le',
+          noPaymentHistory: 'Aucune ligne de paiement enregistrée.',
           notes: 'Notes',
           status: 'Statut',
           createdBy: 'Créé par',
@@ -970,6 +980,59 @@ export default function ExpenseDetailPage() {
                         {expense.paidBy ? getExpensePaidByLabel(expense.paidBy, locale) : '-'}
                       </p>
                     </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-emerald-200/80 bg-emerald-50/35 dark:border-emerald-900/35 dark:bg-emerald-950/12 lg:col-span-3">
+                  <CardHeader>
+                    <CardTitle className="text-base">{t.paymentHistory}</CardTitle>
+                    <CardDescription>{t.paymentHistoryHint}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-2.5">
+                    {!expense.payments || expense.payments.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">{t.noPaymentHistory}</p>
+                    ) : (
+                      expense.payments.map((payment) => (
+                        <div key={payment._id} className="rounded-lg border border-emerald-200/70 bg-emerald-50/65 p-3 dark:border-emerald-900/40 dark:bg-emerald-950/20">
+                          <div className="grid gap-2 text-xs sm:grid-cols-2 lg:grid-cols-6">
+                            <div>
+                              <p className="text-muted-foreground">{t.amountPaid}</p>
+                              <ExpenseMoneyDisplay
+                                cents={payment.amountPaidCents || 0}
+                                locale={locale === 'fr' ? 'fr-FR' : 'en-GB'}
+                                className="text-sm font-semibold"
+                              />
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">{t.paidAt}</p>
+                              <p className="font-medium">{formatDate(payment.paidAt)}</p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">{t.paymentMethod}</p>
+                              <p className="font-medium">
+                                {payment.paymentMethod
+                                  ? getExpensePaymentMethodLabel(payment.paymentMethod, locale)
+                                  : '-'}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">{t.paidBy}</p>
+                              <p className="font-medium">
+                                {payment.paidBy ? getExpensePaidByLabel(payment.paidBy, locale) : '-'}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">{t.paymentRecordedBy}</p>
+                              <p className="font-medium">{resolveUserLabel(payment.createdBy || null)}</p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">{t.paymentRecordedAt}</p>
+                              <p className="font-medium">{formatDateTime(payment.createdAt)}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </CardContent>
                 </Card>
 

@@ -31,6 +31,23 @@ export type ExpenseAuditLog = {
       };
 };
 
+export type ExpensePaymentLine = {
+  _id: string;
+  amountPaidCents: number;
+  paidAt?: string | null;
+  paymentMethod?: string | null;
+  paidBy?: string | null;
+  createdAt?: string | null;
+  createdBy?:
+    | string
+    | {
+        _id: string;
+        name?: string;
+        email?: string;
+      }
+    | null;
+};
+
 export type PopulatedEntity =
   | string
   | {
@@ -84,6 +101,7 @@ export type ExpenseDetail = {
   clientId?: PopulatedEntity;
   invoiceId?: PopulatedEntity;
   attachments?: ExpenseAttachment[];
+  payments?: ExpensePaymentLine[];
   linkedTickets?: Array<Record<string, unknown>>;
   auditLogs?: ExpenseAuditLog[];
 };

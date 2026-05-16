@@ -244,6 +244,7 @@ export function ExpenseFormDialog({
       financialSection: 'Financial fields',
       relationSection: 'Supplier and links',
       paymentSection: 'Payment tracking',
+      paymentEditHint: 'Payments are tracked as immutable lines. Use Add payment or Settle expense actions from the expense list/detail to register new payments.',
       extraSection: 'Classification and notes',
       create: 'Create expense',
       save: 'Save changes',
@@ -294,6 +295,7 @@ export function ExpenseFormDialog({
       financialSection: 'Champs financiers',
       relationSection: 'Fournisseur et liaisons',
       paymentSection: 'Suivi paiement',
+      paymentEditHint: 'Les paiements sont enregistrés en lignes immuables. Utilisez Ajouter un paiement ou Solder la dépense depuis la liste/détail pour enregistrer un nouveau paiement.',
       extraSection: 'Classification et notes',
       create: 'Créer la dépense',
       save: 'Enregistrer',
@@ -323,9 +325,16 @@ export function ExpenseFormDialog({
   const vatRate = Number(values.vatRate || 0);
   const amountInclVat = toTwoDecimals(amountExclVat + amountExclVat * (vatRate / 100));
   const amountPaid = Number(values.amountPaid || 0);
+  const amountPaidFromHistory = toTwoDecimals((initialExpense?.amountPaidCents || 0) / 100);
 
   const computedAmountPaid =
-    values.paymentStatus === 'paid' ? amountInclVat : values.paymentStatus === 'partial' ? amountPaid : 0;
+    mode === 'edit'
+      ? amountPaidFromHistory
+      : values.paymentStatus === 'paid'
+        ? amountInclVat
+        : values.paymentStatus === 'partial'
+          ? amountPaid
+          : 0;
   const remaining = toTwoDecimals(Math.max(amountInclVat - computedAmountPaid, 0));
 
   function updateField<K extends keyof FormValues>(field: K, next: FormValues[K]) {
@@ -404,16 +413,6 @@ export function ExpenseFormDialog({
         expenseDate: values.expenseDate || undefined,
         supplierId: values.supplierId || undefined,
         categoryId: values.categoryId || undefined,
-        paymentMethod: values.paymentMethod || undefined,
-        paidBy: values.paidBy || undefined,
-        paymentStatus: values.paymentStatus || undefined,
-        amountPaidCents:
-          values.paymentStatus === 'unpaid'
-            ? 0
-            : values.paymentStatus === 'partial' || values.paymentStatus === 'paid'
-              ? computedAmountPaid
-              : undefined,
-        paidAt: values.paidAt || undefined,
         dueDate: values.dueDate || undefined,
         supplierRef: values.supplierRef || undefined,
         expenseType: values.expenseType || 'business',
@@ -423,8 +422,21 @@ export function ExpenseFormDialog({
         invoiceId: values.invoiceId || undefined,
       };
 
-      if (values.paymentStatus === 'paid' && !values.paidAt) {
-        payload.paidAt = new Date().toISOString().slice(0, 10);
+      if (mode === 'create') {
+        payload.paymentMethod = values.paymentMethod || undefined;
+        payload.paidBy = values.paidBy || undefined;
+        payload.paymentStatus = values.paymentStatus || undefined;
+        payload.amountPaidCents =
+          values.paymentStatus === 'unpaid'
+            ? 0
+            : values.paymentStatus === 'partial' || values.paymentStatus === 'paid'
+              ? computedAmountPaid
+              : undefined;
+        payload.paidAt = values.paidAt || undefined;
+
+        if (values.paymentStatus === 'paid' && !values.paidAt) {
+          payload.paidAt = new Date().toISOString().slice(0, 10);
+        }
       }
 
       if (mode === 'edit' && initialExpense?._id) {
@@ -694,79 +706,128 @@ export function ExpenseFormDialog({
             <div className="mb-3">
               <h4 className="text-sm font-semibold">{t.paymentSection}</h4>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              <div className="space-y-1.5">
-                <Label>{t.paymentStatus}</Label>
-                <select
-                  className={selectClassName}
-                  value={values.paymentStatus}
-                  onChange={(event) => updateField('paymentStatus', event.target.value)}
-                >
-                  {EXPENSE_PAYMENT_STATUS.map((status) => (
-                    <option key={status} value={status}>
-                      {getExpensePaymentStatusLabel(status, locale)}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            {mode === 'edit' ? (
+              <div className="space-y-3">
+                <p className="text-xs text-muted-foreground">{t.paymentEditHint}</p>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="rounded-lg border border-border/70 bg-muted/20 p-3">
+                    <p className="text-xs text-muted-foreground">{t.paymentStatus}</p>
+                    <p className="text-sm font-semibold">
+                      {EXPENSE_PAYMENT_STATUS.includes(values.paymentStatus as (typeof EXPENSE_PAYMENT_STATUS)[number])
+                        ? getExpensePaymentStatusLabel(values.paymentStatus as (typeof EXPENSE_PAYMENT_STATUS)[number], locale)
+                        : t.noneOption}
+                    </p>
+                  </div>
 
-              <div className="space-y-1.5">
-                <Label>{t.paymentMethod}</Label>
-                <select
-                  className={selectClassName}
-                  value={values.paymentMethod}
-                  onChange={(event) => updateField('paymentMethod', event.target.value)}
-                >
-                  <option value="">{t.noneOption}</option>
-                  {EXPENSE_PAYMENT_METHODS.map((method) => (
-                    <option key={method} value={method}>
-                      {getExpensePaymentMethodLabel(method, locale)}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                  <div className="rounded-lg border border-border/70 bg-muted/20 p-3">
+                    <p className="text-xs text-muted-foreground">{t.amountPaid}</p>
+                    <p className="text-sm font-semibold">{amountPaidFromHistory.toFixed(2)}</p>
+                  </div>
 
-              <div className="space-y-1.5">
-                <Label>{t.paidBy}</Label>
-                <select
-                  className={selectClassName}
-                  value={values.paidBy}
-                  onChange={(event) => updateField('paidBy', event.target.value)}
-                >
-                  <option value="">{t.noneOption}</option>
-                  {EXPENSE_PAID_BY.map((payer) => (
-                    <option key={payer} value={payer}>
-                      {getExpensePaidByLabel(payer, locale)}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                  <div className="rounded-lg border border-border/70 bg-muted/20 p-3">
+                    <p className="text-xs text-muted-foreground">{t.remainingPreview}</p>
+                    <p className="text-sm font-semibold">{remaining.toFixed(2)}</p>
+                  </div>
 
-              <div className="space-y-1.5">
-                <Label>{t.amountPaid}</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={values.paymentStatus === 'paid' ? amountInclVat.toFixed(2) : values.amountPaid}
-                  onChange={(event) => updateField('amountPaid', event.target.value)}
-                  readOnly={values.paymentStatus === 'paid'}
-                  disabled={values.paymentStatus === 'unpaid'}
-                />
-                {values.paymentStatus === 'paid' ? (
-                  <p className="text-xs text-muted-foreground">{t.amountPaidAutoFilledPaid}</p>
-                ) : null}
-              </div>
+                  <div className="rounded-lg border border-border/70 bg-muted/20 p-3">
+                    <p className="text-xs text-muted-foreground">{t.paymentMethod}</p>
+                    <p className="text-sm font-semibold">
+                      {EXPENSE_PAYMENT_METHODS.includes(values.paymentMethod as (typeof EXPENSE_PAYMENT_METHODS)[number])
+                        ? getExpensePaymentMethodLabel(values.paymentMethod as (typeof EXPENSE_PAYMENT_METHODS)[number], locale)
+                        : t.noneOption}
+                    </p>
+                  </div>
 
-              <div className="space-y-1.5">
-                <Label>{t.paidAt}</Label>
-                <Input
-                  type="date"
-                  value={values.paidAt}
-                  onChange={(event) => updateField('paidAt', event.target.value)}
-                />
+                  <div className="rounded-lg border border-border/70 bg-muted/20 p-3">
+                    <p className="text-xs text-muted-foreground">{t.paidBy}</p>
+                    <p className="text-sm font-semibold">
+                      {EXPENSE_PAID_BY.includes(values.paidBy as (typeof EXPENSE_PAID_BY)[number])
+                        ? getExpensePaidByLabel(values.paidBy as (typeof EXPENSE_PAID_BY)[number], locale)
+                        : t.noneOption}
+                    </p>
+                  </div>
+
+                  <div className="rounded-lg border border-border/70 bg-muted/20 p-3">
+                    <p className="text-xs text-muted-foreground">{t.paidAt}</p>
+                    <p className="text-sm font-semibold">{values.paidAt || t.noneOption}</p>
+                  </div>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="space-y-1.5">
+                  <Label>{t.paymentStatus}</Label>
+                  <select
+                    className={selectClassName}
+                    value={values.paymentStatus}
+                    onChange={(event) => updateField('paymentStatus', event.target.value)}
+                  >
+                    {EXPENSE_PAYMENT_STATUS.map((status) => (
+                      <option key={status} value={status}>
+                        {getExpensePaymentStatusLabel(status, locale)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label>{t.paymentMethod}</Label>
+                  <select
+                    className={selectClassName}
+                    value={values.paymentMethod}
+                    onChange={(event) => updateField('paymentMethod', event.target.value)}
+                  >
+                    <option value="">{t.noneOption}</option>
+                    {EXPENSE_PAYMENT_METHODS.map((method) => (
+                      <option key={method} value={method}>
+                        {getExpensePaymentMethodLabel(method, locale)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label>{t.paidBy}</Label>
+                  <select
+                    className={selectClassName}
+                    value={values.paidBy}
+                    onChange={(event) => updateField('paidBy', event.target.value)}
+                  >
+                    <option value="">{t.noneOption}</option>
+                    {EXPENSE_PAID_BY.map((payer) => (
+                      <option key={payer} value={payer}>
+                        {getExpensePaidByLabel(payer, locale)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label>{t.amountPaid}</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={values.paymentStatus === 'paid' ? amountInclVat.toFixed(2) : values.amountPaid}
+                    onChange={(event) => updateField('amountPaid', event.target.value)}
+                    readOnly={values.paymentStatus === 'paid'}
+                    disabled={values.paymentStatus === 'unpaid'}
+                  />
+                  {values.paymentStatus === 'paid' ? (
+                    <p className="text-xs text-muted-foreground">{t.amountPaidAutoFilledPaid}</p>
+                  ) : null}
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label>{t.paidAt}</Label>
+                  <Input
+                    type="date"
+                    value={values.paidAt}
+                    onChange={(event) => updateField('paidAt', event.target.value)}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="rounded-xl border border-border/70 p-4">
