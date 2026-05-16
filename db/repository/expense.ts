@@ -833,7 +833,8 @@ export async function duplicateExpense(params: {
     })
       ? "active"
       : "draft",
-    paymentStatus: source.paymentStatus,
+    // Always reset financial settlement fields on duplicate to prevent accounting duplication.
+    paymentStatus: "unpaid",
     amountExclVatCents: source.amountExclVatCents,
     vatRate: source.vatRate,
     vatAmountCents: source.vatAmountCents,
@@ -841,11 +842,11 @@ export async function duplicateExpense(params: {
     expenseDate: source.expenseDate,
     supplierId: source.supplierId,
     categoryId: source.categoryId,
-    paymentMethod: source.paymentMethod,
-    amountPaidCents: source.amountPaidCents,
-    paidAt: source.paidAt,
+    paymentMethod: null,
+    amountPaidCents: 0,
+    paidAt: null,
     dueDate: source.dueDate,
-    supplierRef: source.supplierRef,
+    supplierRef: null,
     expenseType: source.expenseType,
     notes: source.notes,
     clientId: source.clientId,
