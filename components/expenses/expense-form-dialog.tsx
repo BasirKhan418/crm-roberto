@@ -34,6 +34,11 @@ import {
   EXPENSE_TYPES,
   EXPENSE_VAT_RATES,
 } from '@/lib/expenses/constants';
+import {
+  getExpensePaymentMethodLabel,
+  getExpensePaymentStatusLabel,
+  getExpenseTypeLabel,
+} from '@/lib/expenses/labels';
 
 type Mode = 'create' | 'edit';
 
@@ -226,7 +231,7 @@ export function ExpenseFormDialog({
       expenseType: 'Expense type',
       notes: 'Internal notes',
       client: 'Linked client',
-      project: 'Project placeholder',
+      project: 'Project',
       invoice: 'Linked invoice',
       financialSection: 'Financial fields',
       relationSection: 'Supplier and links',
@@ -271,7 +276,7 @@ export function ExpenseFormDialog({
       expenseType: 'Type de dépense',
       notes: 'Notes internes',
       client: 'Client lié',
-      project: 'Projet (placeholder)',
+      project: 'Projet',
       invoice: 'Facture liée',
       financialSection: 'Champs financiers',
       relationSection: 'Fournisseur et liaisons',
@@ -680,7 +685,7 @@ export function ExpenseFormDialog({
                 >
                   {EXPENSE_PAYMENT_STATUS.map((status) => (
                     <option key={status} value={status}>
-                      {status}
+                      {getExpensePaymentStatusLabel(status, locale)}
                     </option>
                   ))}
                 </select>
@@ -696,7 +701,7 @@ export function ExpenseFormDialog({
                   <option value="">{t.noneOption}</option>
                   {EXPENSE_PAYMENT_METHODS.map((method) => (
                     <option key={method} value={method}>
-                      {method}
+                      {getExpensePaymentMethodLabel(method, locale)}
                     </option>
                   ))}
                 </select>
@@ -739,7 +744,7 @@ export function ExpenseFormDialog({
                 >
                   {EXPENSE_TYPES.map((type) => (
                     <option key={type} value={type}>
-                      {type}
+                      {getExpenseTypeLabel(type, locale)}
                     </option>
                   ))}
                 </select>

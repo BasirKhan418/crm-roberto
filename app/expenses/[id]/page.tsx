@@ -60,6 +60,12 @@ import {
   getExpenseFileExtension,
   isExpenseMimeTypeAllowed,
 } from '@/lib/expenses/upload';
+import {
+  getExpenseEnumLabel,
+  getExpensePaymentMethodLabel,
+  getExpenseStatusLabel,
+  getExpenseTypeLabel,
+} from '@/lib/expenses/labels';
 import { hasPermission } from '@/lib/permissions';
 
 type GenericApiResponse = {
@@ -155,9 +161,13 @@ function formatBytes(value: number) {
   return `${(kb / 1024).toFixed(2)} MB`;
 }
 
-function formatAuditValue(value: unknown) {
+function formatAuditValue(value: unknown, locale: 'en' | 'fr') {
   if (value == null) return '-';
-  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+  if (typeof value === 'string') {
+    return getExpenseEnumLabel(value, locale);
+  }
+
+  if (typeof value === 'number' || typeof value === 'boolean') {
     return String(value);
   }
 
@@ -670,7 +680,7 @@ export default function ExpenseDetailPage() {
                     </CardDescription>
                   </div>
                   <div className="flex items-center gap-2">
-                    <ExpenseStatusBadge status={expense.status} paymentStatus={expense.paymentStatus} />
+                    <ExpenseStatusBadge status={expense.status} paymentStatus={expense.paymentStatus} locale={locale} />
                     {canManageExpenses ? (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -819,7 +829,9 @@ export default function ExpenseDetailPage() {
                     </div>
                     <div className="rounded-md border border-border/60 p-2">
                       <p className="text-xs text-muted-foreground">{t.paymentMethod}</p>
-                      <p className="font-medium">{expense.paymentMethod || '-'}</p>
+                      <p className="font-medium">
+                        {expense.paymentMethod ? getExpensePaymentMethodLabel(expense.paymentMethod, locale) : '-'}
+                      </p>
                     </div>
                   </CardContent>
                 </Card>
@@ -855,7 +867,9 @@ export default function ExpenseDetailPage() {
                     </div>
                     <div className="rounded-md border border-border/60 p-2 sm:col-span-2">
                       <p className="text-xs text-muted-foreground">{t.type}</p>
-                      <p className="font-medium">{expense.expenseType || '-'}</p>
+                      <p className="font-medium">
+                        {expense.expenseType ? getExpenseTypeLabel(expense.expenseType, locale) : '-'}
+                      </p>
                     </div>
                   </CardContent>
                 </Card>
@@ -867,7 +881,7 @@ export default function ExpenseDetailPage() {
                   <CardContent className="space-y-2 text-sm">
                     <div className="rounded-md border border-border/60 p-2">
                       <p className="text-xs text-muted-foreground">{t.status}</p>
-                      <p className="font-medium">{expense.status}</p>
+                      <p className="font-medium">{getExpenseStatusLabel(expense.status, locale)}</p>
                     </div>
                     <div className="rounded-md border border-border/60 p-2">
                       <p className="text-xs text-muted-foreground">{t.createdBy}</p>
@@ -1000,11 +1014,11 @@ export default function ExpenseDetailPage() {
                           </div>
                           <div>
                             <p className="text-muted-foreground">{t.auditFrom}</p>
-                            <p className="line-clamp-2 font-medium">{formatAuditValue(log.oldValue)}</p>
+                            <p className="line-clamp-2 font-medium">{formatAuditValue(log.oldValue, locale)}</p>
                           </div>
                           <div>
                             <p className="text-muted-foreground">{t.auditTo}</p>
-                            <p className="line-clamp-2 font-medium">{formatAuditValue(log.newValue)}</p>
+                            <p className="line-clamp-2 font-medium">{formatAuditValue(log.newValue, locale)}</p>
                           </div>
                           <div>
                             <p className="text-muted-foreground">{t.auditBy}</p>

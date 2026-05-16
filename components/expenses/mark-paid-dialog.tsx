@@ -26,6 +26,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { EXPENSE_PAYMENT_METHODS } from '@/lib/expenses/constants';
+import { getExpensePaymentMethodLabel } from '@/lib/expenses/labels';
 
 type MarkPaidDialogProps = {
   open: boolean;
@@ -70,6 +71,7 @@ export function MarkPaidDialog({
       remainingLabel: 'Remaining balance',
       dateLabel: 'Paid at',
       methodLabel: 'Payment method',
+      methodPlaceholder: 'Select a method',
       cancel: 'Cancel',
       submit: 'Apply payment',
       sectionTitle: 'Payment confirmation data',
@@ -87,6 +89,7 @@ export function MarkPaidDialog({
       remainingLabel: 'Reste à payer',
       dateLabel: 'Date de paiement',
       methodLabel: 'Mode de paiement',
+      methodPlaceholder: 'Sélectionner un mode',
       cancel: 'Annuler',
       submit: 'Appliquer paiement',
       sectionTitle: 'Données de confirmation paiement',
@@ -191,10 +194,10 @@ export function MarkPaidDialog({
               value={paymentMethod}
               onChange={(event) => setPaymentMethod(event.target.value)}
             >
-              <option value="">-</option>
+              <option value="">{t.methodPlaceholder}</option>
               {EXPENSE_PAYMENT_METHODS.map((method) => (
                 <option key={method} value={method}>
-                  {method}
+                  {getExpensePaymentMethodLabel(method, locale)}
                 </option>
               ))}
             </select>

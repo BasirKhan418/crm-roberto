@@ -1,6 +1,10 @@
 import { Badge } from "@/components/ui/badge";
 
 import type { ExpensePaymentStatus, ExpenseStatus } from "@/lib/expenses/constants";
+import {
+  getExpensePaymentStatusLabel,
+  getExpenseStatusLabel,
+} from "@/lib/expenses/labels";
 
 type ExpenseStatusBadgeProps = {
   status?: ExpenseStatus;
@@ -9,13 +13,39 @@ type ExpenseStatusBadgeProps = {
 };
 
 function getStatusLabel(status?: ExpenseStatus, paymentStatus?: ExpensePaymentStatus, locale?: 'en' | 'fr') {
-  const fr = locale === 'fr';
-  if (status === "draft") return { text: fr ? "Brouillon" : "Draft", className: "bg-zinc-400 text-white" };
-  if (status === "archived") return { text: fr ? "Archivée" : "Archived", className: "bg-slate-500 text-white" };
+  const activeLocale = locale ?? 'en';
+  if (status === "draft") {
+    return {
+      text: getExpenseStatusLabel("draft", activeLocale),
+      className: "bg-zinc-400 text-white",
+    };
+  }
 
-  if (paymentStatus === "paid") return { text: fr ? "Payée" : "Paid", className: "bg-emerald-600 text-white" };
-  if (paymentStatus === "partial") return { text: fr ? "Partiel" : "Partial", className: "bg-amber-500 text-white" };
-  return { text: fr ? "Impayée" : "Unpaid", className: "bg-rose-600 text-white" };
+  if (status === "archived") {
+    return {
+      text: getExpenseStatusLabel("archived", activeLocale),
+      className: "bg-slate-500 text-white",
+    };
+  }
+
+  if (paymentStatus === "paid") {
+    return {
+      text: getExpensePaymentStatusLabel("paid", activeLocale),
+      className: "bg-emerald-600 text-white",
+    };
+  }
+
+  if (paymentStatus === "partial") {
+    return {
+      text: getExpensePaymentStatusLabel("partial", activeLocale),
+      className: "bg-amber-500 text-white",
+    };
+  }
+
+  return {
+    text: getExpensePaymentStatusLabel("unpaid", activeLocale),
+    className: "bg-rose-600 text-white",
+  };
 }
 
 export function ExpenseStatusBadge({ status, paymentStatus, locale }: ExpenseStatusBadgeProps) {
