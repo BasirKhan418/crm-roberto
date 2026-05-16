@@ -23,10 +23,10 @@ import {
 
 import CrmShell from '@/components/crm-shell';
 import { AttachmentPreviewDialog } from '@/components/expenses/attachment-preview-dialog';
+import { ExpensePaymentDialog } from '@/components/expenses/expense-payment-dialog';
 import { ExpenseFormDialog } from '@/components/expenses/expense-form-dialog';
 import { ExpenseMoneyDisplay } from '@/components/expenses/expense-money-display';
 import { ExpenseStatusBadge } from '@/components/expenses/expense-status-badge';
-import { MarkPaidDialog } from '@/components/expenses/mark-paid-dialog';
 import { useLocale } from '@/components/providers/locale-provider';
 import { CreateTicketDialog } from '@/components/tickets/create-ticket-dialog';
 import { TicketStatusBadge } from '@/components/tickets/ticket-status-badge';
@@ -250,7 +250,8 @@ export default function ExpenseDetailPage() {
   const [attachmentsBusy, setAttachmentsBusy] = useState(false);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [markPaidOpen, setMarkPaidOpen] = useState(false);
+  const [settleExpenseOpen, setSettleExpenseOpen] = useState(false);
+  const [addPaymentOpen, setAddPaymentOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [previewAttachment, setPreviewAttachment] = useState<ExpenseAttachment | null>(null);
   const [ticketDialogOpen, setTicketDialogOpen] = useState(false);
@@ -323,8 +324,10 @@ export default function ExpenseDetailPage() {
           duplicate: 'Duplicate',
           archive: 'Archive',
           edit: 'Edit',
-          markPaid: 'Mark paid',
-          markPaidSuccess: 'Expense marked as paid',
+          settleExpense: 'Settle expense',
+          settleExpenseSuccess: 'Expense settled',
+          addPayment: 'Add payment',
+          addPaymentSuccess: 'Payment added',
           delete: 'Delete',
           actionFailed: 'Action failed',
           duplicateSuccess: 'Expense duplicated',
@@ -411,8 +414,10 @@ export default function ExpenseDetailPage() {
           duplicate: 'Dupliquer',
           archive: 'Archiver',
           edit: 'Modifier',
-          markPaid: 'Marquer payée',
-          markPaidSuccess: 'Dépense marquée payée',
+          settleExpense: 'Solder la dépense',
+          settleExpenseSuccess: 'Dépense soldée',
+          addPayment: 'Ajouter un paiement',
+          addPaymentSuccess: 'Paiement ajouté',
           delete: 'Supprimer',
           actionFailed: 'Échec action',
           duplicateSuccess: 'Dépense dupliquée',
@@ -761,11 +766,21 @@ export default function ExpenseDetailPage() {
                           type="button"
                           variant="outline"
                           size="sm"
-                          onClick={() => setMarkPaidOpen(true)}
+                          onClick={() => setSettleExpenseOpen(true)}
                           disabled={Boolean(actionLoading) || expense.paymentStatus === 'paid'}
                         >
                           <CheckCircle2Icon className="size-4" />
-                          {t.markPaid}
+                          {t.settleExpense}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setAddPaymentOpen(true)}
+                          disabled={Boolean(actionLoading) || expense.paymentStatus === 'paid'}
+                        >
+                          <MessageSquarePlusIcon className="size-4" />
+                          {t.addPayment}
                         </Button>
                         <Button type="button" variant="outline" size="sm" onClick={() => void runAction('duplicate')} disabled={Boolean(actionLoading)}>
                           <CopyIcon className="size-4" />
@@ -1237,16 +1252,33 @@ export default function ExpenseDetailPage() {
       ) : null}
 
       {expense ? (
-        <MarkPaidDialog
-          open={markPaidOpen}
-          onOpenChange={setMarkPaidOpen}
+        <ExpensePaymentDialog
+          open={settleExpenseOpen}
+          onOpenChange={setSettleExpenseOpen}
           expenseId={expense._id}
           amountInclVatCents={expense.amountInclVatCents || 0}
           amountPaidCents={expense.amountPaidCents || 0}
+          mode="settle"
           locale={locale}
           onSaved={async () => {
             await refetch();
-            pushFeedback('success', t.markPaidSuccess);
+            pushFeedback('success', t.settleExpenseSuccess);
+          }}
+        />
+      ) : null}
+
+      {expense ? (
+        <ExpensePaymentDialog
+          open={addPaymentOpen}
+          onOpenChange={setAddPaymentOpen}
+          expenseId={expense._id}
+          amountInclVatCents={expense.amountInclVatCents || 0}
+          amountPaidCents={expense.amountPaidCents || 0}
+          mode="add"
+          locale={locale}
+          onSaved={async () => {
+            await refetch();
+            pushFeedback('success', t.addPaymentSuccess);
           }}
         />
       ) : null}

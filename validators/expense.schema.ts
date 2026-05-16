@@ -160,6 +160,13 @@ export const markExpensePaidSchema = z.object({
   paidBy: z.enum(EXPENSE_PAID_BY).optional(),
 });
 
+export const addExpensePaymentSchema = z.object({
+  amountPaidCents: moneyToCentsSchema,
+  paidAt: requiredDateSchema,
+  paymentMethod: z.enum(EXPENSE_PAYMENT_METHODS),
+  paidBy: z.enum(EXPENSE_PAID_BY).optional(),
+});
+
 export const createExpenseAttachmentSchema = z.object({
   attachment: expenseAttachmentMetadataSchema,
 });
@@ -178,6 +185,13 @@ export const expenseActionSchema = z.discriminatedUnion("action", [
   }),
   z.object({
     action: z.literal("mark_paid"),
+    paidAt: requiredDateSchema,
+    paymentMethod: z.enum(EXPENSE_PAYMENT_METHODS),
+    paidBy: z.enum(EXPENSE_PAID_BY).optional(),
+  }),
+  z.object({
+    action: z.literal("add_payment"),
+    amountPaidCents: moneyToCentsSchema,
     paidAt: requiredDateSchema,
     paymentMethod: z.enum(EXPENSE_PAYMENT_METHODS),
     paidBy: z.enum(EXPENSE_PAID_BY).optional(),
@@ -227,6 +241,7 @@ export type ExpenseListFilterDTO = z.infer<typeof expenseListFilterSchema>;
 export type CreateExpenseCategoryDTO = z.infer<typeof createExpenseCategorySchema>;
 export type UpdateExpenseCategoryDTO = z.infer<typeof updateExpenseCategorySchema>;
 export type MarkExpensePaidDTO = z.infer<typeof markExpensePaidSchema>;
+export type AddExpensePaymentDTO = z.infer<typeof addExpensePaymentSchema>;
 export type ExpenseAttachmentMetadataDTO = z.infer<typeof expenseAttachmentMetadataSchema>;
 export type CreateExpenseAttachmentDTO = z.infer<typeof createExpenseAttachmentSchema>;
 export type DeleteExpenseAttachmentDTO = z.infer<typeof deleteExpenseAttachmentSchema>;

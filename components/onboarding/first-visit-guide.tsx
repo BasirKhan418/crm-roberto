@@ -435,8 +435,8 @@ const TOUR_BY_ROUTE: Record<string, (locale: Locale) => TourStep[]> = {
       title: locale === 'fr' ? 'Étape 4 - Liste des dépenses' : 'Step 4 - Expenses list',
       description:
         locale === 'fr'
-          ? 'Gérez chaque dépense depuis cette liste: ouvrir, modifier, dupliquer, archiver, marquer payée ou supprimer.'
-          : 'Manage each expense from this list: open, edit, duplicate, archive, mark as paid, or delete.',
+          ? 'Gérez chaque dépense depuis cette liste: ouvrir, modifier, ajouter un paiement, solder, dupliquer, archiver ou supprimer.'
+          : 'Manage each expense from this list: open, edit, add payment, settle expense, duplicate, archive, or delete.',
     },
   ],
   '/tickets': (locale) => [

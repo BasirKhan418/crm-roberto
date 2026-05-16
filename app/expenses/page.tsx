@@ -22,10 +22,10 @@ import {
 } from 'lucide-react';
 
 import CrmShell from '@/components/crm-shell';
+import { ExpensePaymentDialog } from '@/components/expenses/expense-payment-dialog';
 import { ExpenseFormDialog } from '@/components/expenses/expense-form-dialog';
 import { ExpenseMoneyDisplay } from '@/components/expenses/expense-money-display';
 import { ExpenseStatusBadge } from '@/components/expenses/expense-status-badge';
-import { MarkPaidDialog } from '@/components/expenses/mark-paid-dialog';
 import { useLocale } from '@/components/providers/locale-provider';
 import KpiCards, { type KpiCard } from '@/components/ui/KpiCards';
 import {
@@ -271,7 +271,8 @@ export default function ExpensesPage() {
   const [manualDialogOpen, setManualDialogOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<ExpenseDetail | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [markPaidTarget, setMarkPaidTarget] = useState<ExpenseListItem | null>(null);
+  const [settleExpenseTarget, setSettleExpenseTarget] = useState<ExpenseListItem | null>(null);
+  const [addPaymentTarget, setAddPaymentTarget] = useState<ExpenseListItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ExpenseListItem | null>(null);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [actionFeedback, setActionFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -452,7 +453,8 @@ export default function ExpensesPage() {
       addAttachment: 'Add attachment',
       duplicate: 'Duplicate',
       archive: 'Archive',
-      markPaid: 'Mark paid',
+      settleExpense: 'Settle expense',
+      addPayment: 'Add payment',
       delete: 'Delete',
       noReference: '-',
       pageInfo: (current: number, total: number, count: number) => `Page ${current}/${total || 1} - ${count} items`,
@@ -470,7 +472,8 @@ export default function ExpensesPage() {
       actionUpdateSuccess: 'Expense updated',
       actionArchiveSuccess: 'Expense archived',
       actionDeleteSuccess: 'Expense deleted',
-      markPaidSuccess: 'Expense marked as paid',
+      settleExpenseSuccess: 'Expense settled',
+      addPaymentSuccess: 'Payment added',
       actionFailed: 'Action failed',
       editLoadFailed: 'Failed to load expense detail for editing',
       confirmArchive: 'Archive this expense?',
@@ -575,7 +578,8 @@ export default function ExpensesPage() {
       addAttachment: 'Ajouter pièce jointe',
       duplicate: 'Dupliquer',
       archive: 'Archiver',
-      markPaid: 'Marquer payée',
+      settleExpense: 'Solder la dépense',
+      addPayment: 'Ajouter un paiement',
       delete: 'Supprimer',
       noReference: '-',
       pageInfo: (current: number, total: number, count: number) => `Page ${current}/${total || 1} - ${count} éléments`,
@@ -593,7 +597,8 @@ export default function ExpensesPage() {
       actionUpdateSuccess: 'Dépense mise à jour',
       actionArchiveSuccess: 'Dépense archivée',
       actionDeleteSuccess: 'Dépense supprimée',
-      markPaidSuccess: 'Dépense marquée payée',
+      settleExpenseSuccess: 'Dépense soldée',
+      addPaymentSuccess: 'Paiement ajouté',
       actionFailed: 'Échec action',
       editLoadFailed: 'Impossible de charger la dépense pour modification',
       confirmArchive: 'Archiver cette dépense ?',
@@ -1078,7 +1083,7 @@ export default function ExpensesPage() {
     <CrmShell title={t.shellTitle}>
       <div className="space-y-5">
         <section
-          className="space-y-3 rounded-2xl border border-slate-200/80 bg-gradient-to-r from-slate-50 via-white to-amber-50/40 p-4 shadow-sm dark:border-slate-800/70 dark:from-slate-950/45 dark:via-slate-950/25 dark:to-amber-950/15"
+          className="space-y-3 rounded-2xl border border-slate-200/80 bg-linear-to-r from-slate-50 via-white to-amber-50/40 p-4 shadow-sm dark:border-slate-800/70 dark:from-slate-950/45 dark:via-slate-950/25 dark:to-amber-950/15"
           data-tour-expenses-header
         >
           <h1 className="font-heading text-2xl font-semibold tracking-tight">{t.heading}</h1>
@@ -1622,12 +1627,24 @@ export default function ExpensesPage() {
                                 variant="outline"
                                 size="icon"
                                 className="size-8"
-                                title={t.markPaid}
-                                aria-label={t.markPaid}
-                                onClick={() => setMarkPaidTarget(expense)}
+                                title={t.settleExpense}
+                                aria-label={t.settleExpense}
+                                onClick={() => setSettleExpenseTarget(expense)}
                                 disabled={rowLoading || expense.paymentStatus === 'paid'}
                               >
                                 <CheckCircle2Icon className="size-4" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className="size-8"
+                                title={t.addPayment}
+                                aria-label={t.addPayment}
+                                onClick={() => setAddPaymentTarget(expense)}
+                                disabled={rowLoading || expense.paymentStatus === 'paid'}
+                              >
+                                <FilePlus2Icon className="size-4" />
                               </Button>
                               <Button
                                 type="button"
@@ -1751,12 +1768,24 @@ export default function ExpensesPage() {
                                   variant="outline"
                                   size="icon"
                                   className="size-8"
-                                  title={t.markPaid}
-                                  aria-label={t.markPaid}
-                                  onClick={() => setMarkPaidTarget(expense)}
+                                  title={t.settleExpense}
+                                  aria-label={t.settleExpense}
+                                  onClick={() => setSettleExpenseTarget(expense)}
                                   disabled={rowLoading || expense.paymentStatus === 'paid'}
                                 >
                                   <CheckCircle2Icon className="size-4" />
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  className="size-8"
+                                  title={t.addPayment}
+                                  aria-label={t.addPayment}
+                                  onClick={() => setAddPaymentTarget(expense)}
+                                  disabled={rowLoading || expense.paymentStatus === 'paid'}
+                                >
+                                  <FilePlus2Icon className="size-4" />
                                 </Button>
                                 <Button
                                   type="button"
@@ -1888,20 +1917,39 @@ export default function ExpensesPage() {
         />
       ) : null}
 
-      <MarkPaidDialog
-        open={Boolean(markPaidTarget)}
+      <ExpensePaymentDialog
+        open={Boolean(settleExpenseTarget)}
         onOpenChange={(open) => {
           if (!open) {
-            setMarkPaidTarget(null);
+            setSettleExpenseTarget(null);
           }
         }}
-        expenseId={markPaidTarget?._id || null}
-        amountInclVatCents={markPaidTarget?.amountInclVatCents || 0}
-        amountPaidCents={markPaidTarget?.amountPaidCents || 0}
+        expenseId={settleExpenseTarget?._id || null}
+        amountInclVatCents={settleExpenseTarget?.amountInclVatCents || 0}
+        amountPaidCents={settleExpenseTarget?.amountPaidCents || 0}
+        mode="settle"
         locale={locale}
         onSaved={async () => {
           await refetch();
-          setFeedback('success', t.markPaidSuccess);
+          setFeedback('success', t.settleExpenseSuccess);
+        }}
+      />
+
+      <ExpensePaymentDialog
+        open={Boolean(addPaymentTarget)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setAddPaymentTarget(null);
+          }
+        }}
+        expenseId={addPaymentTarget?._id || null}
+        amountInclVatCents={addPaymentTarget?.amountInclVatCents || 0}
+        amountPaidCents={addPaymentTarget?.amountPaidCents || 0}
+        mode="add"
+        locale={locale}
+        onSaved={async () => {
+          await refetch();
+          setFeedback('success', t.addPaymentSuccess);
         }}
       />
 

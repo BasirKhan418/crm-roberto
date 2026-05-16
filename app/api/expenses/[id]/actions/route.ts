@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import {
+  addExpensePayment,
   archiveExpense,
   createExpenseAttachment,
   duplicateExpense,
@@ -86,6 +87,28 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
 
       return NextResponse.json({ success: true, expense: marked.expense }, { status: 200 });
+    }
+
+    if (parsed.data.action === "add_payment") {
+      const paymentAdded = await addExpensePayment({
+        companyId,
+        expenseId: id,
+        updatedBy: userId,
+        payload: {
+          amountPaidCents: parsed.data.amountPaidCents,
+          paidAt: parsed.data.paidAt,
+          paymentMethod: parsed.data.paymentMethod,
+          paidBy: parsed.data.paidBy,
+        },
+        access: auth.context.accessScope,
+        ipAddress,
+      });
+
+      if (!paymentAdded.success) {
+        return NextResponse.json(paymentAdded, { status: 404 });
+      }
+
+      return NextResponse.json({ success: true, expense: paymentAdded.expense }, { status: 200 });
     }
 
     const attachmentResult = await createExpenseAttachment({

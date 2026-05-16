@@ -12,6 +12,7 @@ import { computeAmountInclVatCents, computeRemainingBalanceCents, computeVatAmou
 import type { ListQueryOptions, PaginationMeta } from "@/utils/api/query";
 import { buildPagination } from "@/utils/api/query";
 import type {
+  AddExpensePaymentDTO,
   CreateDraftExpenseDTO,
   ExpenseAttachmentMetadataDTO,
   CreateManualExpenseDTO,
@@ -985,6 +986,78 @@ export async function markExpensePaid(params: {
     entityId: params.expenseId,
     companyId: params.companyId,
     action: "marked_paid",
+    performedBy: params.updatedBy,
+    source: "api",
+    ipAddress: params.ipAddress,
+  });
+
+  return {
+    success: true as const,
+    expense: {
+      ...expense.toObject(),
+      remainingBalanceCents: buildRemainingBalance(expense),
+    },
+  };
+}
+
+export async function addExpensePayment(params: {
+  companyId: string;
+  expenseId: string;
+  updatedBy: string;
+  payload: AddExpensePaymentDTO;
+  access?: AccessScope;
+  ipAddress?: string | null;
+}) {
+  await ConnectDb();
+
+  const scopedQuery = addAccessScopeToQuery(
+    {
+      _id: params.expenseId,
+      companyId: params.companyId,
+      deletedAt: null,
+    },
+    params.access
+  );
+
+  const expense = await Expense.findOne(scopedQuery);
+
+  if (!expense) {
+    return { success: false as const, message: "Expense not found" };
+  }
+
+  const totalAmountCents = Math.max(0, Number(expense.amountInclVatCents || 0));
+  const currentPaidCents = Math.min(Math.max(0, Number(expense.amountPaidCents || 0)), totalAmountCents);
+  const remainingCents = computeRemainingBalanceCents(totalAmountCents, currentPaidCents);
+
+  if (remainingCents <= 0) {
+    return { success: false as const, message: "Expense is already fully paid" };
+  }
+
+  const paymentAmountCents = Math.max(0, Math.round(params.payload.amountPaidCents || 0));
+  if (paymentAmountCents <= 0) {
+    return { success: false as const, message: "Payment amount must be greater than zero" };
+  }
+
+  if (paymentAmountCents > remainingCents) {
+    return { success: false as const, message: "Payment amount exceeds remaining balance" };
+  }
+
+  const nextAmountPaidCents = Math.min(currentPaidCents + paymentAmountCents, totalAmountCents);
+
+  expense.amountPaidCents = nextAmountPaidCents;
+  expense.paymentStatus = derivePaymentStatus(totalAmountCents, nextAmountPaidCents);
+  expense.paymentMethod = params.payload.paymentMethod;
+  expense.paidBy = params.payload.paidBy ?? null;
+  expense.paidAt = params.payload.paidAt;
+  expense.updatedBy = toObjectId(params.updatedBy);
+
+  await expense.save();
+
+  await recordAuditLog({
+    entityType: "expense",
+    entityId: params.expenseId,
+    companyId: params.companyId,
+    action: "payment_added",
     performedBy: params.updatedBy,
     source: "api",
     ipAddress: params.ipAddress,

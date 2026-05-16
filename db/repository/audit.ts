@@ -9,7 +9,8 @@ type AuditAction =
   | "archived"
   | "duplicated"
   | "status_changed"
-  | "marked_paid";
+  | "marked_paid"
+  | "payment_added";
 
 type AuditEntity = "expense" | "invoice" | "supplier" | "user" | "ticket";
 

@@ -29,6 +29,7 @@ const AuditLogSchema = new mongoose.Schema(
         "duplicated",
         "status_changed",
         "marked_paid",
+        "payment_added",
       ],
       required: true,
       index: true,
