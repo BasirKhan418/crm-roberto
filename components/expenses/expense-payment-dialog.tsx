@@ -96,7 +96,10 @@ export function ExpensePaymentDialog({
       confirmTitleAddPayment: 'Confirm payment entry',
       confirmDescriptionAddPayment:
         'This action records the entered payment amount and updates the remaining balance.',
-      confirmAction: 'Confirm',
+      confirmSummaryEnteredAmount: 'Payment to record',
+      confirmSummaryRemaining: 'Remaining after confirmation',
+      confirmActionSettle: 'Settle now',
+      confirmActionAddPayment: 'Record payment',
       successSettle: 'Expense settled',
       successAddPayment: 'Payment added',
       methodRequired: 'Payment method is required',
@@ -133,7 +136,10 @@ export function ExpensePaymentDialog({
       confirmTitleAddPayment: 'Confirmer le paiement',
       confirmDescriptionAddPayment:
         'Cette action enregistre le montant saisi et met à jour le reste à payer.',
-      confirmAction: 'Confirmer',
+      confirmSummaryEnteredAmount: 'Paiement à enregistrer',
+      confirmSummaryRemaining: 'Reste après confirmation',
+      confirmActionSettle: 'Solder maintenant',
+      confirmActionAddPayment: 'Enregistrer le paiement',
       successSettle: 'Dépense soldée',
       successAddPayment: 'Paiement ajouté',
       methodRequired: 'Mode de paiement requis',
@@ -149,6 +155,16 @@ export function ExpensePaymentDialog({
   }[locale];
 
   const isSettleMode = mode === 'settle';
+  const priceLocale = locale === 'fr' ? 'fr-FR' : 'en-GB';
+
+  function formatEuro(cents: number) {
+    return new Intl.NumberFormat(priceLocale, {
+      style: 'currency',
+      currency: 'EUR',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(cents / 100);
+  }
 
   function parseAmountToCents() {
     const normalized = paymentAmount.trim().replace(',', '.');
@@ -216,6 +232,11 @@ export function ExpensePaymentDialog({
 
     setConfirmOpen(true);
   }
+
+  const enteredAmountCents = isSettleMode ? remainingCents : parseAmountToCents() ?? 0;
+  const remainingAfterConfirmCents = isSettleMode
+    ? 0
+    : Math.max(0, remainingCents - Math.max(0, enteredAmountCents));
 
   async function handleSubmit() {
     if (!validateFields()) {
@@ -347,7 +368,16 @@ export function ExpensePaymentDialog({
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>
             {t.cancel}
           </Button>
-          <Button type="button" onClick={requestSubmit} disabled={saving || !expenseId}>
+          <Button
+            type="button"
+            onClick={requestSubmit}
+            disabled={saving || !expenseId}
+            className={
+              isSettleMode
+                ? 'bg-orange-500 text-white hover:bg-orange-600 hover:text-white'
+                : 'bg-emerald-600 text-white hover:bg-emerald-700 hover:text-white'
+            }
+          >
             {saving ? <Loader2Icon className="size-4 animate-spin" /> : null}
             {isSettleMode ? t.submitSettle : t.submitAddPayment}
           </Button>
@@ -361,6 +391,16 @@ export function ExpensePaymentDialog({
                 {isSettleMode ? t.confirmDescriptionSettle : t.confirmDescriptionAddPayment}
               </AlertDialogDescription>
             </AlertDialogHeader>
+            <div className="rounded-lg border border-border/70 bg-muted/20 p-3 text-sm">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-muted-foreground">{t.confirmSummaryEnteredAmount}</span>
+                <span className="font-semibold tabular-nums">{formatEuro(Math.max(0, enteredAmountCents))}</span>
+              </div>
+              <div className="mt-1.5 flex items-center justify-between gap-2">
+                <span className="text-muted-foreground">{t.confirmSummaryRemaining}</span>
+                <span className="font-semibold tabular-nums">{formatEuro(remainingAfterConfirmCents)}</span>
+              </div>
+            </div>
             <AlertDialogFooter>
               <AlertDialogCancel asChild>
                 <Button type="button" variant="outline" disabled={saving}>
@@ -370,6 +410,11 @@ export function ExpensePaymentDialog({
               <AlertDialogAction asChild>
                 <Button
                   type="button"
+                  className={
+                    isSettleMode
+                      ? 'bg-orange-500 text-white hover:bg-orange-600 hover:text-white'
+                      : 'bg-emerald-600 text-white hover:bg-emerald-700 hover:text-white'
+                  }
                   disabled={saving}
                   onClick={() => {
                     setConfirmOpen(false);
@@ -377,7 +422,7 @@ export function ExpensePaymentDialog({
                   }}
                 >
                   {saving ? <Loader2Icon className="size-4 animate-spin" /> : null}
-                  {t.confirmAction}
+                  {isSettleMode ? t.confirmActionSettle : t.confirmActionAddPayment}
                 </Button>
               </AlertDialogAction>
             </AlertDialogFooter>

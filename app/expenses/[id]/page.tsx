@@ -24,6 +24,7 @@ import {
 import CrmShell from '@/components/crm-shell';
 import { AttachmentPreviewDialog } from '@/components/expenses/attachment-preview-dialog';
 import { ExpensePaymentDialog } from '@/components/expenses/expense-payment-dialog';
+import { ExpensePaymentStatusBadge } from '@/components/expenses/expense-payment-status-badge';
 import { ExpenseFormDialog } from '@/components/expenses/expense-form-dialog';
 import { ExpenseMoneyDisplay } from '@/components/expenses/expense-money-display';
 import { ExpenseStatusBadge } from '@/components/expenses/expense-status-badge';
@@ -70,7 +71,6 @@ import {
   getExpenseEnumLabel,
   getExpensePaidByLabel,
   getExpensePaymentMethodLabel,
-  getExpenseStatusLabel,
   getExpenseTypeLabel,
 } from '@/lib/expenses/labels';
 import { formatInvoiceDisplayNumber, getInvoiceStatusLabel } from '@/lib/i18n/messages';
@@ -583,6 +583,7 @@ export default function ExpenseDetailPage() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [settleExpenseOpen, setSettleExpenseOpen] = useState(false);
   const [addPaymentOpen, setAddPaymentOpen] = useState(false);
+  const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deletePassword, setDeletePassword] = useState('');
   const [deleteReason, setDeleteReason] = useState('');
@@ -644,6 +645,8 @@ export default function ExpenseDetailPage() {
           project: 'Project',
           type: 'Type',
           paymentMethod: 'Payment method',
+          paymentStatus: 'Payment status',
+          lifecycleStatus: 'Lifecycle status',
           paymentHistory: 'Payment history',
           paymentHistoryHint: 'Each payment is recorded as a separate line for accounting traceability.',
           paymentRecordedBy: 'Recorded by',
@@ -691,6 +694,11 @@ export default function ExpenseDetailPage() {
           archiveSuccess: 'Expense archived',
           deleteSuccessExpense: 'Expense deleted',
           confirmArchive: 'Archive this expense?',
+          confirmArchiveTitle: 'Archive expense',
+          confirmArchiveDescription: (label: string) =>
+            `This expense (${label}) will be moved to archived records and become read-only until restored.`,
+          confirmArchiveCancel: 'Cancel',
+          confirmArchiveAction: 'Archive expense',
           confirmDelete: 'Delete this expense? This cannot be undone.',
           confirmDeleteTitle: 'Confirm expense deletion',
           confirmDeletePasswordLabel: 'Confirm with your password',
@@ -759,6 +767,8 @@ export default function ExpenseDetailPage() {
           project: 'Projet',
           type: 'Type',
           paymentMethod: 'Mode de paiement',
+          paymentStatus: 'Statut paiement',
+          lifecycleStatus: 'Statut cycle',
           paymentHistory: 'Historique des paiements',
           paymentHistoryHint: 'Chaque paiement est enregistré en ligne distincte pour une traçabilité comptable.',
           paymentRecordedBy: 'Saisi par',
@@ -806,6 +816,11 @@ export default function ExpenseDetailPage() {
           archiveSuccess: 'Dépense archivée',
           deleteSuccessExpense: 'Dépense supprimée',
           confirmArchive: 'Archiver cette dépense ?',
+          confirmArchiveTitle: 'Archiver la dépense',
+          confirmArchiveDescription: (label: string) =>
+            `Cette dépense (${label}) sera déplacée dans les archives et restera en lecture seule jusqu'à restauration.`,
+          confirmArchiveCancel: 'Annuler',
+          confirmArchiveAction: 'Archiver dépense',
           confirmDelete: 'Supprimer cette dépense ? Action irréversible.',
           confirmDeleteTitle: 'Confirmer suppression dépense',
           confirmDeletePasswordLabel: 'Confirmez avec votre mot de passe',
@@ -939,10 +954,6 @@ export default function ExpenseDetailPage() {
       return;
     }
 
-    if (action === 'archive' && !window.confirm(t.confirmArchive)) {
-      return;
-    }
-
     setActionLoading(action);
 
     try {
@@ -965,6 +976,9 @@ export default function ExpenseDetailPage() {
       }
 
       await refetch();
+      if (action === 'archive') {
+        setArchiveConfirmOpen(false);
+      }
       pushFeedback(
         'success',
         action === 'duplicate'
@@ -1299,7 +1313,12 @@ export default function ExpenseDetailPage() {
                     </CardDescription>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <ExpenseStatusBadge status={expense.status} paymentStatus={expense.paymentStatus} locale={locale} />
+                    <ExpenseStatusBadge status={expense.status} locale={locale} />
+                    <ExpensePaymentStatusBadge
+                      paymentStatus={expense.paymentStatus}
+                      lifecycleStatus={expense.status}
+                      locale={locale}
+                    />
                     {canManageExpenses ? (
                       <>
                         <Button
@@ -1360,7 +1379,7 @@ export default function ExpenseDetailPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-44">
                             {!isExpenseArchived ? (
-                              <DropdownMenuItem onSelect={() => void runAction('archive')}>
+                              <DropdownMenuItem onSelect={() => setArchiveConfirmOpen(true)}>
                                 <ArchiveIcon className="size-4" />
                                 {t.archive}
                               </DropdownMenuItem>
@@ -1676,8 +1695,20 @@ export default function ExpenseDetailPage() {
                   </CardHeader>
                   <CardContent className="space-y-2 text-sm">
                     <div className="rounded-md border border-border/60 p-2">
-                      <p className="text-xs text-muted-foreground">{t.status}</p>
-                      <p className="font-medium">{getExpenseStatusLabel(expense.status, locale)}</p>
+                      <p className="text-xs text-muted-foreground">{t.lifecycleStatus}</p>
+                      <div className="mt-1">
+                        <ExpenseStatusBadge status={expense.status} locale={locale} />
+                      </div>
+                    </div>
+                    <div className="rounded-md border border-border/60 p-2">
+                      <p className="text-xs text-muted-foreground">{t.paymentStatus}</p>
+                      <div className="mt-1">
+                        <ExpensePaymentStatusBadge
+                          paymentStatus={expense.paymentStatus}
+                          lifecycleStatus={expense.status}
+                          locale={locale}
+                        />
+                      </div>
                     </div>
                     <div className="rounded-md border border-border/60 p-2">
                       <p className="text-xs text-muted-foreground">{t.createdBy}</p>
@@ -1978,6 +2009,45 @@ export default function ExpenseDetailPage() {
           }}
         />
       ) : null}
+
+      <AlertDialog
+        open={archiveConfirmOpen}
+        onOpenChange={(open) => {
+          if (actionLoading === 'archive' && !open) return;
+          setArchiveConfirmOpen(open);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t.confirmArchiveTitle}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {expense ? t.confirmArchiveDescription(expense.supplierRef || resolveEntityLabel(expense.supplierId)) : ''}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel asChild>
+              <Button type="button" variant="outline" disabled={actionLoading === 'archive'}>
+                {t.confirmArchiveCancel}
+              </Button>
+            </AlertDialogCancel>
+            <AlertDialogAction asChild>
+              <Button
+                type="button"
+                variant="secondary"
+                className="bg-orange-500 text-white hover:bg-orange-600 hover:text-white"
+                disabled={!expense || actionLoading === 'archive'}
+                onClick={(event) => {
+                  event.preventDefault();
+                  void runAction('archive');
+                }}
+              >
+                {actionLoading === 'archive' ? <Loader2Icon className="size-4 animate-spin" /> : null}
+                {t.confirmArchiveAction}
+              </Button>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog
         open={deleteAttachmentDialogOpen}

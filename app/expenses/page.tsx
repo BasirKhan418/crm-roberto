@@ -23,6 +23,7 @@ import {
 
 import CrmShell from '@/components/crm-shell';
 import { ExpensePaymentDialog } from '@/components/expenses/expense-payment-dialog';
+import { ExpensePaymentStatusBadge } from '@/components/expenses/expense-payment-status-badge';
 import { ExpenseFormDialog } from '@/components/expenses/expense-form-dialog';
 import { ExpenseMoneyDisplay } from '@/components/expenses/expense-money-display';
 import { ExpenseStatusBadge } from '@/components/expenses/expense-status-badge';
@@ -170,13 +171,6 @@ function getCategoryName(expense: ExpenseListItem) {
   return '-';
 }
 
-function getPaymentPillClass(paymentStatus: string, status: string) {
-  if (status === 'draft' || status === 'archived') return 'bg-muted text-muted-foreground';
-  if (paymentStatus === 'paid') return 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:ring-emerald-800';
-  if (paymentStatus === 'partial') return 'bg-amber-50 text-amber-700 ring-1 ring-amber-200 dark:bg-amber-950/50 dark:text-amber-300 dark:ring-amber-800';
-  return 'bg-rose-50 text-rose-700 ring-1 ring-rose-200 dark:bg-rose-950/50 dark:text-rose-300 dark:ring-rose-800';
-}
-
 function getCardAccentClass(status: string, paymentStatus: string) {
   if (status === 'archived') return 'border-l-slate-400';
   if (status === 'draft') return 'border-l-amber-500';
@@ -280,6 +274,7 @@ export default function ExpensesPage() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [settleExpenseTarget, setSettleExpenseTarget] = useState<ExpenseListItem | null>(null);
   const [addPaymentTarget, setAddPaymentTarget] = useState<ExpenseListItem | null>(null);
+  const [archiveTarget, setArchiveTarget] = useState<ExpenseListItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ExpenseListItem | null>(null);
   const [deletePassword, setDeletePassword] = useState('');
   const [deleteReason, setDeleteReason] = useState('');
@@ -495,6 +490,11 @@ export default function ExpensesPage() {
       archivedHiddenHint: 'Archived expenses are hidden by default. Select Status = Archived to view them.',
       archivedReadOnlyHint: 'Archived expenses are read-only. Restore first to edit, pay, attach files, or duplicate.',
       confirmArchive: 'Archive this expense?',
+      confirmArchiveTitle: 'Archive expense',
+      confirmArchiveDescription: (label: string) =>
+        `This expense (${label}) will be moved to archived records and become read-only until restored.`,
+      confirmArchiveCancel: 'Cancel',
+      confirmArchiveAction: 'Archive expense',
       confirmDelete: 'Delete this expense? This cannot be undone.',
       confirmDeleteTitle: 'Confirm expense deletion',
       confirmDeleteDescription: (label: string) =>
@@ -633,6 +633,11 @@ export default function ExpensesPage() {
       archivedHiddenHint: "Les dépenses archivées sont masquées par défaut. Choisissez Statut = Archivée pour les afficher.",
       archivedReadOnlyHint: "Les dépenses archivées sont en lecture seule. Restaurez d'abord pour modifier, payer, ajouter des pièces ou dupliquer.",
       confirmArchive: 'Archiver cette dépense ?',
+      confirmArchiveTitle: 'Archiver la dépense',
+      confirmArchiveDescription: (label: string) =>
+        `Cette dépense (${label}) sera déplacée dans les archives et restera en lecture seule jusqu'à restauration.`,
+      confirmArchiveCancel: 'Annuler',
+      confirmArchiveAction: 'Archiver dépense',
       confirmDelete: 'Supprimer cette dépense ? Cette action est irréversible.',
       confirmDeleteTitle: 'Confirmer suppression dépense',
       confirmDeleteDescription: (label: string) =>
@@ -721,7 +726,7 @@ export default function ExpensesPage() {
       {
         key: 'drafts',
         label: t.kpiDrafts,
-        count: draftExpenses.length,
+        count: draftsCount,
         amount: draftExpenses.reduce((sum, expense) => sum + Math.max(0, Math.round(expense.amountInclVatCents || 0)), 0),
         variant: 'orange-bold',
         icon: 'clock',
@@ -734,7 +739,7 @@ export default function ExpensesPage() {
       {
         key: 'unpaid',
         label: t.kpiUnpaid,
-        count: unpaidExpenses.length,
+        count: unpaidCount,
         amount: unpaidExpenses.reduce((sum, expense) => sum + getRemainingCents(expense), 0),
         variant: 'red-bold',
         icon: 'alert-triangle',
@@ -747,7 +752,7 @@ export default function ExpensesPage() {
       {
         key: 'partial',
         label: t.kpiPartial,
-        count: partialExpenses.length,
+        count: partialCount,
         amount: partialExpenses.reduce((sum, expense) => sum + getRemainingCents(expense), 0),
         variant: 'orange',
         icon: 'clock',
@@ -760,7 +765,7 @@ export default function ExpensesPage() {
       {
         key: 'paid',
         label: t.kpiPaid,
-        count: paidExpenses.length,
+        count: paidCount,
         amount: paidExpenses.reduce((sum, expense) => sum + Math.max(0, Math.round(expense.amountPaidCents || 0)), 0),
         variant: 'green-bold',
         icon: 'check-circle',
@@ -773,7 +778,10 @@ export default function ExpensesPage() {
     ],
     [
       draftExpenses,
+      draftsCount,
+      paidCount,
       paidExpenses,
+      partialCount,
       partialExpenses,
       paymentStatusFilter,
       statusFilter,
@@ -781,6 +789,7 @@ export default function ExpensesPage() {
       t.kpiPartial,
       t.kpiPaid,
       t.kpiUnpaid,
+      unpaidCount,
       unpaidExpenses,
     ]
   );
@@ -1075,10 +1084,6 @@ export default function ExpensesPage() {
   }
 
   async function runArchive(expenseId: string) {
-    if (!window.confirm(t.confirmArchive)) {
-      return;
-    }
-
     setActionLoadingId(expenseId);
 
     try {
@@ -1094,6 +1099,7 @@ export default function ExpensesPage() {
         throw new Error(payload?.message || t.actionFailed);
       }
 
+      setArchiveTarget(null);
       await refetch();
       setFeedback('success', t.actionArchiveSuccess);
     } catch (archiveError) {
@@ -1728,7 +1734,14 @@ export default function ExpensesPage() {
                           <p className="truncate text-sm font-semibold">{getSupplierName(expense)}</p>
                           <p className="text-xs text-muted-foreground">{formatDateDisplay(expense.expenseDate)}</p>
                         </div>
-                        <ExpenseStatusBadge status={expense.status} paymentStatus={expense.paymentStatus} locale={locale} />
+                        <div className="flex flex-wrap items-center justify-end gap-1.5">
+                          <ExpenseStatusBadge status={expense.status} locale={locale} />
+                          <ExpensePaymentStatusBadge
+                            paymentStatus={expense.paymentStatus}
+                            lifecycleStatus={expense.status}
+                            locale={locale}
+                          />
+                        </div>
                       </div>
 
                       <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
@@ -1758,9 +1771,13 @@ export default function ExpensesPage() {
                         </div>
                         <div className="rounded-md border border-border/60 p-2">
                           <p className="text-muted-foreground">{t.tablePayment}</p>
-                          <span className={`mt-0.5 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${getPaymentPillClass(expense.paymentStatus, expense.status)}`}>
-                            {t.paymentStatusLabels[expense.paymentStatus as keyof typeof t.paymentStatusLabels] ?? expense.paymentStatus}
-                          </span>
+                          <div className="mt-0.5">
+                            <ExpensePaymentStatusBadge
+                              paymentStatus={expense.paymentStatus}
+                              lifecycleStatus={expense.status}
+                              locale={locale}
+                            />
+                          </div>
                         </div>
                         <div className="rounded-md border border-border/60 p-2">
                           <p className="text-muted-foreground">{t.tableCategory}</p>
@@ -1855,7 +1872,7 @@ export default function ExpensesPage() {
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end" className="w-44">
                                   {!isArchived ? (
-                                    <DropdownMenuItem onSelect={() => void runArchive(expense._id)}>
+                                    <DropdownMenuItem onSelect={() => setArchiveTarget(expense)}>
                                       <ArchiveIcon className="size-4" />
                                       {t.archive}
                                     </DropdownMenuItem>
@@ -1934,12 +1951,14 @@ export default function ExpensesPage() {
                           <ExpenseMoneyDisplay cents={getRemainingCents(expense)} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="font-medium" />
                         </TableCell>
                         <TableCell>
-                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${getPaymentPillClass(expense.paymentStatus, expense.status)}`}>
-                            {t.paymentStatusLabels[expense.paymentStatus as keyof typeof t.paymentStatusLabels] ?? expense.paymentStatus}
-                          </span>
+                          <ExpensePaymentStatusBadge
+                            paymentStatus={expense.paymentStatus}
+                            lifecycleStatus={expense.status}
+                            locale={locale}
+                          />
                         </TableCell>
                         <TableCell>
-                          <ExpenseStatusBadge status={expense.status} paymentStatus={expense.paymentStatus} locale={locale} />
+                          <ExpenseStatusBadge status={expense.status} locale={locale} />
                         </TableCell>
                         <TableCell>
                           <span className="inline-flex items-center gap-1 tabular-nums text-sm">
@@ -2027,7 +2046,7 @@ export default function ExpensesPage() {
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent align="end" className="w-44">
                                     {!isArchived ? (
-                                      <DropdownMenuItem onSelect={() => void runArchive(expense._id)}>
+                                      <DropdownMenuItem onSelect={() => setArchiveTarget(expense)}>
                                         <ArchiveIcon className="size-4" />
                                         {t.archive}
                                       </DropdownMenuItem>
@@ -2179,6 +2198,51 @@ export default function ExpensesPage() {
           setFeedback('success', t.addPaymentSuccess);
         }}
       />
+
+      <AlertDialog
+        open={Boolean(archiveTarget)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setArchiveTarget(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t.confirmArchiveTitle}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {archiveTarget ? t.confirmArchiveDescription(archiveTarget.supplierRef || getSupplierName(archiveTarget)) : ''}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel asChild>
+              <Button type="button" variant="outline" disabled={Boolean(archiveTarget && actionLoadingId === archiveTarget._id)}>
+                {t.confirmArchiveCancel}
+              </Button>
+            </AlertDialogCancel>
+            <AlertDialogAction asChild>
+              <Button
+                type="button"
+                variant="secondary"
+                className="bg-orange-500 text-white hover:bg-orange-600 hover:text-white"
+                disabled={!archiveTarget || actionLoadingId === archiveTarget._id}
+                onClick={() => {
+                  if (!archiveTarget) {
+                    return;
+                  }
+
+                  void runArchive(archiveTarget._id);
+                }}
+              >
+                {archiveTarget && actionLoadingId === archiveTarget._id ? (
+                  <Loader2Icon className="size-4 animate-spin" />
+                ) : null}
+                {t.confirmArchiveAction}
+              </Button>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog
         open={Boolean(deleteTarget)}
