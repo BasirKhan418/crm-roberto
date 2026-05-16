@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 
 import {
+  DEFAULT_EXPENSE_TYPE,
   EXPENSE_PAID_BY,
   EXPENSE_PAYMENT_METHODS,
   EXPENSE_PAYMENT_STATUS,
@@ -101,7 +102,7 @@ const ExpenseSchema = new mongoose.Schema(
     expenseType: {
       type: String,
       enum: EXPENSE_TYPES,
-      default: "business",
+      default: DEFAULT_EXPENSE_TYPE,
     },
     notes: {
       type: String,

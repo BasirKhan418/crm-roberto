@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import {
+  DEFAULT_EXPENSE_TYPE,
   EXPENSE_ATTACHMENT_DELETE_REASONS,
   EXPENSE_PAID_BY,
   EXPENSE_PAYMENT_METHODS,
@@ -74,7 +75,7 @@ export const createManualExpenseSchema = z
     amountExclVatCents: moneyToCentsSchema,
     vatRate: z.preprocess(toNumber, z.number().min(0).max(100)).default(17),
     expenseDate: requiredDateSchema.default(() => new Date()),
-    supplierId: objectIdSchema,
+    supplierId: optionalObjectIdSchema,
     categoryId: objectIdSchema,
     paymentMethod: z.enum(EXPENSE_PAYMENT_METHODS).optional(),
     paidBy: z.enum(EXPENSE_PAID_BY).optional(),
@@ -83,7 +84,7 @@ export const createManualExpenseSchema = z
     paidAt: optionalDateSchema.optional(),
     dueDate: optionalDateSchema.optional(),
     supplierRef: z.preprocess(toNullableString, z.string().trim().max(140).nullable().optional()),
-    expenseType: z.enum(EXPENSE_TYPES).default("business"),
+    expenseType: z.enum(EXPENSE_TYPES).default(DEFAULT_EXPENSE_TYPE),
     notes: z.preprocess(toNullableString, z.string().trim().max(4000).nullable().optional()),
     clientId: optionalObjectIdSchema,
     projectId: z.preprocess(toNullableString, z.string().trim().max(120).nullable().optional()),

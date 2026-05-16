@@ -31,11 +31,13 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import type { ExpenseLookupCategory, ExpenseLookupClient, ExpenseLookupInvoice, ExpenseLookupSupplier } from '@/hooks/useExpenseLookups';
 import type { ExpenseDetail } from '@/hooks/useExpenseDetail';
 import {
+  DEFAULT_EXPENSE_TYPE,
+  EXPENSE_CANONICAL_TYPES,
   EXPENSE_PAID_BY,
   EXPENSE_PAYMENT_METHODS,
   EXPENSE_PAYMENT_STATUS,
-  EXPENSE_TYPES,
   EXPENSE_VAT_RATES,
+  normalizeExpenseType,
 } from '@/lib/expenses/constants';
 import {
   getExpensePaidByLabel,
@@ -135,7 +137,7 @@ function buildDefaultFormValues(): FormValues {
     paidAt: '',
     dueDate: addDaysToInputDate(expenseDate, DEFAULT_DUE_DATE_DELAY_DAYS),
     supplierRef: '',
-    expenseType: 'business',
+    expenseType: DEFAULT_EXPENSE_TYPE,
     notes: '',
     clientId: '',
     projectId: '',
@@ -287,7 +289,7 @@ function buildInitialValues(expense?: ExpenseDetail | null): FormValues {
     paidAt: toInputDate(expense.paidAt),
     dueDate,
     supplierRef: expense.supplierRef || '',
-    expenseType: expense.expenseType || 'business',
+    expenseType: normalizeExpenseType(expense.expenseType),
     notes: expense.notes || '',
     clientId: resolveEntityId(expense.clientId),
     projectId: expense.projectId || '',
@@ -409,12 +411,12 @@ export function ExpenseFormDialog({
     en: {
       createTitle: 'Create Expense',
       editTitle: initialExpense?.status === 'draft' ? 'Edit Draft Expense' : 'Edit Expense',
-      description: 'Fill all required fields. Expense validation requires amount, date, category, and supplier.',
+      description: 'Fill all required fields. Draft validation requires amount, date, and category.',
       amountExclVat: 'Amount excl. VAT',
       vatRate: 'VAT rate',
       amountInclVatPreview: 'Amount incl. VAT (preview)',
       expenseDate: 'Expense date',
-      supplier: 'Supplier',
+      supplier: 'Supplier (optional)',
       category: 'Category',
       paymentMethod: 'Payment method',
       paidBy: 'Paid by',
@@ -426,13 +428,15 @@ export function ExpenseFormDialog({
       paidAt: 'Payment date',
       dueDate: 'Due date',
       supplierRef: 'Supplier invoice reference',
-      expenseType: 'Expense type',
+      expenseType: 'Expense mode',
       notes: 'Internal notes',
-      client: 'Linked client',
-      project: 'Project',
-      invoice: 'Linked invoice',
+      client: 'Linked client (optional)',
+      project: 'Project (optional)',
+      invoice: 'Linked invoice (optional)',
       financialSection: 'Financial fields',
       relationSection: 'Supplier and links',
+      relationHintSupplier: 'Supplier is recommended for supplier expenses. Client, invoice, and project links remain optional.',
+      relationHintManual: 'For free/manual expense notes, supplier is optional. Client, invoice, and project links remain optional.',
       paymentSection: 'Payment tracking',
       paymentEditHint: 'Payments are tracked as immutable lines. Use Add payment or Settle expense actions from the expense list/detail to register new payments.',
       extraSection: 'Classification and notes',
@@ -458,7 +462,7 @@ export function ExpenseFormDialog({
       invoiceSearchPlaceholder: 'Search by invoice number, client name, or amount...',
       invoiceSearchLoading: 'Searching invoices...',
       invoiceNoResults: 'No invoice matches this search.',
-      requiredFieldsError: 'Amount, date, category, and supplier are required to validate the expense.',
+      requiredFieldsError: 'Amount, date, and category are required to validate the expense.',
       paidByRequiredWithPayment: 'Paid by is required when payment status is Paid or Partial.',
       saveFailed: 'Failed to save expense',
       createSupplierFailed: 'Failed to create supplier',
@@ -466,12 +470,12 @@ export function ExpenseFormDialog({
     fr: {
       createTitle: 'Créer une dépense',
       editTitle: initialExpense?.status === 'draft' ? 'Modifier le brouillon' : 'Modifier la dépense',
-      description: 'Renseignez les champs requis. Activation du brouillon : montant, date, catégorie, fournisseur.',
+      description: 'Renseignez les champs requis. Activation du brouillon : montant, date et catégorie.',
       amountExclVat: 'Montant HT',
       vatRate: 'Taux TVA',
       amountInclVatPreview: 'Montant TTC (aperçu)',
       expenseDate: 'Date de dépense',
-      supplier: 'Fournisseur',
+      supplier: 'Fournisseur (optionnel)',
       category: 'Catégorie',
       paymentMethod: 'Mode de paiement',
       paidBy: 'Payé par',
@@ -483,13 +487,15 @@ export function ExpenseFormDialog({
       paidAt: 'Date de paiement',
       dueDate: 'Date limite',
       supplierRef: 'Référence facture fournisseur',
-      expenseType: 'Type de dépense',
+      expenseType: 'Mode de dépense',
       notes: 'Notes internes',
-      client: 'Client lié',
-      project: 'Projet',
-      invoice: 'Facture liée',
+      client: 'Client lié (optionnel)',
+      project: 'Projet (optionnel)',
+      invoice: 'Facture liée (optionnelle)',
       financialSection: 'Champs financiers',
       relationSection: 'Fournisseur et liaisons',
+      relationHintSupplier: 'Le fournisseur est recommandé pour les dépenses fournisseur. Les liens client, facture et projet restent optionnels.',
+      relationHintManual: 'Pour les dépenses libres/notes de frais, le fournisseur est optionnel. Les liens client, facture et projet restent optionnels.',
       paymentSection: 'Suivi paiement',
       paymentEditHint: 'Les paiements sont enregistrés en lignes immuables. Utilisez Ajouter un paiement ou Solder la dépense depuis la liste/détail pour enregistrer un nouveau paiement.',
       extraSection: 'Classification et notes',
@@ -515,7 +521,7 @@ export function ExpenseFormDialog({
       invoiceSearchPlaceholder: 'Rechercher par numéro, client ou montant...',
       invoiceSearchLoading: 'Recherche des factures...',
       invoiceNoResults: 'Aucune facture ne correspond à cette recherche.',
-      requiredFieldsError: 'Montant, date, catégorie et fournisseur requis pour activer le brouillon.',
+      requiredFieldsError: 'Montant, date et catégorie requis pour activer le brouillon.',
       paidByRequiredWithPayment: 'Le champ payé par est requis lorsque le statut est Payé ou Partiel.',
       saveFailed: 'Échec enregistrement dépense',
       createSupplierFailed: 'Échec création fournisseur',
@@ -588,8 +594,7 @@ export function ExpenseFormDialog({
     return (
       Number(values.amountExclVat || 0) > 0 &&
       Boolean(values.expenseDate) &&
-      Boolean(values.categoryId) &&
-      Boolean(values.supplierId)
+      Boolean(values.categoryId)
     );
   }
 
@@ -642,7 +647,7 @@ export function ExpenseFormDialog({
         categoryId: values.categoryId || undefined,
         dueDate: values.dueDate || undefined,
         supplierRef: values.supplierRef || undefined,
-        expenseType: values.expenseType || 'business',
+        expenseType: normalizeExpenseType(values.expenseType),
         notes: values.notes || undefined,
         clientId: values.clientId || undefined,
         projectId: values.projectId || undefined,
@@ -843,6 +848,11 @@ export function ExpenseFormDialog({
           <div className="rounded-xl border border-border/70 p-4">
             <div className="mb-3">
               <h4 className="text-sm font-semibold">{t.relationSection}</h4>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {normalizeExpenseType(values.expenseType) === 'manual_expense_note'
+                  ? t.relationHintManual
+                  : t.relationHintSupplier}
+              </p>
             </div>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <div className="space-y-1.5">
@@ -1128,7 +1138,7 @@ export function ExpenseFormDialog({
                   value={values.expenseType}
                   onChange={(event) => updateField('expenseType', event.target.value)}
                 >
-                  {EXPENSE_TYPES.map((type) => (
+                  {EXPENSE_CANONICAL_TYPES.map((type) => (
                     <option key={type} value={type}>
                       {getExpenseTypeLabel(type, locale)}
                     </option>

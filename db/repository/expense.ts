@@ -453,13 +453,11 @@ function canActivateExpense(expense: {
   amountInclVatCents?: number;
   expenseDate?: Date | null;
   categoryId?: unknown;
-  supplierId?: unknown;
 }) {
   return Boolean(
     (expense.amountInclVatCents || 0) > 0 &&
       expense.expenseDate &&
-      expense.categoryId &&
-      expense.supplierId
+      expense.categoryId
   );
 }
 
@@ -924,13 +922,12 @@ export async function updateExpense(params: {
     amountInclVatCents,
     expenseDate: (nextData.expenseDate as Date | null) ?? null,
     categoryId: nextData.categoryId,
-    supplierId: nextData.supplierId,
   };
 
   if (status === "active" && !canActivateExpense(activateCandidate)) {
     return {
       success: false as const,
-      message: "Draft cannot be activated until amount, date, category, and supplier are set",
+      message: "Draft cannot be activated until amount, date, and category are set",
     };
   }
 
@@ -1144,7 +1141,6 @@ export async function duplicateExpense(params: {
       amountInclVatCents: Number(source.amountInclVatCents || 0),
       expenseDate: (source.expenseDate as Date | null) ?? null,
       categoryId: source.categoryId,
-      supplierId: source.supplierId,
     })
       ? "active"
       : "draft",
