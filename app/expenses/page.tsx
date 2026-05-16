@@ -444,6 +444,7 @@ export default function ExpensesPage() {
       tableCategory: 'Category',
       tableReference: 'Reference',
       tableAmount: 'Incl. VAT',
+      tablePaid: 'Paid amount',
       tablePayment: 'Payment',
       tableState: 'State',
       tableAttachments: 'Files',
@@ -569,6 +570,7 @@ export default function ExpensesPage() {
       tableCategory: 'Catégorie',
       tableReference: 'Référence',
       tableAmount: 'TTC',
+      tablePaid: 'Montant payé',
       tablePayment: 'Paiement',
       tableState: 'État',
       tableAttachments: 'Fichiers',
@@ -1573,20 +1575,26 @@ export default function ExpensesPage() {
                           />
                         </div>
                         <div className="rounded-md border border-border/60 p-2">
+                          <p className="text-muted-foreground">{t.tablePaid}</p>
+                          <ExpenseMoneyDisplay
+                            cents={expense.amountPaidCents || 0}
+                            locale={locale === 'fr' ? 'fr-FR' : 'en-GB'}
+                            className="text-sm font-medium"
+                          />
+                        </div>
+                        <div className="rounded-md border border-border/60 p-2">
+                          <p className="text-muted-foreground">{t.tableRemaining}</p>
+                          <ExpenseMoneyDisplay
+                            cents={getRemainingCents(expense)}
+                            locale={locale === 'fr' ? 'fr-FR' : 'en-GB'}
+                            className="text-sm font-medium"
+                          />
+                        </div>
+                        <div className="rounded-md border border-border/60 p-2">
                           <p className="text-muted-foreground">{t.tablePayment}</p>
                           <span className={`mt-0.5 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${getPaymentPillClass(expense.paymentStatus, expense.status)}`}>
                             {t.paymentStatusLabels[expense.paymentStatus as keyof typeof t.paymentStatusLabels] ?? expense.paymentStatus}
                           </span>
-                          {expense.paymentStatus === 'partial' && (expense.remainingBalanceCents ?? 0) > 0 ? (
-                            <p className="mt-0.5 text-xs text-amber-600 dark:text-amber-400">
-                              {t.tableRemaining}:{' '}
-                              <ExpenseMoneyDisplay
-                                cents={expense.remainingBalanceCents ?? 0}
-                                locale={locale === 'fr' ? 'fr-FR' : 'en-GB'}
-                                className="inline font-medium"
-                              />
-                            </p>
-                          ) : null}
                         </div>
                         <div className="rounded-md border border-border/60 p-2">
                           <p className="text-muted-foreground">{t.tableCategory}</p>
@@ -1703,6 +1711,8 @@ export default function ExpensesPage() {
                     <TableHead>{t.tableCategory}</TableHead>
                     <TableHead>{t.tableReference}</TableHead>
                     <TableHead className="text-right">{t.tableAmount}</TableHead>
+                    <TableHead className="text-right">{t.tablePaid}</TableHead>
+                    <TableHead className="text-right">{t.tableRemaining}</TableHead>
                     <TableHead>{t.tablePayment}</TableHead>
                     <TableHead>{t.tableState}</TableHead>
                     <TableHead>{t.tableAttachments}</TableHead>
@@ -1727,6 +1737,12 @@ export default function ExpensesPage() {
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
                           <ExpenseMoneyDisplay cents={expense.amountInclVatCents || 0} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="font-medium" />
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          <ExpenseMoneyDisplay cents={expense.amountPaidCents || 0} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="font-medium" />
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          <ExpenseMoneyDisplay cents={getRemainingCents(expense)} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="font-medium" />
                         </TableCell>
                         <TableCell>
                           <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${getPaymentPillClass(expense.paymentStatus, expense.status)}`}>
