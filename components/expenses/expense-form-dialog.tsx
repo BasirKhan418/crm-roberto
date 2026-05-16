@@ -225,6 +225,7 @@ export function ExpenseFormDialog({
       paymentMethod: 'Payment method',
       paymentStatus: 'Payment status',
       amountPaid: 'Amount already paid',
+      amountPaidAutoFilledPaid: 'Amount automatically filled because status = paid.',
       remainingPreview: 'Remaining balance (preview)',
       paidAt: 'Payment date',
       dueDate: 'Due date',
@@ -273,6 +274,7 @@ export function ExpenseFormDialog({
       paymentMethod: 'Mode de paiement',
       paymentStatus: 'Statut paiement',
       amountPaid: 'Montant déjà payé',
+      amountPaidAutoFilledPaid: 'Montant rempli automatiquement car le statut = payé.',
       remainingPreview: 'Reste à payer (aperçu)',
       paidAt: 'Date de paiement',
       dueDate: 'Date limite',
@@ -722,10 +724,14 @@ export function ExpenseFormDialog({
                   type="number"
                   min="0"
                   step="0.01"
-                  value={values.amountPaid}
+                  value={values.paymentStatus === 'paid' ? amountInclVat.toFixed(2) : values.amountPaid}
                   onChange={(event) => updateField('amountPaid', event.target.value)}
-                  disabled={values.paymentStatus === 'paid' || values.paymentStatus === 'unpaid'}
+                  readOnly={values.paymentStatus === 'paid'}
+                  disabled={values.paymentStatus === 'unpaid'}
                 />
+                {values.paymentStatus === 'paid' ? (
+                  <p className="text-xs text-muted-foreground">{t.amountPaidAutoFilledPaid}</p>
+                ) : null}
               </div>
 
               <div className="space-y-1.5">
