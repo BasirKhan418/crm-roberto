@@ -100,6 +100,7 @@ export function ExpensePaymentDialog({
       successSettle: 'Expense settled',
       successAddPayment: 'Payment added',
       methodRequired: 'Payment method is required',
+      paidByRequired: 'Paid by is required',
       dateRequired: 'Payment date is required',
       amountRequired: 'Payment amount is required',
       amountPositive: 'Payment amount must be greater than zero',
@@ -136,6 +137,7 @@ export function ExpensePaymentDialog({
       successSettle: 'Dépense soldée',
       successAddPayment: 'Paiement ajouté',
       methodRequired: 'Mode de paiement requis',
+      paidByRequired: 'Le champ payé par est requis',
       dateRequired: 'Date de paiement requise',
       amountRequired: 'Montant du paiement requis',
       amountPositive: 'Le montant du paiement doit être supérieur à zéro',
@@ -194,6 +196,11 @@ export function ExpensePaymentDialog({
       return false;
     }
 
+    if (!paidBy) {
+      setError(t.paidByRequired);
+      return false;
+    }
+
     if (!paidAt) {
       setError(t.dateRequired);
       return false;
@@ -232,7 +239,7 @@ export function ExpensePaymentDialog({
               : undefined,
           paidAt,
           paymentMethod,
-          paidBy: paidBy || undefined,
+          paidBy,
         }),
       });
 

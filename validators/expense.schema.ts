@@ -124,6 +124,14 @@ export const createManualExpenseSchema = z
         path: ["paidAt"],
       });
     }
+
+    if ((hasPositivePayment || wantsPaidStatus) && !input.paidBy) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Paid by is required when an initial payment is recorded",
+        path: ["paidBy"],
+      });
+    }
   });
 
 export const createDraftExpenseSchema = z.object({
@@ -190,14 +198,14 @@ export const updateExpenseCategorySchema = z
 export const markExpensePaidSchema = z.object({
   paidAt: requiredDateSchema,
   paymentMethod: z.enum(EXPENSE_PAYMENT_METHODS),
-  paidBy: z.enum(EXPENSE_PAID_BY).optional(),
+  paidBy: z.enum(EXPENSE_PAID_BY),
 });
 
 export const addExpensePaymentSchema = z.object({
   amountPaidCents: moneyToCentsSchema,
   paidAt: requiredDateSchema,
   paymentMethod: z.enum(EXPENSE_PAYMENT_METHODS),
-  paidBy: z.enum(EXPENSE_PAID_BY).optional(),
+  paidBy: z.enum(EXPENSE_PAID_BY),
 });
 
 export const createExpenseAttachmentSchema = z.object({
@@ -220,14 +228,14 @@ export const expenseActionSchema = z.discriminatedUnion("action", [
     action: z.literal("mark_paid"),
     paidAt: requiredDateSchema,
     paymentMethod: z.enum(EXPENSE_PAYMENT_METHODS),
-    paidBy: z.enum(EXPENSE_PAID_BY).optional(),
+    paidBy: z.enum(EXPENSE_PAID_BY),
   }),
   z.object({
     action: z.literal("add_payment"),
     amountPaidCents: moneyToCentsSchema,
     paidAt: requiredDateSchema,
     paymentMethod: z.enum(EXPENSE_PAYMENT_METHODS),
-    paidBy: z.enum(EXPENSE_PAID_BY).optional(),
+    paidBy: z.enum(EXPENSE_PAID_BY),
   }),
   z.object({
     action: z.literal("attach_file"),

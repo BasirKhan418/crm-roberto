@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 
-import { Loader2Icon, PlusIcon } from 'lucide-react';
+import { CircleHelpIcon, Loader2Icon, PlusIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import {
@@ -27,6 +27,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { ExpenseLookupCategory, ExpenseLookupClient, ExpenseLookupInvoice, ExpenseLookupSupplier } from '@/hooks/useExpenseLookups';
 import type { ExpenseDetail } from '@/hooks/useExpenseDetail';
 import {
@@ -232,6 +233,7 @@ export function ExpenseFormDialog({
       paymentStatus: 'Payment status',
       amountPaid: 'Amount already paid',
       amountPaidAutoFilledPaid: 'Amount automatically filled because status = paid.',
+      amountPaidLockedHint: 'To modify the paid amount, change the status to Partial or use Add payment.',
       remainingPreview: 'Remaining balance (preview)',
       paidAt: 'Payment date',
       dueDate: 'Due date',
@@ -265,6 +267,7 @@ export function ExpenseFormDialog({
       selectPlaceholder: 'Select',
       noneOption: 'None',
       requiredFieldsError: 'Amount, date, category, and supplier are required to validate the expense.',
+      paidByRequiredWithPayment: 'Paid by is required when payment status is Paid or Partial.',
       saveFailed: 'Failed to save expense',
       createSupplierFailed: 'Failed to create supplier',
     },
@@ -283,6 +286,7 @@ export function ExpenseFormDialog({
       paymentStatus: 'Statut paiement',
       amountPaid: 'Montant déjà payé',
       amountPaidAutoFilledPaid: 'Montant rempli automatiquement car le statut = payé.',
+      amountPaidLockedHint: 'Pour modifier le montant payé, passez le statut à Partiel ou utilisez Ajouter un paiement.',
       remainingPreview: 'Reste à payer (aperçu)',
       paidAt: 'Date de paiement',
       dueDate: 'Date limite',
@@ -316,6 +320,7 @@ export function ExpenseFormDialog({
       selectPlaceholder: 'Sélectionner',
       noneOption: 'Aucun',
       requiredFieldsError: 'Montant, date, catégorie et fournisseur requis pour activer le brouillon.',
+      paidByRequiredWithPayment: 'Le champ payé par est requis lorsque le statut est Payé ou Partiel.',
       saveFailed: 'Échec enregistrement dépense',
       createSupplierFailed: 'Échec création fournisseur',
     },
@@ -423,6 +428,13 @@ export function ExpenseFormDialog({
       };
 
       if (mode === 'create') {
+        const hasPaymentStatus = values.paymentStatus === 'paid' || values.paymentStatus === 'partial';
+        if (hasPaymentStatus && !values.paidBy) {
+          setError(t.paidByRequiredWithPayment);
+          setSaving(false);
+          return;
+        }
+
         payload.paymentMethod = values.paymentMethod || undefined;
         payload.paidBy = values.paidBy || undefined;
         payload.paymentStatus = values.paymentStatus || undefined;
@@ -720,7 +732,27 @@ export function ExpenseFormDialog({
                   </div>
 
                   <div className="rounded-lg border border-border/70 bg-muted/20 p-3">
-                    <p className="text-xs text-muted-foreground">{t.amountPaid}</p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-xs text-muted-foreground">{t.amountPaid}</p>
+                      {values.paymentStatus === 'paid' ? (
+                        <TooltipProvider delayDuration={150}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                type="button"
+                                className="inline-flex size-4 items-center justify-center text-muted-foreground hover:text-foreground"
+                                aria-label={t.amountPaidLockedHint}
+                              >
+                                <CircleHelpIcon className="size-3.5" />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-xs text-xs leading-relaxed">
+                              {t.amountPaidLockedHint}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      ) : null}
+                    </div>
                     <p className="text-sm font-semibold">{amountPaidFromHistory.toFixed(2)}</p>
                   </div>
 
@@ -803,7 +835,27 @@ export function ExpenseFormDialog({
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label>{t.amountPaid}</Label>
+                  <div className="flex items-center gap-1.5">
+                    <Label>{t.amountPaid}</Label>
+                    {values.paymentStatus === 'paid' ? (
+                      <TooltipProvider delayDuration={150}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              className="inline-flex size-4 items-center justify-center text-muted-foreground hover:text-foreground"
+                              aria-label={t.amountPaidLockedHint}
+                            >
+                              <CircleHelpIcon className="size-3.5" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-xs text-xs leading-relaxed">
+                            {t.amountPaidLockedHint}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    ) : null}
+                  </div>
                   <Input
                     type="number"
                     min="0"
