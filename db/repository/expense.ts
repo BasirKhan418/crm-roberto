@@ -638,10 +638,21 @@ export async function updateExpense(params: {
     typeof nextData.amountPaidCents === "number"
       ? nextData.amountPaidCents
       : Number(existing.amountPaidCents || 0);
-  const amountPaidCents = Math.min(Math.max(0, amountPaidCentsRaw), amountInclVatCents);
+  const shouldResetToUnpaid = params.payload.paymentStatus === "unpaid";
+  const amountPaidCents = shouldResetToUnpaid ? 0 : Math.min(Math.max(0, amountPaidCentsRaw), amountInclVatCents);
 
   const status = (nextData.status as string) || (existing.status as string);
-  const paymentStatus = derivePaymentStatus(amountInclVatCents, amountPaidCents);
+  const paymentStatus = shouldResetToUnpaid ? "unpaid" : derivePaymentStatus(amountInclVatCents, amountPaidCents);
+  const paymentDetails =
+    paymentStatus === "unpaid"
+      ? {
+          paymentMethod: null,
+          paidAt: null,
+        }
+      : {
+          paymentMethod: nextData.paymentMethod ?? null,
+          paidAt: nextData.paidAt ?? null,
+        };
 
   const activateCandidate = {
     amountInclVatCents,
@@ -665,6 +676,8 @@ export async function updateExpense(params: {
     amountInclVatCents,
     amountPaidCents,
     paymentStatus,
+    paymentMethod: paymentDetails.paymentMethod,
+    paidAt: paymentDetails.paidAt,
     updatedBy: params.updatedBy,
   };
 
