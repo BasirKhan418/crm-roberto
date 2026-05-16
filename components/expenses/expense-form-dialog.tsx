@@ -643,14 +643,14 @@ export function ExpenseFormDialog({
         amountExclVatCents: Number(values.amountExclVat || 0),
         vatRate: Number(values.vatRate || 0),
         expenseDate: values.expenseDate || undefined,
-        supplierId: values.supplierId || undefined,
-        categoryId: values.categoryId || undefined,
+        supplierId: values.supplierId || null,
+        categoryId: values.categoryId || null,
         dueDate: values.dueDate || undefined,
         supplierRef: values.supplierRef || undefined,
         expenseType: normalizeExpenseType(values.expenseType),
         notes: values.notes || undefined,
-        clientId: values.clientId || undefined,
-        projectId: values.projectId || undefined,
+        clientId: values.clientId || null,
+        projectId: values.projectId || null,
         // Keep explicit null so invoice unlink operations are persisted.
         invoiceId: values.invoiceId || null,
       };
