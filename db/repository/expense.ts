@@ -1092,6 +1092,7 @@ export async function softDeleteExpense(params: {
       amountPaidCents: toPositiveCents(deleted.amountPaidCents),
       supplierRef: typeof deleted.supplierRef === "string" ? deleted.supplierRef : null,
       deleteReason,
+      passwordConfirmed: true,
     },
     newValue: {
       deletedAt: now,
