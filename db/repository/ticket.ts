@@ -285,7 +285,7 @@ async function createTicketNotifications(params: {
             ? actorSubjectByAction[params.action]
             : subjectByAction[params.action],
           body: isActorRecipient ? actorBodyByAction[params.action] : bodyByAction[params.action],
-          title: "CRM Roberto",
+          title: "Roby",
         });
 
         if (!result.success) {

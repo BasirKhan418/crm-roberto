@@ -298,7 +298,7 @@ export const getEmailTemplate = (content: string) => {
 
           <!-- Copyright -->
           <p style="margin:20px 0 0 0;font-size:13px;color:#8b9299;">
-            &copy; ${new Date().getFullYear()} CRM Roberto. All rights reserved.<br>
+            &copy; ${new Date().getFullYear()} Roby. All rights reserved.<br>
             <a href="https://roberto.devsomeware.com" style="color:#ffffff;text-decoration:none;">www.roberto.devsomeware.com</a>
           </p>
           

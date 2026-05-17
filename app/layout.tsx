@@ -6,10 +6,10 @@ import "driver.js/dist/driver.css";
 import "./globals.css";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
-const siteName = "CRM Roberto";
-const defaultTitle = "CRM Roberto | Executive CRM Platform";
+const siteName = "Roby";
+const defaultTitle = "Roby | Executive CRM Platform";
 const defaultDescription =
-  "CRM Roberto helps teams manage clients, suppliers, notes, follow-ups, and operational context in one place.";
+  "Roby helps teams manage clients, suppliers, notes, follow-ups, and operational context in one place.";
 
 const poppins = Poppins({
   variable: "--font-poppins",
@@ -31,7 +31,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
     default: defaultTitle,
-    template: "%s | CRM Roberto",
+    template: "%s | Roby",
   },
   description: defaultDescription,
   applicationName: siteName,
@@ -44,9 +44,9 @@ export const metadata: Metadata = {
     "business notes",
     "executive crm",
   ],
-  authors: [{ name: "CRM Roberto Team" }],
-  creator: "CRM Roberto Team",
-  publisher: "CRM Roberto",
+  authors: [{ name: "Roby Team" }],
+  creator: "Roby Team",
+  publisher: "Roby",
   alternates: {
     canonical: "/",
     languages: {
@@ -80,7 +80,7 @@ export const metadata: Metadata = {
         url: "/opengraph-image",
         width: 1200,
         height: 630,
-        alt: "CRM Roberto - Executive CRM Platform",
+        alt: "Roby - Executive CRM Platform",
       },
     ],
   },
