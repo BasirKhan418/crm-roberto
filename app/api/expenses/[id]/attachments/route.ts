@@ -1,3 +1,4 @@
+import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { NextRequest, NextResponse } from "next/server";
 
 import {
@@ -12,9 +13,36 @@ import {
 } from "@/validators/expense.schema";
 import { buildValidationError } from "@/utils/api/validation";
 import { getClientIp } from "@/utils/api/request";
+import s3 from "@/utils/s3/s3Client";
+import {
+  EXPENSE_ALLOWED_MIME_TYPES,
+  EXPENSE_MAX_FILE_SIZE_BYTES,
+  formatFileSizeMb,
+  getExpenseFileExtension,
+  isExpenseMimeTypeAllowed,
+} from "@/lib/expenses/upload";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
+}
+
+const BUCKET = process.env.AWS_S3_BUCKET || "";
+const REGION = process.env.AWS_REGION || "eu-west-3";
+
+function inferUploadMimeType(
+  fileName: string,
+  fileType: string
+): (typeof EXPENSE_ALLOWED_MIME_TYPES)[number] | null {
+  if (isExpenseMimeTypeAllowed(fileType)) {
+    return fileType as (typeof EXPENSE_ALLOWED_MIME_TYPES)[number];
+  }
+
+  const extension = fileName.split(".").pop()?.toLowerCase();
+  if (extension === "pdf") return "application/pdf";
+  if (extension === "jpg" || extension === "jpeg") return "image/jpeg";
+  if (extension === "png") return "image/png";
+  if (extension === "heic") return "image/heic";
+  return null;
 }
 
 function resolveExpenseAttachmentStatus(message?: string) {
@@ -57,25 +85,101 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (!auth.success) {
       return auth.response;
     }
+    const { id } = await params;
 
-    const body = await request.json();
-    const parsed = createExpenseAttachmentSchema.safeParse(body);
+    const contentType = request.headers.get("content-type") || "";
+    let created:
+      | Awaited<ReturnType<typeof createExpenseAttachment>>
+      | null = null;
 
-    if (!parsed.success) {
-      return NextResponse.json(buildValidationError(parsed.error), { status: 400 });
+    if (contentType.includes("multipart/form-data")) {
+      if (!BUCKET) {
+        return NextResponse.json(
+          { success: false, message: "AWS_S3_BUCKET is not configured" },
+          { status: 500 }
+        );
+      }
+
+      const formData = await request.formData();
+      const maybeFile = formData.get("file");
+
+      if (!(maybeFile instanceof File)) {
+        return NextResponse.json(
+          { success: false, message: "File is required" },
+          { status: 400 }
+        );
+      }
+
+      const mimeType = inferUploadMimeType(maybeFile.name || "", maybeFile.type || "");
+      if (!mimeType) {
+        return NextResponse.json(
+          { success: false, message: "Unsupported file type for expenses" },
+          { status: 400 }
+        );
+      }
+
+      if (maybeFile.size > EXPENSE_MAX_FILE_SIZE_BYTES) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: `File too large. Max ${formatFileSizeMb(EXPENSE_MAX_FILE_SIZE_BYTES)} MB allowed`,
+          },
+          { status: 400 }
+        );
+      }
+
+      const extension = getExpenseFileExtension(maybeFile.name, mimeType);
+      const key = `expenses/${auth.context.user.companyId}/${auth.context.user.id}/${Date.now()}-${crypto.randomUUID()}.${extension}`;
+
+      const bodyBuffer = Buffer.from(await maybeFile.arrayBuffer());
+      const putCommand = new PutObjectCommand({
+        Bucket: BUCKET,
+        Key: key,
+        Body: bodyBuffer,
+        ContentType: mimeType,
+        CacheControl: "max-age=31536000",
+      });
+
+      await s3.send(putCommand);
+
+      const url = `https://${BUCKET}.s3.${REGION}.amazonaws.com/${key}`;
+
+      created = await createExpenseAttachment({
+        companyId: auth.context.user.companyId || "",
+        expenseId: id,
+        uploadedBy: auth.context.user.id,
+        payload: {
+          originalName: maybeFile.name,
+          displayName: maybeFile.name,
+          mimeType,
+          extension,
+          sizeBytes: maybeFile.size,
+          storageKey: key,
+          url,
+          checksum: null,
+        },
+        access: auth.context.accessScope,
+        ipAddress: getClientIp(request),
+      });
+    } else {
+      const body = await request.json();
+      const parsed = createExpenseAttachmentSchema.safeParse(body);
+
+      if (!parsed.success) {
+        return NextResponse.json(buildValidationError(parsed.error), { status: 400 });
+      }
+
+      created = await createExpenseAttachment({
+        companyId: auth.context.user.companyId || "",
+        expenseId: id,
+        uploadedBy: auth.context.user.id,
+        payload: parsed.data.attachment,
+        access: auth.context.accessScope,
+        ipAddress: getClientIp(request),
+      });
     }
 
-    const { id } = await params;
-    const created = await createExpenseAttachment({
-      companyId: auth.context.user.companyId || "",
-      expenseId: id,
-      uploadedBy: auth.context.user.id,
-      payload: parsed.data.attachment,
-      access: auth.context.accessScope,
-      ipAddress: getClientIp(request),
-    });
-
-    if (!created.success) {
+    if (!created || !created.success) {
       return NextResponse.json(created, { status: resolveExpenseAttachmentStatus(created.message) });
     }
 

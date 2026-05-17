@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 
 import { BriefcaseIcon, Building2Icon, ChevronDownIcon, Loader2Icon, PlusIcon, ReceiptIcon } from 'lucide-react';
 import { toast } from 'sonner';
@@ -43,12 +43,18 @@ import {
   getExpensePaymentMethodLabel,
   getExpensePaymentStatusLabel,
 } from '@/lib/expenses/labels';
+import {
+  EXPENSE_MAX_FILE_SIZE_BYTES,
+  formatFileSizeMb,
+  getExpenseFileExtension,
+  isExpenseMimeTypeAllowed,
+} from '@/lib/expenses/upload';
 import { formatInvoiceDisplayNumber } from '@/lib/i18n/messages';
 import { cn } from '@/lib/utils';
 
 type Mode = 'create' | 'edit';
 
-type SaveTarget = 'default' | 'activate';
+type SaveTarget = 'default' | 'activate' | 'draft';
 
 type UiFlow = 'supplier_expense' | 'manual_expense_note' | 'client_project';
 type Step = 'select-type' | 'form';
@@ -57,6 +63,20 @@ type ExpenseLookupSearchResponse = {
   success: boolean;
   message?: string;
   invoices?: ExpenseLookupInvoice[];
+};
+
+type ExpenseUploadPresignResponse = {
+  success: boolean;
+  message?: string;
+  uploadUrl?: string;
+  fileUrl?: string;
+  key?: string;
+};
+
+type ExpenseDraftCreateResponse = {
+  success: boolean;
+  message?: string;
+  expense?: Record<string, unknown>;
 };
 
 type ExpenseFormDialogProps = {
@@ -95,6 +115,19 @@ type FormValues = {
 
 const DEFAULT_VAT_RATE = '17';
 const DEFAULT_DUE_DATE_DELAY_DAYS = 7;
+
+function inferDraftMimeType(file: File) {
+  if (isExpenseMimeTypeAllowed(file.type)) {
+    return file.type;
+  }
+
+  const extension = file.name.split('.').pop()?.toLowerCase();
+  if (extension === 'pdf') return 'application/pdf';
+  if (extension === 'jpg' || extension === 'jpeg') return 'image/jpeg';
+  if (extension === 'png') return 'image/png';
+  if (extension === 'heic') return 'image/heic';
+  return null;
+}
 
 function toInputDate(value?: string | null) {
   if (!value) return '';
@@ -363,6 +396,9 @@ export function ExpenseFormDialog({
   const [remoteInvoices, setRemoteInvoices] = useState<ExpenseLookupInvoice[]>([]);
   const [invoiceLookupLoading, setInvoiceLookupLoading] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [cameraDraftLoading, setCameraDraftLoading] = useState(false);
+
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!open) {
@@ -495,12 +531,22 @@ export function ExpenseFormDialog({
       paymentEditHint: 'Payments are tracked as immutable lines. Use Add payment or Settle expense actions from the expense list/detail to register new payments.',
       extraSection: 'Classification and notes',
       create: 'Create expense',
+      createAndValidate: 'Create and validate',
       save: 'Save changes',
       saveDraft: 'Save as draft',
       activateDraft: 'Validate expense',
       createSuccess: 'Expense created',
+      createDraftSuccess: 'Draft saved',
       updateSuccess: 'Expense updated',
       activateSuccess: 'Expense validated',
+      cameraDraftTitle: 'Receipt photo to draft',
+      cameraDraftDescription: 'Capture a receipt now and create a draft instantly. Finalize it later from the draft list.',
+      cameraDraftAction: 'Take photo and save draft',
+      cameraDraftLoading: 'Creating draft...',
+      cameraDraftSuccess: 'Draft created from photo',
+      cameraDraftFailed: 'Failed to create draft from photo',
+      cameraDraftUnsupportedFile: 'Unsupported file type. Allowed: PDF, JPEG, PNG, HEIC.',
+      cameraDraftFileTooLarge: `File too large. Maximum ${formatFileSizeMb(EXPENSE_MAX_FILE_SIZE_BYTES)} MB`,
       cancel: 'Cancel',
       confirmEditTitle: 'Confirm expense update',
       confirmEditDescriptionDefault: 'This will save your edits and update expense history.',
@@ -568,12 +614,22 @@ export function ExpenseFormDialog({
       paymentEditHint: 'Les paiements sont enregistrés en lignes immuables. Utilisez Ajouter un paiement ou Solder la dépense depuis la liste/détail pour enregistrer un nouveau paiement.',
       extraSection: 'Classification et notes',
       create: 'Créer la dépense',
+      createAndValidate: 'Créer et valider',
       save: 'Enregistrer',
       saveDraft: 'Sauvegarder brouillon',
       activateDraft: 'Valider la dépense',
       createSuccess: 'Dépense créée',
+      createDraftSuccess: 'Brouillon enregistré',
       updateSuccess: 'Dépense mise à jour',
       activateSuccess: 'Dépense validée',
+      cameraDraftTitle: 'Photo reçu vers brouillon',
+      cameraDraftDescription: 'Capturez un reçu maintenant et créez un brouillon immédiatement. Finalisez-le plus tard depuis la liste des brouillons.',
+      cameraDraftAction: 'Prendre une photo et sauvegarder brouillon',
+      cameraDraftLoading: 'Création du brouillon...',
+      cameraDraftSuccess: 'Brouillon créé depuis la photo',
+      cameraDraftFailed: 'Échec création brouillon depuis la photo',
+      cameraDraftUnsupportedFile: 'Type de fichier non supporté. Autorisés : PDF, JPEG, PNG, HEIC.',
+      cameraDraftFileTooLarge: `Fichier trop volumineux. Maximum ${formatFileSizeMb(EXPENSE_MAX_FILE_SIZE_BYTES)} MB`,
       cancel: 'Annuler',
       confirmEditTitle: 'Confirmer la mise à jour',
       confirmEditDescriptionDefault: "Cette action enregistre vos modifications et met à jour l'historique.",
@@ -692,6 +748,112 @@ export function ExpenseFormDialog({
     void submit(saveTarget);
   }
 
+  async function createDraftFromCapturedFile(file: File) {
+    const mimeType = inferDraftMimeType(file);
+    if (!mimeType) {
+      setError(t.cameraDraftUnsupportedFile);
+      toast.error(t.cameraDraftUnsupportedFile);
+      return;
+    }
+
+    if (file.size > EXPENSE_MAX_FILE_SIZE_BYTES) {
+      setError(t.cameraDraftFileTooLarge);
+      toast.error(t.cameraDraftFileTooLarge);
+      return;
+    }
+
+    setCameraDraftLoading(true);
+    setError(null);
+
+    try {
+      const presignResponse = await fetch('/api/expenses/upload-presign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fileName: file.name,
+          fileType: mimeType,
+          fileSize: file.size,
+        }),
+      });
+
+      const presignPayload = (await presignResponse.json().catch(() => null)) as
+        | ExpenseUploadPresignResponse
+        | null;
+
+      if (
+        !presignResponse.ok ||
+        !presignPayload?.success ||
+        !presignPayload.uploadUrl ||
+        !presignPayload.fileUrl ||
+        !presignPayload.key
+      ) {
+        throw new Error(presignPayload?.message || t.cameraDraftFailed);
+      }
+
+      const uploadResponse = await fetch(presignPayload.uploadUrl, {
+        method: 'PUT',
+        body: file,
+        headers: {
+          'Content-Type': mimeType,
+        },
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error(t.cameraDraftFailed);
+      }
+
+      const extension = getExpenseFileExtension(file.name, mimeType);
+
+      const draftResponse = await fetch('/api/expenses/drafts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          attachment: {
+            originalName: file.name,
+            displayName: file.name,
+            mimeType,
+            extension,
+            sizeBytes: file.size,
+            storageKey: presignPayload.key,
+            url: presignPayload.fileUrl,
+            checksum: null,
+          },
+        }),
+      });
+
+      const draftPayload = (await draftResponse.json().catch(() => null)) as
+        | ExpenseDraftCreateResponse
+        | null;
+
+      if (!draftResponse.ok || !draftPayload?.success || !draftPayload.expense) {
+        throw new Error(draftPayload?.message || t.cameraDraftFailed);
+      }
+
+      const createdExpenseId = getExpenseIdFromPayload(draftPayload.expense);
+      dispatchExpenseRefresh(createdExpenseId);
+      await onSaved(draftPayload.expense);
+      toast.success(t.cameraDraftSuccess);
+      onOpenChange(false);
+    } catch (captureError) {
+      const message = captureError instanceof Error ? captureError.message : t.cameraDraftFailed;
+      setError(message);
+      toast.error(message);
+    } finally {
+      setCameraDraftLoading(false);
+    }
+  }
+
+  function handleCameraFileSelection(event: ChangeEvent<HTMLInputElement>) {
+    const selectedFile = event.target.files?.[0];
+    event.target.value = '';
+
+    if (!selectedFile) {
+      return;
+    }
+
+    void createDraftFromCapturedFile(selectedFile);
+  }
+
   async function handleCreateSupplier() {
     if (!inlineSupplierName.trim()) return;
 
@@ -738,6 +900,8 @@ export function ExpenseFormDialog({
       };
 
       if (mode === 'create') {
+        payload.status = saveTarget === 'draft' ? 'draft' : 'active';
+
         const hasPaymentStatus = values.paymentStatus === 'paid' || values.paymentStatus === 'partial';
         if (hasPaymentStatus && !values.paidBy) {
           setError(t.paidByRequiredWithPayment);
@@ -813,7 +977,7 @@ export function ExpenseFormDialog({
 
       dispatchExpenseRefresh(getExpenseIdFromPayload(result.expense));
       await onSaved(result.expense);
-      toast.success(t.createSuccess);
+      toast.success(saveTarget === 'draft' ? t.createDraftSuccess : t.createSuccess);
       onOpenChange(false);
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : t.saveFailed);
@@ -925,7 +1089,36 @@ export function ExpenseFormDialog({
           </div>
         ) : null}
 
+        <input
+          ref={cameraInputRef}
+          type="file"
+          accept="image/*,.jpg,.jpeg,.png,.heic,.pdf"
+          capture="environment"
+          className="hidden"
+          onChange={handleCameraFileSelection}
+        />
+
         <form className="space-y-4" onSubmit={(event) => requestSubmit('default', event)}>
+          {mode === 'create' && isManualFlow ? (
+            <div className="rounded-xl border border-amber-200/80 bg-amber-50/55 p-3 dark:border-amber-900/40 dark:bg-amber-950/20">
+              <div className="space-y-1.5">
+                <p className="text-sm font-semibold">{t.cameraDraftTitle}</p>
+                <p className="text-xs text-muted-foreground">{t.cameraDraftDescription}</p>
+              </div>
+              <div className="mt-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => cameraInputRef.current?.click()}
+                  disabled={saving || cameraDraftLoading}
+                >
+                  {cameraDraftLoading ? <Loader2Icon className="size-4 animate-spin" /> : <ReceiptIcon className="size-4" />}
+                  {cameraDraftLoading ? t.cameraDraftLoading : t.cameraDraftAction}
+                </Button>
+              </div>
+            </div>
+          ) : null}
+
           {/* === Financial fields === */}
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-2 space-y-1.5">
@@ -1716,7 +1909,23 @@ export function ExpenseFormDialog({
                 {t.cancel}
               </Button>
 
-              {mode === 'edit' && initialExpense?.status === 'draft' ? (
+              {mode === 'create' ? (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => requestSubmit('draft')}
+                    disabled={saving || cameraDraftLoading}
+                  >
+                    {saving ? <Loader2Icon className="size-4 animate-spin" /> : null}
+                    {t.saveDraft}
+                  </Button>
+                  <Button type="submit" disabled={saving || cameraDraftLoading}>
+                    {saving ? <Loader2Icon className="size-4 animate-spin" /> : null}
+                    {t.createAndValidate}
+                  </Button>
+                </>
+              ) : mode === 'edit' && initialExpense?.status === 'draft' ? (
                 <>
                   <Button
                     type="button"
@@ -1735,7 +1944,7 @@ export function ExpenseFormDialog({
               ) : (
                 <Button type="submit" disabled={saving}>
                   {saving ? <Loader2Icon className="size-4 animate-spin" /> : null}
-                  {mode === 'create' ? t.create : t.save}
+                  {t.save}
                 </Button>
               )}
             </div>

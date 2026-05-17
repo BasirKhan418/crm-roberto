@@ -72,6 +72,7 @@ export const expenseAttachmentMetadataSchema = z.object({
 
 export const createManualExpenseSchema = z
   .object({
+    status: z.enum(["draft", "active"]).optional(),
     amountExclVatCents: moneyToCentsSchema,
     vatRate: z.preprocess(toNumber, z.number().min(0).max(100)).default(17),
     expenseDate: requiredDateSchema.default(() => new Date()),
@@ -91,6 +92,10 @@ export const createManualExpenseSchema = z
     invoiceId: optionalObjectIdSchema,
   })
   .superRefine((input, context) => {
+    if (input.status === "draft") {
+      return;
+    }
+
     const hasPositivePayment = typeof input.amountPaidCents === "number" && input.amountPaidCents > 0;
     const wantsPaidStatus =
       input.paymentStatus === "partial" || input.paymentStatus === "paid";

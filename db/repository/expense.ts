@@ -573,10 +573,11 @@ export async function createManualExpense(params: {
   const vatAmountCents = computeVatAmountCents(params.payload.amountExclVatCents, params.payload.vatRate);
   const amountInclVatCents = computeAmountInclVatCents(params.payload.amountExclVatCents, vatAmountCents);
   const dueDate = params.payload.dueDate ?? addDays(params.payload.expenseDate, DEFAULT_DUE_DATE_DELAY_DAYS);
+  const requestedStatus = params.payload.status === "draft" ? "draft" : "active";
 
   const created = await Expense.create({
     companyId: params.companyId,
-    status: "active",
+    status: requestedStatus,
     paymentStatus: "unpaid",
     amountExclVatCents: params.payload.amountExclVatCents,
     vatRate: params.payload.vatRate,
@@ -601,12 +602,14 @@ export async function createManualExpense(params: {
   });
 
   const requestedInitialPaymentCents =
-    params.payload.paymentStatus === "paid"
+    requestedStatus === "draft"
+      ? 0
+      : params.payload.paymentStatus === "paid"
       ? amountInclVatCents
       : toPositiveCents(params.payload.amountPaidCents);
 
   const initialPaymentCents =
-    params.payload.paymentStatus === "unpaid"
+    requestedStatus === "draft" || params.payload.paymentStatus === "unpaid"
       ? 0
       : Math.min(requestedInitialPaymentCents, amountInclVatCents);
 
