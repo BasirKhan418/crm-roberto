@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import jwt from "jsonwebtoken";
+import jwt, { JsonWebTokenError, TokenExpiredError, NotBeforeError } from "jsonwebtoken";
 import ConnectDb from "@/db/connectDb";
 import Company from "@/db/models/Company";
 import User from "@/db/models/User";
@@ -42,7 +42,12 @@ const checkMe = async (fch:boolean) => {
               return { message: i18nKey("auth.noToken"), success: false }
           }
           try{
-                            const decoded = jwt.verify(token, process.env.JWT_SECRET || "") as JwtUserPayload;
+                            const jwtSecret = process.env.JWT_SECRET;
+                            if (!jwtSecret) {
+                                console.error("checkMe: JWT_SECRET is not set");
+                                return { message: i18nKey("auth.invalidToken"), success: false };
+                            }
+                            const decoded = jwt.verify(token, jwtSecret) as JwtUserPayload;
 
                             await ConnectDb();
                             const user = await User.findById(decoded.sub)
@@ -128,6 +133,10 @@ const checkMe = async (fch:boolean) => {
                             return { message: i18nKey("auth.userFetched"), success: true, user: { id: String(user._id), name: user.name, email: user.email, locale: user.locale, isOnboardingComplete: user.isOnboardingComplete, isEmailVerified: user.isEmailVerified, role, companyId } };
           }
           catch(error){
+              if (error instanceof TokenExpiredError || error instanceof NotBeforeError || error instanceof JsonWebTokenError) {
+                  // Expected: stale, tampered, or mismatched-secret token — silently reject
+                  return { message: i18nKey("auth.invalidToken"), success: false };
+              }
               console.error("checkMe token validation failed", error);
               return { message: i18nKey("auth.invalidToken"), success: false };
           }

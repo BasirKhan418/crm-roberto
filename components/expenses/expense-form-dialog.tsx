@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 
-import { CircleHelpIcon, Loader2Icon, PlusIcon } from 'lucide-react';
+import { BriefcaseIcon, Building2Icon, ChevronDownIcon, Loader2Icon, PlusIcon, ReceiptIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import {
@@ -27,7 +27,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { ExpenseLookupCategory, ExpenseLookupClient, ExpenseLookupInvoice, ExpenseLookupSupplier } from '@/hooks/useExpenseLookups';
 import type { ExpenseDetail } from '@/hooks/useExpenseDetail';
 import {
@@ -43,13 +42,16 @@ import {
   getExpensePaidByLabel,
   getExpensePaymentMethodLabel,
   getExpensePaymentStatusLabel,
-  getExpenseTypeLabel,
 } from '@/lib/expenses/labels';
 import { formatInvoiceDisplayNumber } from '@/lib/i18n/messages';
+import { cn } from '@/lib/utils';
 
 type Mode = 'create' | 'edit';
 
 type SaveTarget = 'default' | 'activate';
+
+type UiFlow = 'supplier_expense' | 'manual_expense_note' | 'client_project';
+type Step = 'select-type' | 'form';
 
 type ExpenseLookupSearchResponse = {
   success: boolean;
@@ -247,6 +249,43 @@ function toInvoiceLookupFromExpense(expense: ExpenseDetail | null | undefined): 
   };
 }
 
+function hasAdvancedData(values: FormValues, flow: UiFlow): boolean {
+  if (flow === 'manual_expense_note') {
+    return Boolean(values.supplierId);
+  }
+  if (flow === 'supplier_expense') {
+    return Boolean(
+      values.supplierRef ||
+      values.clientId ||
+      values.projectId ||
+      values.invoiceId ||
+      values.paymentStatus !== 'unpaid' ||
+      values.paymentMethod ||
+      values.paidBy
+    );
+  }
+  // client_project
+  return Boolean(
+    values.invoiceId ||
+    values.supplierId ||
+    values.supplierRef ||
+    values.paymentStatus !== 'unpaid' ||
+    values.paymentMethod ||
+    values.paidBy
+  );
+}
+
+function deriveUiFlow(expense?: ExpenseDetail | null): UiFlow {
+  if (!expense) return 'supplier_expense';
+  if (normalizeExpenseType(expense.expenseType) === 'manual_expense_note') return 'manual_expense_note';
+  if (resolveEntityId(expense.clientId)) return 'client_project';
+  return 'supplier_expense';
+}
+
+function uiFlowToExpenseType(flow: UiFlow): (typeof EXPENSE_CANONICAL_TYPES)[number] {
+  return flow === 'manual_expense_note' ? 'manual_expense_note' : 'supplier_expense';
+}
+
 function getExpenseIdFromPayload(payload: Record<string, unknown> | null | undefined) {
   if (!payload) return null;
   const id = payload._id;
@@ -311,6 +350,8 @@ export function ExpenseFormDialog({
   onSaved,
 }: ExpenseFormDialogProps) {
   const [values, setValues] = useState<FormValues>(() => buildDefaultFormValues());
+  const [step, setStep] = useState<Step>(() => (mode === 'create' ? 'select-type' : 'form'));
+  const [uiFlow, setUiFlow] = useState<UiFlow>(() => deriveUiFlow(initialExpense));
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [supplierCreating, setSupplierCreating] = useState(false);
@@ -321,19 +362,32 @@ export function ExpenseFormDialog({
   const [debouncedInvoiceSearch, setDebouncedInvoiceSearch] = useState('');
   const [remoteInvoices, setRemoteInvoices] = useState<ExpenseLookupInvoice[]>([]);
   const [invoiceLookupLoading, setInvoiceLookupLoading] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   useEffect(() => {
     if (!open) {
       return;
     }
 
-    setValues(buildInitialValues(initialExpense));
+    const initialValues = buildInitialValues(initialExpense);
+    setValues(initialValues);
     setError(null);
     setInlineSupplierName('');
     setConfirmOpen(false);
     setInvoiceSearchInput('');
     setDebouncedInvoiceSearch('');
-  }, [initialExpense, open]);
+
+    if (mode === 'create') {
+      setStep('select-type');
+      setUiFlow('supplier_expense');
+      setShowAdvanced(false);
+    } else {
+      setStep('form');
+      const flow = deriveUiFlow(initialExpense);
+      setUiFlow(flow);
+      setShowAdvanced(hasAdvancedData(initialValues, flow));
+    }
+  }, [initialExpense, mode, open]);
 
   useEffect(() => {
     if (!open) {
@@ -466,6 +520,20 @@ export function ExpenseFormDialog({
       paidByRequiredWithPayment: 'Paid by is required when payment status is Paid or Partial.',
       saveFailed: 'Failed to save expense',
       createSupplierFailed: 'Failed to create supplier',
+      selectTypeTitle: 'Select expense type',
+      selectTypeDescription: 'Choose the type of expense you want to create.',
+      flowSupplierTitle: 'Supplier Expense',
+      flowSupplierDesc: 'OVH, POST, equipment supplier, subscription, telecom invoice...',
+      flowManualTitle: 'Free Expense / Expense Note',
+      flowManualDesc: 'Fuel, parking, restaurant, toll, coffee, travel expense...',
+      flowClientTitle: 'Client / Project Expense',
+      flowClientDesc: 'Purchases linked to a customer project or refacturable expenses.',
+      back: 'Back',
+      moreOptions: 'More options',
+      hideAdvanced: 'Fewer options',
+      addSupplierOptional: '+ Add supplier (optional)',
+      hideOptionalSupplier: 'Hide supplier',
+      selectedTypeLabel: 'Selected type',
     },
     fr: {
       createTitle: 'Créer une dépense',
@@ -525,6 +593,20 @@ export function ExpenseFormDialog({
       paidByRequiredWithPayment: 'Le champ payé par est requis lorsque le statut est Payé ou Partiel.',
       saveFailed: 'Échec enregistrement dépense',
       createSupplierFailed: 'Échec création fournisseur',
+      selectTypeTitle: 'Sélectionner le type de dépense',
+      selectTypeDescription: 'Choisissez le type de dépense que vous souhaitez créer.',
+      flowSupplierTitle: 'Dépense fournisseur',
+      flowSupplierDesc: 'OVH, POST, équipement, abonnement, facture télécom...',
+      flowManualTitle: 'Dépense libre / Note de frais',
+      flowManualDesc: 'Carburant, parking, restaurant, péage, café, déplacement...',
+      flowClientTitle: 'Dépense client / Projet',
+      flowClientDesc: 'Achats liés à un projet client ou dépenses refacturables.',
+      back: 'Retour',
+      moreOptions: 'Plus d\'options',
+      hideAdvanced: 'Moins d\'options',
+      addSupplierOptional: '+ Ajouter un fournisseur (optionnel)',
+      hideOptionalSupplier: 'Masquer le fournisseur',
+      selectedTypeLabel: 'Type sélectionné',
     },
   }[locale];
 
@@ -743,89 +825,173 @@ export function ExpenseFormDialog({
   const title = mode === 'create' ? t.createTitle : t.editTitle;
   const selectClassName = 'h-9 w-full rounded-lg border border-input bg-background px-2.5 text-sm';
 
+  const isSupplierFlow = uiFlow === 'supplier_expense';
+  const isManualFlow = uiFlow === 'manual_expense_note';
+  const isClientProjectFlow = uiFlow === 'client_project';
+
+  const uiFlowLabel =
+    isManualFlow ? t.flowManualTitle : isClientProjectFlow ? t.flowClientTitle : t.flowSupplierTitle;
+
+  const flowCardClass =
+    'w-full rounded-xl border border-border/70 p-4 text-left transition-colors hover:border-primary hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
+
+  if (step === 'select-type') {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{t.selectTypeTitle}</DialogTitle>
+            <DialogDescription>{t.selectTypeDescription}</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2">
+            <button
+              type="button"
+              className={flowCardClass}
+              onClick={() => {
+                setUiFlow('supplier_expense');
+                setValues((previous) => ({ ...previous, expenseType: uiFlowToExpenseType('supplier_expense') }));
+                setStep('form');
+              }}
+            >
+              <div className="flex items-start gap-3">
+                <Building2Icon className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
+                <div>
+                  <p className="text-sm font-semibold">{t.flowSupplierTitle}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{t.flowSupplierDesc}</p>
+                </div>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              className={flowCardClass}
+              onClick={() => {
+                setUiFlow('manual_expense_note');
+                setValues((previous) => ({ ...previous, expenseType: uiFlowToExpenseType('manual_expense_note') }));
+                setStep('form');
+              }}
+            >
+              <div className="flex items-start gap-3">
+                <ReceiptIcon className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
+                <div>
+                  <p className="text-sm font-semibold">{t.flowManualTitle}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{t.flowManualDesc}</p>
+                </div>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              className={flowCardClass}
+              onClick={() => {
+                setUiFlow('client_project');
+                setValues((previous) => ({ ...previous, expenseType: uiFlowToExpenseType('client_project') }));
+                setStep('form');
+              }}
+            >
+              <div className="flex items-start gap-3">
+                <BriefcaseIcon className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
+                <div>
+                  <p className="text-sm font-semibold">{t.flowClientTitle}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{t.flowClientDesc}</p>
+                </div>
+              </div>
+            </button>
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+              {t.cancel}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{t.description}</DialogDescription>
         </DialogHeader>
 
-        <form className="space-y-5" onSubmit={(event) => requestSubmit('default', event)}>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="rounded-lg border border-border/70 bg-muted/20 p-3">
-              <p className="text-xs text-muted-foreground">{t.amountInclVatPreview}</p>
-              <p className="text-sm font-semibold">{amountInclVat.toFixed(2)}</p>
+        {mode === 'create' ? (
+          <div className="flex items-center gap-2 -mt-1">
+            <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+              {uiFlowLabel}
+            </span>
+          </div>
+        ) : null}
+
+        <form className="space-y-4" onSubmit={(event) => requestSubmit('default', event)}>
+          {/* === Financial fields === */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="col-span-2 space-y-1.5">
+              <Label>{t.amountExclVat}</Label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                value={values.amountExclVat}
+                onChange={(event) => updateField('amountExclVat', event.target.value)}
+              />
+              {amountInclVat > 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  = {amountInclVat.toFixed(2)} {locale === 'fr' ? 'TTC' : 'incl. VAT'}
+                </p>
+              ) : null}
             </div>
-            <div className="rounded-lg border border-border/70 bg-muted/20 p-3">
-              <p className="text-xs text-muted-foreground">{t.remainingPreview}</p>
-              <p className="text-sm font-semibold">{remaining.toFixed(2)}</p>
+            <div className="space-y-1.5">
+              <Label>{t.vatRate}</Label>
+              <Input
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+                list="expense-vat-presets"
+                value={values.vatRate}
+                onChange={(event) => updateField('vatRate', event.target.value)}
+              />
+              <datalist id="expense-vat-presets">
+                {EXPENSE_VAT_RATES.map((rate) => (
+                  <option key={rate} value={String(rate)}>
+                    {rate}%
+                  </option>
+                ))}
+              </datalist>
+              <div className="flex flex-wrap gap-1">
+                {EXPENSE_VAT_RATES.map((rate) => {
+                  const isActive = Number(values.vatRate) === rate;
+                  return (
+                    <Button
+                      key={rate}
+                      type="button"
+                      size="sm"
+                      variant={isActive ? 'default' : 'outline'}
+                      className="h-6 px-2 text-xs"
+                      onClick={() => updateField('vatRate', String(rate))}
+                    >
+                      {rate}%
+                    </Button>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
-          <div className="rounded-xl border border-border/70 p-4">
-            <div className="mb-3">
-              <h4 className="text-sm font-semibold">{t.financialSection}</h4>
+          {/* Date + Due date */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>{t.expenseDate}</Label>
+              <Input
+                type="date"
+                value={values.expenseDate}
+                onChange={(event) => handleExpenseDateChange(event.target.value)}
+              />
             </div>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              <div className="space-y-1.5">
-                <Label>{t.amountExclVat}</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={values.amountExclVat}
-                  onChange={(event) => updateField('amountExclVat', event.target.value)}
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label>{t.vatRate}</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.01"
-                  list="expense-vat-presets"
-                  value={values.vatRate}
-                  onChange={(event) => updateField('vatRate', event.target.value)}
-                />
-                <datalist id="expense-vat-presets">
-                  {EXPENSE_VAT_RATES.map((rate) => (
-                    <option key={rate} value={String(rate)}>
-                      {rate}%
-                    </option>
-                  ))}
-                </datalist>
-                <div className="flex flex-wrap gap-1.5">
-                  {EXPENSE_VAT_RATES.map((rate) => {
-                    const isActive = Number(values.vatRate) === rate;
-
-                    return (
-                      <Button
-                        key={rate}
-                        type="button"
-                        size="sm"
-                        variant={isActive ? 'default' : 'outline'}
-                        className="h-7 px-2 text-xs"
-                        onClick={() => updateField('vatRate', String(rate))}
-                      >
-                        {rate}%
-                      </Button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label>{t.expenseDate}</Label>
-                <Input
-                  type="date"
-                  value={values.expenseDate}
-                  onChange={(event) => handleExpenseDateChange(event.target.value)}
-                />
-              </div>
-
+            {!isManualFlow ? (
               <div className="space-y-1.5">
                 <Label>{t.dueDate}</Label>
                 <Input
@@ -834,27 +1000,12 @@ export function ExpenseFormDialog({
                   onChange={(event) => updateField('dueDate', event.target.value)}
                 />
               </div>
-
-              <div className="space-y-1.5 sm:col-span-2 lg:col-span-2">
-                <Label>{t.supplierRef}</Label>
-                <Input
-                  value={values.supplierRef}
-                  onChange={(event) => updateField('supplierRef', event.target.value)}
-                />
-              </div>
-            </div>
+            ) : null}
           </div>
 
-          <div className="rounded-xl border border-border/70 p-4">
-            <div className="mb-3">
-              <h4 className="text-sm font-semibold">{t.relationSection}</h4>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {normalizeExpenseType(values.expenseType) === 'manual_expense_note'
-                  ? t.relationHintManual
-                  : t.relationHintSupplier}
-              </p>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {/* === Supplier flow: supplier + category === */}
+          {isSupplierFlow ? (
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>{t.supplier}</Label>
                 <select
@@ -870,7 +1021,6 @@ export function ExpenseFormDialog({
                   ))}
                 </select>
               </div>
-
               <div className="space-y-1.5">
                 <Label>{t.category}</Label>
                 <select
@@ -886,306 +1036,709 @@ export function ExpenseFormDialog({
                   ))}
                 </select>
               </div>
+            </div>
+          ) : null}
 
+          {/* === Manual flow: category + payment === */}
+          {isManualFlow ? (
+            <div className="space-y-3">
               <div className="space-y-1.5">
-                <Label>{t.client}</Label>
+                <Label>{t.category}</Label>
                 <select
                   className={selectClassName}
-                  value={values.clientId}
-                  onChange={(event) => updateField('clientId', event.target.value)}
+                  value={values.categoryId}
+                  onChange={(event) => updateField('categoryId', event.target.value)}
                 >
-                  <option value="">{t.noneOption}</option>
-                  {clients.map((client) => (
-                    <option key={client._id} value={client._id}>
-                      {client.fullName}
+                  <option value="">{t.selectPlaceholder}</option>
+                  {categories.map((category) => (
+                    <option key={category._id} value={category._id}>
+                      {category.name}
                     </option>
                   ))}
                 </select>
               </div>
+              {mode === 'create' ? (
+                <>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="space-y-1.5">
+                      <Label>{t.paymentStatus}</Label>
+                      <select
+                        className={selectClassName}
+                        value={values.paymentStatus}
+                        onChange={(event) => updateField('paymentStatus', event.target.value)}
+                      >
+                        {EXPENSE_PAYMENT_STATUS.map((status) => (
+                          <option key={status} value={status}>
+                            {getExpensePaymentStatusLabel(status, locale)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>{t.paymentMethod}</Label>
+                      <select
+                        className={selectClassName}
+                        value={values.paymentMethod}
+                        onChange={(event) => updateField('paymentMethod', event.target.value)}
+                      >
+                        <option value="">{t.noneOption}</option>
+                        {EXPENSE_PAYMENT_METHODS.map((method) => (
+                          <option key={method} value={method}>
+                            {getExpensePaymentMethodLabel(method, locale)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>{t.paidBy}</Label>
+                      <select
+                        className={selectClassName}
+                        value={values.paidBy}
+                        onChange={(event) => updateField('paidBy', event.target.value)}
+                      >
+                        <option value="">{t.noneOption}</option>
+                        {EXPENSE_PAID_BY.map((payer) => (
+                          <option key={payer} value={payer}>
+                            {getExpensePaidByLabel(payer, locale)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  {values.paymentStatus !== 'unpaid' ? (
+                    <div className="grid grid-cols-2 gap-3">
+                      {values.paymentStatus === 'partial' ? (
+                        <div className="space-y-1.5">
+                          <Label>{t.amountPaid}</Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={values.amountPaid}
+                            onChange={(event) => updateField('amountPaid', event.target.value)}
+                          />
+                        </div>
+                      ) : null}
+                      <div className="space-y-1.5">
+                        <Label>{t.paidAt}</Label>
+                        <Input
+                          type="date"
+                          value={values.paidAt}
+                          onChange={(event) => updateField('paidAt', event.target.value)}
+                        />
+                      </div>
+                    </div>
+                  ) : null}
+                </>
+              ) : (
+                <div className="space-y-1.5">
+                  <p className="text-xs text-muted-foreground">{t.paymentEditHint}</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <p className="text-xs text-muted-foreground">{t.paymentStatus}</p>
+                      <p className="text-sm font-medium">
+                        {EXPENSE_PAYMENT_STATUS.includes(values.paymentStatus as (typeof EXPENSE_PAYMENT_STATUS)[number])
+                          ? getExpensePaymentStatusLabel(values.paymentStatus as (typeof EXPENSE_PAYMENT_STATUS)[number], locale)
+                          : t.noneOption}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">{t.amountPaid}</p>
+                      <p className="text-sm font-medium">{amountPaidFromHistory.toFixed(2)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">{t.remainingPreview}</p>
+                      <p className="text-sm font-medium">{remaining.toFixed(2)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">{t.paymentMethod}</p>
+                      <p className="text-sm font-medium">
+                        {EXPENSE_PAYMENT_METHODS.includes(values.paymentMethod as (typeof EXPENSE_PAYMENT_METHODS)[number])
+                          ? getExpensePaymentMethodLabel(values.paymentMethod as (typeof EXPENSE_PAYMENT_METHODS)[number], locale)
+                          : t.noneOption}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">{t.paidBy}</p>
+                      <p className="text-sm font-medium">
+                        {EXPENSE_PAID_BY.includes(values.paidBy as (typeof EXPENSE_PAID_BY)[number])
+                          ? getExpensePaidByLabel(values.paidBy as (typeof EXPENSE_PAID_BY)[number], locale)
+                          : t.noneOption}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">{t.paidAt}</p>
+                      <p className="text-sm font-medium">{values.paidAt || t.noneOption}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : null}
 
-              <div className="space-y-1.5 sm:col-span-2 lg:col-span-3">
-                <Label>{t.addSupplier}</Label>
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <Input
-                    value={inlineSupplierName}
-                    onChange={(event) => setInlineSupplierName(event.target.value)}
-                    placeholder={t.addSupplierPlaceholder}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => void handleCreateSupplier()}
-                    disabled={supplierCreating || !inlineSupplierName.trim()}
+          {/* === Client/Project flow: client + project + category === */}
+          {isClientProjectFlow ? (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>{t.client}</Label>
+                  <select
+                    className={selectClassName}
+                    value={values.clientId}
+                    onChange={(event) => updateField('clientId', event.target.value)}
                   >
-                    {supplierCreating ? <Loader2Icon className="size-4 animate-spin" /> : <PlusIcon className="size-4" />}
-                    {t.createSupplier}
-                  </Button>
+                    <option value="">{t.noneOption}</option>
+                    {clients.map((client) => (
+                      <option key={client._id} value={client._id}>
+                        {client.fullName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>{t.project}</Label>
+                  <Input
+                    value={values.projectId}
+                    onChange={(event) => updateField('projectId', event.target.value)}
+                  />
                 </div>
               </div>
-
-              <div className="space-y-1.5 sm:col-span-2 lg:col-span-3">
-                <Label>{t.invoice}</Label>
-                <Input
-                  value={invoiceSearchInput}
-                  onChange={(event) => setInvoiceSearchInput(event.target.value)}
-                  placeholder={t.invoiceSearchPlaceholder}
-                />
-                {invoiceLookupLoading ? <p className="text-xs text-muted-foreground">{t.invoiceSearchLoading}</p> : null}
-                {!invoiceLookupLoading && debouncedInvoiceSearch && invoiceOptions.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">{t.invoiceNoResults}</p>
-                ) : null}
+              <div className="space-y-1.5">
+                <Label>{t.category}</Label>
                 <select
                   className={selectClassName}
-                  value={values.invoiceId}
-                  onChange={(event) => updateField('invoiceId', event.target.value)}
+                  value={values.categoryId}
+                  onChange={(event) => updateField('categoryId', event.target.value)}
                 >
-                  <option value="">{t.noneOption}</option>
-                  {invoiceOptions.map((invoice) => (
-                    <option key={invoice._id} value={invoice._id}>
-                      {buildInvoiceOptionLabel(invoice, locale)}
+                  <option value="">{t.selectPlaceholder}</option>
+                  {categories.map((category) => (
+                    <option key={category._id} value={category._id}>
+                      {category.name}
                     </option>
                   ))}
                 </select>
               </div>
-
-              <div className="space-y-1.5 sm:col-span-2 lg:col-span-3">
-                <Label>{t.project}</Label>
-                <Input
-                  value={values.projectId}
-                  onChange={(event) => updateField('projectId', event.target.value)}
-                />
-              </div>
             </div>
+          ) : null}
+
+          {/* === Notes (always visible) === */}
+          <div className="space-y-1.5">
+            <Label>{t.notes}</Label>
+            <Textarea
+              rows={2}
+              value={values.notes}
+              onChange={(event) => updateField('notes', event.target.value)}
+            />
           </div>
 
-          <div className="rounded-xl border border-border/70 p-4">
-            <div className="mb-3">
-              <h4 className="text-sm font-semibold">{t.paymentSection}</h4>
-            </div>
-            {mode === 'edit' ? (
-              <div className="space-y-3">
-                <p className="text-xs text-muted-foreground">{t.paymentEditHint}</p>
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  <div className="rounded-lg border border-border/70 bg-muted/20 p-3">
-                    <p className="text-xs text-muted-foreground">{t.paymentStatus}</p>
-                    <p className="text-sm font-semibold">
-                      {EXPENSE_PAYMENT_STATUS.includes(values.paymentStatus as (typeof EXPENSE_PAYMENT_STATUS)[number])
-                        ? getExpensePaymentStatusLabel(values.paymentStatus as (typeof EXPENSE_PAYMENT_STATUS)[number], locale)
-                        : t.noneOption}
-                    </p>
+          {/* === Advanced section toggle === */}
+          <button
+            type="button"
+            className="flex w-full items-center justify-between rounded-lg border border-dashed border-border px-3 py-2 text-sm text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
+            onClick={() => setShowAdvanced((prev) => !prev)}
+          >
+            <span>
+              {isManualFlow
+                ? showAdvanced
+                  ? t.hideOptionalSupplier
+                  : t.addSupplierOptional
+                : showAdvanced
+                  ? t.hideAdvanced
+                  : t.moreOptions}
+            </span>
+            <ChevronDownIcon className={cn('size-4 transition-transform', showAdvanced && 'rotate-180')} />
+          </button>
+
+          {/* === Advanced content === */}
+          {showAdvanced ? (
+            <div className="space-y-3 rounded-lg bg-muted/30 px-4 py-3">
+              {/* SUPPLIER FLOW advanced */}
+              {isSupplierFlow ? (
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label>{t.supplierRef}</Label>
+                      <Input
+                        value={values.supplierRef}
+                        onChange={(event) => updateField('supplierRef', event.target.value)}
+                      />
+                    </div>
                   </div>
 
-                  <div className="rounded-lg border border-border/70 bg-muted/20 p-3">
-                    <div className="flex items-center gap-1.5">
-                      <p className="text-xs text-muted-foreground">{t.amountPaid}</p>
-                      {values.paymentStatus === 'paid' ? (
-                        <TooltipProvider delayDuration={150}>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <button
-                                type="button"
-                                className="inline-flex size-4 items-center justify-center text-muted-foreground hover:text-foreground"
-                                aria-label={t.amountPaidLockedHint}
-                              >
-                                <CircleHelpIcon className="size-3.5" />
-                              </button>
-                            </TooltipTrigger>
-                            <TooltipContent side="top" className="max-w-xs text-xs leading-relaxed">
-                              {t.amountPaidLockedHint}
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
+                  <div className="space-y-1.5">
+                    <Label>{t.addSupplier}</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        value={inlineSupplierName}
+                        onChange={(event) => setInlineSupplierName(event.target.value)}
+                        placeholder={t.addSupplierPlaceholder}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => void handleCreateSupplier()}
+                        disabled={supplierCreating || !inlineSupplierName.trim()}
+                      >
+                        {supplierCreating ? <Loader2Icon className="size-4 animate-spin" /> : <PlusIcon className="size-4" />}
+                        {t.createSupplier}
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label>{t.client}</Label>
+                      <select
+                        className={selectClassName}
+                        value={values.clientId}
+                        onChange={(event) => updateField('clientId', event.target.value)}
+                      >
+                        <option value="">{t.noneOption}</option>
+                        {clients.map((client) => (
+                          <option key={client._id} value={client._id}>
+                            {client.fullName}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>{t.project}</Label>
+                      <Input
+                        value={values.projectId}
+                        onChange={(event) => updateField('projectId', event.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label>{t.invoice}</Label>
+                    <Input
+                      value={invoiceSearchInput}
+                      onChange={(event) => setInvoiceSearchInput(event.target.value)}
+                      placeholder={t.invoiceSearchPlaceholder}
+                    />
+                    {invoiceLookupLoading ? <p className="text-xs text-muted-foreground">{t.invoiceSearchLoading}</p> : null}
+                    {!invoiceLookupLoading && debouncedInvoiceSearch && invoiceOptions.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">{t.invoiceNoResults}</p>
+                    ) : null}
+                    <select
+                      className={selectClassName}
+                      value={values.invoiceId}
+                      onChange={(event) => updateField('invoiceId', event.target.value)}
+                    >
+                      <option value="">{t.noneOption}</option>
+                      {invoiceOptions.map((invoice) => (
+                        <option key={invoice._id} value={invoice._id}>
+                          {buildInvoiceOptionLabel(invoice, locale)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {mode === 'create' ? (
+                    <div className="space-y-3 border-t border-border/50 pt-3">
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t.paymentSection}</p>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="space-y-1.5">
+                          <Label>{t.paymentStatus}</Label>
+                          <select
+                            className={selectClassName}
+                            value={values.paymentStatus}
+                            onChange={(event) => updateField('paymentStatus', event.target.value)}
+                          >
+                            {EXPENSE_PAYMENT_STATUS.map((status) => (
+                              <option key={status} value={status}>
+                                {getExpensePaymentStatusLabel(status, locale)}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label>{t.paymentMethod}</Label>
+                          <select
+                            className={selectClassName}
+                            value={values.paymentMethod}
+                            onChange={(event) => updateField('paymentMethod', event.target.value)}
+                          >
+                            <option value="">{t.noneOption}</option>
+                            {EXPENSE_PAYMENT_METHODS.map((method) => (
+                              <option key={method} value={method}>
+                                {getExpensePaymentMethodLabel(method, locale)}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label>{t.paidBy}</Label>
+                          <select
+                            className={selectClassName}
+                            value={values.paidBy}
+                            onChange={(event) => updateField('paidBy', event.target.value)}
+                          >
+                            <option value="">{t.noneOption}</option>
+                            {EXPENSE_PAID_BY.map((payer) => (
+                              <option key={payer} value={payer}>
+                                {getExpensePaidByLabel(payer, locale)}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                      {values.paymentStatus !== 'unpaid' ? (
+                        <div className="grid grid-cols-2 gap-3">
+                          {values.paymentStatus === 'partial' ? (
+                            <div className="space-y-1.5">
+                              <Label>{t.amountPaid}</Label>
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={values.amountPaid}
+                                onChange={(event) => updateField('amountPaid', event.target.value)}
+                              />
+                            </div>
+                          ) : null}
+                          <div className="space-y-1.5">
+                            <Label>{t.paidAt}</Label>
+                            <Input
+                              type="date"
+                              value={values.paidAt}
+                              onChange={(event) => updateField('paidAt', event.target.value)}
+                            />
+                          </div>
+                        </div>
                       ) : null}
                     </div>
-                    <p className="text-sm font-semibold">{amountPaidFromHistory.toFixed(2)}</p>
-                  </div>
-
-                  <div className="rounded-lg border border-border/70 bg-muted/20 p-3">
-                    <p className="text-xs text-muted-foreground">{t.remainingPreview}</p>
-                    <p className="text-sm font-semibold">{remaining.toFixed(2)}</p>
-                  </div>
-
-                  <div className="rounded-lg border border-border/70 bg-muted/20 p-3">
-                    <p className="text-xs text-muted-foreground">{t.paymentMethod}</p>
-                    <p className="text-sm font-semibold">
-                      {EXPENSE_PAYMENT_METHODS.includes(values.paymentMethod as (typeof EXPENSE_PAYMENT_METHODS)[number])
-                        ? getExpensePaymentMethodLabel(values.paymentMethod as (typeof EXPENSE_PAYMENT_METHODS)[number], locale)
-                        : t.noneOption}
-                    </p>
-                  </div>
-
-                  <div className="rounded-lg border border-border/70 bg-muted/20 p-3">
-                    <p className="text-xs text-muted-foreground">{t.paidBy}</p>
-                    <p className="text-sm font-semibold">
-                      {EXPENSE_PAID_BY.includes(values.paidBy as (typeof EXPENSE_PAID_BY)[number])
-                        ? getExpensePaidByLabel(values.paidBy as (typeof EXPENSE_PAID_BY)[number], locale)
-                        : t.noneOption}
-                    </p>
-                  </div>
-
-                  <div className="rounded-lg border border-border/70 bg-muted/20 p-3">
-                    <p className="text-xs text-muted-foreground">{t.paidAt}</p>
-                    <p className="text-sm font-semibold">{values.paidAt || t.noneOption}</p>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                <div className="space-y-1.5">
-                  <Label>{t.paymentStatus}</Label>
-                  <select
-                    className={selectClassName}
-                    value={values.paymentStatus}
-                    onChange={(event) => updateField('paymentStatus', event.target.value)}
-                  >
-                    {EXPENSE_PAYMENT_STATUS.map((status) => (
-                      <option key={status} value={status}>
-                        {getExpensePaymentStatusLabel(status, locale)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label>{t.paymentMethod}</Label>
-                  <select
-                    className={selectClassName}
-                    value={values.paymentMethod}
-                    onChange={(event) => updateField('paymentMethod', event.target.value)}
-                  >
-                    <option value="">{t.noneOption}</option>
-                    {EXPENSE_PAYMENT_METHODS.map((method) => (
-                      <option key={method} value={method}>
-                        {getExpensePaymentMethodLabel(method, locale)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label>{t.paidBy}</Label>
-                  <select
-                    className={selectClassName}
-                    value={values.paidBy}
-                    onChange={(event) => updateField('paidBy', event.target.value)}
-                  >
-                    <option value="">{t.noneOption}</option>
-                    {EXPENSE_PAID_BY.map((payer) => (
-                      <option key={payer} value={payer}>
-                        {getExpensePaidByLabel(payer, locale)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-1.5">
-                    <Label>{t.amountPaid}</Label>
-                    {values.paymentStatus === 'paid' ? (
-                      <TooltipProvider delayDuration={150}>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <button
-                              type="button"
-                              className="inline-flex size-4 items-center justify-center text-muted-foreground hover:text-foreground"
-                              aria-label={t.amountPaidLockedHint}
-                            >
-                              <CircleHelpIcon className="size-3.5" />
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent side="top" className="max-w-xs text-xs leading-relaxed">
-                            {t.amountPaidLockedHint}
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    ) : null}
-                  </div>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={values.paymentStatus === 'paid' ? amountInclVat.toFixed(2) : values.amountPaid}
-                    onChange={(event) => updateField('amountPaid', event.target.value)}
-                    readOnly={values.paymentStatus === 'paid'}
-                    disabled={values.paymentStatus === 'unpaid'}
-                  />
-                  {values.paymentStatus === 'paid' ? (
-                    <p className="text-xs text-muted-foreground">{t.amountPaidAutoFilledPaid}</p>
                   ) : null}
+
+                  {mode === 'edit' ? (
+                    <div className="space-y-2 border-t border-border/50 pt-3">
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t.paymentSection}</p>
+                      <p className="text-xs text-muted-foreground">{t.paymentEditHint}</p>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <p className="text-xs text-muted-foreground">{t.paymentStatus}</p>
+                          <p className="text-sm font-medium">
+                            {EXPENSE_PAYMENT_STATUS.includes(values.paymentStatus as (typeof EXPENSE_PAYMENT_STATUS)[number])
+                              ? getExpensePaymentStatusLabel(values.paymentStatus as (typeof EXPENSE_PAYMENT_STATUS)[number], locale)
+                              : t.noneOption}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">{t.amountPaid}</p>
+                          <p className="text-sm font-medium">{amountPaidFromHistory.toFixed(2)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">{t.remainingPreview}</p>
+                          <p className="text-sm font-medium">{remaining.toFixed(2)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">{t.paymentMethod}</p>
+                          <p className="text-sm font-medium">
+                            {EXPENSE_PAYMENT_METHODS.includes(values.paymentMethod as (typeof EXPENSE_PAYMENT_METHODS)[number])
+                              ? getExpensePaymentMethodLabel(values.paymentMethod as (typeof EXPENSE_PAYMENT_METHODS)[number], locale)
+                              : t.noneOption}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">{t.paidBy}</p>
+                          <p className="text-sm font-medium">
+                            {EXPENSE_PAID_BY.includes(values.paidBy as (typeof EXPENSE_PAID_BY)[number])
+                              ? getExpensePaidByLabel(values.paidBy as (typeof EXPENSE_PAID_BY)[number], locale)
+                              : t.noneOption}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">{t.paidAt}</p>
+                          <p className="text-sm font-medium">{values.paidAt || t.noneOption}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+                </>
+              ) : null}
+
+              {/* MANUAL FLOW advanced: supplier only */}
+              {isManualFlow ? (
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <Label>{t.supplier}</Label>
+                    <select
+                      className={selectClassName}
+                      value={values.supplierId}
+                      onChange={(event) => updateField('supplierId', event.target.value)}
+                    >
+                      <option value="">{t.selectPlaceholder}</option>
+                      {suppliers.map((supplier) => (
+                        <option key={supplier._id} value={supplier._id}>
+                          {supplier.fullName}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>{t.addSupplier}</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        value={inlineSupplierName}
+                        onChange={(event) => setInlineSupplierName(event.target.value)}
+                        placeholder={t.addSupplierPlaceholder}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => void handleCreateSupplier()}
+                        disabled={supplierCreating || !inlineSupplierName.trim()}
+                      >
+                        {supplierCreating ? <Loader2Icon className="size-4 animate-spin" /> : <PlusIcon className="size-4" />}
+                        {t.createSupplier}
+                      </Button>
+                    </div>
+                  </div>
                 </div>
+              ) : null}
 
-                <div className="space-y-1.5">
-                  <Label>{t.paidAt}</Label>
-                  <Input
-                    type="date"
-                    value={values.paidAt}
-                    onChange={(event) => updateField('paidAt', event.target.value)}
-                  />
-                </div>
-              </div>
-            )}
-          </div>
+              {/* CLIENT/PROJECT FLOW advanced: invoice + supplier + payment */}
+              {isClientProjectFlow ? (
+                <>
+                  <div className="space-y-1.5">
+                    <Label>{t.invoice}</Label>
+                    <Input
+                      value={invoiceSearchInput}
+                      onChange={(event) => setInvoiceSearchInput(event.target.value)}
+                      placeholder={t.invoiceSearchPlaceholder}
+                    />
+                    {invoiceLookupLoading ? <p className="text-xs text-muted-foreground">{t.invoiceSearchLoading}</p> : null}
+                    {!invoiceLookupLoading && debouncedInvoiceSearch && invoiceOptions.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">{t.invoiceNoResults}</p>
+                    ) : null}
+                    <select
+                      className={selectClassName}
+                      value={values.invoiceId}
+                      onChange={(event) => updateField('invoiceId', event.target.value)}
+                    >
+                      <option value="">{t.noneOption}</option>
+                      {invoiceOptions.map((invoice) => (
+                        <option key={invoice._id} value={invoice._id}>
+                          {buildInvoiceOptionLabel(invoice, locale)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-          <div className="rounded-xl border border-border/70 p-4">
-            <div className="mb-3">
-              <h4 className="text-sm font-semibold">{t.extraSection}</h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label>{t.supplier}</Label>
+                      <select
+                        className={selectClassName}
+                        value={values.supplierId}
+                        onChange={(event) => updateField('supplierId', event.target.value)}
+                      >
+                        <option value="">{t.selectPlaceholder}</option>
+                        {suppliers.map((supplier) => (
+                          <option key={supplier._id} value={supplier._id}>
+                            {supplier.fullName}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>{t.supplierRef}</Label>
+                      <Input
+                        value={values.supplierRef}
+                        onChange={(event) => updateField('supplierRef', event.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label>{t.addSupplier}</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        value={inlineSupplierName}
+                        onChange={(event) => setInlineSupplierName(event.target.value)}
+                        placeholder={t.addSupplierPlaceholder}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => void handleCreateSupplier()}
+                        disabled={supplierCreating || !inlineSupplierName.trim()}
+                      >
+                        {supplierCreating ? <Loader2Icon className="size-4 animate-spin" /> : <PlusIcon className="size-4" />}
+                        {t.createSupplier}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {mode === 'create' ? (
+                    <div className="space-y-3 border-t border-border/50 pt-3">
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t.paymentSection}</p>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="space-y-1.5">
+                          <Label>{t.paymentStatus}</Label>
+                          <select
+                            className={selectClassName}
+                            value={values.paymentStatus}
+                            onChange={(event) => updateField('paymentStatus', event.target.value)}
+                          >
+                            {EXPENSE_PAYMENT_STATUS.map((status) => (
+                              <option key={status} value={status}>
+                                {getExpensePaymentStatusLabel(status, locale)}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label>{t.paymentMethod}</Label>
+                          <select
+                            className={selectClassName}
+                            value={values.paymentMethod}
+                            onChange={(event) => updateField('paymentMethod', event.target.value)}
+                          >
+                            <option value="">{t.noneOption}</option>
+                            {EXPENSE_PAYMENT_METHODS.map((method) => (
+                              <option key={method} value={method}>
+                                {getExpensePaymentMethodLabel(method, locale)}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label>{t.paidBy}</Label>
+                          <select
+                            className={selectClassName}
+                            value={values.paidBy}
+                            onChange={(event) => updateField('paidBy', event.target.value)}
+                          >
+                            <option value="">{t.noneOption}</option>
+                            {EXPENSE_PAID_BY.map((payer) => (
+                              <option key={payer} value={payer}>
+                                {getExpensePaidByLabel(payer, locale)}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                      {values.paymentStatus !== 'unpaid' ? (
+                        <div className="grid grid-cols-2 gap-3">
+                          {values.paymentStatus === 'partial' ? (
+                            <div className="space-y-1.5">
+                              <Label>{t.amountPaid}</Label>
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={values.amountPaid}
+                                onChange={(event) => updateField('amountPaid', event.target.value)}
+                              />
+                            </div>
+                          ) : null}
+                          <div className="space-y-1.5">
+                            <Label>{t.paidAt}</Label>
+                            <Input
+                              type="date"
+                              value={values.paidAt}
+                              onChange={(event) => updateField('paidAt', event.target.value)}
+                            />
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+
+                  {mode === 'edit' ? (
+                    <div className="space-y-2 border-t border-border/50 pt-3">
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t.paymentSection}</p>
+                      <p className="text-xs text-muted-foreground">{t.paymentEditHint}</p>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <p className="text-xs text-muted-foreground">{t.paymentStatus}</p>
+                          <p className="text-sm font-medium">
+                            {EXPENSE_PAYMENT_STATUS.includes(values.paymentStatus as (typeof EXPENSE_PAYMENT_STATUS)[number])
+                              ? getExpensePaymentStatusLabel(values.paymentStatus as (typeof EXPENSE_PAYMENT_STATUS)[number], locale)
+                              : t.noneOption}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">{t.amountPaid}</p>
+                          <p className="text-sm font-medium">{amountPaidFromHistory.toFixed(2)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">{t.remainingPreview}</p>
+                          <p className="text-sm font-medium">{remaining.toFixed(2)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">{t.paymentMethod}</p>
+                          <p className="text-sm font-medium">
+                            {EXPENSE_PAYMENT_METHODS.includes(values.paymentMethod as (typeof EXPENSE_PAYMENT_METHODS)[number])
+                              ? getExpensePaymentMethodLabel(values.paymentMethod as (typeof EXPENSE_PAYMENT_METHODS)[number], locale)
+                              : t.noneOption}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">{t.paidBy}</p>
+                          <p className="text-sm font-medium">
+                            {EXPENSE_PAID_BY.includes(values.paidBy as (typeof EXPENSE_PAID_BY)[number])
+                              ? getExpensePaidByLabel(values.paidBy as (typeof EXPENSE_PAID_BY)[number], locale)
+                              : t.noneOption}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">{t.paidAt}</p>
+                          <p className="text-sm font-medium">{values.paidAt || t.noneOption}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+                </>
+              ) : null}
             </div>
-            <div className="grid gap-3">
-              <div className="space-y-1.5">
-                <Label>{t.expenseType}</Label>
-                <select
-                  className={selectClassName}
-                  value={values.expenseType}
-                  onChange={(event) => updateField('expenseType', event.target.value)}
-                >
-                  {EXPENSE_CANONICAL_TYPES.map((type) => (
-                    <option key={type} value={type}>
-                      {getExpenseTypeLabel(type, locale)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label>{t.notes}</Label>
-                <Textarea
-                  rows={4}
-                  value={values.notes}
-                  onChange={(event) => updateField('notes', event.target.value)}
-                />
-              </div>
-            </div>
-          </div>
+          ) : null}
 
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
-          <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>
-              {t.cancel}
-            </Button>
-
-            {mode === 'edit' && initialExpense?.status === 'draft' ? (
-              <>
+          <DialogFooter className="sm:justify-between">
+            <div>
+              {mode === 'create' ? (
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => requestSubmit('default')}
+                  onClick={() => setStep('select-type')}
                   disabled={saving}
                 >
-                  {saving ? <Loader2Icon className="size-4 animate-spin" /> : null}
-                  {t.saveDraft}
+                  {t.back}
                 </Button>
-                <Button type="button" onClick={() => requestSubmit('activate')} disabled={saving}>
-                  {saving ? <Loader2Icon className="size-4 animate-spin" /> : null}
-                  {t.activateDraft}
-                </Button>
-              </>
-            ) : (
-              <Button type="submit" disabled={saving}>
-                {saving ? <Loader2Icon className="size-4 animate-spin" /> : null}
-                {mode === 'create' ? t.create : t.save}
+              ) : null}
+            </div>
+            <div className="flex gap-2">
+              <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>
+                {t.cancel}
               </Button>
-            )}
+
+              {mode === 'edit' && initialExpense?.status === 'draft' ? (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => requestSubmit('default')}
+                    disabled={saving}
+                  >
+                    {saving ? <Loader2Icon className="size-4 animate-spin" /> : null}
+                    {t.saveDraft}
+                  </Button>
+                  <Button type="button" onClick={() => requestSubmit('activate')} disabled={saving}>
+                    {saving ? <Loader2Icon className="size-4 animate-spin" /> : null}
+                    {t.activateDraft}
+                  </Button>
+                </>
+              ) : (
+                <Button type="submit" disabled={saving}>
+                  {saving ? <Loader2Icon className="size-4 animate-spin" /> : null}
+                  {mode === 'create' ? t.create : t.save}
+                </Button>
+              )}
+            </div>
           </DialogFooter>
         </form>
 

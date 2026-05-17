@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { ChangeEvent, DragEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -260,6 +260,7 @@ function resolveExpenseIdFromActionPayload(payload: GenericApiResponse | null) {
 export default function ExpensesPage() {
   const { locale } = useLocale();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, loading: authLoading } = useAuthMe();
   const isMobile = useIsMobile();
 
@@ -303,6 +304,22 @@ export default function ExpensesPage() {
 
     return () => window.clearTimeout(timeout);
   }, [searchInput]);
+
+  // Open create dialog via URL param (?newExpense=1) or custom event (expenses:new)
+  useEffect(() => {
+    if (searchParams.get('newExpense') === '1') {
+      setManualDialogOpen(true);
+      router.replace('/expenses', { scroll: false });
+    }
+  }, [searchParams, router]);
+
+  useEffect(() => {
+    function handleNewExpenseEvent() {
+      setManualDialogOpen(true);
+    }
+    window.addEventListener('expenses:new', handleNewExpenseEvent);
+    return () => window.removeEventListener('expenses:new', handleNewExpenseEvent);
+  }, []);
 
   useEffect(() => {
     setPage(1);
