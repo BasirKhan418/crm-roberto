@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 import {
@@ -92,6 +92,18 @@ type ExpenseAttachment = {
   extension: string;
   sizeBytes: number;
   url: string;
+};
+
+type ExpenseAttachmentMutationResponse = {
+  success: boolean;
+  message?: string;
+  attachment?: ExpenseAttachment;
+};
+
+type ExpenseAttachmentsListResponse = {
+  success: boolean;
+  message?: string;
+  attachments?: ExpenseAttachment[];
 };
 
 type AuditLogEntry = {
@@ -606,6 +618,7 @@ export default function ExpenseDetailPage() {
   const [attachmentDeleteReasonError, setAttachmentDeleteReasonError] = useState<string | null>(null);
   const [previewAttachment, setPreviewAttachment] = useState<ExpenseAttachment | null>(null);
   const [ticketDialogOpen, setTicketDialogOpen] = useState(false);
+  const [attachments, setAttachments] = useState<ExpenseAttachment[]>([]);
 
   const requestedTab = searchParams.get('tab');
   const openedFromDuplicate = searchParams.get('fromDuplicate') === '1';
@@ -691,6 +704,7 @@ export default function ExpenseDetailPage() {
           deleteAttachmentConfirmAction: 'Delete attachment',
           noAttachments: 'No attachments linked to this expense yet.',
           uploadFailed: 'Attachment upload failed',
+          uploadAssociationFailed: 'Attachment uploaded but could not be linked to this expense.',
           uploadSuccess: 'Attachment uploaded',
           deleteSuccess: 'Attachment deleted',
           duplicate: 'Duplicate',
@@ -819,6 +833,7 @@ export default function ExpenseDetailPage() {
           deleteAttachmentConfirmAction: 'Supprimer la pièce jointe',
           noAttachments: 'Aucune pièce jointe sur cette dépense.',
           uploadFailed: 'Échec upload pièce jointe',
+          uploadAssociationFailed: 'La pièce jointe a été envoyée mais elle ne peut pas être liée à cette dépense.',
           uploadSuccess: 'Pièce jointe ajoutée',
           deleteSuccess: 'Pièce jointe supprimée',
           duplicate: 'Dupliquer',
@@ -952,6 +967,63 @@ export default function ExpenseDetailPage() {
     };
   }, [expense?.invoiceId, locale]);
 
+  function mergeAttachmentsById(
+    incoming: ExpenseAttachment[],
+    existing: ExpenseAttachment[]
+  ): ExpenseAttachment[] {
+    const merged = new Map<string, ExpenseAttachment>();
+
+    for (const attachment of incoming) {
+      merged.set(attachment._id, attachment);
+    }
+
+    for (const attachment of existing) {
+      if (!merged.has(attachment._id)) {
+        merged.set(attachment._id, attachment);
+      }
+    }
+
+    return Array.from(merged.values());
+  }
+
+  const refreshAttachmentList = useCallback(async () => {
+    if (!expenseId) {
+      setAttachments([]);
+      return [] as ExpenseAttachment[];
+    }
+
+    const response = await fetch(`/api/expenses/${expenseId}/attachments`, { cache: 'no-store' });
+    const payload = (await response.json().catch(() => null)) as ExpenseAttachmentsListResponse | null;
+
+    if (!response.ok || !payload?.success) {
+      throw new Error(payload?.message || t.actionFailed);
+    }
+
+    const nextAttachments = Array.isArray(payload.attachments) ? payload.attachments : [];
+    setAttachments(nextAttachments);
+    return nextAttachments;
+  }, [expenseId, t.actionFailed]);
+
+  useEffect(() => {
+    if (!expense) {
+      setAttachments([]);
+      return;
+    }
+
+    const incomingAttachments = Array.isArray(expense.attachments) ? expense.attachments : [];
+    setAttachments((existing) => mergeAttachmentsById(incomingAttachments, existing));
+  }, [expense]);
+
+  useEffect(() => {
+    if (!expense || activeTab !== 'attachments') {
+      return;
+    }
+
+    void refreshAttachmentList().catch(() => {
+      // Keep the already loaded expense payload if the attachments endpoint temporarily fails.
+    });
+  }, [activeTab, expense, refreshAttachmentList]);
+
   function pushFeedback(type: 'success' | 'error', message: string) {
     setFeedback({ type, message });
     window.setTimeout(() => {
@@ -964,9 +1036,32 @@ export default function ExpenseDetailPage() {
 
   function openAttachmentUpload() {
     setActiveTab('attachments');
-    window.setTimeout(() => {
+
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
       fileInputRef.current?.click();
-    }, 0);
+    });
+  }
+
+  async function handleRefresh() {
+    const [detailResult, attachmentsResult] = await Promise.allSettled([refetch(), refreshAttachmentList()]);
+
+    if (detailResult.status === 'fulfilled' || attachmentsResult.status === 'fulfilled') {
+      setAttachmentError(null);
+      return;
+    }
+
+    const detailMessage = detailResult.reason instanceof Error ? detailResult.reason.message : null;
+    const attachmentMessage =
+      attachmentsResult.reason instanceof Error ? attachmentsResult.reason.message : null;
+    const message = detailMessage || attachmentMessage || t.actionFailed;
+
+    setAttachmentError(message);
+    pushFeedback('error', message);
   }
 
   async function runAction(action: 'duplicate' | 'archive' | 'restore') {
@@ -1092,8 +1187,10 @@ export default function ExpenseDetailPage() {
     }
   }
 
-  async function uploadAttachment(file: File) {
-    if (!expense) return;
+  async function uploadAttachment(file: File): Promise<ExpenseAttachment> {
+    if (!expense) {
+      throw new Error(t.actionFailed);
+    }
 
     if (expense.status === 'archived') {
       throw new Error(t.archivedReadOnlyHint);
@@ -1169,15 +1266,19 @@ export default function ExpenseDetailPage() {
       }),
     });
 
-    const attachmentPayload = (await attachmentResponse.json().catch(() => null)) as GenericApiResponse | null;
+    const attachmentPayload = (await attachmentResponse.json().catch(() => null)) as
+      | ExpenseAttachmentMutationResponse
+      | null;
 
-    if (!attachmentResponse.ok || !attachmentPayload?.success) {
+    if (!attachmentResponse.ok || !attachmentPayload?.success || !attachmentPayload.attachment?._id) {
       throw new Error(attachmentPayload?.message || t.uploadFailed);
     }
+
+    return attachmentPayload.attachment;
   }
 
-  async function handleAttachmentUpload(files: FileList | null) {
-    if (!files || !expense || !canManageExpenses) {
+  async function handleAttachmentUpload(files: File[] | null) {
+    if (!files || files.length === 0 || !expense || !canManageExpenses) {
       return;
     }
 
@@ -1190,16 +1291,43 @@ export default function ExpenseDetailPage() {
     setAttachmentError(null);
 
     try {
-      for (const file of Array.from(files)) {
-        await uploadAttachment(file);
+      const uploadedAttachments: ExpenseAttachment[] = [];
+
+      for (const file of files) {
+        const createdAttachment = await uploadAttachment(file);
+        uploadedAttachments.push(createdAttachment);
       }
 
-      await refetch();
+      if (uploadedAttachments.length > 0) {
+        setAttachments((previous) => mergeAttachmentsById(uploadedAttachments, previous));
+      }
+
+      const [attachmentsRefreshResult] = await Promise.allSettled([
+        refreshAttachmentList(),
+        refetch(),
+      ]);
+
+      if (attachmentsRefreshResult.status === 'fulfilled' && uploadedAttachments.length > 0) {
+        const refreshedAttachmentIds = new Set(
+          attachmentsRefreshResult.value.map((attachment) => attachment._id)
+        );
+        const hasMissingAssociation = uploadedAttachments.some(
+          (attachment) => !refreshedAttachmentIds.has(attachment._id)
+        );
+
+        if (hasMissingAssociation) {
+          setAttachments((previous) => mergeAttachmentsById(uploadedAttachments, previous));
+        }
+      }
+
+      setAttachmentError(null);
       pushFeedback('success', t.uploadSuccess);
+      toast.success(t.uploadSuccess);
     } catch (uploadError) {
       const message = uploadError instanceof Error ? uploadError.message : t.uploadFailed;
       setAttachmentError(message);
       pushFeedback('error', message);
+      toast.error(message);
     } finally {
       setAttachmentsBusy(false);
     }
@@ -1249,7 +1377,8 @@ export default function ExpenseDetailPage() {
         throw new Error(payload?.message || t.actionFailed);
       }
 
-      await refetch();
+      await Promise.allSettled([refetch(), refreshAttachmentList()]);
+      setAttachmentError(null);
       pushFeedback('success', t.deleteSuccess);
       closeDeleteAttachmentDialog();
     } catch (deleteError) {
@@ -1326,7 +1455,7 @@ export default function ExpenseDetailPage() {
                 {t.back}
               </Link>
             </Button>
-            <Button type="button" variant="outline" size="sm" onClick={() => void refetch()}>
+            <Button type="button" variant="outline" size="sm" onClick={() => void handleRefresh()}>
               <RefreshCwIcon className="size-3.5" />
               {t.refresh}
             </Button>
@@ -1338,6 +1467,19 @@ export default function ExpenseDetailPage() {
             </p>
           ) : null}
         </div>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".pdf,.jpg,.jpeg,.png,.heic"
+          className="hidden"
+          multiple
+          onChange={(event) => {
+            const selectedFiles = event.target.files ? Array.from(event.target.files) : null;
+            event.target.value = '';
+            void handleAttachmentUpload(selectedFiles);
+          }}
+        />
 
         {openedFromDuplicate ? (
           <Card className="border-sky-200/80 bg-sky-50/55 dark:border-sky-900/45 dark:bg-sky-950/20">
@@ -1512,7 +1654,7 @@ export default function ExpenseDetailPage() {
 
                 <div className="rounded-lg border border-teal-200/75 bg-teal-50/70 p-2.5 dark:border-teal-900/45 dark:bg-teal-950/25">
                   <p className="text-[11px] font-medium uppercase tracking-wide text-teal-700/80 dark:text-teal-300/80">{t.heroAttachments}</p>
-                  <p className="mt-1 text-sm font-semibold tabular-nums">{expense.attachments?.length || 0}</p>
+                  <p className="mt-1 text-sm font-semibold tabular-nums">{attachments.length}</p>
                 </div>
               </CardContent>
             </Card>
@@ -1534,7 +1676,7 @@ export default function ExpenseDetailPage() {
 
             {activeTab === 'summary' ? (
               <div className="grid gap-4 lg:grid-cols-3">
-                {expense.status === 'draft' && expense.attachments && expense.attachments.length > 0 ? (
+                {expense.status === 'draft' && attachments.length > 0 ? (
                   <Card className="border-amber-200/80 bg-amber-50/45 dark:border-amber-900/35 dark:bg-amber-950/14 lg:col-span-3">
                     <CardHeader className="pb-2">
                       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1548,26 +1690,26 @@ export default function ExpenseDetailPage() {
                       </div>
                     </CardHeader>
                     <CardContent>
-                      {isImageMimeType(expense.attachments[0]?.mimeType) ? (
+                      {isImageMimeType(attachments[0]?.mimeType) ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
-                          src={expense.attachments[0]?.url}
-                          alt={expense.attachments[0]?.displayName || 'Draft attachment'}
+                          src={attachments[0]?.url}
+                          alt={attachments[0]?.displayName || 'Draft attachment'}
                           className="max-h-90 w-full rounded-lg border border-border/60 object-contain"
                         />
-                      ) : isPdfMimeType(expense.attachments[0]?.mimeType) ? (
+                      ) : isPdfMimeType(attachments[0]?.mimeType) ? (
                         <iframe
-                          src={expense.attachments[0]?.url}
-                          title={expense.attachments[0]?.displayName || 'Draft attachment'}
+                          src={attachments[0]?.url}
+                          title={attachments[0]?.displayName || 'Draft attachment'}
                           className="h-90 w-full rounded-lg border border-border/60"
                         />
                       ) : (
                         <div className="rounded-lg border border-border/60 p-3">
-                          <p className="text-sm font-medium">{expense.attachments[0]?.displayName || '-'}</p>
-                          <p className="mt-1 text-xs text-muted-foreground">{expense.attachments[0]?.mimeType || '-'}</p>
+                          <p className="text-sm font-medium">{attachments[0]?.displayName || '-'}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">{attachments[0]?.mimeType || '-'}</p>
                           <div className="mt-3">
                             <Button asChild type="button" variant="outline" size="sm">
-                              <a href={expense.attachments[0]?.url || '#'} target="_blank" rel="noopener noreferrer">
+                              <a href={attachments[0]?.url || '#'} target="_blank" rel="noopener noreferrer">
                                 <ExternalLinkIcon className="size-3.5" />
                                 {t.openFile}
                               </a>
@@ -1816,33 +1958,22 @@ export default function ExpenseDetailPage() {
                       <Button
                         type="button"
                         variant="outline"
-                        onClick={() => fileInputRef.current?.click()}
+                        onClick={openAttachmentUpload}
                         disabled={attachmentsBusy || isExpenseArchived}
                       >
                         {attachmentsBusy ? <Loader2Icon className="size-4 animate-spin" /> : <FileUpIcon className="size-4" />}
                         {t.uploadAttachment}
                       </Button>
                     ) : null}
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept=".pdf,.jpg,.jpeg,.png,.heic"
-                      className="hidden"
-                      multiple
-                      onChange={(event) => {
-                        void handleAttachmentUpload(event.target.files);
-                        event.target.value = '';
-                      }}
-                    />
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-2.5">
                   {attachmentError ? <p className="text-sm text-destructive">{attachmentError}</p> : null}
 
-                  {!expense.attachments || expense.attachments.length === 0 ? (
+                  {attachments.length === 0 ? (
                     <p className="text-sm text-muted-foreground">{t.noAttachments}</p>
                   ) : (
-                    expense.attachments.map((attachment) => (
+                    attachments.map((attachment) => (
                       <div key={attachment._id} className="rounded-lg border border-sky-200/65 bg-sky-50/55 p-3 dark:border-sky-900/40 dark:bg-sky-950/20">
                         <div className="flex flex-wrap items-start justify-between gap-2">
                           <div className="min-w-0">

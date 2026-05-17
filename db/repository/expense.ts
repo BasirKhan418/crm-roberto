@@ -1618,7 +1618,7 @@ export async function deleteExpenseAttachment(params: {
     params.access
   );
 
-  const expense = await Expense.findOne(expenseQuery).select("_id").lean();
+  const expense = await Expense.findOne(expenseQuery).select("_id status").lean();
   if (!expense) {
     return { success: false as const, message: "Expense not found" };
   }
