@@ -712,6 +712,26 @@ export function ExpenseFormDialog({
     setValues((previous) => ({ ...previous, [field]: next }));
   }
 
+  useEffect(() => {
+    if (mode !== 'create' || values.paymentStatus !== 'unpaid') {
+      return;
+    }
+
+    setValues((previous) => {
+      if (!previous.paymentMethod && !previous.paidBy && !previous.paidAt && !previous.amountPaid) {
+        return previous;
+      }
+
+      return {
+        ...previous,
+        paymentMethod: '',
+        paidBy: '',
+        paidAt: '',
+        amountPaid: '',
+      };
+    });
+  }, [mode, values.paymentStatus]);
+
   function handleExpenseDateChange(nextDate: string) {
     setValues((previous) => {
       const previousAutoDueDate = addDaysToInputDate(previous.expenseDate, DEFAULT_DUE_DATE_DELAY_DAYS);
@@ -902,26 +922,31 @@ export function ExpenseFormDialog({
       if (mode === 'create') {
         payload.status = saveTarget === 'draft' ? 'draft' : 'active';
 
-        const hasPaymentStatus = values.paymentStatus === 'paid' || values.paymentStatus === 'partial';
+        const normalizedPaymentStatus = values.paymentStatus || 'unpaid';
+        const hasPaymentStatus = normalizedPaymentStatus === 'paid' || normalizedPaymentStatus === 'partial';
+        const isUnpaid = normalizedPaymentStatus === 'unpaid';
+
         if (hasPaymentStatus && !values.paidBy) {
           setError(t.paidByRequiredWithPayment);
           setSaving(false);
           return;
         }
 
-        payload.paymentMethod = values.paymentMethod || undefined;
-        payload.paidBy = values.paidBy || undefined;
-        payload.paymentStatus = values.paymentStatus || undefined;
-        payload.amountPaidCents =
-          values.paymentStatus === 'unpaid'
-            ? 0
-            : values.paymentStatus === 'partial' || values.paymentStatus === 'paid'
-              ? computedAmountPaid
-              : undefined;
-        payload.paidAt = values.paidAt || undefined;
+        payload.paymentStatus = normalizedPaymentStatus;
+        payload.amountPaidCents = isUnpaid ? 0 : computedAmountPaid;
 
-        if (values.paymentStatus === 'paid' && !values.paidAt) {
-          payload.paidAt = new Date().toISOString().slice(0, 10);
+        if (isUnpaid) {
+          payload.paymentMethod = undefined;
+          payload.paidBy = undefined;
+          payload.paidAt = undefined;
+        } else {
+          payload.paymentMethod = values.paymentMethod || undefined;
+          payload.paidBy = values.paidBy || undefined;
+          payload.paidAt = values.paidAt || undefined;
+
+          if (normalizedPaymentStatus === 'paid' && !values.paidAt) {
+            payload.paidAt = new Date().toISOString().slice(0, 10);
+          }
         }
       }
 

@@ -468,6 +468,32 @@ function derivePaymentStatus(amountInclVatCents: number, amountPaidCents: number
   return "unpaid";
 }
 
+function buildDuplicatedSupplierReference(sourceReference: unknown): string | null {
+  if (typeof sourceReference !== "string") {
+    return null;
+  }
+
+  const normalizedReference = sourceReference.trim();
+  if (!normalizedReference) {
+    return null;
+  }
+
+  const timestamp = new Date()
+    .toISOString()
+    .replace(/[-:TZ.]/g, "")
+    .slice(0, 14);
+  const randomSuffix = Math.floor(100 + Math.random() * 900);
+  const suffix = `DUP${timestamp}${randomSuffix}`;
+
+  const maxBaseLength = Math.max(0, 140 - suffix.length - 1);
+  const base = normalizedReference.slice(0, maxBaseLength);
+  if (!base) {
+    return suffix;
+  }
+
+  return `${base}-${suffix}`;
+}
+
 function parseSort(options: ListQueryOptions) {
   const direction: 1 | -1 = options.sortOrder === "asc" ? 1 : -1;
   const sortByAllowed = ["expenseDate", "amountInclVatCents", "supplierRef", "status", "createdAt"];
@@ -574,6 +600,18 @@ export async function createManualExpense(params: {
   const amountInclVatCents = computeAmountInclVatCents(params.payload.amountExclVatCents, vatAmountCents);
   const dueDate = params.payload.dueDate ?? addDays(params.payload.expenseDate, DEFAULT_DUE_DATE_DELAY_DAYS);
   const requestedStatus = params.payload.status === "draft" ? "draft" : "active";
+  const requestedPaymentStatus = params.payload.paymentStatus || "unpaid";
+  const normalizedPaymentStatus = requestedStatus === "draft" ? "unpaid" : requestedPaymentStatus;
+  const normalizedPaymentMethod =
+    normalizedPaymentStatus === "unpaid"
+      ? null
+      : toValidExpensePaymentMethod(params.payload.paymentMethod);
+  const normalizedPaidBy =
+    normalizedPaymentStatus === "unpaid" ? null : toValidExpensePaidBy(params.payload.paidBy);
+  const normalizedPaidAt =
+    normalizedPaymentStatus === "unpaid"
+      ? null
+      : params.payload.paidAt ?? params.payload.expenseDate ?? new Date();
 
   const created = await Expense.create({
     companyId: params.companyId,
@@ -604,12 +642,12 @@ export async function createManualExpense(params: {
   const requestedInitialPaymentCents =
     requestedStatus === "draft"
       ? 0
-      : params.payload.paymentStatus === "paid"
+      : normalizedPaymentStatus === "paid"
       ? amountInclVatCents
       : toPositiveCents(params.payload.amountPaidCents);
 
   const initialPaymentCents =
-    requestedStatus === "draft" || params.payload.paymentStatus === "unpaid"
+    requestedStatus === "draft" || normalizedPaymentStatus === "unpaid"
       ? 0
       : Math.min(requestedInitialPaymentCents, amountInclVatCents);
 
@@ -618,9 +656,9 @@ export async function createManualExpense(params: {
       companyId: params.companyId,
       expenseId: created._id,
       amountPaidCents: initialPaymentCents,
-      paidAt: params.payload.paidAt ?? params.payload.expenseDate ?? new Date(),
-      paymentMethod: toValidExpensePaymentMethod(params.payload.paymentMethod),
-      paidBy: toValidExpensePaidBy(params.payload.paidBy),
+      paidAt: normalizedPaidAt,
+      paymentMethod: normalizedPaymentMethod,
+      paidBy: normalizedPaidBy,
       createdBy: params.createdBy,
       source: "manual_create",
     });
@@ -1161,7 +1199,7 @@ export async function duplicateExpense(params: {
     amountPaidCents: 0,
     paidAt: null,
     dueDate: source.dueDate,
-    supplierRef: null,
+    supplierRef: buildDuplicatedSupplierReference(source.supplierRef),
     expenseType: source.expenseType,
     notes: source.notes,
     clientId: source.clientId,
