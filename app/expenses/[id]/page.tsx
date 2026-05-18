@@ -224,6 +224,7 @@ const ATTACHMENT_OTHER_REASON_MIN_CHARS = 10;
 const EXPENSE_DELETE_REASON_MIN_CHARS = 10;
 
 type LinkedInvoiceStatus = 'unpaid' | 'partial_paid' | 'paid' | 'overdue';
+type ExpenseDetailTab = 'summary' | 'attachments' | 'audit' | 'tickets';
 
 function toLocaleString(locale: 'en' | 'fr') {
   return locale === 'fr' ? 'fr-FR' : 'en-GB';
@@ -586,6 +587,14 @@ function resolveExpenseIdFromActionPayload(payload: GenericApiResponse | null) {
   return typeof candidateId === 'string' && candidateId.trim() ? candidateId : null;
 }
 
+function parseExpenseDetailTab(value: string | null): ExpenseDetailTab {
+  if (value === 'attachments' || value === 'audit' || value === 'tickets') {
+    return value;
+  }
+
+  return 'summary';
+}
+
 export default function ExpenseDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -597,8 +606,10 @@ export default function ExpenseDetailPage() {
   const { categories, suppliers, clients, invoices, refetch: refetchLookups } = useExpenseLookups(undefined, 80);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const requestedTab = parseExpenseDetailTab(searchParams.get('tab'));
+  const previousRequestedTabRef = useRef<ExpenseDetailTab>(requestedTab);
 
-  const [activeTab, setActiveTab] = useState<'summary' | 'attachments' | 'audit' | 'tickets'>('summary');
+  const [activeTab, setActiveTab] = useState<ExpenseDetailTab>(requestedTab);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [attachmentsBusy, setAttachmentsBusy] = useState(false);
@@ -620,19 +631,14 @@ export default function ExpenseDetailPage() {
   const [ticketDialogOpen, setTicketDialogOpen] = useState(false);
   const [attachments, setAttachments] = useState<ExpenseAttachment[]>([]);
 
-  const requestedTab = searchParams.get('tab');
   const openedFromDuplicate = searchParams.get('fromDuplicate') === '1';
   const copiedFromExpenseId = (searchParams.get('copiedFrom') || '').trim();
   const copiedSourceLabel = (searchParams.get('copiedLabel') || '').trim();
   const duplicateContextLabel = copiedSourceLabel || copiedFromExpenseId;
 
   useEffect(() => {
-    if (
-      requestedTab === 'summary' ||
-      requestedTab === 'attachments' ||
-      requestedTab === 'audit' ||
-      requestedTab === 'tickets'
-    ) {
+    if (requestedTab !== previousRequestedTabRef.current) {
+      previousRequestedTabRef.current = requestedTab;
       setActiveTab(requestedTab);
     }
   }, [requestedTab]);
@@ -1975,14 +1981,34 @@ export default function ExpenseDetailPage() {
                   ) : (
                     attachments.map((attachment) => (
                       <div key={attachment._id} className="rounded-lg border border-sky-200/65 bg-sky-50/55 p-3 dark:border-sky-900/40 dark:bg-sky-950/20">
-                        <div className="flex flex-wrap items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-medium">{attachment.displayName}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {attachment.mimeType} - {formatBytes(attachment.sizeBytes)}
-                            </p>
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="flex min-w-0 items-start gap-3">
+                            {isImageMimeType(attachment.mimeType) ? (
+                              <button
+                                type="button"
+                                onClick={() => setPreviewAttachment(attachment)}
+                                className="shrink-0 overflow-hidden rounded-md border border-sky-200/75 bg-white/90 transition hover:border-sky-300 dark:border-sky-900/60 dark:bg-slate-950/70"
+                                aria-label={`${t.preview}: ${attachment.displayName}`}
+                              >
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={attachment.url}
+                                  alt={attachment.displayName}
+                                  className="h-16 w-16 object-cover sm:h-20 sm:w-20"
+                                  loading="lazy"
+                                />
+                              </button>
+                            ) : null}
+
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium">{attachment.displayName}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {attachment.mimeType} - {formatBytes(attachment.sizeBytes)}
+                              </p>
+                            </div>
                           </div>
-                          <div className="flex flex-wrap items-center gap-2">
+
+                          <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                             <Button type="button" variant="outline" size="sm" onClick={() => setPreviewAttachment(attachment)}>
                               <PaperclipIcon className="size-3.5" />
                               {t.preview}
