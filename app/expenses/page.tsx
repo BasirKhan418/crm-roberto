@@ -1285,12 +1285,12 @@ export default function ExpensesPage() {
               <Button
                 type="button"
                 size="sm"
-                className="w-full"
+                className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-7 sm:whitespace-nowrap"
                 onClick={() => photoInputRef.current?.click()}
                 disabled={!canManageExpenses}
               >
                 <CameraIcon className="size-4 shrink-0" />
-                <span className="truncate">{t.choosePhoto}</span>
+                <span>{t.choosePhoto}</span>
               </Button>
             </CardContent>
           </Card>
@@ -1304,13 +1304,13 @@ export default function ExpensesPage() {
               <Button
                 type="button"
                 size="sm"
-                className="w-full"
+                className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-7 sm:whitespace-nowrap"
                 variant="outline"
                 onClick={() => importInputRef.current?.click()}
                 disabled={!canManageExpenses}
               >
                 <UploadIcon className="size-4 shrink-0" />
-                <span className="truncate">{t.browseFiles}</span>
+                <span>{t.browseFiles}</span>
               </Button>
             </CardContent>
           </Card>
@@ -1321,9 +1321,15 @@ export default function ExpensesPage() {
               <CardDescription className="text-xs">{t.forwardEmailHint}</CardDescription>
             </CardHeader>
             <CardContent>
-              <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => void copyForwardAddress()}>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-7 sm:whitespace-nowrap"
+                onClick={() => void copyForwardAddress()}
+              >
                 <CopyIcon className="size-4 shrink-0" />
-                <span className="truncate">{copyFeedback ? t.copied : t.copy}</span>
+                <span>{copyFeedback ? t.copied : t.copy}</span>
               </Button>
             </CardContent>
           </Card>
@@ -1361,13 +1367,13 @@ export default function ExpensesPage() {
               <Button
                 type="button"
                 size="sm"
-                className="w-full"
+                className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-7 sm:whitespace-nowrap"
                 variant="secondary"
                 onClick={() => setManualDialogOpen(true)}
                 disabled={!canManageExpenses}
               >
                 <FilePlus2Icon className="size-4 shrink-0" />
-                <span className="truncate">{t.createManual}</span>
+                <span>{t.createManual}</span>
               </Button>
             </CardContent>
           </Card>
@@ -1437,7 +1443,7 @@ export default function ExpensesPage() {
                     />
                   </div>
 
-                  <div className="mt-2 flex items-center gap-2">
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
                     {item.status === 'error' ? (
                       <Button
                         type="button"
@@ -1451,7 +1457,13 @@ export default function ExpensesPage() {
                     ) : null}
 
                     {item.status === 'success' && item.expenseId ? (
-                      <Button asChild type="button" variant="outline" size="sm">
+                      <Button
+                        asChild
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-auto min-h-7 w-full whitespace-normal px-3 py-2 text-center sm:w-auto sm:whitespace-nowrap"
+                      >
                         <Link href={`/expenses/${item.expenseId}`}>
                           <ExternalLinkIcon className="size-3.5" />
                           {t.openAndValidate}
@@ -1467,12 +1479,12 @@ export default function ExpensesPage() {
 
         <Card className="border-amber-200/80 bg-amber-50/45 dark:border-amber-900/35 dark:bg-amber-950/14" data-tour-expenses-drafts>
           <CardHeader className="pb-2">
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <CardTitle className="text-base">{t.draftsSectionTitle}</CardTitle>
                 <CardDescription>{t.draftsSectionSubtitle}</CardDescription>
               </div>
-              <Badge variant="secondary">{t.draftsCountLabel(draftExpenses.length)}</Badge>
+              <Badge variant="secondary" className="self-start sm:self-auto">{t.draftsCountLabel(draftExpenses.length)}</Badge>
             </div>
           </CardHeader>
           <CardContent className="space-y-2.5">
@@ -1485,34 +1497,43 @@ export default function ExpensesPage() {
                 return (
                   <div
                     key={expense._id}
-                    className={`flex flex-wrap items-center justify-between gap-2 rounded-lg border p-2.5 ${getExpenseSurfaceClass(expense.status, expense.paymentStatus)}`}
+                    className={`flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between sm:gap-2 sm:p-2.5 ${getExpenseSurfaceClass(expense.status, expense.paymentStatus)}`}
                   >
-                    <div className="min-w-0">
+                    <div className="min-w-0 space-y-1">
                       <p className="truncate text-sm font-medium">{getSupplierName(expense)}</p>
                       <p className="text-xs text-muted-foreground">
                         {formatDateDisplay(expense.expenseDate)} · {getCategoryName(expense)}
                       </p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex w-full flex-col gap-2 sm:w-auto sm:items-end">
                       <ExpenseMoneyDisplay
                         cents={expense.amountInclVatCents || 0}
                         locale={locale === 'fr' ? 'fr-FR' : 'en-GB'}
                         className="text-sm font-medium"
                       />
-                      <Button asChild type="button" size="sm" variant="outline">
-                        <Link href={`/expenses/${expense._id}`}>{t.openDraft}</Link>
-                      </Button>
-                      {canManageExpenses ? (
+                      <div className="flex flex-col gap-2 sm:flex-row">
                         <Button
+                          asChild
                           type="button"
                           size="sm"
-                          onClick={() => void openEditExpense(expense._id)}
-                          disabled={rowLoading}
+                          variant="outline"
+                          className="h-auto min-h-7 w-full whitespace-normal px-3 py-2 text-center sm:w-auto sm:whitespace-nowrap"
                         >
-                          {rowLoading ? <Loader2Icon className="size-3.5 animate-spin" /> : null}
-                          {t.validateExpense}
+                          <Link href={`/expenses/${expense._id}`}>{t.openDraft}</Link>
                         </Button>
-                      ) : null}
+                        {canManageExpenses ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="h-auto min-h-7 w-full whitespace-normal px-3 py-2 text-center sm:w-auto sm:whitespace-nowrap"
+                            onClick={() => void openEditExpense(expense._id)}
+                            disabled={rowLoading}
+                          >
+                            {rowLoading ? <Loader2Icon className="size-3.5 animate-spin" /> : null}
+                            {t.validateExpense}
+                          </Button>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
                 );
@@ -1834,12 +1855,12 @@ export default function ExpensesPage() {
                         </div>
                       </div>
 
-                      <div className="mt-2 flex items-center justify-between gap-2">
-                        <Button asChild type="button" size="sm" variant="outline">
+                      <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <Button asChild type="button" size="sm" variant="outline" className="w-full sm:w-auto">
                           <Link href={`/expenses/${expense._id}`}>{t.open}</Link>
                         </Button>
 
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex flex-wrap items-center justify-end gap-1.5">
                           {rowLoading ? <Loader2Icon className="size-4 animate-spin text-muted-foreground" /> : null}
                           {canManageExpenses ? (
                             <>
@@ -2256,9 +2277,14 @@ export default function ExpensesPage() {
               {archiveTarget ? t.confirmArchiveDescription(archiveTarget.supplierRef || getSupplierName(archiveTarget)) : ''}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
+          <AlertDialogFooter className="gap-3">
             <AlertDialogCancel asChild>
-              <Button type="button" variant="outline" disabled={Boolean(archiveTarget && actionLoadingId === archiveTarget._id)}>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-8 sm:w-auto sm:whitespace-nowrap"
+                disabled={Boolean(archiveTarget && actionLoadingId === archiveTarget._id)}
+              >
                 {t.confirmArchiveCancel}
               </Button>
             </AlertDialogCancel>
@@ -2266,7 +2292,7 @@ export default function ExpensesPage() {
               <Button
                 type="button"
                 variant="secondary"
-                className="bg-orange-500 text-white hover:bg-orange-600 hover:text-white"
+                className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-8 sm:w-auto sm:whitespace-nowrap bg-orange-500 text-white hover:bg-orange-600 hover:text-white"
                 disabled={!archiveTarget || actionLoadingId === archiveTarget._id}
                 onClick={() => {
                   if (!archiveTarget) {
@@ -2337,9 +2363,14 @@ export default function ExpensesPage() {
               <p className="text-xs font-medium text-destructive">{deleteValidationError}</p>
             ) : null}
           </div>
-          <AlertDialogFooter>
+          <AlertDialogFooter className="gap-3">
             <AlertDialogCancel asChild>
-              <Button type="button" variant="outline" disabled={Boolean(deleteTarget && actionLoadingId === deleteTarget._id)}>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-8 sm:w-auto sm:whitespace-nowrap"
+                disabled={Boolean(deleteTarget && actionLoadingId === deleteTarget._id)}
+              >
                 {t.confirmDeleteCancel}
               </Button>
             </AlertDialogCancel>
@@ -2347,7 +2378,7 @@ export default function ExpensesPage() {
               <Button
                 type="button"
                 variant="destructive"
-                className="bg-destructive text-white hover:bg-destructive/90 hover:text-white"
+                className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-8 sm:w-auto sm:whitespace-nowrap bg-destructive text-white hover:bg-destructive/90 hover:text-white"
                 disabled={!deleteTarget || actionLoadingId === deleteTarget._id}
                 onClick={() => {
                   if (!deleteTarget) {

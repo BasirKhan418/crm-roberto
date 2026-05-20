@@ -1027,8 +1027,8 @@ export function ExpenseFormDialog({
   if (step === 'select-type') {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
+        <DialogContent className="w-[calc(100%-1rem)] gap-3 p-4 pr-4 sm:max-w-lg sm:gap-4 sm:p-5 sm:pr-12">
+          <DialogHeader className="pr-8">
             <DialogTitle>{t.selectTypeTitle}</DialogTitle>
             <DialogDescription>{t.selectTypeDescription}</DialogDescription>
           </DialogHeader>
@@ -1101,8 +1101,8 @@ export function ExpenseFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="overflow-x-hidden sm:max-w-2xl max-h-[92dvh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-h-[92dvh] w-[calc(100%-1rem)] gap-3 overflow-x-hidden overflow-y-auto p-4 pr-4 sm:max-w-2xl sm:gap-4 sm:p-5 sm:pr-12">
+        <DialogHeader className="pr-8">
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
 
@@ -1134,7 +1134,7 @@ export function ExpenseFormDialog({
                 <Button
                   type="button"
                   variant="outline"
-                  className="w-full sm:w-auto"
+                  className="h-auto w-full justify-start whitespace-normal px-3 py-2 text-left sm:h-8 sm:w-auto sm:justify-center sm:whitespace-nowrap"
                   onClick={() => cameraInputRef.current?.click()}
                   disabled={saving || cameraDraftLoading}
                 >
@@ -1201,7 +1201,7 @@ export function ExpenseFormDialog({
           </div>
 
           {/* Date + Due date */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label>{t.expenseDate}</Label>
               <Input
@@ -1224,7 +1224,7 @@ export function ExpenseFormDialog({
 
           {/* === Supplier flow: supplier + category === */}
           {isSupplierFlow ? (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label>{t.supplier}</Label>
                 <select
@@ -1325,7 +1325,7 @@ export function ExpenseFormDialog({
                     </div>
                   </div>
                   {values.paymentStatus !== 'unpaid' ? (
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                       {values.paymentStatus === 'partial' ? (
                         <div className="space-y-1.5">
                           <Label>{t.amountPaid}</Label>
@@ -1352,7 +1352,7 @@ export function ExpenseFormDialog({
               ) : (
                 <div className="space-y-1.5">
                   <p className="text-xs text-muted-foreground">{t.paymentEditHint}</p>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                     <div>
                       <p className="text-xs text-muted-foreground">{t.paymentStatus}</p>
                       <p className="text-sm font-medium">
@@ -1398,7 +1398,7 @@ export function ExpenseFormDialog({
           {/* === Client/Project flow: client + project + category === */}
           {isClientProjectFlow ? (
             <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label>{t.client}</Label>
                   <select
@@ -1474,7 +1474,7 @@ export function ExpenseFormDialog({
               {/* SUPPLIER FLOW advanced */}
               {isSupplierFlow ? (
                 <>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-3">
                     <div className="space-y-1.5">
                       <Label>{t.supplierRef}</Label>
                       <Input
@@ -1486,7 +1486,7 @@ export function ExpenseFormDialog({
 
                   <div className="space-y-1.5">
                     <Label>{t.addSupplier}</Label>
-                    <div className="flex gap-2">
+                    <div className="flex flex-col gap-2 sm:flex-row">
                       <Input
                         value={inlineSupplierName}
                         onChange={(event) => setInlineSupplierName(event.target.value)}
@@ -1495,6 +1495,7 @@ export function ExpenseFormDialog({
                       <Button
                         type="button"
                         variant="outline"
+                        className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-8 sm:w-auto sm:whitespace-nowrap"
                         onClick={() => void handleCreateSupplier()}
                         disabled={supplierCreating || !inlineSupplierName.trim()}
                       >
@@ -1504,7 +1505,7 @@ export function ExpenseFormDialog({
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div className="space-y-1.5">
                       <Label>{t.client}</Label>
                       <select
@@ -1604,7 +1605,7 @@ export function ExpenseFormDialog({
                         </div>
                       </div>
                       {values.paymentStatus !== 'unpaid' ? (
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                           {values.paymentStatus === 'partial' ? (
                             <div className="space-y-1.5">
                               <Label>{t.amountPaid}</Label>
@@ -1634,7 +1635,7 @@ export function ExpenseFormDialog({
                     <div className="space-y-2 border-t border-border/50 pt-3">
                       <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t.paymentSection}</p>
                       <p className="text-xs text-muted-foreground">{t.paymentEditHint}</p>
-                      <div className="grid grid-cols-3 gap-2">
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                         <div>
                           <p className="text-xs text-muted-foreground">{t.paymentStatus}</p>
                           <p className="text-sm font-medium">
@@ -1697,7 +1698,7 @@ export function ExpenseFormDialog({
                   </div>
                   <div className="space-y-1.5">
                     <Label>{t.addSupplier}</Label>
-                    <div className="flex gap-2">
+                    <div className="flex flex-col gap-2 sm:flex-row">
                       <Input
                         value={inlineSupplierName}
                         onChange={(event) => setInlineSupplierName(event.target.value)}
@@ -1706,6 +1707,7 @@ export function ExpenseFormDialog({
                       <Button
                         type="button"
                         variant="outline"
+                        className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-8 sm:w-auto sm:whitespace-nowrap"
                         onClick={() => void handleCreateSupplier()}
                         disabled={supplierCreating || !inlineSupplierName.trim()}
                       >
@@ -1745,7 +1747,7 @@ export function ExpenseFormDialog({
                     </select>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div className="space-y-1.5">
                       <Label>{t.supplier}</Label>
                       <select
@@ -1772,7 +1774,7 @@ export function ExpenseFormDialog({
 
                   <div className="space-y-1.5">
                     <Label>{t.addSupplier}</Label>
-                    <div className="flex gap-2">
+                    <div className="flex flex-col gap-2 sm:flex-row">
                       <Input
                         value={inlineSupplierName}
                         onChange={(event) => setInlineSupplierName(event.target.value)}
@@ -1781,6 +1783,7 @@ export function ExpenseFormDialog({
                       <Button
                         type="button"
                         variant="outline"
+                        className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-8 sm:w-auto sm:whitespace-nowrap"
                         onClick={() => void handleCreateSupplier()}
                         disabled={supplierCreating || !inlineSupplierName.trim()}
                       >
@@ -1840,7 +1843,7 @@ export function ExpenseFormDialog({
                         </div>
                       </div>
                       {values.paymentStatus !== 'unpaid' ? (
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                           {values.paymentStatus === 'partial' ? (
                             <div className="space-y-1.5">
                               <Label>{t.amountPaid}</Label>
@@ -1870,7 +1873,7 @@ export function ExpenseFormDialog({
                     <div className="space-y-2 border-t border-border/50 pt-3">
                       <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t.paymentSection}</p>
                       <p className="text-xs text-muted-foreground">{t.paymentEditHint}</p>
-                      <div className="grid grid-cols-3 gap-2">
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                         <div>
                           <p className="text-xs text-muted-foreground">{t.paymentStatus}</p>
                           <p className="text-sm font-medium">
@@ -1917,12 +1920,13 @@ export function ExpenseFormDialog({
 
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
-          <DialogFooter className="sm:justify-between">
+          <DialogFooter className="gap-3 sm:justify-between">
             <div>
               {mode === 'create' ? (
                 <Button
                   type="button"
                   variant="outline"
+                  className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-8 sm:w-auto sm:whitespace-nowrap"
                   onClick={() => setStep('select-type')}
                   disabled={saving}
                 >
@@ -1930,8 +1934,14 @@ export function ExpenseFormDialog({
                 </Button>
               ) : null}
             </div>
-            <div className="flex gap-2">
-              <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-8 sm:w-auto sm:whitespace-nowrap"
+                onClick={() => onOpenChange(false)}
+                disabled={saving}
+              >
                 {t.cancel}
               </Button>
 
@@ -1940,13 +1950,18 @@ export function ExpenseFormDialog({
                   <Button
                     type="button"
                     variant="outline"
+                    className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-8 sm:w-auto sm:whitespace-nowrap"
                     onClick={() => requestSubmit('draft')}
                     disabled={saving || cameraDraftLoading}
                   >
                     {saving ? <Loader2Icon className="size-4 animate-spin" /> : null}
                     {t.saveDraft}
                   </Button>
-                  <Button type="submit" disabled={saving || cameraDraftLoading}>
+                  <Button
+                    type="submit"
+                    className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-8 sm:w-auto sm:whitespace-nowrap"
+                    disabled={saving || cameraDraftLoading}
+                  >
                     {saving ? <Loader2Icon className="size-4 animate-spin" /> : null}
                     {t.createAndValidate}
                   </Button>
@@ -1956,19 +1971,29 @@ export function ExpenseFormDialog({
                   <Button
                     type="button"
                     variant="outline"
+                    className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-8 sm:w-auto sm:whitespace-nowrap"
                     onClick={() => requestSubmit('default')}
                     disabled={saving}
                   >
                     {saving ? <Loader2Icon className="size-4 animate-spin" /> : null}
                     {t.saveDraft}
                   </Button>
-                  <Button type="button" onClick={() => requestSubmit('activate')} disabled={saving}>
+                  <Button
+                    type="button"
+                    className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-8 sm:w-auto sm:whitespace-nowrap"
+                    onClick={() => requestSubmit('activate')}
+                    disabled={saving}
+                  >
                     {saving ? <Loader2Icon className="size-4 animate-spin" /> : null}
                     {t.activateDraft}
                   </Button>
                 </>
               ) : (
-                <Button type="submit" disabled={saving}>
+                <Button
+                  type="submit"
+                  className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-8 sm:w-auto sm:whitespace-nowrap"
+                  disabled={saving}
+                >
                   {saving ? <Loader2Icon className="size-4 animate-spin" /> : null}
                   {t.save}
                 </Button>
@@ -1986,15 +2011,21 @@ export function ExpenseFormDialog({
                   {confirmTarget === 'activate' ? t.confirmEditDescriptionActivate : t.confirmEditDescriptionDefault}
                 </AlertDialogDescription>
               </AlertDialogHeader>
-              <AlertDialogFooter>
+              <AlertDialogFooter className="gap-3">
                 <AlertDialogCancel asChild>
-                  <Button type="button" variant="outline" disabled={saving}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-8 sm:w-auto sm:whitespace-nowrap"
+                    disabled={saving}
+                  >
                     {t.confirmEditCancel}
                   </Button>
                 </AlertDialogCancel>
                 <AlertDialogAction asChild>
                   <Button
                     type="button"
+                    className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-8 sm:w-auto sm:whitespace-nowrap"
                     disabled={saving}
                     onClick={() => {
                       setConfirmOpen(false);

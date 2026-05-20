@@ -1489,13 +1489,19 @@ export default function ExpenseDetailPage() {
 
         {openedFromDuplicate ? (
           <Card className="border-sky-200/80 bg-sky-50/55 dark:border-sky-900/45 dark:bg-sky-950/20">
-            <CardContent className="flex flex-wrap items-center justify-between gap-2 p-3">
+            <CardContent className="flex flex-col items-start gap-2 p-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-sm font-semibold text-sky-900 dark:text-sky-100">{t.duplicateContextTitle}</p>
                 <p className="text-xs text-sky-800/85 dark:text-sky-200/85">{t.duplicateContextDescription(duplicateContextLabel)}</p>
               </div>
               {copiedFromExpenseId ? (
-                <Button asChild type="button" variant="outline" size="sm">
+                <Button
+                  asChild
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:w-auto sm:whitespace-nowrap"
+                >
                   <Link href={`/expenses/${copiedFromExpenseId}`}>
                     {t.openSourceExpense}
                   </Link>
@@ -1695,12 +1701,18 @@ export default function ExpenseDetailPage() {
                 {expense.status === 'draft' && attachments.length > 0 ? (
                   <Card className="border-amber-200/80 bg-amber-50/45 dark:border-amber-900/35 dark:bg-amber-950/14 lg:col-span-3">
                     <CardHeader className="pb-2">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                           <CardTitle className="text-base">{t.draftAttachmentPreview}</CardTitle>
                           <CardDescription>{t.draftAttachmentPreviewHint}</CardDescription>
                         </div>
-                        <Button type="button" size="sm" variant="outline" onClick={() => setActiveTab('attachments')}>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:w-auto sm:whitespace-nowrap"
+                          onClick={() => setActiveTab('attachments')}
+                        >
                           {t.openAttachmentsTab}
                         </Button>
                       </div>
@@ -1974,6 +1986,7 @@ export default function ExpenseDetailPage() {
                       <Button
                         type="button"
                         variant="outline"
+                        className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:w-auto sm:whitespace-nowrap"
                         onClick={openAttachmentUpload}
                         disabled={attachmentsBusy || isExpenseArchived}
                       >
@@ -2018,12 +2031,24 @@ export default function ExpenseDetailPage() {
                             </div>
                           </div>
 
-                          <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-                            <Button type="button" variant="outline" size="sm" onClick={() => setPreviewAttachment(attachment)}>
+                          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:justify-end">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:w-auto sm:whitespace-nowrap"
+                              onClick={() => setPreviewAttachment(attachment)}
+                            >
                               <PaperclipIcon className="size-3.5" />
                               {t.preview}
                             </Button>
-                            <Button asChild type="button" variant="outline" size="sm">
+                            <Button
+                              asChild
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:w-auto sm:whitespace-nowrap"
+                            >
                               <a href={attachment.url} target="_blank" rel="noopener noreferrer">
                                 <ExternalLinkIcon className="size-3.5" />
                                 {t.openFile}
@@ -2034,6 +2059,7 @@ export default function ExpenseDetailPage() {
                                 type="button"
                                 variant="destructive"
                                 size="sm"
+                                className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:w-auto sm:whitespace-nowrap"
                                 onClick={() => openDeleteAttachmentDialog(attachment)}
                                 disabled={attachmentsBusy || isExpenseArchived}
                               >
@@ -2100,7 +2126,13 @@ export default function ExpenseDetailPage() {
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <CardTitle className="text-base">{t.ticketsTab}</CardTitle>
                     {canManageTickets ? (
-                      <Button type="button" variant="outline" size="sm" onClick={() => setTicketDialogOpen(true)}>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:w-auto sm:whitespace-nowrap"
+                        onClick={() => setTicketDialogOpen(true)}
+                      >
                         <MessageSquarePlusIcon className="size-3.5" />
                         {t.createLinkedTicket}
                       </Button>
@@ -2132,10 +2164,10 @@ export default function ExpenseDetailPage() {
                             </p>
                           </div>
 
-                          <div className="flex items-center gap-2">
+                          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
                             <TicketUnreadIndicator unreadCount={ticket.unreadCount} locale={locale} />
                             <TicketStatusBadge status={ticket.status} locale={locale} />
-                            <Button asChild type="button" variant="outline" size="sm">
+                            <Button asChild type="button" variant="outline" size="sm" className="w-full sm:w-auto">
                               <Link href={`/tickets/${ticket._id}`}>{locale === 'fr' ? 'Ouvrir' : 'Open'}</Link>
                             </Button>
                           </div>
@@ -2255,9 +2287,14 @@ export default function ExpenseDetailPage() {
               {expense ? t.confirmArchiveDescription(expense.supplierRef || resolveEntityLabel(expense.supplierId)) : ''}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
+          <AlertDialogFooter className="gap-3">
             <AlertDialogCancel asChild>
-              <Button type="button" variant="outline" disabled={actionLoading === 'archive'}>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-8 sm:w-auto sm:whitespace-nowrap"
+                disabled={actionLoading === 'archive'}
+              >
                 {t.confirmArchiveCancel}
               </Button>
             </AlertDialogCancel>
@@ -2265,7 +2302,7 @@ export default function ExpenseDetailPage() {
               <Button
                 type="button"
                 variant="secondary"
-                className="bg-orange-500 text-white hover:bg-orange-600 hover:text-white"
+                className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-8 sm:w-auto sm:whitespace-nowrap bg-orange-500 text-white hover:bg-orange-600 hover:text-white"
                 disabled={!expense || actionLoading === 'archive'}
                 onClick={(event) => {
                   event.preventDefault();
@@ -2346,9 +2383,14 @@ export default function ExpenseDetailPage() {
             ) : null}
           </div>
 
-          <AlertDialogFooter>
+          <AlertDialogFooter className="gap-3">
             <AlertDialogCancel asChild>
-              <Button type="button" variant="outline" disabled={attachmentsBusy}>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-8 sm:w-auto sm:whitespace-nowrap"
+                disabled={attachmentsBusy}
+              >
                 {t.confirmDeleteCancel}
               </Button>
             </AlertDialogCancel>
@@ -2356,7 +2398,7 @@ export default function ExpenseDetailPage() {
               <Button
                 type="button"
                 variant="destructive"
-                className="bg-destructive text-white hover:bg-destructive/90 hover:text-white"
+                className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-8 sm:w-auto sm:whitespace-nowrap bg-destructive text-white hover:bg-destructive/90 hover:text-white"
                 disabled={attachmentsBusy}
                 onClick={(event) => {
                   event.preventDefault();
@@ -2422,9 +2464,14 @@ export default function ExpenseDetailPage() {
               <p className="text-xs font-medium text-destructive">{deleteValidationError}</p>
             ) : null}
           </div>
-          <AlertDialogFooter>
+          <AlertDialogFooter className="gap-3">
             <AlertDialogCancel asChild>
-              <Button type="button" variant="outline" disabled={actionLoading === 'delete'}>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-8 sm:w-auto sm:whitespace-nowrap"
+                disabled={actionLoading === 'delete'}
+              >
                 {t.confirmDeleteCancel}
               </Button>
             </AlertDialogCancel>
@@ -2432,7 +2479,7 @@ export default function ExpenseDetailPage() {
               <Button
                 type="button"
                 variant="destructive"
-                className="bg-destructive text-white hover:bg-destructive/90 hover:text-white"
+                className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-8 sm:w-auto sm:whitespace-nowrap bg-destructive text-white hover:bg-destructive/90 hover:text-white"
                 disabled={actionLoading === 'delete'}
                 onClick={() => {
                   void runDelete();

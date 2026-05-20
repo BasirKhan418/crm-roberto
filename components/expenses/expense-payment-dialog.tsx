@@ -290,8 +290,8 @@ export function ExpensePaymentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
+      <DialogContent className="w-[calc(100%-1rem)] gap-3 p-4 pr-4 sm:max-w-md sm:gap-4 sm:p-5 sm:pr-12">
+        <DialogHeader className="pr-8">
           <DialogTitle>{isSettleMode ? t.titleSettle : t.titleAddPayment}</DialogTitle>
           <DialogDescription>{isSettleMode ? t.descriptionSettle : t.descriptionAddPayment}</DialogDescription>
         </DialogHeader>
@@ -364,19 +364,25 @@ export function ExpensePaymentDialog({
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
         </div>
 
-        <DialogFooter>
-          <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>
+        <DialogFooter className="gap-3">
+          <Button
+            type="button"
+            variant="ghost"
+            className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-8 sm:w-auto sm:whitespace-nowrap"
+            onClick={() => onOpenChange(false)}
+            disabled={saving}
+          >
             {t.cancel}
           </Button>
           <Button
             type="button"
             onClick={requestSubmit}
             disabled={saving || !expenseId}
-            className={
+            className={`h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-8 sm:w-auto sm:whitespace-nowrap ${
               isSettleMode
                 ? 'bg-orange-500 text-white hover:bg-orange-600 hover:text-white'
                 : 'bg-emerald-600 text-white hover:bg-emerald-700 hover:text-white'
-            }
+            }`}
           >
             {saving ? <Loader2Icon className="size-4 animate-spin" /> : null}
             {isSettleMode ? t.submitSettle : t.submitAddPayment}
@@ -384,37 +390,42 @@ export function ExpensePaymentDialog({
         </DialogFooter>
 
         <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
+          <AlertDialogContent className="w-[calc(100%-1rem)] gap-3 p-4 pr-4 sm:gap-4 sm:p-5 sm:pr-12">
+            <AlertDialogHeader className="pr-8">
               <AlertDialogTitle>{isSettleMode ? t.confirmTitleSettle : t.confirmTitleAddPayment}</AlertDialogTitle>
               <AlertDialogDescription>
                 {isSettleMode ? t.confirmDescriptionSettle : t.confirmDescriptionAddPayment}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <div className="rounded-lg border border-border/70 bg-muted/20 p-3 text-sm">
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:justify-between">
                 <span className="text-muted-foreground">{t.confirmSummaryEnteredAmount}</span>
                 <span className="font-semibold tabular-nums">{formatEuro(Math.max(0, enteredAmountCents))}</span>
               </div>
-              <div className="mt-1.5 flex items-center justify-between gap-2">
+              <div className="mt-1.5 flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:justify-between">
                 <span className="text-muted-foreground">{t.confirmSummaryRemaining}</span>
                 <span className="font-semibold tabular-nums">{formatEuro(remainingAfterConfirmCents)}</span>
               </div>
             </div>
-            <AlertDialogFooter>
+            <AlertDialogFooter className="gap-3">
               <AlertDialogCancel asChild>
-                <Button type="button" variant="outline" disabled={saving}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-8 sm:w-auto sm:whitespace-nowrap"
+                  disabled={saving}
+                >
                   {t.cancel}
                 </Button>
               </AlertDialogCancel>
               <AlertDialogAction asChild>
                 <Button
                   type="button"
-                  className={
+                  className={`h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-8 sm:w-auto sm:whitespace-nowrap ${
                     isSettleMode
                       ? 'bg-orange-500 text-white hover:bg-orange-600 hover:text-white'
                       : 'bg-emerald-600 text-white hover:bg-emerald-700 hover:text-white'
-                  }
+                  }`}
                   disabled={saving}
                   onClick={() => {
                     setConfirmOpen(false);

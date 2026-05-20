@@ -38,6 +38,7 @@ const headerMessages = {
     logout: "Logout",
     userFallback: "User",
     newExpense: "New Expense",
+    quickActions: "Quick Actions",
   },
   fr: {
     back: "Retour",
@@ -49,6 +50,7 @@ const headerMessages = {
     logout: "Déconnexion",
     userFallback: "Utilisateur",
     newExpense: "Nouvelle dépense",
+    quickActions: "Actions rapides",
   },
 } as const
 
@@ -147,6 +149,15 @@ export function SiteHeader({ title = "Documents" }: { title?: string }) {
     router.push(backFallbackHref)
   }
 
+  function handleCreateExpense() {
+    if (pathname === "/expenses") {
+      window.dispatchEvent(new CustomEvent("expenses:new"))
+      return
+    }
+
+    router.push("/expenses?newExpense=1")
+  }
+
   return (
     <header className="shrink-0 border-b bg-background/95 transition-[width,height] ease-linear supports-backdrop-filter:bg-background/80">
       <div className="flex min-h-(--header-height) w-full flex-wrap items-center gap-2 px-4 py-3 lg:gap-3 lg:px-6">
@@ -156,7 +167,7 @@ export function SiteHeader({ title = "Documents" }: { title?: string }) {
             orientation="vertical"
             className="mx-1 hidden data-[orientation=vertical]:h-4 lg:block"
           />
-          <h1 className="min-w-0 text-base font-medium">{title}</h1>
+          <h1 className="min-w-0 truncate text-base font-medium">{title}</h1>
         </div>
 
         {!isDashboard ? (
@@ -183,23 +194,44 @@ export function SiteHeader({ title = "Documents" }: { title?: string }) {
         ) : null}
 
         <div className="order-2 flex shrink-0 items-center gap-2 lg:order-3 lg:ml-auto">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-9 shrink-0 rounded-full px-3"
-            onClick={() => {
-              if (pathname === "/expenses") {
-                window.dispatchEvent(new CustomEvent("expenses:new"))
-              } else {
-                router.push("/expenses?newExpense=1")
-              }
-            }}
-          >
-            <PlusIcon className="size-4" />
-            <span className="hidden sm:inline">{t.newExpense}</span>
-          </Button>
-          <GlobalTicketCreate />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-9 w-9 shrink-0 rounded-full p-0 lg:hidden"
+                aria-label={t.quickActions}
+              >
+                <PlusIcon className="size-4" />
+                <span className="sr-only">{t.quickActions}</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48 lg:hidden">
+              <DropdownMenuGroup>
+                <DropdownMenuItem onSelect={handleCreateExpense}>
+                  <PlusIcon className="size-4" />
+                  {t.newExpense}
+                </DropdownMenuItem>
+                <GlobalTicketCreate trigger="menu-item" />
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <div className="hidden items-center gap-2 lg:flex">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-9 shrink-0 rounded-full px-3"
+              onClick={handleCreateExpense}
+            >
+              <PlusIcon className="size-4" />
+              <span>{t.newExpense}</span>
+            </Button>
+            <GlobalTicketCreate />
+          </div>
+
           <NotificationsBell />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

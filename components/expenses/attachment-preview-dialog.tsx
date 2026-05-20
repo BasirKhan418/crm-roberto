@@ -50,8 +50,8 @@ export function AttachmentPreviewDialog({ open, onOpenChange, attachment, locale
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="p-4 pr-4 sm:max-w-4xl sm:p-5 sm:pr-5">
-        <DialogHeader>
+      <DialogContent className="w-[calc(100%-1rem)] gap-3 p-4 pr-4 sm:max-w-4xl sm:gap-4 sm:p-5 sm:pr-5">
+        <DialogHeader className="pr-8">
           <DialogTitle>{attachment?.name || t.title}</DialogTitle>
           <DialogDescription>{t.description}</DialogDescription>
         </DialogHeader>
@@ -81,8 +81,8 @@ export function AttachmentPreviewDialog({ open, onOpenChange, attachment, locale
               ) : null}
             </div>
 
-            <div className="flex justify-end">
-              <Button asChild variant="outline">
+            <div className="flex justify-stretch sm:justify-end">
+              <Button asChild variant="outline" className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:w-auto sm:whitespace-nowrap">
                 <a href={attachment.url} target="_blank" rel="noreferrer noopener">
                   <ExternalLinkIcon className="size-4" />
                   {t.openInTab}
