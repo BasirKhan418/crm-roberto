@@ -1012,7 +1012,7 @@ export function ExpenseFormDialog({
   }
 
   const title = mode === 'create' ? t.createTitle : t.editTitle;
-  const selectClassName = 'h-9 w-full rounded-lg border border-input bg-background px-2.5 text-sm';
+  const selectClassName = 'h-10 w-full rounded-lg border border-input bg-background px-2.5 text-sm';
 
   const isSupplierFlow = uiFlow === 'supplier_expense';
   const isManualFlow = uiFlow === 'manual_expense_note';
@@ -1027,7 +1027,7 @@ export function ExpenseFormDialog({
   if (step === 'select-type') {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{t.selectTypeTitle}</DialogTitle>
             <DialogDescription>{t.selectTypeDescription}</DialogDescription>
@@ -1101,7 +1101,7 @@ export function ExpenseFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="overflow-x-hidden sm:max-w-2xl max-h-[92dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
@@ -1134,6 +1134,7 @@ export function ExpenseFormDialog({
                 <Button
                   type="button"
                   variant="outline"
+                  className="w-full sm:w-auto"
                   onClick={() => cameraInputRef.current?.click()}
                   disabled={saving || cameraDraftLoading}
                 >
@@ -1145,8 +1146,8 @@ export function ExpenseFormDialog({
           ) : null}
 
           {/* === Financial fields === */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="col-span-2 space-y-1.5">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="space-y-1.5 sm:col-span-2">
               <Label>{t.amountExclVat}</Label>
               <Input
                 type="number"
@@ -1277,7 +1278,7 @@ export function ExpenseFormDialog({
               </div>
               {mode === 'create' ? (
                 <>
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                     <div className="space-y-1.5">
                       <Label>{t.paymentStatus}</Label>
                       <select
@@ -1556,7 +1557,7 @@ export function ExpenseFormDialog({
                   {mode === 'create' ? (
                     <div className="space-y-3 border-t border-border/50 pt-3">
                       <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t.paymentSection}</p>
-                      <div className="grid grid-cols-3 gap-3">
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                         <div className="space-y-1.5">
                           <Label>{t.paymentStatus}</Label>
                           <select
@@ -1792,7 +1793,7 @@ export function ExpenseFormDialog({
                   {mode === 'create' ? (
                     <div className="space-y-3 border-t border-border/50 pt-3">
                       <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t.paymentSection}</p>
-                      <div className="grid grid-cols-3 gap-3">
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                         <div className="space-y-1.5">
                           <Label>{t.paymentStatus}</Label>
                           <select

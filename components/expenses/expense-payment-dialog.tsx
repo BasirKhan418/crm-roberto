@@ -290,7 +290,7 @@ export function ExpensePaymentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{isSettleMode ? t.titleSettle : t.titleAddPayment}</DialogTitle>
           <DialogDescription>{isSettleMode ? t.descriptionSettle : t.descriptionAddPayment}</DialogDescription>
@@ -331,7 +331,7 @@ export function ExpensePaymentDialog({
             <div className="space-y-1.5">
               <Label>{t.methodLabel}</Label>
               <select
-                className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
+                className="h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
                 value={paymentMethod}
                 onChange={(event) => setPaymentMethod(event.target.value)}
               >
@@ -347,7 +347,7 @@ export function ExpensePaymentDialog({
             <div className="space-y-1.5">
               <Label>{t.paidByLabel}</Label>
               <select
-                className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
+                className="h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
                 value={paidBy}
                 onChange={(event) => setPaidBy(event.target.value)}
               >

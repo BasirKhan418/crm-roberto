@@ -1531,37 +1531,37 @@ export default function ExpensesPage() {
                 <Label>{t.quickFiltersLabel}</Label>
                 <div className="overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                   <TabsList className="inline-flex h-auto min-w-max items-center gap-1 rounded-lg border border-border/80 bg-muted/10 p-1 shadow-xs">
-                    <TabsTrigger value="all" className="min-h-6 rounded-md border border-transparent px-3 py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
+                    <TabsTrigger value="all" className="min-h-9 rounded-md border border-transparent px-3 py-2.5 sm:py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
                       <span>{t.all}</span>
                       <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-slate-600 px-1.5 text-[10px] font-semibold leading-none text-white shadow-sm">
                         {allCount > 99 ? '99+' : allCount}
                       </span>
                     </TabsTrigger>
-                    <TabsTrigger value="drafts" className="min-h-6 rounded-md border border-border/80 px-3 py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
+                    <TabsTrigger value="drafts" className="min-h-9 rounded-md border border-border/80 px-3 py-2.5 sm:py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
                       <span>{t.kpiDrafts}</span>
                       <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-600 px-1.5 text-[10px] font-semibold leading-none text-white shadow-sm">
                         {draftsCount > 99 ? '99+' : draftsCount}
                       </span>
                     </TabsTrigger>
-                    <TabsTrigger value="unpaid" className="min-h-6 rounded-md border border-border/80 px-3 py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
+                    <TabsTrigger value="unpaid" className="min-h-9 rounded-md border border-border/80 px-3 py-2.5 sm:py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
                       <span>{t.kpiUnpaid}</span>
                       <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-600 px-1.5 text-[10px] font-semibold leading-none text-white shadow-sm">
                         {unpaidCount > 99 ? '99+' : unpaidCount}
                       </span>
                     </TabsTrigger>
-                    <TabsTrigger value="partial" className="min-h-6 rounded-md border border-border/80 px-3 py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
+                    <TabsTrigger value="partial" className="min-h-9 rounded-md border border-border/80 px-3 py-2.5 sm:py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
                       <span>{t.kpiPartial}</span>
                       <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-600 px-1.5 text-[10px] font-semibold leading-none text-white shadow-sm">
                         {partialCount > 99 ? '99+' : partialCount}
                       </span>
                     </TabsTrigger>
-                    <TabsTrigger value="paid" className="min-h-6 rounded-md border border-border/80 px-3 py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
+                    <TabsTrigger value="paid" className="min-h-9 rounded-md border border-border/80 px-3 py-2.5 sm:py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
                       <span>{t.kpiPaid}</span>
                       <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-600 px-1.5 text-[10px] font-semibold leading-none text-white shadow-sm">
                         {paidCount > 99 ? '99+' : paidCount}
                       </span>
                     </TabsTrigger>
-                    <TabsTrigger value="archived" className="min-h-6 rounded-md border border-border/80 px-3 py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
+                    <TabsTrigger value="archived" className="min-h-9 rounded-md border border-border/80 px-3 py-2.5 sm:py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
                       <span>{t.statusLabels.archived}</span>
                       <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-slate-600 px-1.5 text-[10px] font-semibold leading-none text-white shadow-sm">
                         {archivedCount > 99 ? '99+' : archivedCount}
@@ -1589,7 +1589,7 @@ export default function ExpensesPage() {
               <div className="space-y-1.5">
                 <Label>{t.statusLabel}</Label>
                 <select
-                  className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
+                  className="h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
                   value={statusFilter}
                   onChange={(event) => setStatusFilter(event.target.value)}
                 >
@@ -1605,7 +1605,7 @@ export default function ExpensesPage() {
               <div className="space-y-1.5">
                 <Label>{t.paymentStatusLabel}</Label>
                 <select
-                  className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
+                  className="h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
                   value={paymentStatusFilter}
                   onChange={(event) => setPaymentStatusFilter(event.target.value)}
                 >
@@ -1621,7 +1621,7 @@ export default function ExpensesPage() {
               <div className="space-y-1.5">
                 <Label>{t.categoryLabel}</Label>
                 <select
-                  className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
+                  className="h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
                   value={categoryFilter}
                   onChange={(event) => setCategoryFilter(event.target.value)}
                 >
@@ -1637,7 +1637,7 @@ export default function ExpensesPage() {
               <div className="space-y-1.5">
                 <Label>{t.supplierLabel}</Label>
                 <select
-                  className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
+                  className="h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
                   value={supplierFilter}
                   onChange={(event) => setSupplierFilter(event.target.value)}
                 >
@@ -1652,18 +1652,18 @@ export default function ExpensesPage() {
 
               <div className="space-y-1.5">
                 <Label>{t.periodStartLabel}</Label>
-                <Input type="date" value={periodStart} onChange={(event) => setPeriodStart(event.target.value)} className="h-8 text-sm" />
+                <Input type="date" value={periodStart} onChange={(event) => setPeriodStart(event.target.value)} className="h-10 text-sm" />
               </div>
 
               <div className="space-y-1.5">
                 <Label>{t.periodEndLabel}</Label>
-                <Input type="date" value={periodEnd} onChange={(event) => setPeriodEnd(event.target.value)} className="h-8 text-sm" />
+                <Input type="date" value={periodEnd} onChange={(event) => setPeriodEnd(event.target.value)} className="h-10 text-sm" />
               </div>
 
               <div className="space-y-1.5">
                 <Label>{t.sortByLabel}</Label>
                 <select
-                  className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
+                  className="h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
                   value={sortBy}
                   onChange={(event) => setSortBy(event.target.value)}
                 >
@@ -1678,7 +1678,7 @@ export default function ExpensesPage() {
               <div className="space-y-1.5">
                 <Label>{t.sortOrderLabel}</Label>
                 <select
-                  className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
+                  className="h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
                   value={sortOrder}
                   onChange={(event) => setSortOrder(event.target.value as 'asc' | 'desc')}
                 >
@@ -1692,7 +1692,7 @@ export default function ExpensesPage() {
               <div className="flex items-center gap-2">
                 <Label>{t.rowsPerPage}</Label>
                 <select
-                  className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm"
+                  className="h-10 rounded-lg border border-input bg-transparent px-2.5 text-sm"
                   value={String(limit)}
                   onChange={(event) => setLimit(Number(event.target.value))}
                 >

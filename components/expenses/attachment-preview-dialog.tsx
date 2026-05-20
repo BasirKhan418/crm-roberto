@@ -50,7 +50,7 @@ export function AttachmentPreviewDialog({ open, onOpenChange, attachment, locale
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl">
+      <DialogContent className="p-4 pr-4 sm:max-w-4xl sm:p-5 sm:pr-5">
         <DialogHeader>
           <DialogTitle>{attachment?.name || t.title}</DialogTitle>
           <DialogDescription>{t.description}</DialogDescription>
@@ -58,13 +58,13 @@ export function AttachmentPreviewDialog({ open, onOpenChange, attachment, locale
 
         {attachment ? (
           <div className="space-y-3">
-            <div className="rounded-lg border bg-muted/20 p-2">
+            <div className="overflow-hidden rounded-lg border bg-muted/20 p-2">
               {isImageMime(attachment.mimeType) ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={attachment.url}
                   alt={attachment.name}
-                  className="max-h-[70vh] w-full rounded-md object-contain"
+                  className="max-h-[50vh] w-full rounded-md object-contain sm:max-h-[70vh]"
                 />
               ) : null}
 
@@ -72,7 +72,7 @@ export function AttachmentPreviewDialog({ open, onOpenChange, attachment, locale
                 <iframe
                   src={attachment.url}
                   title={attachment.name}
-                  className="h-[70vh] w-full rounded-md"
+                  className="h-[50vh] w-full rounded-md sm:h-[70vh]"
                 />
               ) : null}
 

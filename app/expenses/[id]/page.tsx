@@ -1539,9 +1539,11 @@ export default function ExpenseDetailPage() {
                           size="sm"
                           onClick={() => setEditDialogOpen(true)}
                           disabled={Boolean(actionLoading) || isExpenseArchived}
+                          title={t.edit}
+                          aria-label={t.edit}
                         >
                           <PencilIcon className="size-4" />
-                          {t.edit}
+                          <span className="hidden sm:inline">{t.edit}</span>
                         </Button>
                         <Button
                           type="button"
@@ -1549,9 +1551,11 @@ export default function ExpenseDetailPage() {
                           size="sm"
                           onClick={() => setSettleExpenseOpen(true)}
                           disabled={Boolean(actionLoading) || expense.paymentStatus === 'paid' || isExpenseArchived}
+                          title={t.settleExpense}
+                          aria-label={t.settleExpense}
                         >
                           <CheckCircle2Icon className="size-4" />
-                          {t.settleExpense}
+                          <span className="hidden sm:inline">{t.settleExpense}</span>
                         </Button>
                         <Button
                           type="button"
@@ -1559,9 +1563,11 @@ export default function ExpenseDetailPage() {
                           size="sm"
                           onClick={() => setAddPaymentOpen(true)}
                           disabled={Boolean(actionLoading) || expense.paymentStatus === 'paid' || isExpenseArchived}
+                          title={t.addPayment}
+                          aria-label={t.addPayment}
                         >
                           <MessageSquarePlusIcon className="size-4" />
-                          {t.addPayment}
+                          <span className="hidden sm:inline">{t.addPayment}</span>
                         </Button>
                         <Button
                           type="button"
@@ -1569,9 +1575,11 @@ export default function ExpenseDetailPage() {
                           size="sm"
                           onClick={() => void runAction('duplicate')}
                           disabled={Boolean(actionLoading) || isExpenseArchived}
+                          title={t.duplicate}
+                          aria-label={t.duplicate}
                         >
                           <CopyIcon className="size-4" />
-                          {t.duplicate}
+                          <span className="hidden sm:inline">{t.duplicate}</span>
                         </Button>
                         <Button
                           type="button"
@@ -1579,9 +1587,11 @@ export default function ExpenseDetailPage() {
                           size="sm"
                           onClick={openAttachmentUpload}
                           disabled={attachmentsBusy || Boolean(actionLoading) || isExpenseArchived}
+                          title={t.addAttachment}
+                          aria-label={t.addAttachment}
                         >
                           {attachmentsBusy ? <Loader2Icon className="size-4 animate-spin" /> : <PaperclipIcon className="size-4" />}
-                          {t.addAttachment}
+                          <span className="hidden sm:inline">{t.addAttachment}</span>
                         </Button>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -1665,17 +1675,17 @@ export default function ExpenseDetailPage() {
               </CardContent>
             </Card>
 
-            <div className="flex flex-wrap gap-2 rounded-xl border border-slate-200/80 bg-slate-50/60 p-1.5 dark:border-slate-800/70 dark:bg-slate-950/25">
-              <Button type="button" size="sm" variant={activeTab === 'summary' ? 'default' : 'outline'} onClick={() => setActiveTab('summary')}>
+            <div className="grid grid-cols-2 gap-1.5 rounded-xl border border-slate-200/80 bg-slate-50/60 p-1.5 sm:flex sm:flex-wrap sm:gap-2 dark:border-slate-800/70 dark:bg-slate-950/25">
+              <Button type="button" size="sm" variant={activeTab === 'summary' ? 'default' : 'outline'} onClick={() => setActiveTab('summary')} className="w-full sm:w-auto">
                 {t.summaryTab}
               </Button>
-              <Button type="button" size="sm" variant={activeTab === 'attachments' ? 'default' : 'outline'} onClick={() => setActiveTab('attachments')}>
+              <Button type="button" size="sm" variant={activeTab === 'attachments' ? 'default' : 'outline'} onClick={() => setActiveTab('attachments')} className="w-full sm:w-auto">
                 {t.attachmentsTab}
               </Button>
-              <Button type="button" size="sm" variant={activeTab === 'audit' ? 'default' : 'outline'} onClick={() => setActiveTab('audit')}>
+              <Button type="button" size="sm" variant={activeTab === 'audit' ? 'default' : 'outline'} onClick={() => setActiveTab('audit')} className="w-full sm:w-auto">
                 {t.auditTab}
               </Button>
-              <Button type="button" size="sm" variant={activeTab === 'tickets' ? 'default' : 'outline'} onClick={() => setActiveTab('tickets')}>
+              <Button type="button" size="sm" variant={activeTab === 'tickets' ? 'default' : 'outline'} onClick={() => setActiveTab('tickets')} className="w-full sm:w-auto">
                 {t.ticketsTab}
               </Button>
             </div>
@@ -2297,7 +2307,7 @@ export default function ExpenseDetailPage() {
               <Label htmlFor="expense-attachment-delete-reason">{t.deleteAttachmentReasonLabel}</Label>
               <select
                 id="expense-attachment-delete-reason"
-                className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
+                className="h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
                 value={attachmentDeleteReason}
                 onChange={(event) => {
                   setAttachmentDeleteReason(event.target.value);
