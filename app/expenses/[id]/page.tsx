@@ -59,6 +59,7 @@ import { useExpenseDetail } from '@/hooks/useExpenseDetail';
 import { createInlineExpenseSupplier, useExpenseLookups } from '@/hooks/useExpenseLookups';
 import { useTickets } from '@/hooks/useTickets';
 import { canPermanentlyDeleteExpense, canRestoreArchivedExpense } from '@/lib/expenses/access';
+import { isExpenseReadyForPayment } from '@/lib/expenses/payment-readiness';
 import {
   EXPENSE_MAX_FILE_SIZE_BYTES,
   formatFileSizeMb,
@@ -716,6 +717,7 @@ export default function ExpenseDetailPage() {
           duplicate: 'Duplicate',
           archive: 'Archive',
           edit: 'Edit',
+          completeExpense: 'Complete expense',
           settleExpense: 'Settle expense',
           settleExpenseSuccess: 'Expense settled',
           addPayment: 'Add payment',
@@ -766,7 +768,8 @@ export default function ExpenseDetailPage() {
           ticketCreated: 'Ticket created',
           ticketAssignedTo: 'Assigned to',
           ticketUpdatedAt: 'Updated at',
-          statusDraftHint: 'This expense is still draft. Complete fields and validate it from the edit dialog.',
+          statusDraftHint: 'This expense is still a draft. Complete the fields and finalize it from the completion dialog.',
+          completeExpenseFirst: 'Please complete the expense first.',
           draftAttachmentPreview: 'Imported file preview',
           draftAttachmentPreviewHint: 'Visual preview of the first file linked to this draft.',
           openAttachmentsTab: 'Open attachments tab',
@@ -845,6 +848,7 @@ export default function ExpenseDetailPage() {
           duplicate: 'Dupliquer',
           archive: 'Archiver',
           edit: 'Modifier',
+          completeExpense: 'Compléter la dépense',
           settleExpense: 'Solder la dépense',
           settleExpenseSuccess: 'Dépense soldée',
           addPayment: 'Ajouter un paiement',
@@ -895,7 +899,8 @@ export default function ExpenseDetailPage() {
           ticketCreated: 'Ticket créé',
           ticketAssignedTo: 'Assigné à',
           ticketUpdatedAt: 'Mis à jour le',
-          statusDraftHint: 'Cette dépense est brouillon. Complétez et validez depuis le formulaire de modification.',
+          statusDraftHint: 'Cette dépense est encore un brouillon. Complétez les champs et finalisez-la depuis le formulaire de finalisation.',
+          completeExpenseFirst: "Veuillez compléter la dépense d'abord.",
           draftAttachmentPreview: 'Aperçu du fichier importé',
           draftAttachmentPreviewHint: 'Aperçu visuel du premier fichier lié à ce brouillon.',
           openAttachmentsTab: 'Ouvrir les pièces jointes',
@@ -936,7 +941,17 @@ export default function ExpenseDetailPage() {
     [expense?.auditLogs]
   );
 
+  const isDraftExpense = expense?.status === 'draft';
   const isExpenseArchived = expense?.status === 'archived';
+  const expensePaymentReady = expense ? isExpenseReadyForPayment(expense) : false;
+  const paymentBlockedReason =
+    expense && !expensePaymentReady && !isExpenseArchived && expense.paymentStatus !== 'paid'
+      ? t.completeExpenseFirst
+      : null;
+  const canRecordPayment = Boolean(
+    expense && expensePaymentReady && !isExpenseArchived && expense.paymentStatus !== 'paid'
+  );
+  const dialogAttachments = expense ? (attachments.length > 0 ? attachments : expense.attachments || []) : [];
 
   const linkedInvoiceSummary = useMemo(() => {
     const invoiceValue = expense?.invoiceId;
@@ -1541,40 +1556,46 @@ export default function ExpenseDetailPage() {
                       <>
                         <Button
                           type="button"
-                          variant="outline"
+                          variant={isDraftExpense ? 'default' : 'outline'}
                           size="sm"
                           onClick={() => setEditDialogOpen(true)}
                           disabled={Boolean(actionLoading) || isExpenseArchived}
-                          title={t.edit}
-                          aria-label={t.edit}
+                          title={isDraftExpense ? t.completeExpense : t.edit}
+                          aria-label={isDraftExpense ? t.completeExpense : t.edit}
                         >
                           <PencilIcon className="size-4" />
-                          <span className="hidden sm:inline">{t.edit}</span>
+                          <span className={isDraftExpense ? '' : 'hidden sm:inline'}>
+                            {isDraftExpense ? t.completeExpense : t.edit}
+                          </span>
                         </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setSettleExpenseOpen(true)}
-                          disabled={Boolean(actionLoading) || expense.paymentStatus === 'paid' || isExpenseArchived}
-                          title={t.settleExpense}
-                          aria-label={t.settleExpense}
-                        >
-                          <CheckCircle2Icon className="size-4" />
-                          <span className="hidden sm:inline">{t.settleExpense}</span>
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setAddPaymentOpen(true)}
-                          disabled={Boolean(actionLoading) || expense.paymentStatus === 'paid' || isExpenseArchived}
-                          title={t.addPayment}
-                          aria-label={t.addPayment}
-                        >
-                          <MessageSquarePlusIcon className="size-4" />
-                          <span className="hidden sm:inline">{t.addPayment}</span>
-                        </Button>
+                        {canRecordPayment ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setSettleExpenseOpen(true)}
+                            disabled={Boolean(actionLoading)}
+                            title={t.settleExpense}
+                            aria-label={t.settleExpense}
+                          >
+                            <CheckCircle2Icon className="size-4" />
+                            <span className="hidden sm:inline">{t.settleExpense}</span>
+                          </Button>
+                        ) : null}
+                        {canRecordPayment ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setAddPaymentOpen(true)}
+                            disabled={Boolean(actionLoading)}
+                            title={t.addPayment}
+                            aria-label={t.addPayment}
+                          >
+                            <MessageSquarePlusIcon className="size-4" />
+                            <span className="hidden sm:inline">{t.addPayment}</span>
+                          </Button>
+                        ) : null}
                         <Button
                           type="button"
                           variant="outline"
@@ -1640,6 +1661,9 @@ export default function ExpenseDetailPage() {
                 </div>
                 {expense.status === 'draft' ? (
                   <p className="text-xs text-amber-700 dark:text-amber-400">{t.statusDraftHint}</p>
+                ) : null}
+                {paymentBlockedReason ? (
+                  <p className="text-xs text-amber-700 dark:text-amber-400">{paymentBlockedReason}</p>
                 ) : null}
                 {expense.status === 'archived' ? (
                   <p className="text-xs text-slate-700 dark:text-slate-300">{t.archivedReadOnlyHint}</p>
@@ -2187,7 +2211,10 @@ export default function ExpenseDetailPage() {
           open={editDialogOpen}
           onOpenChange={setEditDialogOpen}
           mode="edit"
-          initialExpense={expense}
+          initialExpense={{
+            ...expense,
+            attachments: dialogAttachments,
+          }}
           categories={categories}
           suppliers={suppliers}
           clients={clients}
@@ -2213,6 +2240,16 @@ export default function ExpenseDetailPage() {
           amountPaidCents={expense.amountPaidCents || 0}
           mode="settle"
           locale={locale}
+          expenseLabel={resolveEntityLabel(expense.supplierId)}
+          expenseDate={expense.expenseDate || null}
+          supplierRef={expense.supplierRef || null}
+          receiptAttachment={dialogAttachments[0] ?? null}
+          blockedReason={paymentBlockedReason}
+          onCompleteExpense={() => {
+            setSettleExpenseOpen(false);
+            setAddPaymentOpen(false);
+            setEditDialogOpen(true);
+          }}
           onSaved={async () => {
             await refetch();
             pushFeedback('success', t.settleExpenseSuccess);
@@ -2229,6 +2266,16 @@ export default function ExpenseDetailPage() {
           amountPaidCents={expense.amountPaidCents || 0}
           mode="add"
           locale={locale}
+          expenseLabel={resolveEntityLabel(expense.supplierId)}
+          expenseDate={expense.expenseDate || null}
+          supplierRef={expense.supplierRef || null}
+          receiptAttachment={dialogAttachments[0] ?? null}
+          blockedReason={paymentBlockedReason}
+          onCompleteExpense={() => {
+            setSettleExpenseOpen(false);
+            setAddPaymentOpen(false);
+            setEditDialogOpen(true);
+          }}
           onSaved={async () => {
             await refetch();
             pushFeedback('success', t.addPaymentSuccess);

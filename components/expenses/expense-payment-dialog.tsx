@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 
-import { Loader2Icon } from 'lucide-react';
+import { AlertTriangleIcon, ExternalLinkIcon, Loader2Icon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import {
@@ -28,6 +28,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { EXPENSE_PAID_BY, EXPENSE_PAYMENT_METHODS } from '@/lib/expenses/constants';
 import { getExpensePaidByLabel, getExpensePaymentMethodLabel } from '@/lib/expenses/labels';
+import { cn } from '@/lib/utils';
+
+type ExpensePaymentDialogAttachment = {
+  displayName: string;
+  mimeType: string;
+  url: string;
+};
 
 type ExpensePaymentDialogProps = {
   open: boolean;
@@ -37,8 +44,22 @@ type ExpensePaymentDialogProps = {
   amountPaidCents: number;
   locale: 'en' | 'fr';
   mode?: 'settle' | 'add';
+  expenseLabel?: string | null;
+  expenseDate?: string | Date | null;
+  supplierRef?: string | null;
+  receiptAttachment?: ExpensePaymentDialogAttachment | null;
+  blockedReason?: string | null;
+  onCompleteExpense?: () => void;
   onSaved: () => Promise<void> | void;
 };
+
+function isImageMimeType(mimeType?: string) {
+  return typeof mimeType === 'string' && mimeType.startsWith('image/');
+}
+
+function isPdfMimeType(mimeType?: string) {
+  return mimeType === 'application/pdf';
+}
 
 export function ExpensePaymentDialog({
   open,
@@ -48,6 +69,12 @@ export function ExpensePaymentDialog({
   amountPaidCents,
   locale,
   mode = 'settle',
+  expenseLabel,
+  expenseDate,
+  supplierRef,
+  receiptAttachment,
+  blockedReason,
+  onCompleteExpense,
   onSaved,
 }: ExpensePaymentDialogProps) {
   const [paymentMethod, setPaymentMethod] = useState('');
@@ -83,6 +110,22 @@ export function ExpensePaymentDialog({
       paidByLabel: 'Paid by',
       amountLabel: 'Payment amount',
       amountHint: 'You can enter either a partial or full payment.',
+      contextTitle: 'Expense context',
+      contextTitleSettle: 'Expense to settle',
+      contextTitleAddPayment: 'Expense to pay',
+      supplierLabel: 'Supplier',
+      expenseDateLabel: 'Expense date',
+      referenceLabel: 'Reference',
+      totalLabel: 'Total incl. VAT',
+      paidLabel: 'Paid to date',
+      blockedTitle: 'Complete expense first',
+      blockedDescription: 'Payments become available after the expense has a date, category, and TTC amount.',
+      completeExpenseAction: 'Complete expense',
+      pendingCompletion: 'Pending completion',
+      availableAfterCompletion: 'Available after completion',
+      receiptTitle: 'Receipt',
+      openReceipt: 'Open receipt',
+      receiptPreviewUnavailable: 'This receipt type cannot be previewed inline.',
       paidByPlaceholder: 'Select payer',
       methodPlaceholder: 'Select a method',
       cancel: 'Cancel',
@@ -123,6 +166,22 @@ export function ExpensePaymentDialog({
       paidByLabel: 'Payé par',
       amountLabel: 'Montant du paiement',
       amountHint: 'Vous pouvez saisir un paiement partiel ou total.',
+      contextTitle: 'Contexte dépense',
+      contextTitleSettle: 'Dépense à solder',
+      contextTitleAddPayment: 'Dépense à payer',
+      supplierLabel: 'Fournisseur',
+      expenseDateLabel: 'Date dépense',
+      referenceLabel: 'Référence',
+      totalLabel: 'Total TTC',
+      paidLabel: 'Déjà payé',
+      blockedTitle: "Complétez la dépense d'abord",
+      blockedDescription: 'Les paiements sont disponibles après la date, la catégorie et le montant TTC.',
+      completeExpenseAction: 'Compléter la dépense',
+      pendingCompletion: 'À compléter',
+      availableAfterCompletion: 'Disponible après finalisation',
+      receiptTitle: 'Reçu',
+      openReceipt: 'Ouvrir le reçu',
+      receiptPreviewUnavailable: 'Ce type de reçu ne peut pas être prévisualisé ici.',
       paidByPlaceholder: 'Sélectionner le payeur',
       methodPlaceholder: 'Sélectionner un mode',
       cancel: 'Annuler',
@@ -156,6 +215,14 @@ export function ExpensePaymentDialog({
 
   const isSettleMode = mode === 'settle';
   const priceLocale = locale === 'fr' ? 'fr-FR' : 'en-GB';
+  const isBlocked = Boolean(blockedReason);
+
+  function formatDateForDisplay(value?: string | Date | null) {
+    if (!value) return '-';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '-';
+    return new Intl.DateTimeFormat(priceLocale).format(date);
+  }
 
   function formatEuro(cents: number) {
     return new Intl.NumberFormat(priceLocale, {
@@ -165,6 +232,11 @@ export function ExpensePaymentDialog({
       maximumFractionDigits: 2,
     }).format(cents / 100);
   }
+
+  const contextTitle = isSettleMode ? t.contextTitleSettle : t.contextTitleAddPayment;
+  const totalDisplay = isBlocked && amountInclVatCents <= 0 ? t.pendingCompletion : formatEuro(amountInclVatCents);
+  const paidDisplay = isBlocked && amountInclVatCents <= 0 ? '-' : formatEuro(amountPaidCents);
+  const remainingDisplay = isBlocked ? t.availableAfterCompletion : formatEuro(remainingCents);
 
   function parseAmountToCents() {
     const normalized = paymentAmount.trim().replace(',', '.');
@@ -182,6 +254,11 @@ export function ExpensePaymentDialog({
 
   function validateFields() {
     if (!expenseId) return false;
+
+    if (blockedReason) {
+      setError(blockedReason);
+      return false;
+    }
 
     if (isSettleMode && remainingCents <= 0) {
       setError(t.alreadySettled);
@@ -290,78 +367,172 @@ export function ExpensePaymentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100%-1rem)] gap-3 p-4 pr-4 sm:max-w-md sm:gap-4 sm:p-5 sm:pr-12">
+      <DialogContent
+        className={cn(
+          'max-h-[92dvh] w-[calc(100%-1rem)] gap-3 p-4 pr-4 sm:gap-4 sm:p-5 sm:pr-12',
+          receiptAttachment
+            ? 'flex h-[92dvh] flex-col overflow-hidden sm:max-w-5xl lg:max-w-6xl'
+            : 'overflow-y-auto sm:max-w-xl'
+        )}
+      >
         <DialogHeader className="pr-8">
           <DialogTitle>{isSettleMode ? t.titleSettle : t.titleAddPayment}</DialogTitle>
           <DialogDescription>{isSettleMode ? t.descriptionSettle : t.descriptionAddPayment}</DialogDescription>
         </DialogHeader>
 
-        <div className="rounded-xl border border-border/70 p-4">
-          <p className="mb-3 text-sm font-semibold">
-            {isSettleMode ? t.sectionTitleSettle : t.sectionTitleAddPayment}
-          </p>
-
-          <div className="space-y-3">
-            <div className="space-y-1.5">
-              <Label>{t.remainingLabel}</Label>
-              <p className="rounded-md border border-border/70 bg-muted/20 px-2.5 py-2 text-sm font-medium">
-                {(remainingCents / 100).toFixed(2)}
-              </p>
-            </div>
-
-            {!isSettleMode ? (
-              <div className="space-y-1.5">
-                <Label>{t.amountLabel}</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={paymentAmount}
-                  onChange={(event) => setPaymentAmount(event.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">{t.amountHint}</p>
+        <div
+          className={cn(
+            receiptAttachment
+              ? 'flex min-h-0 flex-1 flex-col gap-3 md:grid md:grid-cols-[minmax(0,1.1fr)_minmax(260px,0.9fr)] lg:grid-cols-[minmax(0,1fr)_minmax(340px,0.9fr)]'
+              : 'space-y-3'
+          )}
+        >
+          {receiptAttachment ? (
+            <aside className="order-1 flex h-[34dvh] min-h-40 shrink-0 flex-col rounded-xl border border-sky-200/75 bg-sky-50/55 p-3 dark:border-sky-900/40 dark:bg-sky-950/18 md:order-2 md:h-full md:min-h-0">
+              <div className="flex items-center justify-between gap-2">
+                <p className="truncate text-sm font-semibold">{t.receiptTitle}</p>
+                <Button asChild type="button" variant="outline" size="sm" className="h-8 shrink-0 px-2 text-xs">
+                  <a href={receiptAttachment.url} target="_blank" rel="noopener noreferrer">
+                    <ExternalLinkIcon className="size-3.5" />
+                    <span className="hidden sm:inline">{t.openReceipt}</span>
+                  </a>
+                </Button>
               </div>
-            ) : null}
+              <div className="mt-3 min-h-0 flex-1 overflow-hidden rounded-lg border border-border/70 bg-background">
+                {isImageMimeType(receiptAttachment.mimeType) ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={receiptAttachment.url} alt={receiptAttachment.displayName} className="h-full w-full object-contain" />
+                ) : isPdfMimeType(receiptAttachment.mimeType) ? (
+                  <iframe src={receiptAttachment.url} title={receiptAttachment.displayName} className="h-full w-full" />
+                ) : (
+                  <div className="flex h-full flex-col justify-center gap-1 p-3 text-sm">
+                    <p className="truncate font-medium">{receiptAttachment.displayName}</p>
+                    <p className="text-xs text-muted-foreground">{t.receiptPreviewUnavailable}</p>
+                  </div>
+                )}
+              </div>
+            </aside>
+          ) : null}
 
-            <div className="space-y-1.5">
-              <Label>{t.dateLabel}</Label>
-              <Input type="date" value={paidAt} onChange={(event) => setPaidAt(event.target.value)} />
+          <div className={cn('space-y-3', receiptAttachment && 'order-2 min-h-0 overflow-y-auto pr-1 md:order-1')}>
+            <div className="rounded-xl border border-border/70 bg-muted/20 p-3">
+              <p className="text-sm font-semibold">{contextTitle}</p>
+              <div className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
+                <div>
+                  <p className="text-muted-foreground">{t.supplierLabel}</p>
+                  <p className="truncate font-medium">{expenseLabel || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">{t.expenseDateLabel}</p>
+                  <p className="font-medium">{formatDateForDisplay(expenseDate)}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">{t.referenceLabel}</p>
+                  <p className="truncate font-medium">{supplierRef || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">{t.remainingLabel}</p>
+                  <p className={cn('font-semibold tabular-nums', isBlocked && 'text-muted-foreground')}>
+                    {remainingDisplay}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">{t.totalLabel}</p>
+                  <p className={cn('font-semibold tabular-nums', isBlocked && amountInclVatCents <= 0 && 'text-muted-foreground')}>
+                    {totalDisplay}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">{t.paidLabel}</p>
+                  <p className="font-semibold tabular-nums">{paidDisplay}</p>
+                </div>
+              </div>
             </div>
 
-            <div className="space-y-1.5">
-              <Label>{t.methodLabel}</Label>
-              <select
-                className="h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
-                value={paymentMethod}
-                onChange={(event) => setPaymentMethod(event.target.value)}
-              >
-                <option value="">{t.methodPlaceholder}</option>
-                {EXPENSE_PAYMENT_METHODS.map((method) => (
-                  <option key={method} value={method}>
-                    {getExpensePaymentMethodLabel(method, locale)}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <div className="rounded-xl border border-border/70 p-4">
+              <p className="mb-3 text-sm font-semibold">
+                {isSettleMode ? t.sectionTitleSettle : t.sectionTitleAddPayment}
+              </p>
 
-            <div className="space-y-1.5">
-              <Label>{t.paidByLabel}</Label>
-              <select
-                className="h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
-                value={paidBy}
-                onChange={(event) => setPaidBy(event.target.value)}
-              >
-                <option value="">{t.paidByPlaceholder}</option>
-                {EXPENSE_PAID_BY.map((payer) => (
-                  <option key={payer} value={payer}>
-                    {getExpensePaidByLabel(payer, locale)}
-                  </option>
-                ))}
-              </select>
+              {isBlocked ? (
+                <div className="rounded-lg border border-amber-200/80 bg-amber-50/80 px-3 py-3 text-sm text-amber-900 dark:border-amber-900/45 dark:bg-amber-950/25 dark:text-amber-200">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangleIcon className="mt-0.5 size-4 shrink-0" />
+                    <div className="min-w-0 space-y-1">
+                      <p className="font-semibold">{t.blockedTitle}</p>
+                      <p>{blockedReason}</p>
+                      <p className="text-xs text-amber-800/85 dark:text-amber-200/85">{t.blockedDescription}</p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <Label>{t.remainingLabel}</Label>
+                    <p className="rounded-md border border-border/70 bg-muted/20 px-2.5 py-2 text-sm font-medium">
+                      {formatEuro(remainingCents)}
+                    </p>
+                  </div>
+
+                  {!isSettleMode ? (
+                    <div className="space-y-1.5">
+                      <Label>{t.amountLabel}</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={paymentAmount}
+                        onChange={(event) => setPaymentAmount(event.target.value)}
+                        disabled={saving}
+                      />
+                      <p className="text-xs text-muted-foreground">{t.amountHint}</p>
+                    </div>
+                  ) : null}
+
+                  <div className="space-y-1.5">
+                    <Label>{t.dateLabel}</Label>
+                    <Input type="date" value={paidAt} onChange={(event) => setPaidAt(event.target.value)} disabled={saving} />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label>{t.methodLabel}</Label>
+                    <select
+                      className="h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
+                      value={paymentMethod}
+                      onChange={(event) => setPaymentMethod(event.target.value)}
+                      disabled={saving}
+                    >
+                      <option value="">{t.methodPlaceholder}</option>
+                      {EXPENSE_PAYMENT_METHODS.map((method) => (
+                        <option key={method} value={method}>
+                          {getExpensePaymentMethodLabel(method, locale)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label>{t.paidByLabel}</Label>
+                    <select
+                      className="h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
+                      value={paidBy}
+                      onChange={(event) => setPaidBy(event.target.value)}
+                      disabled={saving}
+                    >
+                      <option value="">{t.paidByPlaceholder}</option>
+                      {EXPENSE_PAID_BY.map((payer) => (
+                        <option key={payer} value={payer}>
+                          {getExpensePaidByLabel(payer, locale)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {error ? <p className="text-sm text-destructive">{error}</p> : null}
             </div>
           </div>
-
-          {error ? <p className="text-sm text-destructive">{error}</p> : null}
         </div>
 
         <DialogFooter className="gap-3">
@@ -374,19 +545,32 @@ export function ExpensePaymentDialog({
           >
             {t.cancel}
           </Button>
-          <Button
-            type="button"
-            onClick={requestSubmit}
-            disabled={saving || !expenseId}
-            className={`h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-8 sm:w-auto sm:whitespace-nowrap ${
-              isSettleMode
-                ? 'bg-orange-500 text-white hover:bg-orange-600 hover:text-white'
-                : 'bg-emerald-600 text-white hover:bg-emerald-700 hover:text-white'
-            }`}
-          >
-            {saving ? <Loader2Icon className="size-4 animate-spin" /> : null}
-            {isSettleMode ? t.submitSettle : t.submitAddPayment}
-          </Button>
+          {isBlocked ? (
+            onCompleteExpense ? (
+              <Button
+                type="button"
+                onClick={onCompleteExpense}
+                disabled={saving}
+                className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-8 sm:w-auto sm:whitespace-nowrap"
+              >
+                {t.completeExpenseAction}
+              </Button>
+            ) : null
+          ) : (
+            <Button
+              type="button"
+              onClick={requestSubmit}
+              disabled={saving || !expenseId || remainingCents <= 0}
+              className={`h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-8 sm:w-auto sm:whitespace-nowrap ${
+                isSettleMode
+                  ? 'bg-orange-500 text-white hover:bg-orange-600 hover:text-white'
+                  : 'bg-emerald-600 text-white hover:bg-emerald-700 hover:text-white'
+              }`}
+            >
+              {saving ? <Loader2Icon className="size-4 animate-spin" /> : null}
+              {isSettleMode ? t.submitSettle : t.submitAddPayment}
+            </Button>
+          )}
         </DialogFooter>
 
         <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
@@ -426,7 +610,7 @@ export function ExpensePaymentDialog({
                       ? 'bg-orange-500 text-white hover:bg-orange-600 hover:text-white'
                       : 'bg-emerald-600 text-white hover:bg-emerald-700 hover:text-white'
                   }`}
-                  disabled={saving}
+                  disabled={saving || isBlocked}
                   onClick={() => {
                     setConfirmOpen(false);
                     void handleSubmit();

@@ -8,11 +8,13 @@ import { toast } from 'sonner';
 import {
   ArchiveIcon,
   CameraIcon,
+  ChevronDownIcon,
   CheckCircle2Icon,
   CopyIcon,
   ExternalLinkIcon,
   FilePlus2Icon,
   Loader2Icon,
+  MailIcon,
   MoreHorizontalIcon,
   PaperclipIcon,
   PencilIcon,
@@ -71,6 +73,7 @@ import { ExpenseListItem, useExpenses } from '@/hooks/useExpenses';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { EXPENSE_PAYMENT_STATUS, EXPENSE_STATUS } from '@/lib/expenses/constants';
 import { canPermanentlyDeleteExpense, canRestoreArchivedExpense } from '@/lib/expenses/access';
+import { isExpenseReadyForPayment } from '@/lib/expenses/payment-readiness';
 import {
   EXPENSE_ALLOWED_MIME_TYPES,
   EXPENSE_MAX_FILE_SIZE_BYTES,
@@ -282,10 +285,13 @@ export default function ExpensesPage() {
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
 
   const [manualDialogOpen, setManualDialogOpen] = useState(false);
+  const [capturedReceiptFile, setCapturedReceiptFile] = useState<File | null>(null);
   const [editingExpense, setEditingExpense] = useState<ExpenseDetail | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [settleExpenseTarget, setSettleExpenseTarget] = useState<ExpenseListItem | null>(null);
   const [addPaymentTarget, setAddPaymentTarget] = useState<ExpenseListItem | null>(null);
+  const [paymentExpenseDetail, setPaymentExpenseDetail] = useState<ExpenseDetail | null>(null);
+  const [paymentLoadingId, setPaymentLoadingId] = useState<string | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<ExpenseListItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ExpenseListItem | null>(null);
   const [deletePassword, setDeletePassword] = useState('');
@@ -293,6 +299,8 @@ export default function ExpensesPage() {
   const [deleteValidationError, setDeleteValidationError] = useState<string | null>(null);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [actionFeedback, setActionFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [mobileAdvancedFiltersOpen, setMobileAdvancedFiltersOpen] = useState(false);
+  const [mobileDraftsExpanded, setMobileDraftsExpanded] = useState(false);
 
   const photoInputRef = useRef<HTMLInputElement | null>(null);
   const importInputRef = useRef<HTMLInputElement | null>(null);
@@ -308,6 +316,7 @@ export default function ExpensesPage() {
   // Open create dialog via URL param (?newExpense=1) or custom event (expenses:new)
   useEffect(() => {
     if (searchParams.get('newExpense') === '1') {
+      setCapturedReceiptFile(null);
       setManualDialogOpen(true);
       router.replace('/expenses', { scroll: false });
     }
@@ -315,6 +324,7 @@ export default function ExpensesPage() {
 
   useEffect(() => {
     function handleNewExpenseEvent() {
+      setCapturedReceiptFile(null);
       setManualDialogOpen(true);
     }
     window.addEventListener('expenses:new', handleNewExpenseEvent);
@@ -422,8 +432,9 @@ export default function ExpensesPage() {
       uploadQueueSubtitle: 'Track progress, processing stage, retry failures, and open created drafts.',
       retry: 'Retry',
       openDraft: 'Open draft',
-      openAndValidate: 'Open and validate',
-      validateExpense: 'Validate expense',
+      openAndValidate: 'Open and complete',
+      completeExpense: 'Complete expense',
+      completeExpenseFirst: 'Please complete the expense first.',
       ocrVisibilityHint: 'Draft processing stage is shown during draft creation.',
       ocrReviewHint: 'Draft creation completed. Review values in the draft.',
       uploadStatusLabels: {
@@ -439,8 +450,8 @@ export default function ExpensesPage() {
         drop: 'drag/drop',
         import: 'import',
       },
-      draftsSectionTitle: 'Drafts to validate',
-      draftsSectionSubtitle: 'Quick access to draft expenses with direct validation CTA.',
+      draftsSectionTitle: 'Drafts to complete',
+      draftsSectionSubtitle: 'Quick access to draft expenses that still need review and completion.',
       draftsCountLabel: (count: number) => `${count} Draft${count > 1 ? 's' : ''}`,
       noDraftsInView: 'No draft in the current page.',
       filtersTitle: 'Filters and sorting',
@@ -504,6 +515,20 @@ export default function ExpensesPage() {
       failedDraft: 'Unable to create draft expense',
       copiedEmail: 'Forward address copied',
       mobileCaptureNote: 'If camera capture is not supported on your browser, select an image file manually.',
+      mobileQuickActionsTitle: 'Quick capture',
+      mobileQuickActionsSubtitle: 'Use the fastest entry points while you are outside.',
+      quickPhoto: 'Photo',
+      quickImport: 'Import',
+      quickEmail: 'Email',
+      quickManual: 'Manual',
+      draftsCompactTitle: (count: number) => `Drafts (${count})`,
+      mobileShowDrafts: 'Show drafts',
+      mobileHideDrafts: 'Hide drafts',
+      viewDraftsOnly: 'View drafts list',
+      mobileShowFilters: 'Advanced filters',
+      mobileHideFilters: 'Hide filters',
+      mobileFiltersCollapsedHint: 'Keep the list compact. Open only the filters you need.',
+      mobileFiltersActive: (count: number) => `${count} advanced filter${count === 1 ? '' : 's'} active`,
       actionDuplicateSuccess: 'Expense duplicated',
       actionCreateSuccess: 'Expense created',
       actionUpdateSuccess: 'Expense updated',
@@ -514,6 +539,7 @@ export default function ExpensesPage() {
       addPaymentSuccess: 'Payment added',
       actionFailed: 'Action failed',
       editLoadFailed: 'Failed to load expense detail for editing',
+      paymentContextLoadFailed: 'Failed to load expense receipt and payment context',
       restore: 'Restore',
       archivedHiddenHint: 'Archived expenses are hidden by default. Select Status = Archived to view them.',
       archivedReadOnlyHint: 'Archived expenses are read-only. Restore first to edit, pay, attach files, or duplicate.',
@@ -565,8 +591,9 @@ export default function ExpensesPage() {
       uploadQueueSubtitle: 'Suivez la progression, le statut de traitement, relancez les échecs, et ouvrez les brouillons créés.',
       retry: 'Relancer',
       openDraft: 'Ouvrir brouillon',
-      openAndValidate: 'Ouvrir et valider',
-      validateExpense: 'Valider la dépense',
+      openAndValidate: 'Ouvrir et compléter',
+      completeExpense: 'Compléter la dépense',
+      completeExpenseFirst: "Veuillez compléter la dépense d'abord.",
       ocrVisibilityHint: 'Le statut de traitement est visible pendant la création du brouillon.',
       ocrReviewHint: 'Création du brouillon terminée. Vérifiez les valeurs dans le brouillon.',
       uploadStatusLabels: {
@@ -582,8 +609,8 @@ export default function ExpensesPage() {
         drop: 'glisser-déposer',
         import: 'import',
       },
-      draftsSectionTitle: 'Brouillons à valider',
-      draftsSectionSubtitle: 'Accès rapide aux brouillons avec action directe de validation.',
+      draftsSectionTitle: 'Brouillons à compléter',
+      draftsSectionSubtitle: 'Accès rapide aux brouillons qui doivent encore être vérifiés et complétés.',
       draftsCountLabel: (count: number) => `${count} brouillon${count > 1 ? 's' : ''}`,
       noDraftsInView: 'Aucun brouillon sur la page courante.',
       filtersTitle: 'Filtres et tri',
@@ -647,6 +674,20 @@ export default function ExpensesPage() {
       failedDraft: 'Impossible de créer le brouillon',
       copiedEmail: 'Adresse de transfert copiée',
       mobileCaptureNote: 'Si la capture caméra est non supportée, choisissez une image manuellement.',
+      mobileQuickActionsTitle: 'Capture rapide',
+      mobileQuickActionsSubtitle: 'Utilisez les entrées les plus rapides quand vous êtes dehors.',
+      quickPhoto: 'Photo',
+      quickImport: 'Import',
+      quickEmail: 'Email',
+      quickManual: 'Manuel',
+      draftsCompactTitle: (count: number) => `Brouillons (${count})`,
+      mobileShowDrafts: 'Afficher brouillons',
+      mobileHideDrafts: 'Masquer brouillons',
+      viewDraftsOnly: 'Voir les brouillons',
+      mobileShowFilters: 'Filtres avancés',
+      mobileHideFilters: 'Masquer filtres',
+      mobileFiltersCollapsedHint: 'Gardez la liste compacte. Ouvrez seulement les filtres nécessaires.',
+      mobileFiltersActive: (count: number) => `${count} filtre${count > 1 ? 's' : ''} avancé${count > 1 ? 's' : ''} actif${count > 1 ? 's' : ''}`,
       actionDuplicateSuccess: 'Dépense dupliquée',
       actionCreateSuccess: 'Dépense créée',
       actionUpdateSuccess: 'Dépense mise à jour',
@@ -657,6 +698,7 @@ export default function ExpensesPage() {
       addPaymentSuccess: 'Paiement ajouté',
       actionFailed: 'Échec action',
       editLoadFailed: 'Impossible de charger la dépense pour modification',
+      paymentContextLoadFailed: 'Impossible de charger le reçu et le contexte paiement',
       restore: 'Restaurer',
       archivedHiddenHint: "Les dépenses archivées sont masquées par défaut. Choisissez Statut = Archivée pour les afficher.",
       archivedReadOnlyHint: "Les dépenses archivées sont en lecture seule. Restaurez d'abord pour modifier, payer, ajouter des pièces ou dupliquer.",
@@ -714,7 +756,22 @@ export default function ExpensesPage() {
     return 'all';
   }, [paymentStatusFilter, statusFilter]);
 
+  useEffect(() => {
+    if (!isMobile) {
+      setMobileAdvancedFiltersOpen(false);
+      setMobileDraftsExpanded(false);
+    }
+  }, [isMobile]);
+
+  useEffect(() => {
+    if (draftExpenses.length === 0) {
+      setMobileDraftsExpanded(false);
+    }
+  }, [draftExpenses.length]);
+
   function applyQuickFilter(filter: ExpenseQuickFilterKey) {
+    setPage(1);
+
     if (filter === 'all') {
       setStatusFilter('');
       setPaymentStatusFilter('');
@@ -724,6 +781,7 @@ export default function ExpensesPage() {
     if (filter === 'drafts') {
       setStatusFilter('draft');
       setPaymentStatusFilter('');
+      setMobileDraftsExpanded(false);
       return;
     }
 
@@ -1012,9 +1070,28 @@ export default function ExpensesPage() {
     }
   }
 
+  function openManualExpenseDialog() {
+    setCapturedReceiptFile(null);
+    setManualDialogOpen(true);
+  }
+
   function onPhotoSelected(event: ChangeEvent<HTMLInputElement>) {
-    queueFiles(event.target.files, 'photo');
+    const selectedFile = event.target.files?.[0] ?? null;
     resetInputValue(event);
+
+    if (!selectedFile || !canManageExpenses) {
+      return;
+    }
+
+    const validation = validateFile(selectedFile);
+    if (validation.error) {
+      setFeedback('error', validation.error);
+      toast.error(validation.error);
+      return;
+    }
+
+    setCapturedReceiptFile(selectedFile);
+    setManualDialogOpen(true);
   }
 
   function onImportSelected(event: ChangeEvent<HTMLInputElement>) {
@@ -1083,6 +1160,50 @@ export default function ExpensesPage() {
       setFeedback('error', openError instanceof Error ? openError.message : t.editLoadFailed);
     } finally {
       setActionLoadingId(null);
+    }
+  }
+
+  async function openPaymentExpense(expense: ExpenseListItem, mode: 'settle' | 'add') {
+    if (!isExpenseReadyForPayment(expense)) {
+      setFeedback('error', t.completeExpenseFirst);
+      await openEditExpense(expense._id);
+      return;
+    }
+
+    setPaymentLoadingId(expense._id);
+    setPaymentExpenseDetail(null);
+
+    try {
+      const response = await fetch(`/api/expenses/${expense._id}`, { cache: 'no-store' });
+      const payload = (await response.json().catch(() => null)) as
+        | {
+            success: boolean;
+            message?: string;
+            expense?: ExpenseDetail;
+          }
+        | null;
+
+      if (!response.ok || !payload?.success || !payload.expense) {
+        throw new Error(payload?.message || t.paymentContextLoadFailed);
+      }
+
+      if (!isExpenseReadyForPayment(payload.expense)) {
+        setFeedback('error', t.completeExpenseFirst);
+        setEditingExpense(payload.expense);
+        setEditDialogOpen(true);
+        return;
+      }
+
+      setPaymentExpenseDetail(payload.expense);
+      if (mode === 'settle') {
+        setSettleExpenseTarget(expense);
+      } else {
+        setAddPaymentTarget(expense);
+      }
+    } catch (openError) {
+      setFeedback('error', openError instanceof Error ? openError.message : t.paymentContextLoadFailed);
+    } finally {
+      setPaymentLoadingId(null);
     }
   }
 
@@ -1248,13 +1369,13 @@ export default function ExpensesPage() {
 
   return (
     <CrmShell title={t.shellTitle}>
-      <div className="space-y-5">
+      <div className="space-y-4 sm:space-y-5">
         <section
-          className="space-y-3 rounded-2xl border border-slate-200/80 bg-linear-to-r from-slate-50 via-white to-amber-50/40 p-4 shadow-sm dark:border-slate-800/70 dark:from-slate-950/45 dark:via-slate-950/25 dark:to-amber-950/15"
+          className="space-y-2.5 rounded-2xl border border-slate-200/80 bg-linear-to-r from-slate-50 via-white to-amber-50/40 p-3.5 shadow-sm dark:border-slate-800/70 dark:from-slate-950/45 dark:via-slate-950/25 dark:to-amber-950/15 sm:space-y-3 sm:p-4"
           data-tour-expenses-header
         >
-          <h1 className="font-heading text-2xl font-semibold tracking-tight">{t.heading}</h1>
-          <p className="text-sm text-muted-foreground">{t.subtitle}</p>
+          <h1 className="font-heading text-xl font-semibold tracking-tight sm:text-2xl">{t.heading}</h1>
+          {!isMobile ? <p className="text-sm text-muted-foreground">{t.subtitle}</p> : null}
           <p className="text-xs text-muted-foreground">{t.mobileCaptureNote}</p>
 
           <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -1270,120 +1391,179 @@ export default function ExpensesPage() {
           </div>
         </section>
 
-        <section className="space-y-3" data-tour-expenses-kpis>
-          <KpiCards cards={expensesKpiCards} locale={locale as 'en' | 'fr'} loading={loading} />
-          {!loading ? <KpiCards cards={expensesTotalsCards} locale={locale as 'en' | 'fr'} cols={3} /> : null}
-        </section>
+        {!isMobile ? (
+          <>
+            <section className="space-y-3" data-tour-expenses-kpis>
+              <KpiCards cards={expensesKpiCards} locale={locale as 'en' | 'fr'} loading={loading} />
+              {!loading ? <KpiCards cards={expensesTotalsCards} locale={locale as 'en' | 'fr'} cols={3} /> : null}
+            </section>
 
-        <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5" data-tour-expenses-capture>
-          <Card size="sm" className="border-sky-200/80 bg-sky-50/60 dark:border-sky-900/40 dark:bg-sky-950/20">
-            <CardHeader className="flex-1 pb-2">
-              <CardTitle>{t.takePhoto}</CardTitle>
-              <CardDescription className="text-xs">{t.takePhotoHint}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button
-                type="button"
-                size="sm"
-                className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-7 sm:whitespace-nowrap"
-                onClick={() => photoInputRef.current?.click()}
-                disabled={!canManageExpenses}
-              >
-                <CameraIcon className="size-4 shrink-0" />
-                <span>{t.choosePhoto}</span>
-              </Button>
-            </CardContent>
-          </Card>
+            <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5" data-tour-expenses-capture>
+              <Card size="sm" className="border-sky-200/80 bg-sky-50/60 dark:border-sky-900/40 dark:bg-sky-950/20">
+                <CardHeader className="flex-1 pb-2">
+                  <CardTitle>{t.takePhoto}</CardTitle>
+                  <CardDescription className="text-xs">{t.takePhotoHint}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-7 sm:whitespace-nowrap"
+                    onClick={() => photoInputRef.current?.click()}
+                    disabled={!canManageExpenses}
+                  >
+                    <CameraIcon className="size-4 shrink-0" />
+                    <span>{t.choosePhoto}</span>
+                  </Button>
+                </CardContent>
+              </Card>
 
-          <Card size="sm" className="border-teal-200/80 bg-teal-50/60 dark:border-teal-900/40 dark:bg-teal-950/20">
-            <CardHeader className="flex-1 pb-2">
-              <CardTitle>{t.importFile}</CardTitle>
-              <CardDescription className="text-xs">{t.importFileHint}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button
-                type="button"
-                size="sm"
-                className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-7 sm:whitespace-nowrap"
-                variant="outline"
-                onClick={() => importInputRef.current?.click()}
-                disabled={!canManageExpenses}
-              >
-                <UploadIcon className="size-4 shrink-0" />
-                <span>{t.browseFiles}</span>
-              </Button>
-            </CardContent>
-          </Card>
+              <Card size="sm" className="border-teal-200/80 bg-teal-50/60 dark:border-teal-900/40 dark:bg-teal-950/20">
+                <CardHeader className="flex-1 pb-2">
+                  <CardTitle>{t.importFile}</CardTitle>
+                  <CardDescription className="text-xs">{t.importFileHint}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-7 sm:whitespace-nowrap"
+                    variant="outline"
+                    onClick={() => importInputRef.current?.click()}
+                    disabled={!canManageExpenses}
+                  >
+                    <UploadIcon className="size-4 shrink-0" />
+                    <span>{t.browseFiles}</span>
+                  </Button>
+                </CardContent>
+              </Card>
 
-          <Card size="sm" className="border-amber-200/80 bg-amber-50/60 dark:border-amber-900/40 dark:bg-amber-950/20">
-            <CardHeader className="flex-1 pb-2">
-              <CardTitle>{t.forwardEmail}</CardTitle>
-              <CardDescription className="text-xs">{t.forwardEmailHint}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-7 sm:whitespace-nowrap"
-                onClick={() => void copyForwardAddress()}
-              >
-                <CopyIcon className="size-4 shrink-0" />
-                <span>{copyFeedback ? t.copied : t.copy}</span>
-              </Button>
-            </CardContent>
-          </Card>
+              <Card size="sm" className="border-amber-200/80 bg-amber-50/60 dark:border-amber-900/40 dark:bg-amber-950/20">
+                <CardHeader className="flex-1 pb-2">
+                  <CardTitle>{t.forwardEmail}</CardTitle>
+                  <CardDescription className="text-xs">{t.forwardEmailHint}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-7 sm:whitespace-nowrap"
+                    onClick={() => void copyForwardAddress()}
+                  >
+                    <CopyIcon className="size-4 shrink-0" />
+                    <span>{copyFeedback ? t.copied : t.copy}</span>
+                  </Button>
+                </CardContent>
+              </Card>
 
-          <div className="hidden lg:block">
-            <Card size="sm" className="h-full border-slate-200/80 bg-slate-50/70 dark:border-slate-800/70 dark:bg-slate-950/25">
-              <CardHeader className="flex-1 pb-2">
-                <CardTitle>{t.dragDrop}</CardTitle>
-                <CardDescription className="text-xs">{t.dragDropHint}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div
-                  role="presentation"
-                  onDrop={handleDrop}
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  className={`flex min-h-10 items-center justify-center rounded-lg border border-dashed px-3 text-xs transition ${
-                    isDragActive
-                      ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-slate-300 bg-slate-100/70 text-slate-600 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-300'
-                  }`}
-                >
-                  {t.dragDropHint}
+              <div className="hidden lg:block">
+                <Card size="sm" className="h-full border-slate-200/80 bg-slate-50/70 dark:border-slate-800/70 dark:bg-slate-950/25">
+                  <CardHeader className="flex-1 pb-2">
+                    <CardTitle>{t.dragDrop}</CardTitle>
+                    <CardDescription className="text-xs">{t.dragDropHint}</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div
+                      role="presentation"
+                      onDrop={handleDrop}
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      className={`flex min-h-10 items-center justify-center rounded-lg border border-dashed px-3 text-xs transition ${
+                        isDragActive
+                          ? 'border-primary bg-primary/10 text-primary'
+                          : 'border-slate-300 bg-slate-100/70 text-slate-600 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-300'
+                      }`}
+                    >
+                      {t.dragDropHint}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <Card size="sm" className="border-emerald-200/80 bg-emerald-50/60 dark:border-emerald-900/40 dark:bg-emerald-950/20">
+                <CardHeader className="flex-1 pb-2">
+                  <CardTitle>{t.createManual}</CardTitle>
+                  <CardDescription className="text-xs">{t.createManualHint}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-7 sm:whitespace-nowrap"
+                    variant="secondary"
+                    onClick={openManualExpenseDialog}
+                    disabled={!canManageExpenses}
+                  >
+                    <FilePlus2Icon className="size-4 shrink-0" />
+                    <span>{t.createManual}</span>
+                  </Button>
+                </CardContent>
+              </Card>
+            </section>
+          </>
+        ) : (
+          <section data-tour-expenses-capture>
+            <Card className="border-sky-200/80 bg-sky-50/55 dark:border-sky-900/35 dark:bg-sky-950/16">
+              <CardContent className="p-2.5">
+                <div className="grid grid-cols-4 gap-1.5">
+                  <Button
+                    type="button"
+                    className="h-14 min-w-0 flex-col gap-1 whitespace-normal px-1.5 py-2 text-[11px] leading-tight"
+                    onClick={() => photoInputRef.current?.click()}
+                    disabled={!canManageExpenses}
+                    title={t.takePhoto}
+                    aria-label={t.takePhoto}
+                  >
+                    <CameraIcon className="size-4 shrink-0" />
+                    <span className="w-full truncate">{t.quickPhoto}</span>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-14 min-w-0 flex-col gap-1 whitespace-normal px-1.5 py-2 text-[11px] leading-tight"
+                    onClick={() => importInputRef.current?.click()}
+                    disabled={!canManageExpenses}
+                    title={t.importFile}
+                    aria-label={t.importFile}
+                  >
+                    <UploadIcon className="size-4 shrink-0" />
+                    <span className="w-full truncate">{t.quickImport}</span>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="h-14 min-w-0 flex-col gap-1 whitespace-normal px-1.5 py-2 text-[11px] leading-tight"
+                    onClick={() => void copyForwardAddress()}
+                    title={forwardAddress}
+                    aria-label={t.forwardEmail}
+                  >
+                    <MailIcon className="size-4 shrink-0" />
+                    <span className="w-full truncate">{copyFeedback ? t.copied : t.quickEmail}</span>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-14 min-w-0 flex-col gap-1 whitespace-normal px-1.5 py-2 text-[11px] leading-tight"
+                    onClick={openManualExpenseDialog}
+                    disabled={!canManageExpenses}
+                    title={t.createManual}
+                    aria-label={t.createManual}
+                  >
+                    <FilePlus2Icon className="size-4 shrink-0" />
+                    <span className="w-full truncate">{t.quickManual}</span>
+                  </Button>
                 </div>
               </CardContent>
             </Card>
-          </div>
-
-          <Card size="sm" className="border-emerald-200/80 bg-emerald-50/60 dark:border-emerald-900/40 dark:bg-emerald-950/20">
-            <CardHeader className="flex-1 pb-2">
-              <CardTitle>{t.createManual}</CardTitle>
-              <CardDescription className="text-xs">{t.createManualHint}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button
-                type="button"
-                size="sm"
-                className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-7 sm:whitespace-nowrap"
-                variant="secondary"
-                onClick={() => setManualDialogOpen(true)}
-                disabled={!canManageExpenses}
-              >
-                <FilePlus2Icon className="size-4 shrink-0" />
-                <span>{t.createManual}</span>
-              </Button>
-            </CardContent>
-          </Card>
-        </section>
+          </section>
+        )}
 
         <input
           ref={photoInputRef}
           type="file"
           className="hidden"
-          accept="image/*"
+          accept="image/*,.jpg,.jpeg,.png,.heic"
           capture="environment"
           onChange={onPhotoSelected}
           disabled={!canManageExpenses}
@@ -1457,18 +1637,40 @@ export default function ExpensesPage() {
                     ) : null}
 
                     {item.status === 'success' && item.expenseId ? (
-                      <Button
-                        asChild
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-auto min-h-7 w-full whitespace-normal px-3 py-2 text-center sm:w-auto sm:whitespace-nowrap"
-                      >
-                        <Link href={`/expenses/${item.expenseId}`}>
-                          <ExternalLinkIcon className="size-3.5" />
+                      canManageExpenses ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-auto min-h-7 w-full whitespace-normal px-3 py-2 text-center sm:w-auto sm:whitespace-nowrap"
+                          onClick={() => {
+                            if (item.expenseId) {
+                              void openEditExpense(item.expenseId);
+                            }
+                          }}
+                          disabled={actionLoadingId === item.expenseId}
+                        >
+                          {actionLoadingId === item.expenseId ? (
+                            <Loader2Icon className="size-3.5 animate-spin" />
+                          ) : (
+                            <PencilIcon className="size-3.5" />
+                          )}
                           {t.openAndValidate}
-                        </Link>
-                      </Button>
+                        </Button>
+                      ) : (
+                        <Button
+                          asChild
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-auto min-h-7 w-full whitespace-normal px-3 py-2 text-center sm:w-auto sm:whitespace-nowrap"
+                        >
+                          <Link href={`/expenses/${item.expenseId}`}>
+                            <ExternalLinkIcon className="size-3.5" />
+                            {t.openAndValidate}
+                          </Link>
+                        </Button>
+                      )
                     ) : null}
                   </div>
                 </div>
@@ -1477,74 +1679,128 @@ export default function ExpensesPage() {
           </Card>
         ) : null}
 
-        <Card className="border-amber-200/80 bg-amber-50/45 dark:border-amber-900/35 dark:bg-amber-950/14" data-tour-expenses-drafts>
-          <CardHeader className="pb-2">
-            <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <CardTitle className="text-base">{t.draftsSectionTitle}</CardTitle>
-                <CardDescription>{t.draftsSectionSubtitle}</CardDescription>
-              </div>
-              <Badge variant="secondary" className="self-start sm:self-auto">{t.draftsCountLabel(draftExpenses.length)}</Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-2.5">
-            {draftExpenses.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t.noDraftsInView}</p>
-            ) : (
-              draftExpenses.slice(0, 5).map((expense) => {
-                const rowLoading = actionLoadingId === expense._id;
-
-                return (
-                  <div
-                    key={expense._id}
-                    className={`flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between sm:gap-2 sm:p-2.5 ${getExpenseSurfaceClass(expense.status, expense.paymentStatus)}`}
-                  >
-                    <div className="min-w-0 space-y-1">
-                      <p className="truncate text-sm font-medium">{getSupplierName(expense)}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatDateDisplay(expense.expenseDate)} · {getCategoryName(expense)}
-                      </p>
-                    </div>
-                    <div className="flex w-full flex-col gap-2 sm:w-auto sm:items-end">
-                      <ExpenseMoneyDisplay
-                        cents={expense.amountInclVatCents || 0}
-                        locale={locale === 'fr' ? 'fr-FR' : 'en-GB'}
-                        className="text-sm font-medium"
-                      />
-                      <div className="flex flex-col gap-2 sm:flex-row">
-                        <Button
-                          asChild
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className="h-auto min-h-7 w-full whitespace-normal px-3 py-2 text-center sm:w-auto sm:whitespace-nowrap"
-                        >
-                          <Link href={`/expenses/${expense._id}`}>{t.openDraft}</Link>
-                        </Button>
-                        {canManageExpenses ? (
-                          <Button
-                            type="button"
-                            size="sm"
-                            className="h-auto min-h-7 w-full whitespace-normal px-3 py-2 text-center sm:w-auto sm:whitespace-nowrap"
-                            onClick={() => void openEditExpense(expense._id)}
-                            disabled={rowLoading}
-                          >
-                            {rowLoading ? <Loader2Icon className="size-3.5 animate-spin" /> : null}
-                            {t.validateExpense}
-                          </Button>
-                        ) : null}
-                      </div>
-                    </div>
+        {!isMobile || (draftExpenses.length > 0 && activeQuickFilter !== 'drafts') ? (
+          <Card className="border-amber-200/80 bg-amber-50/45 dark:border-amber-900/35 dark:bg-amber-950/14" data-tour-expenses-drafts>
+            <CardHeader className="pb-2">
+              {isMobile ? (
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between gap-2 text-left"
+                  onClick={() => setMobileDraftsExpanded((previous) => !previous)}
+                  aria-expanded={mobileDraftsExpanded}
+                >
+                  <CardTitle className="text-base">{t.draftsCompactTitle(draftExpenses.length)}</CardTitle>
+                  <ChevronDownIcon
+                    className={`size-4 shrink-0 text-muted-foreground transition-transform ${mobileDraftsExpanded ? 'rotate-180' : ''}`}
+                  />
+                </button>
+              ) : (
+                <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <CardTitle className="text-base">{t.draftsSectionTitle}</CardTitle>
+                    <CardDescription>{t.draftsSectionSubtitle}</CardDescription>
                   </div>
-                );
-              })
-            )}
-          </CardContent>
-        </Card>
+                  <Badge variant="secondary" className="self-start sm:self-auto">{t.draftsCountLabel(draftExpenses.length)}</Badge>
+                </div>
+              )}
+            </CardHeader>
+            {!isMobile || mobileDraftsExpanded ? (
+              <CardContent className="space-y-2.5">
+                {draftExpenses.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">{t.noDraftsInView}</p>
+                ) : (
+                  draftExpenses.slice(0, isMobile ? 2 : 5).map((expense) => {
+                    const rowLoading = actionLoadingId === expense._id;
+
+                    return (
+                      <div
+                        key={expense._id}
+                        className={`flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between sm:gap-2 sm:p-2.5 ${getExpenseSurfaceClass(expense.status, expense.paymentStatus)}`}
+                      >
+                        <div className="min-w-0 space-y-1">
+                          <p className="truncate text-sm font-medium">{getSupplierName(expense)}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatDateDisplay(expense.expenseDate)} · {getCategoryName(expense)}
+                          </p>
+                        </div>
+                        <div className="flex w-full flex-col gap-2 sm:w-auto sm:items-end">
+                          <ExpenseMoneyDisplay
+                            cents={expense.amountInclVatCents || 0}
+                            locale={locale === 'fr' ? 'fr-FR' : 'en-GB'}
+                            className="text-sm font-medium"
+                          />
+                          {!isExpenseReadyForPayment(expense) ? (
+                            <p className="text-xs text-amber-700 dark:text-amber-300">{t.completeExpenseFirst}</p>
+                          ) : null}
+                          <div className="flex flex-col gap-2 sm:flex-row">
+                            {!isMobile || !canManageExpenses ? (
+                              <Button
+                                asChild
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="h-auto min-h-7 w-full whitespace-normal px-3 py-2 text-center sm:w-auto sm:whitespace-nowrap"
+                              >
+                                <Link href={`/expenses/${expense._id}`}>{t.openDraft}</Link>
+                              </Button>
+                            ) : null}
+                            {canManageExpenses ? (
+                              <Button
+                                type="button"
+                                size="sm"
+                                className="h-auto min-h-7 w-full whitespace-normal px-3 py-2 text-center sm:w-auto sm:whitespace-nowrap"
+                                onClick={() => void openEditExpense(expense._id)}
+                                disabled={rowLoading}
+                              >
+                                {rowLoading ? <Loader2Icon className="size-3.5 animate-spin" /> : null}
+                                {t.completeExpense}
+                              </Button>
+                            ) : null}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+
+                {isMobile && draftExpenses.length > 2 ? (
+                  <div className="flex items-center justify-between gap-2 rounded-lg border border-border/60 bg-background/70 px-3 py-2">
+                    <p className="text-xs text-muted-foreground">{t.draftsCountLabel(draftExpenses.length)}</p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 px-2 text-xs"
+                      onClick={() => {
+                        applyQuickFilter('drafts');
+                        setMobileAdvancedFiltersOpen(false);
+                      }}
+                    >
+                      {t.viewDraftsOnly}
+                    </Button>
+                  </div>
+                ) : null}
+              </CardContent>
+            ) : null}
+          </Card>
+        ) : null}
 
         <Card className="border-slate-200/80 bg-slate-50/45 dark:border-slate-800/70 dark:bg-slate-950/16" data-tour-expenses-filters>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">{t.filtersTitle}</CardTitle>
+            <div className="flex items-center justify-between gap-2">
+              <CardTitle className="text-base">{t.filtersTitle}</CardTitle>
+              {isMobile ? (
+                <Button
+                  type="button"
+                  variant={mobileAdvancedFiltersOpen ? 'secondary' : 'outline'}
+                  size="sm"
+                  className="h-8 px-2 text-xs"
+                  onClick={() => setMobileAdvancedFiltersOpen((previous) => !previous)}
+                >
+                  {mobileAdvancedFiltersOpen ? t.mobileHideFilters : t.mobileShowFilters}
+                </Button>
+              ) : null}
+            </div>
           </CardHeader>
           <CardContent className="space-y-3">
             <Tabs value={activeQuickFilter} onValueChange={(value) => applyQuickFilter(value as ExpenseQuickFilterKey)}>
@@ -1570,31 +1826,35 @@ export default function ExpensesPage() {
                         {unpaidCount > 99 ? '99+' : unpaidCount}
                       </span>
                     </TabsTrigger>
-                    <TabsTrigger value="partial" className="min-h-9 rounded-md border border-border/80 px-3 py-2.5 sm:py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
-                      <span>{t.kpiPartial}</span>
-                      <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-600 px-1.5 text-[10px] font-semibold leading-none text-white shadow-sm">
-                        {partialCount > 99 ? '99+' : partialCount}
-                      </span>
-                    </TabsTrigger>
+                    {!isMobile ? (
+                      <TabsTrigger value="partial" className="min-h-9 rounded-md border border-border/80 px-3 py-2.5 sm:py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
+                        <span>{t.kpiPartial}</span>
+                        <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-600 px-1.5 text-[10px] font-semibold leading-none text-white shadow-sm">
+                          {partialCount > 99 ? '99+' : partialCount}
+                        </span>
+                      </TabsTrigger>
+                    ) : null}
                     <TabsTrigger value="paid" className="min-h-9 rounded-md border border-border/80 px-3 py-2.5 sm:py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
                       <span>{t.kpiPaid}</span>
                       <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-600 px-1.5 text-[10px] font-semibold leading-none text-white shadow-sm">
                         {paidCount > 99 ? '99+' : paidCount}
                       </span>
                     </TabsTrigger>
-                    <TabsTrigger value="archived" className="min-h-9 rounded-md border border-border/80 px-3 py-2.5 sm:py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
-                      <span>{t.statusLabels.archived}</span>
-                      <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-slate-600 px-1.5 text-[10px] font-semibold leading-none text-white shadow-sm">
-                        {archivedCount > 99 ? '99+' : archivedCount}
-                      </span>
-                    </TabsTrigger>
+                    {!isMobile ? (
+                      <TabsTrigger value="archived" className="min-h-9 rounded-md border border-border/80 px-3 py-2.5 sm:py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
+                        <span>{t.statusLabels.archived}</span>
+                        <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-slate-600 px-1.5 text-[10px] font-semibold leading-none text-white shadow-sm">
+                          {archivedCount > 99 ? '99+' : archivedCount}
+                        </span>
+                      </TabsTrigger>
+                    ) : null}
                   </TabsList>
                 </div>
               </div>
             </Tabs>
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
-              <div className="space-y-1.5 sm:col-span-2 xl:col-span-2">
+            {!isMobile ? (
+              <div className="space-y-1.5">
                 <Label>{t.searchLabel}</Label>
                 <div className="relative">
                   <SearchIcon className="pointer-events-none absolute top-2 left-2.5 size-4 text-muted-foreground" />
@@ -1606,132 +1866,295 @@ export default function ExpensesPage() {
                   />
                 </div>
               </div>
+            ) : null}
 
-              <div className="space-y-1.5">
-                <Label>{t.statusLabel}</Label>
-                <select
-                  className="h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
-                  value={statusFilter}
-                  onChange={(event) => setStatusFilter(event.target.value)}
-                >
-                  <option value="">{t.all}</option>
-                  {EXPENSE_STATUS.map((status) => (
-                    <option key={status} value={status}>
-                      {t.statusLabels[status as keyof typeof t.statusLabels] ?? status}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            {isMobile ? (
+              <>
+                {!mobileAdvancedFiltersOpen ? (
+                  <div className="flex items-center justify-between gap-2 rounded-lg border border-border/60 bg-background/70 px-3 py-2">
+                    <p className="text-xs text-muted-foreground">
+                      {activeFiltersCount > 0 ? t.mobileFiltersActive(activeFiltersCount) : t.mobileFiltersCollapsedHint}
+                    </p>
+                    {activeFiltersCount > 0 ? (
+                      <Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={resetFilters}>
+                        {t.clearFilters}
+                      </Button>
+                    ) : null}
+                  </div>
+                ) : (
+                  <>
+                    <div className="space-y-1.5">
+                      <Label>{t.searchLabel}</Label>
+                      <div className="relative">
+                        <SearchIcon className="pointer-events-none absolute top-2 left-2.5 size-4 text-muted-foreground" />
+                        <Input
+                          value={searchInput}
+                          onChange={(event) => setSearchInput(event.target.value)}
+                          placeholder={t.searchPlaceholder}
+                          className="pl-8"
+                        />
+                      </div>
+                    </div>
 
-              <div className="space-y-1.5">
-                <Label>{t.paymentStatusLabel}</Label>
-                <select
-                  className="h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
-                  value={paymentStatusFilter}
-                  onChange={(event) => setPaymentStatusFilter(event.target.value)}
-                >
-                  <option value="">{t.all}</option>
-                  {EXPENSE_PAYMENT_STATUS.map((status) => (
-                    <option key={status} value={status}>
-                      {t.paymentStatusLabels[status as keyof typeof t.paymentStatusLabels] ?? status}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                    <div className="grid grid-cols-1 gap-3">
+                      <div className="space-y-1.5">
+                        <Label>{t.statusLabel}</Label>
+                        <select
+                          className="h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
+                          value={statusFilter}
+                          onChange={(event) => setStatusFilter(event.target.value)}
+                        >
+                          <option value="">{t.all}</option>
+                          {EXPENSE_STATUS.map((status) => (
+                            <option key={status} value={status}>
+                              {t.statusLabels[status as keyof typeof t.statusLabels] ?? status}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
 
-              <div className="space-y-1.5">
-                <Label>{t.categoryLabel}</Label>
-                <select
-                  className="h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
-                  value={categoryFilter}
-                  onChange={(event) => setCategoryFilter(event.target.value)}
-                >
-                  <option value="">{t.all}</option>
-                  {categories.map((category) => (
-                    <option key={category._id} value={category._id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                      <div className="space-y-1.5">
+                        <Label>{t.paymentStatusLabel}</Label>
+                        <select
+                          className="h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
+                          value={paymentStatusFilter}
+                          onChange={(event) => setPaymentStatusFilter(event.target.value)}
+                        >
+                          <option value="">{t.all}</option>
+                          {EXPENSE_PAYMENT_STATUS.map((status) => (
+                            <option key={status} value={status}>
+                              {t.paymentStatusLabels[status as keyof typeof t.paymentStatusLabels] ?? status}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
 
-              <div className="space-y-1.5">
-                <Label>{t.supplierLabel}</Label>
-                <select
-                  className="h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
-                  value={supplierFilter}
-                  onChange={(event) => setSupplierFilter(event.target.value)}
-                >
-                  <option value="">{t.all}</option>
-                  {suppliers.map((supplier) => (
-                    <option key={supplier._id} value={supplier._id}>
-                      {supplier.fullName}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                      <div className="space-y-1.5">
+                        <Label>{t.categoryLabel}</Label>
+                        <select
+                          className="h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
+                          value={categoryFilter}
+                          onChange={(event) => setCategoryFilter(event.target.value)}
+                        >
+                          <option value="">{t.all}</option>
+                          {categories.map((category) => (
+                            <option key={category._id} value={category._id}>
+                              {category.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
 
-              <div className="space-y-1.5">
-                <Label>{t.periodStartLabel}</Label>
-                <Input type="date" value={periodStart} onChange={(event) => setPeriodStart(event.target.value)} className="h-10 text-sm" />
-              </div>
+                      <div className="space-y-1.5">
+                        <Label>{t.supplierLabel}</Label>
+                        <select
+                          className="h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
+                          value={supplierFilter}
+                          onChange={(event) => setSupplierFilter(event.target.value)}
+                        >
+                          <option value="">{t.all}</option>
+                          {suppliers.map((supplier) => (
+                            <option key={supplier._id} value={supplier._id}>
+                              {supplier.fullName}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
 
-              <div className="space-y-1.5">
-                <Label>{t.periodEndLabel}</Label>
-                <Input type="date" value={periodEnd} onChange={(event) => setPeriodEnd(event.target.value)} className="h-10 text-sm" />
-              </div>
+                      <div className="space-y-1.5">
+                        <Label>{t.periodStartLabel}</Label>
+                        <Input type="date" value={periodStart} onChange={(event) => setPeriodStart(event.target.value)} className="h-10 text-sm" />
+                      </div>
 
-              <div className="space-y-1.5">
-                <Label>{t.sortByLabel}</Label>
-                <select
-                  className="h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
-                  value={sortBy}
-                  onChange={(event) => setSortBy(event.target.value)}
-                >
-                  {sortByOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                      <div className="space-y-1.5">
+                        <Label>{t.periodEndLabel}</Label>
+                        <Input type="date" value={periodEnd} onChange={(event) => setPeriodEnd(event.target.value)} className="h-10 text-sm" />
+                      </div>
 
-              <div className="space-y-1.5">
-                <Label>{t.sortOrderLabel}</Label>
-                <select
-                  className="h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
-                  value={sortOrder}
-                  onChange={(event) => setSortOrder(event.target.value as 'asc' | 'desc')}
-                >
-                  <option value="asc">{t.asc}</option>
-                  <option value="desc">{t.desc}</option>
-                </select>
-              </div>
-            </div>
+                      <div className="space-y-1.5">
+                        <Label>{t.sortByLabel}</Label>
+                        <select
+                          className="h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
+                          value={sortBy}
+                          onChange={(event) => setSortBy(event.target.value)}
+                        >
+                          {sortByOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <Label>{t.rowsPerPage}</Label>
-                <select
-                  className="h-10 rounded-lg border border-input bg-transparent px-2.5 text-sm"
-                  value={String(limit)}
-                  onChange={(event) => setLimit(Number(event.target.value))}
-                >
-                  <option value="10">10</option>
-                  <option value="20">20</option>
-                  <option value="50">50</option>
-                </select>
-              </div>
+                      <div className="space-y-1.5">
+                        <Label>{t.sortOrderLabel}</Label>
+                        <select
+                          className="h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
+                          value={sortOrder}
+                          onChange={(event) => setSortOrder(event.target.value as 'asc' | 'desc')}
+                        >
+                          <option value="asc">{t.asc}</option>
+                          <option value="desc">{t.desc}</option>
+                        </select>
+                      </div>
+                    </div>
 
-              <Button type="button" variant="outline" size="sm" onClick={resetFilters}>
-                {activeFiltersCount > 0 ? (
-                  <span className="inline-flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
-                    {activeFiltersCount}
-                  </span>
-                ) : null}
-                {t.clearFilters}
-              </Button>
-            </div>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <Label>{t.rowsPerPage}</Label>
+                        <select
+                          className="h-10 rounded-lg border border-input bg-transparent px-2.5 text-sm"
+                          value={String(limit)}
+                          onChange={(event) => setLimit(Number(event.target.value))}
+                        >
+                          <option value="10">10</option>
+                          <option value="20">20</option>
+                          <option value="50">50</option>
+                        </select>
+                      </div>
+
+                      <Button type="button" variant="outline" size="sm" onClick={resetFilters}>
+                        {activeFiltersCount > 0 ? (
+                          <span className="inline-flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                            {activeFiltersCount}
+                          </span>
+                        ) : null}
+                        {t.clearFilters}
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
+                  <div className="space-y-1.5">
+                    <Label>{t.statusLabel}</Label>
+                    <select
+                      className="h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
+                      value={statusFilter}
+                      onChange={(event) => setStatusFilter(event.target.value)}
+                    >
+                      <option value="">{t.all}</option>
+                      {EXPENSE_STATUS.map((status) => (
+                        <option key={status} value={status}>
+                          {t.statusLabels[status as keyof typeof t.statusLabels] ?? status}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label>{t.paymentStatusLabel}</Label>
+                    <select
+                      className="h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
+                      value={paymentStatusFilter}
+                      onChange={(event) => setPaymentStatusFilter(event.target.value)}
+                    >
+                      <option value="">{t.all}</option>
+                      {EXPENSE_PAYMENT_STATUS.map((status) => (
+                        <option key={status} value={status}>
+                          {t.paymentStatusLabels[status as keyof typeof t.paymentStatusLabels] ?? status}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label>{t.categoryLabel}</Label>
+                    <select
+                      className="h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
+                      value={categoryFilter}
+                      onChange={(event) => setCategoryFilter(event.target.value)}
+                    >
+                      <option value="">{t.all}</option>
+                      {categories.map((category) => (
+                        <option key={category._id} value={category._id}>
+                          {category.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label>{t.supplierLabel}</Label>
+                    <select
+                      className="h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
+                      value={supplierFilter}
+                      onChange={(event) => setSupplierFilter(event.target.value)}
+                    >
+                      <option value="">{t.all}</option>
+                      {suppliers.map((supplier) => (
+                        <option key={supplier._id} value={supplier._id}>
+                          {supplier.fullName}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label>{t.periodStartLabel}</Label>
+                    <Input type="date" value={periodStart} onChange={(event) => setPeriodStart(event.target.value)} className="h-10 text-sm" />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label>{t.periodEndLabel}</Label>
+                    <Input type="date" value={periodEnd} onChange={(event) => setPeriodEnd(event.target.value)} className="h-10 text-sm" />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label>{t.sortByLabel}</Label>
+                    <select
+                      className="h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
+                      value={sortBy}
+                      onChange={(event) => setSortBy(event.target.value)}
+                    >
+                      {sortByOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label>{t.sortOrderLabel}</Label>
+                    <select
+                      className="h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
+                      value={sortOrder}
+                      onChange={(event) => setSortOrder(event.target.value as 'asc' | 'desc')}
+                    >
+                      <option value="asc">{t.asc}</option>
+                      <option value="desc">{t.desc}</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Label>{t.rowsPerPage}</Label>
+                    <select
+                      className="h-10 rounded-lg border border-input bg-transparent px-2.5 text-sm"
+                      value={String(limit)}
+                      onChange={(event) => setLimit(Number(event.target.value))}
+                    >
+                      <option value="10">10</option>
+                      <option value="20">20</option>
+                      <option value="50">50</option>
+                    </select>
+                  </div>
+
+                  <Button type="button" variant="outline" size="sm" onClick={resetFilters}>
+                    {activeFiltersCount > 0 ? (
+                      <span className="inline-flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                        {activeFiltersCount}
+                      </span>
+                    ) : null}
+                    {t.clearFilters}
+                  </Button>
+                </div>
+              </>
+            )}
 
             {lookupsLoading ? <p className="text-xs text-muted-foreground">{t.lookupsLoading}</p> : null}
             {lookupsError ? (
@@ -1739,7 +2162,7 @@ export default function ExpensesPage() {
                 {t.lookupsErrorTitle}: {lookupsError}
               </p>
             ) : null}
-            <p className="text-xs text-muted-foreground">{t.archivedHiddenHint}</p>
+            {(!isMobile || mobileAdvancedFiltersOpen) ? <p className="text-xs text-muted-foreground">{t.archivedHiddenHint}</p> : null}
             {statusFilter === 'archived' ? <p className="text-xs text-muted-foreground">{t.archivedReadOnlyHint}</p> : null}
           </CardContent>
         </Card>
@@ -1784,8 +2207,11 @@ export default function ExpensesPage() {
             ) : isMobile ? (
               <div className="space-y-2.5">
                 {expenses.map((expense) => {
-                  const rowLoading = actionLoadingId === expense._id;
+                  const rowLoading = actionLoadingId === expense._id || paymentLoadingId === expense._id;
                   const isArchived = expense.status === 'archived';
+                  const paymentReady = isExpenseReadyForPayment(expense);
+                  const canRecordPayment = paymentReady && expense.paymentStatus !== 'paid' && !isArchived;
+                  const isDraftAction = canManageExpenses && expense.status === 'draft' && !isArchived;
 
                   return (
                     <div
@@ -1795,7 +2221,15 @@ export default function ExpensesPage() {
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <p className="truncate text-sm font-semibold">{getSupplierName(expense)}</p>
-                          <p className="text-xs text-muted-foreground">{formatDateDisplay(expense.expenseDate)}</p>
+                          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                            <span>{formatDateDisplay(expense.expenseDate)}</span>
+                            <span>•</span>
+                            <span className="max-w-32 truncate">{getCategoryName(expense)}</span>
+                            <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background/70 px-1.5 py-0.5 text-[11px]">
+                              <PaperclipIcon className="size-3 text-muted-foreground" />
+                              {expense.attachmentsCount || 0}
+                            </span>
+                          </div>
                         </div>
                         <div className="flex flex-wrap items-center justify-end gap-1.5">
                           <ExpenseStatusBadge status={expense.status} locale={locale} />
@@ -1807,8 +2241,20 @@ export default function ExpensesPage() {
                         </div>
                       </div>
 
-                      <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
-                        <div className="rounded-md border border-border/60 p-2">
+                      {expense.supplierRef ? (
+                        <p className="mt-2 truncate text-xs text-muted-foreground">
+                          {t.tableReference}: {expense.supplierRef}
+                        </p>
+                      ) : null}
+
+                      {!paymentReady && !isArchived && expense.paymentStatus !== 'paid' ? (
+                        <p className="mt-2 rounded-md border border-amber-200/70 bg-amber-50/70 px-2 py-1.5 text-xs text-amber-800 dark:border-amber-900/45 dark:bg-amber-950/25 dark:text-amber-300">
+                          {t.completeExpenseFirst}
+                        </p>
+                      ) : null}
+
+                      <div className="mt-2 grid grid-cols-3 gap-1.5 text-[11px]">
+                        <div className="rounded-md border border-border/60 bg-background/75 px-2 py-1.5">
                           <p className="text-muted-foreground">{t.tableAmount}</p>
                           <ExpenseMoneyDisplay
                             cents={expense.amountInclVatCents || 0}
@@ -1816,7 +2262,7 @@ export default function ExpensesPage() {
                             className="text-sm font-medium"
                           />
                         </div>
-                        <div className="rounded-md border border-border/60 p-2">
+                        <div className="rounded-md border border-border/60 bg-background/75 px-2 py-1.5">
                           <p className="text-muted-foreground">{t.tablePaid}</p>
                           <ExpenseMoneyDisplay
                             cents={expense.amountPaidCents || 0}
@@ -1824,7 +2270,7 @@ export default function ExpensesPage() {
                             className="text-sm font-medium"
                           />
                         </div>
-                        <div className="rounded-md border border-border/60 p-2">
+                        <div className="rounded-md border border-border/60 bg-background/75 px-2 py-1.5">
                           <p className="text-muted-foreground">{t.tableRemaining}</p>
                           <ExpenseMoneyDisplay
                             cents={getRemainingCents(expense)}
@@ -1832,139 +2278,114 @@ export default function ExpensesPage() {
                             className="text-sm font-medium"
                           />
                         </div>
-                        <div className="rounded-md border border-border/60 p-2">
-                          <p className="text-muted-foreground">{t.tablePayment}</p>
-                          <div className="mt-0.5">
-                            <ExpensePaymentStatusBadge
-                              paymentStatus={expense.paymentStatus}
-                              lifecycleStatus={expense.status}
-                              locale={locale}
-                            />
-                          </div>
-                        </div>
-                        <div className="rounded-md border border-border/60 p-2">
-                          <p className="text-muted-foreground">{t.tableCategory}</p>
-                          <p className="truncate text-sm font-medium">{getCategoryName(expense)}</p>
-                        </div>
-                        <div className="rounded-md border border-border/60 p-2">
-                          <p className="text-muted-foreground">{t.tableAttachments}</p>
-                          <span className="inline-flex items-center gap-1 text-sm font-medium">
-                            <PaperclipIcon className="size-3.5 text-muted-foreground" />
-                            {expense.attachmentsCount || 0}
-                          </span>
-                        </div>
                       </div>
 
-                      <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                        <Button asChild type="button" size="sm" variant="outline" className="w-full sm:w-auto">
-                          <Link href={`/expenses/${expense._id}`}>{t.open}</Link>
-                        </Button>
+                      <div className="mt-3 flex items-center gap-2">
+                        {isDraftAction ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="min-h-9 flex-1"
+                            onClick={() => void openEditExpense(expense._id)}
+                            disabled={rowLoading}
+                          >
+                            {rowLoading ? <Loader2Icon className="size-3.5 animate-spin" /> : null}
+                            {t.completeExpense}
+                          </Button>
+                        ) : (
+                          <Button asChild type="button" size="sm" variant="outline" className="min-h-9 flex-1">
+                            <Link href={`/expenses/${expense._id}`}>{t.open}</Link>
+                          </Button>
+                        )}
 
-                        <div className="flex flex-wrap items-center justify-end gap-1.5">
-                          {rowLoading ? <Loader2Icon className="size-4 animate-spin text-muted-foreground" /> : null}
-                          {canManageExpenses ? (
-                            <>
+                        {canManageExpenses ? (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
                               <Button
                                 type="button"
                                 variant="outline"
                                 size="icon"
-                                className="size-8"
-                                title={t.edit}
-                                aria-label={t.edit}
-                                onClick={() => void openEditExpense(expense._id)}
-                                disabled={rowLoading || isArchived}
+                                className="size-9"
+                                disabled={rowLoading}
+                                title={t.tableAction}
+                                aria-label={t.tableAction}
                               >
-                                <PencilIcon className="size-4" />
+                                <MoreHorizontalIcon className="size-4" />
                               </Button>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="icon"
-                                className="size-8"
-                                title={t.settleExpense}
-                                aria-label={t.settleExpense}
-                                onClick={() => setSettleExpenseTarget(expense)}
-                                disabled={rowLoading || expense.paymentStatus === 'paid' || isArchived}
-                              >
-                                <CheckCircle2Icon className="size-4" />
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="icon"
-                                className="size-8"
-                                title={t.addPayment}
-                                aria-label={t.addPayment}
-                                onClick={() => setAddPaymentTarget(expense)}
-                                disabled={rowLoading || expense.paymentStatus === 'paid' || isArchived}
-                              >
-                                <FilePlus2Icon className="size-4" />
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="icon"
-                                className="size-8"
-                                title={t.duplicate}
-                                aria-label={t.duplicate}
-                                onClick={() => void runDuplicate(expense)}
-                                disabled={rowLoading || isArchived}
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-48">
+                              {isDraftAction ? (
+                                <DropdownMenuItem asChild>
+                                  <Link href={`/expenses/${expense._id}`}>
+                                    <ExternalLinkIcon className="size-4" />
+                                    {t.open}
+                                  </Link>
+                                </DropdownMenuItem>
+                              ) : (
+                                <DropdownMenuItem
+                                  onSelect={() => void openEditExpense(expense._id)}
+                                  disabled={isArchived}
+                                >
+                                  <PencilIcon className="size-4" />
+                                  {t.edit}
+                                </DropdownMenuItem>
+                              )}
+                              {canRecordPayment ? (
+                                <DropdownMenuItem onSelect={() => void openPaymentExpense(expense, 'settle')}>
+                                  <CheckCircle2Icon className="size-4" />
+                                  {t.settleExpense}
+                                </DropdownMenuItem>
+                              ) : null}
+                              {canRecordPayment ? (
+                                <DropdownMenuItem onSelect={() => void openPaymentExpense(expense, 'add')}>
+                                  <FilePlus2Icon className="size-4" />
+                                  {t.addPayment}
+                                </DropdownMenuItem>
+                              ) : null}
+                              <DropdownMenuItem
+                                onSelect={() => void runDuplicate(expense)}
+                                disabled={isArchived}
                               >
                                 <CopyIcon className="size-4" />
-                              </Button>
-                              {isArchived ? (
-                                <Button type="button" variant="outline" size="icon" className="size-8" disabled>
-                                  <PaperclipIcon className="size-4" />
-                                </Button>
-                              ) : (
-                                <Button asChild type="button" variant="outline" size="icon" className="size-8">
-                                  <Link
-                                    href={`/expenses/${expense._id}?tab=attachments`}
-                                    title={t.addAttachment}
-                                    aria-label={t.addAttachment}
-                                  >
+                                {t.duplicate}
+                              </DropdownMenuItem>
+                              {!isArchived ? (
+                                <DropdownMenuItem asChild>
+                                  <Link href={`/expenses/${expense._id}?tab=attachments`}>
                                     <PaperclipIcon className="size-4" />
+                                    {t.addAttachment}
                                   </Link>
-                                </Button>
-                              )}
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button type="button" variant="outline" size="icon" className="size-8" disabled={rowLoading}>
-                                    <MoreHorizontalIcon className="size-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-44">
-                                  {!isArchived ? (
-                                    <DropdownMenuItem onSelect={() => setArchiveTarget(expense)}>
-                                      <ArchiveIcon className="size-4" />
-                                      {t.archive}
-                                    </DropdownMenuItem>
-                                  ) : null}
-                                  {isArchived && canRestoreArchived ? (
-                                    <DropdownMenuItem onSelect={() => void runRestore(expense._id)}>
-                                      <RefreshCwIcon className="size-4" />
-                                      {t.restore}
-                                    </DropdownMenuItem>
-                                  ) : null}
-                                  {canPermanentlyDelete ? (
-                                    <DropdownMenuItem
-                                      variant="destructive"
-                                      onSelect={() => {
-                                        setDeletePassword('');
-                                        setDeleteReason('');
-                                        setDeleteValidationError(null);
-                                        setDeleteTarget(expense);
-                                      }}
-                                    >
-                                      <Trash2Icon className="size-4" />
-                                      {t.delete}
-                                    </DropdownMenuItem>
-                                  ) : null}
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </>
-                          ) : null}
-                        </div>
+                                </DropdownMenuItem>
+                              ) : null}
+                              {!isArchived ? (
+                                <DropdownMenuItem onSelect={() => setArchiveTarget(expense)}>
+                                  <ArchiveIcon className="size-4" />
+                                  {t.archive}
+                                </DropdownMenuItem>
+                              ) : null}
+                              {isArchived && canRestoreArchived ? (
+                                <DropdownMenuItem onSelect={() => void runRestore(expense._id)}>
+                                  <RefreshCwIcon className="size-4" />
+                                  {t.restore}
+                                </DropdownMenuItem>
+                              ) : null}
+                              {canPermanentlyDelete ? (
+                                <DropdownMenuItem
+                                  variant="destructive"
+                                  onSelect={() => {
+                                    setDeletePassword('');
+                                    setDeleteReason('');
+                                    setDeleteValidationError(null);
+                                    setDeleteTarget(expense);
+                                  }}
+                                >
+                                  <Trash2Icon className="size-4" />
+                                  {t.delete}
+                                </DropdownMenuItem>
+                              ) : null}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        ) : null}
                       </div>
                     </div>
                   );
@@ -1989,8 +2410,10 @@ export default function ExpensesPage() {
                 </TableHeader>
                 <TableBody>
                   {expenses.map((expense) => {
-                    const rowLoading = actionLoadingId === expense._id;
+                    const rowLoading = actionLoadingId === expense._id || paymentLoadingId === expense._id;
                     const isArchived = expense.status === 'archived';
+                    const paymentReady = isExpenseReadyForPayment(expense);
+                    const canRecordPayment = paymentReady && expense.paymentStatus !== 'paid' && !isArchived;
 
                     return (
                       <TableRow key={expense._id} className={`cursor-pointer ${getTableRowToneClass(expense.status, expense.paymentStatus)}`}>
@@ -2014,11 +2437,16 @@ export default function ExpensesPage() {
                           <ExpenseMoneyDisplay cents={getRemainingCents(expense)} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="font-medium" />
                         </TableCell>
                         <TableCell>
-                          <ExpensePaymentStatusBadge
-                            paymentStatus={expense.paymentStatus}
-                            lifecycleStatus={expense.status}
-                            locale={locale}
-                          />
+                          <div className="space-y-1">
+                            <ExpensePaymentStatusBadge
+                              paymentStatus={expense.paymentStatus}
+                              lifecycleStatus={expense.status}
+                              locale={locale}
+                            />
+                            {!paymentReady && !isArchived && expense.paymentStatus !== 'paid' ? (
+                              <p className="text-[11px] leading-tight text-amber-700 dark:text-amber-300">{t.completeExpenseFirst}</p>
+                            ) : null}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <ExpenseStatusBadge status={expense.status} locale={locale} />
@@ -2050,30 +2478,34 @@ export default function ExpensesPage() {
                                 >
                                   <PencilIcon className="size-4" />
                                 </Button>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="icon"
-                                  className="size-8"
-                                  title={t.settleExpense}
-                                  aria-label={t.settleExpense}
-                                  onClick={() => setSettleExpenseTarget(expense)}
-                                  disabled={rowLoading || expense.paymentStatus === 'paid' || isArchived}
-                                >
-                                  <CheckCircle2Icon className="size-4" />
-                                </Button>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="icon"
-                                  className="size-8"
-                                  title={t.addPayment}
-                                  aria-label={t.addPayment}
-                                  onClick={() => setAddPaymentTarget(expense)}
-                                  disabled={rowLoading || expense.paymentStatus === 'paid' || isArchived}
-                                >
-                                  <FilePlus2Icon className="size-4" />
-                                </Button>
+                                {canRecordPayment ? (
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="icon"
+                                    className="size-8"
+                                    title={t.settleExpense}
+                                    aria-label={t.settleExpense}
+                                    onClick={() => void openPaymentExpense(expense, 'settle')}
+                                    disabled={rowLoading}
+                                  >
+                                    <CheckCircle2Icon className="size-4" />
+                                  </Button>
+                                ) : null}
+                                {canRecordPayment ? (
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="icon"
+                                    className="size-8"
+                                    title={t.addPayment}
+                                    aria-label={t.addPayment}
+                                    onClick={() => void openPaymentExpense(expense, 'add')}
+                                    disabled={rowLoading}
+                                  >
+                                    <FilePlus2Icon className="size-4" />
+                                  </Button>
+                                ) : null}
                                 <Button
                                   type="button"
                                   variant="outline"
@@ -2180,8 +2612,14 @@ export default function ExpensesPage() {
 
       <ExpenseFormDialog
         open={manualDialogOpen}
-        onOpenChange={setManualDialogOpen}
+        onOpenChange={(open) => {
+          setManualDialogOpen(open);
+          if (!open) {
+            setCapturedReceiptFile(null);
+          }
+        }}
         mode="create"
+        initialReceiptFile={capturedReceiptFile}
         categories={categories}
         suppliers={suppliers}
         clients={clients}
@@ -2231,13 +2669,31 @@ export default function ExpensesPage() {
         onOpenChange={(open) => {
           if (!open) {
             setSettleExpenseTarget(null);
+            setPaymentExpenseDetail(null);
           }
         }}
         expenseId={settleExpenseTarget?._id || null}
-        amountInclVatCents={settleExpenseTarget?.amountInclVatCents || 0}
-        amountPaidCents={settleExpenseTarget?.amountPaidCents || 0}
+        amountInclVatCents={paymentExpenseDetail?.amountInclVatCents ?? settleExpenseTarget?.amountInclVatCents ?? 0}
+        amountPaidCents={paymentExpenseDetail?.amountPaidCents ?? settleExpenseTarget?.amountPaidCents ?? 0}
         mode="settle"
         locale={locale}
+        expenseLabel={settleExpenseTarget ? getSupplierName(settleExpenseTarget) : null}
+        expenseDate={paymentExpenseDetail?.expenseDate ?? settleExpenseTarget?.expenseDate ?? null}
+        supplierRef={paymentExpenseDetail?.supplierRef ?? settleExpenseTarget?.supplierRef ?? null}
+        receiptAttachment={paymentExpenseDetail?.attachments?.[0] ?? null}
+        blockedReason={
+          settleExpenseTarget && !isExpenseReadyForPayment(paymentExpenseDetail ?? settleExpenseTarget)
+            ? t.completeExpenseFirst
+            : null
+        }
+        onCompleteExpense={() => {
+          const targetId = settleExpenseTarget?._id;
+          setSettleExpenseTarget(null);
+          setPaymentExpenseDetail(null);
+          if (targetId) {
+            void openEditExpense(targetId);
+          }
+        }}
         onSaved={async () => {
           await refetch();
           setFeedback('success', t.settleExpenseSuccess);
@@ -2249,13 +2705,31 @@ export default function ExpensesPage() {
         onOpenChange={(open) => {
           if (!open) {
             setAddPaymentTarget(null);
+            setPaymentExpenseDetail(null);
           }
         }}
         expenseId={addPaymentTarget?._id || null}
-        amountInclVatCents={addPaymentTarget?.amountInclVatCents || 0}
-        amountPaidCents={addPaymentTarget?.amountPaidCents || 0}
+        amountInclVatCents={paymentExpenseDetail?.amountInclVatCents ?? addPaymentTarget?.amountInclVatCents ?? 0}
+        amountPaidCents={paymentExpenseDetail?.amountPaidCents ?? addPaymentTarget?.amountPaidCents ?? 0}
         mode="add"
         locale={locale}
+        expenseLabel={addPaymentTarget ? getSupplierName(addPaymentTarget) : null}
+        expenseDate={paymentExpenseDetail?.expenseDate ?? addPaymentTarget?.expenseDate ?? null}
+        supplierRef={paymentExpenseDetail?.supplierRef ?? addPaymentTarget?.supplierRef ?? null}
+        receiptAttachment={paymentExpenseDetail?.attachments?.[0] ?? null}
+        blockedReason={
+          addPaymentTarget && !isExpenseReadyForPayment(paymentExpenseDetail ?? addPaymentTarget)
+            ? t.completeExpenseFirst
+            : null
+        }
+        onCompleteExpense={() => {
+          const targetId = addPaymentTarget?._id;
+          setAddPaymentTarget(null);
+          setPaymentExpenseDetail(null);
+          if (targetId) {
+            void openEditExpense(targetId);
+          }
+        }}
         onSaved={async () => {
           await refetch();
           setFeedback('success', t.addPaymentSuccess);

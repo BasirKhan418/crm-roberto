@@ -17,6 +17,7 @@ import {
   type ExpenseAttachmentDeleteReason,
 } from "@/lib/expenses/constants";
 import { normalizeRole } from "@/lib/permissions";
+import { isExpenseReadyForPayment } from "@/lib/expenses/payment-readiness";
 import type { ListQueryOptions, PaginationMeta } from "@/utils/api/query";
 import { buildPagination } from "@/utils/api/query";
 import type {
@@ -1300,13 +1301,22 @@ export async function markExpensePaid(params: {
     };
   }
 
+  const totalAmountCents = toPositiveCents(expense.amountInclVatCents);
+  if (!isExpenseReadyForPayment({
+    status: typeof expense.status === "string" ? expense.status : null,
+    amountInclVatCents: totalAmountCents,
+    expenseDate: expense.expenseDate ?? null,
+    categoryId: expense.categoryId,
+  })) {
+    return { success: false as const, message: "Please complete the expense first." };
+  }
+
   const paymentLines = await ensureLegacyPaymentLines({
     companyId: params.companyId,
     expense: expense.toObject() as Record<string, unknown>,
     fallbackCreatedBy: params.updatedBy,
   });
 
-  const totalAmountCents = toPositiveCents(expense.amountInclVatCents);
   const currentSummary = summarizeExpensePayments({
     amountInclVatCents: totalAmountCents,
     paymentLines,
@@ -1404,13 +1414,22 @@ export async function addExpensePayment(params: {
     };
   }
 
+  const totalAmountCents = toPositiveCents(expense.amountInclVatCents);
+  if (!isExpenseReadyForPayment({
+    status: typeof expense.status === "string" ? expense.status : null,
+    amountInclVatCents: totalAmountCents,
+    expenseDate: expense.expenseDate ?? null,
+    categoryId: expense.categoryId,
+  })) {
+    return { success: false as const, message: "Please complete the expense first." };
+  }
+
   const paymentLines = await ensureLegacyPaymentLines({
     companyId: params.companyId,
     expense: expense.toObject() as Record<string, unknown>,
     fallbackCreatedBy: params.updatedBy,
   });
 
-  const totalAmountCents = toPositiveCents(expense.amountInclVatCents);
   const currentSummary = summarizeExpensePayments({
     amountInclVatCents: totalAmountCents,
     paymentLines,

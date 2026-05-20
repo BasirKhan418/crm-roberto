@@ -6,6 +6,32 @@ import User from "@/db/models/User";
 import { createI18nKey as i18nKey } from "@/lib/i18n/messages";
 import checkMe from "@/utils/middlewares/checkMe";
 
+const CLEAR_SESSION_MESSAGES = new Set([
+    i18nKey("auth.invalidToken"),
+    i18nKey("auth.sessionExpired"),
+    i18nKey("auth.userNotFound"),
+    i18nKey("auth.accountSuspended"),
+    i18nKey("auth.accountRevoked"),
+    i18nKey("auth.accountTemporarilyLocked"),
+    i18nKey("auth.externalAccountantPortalOnly"),
+]);
+
+function shouldClearSessionCookie(message?: string) {
+    if (!message) return false;
+
+    const lowerMessage = message.toLowerCase();
+    return (
+        CLEAR_SESSION_MESSAGES.has(message) ||
+        lowerMessage.includes("invalid session") ||
+        lowerMessage.includes("session expired") ||
+        lowerMessage.includes("user not found") ||
+        lowerMessage.includes("suspended") ||
+        lowerMessage.includes("revoked") ||
+        lowerMessage.includes("locked") ||
+        lowerMessage.includes("portal")
+    );
+}
+
 export async function GET(request: NextRequest) {
     try {
         const searchParams = request.nextUrl.searchParams;
@@ -13,8 +39,10 @@ export async function GET(request: NextRequest) {
 
         const me = await checkMe(withUserFetch);
         if (!me.success || !me.user) {
-            const cookieStore = await cookies();
-            cookieStore.delete("token");
+            if (shouldClearSessionCookie(me.message)) {
+                const cookieStore = await cookies();
+                cookieStore.delete("token");
+            }
 
             const forbiddenStateMessages = new Set([
                 i18nKey("auth.accountSuspended"),

@@ -2,7 +2,9 @@
 
 import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 
-import { BriefcaseIcon, Building2Icon, ChevronDownIcon, Loader2Icon, PlusIcon, ReceiptIcon } from 'lucide-react';
+import Image from 'next/image';
+
+import { BriefcaseIcon, Building2Icon, ChevronDownIcon, ExternalLinkIcon, Loader2Icon, PlusIcon, ReceiptIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import {
@@ -79,11 +81,38 @@ type ExpenseDraftCreateResponse = {
   expense?: Record<string, unknown>;
 };
 
+type ExpenseAttachmentMetadata = {
+  originalName: string;
+  displayName: string;
+  mimeType: string;
+  extension: string;
+  sizeBytes: number;
+  storageKey: string;
+  url: string;
+  checksum: string | null;
+};
+
+type ExpenseAttachmentMutationResponse = {
+  success: boolean;
+  message?: string;
+  attachment?: Record<string, unknown>;
+};
+
+type PendingCameraCapture = {
+  file: File;
+  mimeType: string;
+  previewUrl: string;
+  decisionRequired: boolean;
+};
+
+type ExpenseReceiptAttachment = NonNullable<ExpenseDetail['attachments']>[number];
+
 type ExpenseFormDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   mode: Mode;
   initialExpense?: ExpenseDetail | null;
+  initialReceiptFile?: File | null;
   categories: ExpenseLookupCategory[];
   suppliers: ExpenseLookupSupplier[];
   clients: ExpenseLookupClient[];
@@ -127,6 +156,14 @@ function inferDraftMimeType(file: File) {
   if (extension === 'png') return 'image/png';
   if (extension === 'heic') return 'image/heic';
   return null;
+}
+
+function isInlineImageMimeType(mimeType?: string) {
+  return typeof mimeType === 'string' && mimeType.startsWith('image/');
+}
+
+function isInlinePdfMimeType(mimeType?: string) {
+  return mimeType === 'application/pdf';
 }
 
 function toInputDate(value?: string | null) {
@@ -374,6 +411,7 @@ export function ExpenseFormDialog({
   onOpenChange,
   mode,
   initialExpense,
+  initialReceiptFile,
   categories,
   suppliers,
   clients,
@@ -397,11 +435,13 @@ export function ExpenseFormDialog({
   const [invoiceLookupLoading, setInvoiceLookupLoading] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [cameraDraftLoading, setCameraDraftLoading] = useState(false);
+  const [pendingCameraCapture, setPendingCameraCapture] = useState<PendingCameraCapture | null>(null);
 
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!open) {
+      setPendingCameraCapture(null);
       return;
     }
 
@@ -412,18 +452,50 @@ export function ExpenseFormDialog({
     setConfirmOpen(false);
     setInvoiceSearchInput('');
     setDebouncedInvoiceSearch('');
+    setPendingCameraCapture(null);
 
     if (mode === 'create') {
-      setStep('select-type');
-      setUiFlow('supplier_expense');
-      setShowAdvanced(false);
+      if (initialReceiptFile) {
+        const mimeType = inferDraftMimeType(initialReceiptFile);
+
+        setStep('form');
+        setUiFlow('manual_expense_note');
+        setValues((previous) => ({
+          ...previous,
+          expenseType: uiFlowToExpenseType('manual_expense_note'),
+        }));
+        setShowAdvanced(false);
+
+        if (mimeType) {
+          setPendingCameraCapture({
+            file: initialReceiptFile,
+            mimeType,
+            previewUrl: URL.createObjectURL(initialReceiptFile),
+            decisionRequired: true,
+          });
+        }
+      } else {
+        setStep('select-type');
+        setUiFlow('supplier_expense');
+        setShowAdvanced(false);
+      }
     } else {
       setStep('form');
       const flow = deriveUiFlow(initialExpense);
       setUiFlow(flow);
       setShowAdvanced(hasAdvancedData(initialValues, flow));
     }
-  }, [initialExpense, mode, open]);
+  }, [initialExpense, initialReceiptFile, mode, open]);
+
+  useEffect(() => {
+    const previewUrl = pendingCameraCapture?.previewUrl;
+
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [pendingCameraCapture?.previewUrl]);
 
   useEffect(() => {
     if (!open) {
@@ -501,7 +573,7 @@ export function ExpenseFormDialog({
     en: {
       createTitle: 'Create Expense',
       editTitle: initialExpense?.status === 'draft' ? 'Edit Draft Expense' : 'Edit Expense',
-      description: 'Fill all required fields. Draft validation requires amount, date, and category.',
+      description: 'Fill all required fields. Completing a draft requires amount, date, and category.',
       amountExclVat: 'Amount excl. VAT',
       vatRate: 'VAT rate',
       amountInclVatPreview: 'Amount incl. VAT (preview)',
@@ -529,28 +601,42 @@ export function ExpenseFormDialog({
       relationHintManual: 'For free/manual expense notes, supplier is optional. Client, invoice, and project links remain optional.',
       paymentSection: 'Payment tracking',
       paymentEditHint: 'Payments are tracked as immutable lines. Use Add payment or Settle expense actions from the expense list/detail to register new payments.',
+      receiptPreviewTitle: 'Receipt preview',
+      receiptPreviewDescription: 'Keep the receipt visible while completing the expense fields.',
+      receiptPreviewUnavailable: 'This receipt type cannot be previewed inline.',
+      openReceipt: 'Open receipt',
       extraSection: 'Classification and notes',
       create: 'Create expense',
-      createAndValidate: 'Create and validate',
+      createAndValidate: 'Create expense',
       save: 'Save changes',
       saveDraft: 'Save as draft',
-      activateDraft: 'Validate expense',
+      activateDraft: 'Finalize draft',
       createSuccess: 'Expense created',
       createDraftSuccess: 'Draft saved',
       updateSuccess: 'Expense updated',
-      activateSuccess: 'Expense validated',
-      cameraDraftTitle: 'Receipt photo to draft',
-      cameraDraftDescription: 'Capture a receipt now and create a draft instantly. Finalize it later from the draft list.',
-      cameraDraftAction: 'Take photo and save draft',
-      cameraDraftLoading: 'Creating draft...',
+      activateSuccess: 'Expense finalized',
+      cameraDraftTitle: 'Receipt photo',
+      cameraDraftDescription: 'Take a receipt photo, review it, then save a quick draft or continue in the form.',
+      cameraDraftAction: 'Take photo',
+      cameraDraftLoading: 'Saving draft...',
       cameraDraftSuccess: 'Draft created from photo',
       cameraDraftFailed: 'Failed to create draft from photo',
       cameraDraftUnsupportedFile: 'Unsupported file type. Allowed: PDF, JPEG, PNG, HEIC.',
       cameraDraftFileTooLarge: `File too large. Maximum ${formatFileSizeMb(EXPENSE_MAX_FILE_SIZE_BYTES)} MB`,
+      cameraCaptureReadyTitle: 'Receipt captured',
+      cameraCaptureReadyDescription: 'Choose whether to save a quick draft now or keep the form open and finish the expense.',
+      cameraCaptureAttachedDescription: 'This photo will be attached when you save the expense.',
+      cameraCaptureContinue: 'Continue in form',
+      cameraCaptureRetake: 'Retake photo',
+      cameraCaptureRemove: 'Remove photo',
+      cameraCapturePendingChoice: 'Choose what to do with this photo before submitting the expense.',
+      cameraCapturePreviewAlt: 'Captured receipt preview',
+      cameraCaptureAttachFailedAfterCreate:
+        'Expense created, but the receipt could not be attached. Open the expense and upload it again.',
       cancel: 'Cancel',
       confirmEditTitle: 'Confirm expense update',
       confirmEditDescriptionDefault: 'This will save your edits and update expense history.',
-      confirmEditDescriptionActivate: 'This will validate the expense and make it actionable.',
+      confirmEditDescriptionActivate: 'This will finalize the draft and make it actionable.',
       confirmEditCancel: 'Cancel',
       confirmEditAction: 'Confirm update',
       addSupplier: 'Quick add supplier',
@@ -562,7 +648,7 @@ export function ExpenseFormDialog({
       invoiceSearchPlaceholder: 'Search by invoice number, client name, or amount...',
       invoiceSearchLoading: 'Searching invoices...',
       invoiceNoResults: 'No invoice matches this search.',
-      requiredFieldsError: 'Amount, date, and category are required to validate the expense.',
+      requiredFieldsError: 'Amount, date, and category are required to finalize the draft.',
       paidByRequiredWithPayment: 'Paid by is required when payment status is Paid or Partial.',
       saveFailed: 'Failed to save expense',
       createSupplierFailed: 'Failed to create supplier',
@@ -584,7 +670,7 @@ export function ExpenseFormDialog({
     fr: {
       createTitle: 'Créer une dépense',
       editTitle: initialExpense?.status === 'draft' ? 'Modifier le brouillon' : 'Modifier la dépense',
-      description: 'Renseignez les champs requis. Activation du brouillon : montant, date et catégorie.',
+      description: 'Renseignez les champs requis. Finalisation du brouillon : montant, date et catégorie.',
       amountExclVat: 'Montant HT',
       vatRate: 'Taux TVA',
       amountInclVatPreview: 'Montant TTC (aperçu)',
@@ -612,28 +698,42 @@ export function ExpenseFormDialog({
       relationHintManual: 'Pour les dépenses libres/notes de frais, le fournisseur est optionnel. Les liens client, facture et projet restent optionnels.',
       paymentSection: 'Suivi paiement',
       paymentEditHint: 'Les paiements sont enregistrés en lignes immuables. Utilisez Ajouter un paiement ou Solder la dépense depuis la liste/détail pour enregistrer un nouveau paiement.',
+      receiptPreviewTitle: 'Aperçu du reçu',
+      receiptPreviewDescription: 'Gardez le reçu visible pendant que vous complétez les champs de dépense.',
+      receiptPreviewUnavailable: 'Ce type de reçu ne peut pas être prévisualisé ici.',
+      openReceipt: 'Ouvrir le reçu',
       extraSection: 'Classification et notes',
       create: 'Créer la dépense',
-      createAndValidate: 'Créer et valider',
+      createAndValidate: 'Créer la dépense',
       save: 'Enregistrer',
       saveDraft: 'Sauvegarder brouillon',
-      activateDraft: 'Valider la dépense',
+      activateDraft: 'Finaliser le brouillon',
       createSuccess: 'Dépense créée',
       createDraftSuccess: 'Brouillon enregistré',
       updateSuccess: 'Dépense mise à jour',
-      activateSuccess: 'Dépense validée',
-      cameraDraftTitle: 'Photo reçu vers brouillon',
-      cameraDraftDescription: 'Capturez un reçu maintenant et créez un brouillon immédiatement. Finalisez-le plus tard depuis la liste des brouillons.',
-      cameraDraftAction: 'Prendre une photo et sauvegarder brouillon',
-      cameraDraftLoading: 'Création du brouillon...',
+      activateSuccess: 'Dépense finalisée',
+      cameraDraftTitle: 'Photo du reçu',
+      cameraDraftDescription: 'Prenez une photo du reçu, vérifiez-la, puis sauvegardez un brouillon rapide ou continuez dans le formulaire.',
+      cameraDraftAction: 'Prendre une photo',
+      cameraDraftLoading: 'Enregistrement du brouillon...',
       cameraDraftSuccess: 'Brouillon créé depuis la photo',
       cameraDraftFailed: 'Échec création brouillon depuis la photo',
       cameraDraftUnsupportedFile: 'Type de fichier non supporté. Autorisés : PDF, JPEG, PNG, HEIC.',
       cameraDraftFileTooLarge: `Fichier trop volumineux. Maximum ${formatFileSizeMb(EXPENSE_MAX_FILE_SIZE_BYTES)} MB`,
+      cameraCaptureReadyTitle: 'Reçu capturé',
+      cameraCaptureReadyDescription: 'Choisissez si vous voulez enregistrer un brouillon rapide maintenant ou continuer dans le formulaire.',
+      cameraCaptureAttachedDescription: 'Cette photo sera jointe lors de l’enregistrement de la dépense.',
+      cameraCaptureContinue: 'Continuer dans le formulaire',
+      cameraCaptureRetake: 'Reprendre la photo',
+      cameraCaptureRemove: 'Retirer la photo',
+      cameraCapturePendingChoice: 'Choisissez quoi faire avec cette photo avant de créer la dépense.',
+      cameraCapturePreviewAlt: 'Aperçu du reçu capturé',
+      cameraCaptureAttachFailedAfterCreate:
+        'Dépense créée, mais le reçu n’a pas pu être joint. Ouvrez la dépense pour le téléverser à nouveau.',
       cancel: 'Annuler',
       confirmEditTitle: 'Confirmer la mise à jour',
       confirmEditDescriptionDefault: "Cette action enregistre vos modifications et met à jour l'historique.",
-      confirmEditDescriptionActivate: 'Cette action valide la dépense et la rend exploitable.',
+      confirmEditDescriptionActivate: 'Cette action finalise le brouillon et le rend exploitable.',
       confirmEditCancel: 'Annuler',
       confirmEditAction: 'Confirmer',
       addSupplier: 'Ajout rapide fournisseur',
@@ -645,7 +745,7 @@ export function ExpenseFormDialog({
       invoiceSearchPlaceholder: 'Rechercher par numéro, client ou montant...',
       invoiceSearchLoading: 'Recherche des factures...',
       invoiceNoResults: 'Aucune facture ne correspond à cette recherche.',
-      requiredFieldsError: 'Montant, date et catégorie requis pour activer le brouillon.',
+      requiredFieldsError: 'Montant, date et catégorie requis pour finaliser le brouillon.',
       paidByRequiredWithPayment: 'Le champ payé par est requis lorsque le statut est Payé ou Partiel.',
       saveFailed: 'Échec enregistrement dépense',
       createSupplierFailed: 'Échec création fournisseur',
@@ -759,7 +859,17 @@ export function ExpenseFormDialog({
   function requestSubmit(saveTarget: SaveTarget, event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
 
+    if (mode === 'create' && pendingCameraCapture?.decisionRequired) {
+      setError(t.cameraCapturePendingChoice);
+      return;
+    }
+
     if (mode === 'edit') {
+      if (initialExpense?.status === 'draft') {
+        void submit(saveTarget);
+        return;
+      }
+
       setConfirmTarget(saveTarget);
       setConfirmOpen(true);
       return;
@@ -768,76 +878,110 @@ export function ExpenseFormDialog({
     void submit(saveTarget);
   }
 
-  async function createDraftFromCapturedFile(file: File) {
+  function clearPendingCameraCapture() {
+    setPendingCameraCapture(null);
+  }
+
+  function handleContinueWithCapturedFile() {
+    setError(null);
+    setPendingCameraCapture((previous) =>
+      previous
+        ? {
+            ...previous,
+            decisionRequired: false,
+          }
+        : previous
+    );
+  }
+
+  async function uploadCapturedFile(file: File): Promise<ExpenseAttachmentMetadata> {
     const mimeType = inferDraftMimeType(file);
     if (!mimeType) {
-      setError(t.cameraDraftUnsupportedFile);
-      toast.error(t.cameraDraftUnsupportedFile);
-      return;
+      throw new Error(t.cameraDraftUnsupportedFile);
     }
 
     if (file.size > EXPENSE_MAX_FILE_SIZE_BYTES) {
-      setError(t.cameraDraftFileTooLarge);
-      toast.error(t.cameraDraftFileTooLarge);
-      return;
+      throw new Error(t.cameraDraftFileTooLarge);
     }
 
+    const presignResponse = await fetch('/api/expenses/upload-presign', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fileName: file.name,
+        fileType: mimeType,
+        fileSize: file.size,
+      }),
+    });
+
+    const presignPayload = (await presignResponse.json().catch(() => null)) as
+      | ExpenseUploadPresignResponse
+      | null;
+
+    if (
+      !presignResponse.ok ||
+      !presignPayload?.success ||
+      !presignPayload.uploadUrl ||
+      !presignPayload.fileUrl ||
+      !presignPayload.key
+    ) {
+      throw new Error(presignPayload?.message || t.cameraDraftFailed);
+    }
+
+    const uploadResponse = await fetch(presignPayload.uploadUrl, {
+      method: 'PUT',
+      body: file,
+      headers: {
+        'Content-Type': mimeType,
+      },
+    });
+
+    if (!uploadResponse.ok) {
+      throw new Error(t.cameraDraftFailed);
+    }
+
+    const extension = getExpenseFileExtension(file.name, mimeType);
+
+    return {
+      originalName: file.name,
+      displayName: file.name,
+      mimeType,
+      extension,
+      sizeBytes: file.size,
+      storageKey: presignPayload.key,
+      url: presignPayload.fileUrl,
+      checksum: null,
+    };
+  }
+
+  async function attachCapturedFileToExpense(expenseId: string, attachment: ExpenseAttachmentMetadata) {
+    const attachmentResponse = await fetch(`/api/expenses/${expenseId}/attachments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ attachment }),
+    });
+
+    const attachmentPayload = (await attachmentResponse.json().catch(() => null)) as
+      | ExpenseAttachmentMutationResponse
+      | null;
+
+    if (!attachmentResponse.ok || !attachmentPayload?.success) {
+      throw new Error(attachmentPayload?.message || t.cameraCaptureAttachFailedAfterCreate);
+    }
+  }
+
+  async function createDraftFromCapturedFile(file: File) {
     setCameraDraftLoading(true);
     setError(null);
 
     try {
-      const presignResponse = await fetch('/api/expenses/upload-presign', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fileName: file.name,
-          fileType: mimeType,
-          fileSize: file.size,
-        }),
-      });
-
-      const presignPayload = (await presignResponse.json().catch(() => null)) as
-        | ExpenseUploadPresignResponse
-        | null;
-
-      if (
-        !presignResponse.ok ||
-        !presignPayload?.success ||
-        !presignPayload.uploadUrl ||
-        !presignPayload.fileUrl ||
-        !presignPayload.key
-      ) {
-        throw new Error(presignPayload?.message || t.cameraDraftFailed);
-      }
-
-      const uploadResponse = await fetch(presignPayload.uploadUrl, {
-        method: 'PUT',
-        body: file,
-        headers: {
-          'Content-Type': mimeType,
-        },
-      });
-
-      if (!uploadResponse.ok) {
-        throw new Error(t.cameraDraftFailed);
-      }
-
-      const extension = getExpenseFileExtension(file.name, mimeType);
+      const attachment = await uploadCapturedFile(file);
 
       const draftResponse = await fetch('/api/expenses/drafts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          attachment: {
-            originalName: file.name,
-            displayName: file.name,
-            mimeType,
-            extension,
-            sizeBytes: file.size,
-            storageKey: presignPayload.key,
-            url: presignPayload.fileUrl,
-            checksum: null,
-          },
+          attachment,
         }),
       });
 
@@ -871,7 +1015,26 @@ export function ExpenseFormDialog({
       return;
     }
 
-    void createDraftFromCapturedFile(selectedFile);
+    const mimeType = inferDraftMimeType(selectedFile);
+    if (!mimeType) {
+      setError(t.cameraDraftUnsupportedFile);
+      toast.error(t.cameraDraftUnsupportedFile);
+      return;
+    }
+
+    if (selectedFile.size > EXPENSE_MAX_FILE_SIZE_BYTES) {
+      setError(t.cameraDraftFileTooLarge);
+      toast.error(t.cameraDraftFileTooLarge);
+      return;
+    }
+
+    setError(null);
+    setPendingCameraCapture({
+      file: selectedFile,
+      mimeType,
+      previewUrl: URL.createObjectURL(selectedFile),
+      decisionRequired: true,
+    });
   }
 
   async function handleCreateSupplier() {
@@ -899,10 +1062,21 @@ export function ExpenseFormDialog({
       return;
     }
 
+    if (mode === 'create' && pendingCameraCapture?.decisionRequired) {
+      setError(t.cameraCapturePendingChoice);
+      return;
+    }
+
     setSaving(true);
     setError(null);
 
     try {
+      let uploadedCameraAttachment: ExpenseAttachmentMetadata | null = null;
+
+      if (mode === 'create' && pendingCameraCapture && !pendingCameraCapture.decisionRequired) {
+        uploadedCameraAttachment = await uploadCapturedFile(pendingCameraCapture.file);
+      }
+
       const payload: Record<string, unknown> = {
         amountExclVatCents: Number(values.amountExclVat || 0),
         vatRate: Number(values.vatRate || 0),
@@ -1000,9 +1174,32 @@ export function ExpenseFormDialog({
         throw new Error(result?.message || t.saveFailed);
       }
 
-      dispatchExpenseRefresh(getExpenseIdFromPayload(result.expense));
+      const createdExpenseId = getExpenseIdFromPayload(result.expense);
+      let attachmentErrorMessage: string | null = null;
+
+      if (uploadedCameraAttachment) {
+        if (createdExpenseId) {
+          try {
+            await attachCapturedFileToExpense(createdExpenseId, uploadedCameraAttachment);
+          } catch (attachmentError) {
+            attachmentErrorMessage =
+              attachmentError instanceof Error
+                ? attachmentError.message
+                : t.cameraCaptureAttachFailedAfterCreate;
+          }
+        } else {
+          attachmentErrorMessage = t.cameraCaptureAttachFailedAfterCreate;
+        }
+      }
+
+      dispatchExpenseRefresh(createdExpenseId);
       await onSaved(result.expense);
       toast.success(saveTarget === 'draft' ? t.createDraftSuccess : t.createSuccess);
+
+      if (attachmentErrorMessage) {
+        toast.error(attachmentErrorMessage);
+      }
+
       onOpenChange(false);
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : t.saveFailed);
@@ -1013,10 +1210,18 @@ export function ExpenseFormDialog({
 
   const title = mode === 'create' ? t.createTitle : t.editTitle;
   const selectClassName = 'h-10 w-full rounded-lg border border-input bg-background px-2.5 text-sm';
+  const receiptPreviewAttachment: ExpenseReceiptAttachment | null =
+    mode === 'edit' ? initialExpense?.attachments?.[0] ?? null : null;
+  const hasReceiptPreviewAttachment = Boolean(receiptPreviewAttachment);
 
   const isSupplierFlow = uiFlow === 'supplier_expense';
   const isManualFlow = uiFlow === 'manual_expense_note';
   const isClientProjectFlow = uiFlow === 'client_project';
+  const hasPendingCameraCapture = Boolean(pendingCameraCapture);
+  const captureDecisionPending = Boolean(pendingCameraCapture?.decisionRequired);
+  const canPreviewCapturedImage = Boolean(
+    pendingCameraCapture && pendingCameraCapture.mimeType.startsWith('image/')
+  );
 
   const uiFlowLabel =
     isManualFlow ? t.flowManualTitle : isClientProjectFlow ? t.flowClientTitle : t.flowSupplierTitle;
@@ -1101,9 +1306,17 @@ export function ExpenseFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[92dvh] w-[calc(100%-1rem)] gap-3 overflow-x-hidden overflow-y-auto p-4 pr-4 sm:max-w-2xl sm:gap-4 sm:p-5 sm:pr-12">
+      <DialogContent
+        className={cn(
+          'max-h-[92dvh] w-[calc(100%-1rem)] gap-3 p-4 pr-4 sm:gap-4 sm:p-5 sm:pr-12',
+          hasReceiptPreviewAttachment
+            ? 'flex h-[92dvh] flex-col overflow-hidden sm:max-w-5xl lg:max-w-6xl'
+            : 'overflow-x-hidden overflow-y-auto sm:max-w-2xl'
+        )}
+      >
         <DialogHeader className="pr-8">
           <DialogTitle>{title}</DialogTitle>
+          <DialogDescription className="sr-only">{t.description}</DialogDescription>
         </DialogHeader>
 
         {mode === 'create' ? (
@@ -1123,25 +1336,160 @@ export function ExpenseFormDialog({
           onChange={handleCameraFileSelection}
         />
 
-        <form className="space-y-4" onSubmit={(event) => requestSubmit('default', event)}>
-          {mode === 'create' && isManualFlow ? (
-            <div className="rounded-xl border border-amber-200/80 bg-amber-50/55 p-3 dark:border-amber-900/40 dark:bg-amber-950/20">
-              <div className="space-y-1.5">
-                <p className="text-sm font-semibold">{t.cameraDraftTitle}</p>
-                <p className="text-xs text-muted-foreground">{t.cameraDraftDescription}</p>
-              </div>
-              <div className="mt-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-auto w-full justify-start whitespace-normal px-3 py-2 text-left sm:h-8 sm:w-auto sm:justify-center sm:whitespace-nowrap"
-                  onClick={() => cameraInputRef.current?.click()}
-                  disabled={saving || cameraDraftLoading}
-                >
-                  {cameraDraftLoading ? <Loader2Icon className="size-4 animate-spin" /> : <ReceiptIcon className="size-4" />}
-                  {cameraDraftLoading ? t.cameraDraftLoading : t.cameraDraftAction}
+        <div
+          className={cn(
+            hasReceiptPreviewAttachment
+              ? 'flex min-h-0 flex-1 flex-col gap-3 md:grid md:grid-cols-[minmax(260px,0.95fr)_minmax(0,1.1fr)] lg:grid-cols-[minmax(320px,0.95fr)_minmax(0,1.1fr)]'
+              : 'contents'
+          )}
+        >
+          {receiptPreviewAttachment ? (
+            <aside className="flex h-[34dvh] min-h-40 shrink-0 flex-col rounded-xl border border-sky-200/75 bg-sky-50/55 p-3 dark:border-sky-900/40 dark:bg-sky-950/18 md:h-full md:min-h-0">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 space-y-1">
+                  <p className="text-sm font-semibold">{t.receiptPreviewTitle}</p>
+                  <p className="text-xs text-muted-foreground">{t.receiptPreviewDescription}</p>
+                  <p className="truncate text-xs text-muted-foreground">{receiptPreviewAttachment.displayName}</p>
+                </div>
+                <Button asChild type="button" variant="outline" size="sm" className="h-8 shrink-0 px-2 text-xs">
+                  <a href={receiptPreviewAttachment.url} target="_blank" rel="noopener noreferrer">
+                    <ExternalLinkIcon className="size-3.5" />
+                    <span className="hidden sm:inline">{t.openReceipt}</span>
+                  </a>
                 </Button>
               </div>
+
+              <div className="mt-3 min-h-0 flex-1 overflow-hidden rounded-lg border border-border/70 bg-background">
+                {isInlineImageMimeType(receiptPreviewAttachment.mimeType) ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={receiptPreviewAttachment.url}
+                    alt={receiptPreviewAttachment.displayName}
+                    className="h-full w-full object-contain"
+                  />
+                ) : isInlinePdfMimeType(receiptPreviewAttachment.mimeType) ? (
+                  <iframe
+                    src={receiptPreviewAttachment.url}
+                    title={receiptPreviewAttachment.displayName}
+                    className="h-full w-full"
+                  />
+                ) : (
+                  <div className="flex h-full flex-col items-start justify-center gap-2 p-4 text-sm">
+                    <p className="font-medium">{receiptPreviewAttachment.displayName}</p>
+                    <p className="text-xs text-muted-foreground">{t.receiptPreviewUnavailable}</p>
+                    <Button asChild type="button" variant="outline" size="sm">
+                      <a href={receiptPreviewAttachment.url} target="_blank" rel="noopener noreferrer">
+                        <ExternalLinkIcon className="size-3.5" />
+                        {t.openReceipt}
+                      </a>
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </aside>
+          ) : null}
+
+        <form
+          className={cn('space-y-4', hasReceiptPreviewAttachment && 'min-h-0 flex-1 overflow-y-auto pr-1')}
+          onSubmit={(event) => requestSubmit('default', event)}
+        >
+          {mode === 'create' && isManualFlow ? (
+            <div
+              className={cn(
+                'rounded-xl border p-3',
+                hasPendingCameraCapture
+                  ? 'border-primary/20 bg-primary/5'
+                  : 'border-amber-200/80 bg-amber-50/55 dark:border-amber-900/40 dark:bg-amber-950/20'
+              )}
+            >
+              <div className="space-y-1.5">
+                <p className="text-sm font-semibold">
+                  {hasPendingCameraCapture ? t.cameraCaptureReadyTitle : t.cameraDraftTitle}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {hasPendingCameraCapture
+                    ? captureDecisionPending
+                      ? t.cameraCaptureReadyDescription
+                      : t.cameraCaptureAttachedDescription
+                    : t.cameraDraftDescription}
+                </p>
+              </div>
+              {pendingCameraCapture ? (
+                <div className="mt-3 space-y-3">
+                  {canPreviewCapturedImage ? (
+                    <Image
+                      src={pendingCameraCapture.previewUrl}
+                      alt={t.cameraCapturePreviewAlt}
+                      width={960}
+                      height={720}
+                      unoptimized
+                      className="h-48 w-full rounded-lg border border-border/60 object-cover"
+                    />
+                  ) : (
+                    <div className="rounded-lg border border-dashed border-border/60 bg-background/80 px-3 py-4">
+                      <p className="text-sm font-medium">{pendingCameraCapture.file.name}</p>
+                      <p className="text-xs text-muted-foreground">{pendingCameraCapture.mimeType}</p>
+                    </div>
+                  )}
+
+                  <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                    {captureDecisionPending ? (
+                      <>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-8 sm:w-auto sm:whitespace-nowrap"
+                          onClick={() => void createDraftFromCapturedFile(pendingCameraCapture.file)}
+                          disabled={saving || cameraDraftLoading}
+                        >
+                          {cameraDraftLoading ? <Loader2Icon className="size-4 animate-spin" /> : <ReceiptIcon className="size-4" />}
+                          {cameraDraftLoading ? t.cameraDraftLoading : t.saveDraft}
+                        </Button>
+                        <Button
+                          type="button"
+                          className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-8 sm:w-auto sm:whitespace-nowrap"
+                          onClick={handleContinueWithCapturedFile}
+                          disabled={saving || cameraDraftLoading}
+                        >
+                          {t.cameraCaptureContinue}
+                        </Button>
+                      </>
+                    ) : null}
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-8 sm:w-auto sm:whitespace-nowrap"
+                      onClick={() => cameraInputRef.current?.click()}
+                      disabled={saving || cameraDraftLoading}
+                    >
+                      {t.cameraCaptureRetake}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-8 sm:w-auto sm:whitespace-nowrap"
+                      onClick={clearPendingCameraCapture}
+                      disabled={saving || cameraDraftLoading}
+                    >
+                      {t.cameraCaptureRemove}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-auto w-full justify-start whitespace-normal px-3 py-2 text-left sm:h-8 sm:w-auto sm:justify-center sm:whitespace-nowrap"
+                    onClick={() => cameraInputRef.current?.click()}
+                    disabled={saving || cameraDraftLoading}
+                  >
+                    <ReceiptIcon className="size-4" />
+                    {t.cameraDraftAction}
+                  </Button>
+                </div>
+              )}
             </div>
           ) : null}
 
@@ -1927,7 +2275,10 @@ export function ExpenseFormDialog({
                   type="button"
                   variant="outline"
                   className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-8 sm:w-auto sm:whitespace-nowrap"
-                  onClick={() => setStep('select-type')}
+                  onClick={() => {
+                    clearPendingCameraCapture();
+                    setStep('select-type');
+                  }}
                   disabled={saving}
                 >
                   {t.back}
@@ -1952,7 +2303,7 @@ export function ExpenseFormDialog({
                     variant="outline"
                     className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-8 sm:w-auto sm:whitespace-nowrap"
                     onClick={() => requestSubmit('draft')}
-                    disabled={saving || cameraDraftLoading}
+                    disabled={saving || cameraDraftLoading || captureDecisionPending}
                   >
                     {saving ? <Loader2Icon className="size-4 animate-spin" /> : null}
                     {t.saveDraft}
@@ -1960,7 +2311,7 @@ export function ExpenseFormDialog({
                   <Button
                     type="submit"
                     className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-8 sm:w-auto sm:whitespace-nowrap"
-                    disabled={saving || cameraDraftLoading}
+                    disabled={saving || cameraDraftLoading || captureDecisionPending}
                   >
                     {saving ? <Loader2Icon className="size-4 animate-spin" /> : null}
                     {t.createAndValidate}
@@ -2001,6 +2352,7 @@ export function ExpenseFormDialog({
             </div>
           </DialogFooter>
         </form>
+        </div>
 
         {mode === 'edit' ? (
           <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
