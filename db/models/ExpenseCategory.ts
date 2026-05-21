@@ -14,9 +14,24 @@ const ExpenseCategorySchema = new mongoose.Schema(
       trim: true,
       maxlength: 120,
     },
+    nameEn: {
+      type: String,
+      trim: true,
+      maxlength: 120,
+    },
+    nameFr: {
+      type: String,
+      trim: true,
+      maxlength: 120,
+    },
     slug: {
       type: String,
       required: true,
+      trim: true,
+      lowercase: true,
+    },
+    canonicalKey: {
+      type: String,
       trim: true,
       lowercase: true,
     },
@@ -38,6 +53,15 @@ const ExpenseCategorySchema = new mongoose.Schema(
 );
 
 ExpenseCategorySchema.index({ companyId: 1, slug: 1 }, { unique: true });
+ExpenseCategorySchema.index(
+  { companyId: 1, canonicalKey: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      canonicalKey: { $type: "string", $ne: "" },
+    },
+  }
+);
 ExpenseCategorySchema.index({ companyId: 1, isEnabled: 1, sortOrder: 1, name: 1 });
 
 export default

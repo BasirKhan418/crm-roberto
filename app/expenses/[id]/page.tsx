@@ -61,6 +61,7 @@ import { createInlineExpenseCategory, createInlineExpenseSupplier, useExpenseLoo
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useTickets } from '@/hooks/useTickets';
 import { canPermanentlyDeleteExpense, canRestoreArchivedExpense } from '@/lib/expenses/access';
+import { resolveExpenseCategoryNameByLocale } from '@/lib/expenses/category-i18n';
 import { isExpenseReadyForPayment } from '@/lib/expenses/payment-readiness';
 import {
   EXPENSE_MAX_FILE_SIZE_BYTES,
@@ -281,12 +282,27 @@ function resolveEntityLabel(
         companyName?: string;
         invoiceNumber?: string;
         name?: string;
+        nameEn?: string;
+        nameFr?: string;
+        canonicalKey?: string;
       }
     | null
-    | undefined
+    | undefined,
+  locale: 'en' | 'fr' = 'en'
 ) {
   if (!value) return '-';
   if (typeof value === 'string') return value;
+  if (value.name || value.nameEn || value.nameFr) {
+    return resolveExpenseCategoryNameByLocale(
+      {
+        name: value.name,
+        nameEn: value.nameEn,
+        nameFr: value.nameFr,
+        canonicalKey: value.canonicalKey,
+      },
+      locale
+    );
+  }
   return value.fullName || value.companyName || value.invoiceNumber || value.name || value._id;
 }
 
@@ -2222,7 +2238,7 @@ export default function ExpenseDetailPage() {
                     </div>
                     <div className="rounded-md border border-border/60 p-2">
                       <p className="text-xs text-muted-foreground">{t.category}</p>
-                      <p className="font-medium">{resolveEntityLabel(expense.categoryId)}</p>
+                      <p className="font-medium">{resolveEntityLabel(expense.categoryId, locale)}</p>
                     </div>
                     <div className="rounded-md border border-border/60 p-2">
                       <p className="text-xs text-muted-foreground">{t.client}</p>

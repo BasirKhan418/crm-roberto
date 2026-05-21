@@ -5,7 +5,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 export type ExpenseLookupCategory = {
   _id: string;
   name: string;
+  nameEn?: string;
+  nameFr?: string;
   slug: string;
+  canonicalKey?: string;
   isEnabled?: boolean;
 };
 

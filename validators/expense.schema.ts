@@ -222,14 +222,28 @@ export const expenseListFilterSchema = z.object({
 });
 
 export const createExpenseCategorySchema = z.object({
-  name: z.string().trim().min(1).max(120),
+  name: z.string().trim().min(1).max(120).optional(),
+  nameEn: z.string().trim().min(1).max(120).optional(),
+  nameFr: z.string().trim().min(1).max(120).optional(),
   isEnabled: z.boolean().optional(),
   sortOrder: z.preprocess(toNumber, z.number().int().optional()),
+}).superRefine((input, context) => {
+  if (input.name || input.nameEn || input.nameFr) {
+    return;
+  }
+
+  context.addIssue({
+    code: z.ZodIssueCode.custom,
+    message: "At least one category name (name, nameEn, or nameFr) is required",
+    path: ["name"],
+  });
 });
 
 export const updateExpenseCategorySchema = z
   .object({
     name: z.string().trim().min(1).max(120).optional(),
+    nameEn: z.string().trim().min(1).max(120).optional(),
+    nameFr: z.string().trim().min(1).max(120).optional(),
     isEnabled: z.boolean().optional(),
     sortOrder: z.preprocess(toNumber, z.number().int().optional()),
   })

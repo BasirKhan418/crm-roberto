@@ -53,6 +53,7 @@ import {
   getExpenseFileExtension,
   isExpenseMimeTypeAllowed,
 } from '@/lib/expenses/upload';
+import { resolveExpenseCategoryNameByLocale } from '@/lib/expenses/category-i18n';
 import { formatInvoiceDisplayNumber } from '@/lib/i18n/messages';
 import { cn } from '@/lib/utils';
 
@@ -1893,7 +1894,7 @@ export function ExpenseFormDialog({
                 <option value={ADD_CATEGORY_OPTION_VALUE}>{t.addCategoryOption}</option>
                 {categories.map((category) => (
                   <option key={category._id} value={category._id}>
-                    {category.name}
+                    {resolveExpenseCategoryNameByLocale(category, locale)}
                   </option>
                 ))}
               </select>

@@ -71,6 +71,7 @@ import { useExpensesActionCount } from '@/hooks/useExpensesActionCount';
 import { createInlineExpenseCategory, createInlineExpenseSupplier, useExpenseLookups } from '@/hooks/useExpenseLookups';
 import { ExpenseListItem, useExpenses } from '@/hooks/useExpenses';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { resolveExpenseCategoryNameByLocale } from '@/lib/expenses/category-i18n';
 import { EXPENSE_PAYMENT_STATUS, EXPENSE_STATUS } from '@/lib/expenses/constants';
 import { canPermanentlyDeleteExpense, canRestoreArchivedExpense } from '@/lib/expenses/access';
 import { isExpenseReadyForPayment } from '@/lib/expenses/payment-readiness';
@@ -198,9 +199,17 @@ function formatDuplicatedSupplierLabel(baseLabel: string, status: string, locale
   return `${baseLabel}${suffix}`;
 }
 
-function getCategoryName(expense: ExpenseListItem) {
+function getCategoryName(expense: ExpenseListItem, locale: 'en' | 'fr') {
   if (typeof expense.categoryId === 'object' && expense.categoryId) {
-    return expense.categoryId.name || '-';
+    return resolveExpenseCategoryNameByLocale(
+      {
+        name: expense.categoryId.name,
+        nameEn: expense.categoryId.nameEn,
+        nameFr: expense.categoryId.nameFr,
+        canonicalKey: expense.categoryId.canonicalKey,
+      },
+      locale
+    );
   }
 
   return '-';
@@ -370,7 +379,11 @@ export default function ExpensesPage() {
       return;
     }
 
-    const [touch] = event.touches;
+    const touch = event.touches.item(0);
+    if (!touch) {
+      quickFiltersTouchStartRef.current = null;
+      return;
+    }
     quickFiltersTouchStartRef.current = { x: touch.clientX, y: touch.clientY };
   }
 
@@ -379,7 +392,10 @@ export default function ExpensesPage() {
       return;
     }
 
-    const [touch] = event.touches;
+    const touch = event.touches.item(0);
+    if (!touch) {
+      return;
+    }
     const deltaX = Math.abs(touch.clientX - quickFiltersTouchStartRef.current.x);
     const deltaY = Math.abs(touch.clientY - quickFiltersTouchStartRef.current.y);
 
@@ -1874,7 +1890,7 @@ export default function ExpensesPage() {
                             ) : null}
                           </div>
                           <p className="text-xs text-muted-foreground">
-                            {formatDateDisplay(expense.expenseDate)} · {getCategoryName(expense)}
+                            {formatDateDisplay(expense.expenseDate)} · {getCategoryName(expense, locale)}
                           </p>
                         </div>
                         <div className="flex w-full flex-col gap-2 sm:w-auto sm:items-end">
@@ -2100,7 +2116,7 @@ export default function ExpensesPage() {
                           <option value="">{t.all}</option>
                           {categories.map((category) => (
                             <option key={category._id} value={category._id}>
-                              {category.name}
+                              {resolveExpenseCategoryNameByLocale(category, locale)}
                             </option>
                           ))}
                         </select>
@@ -2231,7 +2247,7 @@ export default function ExpensesPage() {
                       <option value="">{t.all}</option>
                       {categories.map((category) => (
                         <option key={category._id} value={category._id}>
-                          {category.name}
+                          {resolveExpenseCategoryNameByLocale(category, locale)}
                         </option>
                       ))}
                     </select>
@@ -2392,7 +2408,7 @@ export default function ExpensesPage() {
                           <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                             <span>{formatDateDisplay(expense.expenseDate)}</span>
                             <span>•</span>
-                            <span className="max-w-32 truncate">{getCategoryName(expense)}</span>
+                            <span className="max-w-32 truncate">{getCategoryName(expense, locale)}</span>
                             <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background/70 px-1.5 py-0.5 text-[11px]">
                               <PaperclipIcon className="size-3 text-muted-foreground" />
                               {expense.attachmentsCount || 0}
@@ -2605,7 +2621,7 @@ export default function ExpensesPage() {
                             ) : null}
                           </div>
                         </TableCell>
-                        <TableCell className="max-w-44 truncate">{getCategoryName(expense)}</TableCell>
+                        <TableCell className="max-w-44 truncate">{getCategoryName(expense, locale)}</TableCell>
                         <TableCell className="max-w-44 truncate">
                           {expense.supplierRef ? (
                             expense.supplierRef

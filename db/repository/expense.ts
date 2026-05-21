@@ -767,7 +767,7 @@ export async function listExpenses(params: {
       .skip(skip)
       .limit(params.options.limit)
       .populate("supplierId", "fullName companyName")
-      .populate("categoryId", "name")
+      .populate("categoryId", "name nameEn nameFr canonicalKey")
       .lean(),
     Expense.countDocuments(query),
   ]);

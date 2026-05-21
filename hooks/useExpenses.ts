@@ -24,6 +24,9 @@ export type ExpenseListItem = {
     | {
         _id: string;
         name?: string;
+        nameEn?: string;
+        nameFr?: string;
+        canonicalKey?: string;
       };
   supplierId?:
     | string
@@ -40,7 +43,10 @@ export type ExpenseListItem = {
 export type ExpenseCategoryItem = {
   _id: string;
   name: string;
+  nameEn?: string;
+  nameFr?: string;
   slug: string;
+  canonicalKey?: string;
   isDefault: boolean;
   isEnabled: boolean;
   sortOrder: number;

@@ -10,6 +10,7 @@ import {
   RefreshCwIcon,
   RotateCcwIcon,
   SaveIcon,
+  Trash2Icon,
 } from 'lucide-react';
 
 import { useLocale } from '@/components/providers/locale-provider';
@@ -21,10 +22,12 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useAuthMe } from '@/hooks/useAuthMe';
 import { ExpenseCategoryItem, useExpenseCategories } from '@/hooks/useExpenses';
+import { resolveExpenseCategoryNameByLocale } from '@/lib/expenses/category-i18n';
 import { hasPermission } from '@/lib/permissions';
 
 type RowDraft = {
-  name: string;
+  nameEn: string;
+  nameFr: string;
   sortOrder: string;
   isEnabled: boolean;
 };
@@ -51,11 +54,13 @@ const pageMessages = {
     viewOnly: 'View only: you can review category setup but cannot edit it with your role.',
     addSectionTitle: 'Add category',
     addSectionDescription: 'Create a custom category for your expense workflow.',
-    categoryName: 'Category name',
-    categoryNamePlaceholder: 'Example: Office snacks',
+    categoryNameEn: 'Category name (EN)',
+    categoryNameFr: 'Category name (FR)',
+    categoryNameEnPlaceholder: 'Example: Fuel',
+    categoryNameFrPlaceholder: 'Example: Carburant',
     sortOrder: 'Sort order',
-    enabled: 'Enabled',
-    enabledDescription: 'Available in expense forms and filters.',
+    active: 'Active',
+    activeDescription: 'Active categories are available in expense forms and filters.',
     add: 'Add category',
     adding: 'Adding...',
     save: 'Save',
@@ -64,17 +69,23 @@ const pageMessages = {
     moveUp: 'Move up',
     moveDown: 'Move down',
     defaultTag: 'Default',
-    activeTag: 'Enabled',
-    inactiveTag: 'Disabled',
+    activeTag: 'Active',
+    inactiveTag: 'Archived',
     slugPrefix: 'Slug',
+    canonicalPrefix: 'Canonical key',
+    delete: 'Delete',
+    deleting: 'Deleting...',
+    deleteConfirm: 'Delete this category? This cannot be undone.',
+    deleteSuccess: 'Category deleted successfully',
+    deleteFailed: 'Failed to delete category',
     noChanges: 'No pending changes',
     createSuccess: 'Category created successfully',
     updateSuccess: 'Category updated successfully',
     orderingSuccess: 'Category order updated',
-    toggleSuccess: 'Category availability updated',
+    toggleSuccess: 'Category status updated',
     createFailed: 'Failed to create category',
     updateFailed: 'Failed to update category',
-    nameRequired: 'Category name is required',
+    nameRequired: 'At least one category name (EN or FR) is required',
     invalidSortOrder: 'Sort order must be a valid integer',
   },
   fr: {
@@ -87,11 +98,13 @@ const pageMessages = {
     viewOnly: 'Lecture seule : vous pouvez consulter la configuration mais pas la modifier avec votre rôle.',
     addSectionTitle: 'Ajouter une catégorie',
     addSectionDescription: 'Créez une catégorie personnalisée pour votre workflow de dépenses.',
-    categoryName: 'Nom de la catégorie',
-    categoryNamePlaceholder: 'Exemple : Collations bureau',
+    categoryNameEn: 'Nom catégorie (EN)',
+    categoryNameFr: 'Nom catégorie (FR)',
+    categoryNameEnPlaceholder: 'Exemple : Fuel',
+    categoryNameFrPlaceholder: 'Exemple : Carburant',
     sortOrder: 'Ordre',
-    enabled: 'Activée',
-    enabledDescription: 'Disponible dans les formulaires et filtres de dépenses.',
+    active: 'Active',
+    activeDescription: 'Les catégories actives sont disponibles dans les formulaires et filtres.',
     add: 'Ajouter catégorie',
     adding: 'Ajout...',
     save: 'Enregistrer',
@@ -100,17 +113,23 @@ const pageMessages = {
     moveUp: 'Monter',
     moveDown: 'Descendre',
     defaultTag: 'Défaut',
-    activeTag: 'Activée',
-    inactiveTag: 'Désactivée',
+    activeTag: 'Active',
+    inactiveTag: 'Archivée',
     slugPrefix: 'Slug',
+    canonicalPrefix: 'Clé canonique',
+    delete: 'Supprimer',
+    deleting: 'Suppression...',
+    deleteConfirm: 'Supprimer cette catégorie ? Cette action est irréversible.',
+    deleteSuccess: 'Catégorie supprimée avec succès',
+    deleteFailed: 'Échec suppression catégorie',
     noChanges: 'Aucun changement en attente',
     createSuccess: 'Catégorie créée avec succès',
     updateSuccess: 'Catégorie mise à jour avec succès',
     orderingSuccess: 'Ordre des catégories mis à jour',
-    toggleSuccess: 'Disponibilité de la catégorie mise à jour',
+    toggleSuccess: 'Statut de la catégorie mis à jour',
     createFailed: 'Échec création catégorie',
     updateFailed: 'Échec mise à jour catégorie',
-    nameRequired: 'Le nom de catégorie est requis',
+    nameRequired: 'Au moins un nom (EN ou FR) est requis',
     invalidSortOrder: "L'ordre doit être un entier valide",
   },
 } as const;
@@ -132,7 +151,8 @@ export default function ExpenseCategoriesSettingsPage() {
   const { categories, loading, error, refetch } = useExpenseCategories();
 
   const [rowDrafts, setRowDrafts] = useState<Record<string, RowDraft>>({});
-  const [newCategoryName, setNewCategoryName] = useState('');
+  const [newCategoryNameEn, setNewCategoryNameEn] = useState('');
+  const [newCategoryNameFr, setNewCategoryNameFr] = useState('');
   const [newCategorySortOrder, setNewCategorySortOrder] = useState('');
   const [newCategoryEnabled, setNewCategoryEnabled] = useState(true);
 
@@ -146,7 +166,8 @@ export default function ExpenseCategoriesSettingsPage() {
         categories.map((category) => [
           category._id,
           {
-            name: category.name,
+            nameEn: category.nameEn || category.name,
+            nameFr: category.nameFr || '',
             sortOrder: String(category.sortOrder),
             isEnabled: category.isEnabled,
           },
@@ -180,7 +201,8 @@ export default function ExpenseCategoriesSettingsPage() {
   function getRowDraft(category: ExpenseCategoryItem): RowDraft {
     return (
       rowDrafts[category._id] || {
-        name: category.name,
+        nameEn: category.nameEn || category.name,
+        nameFr: category.nameFr || '',
         sortOrder: String(category.sortOrder),
         isEnabled: category.isEnabled,
       }
@@ -232,8 +254,9 @@ export default function ExpenseCategoriesSettingsPage() {
   async function handleCreateCategory() {
     if (!canManageExpenses) return;
 
-    const name = newCategoryName.trim();
-    if (!name) {
+    const nameEn = newCategoryNameEn.trim();
+    const nameFr = newCategoryNameFr.trim();
+    if (!nameEn && !nameFr) {
       setCreateError(t.nameRequired);
       return;
     }
@@ -252,7 +275,9 @@ export default function ExpenseCategoriesSettingsPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name,
+          name: nameEn || nameFr,
+          nameEn: nameEn || undefined,
+          nameFr: nameFr || undefined,
           isEnabled: newCategoryEnabled,
           sortOrder: parsedSortOrder ?? undefined,
         }),
@@ -263,7 +288,8 @@ export default function ExpenseCategoriesSettingsPage() {
         throw new Error(result?.message || t.createFailed);
       }
 
-      setNewCategoryName('');
+      setNewCategoryNameEn('');
+      setNewCategoryNameFr('');
       setNewCategorySortOrder('');
       setNewCategoryEnabled(true);
       await refetch();
@@ -283,14 +309,27 @@ export default function ExpenseCategoriesSettingsPage() {
     const draft = getRowDraft(category);
     const updates: Record<string, unknown> = {};
 
-    const nextName = draft.name.trim();
-    if (!nextName) {
+    const nextNameEn = draft.nameEn.trim();
+    const nextNameFr = draft.nameFr.trim();
+
+    if (!nextNameEn && !nextNameFr) {
       setFeedbackMessage({ type: 'error', text: t.nameRequired });
       return;
     }
 
-    if (nextName !== category.name) {
-      updates.name = nextName;
+    const currentNameEn = (category.nameEn || category.name || '').trim();
+    const currentNameFr = (category.nameFr || '').trim();
+
+    if (nextNameEn !== currentNameEn) {
+      updates.nameEn = nextNameEn;
+      updates.name = nextNameEn || nextNameFr;
+    }
+
+    if (nextNameFr !== currentNameFr) {
+      updates.nameFr = nextNameFr;
+      if (!updates.name) {
+        updates.name = nextNameEn || nextNameFr;
+      }
     }
 
     const parsedSortOrder = parseSortOrderInput(draft.sortOrder);
@@ -346,10 +385,46 @@ export default function ExpenseCategoriesSettingsPage() {
 
   function resetRowDraft(category: ExpenseCategoryItem) {
     setRowDraft(category._id, {
-      name: category.name,
+      nameEn: category.nameEn || category.name,
+      nameFr: category.nameFr || '',
       sortOrder: String(category.sortOrder),
       isEnabled: category.isEnabled,
     });
+  }
+
+  async function handleDeleteCategory(category: ExpenseCategoryItem) {
+    if (!canManageExpenses) return;
+
+    const confirmed = window.confirm(t.deleteConfirm);
+    if (!confirmed) {
+      return;
+    }
+
+    setBusyActionKey(`${category._id}:delete`);
+
+    try {
+      const response = await fetch('/api/expenses/categories', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ categoryId: category._id }),
+      });
+
+      const result = (await response.json().catch(() => null)) as { success: boolean; message?: string } | null;
+
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.message || t.deleteFailed);
+      }
+
+      await refetch();
+      setFeedbackMessage({ type: 'success', text: t.deleteSuccess });
+    } catch (deleteError) {
+      setFeedbackMessage({
+        type: 'error',
+        text: deleteError instanceof Error ? deleteError.message : t.deleteFailed,
+      });
+    } finally {
+      setBusyActionKey(null);
+    }
   }
 
   const sortedCategories = useMemo(() => [...categories], [categories]);
@@ -389,16 +464,29 @@ export default function ExpenseCategoriesSettingsPage() {
               <p className="text-xs text-muted-foreground">{t.addSectionDescription}</p>
             </div>
 
-            <div className="grid gap-3 lg:grid-cols-[minmax(220px,1.5fr)_140px_150px_auto]">
+            <div className="grid gap-3 lg:grid-cols-[minmax(180px,1fr)_minmax(180px,1fr)_140px_170px_auto]">
               <div className="space-y-1.5">
-                <Label>{t.categoryName}</Label>
+                <Label>{t.categoryNameEn}</Label>
                 <Input
-                  value={newCategoryName}
+                  value={newCategoryNameEn}
                   onChange={(event) => {
                     setCreateError(null);
-                    setNewCategoryName(event.target.value);
+                    setNewCategoryNameEn(event.target.value);
                   }}
-                  placeholder={t.categoryNamePlaceholder}
+                  placeholder={t.categoryNameEnPlaceholder}
+                  disabled={!canManageExpenses || isBusy('create')}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>{t.categoryNameFr}</Label>
+                <Input
+                  value={newCategoryNameFr}
+                  onChange={(event) => {
+                    setCreateError(null);
+                    setNewCategoryNameFr(event.target.value);
+                  }}
+                  placeholder={t.categoryNameFrPlaceholder}
                   disabled={!canManageExpenses || isBusy('create')}
                 />
               </div>
@@ -417,14 +505,14 @@ export default function ExpenseCategoriesSettingsPage() {
               </div>
 
               <div className="space-y-1.5">
-                <Label>{t.enabled}</Label>
+                <Label>{t.active}</Label>
                 <div className="flex h-9 items-center gap-2 rounded-lg border border-border/70 px-2.5">
                   <Switch
                     checked={newCategoryEnabled}
                     onCheckedChange={setNewCategoryEnabled}
                     disabled={!canManageExpenses || isBusy('create')}
                   />
-                  <span className="text-xs text-muted-foreground">{t.enabledDescription}</span>
+                  <span className="text-xs text-muted-foreground">{t.activeDescription}</span>
                 </div>
               </div>
 
@@ -463,9 +551,12 @@ export default function ExpenseCategoriesSettingsPage() {
                   <div key={category._id} className="rounded-xl border border-border/70 p-4">
                     <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
                       <div>
-                        <p className="text-sm font-medium">{category.name}</p>
+                        <p className="text-sm font-medium">{resolveExpenseCategoryNameByLocale(category, locale)}</p>
                         <p className="text-xs text-muted-foreground">
                           {t.slugPrefix}: {category.slug}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {t.canonicalPrefix}: {category.canonicalKey || category.slug}
                         </p>
                       </div>
 
@@ -477,12 +568,21 @@ export default function ExpenseCategoriesSettingsPage() {
                       </div>
                     </div>
 
-                    <div className="grid gap-3 lg:grid-cols-[minmax(220px,1.5fr)_140px_150px_auto]">
+                    <div className="grid gap-3 lg:grid-cols-[minmax(180px,1fr)_minmax(180px,1fr)_140px_170px_auto]">
                       <div className="space-y-1.5">
-                        <Label>{t.categoryName}</Label>
+                        <Label>{t.categoryNameEn}</Label>
                         <Input
-                          value={draft.name}
-                          onChange={(event) => setRowDraft(category._id, { name: event.target.value })}
+                          value={draft.nameEn}
+                          onChange={(event) => setRowDraft(category._id, { nameEn: event.target.value })}
+                          disabled={!canManageExpenses || rowBusy}
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label>{t.categoryNameFr}</Label>
+                        <Input
+                          value={draft.nameFr}
+                          onChange={(event) => setRowDraft(category._id, { nameFr: event.target.value })}
                           disabled={!canManageExpenses || rowBusy}
                         />
                       </div>
@@ -498,7 +598,7 @@ export default function ExpenseCategoriesSettingsPage() {
                       </div>
 
                       <div className="space-y-1.5">
-                        <Label>{t.enabled}</Label>
+                        <Label>{t.active}</Label>
                         <div className="flex h-9 items-center gap-2 rounded-lg border border-border/70 px-2.5">
                           <Switch
                             checked={draft.isEnabled}
@@ -556,6 +656,17 @@ export default function ExpenseCategoriesSettingsPage() {
                           >
                             <RotateCcwIcon className="size-3.5" />
                             {t.reset}
+                          </Button>
+
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => void handleDeleteCategory(category)}
+                            disabled={!canManageExpenses || rowBusy || category.isDefault}
+                          >
+                            {isBusy(`${category._id}:delete`) ? <Loader2Icon className="size-3.5 animate-spin" /> : <Trash2Icon className="size-3.5" />}
+                            {isBusy(`${category._id}:delete`) ? t.deleting : t.delete}
                           </Button>
                         </div>
                       </div>

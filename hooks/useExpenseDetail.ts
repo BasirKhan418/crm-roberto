@@ -56,6 +56,9 @@ export type PopulatedEntity =
       companyName?: string;
       invoiceNumber?: string;
       name?: string;
+      nameEn?: string;
+      nameFr?: string;
+      canonicalKey?: string;
       date?: string | null;
       status?: string;
       totalIncludingTax?: number;
