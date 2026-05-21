@@ -2,9 +2,10 @@
 
 import { PointerEvent, WheelEvent, useRef, useState } from 'react';
 
-import { MinusIcon, PlusIcon, RotateCcwIcon } from 'lucide-react';
+import { CircleHelpIcon, MinusIcon, PlusIcon, RotateCcwIcon } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
 type InteractiveReceiptImageProps = {
@@ -69,12 +70,14 @@ export function InteractiveReceiptImage({
   const t = {
     en: {
       hint: 'Pinch or double tap to zoom. Drag to inspect details.',
+      hintLabel: 'Zoom help',
       zoomIn: 'Zoom in',
       zoomOut: 'Zoom out',
       reset: 'Reset zoom',
     },
     fr: {
       hint: 'Pincez ou double-tapez pour zoomer. Glissez pour inspecter les details.',
+      hintLabel: 'Aide zoom',
       zoomIn: 'Zoom avant',
       zoomOut: 'Zoom arriere',
       reset: 'Reinitialiser le zoom',
@@ -315,10 +318,27 @@ export function InteractiveReceiptImage({
         />
       </div>
 
-      <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-2 bg-linear-to-b from-background/90 via-background/35 to-transparent px-2 py-2">
-        <p className="max-w-[65%] text-[11px] leading-tight text-muted-foreground sm:text-xs">{t.hint}</p>
-
+      <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-end gap-2 bg-linear-to-b from-background/90 via-background/35 to-transparent px-2 py-2">
         <div className="pointer-events-auto inline-flex items-center gap-1 rounded-md border border-border/70 bg-background/90 px-1 py-1 shadow-sm backdrop-blur">
+          <TooltipProvider delayDuration={150}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-7"
+                  title={t.hintLabel}
+                  aria-label={t.hintLabel}
+                >
+                  <CircleHelpIcon className="size-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" align="end" className="max-w-56 text-xs leading-relaxed">
+                {t.hint}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           <span className="px-1 text-[10px] font-medium text-muted-foreground sm:text-xs">{zoomPercent}</span>
           <Button
             type="button"
