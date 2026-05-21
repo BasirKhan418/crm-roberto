@@ -461,10 +461,12 @@ export function ExpenseFormDialog({
   const [supplierQuickCreateOpen, setSupplierQuickCreateOpen] = useState(false);
   const [supplierQuickCreateName, setSupplierQuickCreateName] = useState('');
   const [supplierQuickCreateError, setSupplierQuickCreateError] = useState<string | null>(null);
+  const [inlineCreatedSupplier, setInlineCreatedSupplier] = useState<ExpenseLookupSupplier | null>(null);
   const [categoryCreating, setCategoryCreating] = useState(false);
   const [categoryQuickCreateOpen, setCategoryQuickCreateOpen] = useState(false);
   const [categoryQuickCreateName, setCategoryQuickCreateName] = useState('');
   const [categoryQuickCreateError, setCategoryQuickCreateError] = useState<string | null>(null);
+  const [inlineCreatedCategory, setInlineCreatedCategory] = useState<ExpenseLookupCategory | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmTarget, setConfirmTarget] = useState<SaveTarget>('default');
   const [invoiceSearchInput, setInvoiceSearchInput] = useState('');
@@ -494,9 +496,11 @@ export function ExpenseFormDialog({
     setSupplierQuickCreateOpen(false);
     setSupplierQuickCreateName('');
     setSupplierQuickCreateError(null);
+    setInlineCreatedSupplier(null);
     setCategoryQuickCreateOpen(false);
     setCategoryQuickCreateName('');
     setCategoryQuickCreateError(null);
+    setInlineCreatedCategory(null);
     setConfirmOpen(false);
     setInvoiceSearchInput('');
     setDebouncedInvoiceSearch('');
@@ -943,6 +947,30 @@ export function ExpenseFormDialog({
     return merged.filter((invoice) => buildInvoiceSearchText(invoice, locale).includes(normalizedSearch));
   }, [debouncedInvoiceSearch, initialExpense, invoices, locale, remoteInvoices, values.invoiceId]);
 
+  const supplierOptions = useMemo(() => {
+    if (!inlineCreatedSupplier) {
+      return suppliers;
+    }
+
+    if (suppliers.some((supplier) => supplier._id === inlineCreatedSupplier._id)) {
+      return suppliers;
+    }
+
+    return [inlineCreatedSupplier, ...suppliers];
+  }, [inlineCreatedSupplier, suppliers]);
+
+  const categoryOptions = useMemo(() => {
+    if (!inlineCreatedCategory) {
+      return categories;
+    }
+
+    if (categories.some((category) => category._id === inlineCreatedCategory._id)) {
+      return categories;
+    }
+
+    return [inlineCreatedCategory, ...categories];
+  }, [categories, inlineCreatedCategory]);
+
   function updateField<K extends keyof FormValues>(field: K, next: FormValues[K]) {
     setValues((previous) => ({ ...previous, [field]: next }));
   }
@@ -1249,6 +1277,7 @@ export function ExpenseFormDialog({
 
     try {
       const created = await onCreateSupplier({ fullName: supplierName });
+      setInlineCreatedSupplier(created);
       updateField('supplierId', created._id);
       setSupplierQuickCreateName('');
       setSupplierQuickCreateOpen(false);
@@ -1272,6 +1301,7 @@ export function ExpenseFormDialog({
 
     try {
       const created = await onCreateCategory({ name: categoryName });
+      setInlineCreatedCategory(created);
       updateField('categoryId', created._id);
       setCategoryQuickCreateName('');
       setCategoryQuickCreateOpen(false);
@@ -1892,7 +1922,7 @@ export function ExpenseFormDialog({
               >
                 <option value="">{t.selectPlaceholder}</option>
                 <option value={ADD_CATEGORY_OPTION_VALUE}>{t.addCategoryOption}</option>
-                {categories.map((category) => (
+                {categoryOptions.map((category) => (
                   <option key={category._id} value={category._id}>
                     {resolveExpenseCategoryNameByLocale(category, locale)}
                   </option>
@@ -1923,7 +1953,7 @@ export function ExpenseFormDialog({
                 >
                   <option value="">{t.selectPlaceholder}</option>
                   <option value={ADD_SUPPLIER_OPTION_VALUE}>{t.addSupplierOption}</option>
-                  {suppliers.map((supplier) => (
+                  {supplierOptions.map((supplier) => (
                     <option key={supplier._id} value={supplier._id}>
                       {supplier.fullName}
                     </option>
@@ -2327,7 +2357,7 @@ export function ExpenseFormDialog({
                       >
                         <option value="">{t.selectPlaceholder}</option>
                         <option value={ADD_SUPPLIER_OPTION_VALUE}>{t.addSupplierOption}</option>
-                        {suppliers.map((supplier) => (
+                        {supplierOptions.map((supplier) => (
                           <option key={supplier._id} value={supplier._id}>
                             {supplier.fullName}
                           </option>
@@ -2387,7 +2417,7 @@ export function ExpenseFormDialog({
                         >
                           <option value="">{t.selectPlaceholder}</option>
                           <option value={ADD_SUPPLIER_OPTION_VALUE}>{t.addSupplierOption}</option>
-                          {suppliers.map((supplier) => (
+                          {supplierOptions.map((supplier) => (
                             <option key={supplier._id} value={supplier._id}>
                               {supplier.fullName}
                             </option>
