@@ -198,6 +198,12 @@ function addDaysToInputDate(value: string, days: number) {
   return toInputDateFromDate(date);
 }
 
+function openDateInputPicker(input: HTMLInputElement) {
+  if (typeof input.showPicker === 'function') {
+    input.showPicker();
+  }
+}
+
 function buildDefaultFormValues(): FormValues {
   const expenseDate = toInputDateFromDate(new Date());
 
@@ -1841,6 +1847,7 @@ export function ExpenseFormDialog({
                 type="date"
                 value={values.expenseDate}
                 onChange={(event) => handleExpenseDateChange(event.target.value)}
+                onClick={(event) => openDateInputPicker(event.currentTarget)}
               />
             </div>
             {!isManualFlow ? (
@@ -1850,6 +1857,7 @@ export function ExpenseFormDialog({
                   type="date"
                   value={values.dueDate}
                   onChange={(event) => updateField('dueDate', event.target.value)}
+                  onClick={(event) => openDateInputPicker(event.currentTarget)}
                 />
               </div>
             ) : null}
@@ -2005,6 +2013,7 @@ export function ExpenseFormDialog({
                           type="date"
                           value={values.paidAt}
                           onChange={(event) => updateField('paidAt', event.target.value)}
+                          onClick={(event) => openDateInputPicker(event.currentTarget)}
                         />
                       </div>
                     </div>
@@ -2249,6 +2258,7 @@ export function ExpenseFormDialog({
                               type="date"
                               value={values.paidAt}
                               onChange={(event) => updateField('paidAt', event.target.value)}
+                              onClick={(event) => openDateInputPicker(event.currentTarget)}
                             />
                           </div>
                         </div>
@@ -2472,6 +2482,7 @@ export function ExpenseFormDialog({
                               type="date"
                               value={values.paidAt}
                               onChange={(event) => updateField('paidAt', event.target.value)}
+                              onClick={(event) => openDateInputPicker(event.currentTarget)}
                             />
                           </div>
                         </div>
@@ -2584,6 +2595,7 @@ export function ExpenseFormDialog({
                       type="date"
                       value={values.paidAt}
                       onChange={(event) => updateField('paidAt', event.target.value)}
+                      onClick={(event) => openDateInputPicker(event.currentTarget)}
                     />
                   </div>
                 </div>

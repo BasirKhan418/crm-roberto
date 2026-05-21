@@ -62,6 +62,12 @@ function isPdfMimeType(mimeType?: string) {
   return mimeType === 'application/pdf';
 }
 
+function openDateInputPicker(input: HTMLInputElement) {
+  if (typeof input.showPicker === 'function') {
+    input.showPicker();
+  }
+}
+
 export function ExpensePaymentDialog({
   open,
   onOpenChange,
@@ -496,7 +502,13 @@ export function ExpensePaymentDialog({
 
                   <div className="space-y-1.5">
                     <Label>{t.dateLabel}</Label>
-                    <Input type="date" value={paidAt} onChange={(event) => setPaidAt(event.target.value)} disabled={saving} />
+                    <Input
+                      type="date"
+                      value={paidAt}
+                      onChange={(event) => setPaidAt(event.target.value)}
+                      onClick={(event) => openDateInputPicker(event.currentTarget)}
+                      disabled={saving}
+                    />
                   </div>
 
                   <div className="space-y-1.5">
