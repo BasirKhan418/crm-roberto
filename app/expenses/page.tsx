@@ -360,6 +360,7 @@ export default function ExpensesPage() {
   const [actionFeedback, setActionFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [mobileAdvancedFiltersOpen, setMobileAdvancedFiltersOpen] = useState(false);
   const [mobileDraftsExpanded, setMobileDraftsExpanded] = useState(false);
+  const [countsRefreshNonce, setCountsRefreshNonce] = useState(0);
 
   const photoInputRef = useRef<HTMLInputElement | null>(null);
   const importInputRef = useRef<HTMLInputElement | null>(null);
@@ -485,16 +486,22 @@ export default function ExpensesPage() {
     sortOrder,
   });
 
+  const {
+    expenses: draftPanelExpenses,
+    refetch: refetchDraftPanel,
+  } = useExpenses({
+    page: 1,
+    limit: 100,
+    status: 'draft',
+    sortBy: 'expenseDate',
+    sortOrder: 'desc',
+  });
+
   useEffect(() => {
     if (pagination.totalPages > 0 && page > pagination.totalPages) {
       setPage(pagination.totalPages);
     }
   }, [page, pagination.totalPages]);
-
-  const draftExpenses = useMemo(
-    () => expenses.filter((expense) => expense.status === 'draft'),
-    [expenses]
-  );
 
   const unpaidExpenses = useMemo(
     () => expenses.filter((expense) => expense.status !== 'draft' && expense.status !== 'archived' && expense.paymentStatus === 'unpaid'),
@@ -574,7 +581,7 @@ export default function ExpensesPage() {
       draftsSectionTitle: 'Drafts to complete',
       draftsSectionSubtitle: 'Quick access to draft expenses that still need review and completion.',
       draftsCountLabel: (count: number) => `${count} Draft${count > 1 ? 's' : ''}`,
-      noDraftsInView: 'No draft in the current page.',
+      noDraftsInView: 'No draft expenses available.',
       filtersTitle: 'Filters and sorting',
       quickFiltersLabel: 'Quick filters',
       searchLabel: 'Search',
@@ -738,7 +745,7 @@ export default function ExpensesPage() {
       draftsSectionTitle: 'Brouillons à compléter',
       draftsSectionSubtitle: 'Accès rapide aux brouillons qui doivent encore être vérifiés et complétés.',
       draftsCountLabel: (count: number) => `${count} brouillon${count > 1 ? 's' : ''}`,
-      noDraftsInView: 'Aucun brouillon sur la page courante.',
+      noDraftsInView: 'Aucun brouillon disponible.',
       filtersTitle: 'Filtres et tri',
       quickFiltersLabel: 'Filtres rapides',
       searchLabel: 'Recherche',
@@ -875,7 +882,7 @@ export default function ExpensesPage() {
     [debouncedSearch, statusFilter, paymentStatusFilter, categoryFilter, supplierFilter, periodStart, periodEnd, sortBy, sortOrder]
   );
 
-  const expenseCountsRefreshKey = pagination.total + expenses.length + Number(loading);
+  const expenseCountsRefreshKey = countsRefreshNonce;
   const { allCount, draftsCount, unpaidCount, partialCount, paidCount, archivedCount } = useExpensesActionCount(expenseCountsRefreshKey);
 
   const activeQuickFilter = useMemo<ExpenseQuickFilterKey>(() => {
@@ -895,10 +902,10 @@ export default function ExpensesPage() {
   }, [isMobile]);
 
   useEffect(() => {
-    if (draftExpenses.length === 0) {
+    if (draftPanelExpenses.length === 0) {
       setMobileDraftsExpanded(false);
     }
-  }, [draftExpenses.length]);
+  }, [draftPanelExpenses.length]);
 
   function applyQuickFilter(filter: ExpenseQuickFilterKey) {
     setPage(1);
@@ -944,7 +951,7 @@ export default function ExpensesPage() {
         key: 'drafts',
         label: t.kpiDrafts,
         count: draftsCount,
-        amount: draftExpenses.reduce((sum, expense) => sum + Math.max(0, Math.round(expense.amountInclVatCents || 0)), 0),
+        amount: draftPanelExpenses.reduce((sum, expense) => sum + Math.max(0, Math.round(expense.amountInclVatCents || 0)), 0),
         variant: 'orange-bold',
         icon: 'clock',
         active: statusFilter === 'draft',
@@ -994,7 +1001,7 @@ export default function ExpensesPage() {
       },
     ],
     [
-      draftExpenses,
+      draftPanelExpenses,
       draftsCount,
       paidCount,
       paidExpenses,
@@ -1173,7 +1180,8 @@ export default function ExpensesPage() {
       setPaymentStatusFilter('');
       setPage(1);
 
-      void refetch();
+      await Promise.all([refetch(), refetchDraftPanel()]);
+      bumpCountsRefresh();
     } catch (uploadError) {
       updateUploadItem(uploadId, {
         status: 'error',
@@ -1273,6 +1281,10 @@ export default function ExpensesPage() {
     }, 3000);
   }
 
+  function bumpCountsRefresh() {
+    setCountsRefreshNonce((previous) => previous + 1);
+  }
+
   async function openEditExpense(expenseId: string, source: 'list' | 'queue' = 'list') {
     setActionLoadingId(expenseId);
     setQueueEditingExpenseId(source === 'queue' ? expenseId : null);
@@ -1367,9 +1379,13 @@ export default function ExpensesPage() {
       setFeedback('success', t.actionDuplicateSuccess);
 
       if (!duplicatedExpenseId) {
-        await refetch();
+        await Promise.all([refetch(), refetchDraftPanel()]);
+        bumpCountsRefresh();
         return;
       }
+
+      void refetchDraftPanel();
+      bumpCountsRefresh();
 
       const query = new URLSearchParams({
         fromDuplicate: '1',
@@ -1401,7 +1417,8 @@ export default function ExpensesPage() {
       }
 
       setArchiveTarget(null);
-      await refetch();
+      await Promise.all([refetch(), refetchDraftPanel()]);
+      bumpCountsRefresh();
       setFeedback('success', t.actionArchiveSuccess);
     } catch (archiveError) {
       setFeedback('error', archiveError instanceof Error ? archiveError.message : t.actionFailed);
@@ -1426,7 +1443,8 @@ export default function ExpensesPage() {
         throw new Error(payload?.message || t.actionFailed);
       }
 
-      await refetch();
+      await Promise.all([refetch(), refetchDraftPanel()]);
+      bumpCountsRefresh();
       setFeedback('success', t.actionRestoreSuccess);
     } catch (restoreError) {
       setFeedback('error', restoreError instanceof Error ? restoreError.message : t.actionFailed);
@@ -1449,7 +1467,8 @@ export default function ExpensesPage() {
         throw new Error(payload?.message || t.actionFailed);
       }
 
-      await refetch();
+      await Promise.all([refetch(), refetchDraftPanel()]);
+      bumpCountsRefresh();
       setFeedback('success', t.actionDeleteDraftSuccess);
       toast.success(t.actionDeleteDraftSuccess);
       setDraftDeleteTarget(null);
@@ -1479,7 +1498,8 @@ export default function ExpensesPage() {
         throw new Error(payload?.message || t.actionFailed);
       }
 
-      await refetch();
+      await Promise.all([refetch(), refetchDraftPanel()]);
+      bumpCountsRefresh();
       setFeedback('success', t.actionDeleteSuccess);
       toast.success(t.actionDeleteSuccess);
       setDeleteTarget(null);
@@ -1543,7 +1563,7 @@ export default function ExpensesPage() {
 
           <div className="flex flex-wrap items-center gap-2 text-xs">
             <span className="rounded-full border border-amber-200 bg-amber-100/70 px-2.5 py-1 font-medium text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/35 dark:text-amber-200">
-              {t.draftsCountLabel(draftExpenses.length)}
+              {t.draftsCountLabel(draftsCount)}
             </span>
             <span className="rounded-full border border-rose-200 bg-rose-100/70 px-2.5 py-1 font-medium text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/35 dark:text-rose-200">
               {t.paymentStatusLabels.unpaid}: {unpaidExpenses.length}
@@ -1842,7 +1862,7 @@ export default function ExpensesPage() {
           </Card>
         ) : null}
 
-        {!isMobile || (draftExpenses.length > 0 && activeQuickFilter !== 'drafts') ? (
+        {!isMobile || (draftPanelExpenses.length > 0 && activeQuickFilter !== 'drafts') ? (
           <Card className="border-amber-200/80 bg-amber-50/45 dark:border-amber-900/35 dark:bg-amber-950/14" data-tour-expenses-drafts>
             <CardHeader className="pb-2">
               {isMobile ? (
@@ -1852,7 +1872,7 @@ export default function ExpensesPage() {
                   onClick={() => setMobileDraftsExpanded((previous) => !previous)}
                   aria-expanded={mobileDraftsExpanded}
                 >
-                  <CardTitle className="text-base">{t.draftsCompactTitle(draftExpenses.length)}</CardTitle>
+                  <CardTitle className="text-base">{t.draftsCompactTitle(draftsCount)}</CardTitle>
                   <ChevronDownIcon
                     className={`size-4 shrink-0 text-muted-foreground transition-transform ${mobileDraftsExpanded ? 'rotate-180' : ''}`}
                   />
@@ -1863,16 +1883,16 @@ export default function ExpensesPage() {
                     <CardTitle className="text-base">{t.draftsSectionTitle}</CardTitle>
                     <CardDescription>{t.draftsSectionSubtitle}</CardDescription>
                   </div>
-                  <Badge variant="secondary" className="self-start sm:self-auto">{t.draftsCountLabel(draftExpenses.length)}</Badge>
+                  <Badge variant="secondary" className="self-start sm:self-auto">{t.draftsCountLabel(draftsCount)}</Badge>
                 </div>
               )}
             </CardHeader>
             {!isMobile || mobileDraftsExpanded ? (
               <CardContent className="space-y-2.5">
-                {draftExpenses.length === 0 ? (
+                {draftPanelExpenses.length === 0 ? (
                   <p className="text-sm text-muted-foreground">{t.noDraftsInView}</p>
                 ) : (
-                  draftExpenses.slice(0, isMobile ? 2 : 5).map((expense) => {
+                  (isMobile ? draftPanelExpenses.slice(0, 2) : draftPanelExpenses).map((expense) => {
                     const rowLoading = actionLoadingId === expense._id;
 
                     return (
@@ -1933,9 +1953,9 @@ export default function ExpensesPage() {
                   })
                 )}
 
-                {isMobile && draftExpenses.length > 2 ? (
+                {isMobile && draftPanelExpenses.length > 2 ? (
                   <div className="flex items-center justify-between gap-2 rounded-lg border border-border/60 bg-background/70 px-3 py-2">
-                    <p className="text-xs text-muted-foreground">{t.draftsCountLabel(draftExpenses.length)}</p>
+                    <p className="text-xs text-muted-foreground">{t.draftsCountLabel(draftsCount)}</p>
                     <Button
                       type="button"
                       variant="outline"
@@ -2350,7 +2370,7 @@ export default function ExpensesPage() {
               <div>
                 <div className="flex items-center gap-2">
                   <CardTitle className="text-base">{t.listTitle}</CardTitle>
-                  <Badge variant="outline">{t.draftsCountLabel(draftExpenses.length)}</Badge>
+                  <Badge variant="outline">{t.draftsCountLabel(draftsCount)}</Badge>
                 </div>
                 <CardDescription>{t.listSubtitle}</CardDescription>
               </div>
@@ -2847,7 +2867,8 @@ export default function ExpensesPage() {
           return created;
         }}
         onSaved={async () => {
-          await Promise.all([refetch(), refetchLookups()]);
+          await Promise.all([refetch(), refetchDraftPanel(), refetchLookups()]);
+          bumpCountsRefresh();
           setFeedback('success', t.actionCreateSuccess);
         }}
       />
@@ -2882,7 +2903,8 @@ export default function ExpensesPage() {
           onSaved={async (savedExpense) => {
             const snapshot = resolveSavedExpenseSnapshot(savedExpense);
 
-            await Promise.all([refetch(), refetchLookups()]);
+            await Promise.all([refetch(), refetchDraftPanel(), refetchLookups()]);
+            bumpCountsRefresh();
 
             if (snapshot && queueEditingExpenseId && snapshot.id === queueEditingExpenseId) {
               if (snapshot.status === 'draft') {
@@ -2935,7 +2957,8 @@ export default function ExpensesPage() {
           }
         }}
         onSaved={async () => {
-          await refetch();
+          await Promise.all([refetch(), refetchDraftPanel()]);
+          bumpCountsRefresh();
           setFeedback('success', t.settleExpenseSuccess);
         }}
       />
@@ -2971,7 +2994,8 @@ export default function ExpensesPage() {
           }
         }}
         onSaved={async () => {
-          await refetch();
+          await Promise.all([refetch(), refetchDraftPanel()]);
+          bumpCountsRefresh();
           setFeedback('success', t.addPaymentSuccess);
         }}
       />

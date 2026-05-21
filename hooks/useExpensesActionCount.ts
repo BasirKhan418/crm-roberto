@@ -62,9 +62,26 @@ export function useExpensesActionCount(refreshKey = 0): ExpensesActionCount {
     void fetchCounts();
     const intervalId = window.setInterval(fetchCounts, 30_000);
 
+    function handleRefresh() {
+      void fetchCounts();
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'visible') {
+        void fetchCounts();
+      }
+    }
+
+    window.addEventListener('focus', handleRefresh);
+    window.addEventListener('expenses:refresh', handleRefresh as EventListener);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     return () => {
       cancelled = true;
       window.clearInterval(intervalId);
+      window.removeEventListener('focus', handleRefresh);
+      window.removeEventListener('expenses:refresh', handleRefresh as EventListener);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [refreshKey]);
 
