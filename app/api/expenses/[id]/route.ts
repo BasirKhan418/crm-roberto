@@ -3,6 +3,7 @@ import argon2 from "argon2";
 
 import {
   archiveExpense,
+  deleteDraftExpense,
   getExpenseById,
   softDeleteExpense,
   updateExpense
@@ -21,9 +22,13 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
-function getDeleteMode(request: NextRequest): "archive" | "delete" {
+function getDeleteMode(request: NextRequest): "archive" | "delete" | "draft-delete" {
   const mode = request.nextUrl.searchParams.get("mode")?.toLowerCase();
-  return mode === "archive" ? "archive" : "delete";
+  if (mode === "archive" || mode === "draft-delete") {
+    return mode;
+  }
+
+  return "delete";
 }
 
 export async function GET(_request: NextRequest, { params }: RouteParams) {
@@ -127,6 +132,8 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       return auth.response;
     }
 
+    const { id } = await params;
+
     if (mode === "delete") {
       if (!canPermanentlyDeleteExpense(auth.context.user.role)) {
         return NextResponse.json(
@@ -171,7 +178,6 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         );
       }
 
-      const { id } = await params;
       const removed = await softDeleteExpense({
         companyId: auth.context.user.companyId || "",
         expenseId: id,
@@ -188,7 +194,23 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: true, expense: removed.expense }, { status: 200 });
     }
 
-    const { id } = await params;
+    if (mode === "draft-delete") {
+      const removedDraft = await deleteDraftExpense({
+        companyId: auth.context.user.companyId || "",
+        expenseId: id,
+        updatedBy: auth.context.user.id,
+        access: auth.context.accessScope,
+        ipAddress: getClientIp(request),
+      });
+
+      if (!removedDraft.success) {
+        return NextResponse.json(removedDraft, {
+          status: removedDraft.message.includes("not found") ? 404 : 400,
+        });
+      }
+
+      return NextResponse.json({ success: true, expense: removedDraft.expense }, { status: 200 });
+    }
 
     if (mode === "archive") {
       const archived = await archiveExpense({
@@ -205,7 +227,6 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
       return NextResponse.json({ success: true, expense: archived.expense }, { status: 200 });
     }
-
 
     return NextResponse.json({ success: false, message: "Unsupported delete mode" }, { status: 400 });
   } catch (error) {

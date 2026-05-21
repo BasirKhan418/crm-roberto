@@ -1074,6 +1074,72 @@ export async function archiveExpense(params: {
   return { success: true as const, expense: updated };
 }
 
+export async function deleteDraftExpense(params: {
+  companyId: string;
+  expenseId: string;
+  updatedBy: string;
+  access?: AccessScope;
+  ipAddress?: string | null;
+}) {
+  await ConnectDb();
+
+  const scopedQuery = addAccessScopeToQuery(
+    {
+      _id: params.expenseId,
+      companyId: params.companyId,
+      status: "draft",
+      deletedAt: null,
+    },
+    params.access
+  );
+
+  const now = new Date();
+  const deleted = await Expense.findOneAndUpdate(
+    scopedQuery,
+    {
+      $set: {
+        deletedAt: now,
+        updatedBy: params.updatedBy,
+      },
+    },
+    { returnDocument: "after" }
+  ).lean();
+
+  if (!deleted) {
+    return { success: false as const, message: "Draft expense not found" };
+  }
+
+  await ExpensePaymentLine.deleteMany({
+    companyId: params.companyId,
+    expenseId: params.expenseId,
+  });
+
+  await recordAuditLog({
+    entityType: "expense",
+    entityId: params.expenseId,
+    companyId: params.companyId,
+    action: "deleted",
+    fieldName: "lifecycle",
+    oldValue: {
+      status: deleted.status,
+      paymentStatus: deleted.paymentStatus,
+      amountInclVatCents: toPositiveCents(deleted.amountInclVatCents),
+      amountPaidCents: toPositiveCents(deleted.amountPaidCents),
+      supplierRef: typeof deleted.supplierRef === "string" ? deleted.supplierRef : null,
+      deleteMode: "draft",
+    },
+    newValue: {
+      deletedAt: now,
+      status: "deleted",
+    },
+    performedBy: params.updatedBy,
+    source: "api",
+    ipAddress: params.ipAddress,
+  });
+
+  return { success: true as const, expense: deleted };
+}
+
 export async function softDeleteExpense(params: {
   companyId: string;
   expenseId: string;

@@ -293,6 +293,7 @@ export default function ExpensesPage() {
   const [paymentExpenseDetail, setPaymentExpenseDetail] = useState<ExpenseDetail | null>(null);
   const [paymentLoadingId, setPaymentLoadingId] = useState<string | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<ExpenseListItem | null>(null);
+  const [draftDeleteTarget, setDraftDeleteTarget] = useState<ExpenseListItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ExpenseListItem | null>(null);
   const [deletePassword, setDeletePassword] = useState('');
   const [deleteReason, setDeleteReason] = useState('');
@@ -504,6 +505,7 @@ export default function ExpensesPage() {
       settleExpense: 'Settle expense',
       addPayment: 'Add payment',
       delete: 'Delete',
+      deleteDraft: 'Delete draft',
       noReference: '-',
       pageInfo: (current: number, total: number, count: number) => `Page ${current}/${total || 1} - ${count} items`,
       previous: 'Previous',
@@ -535,6 +537,7 @@ export default function ExpensesPage() {
       actionArchiveSuccess: 'Expense archived',
       actionRestoreSuccess: 'Expense restored',
       actionDeleteSuccess: 'Expense deleted',
+      actionDeleteDraftSuccess: 'Draft deleted',
       settleExpenseSuccess: 'Expense settled',
       addPaymentSuccess: 'Payment added',
       actionFailed: 'Action failed',
@@ -549,6 +552,10 @@ export default function ExpensesPage() {
         `This expense (${label}) will be moved to archived records and become read-only until restored.`,
       confirmArchiveCancel: 'Cancel',
       confirmArchiveAction: 'Archive expense',
+      confirmDeleteDraftTitle: 'Delete draft?',
+      confirmDeleteDraftDescription: 'Delete draft? This action cannot be undone.',
+      confirmDeleteDraftCancel: 'Cancel',
+      confirmDeleteDraftAction: 'Delete draft',
       confirmDelete: 'Delete this expense? This cannot be undone.',
       confirmDeleteTitle: 'Confirm expense deletion',
       confirmDeleteDescription: (label: string) =>
@@ -663,6 +670,7 @@ export default function ExpensesPage() {
       settleExpense: 'Solder la dépense',
       addPayment: 'Ajouter un paiement',
       delete: 'Supprimer',
+      deleteDraft: 'Supprimer brouillon',
       noReference: '-',
       pageInfo: (current: number, total: number, count: number) => `Page ${current}/${total || 1} - ${count} éléments`,
       previous: 'Précédent',
@@ -694,6 +702,7 @@ export default function ExpensesPage() {
       actionArchiveSuccess: 'Dépense archivée',
       actionRestoreSuccess: 'Dépense restaurée',
       actionDeleteSuccess: 'Dépense supprimée',
+      actionDeleteDraftSuccess: 'Brouillon supprimé',
       settleExpenseSuccess: 'Dépense soldée',
       addPaymentSuccess: 'Paiement ajouté',
       actionFailed: 'Échec action',
@@ -708,6 +717,10 @@ export default function ExpensesPage() {
         `Cette dépense (${label}) sera déplacée dans les archives et restera en lecture seule jusqu'à restauration.`,
       confirmArchiveCancel: 'Annuler',
       confirmArchiveAction: 'Archiver dépense',
+      confirmDeleteDraftTitle: 'Supprimer le brouillon ?',
+      confirmDeleteDraftDescription: 'Supprimer le brouillon ? Cette action est irréversible.',
+      confirmDeleteDraftCancel: 'Annuler',
+      confirmDeleteDraftAction: 'Supprimer brouillon',
       confirmDelete: 'Supprimer cette dépense ? Cette action est irréversible.',
       confirmDeleteTitle: 'Confirmer suppression dépense',
       confirmDeleteDescription: (label: string) =>
@@ -1292,6 +1305,31 @@ export default function ExpensesPage() {
       setFeedback('success', t.actionRestoreSuccess);
     } catch (restoreError) {
       setFeedback('error', restoreError instanceof Error ? restoreError.message : t.actionFailed);
+    } finally {
+      setActionLoadingId(null);
+    }
+  }
+
+  async function runDeleteDraft(expenseId: string) {
+    setActionLoadingId(expenseId);
+
+    try {
+      const response = await fetch(`/api/expenses/${expenseId}?mode=draft-delete`, {
+        method: 'DELETE',
+      });
+
+      const payload = (await response.json().catch(() => null)) as GenericApiResponse | null;
+
+      if (!response.ok || !payload?.success) {
+        throw new Error(payload?.message || t.actionFailed);
+      }
+
+      await refetch();
+      setFeedback('success', t.actionDeleteDraftSuccess);
+      toast.success(t.actionDeleteDraftSuccess);
+      setDraftDeleteTarget(null);
+    } catch (draftDeleteError) {
+      setFeedback('error', draftDeleteError instanceof Error ? draftDeleteError.message : t.actionFailed);
     } finally {
       setActionLoadingId(null);
     }
@@ -2363,13 +2401,22 @@ export default function ExpensesPage() {
                                   {t.archive}
                                 </DropdownMenuItem>
                               ) : null}
+                              {expense.status === 'draft' ? (
+                                <DropdownMenuItem
+                                  variant="destructive"
+                                  onSelect={() => setDraftDeleteTarget(expense)}
+                                >
+                                  <Trash2Icon className="size-4" />
+                                  {t.deleteDraft}
+                                </DropdownMenuItem>
+                              ) : null}
                               {isArchived && canRestoreArchived ? (
                                 <DropdownMenuItem onSelect={() => void runRestore(expense._id)}>
                                   <RefreshCwIcon className="size-4" />
                                   {t.restore}
                                 </DropdownMenuItem>
                               ) : null}
-                              {canPermanentlyDelete ? (
+                              {canPermanentlyDelete && expense.status !== 'draft' ? (
                                 <DropdownMenuItem
                                   variant="destructive"
                                   onSelect={() => {
@@ -2546,13 +2593,22 @@ export default function ExpensesPage() {
                                         {t.archive}
                                       </DropdownMenuItem>
                                     ) : null}
+                                    {expense.status === 'draft' ? (
+                                      <DropdownMenuItem
+                                        variant="destructive"
+                                        onSelect={() => setDraftDeleteTarget(expense)}
+                                      >
+                                        <Trash2Icon className="size-4" />
+                                        {t.deleteDraft}
+                                      </DropdownMenuItem>
+                                    ) : null}
                                     {isArchived && canRestoreArchived ? (
                                       <DropdownMenuItem onSelect={() => void runRestore(expense._id)}>
                                         <RefreshCwIcon className="size-4" />
                                         {t.restore}
                                       </DropdownMenuItem>
                                     ) : null}
-                                    {canPermanentlyDelete ? (
+                                    {canPermanentlyDelete && expense.status !== 'draft' ? (
                                       <DropdownMenuItem
                                         variant="destructive"
                                         onSelect={() => {
@@ -2780,6 +2836,54 @@ export default function ExpensesPage() {
                   <Loader2Icon className="size-4 animate-spin" />
                 ) : null}
                 {t.confirmArchiveAction}
+              </Button>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={Boolean(draftDeleteTarget)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDraftDeleteTarget(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t.confirmDeleteDraftTitle}</AlertDialogTitle>
+            <AlertDialogDescription>{t.confirmDeleteDraftDescription}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-3">
+            <AlertDialogCancel asChild>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-8 sm:w-auto sm:whitespace-nowrap"
+                disabled={Boolean(draftDeleteTarget && actionLoadingId === draftDeleteTarget._id)}
+              >
+                {t.confirmDeleteDraftCancel}
+              </Button>
+            </AlertDialogCancel>
+            <AlertDialogAction asChild>
+              <Button
+                type="button"
+                variant="destructive"
+                className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-8 sm:w-auto sm:whitespace-nowrap bg-destructive text-white hover:bg-destructive/90 hover:text-white"
+                disabled={!draftDeleteTarget || actionLoadingId === draftDeleteTarget._id}
+                onClick={() => {
+                  if (!draftDeleteTarget) {
+                    return;
+                  }
+
+                  void runDeleteDraft(draftDeleteTarget._id);
+                }}
+              >
+                {draftDeleteTarget && actionLoadingId === draftDeleteTarget._id ? (
+                  <Loader2Icon className="size-4 animate-spin" />
+                ) : null}
+                {t.confirmDeleteDraftAction}
               </Button>
             </AlertDialogAction>
           </AlertDialogFooter>

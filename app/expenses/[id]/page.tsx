@@ -619,6 +619,7 @@ export default function ExpenseDetailPage() {
   const [settleExpenseOpen, setSettleExpenseOpen] = useState(false);
   const [addPaymentOpen, setAddPaymentOpen] = useState(false);
   const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
+  const [draftDeleteConfirmOpen, setDraftDeleteConfirmOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deletePassword, setDeletePassword] = useState('');
   const [deleteReason, setDeleteReason] = useState('');
@@ -735,6 +736,7 @@ export default function ExpenseDetailPage() {
               : 'This expense was created from a duplicate action.',
           openSourceExpense: 'Open source expense',
           archiveSuccess: 'Expense archived',
+          deleteSuccessDraft: 'Draft deleted',
           deleteSuccessExpense: 'Expense deleted',
           confirmArchive: 'Archive this expense?',
           confirmArchiveTitle: 'Archive expense',
@@ -742,6 +744,10 @@ export default function ExpenseDetailPage() {
             `This expense (${label}) will be moved to archived records and become read-only until restored.`,
           confirmArchiveCancel: 'Cancel',
           confirmArchiveAction: 'Archive expense',
+          confirmDeleteDraftTitle: 'Delete draft?',
+          confirmDeleteDraftDescription: 'Delete draft? This action cannot be undone.',
+          confirmDeleteDraftCancel: 'Cancel',
+          confirmDeleteDraftAction: 'Delete draft',
           confirmDelete: 'Delete this expense? This cannot be undone.',
           confirmDeleteTitle: 'Confirm expense deletion',
           confirmDeletePasswordLabel: 'Confirm with your password',
@@ -866,6 +872,7 @@ export default function ExpenseDetailPage() {
               : 'Cette dépense provient d\'une action de duplication.',
           openSourceExpense: 'Ouvrir la dépense source',
           archiveSuccess: 'Dépense archivée',
+          deleteSuccessDraft: 'Brouillon supprimé',
           deleteSuccessExpense: 'Dépense supprimée',
           confirmArchive: 'Archiver cette dépense ?',
           confirmArchiveTitle: 'Archiver la dépense',
@@ -873,6 +880,10 @@ export default function ExpenseDetailPage() {
             `Cette dépense (${label}) sera déplacée dans les archives et restera en lecture seule jusqu'à restauration.`,
           confirmArchiveCancel: 'Annuler',
           confirmArchiveAction: 'Archiver dépense',
+          confirmDeleteDraftTitle: 'Supprimer le brouillon ?',
+          confirmDeleteDraftDescription: 'Supprimer le brouillon ? Cette action est irréversible.',
+          confirmDeleteDraftCancel: 'Annuler',
+          confirmDeleteDraftAction: 'Supprimer brouillon',
           confirmDelete: 'Supprimer cette dépense ? Action irréversible.',
           confirmDeleteTitle: 'Confirmer suppression dépense',
           confirmDeletePasswordLabel: 'Confirmez avec votre mot de passe',
@@ -1203,6 +1214,35 @@ export default function ExpenseDetailPage() {
       }, 500);
     } catch (deleteError) {
       pushFeedback('error', deleteError instanceof Error ? deleteError.message : t.actionFailed);
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function runDeleteDraft() {
+    if (!expense || expense.status !== 'draft') return;
+
+    setActionLoading('draft-delete');
+
+    try {
+      const response = await fetch(`/api/expenses/${expense._id}?mode=draft-delete`, {
+        method: 'DELETE',
+      });
+
+      const payload = (await response.json().catch(() => null)) as GenericApiResponse | null;
+
+      if (!response.ok || !payload?.success) {
+        throw new Error(payload?.message || t.actionFailed);
+      }
+
+      setDraftDeleteConfirmOpen(false);
+      pushFeedback('success', t.deleteSuccessDraft);
+      toast.success(t.deleteSuccessDraft);
+      window.setTimeout(() => {
+        window.location.href = '/expenses';
+      }, 500);
+    } catch (draftDeleteError) {
+      pushFeedback('error', draftDeleteError instanceof Error ? draftDeleteError.message : t.actionFailed);
     } finally {
       setActionLoading(null);
     }
@@ -1639,7 +1679,18 @@ export default function ExpenseDetailPage() {
                                 {t.restore}
                               </DropdownMenuItem>
                             ) : null}
-                            {canPermanentlyDelete ? (
+                            {isDraftExpense ? (
+                              <DropdownMenuItem
+                                variant="destructive"
+                                onSelect={() => {
+                                  setDraftDeleteConfirmOpen(true);
+                                }}
+                              >
+                                <Trash2Icon className="size-4" />
+                                {t.delete}
+                              </DropdownMenuItem>
+                            ) : null}
+                            {canPermanentlyDelete && !isDraftExpense ? (
                               <DropdownMenuItem
                                 variant="destructive"
                                 onSelect={() => {
@@ -2358,6 +2409,47 @@ export default function ExpenseDetailPage() {
               >
                 {actionLoading === 'archive' ? <Loader2Icon className="size-4 animate-spin" /> : null}
                 {t.confirmArchiveAction}
+              </Button>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={draftDeleteConfirmOpen}
+        onOpenChange={(open) => {
+          if (actionLoading === 'draft-delete' && !open) return;
+          setDraftDeleteConfirmOpen(open);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t.confirmDeleteDraftTitle}</AlertDialogTitle>
+            <AlertDialogDescription>{t.confirmDeleteDraftDescription}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-3">
+            <AlertDialogCancel asChild>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-8 sm:w-auto sm:whitespace-nowrap"
+                disabled={actionLoading === 'draft-delete'}
+              >
+                {t.confirmDeleteDraftCancel}
+              </Button>
+            </AlertDialogCancel>
+            <AlertDialogAction asChild>
+              <Button
+                type="button"
+                variant="destructive"
+                className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-8 sm:w-auto sm:whitespace-nowrap bg-destructive text-white hover:bg-destructive/90 hover:text-white"
+                disabled={!expense || actionLoading === 'draft-delete'}
+                onClick={() => {
+                  void runDeleteDraft();
+                }}
+              >
+                {actionLoading === 'draft-delete' ? <Loader2Icon className="size-4 animate-spin" /> : null}
+                {t.confirmDeleteDraftAction}
               </Button>
             </AlertDialogAction>
           </AlertDialogFooter>
