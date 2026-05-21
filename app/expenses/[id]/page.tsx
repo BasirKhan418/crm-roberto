@@ -56,7 +56,7 @@ import ErrorMessage from '@/components/ui/ErrorMessage';
 import { Input } from '@/components/ui/input';
 import { useAuthMe } from '@/hooks/useAuthMe';
 import { useExpenseDetail } from '@/hooks/useExpenseDetail';
-import { createInlineExpenseSupplier, useExpenseLookups } from '@/hooks/useExpenseLookups';
+import { createInlineExpenseCategory, createInlineExpenseSupplier, useExpenseLookups } from '@/hooks/useExpenseLookups';
 import { useTickets } from '@/hooks/useTickets';
 import { canPermanentlyDeleteExpense, canRestoreArchivedExpense } from '@/lib/expenses/access';
 import { isExpenseReadyForPayment } from '@/lib/expenses/payment-readiness';
@@ -2273,6 +2273,11 @@ export default function ExpenseDetailPage() {
           locale={locale}
           onCreateSupplier={async (input) => {
             const created = await createInlineExpenseSupplier(input);
+            await refetchLookups();
+            return created;
+          }}
+          onCreateCategory={async (input) => {
+            const created = await createInlineExpenseCategory(input);
             await refetchLookups();
             return created;
           }}

@@ -119,6 +119,7 @@ type ExpenseFormDialogProps = {
   invoices: ExpenseLookupInvoice[];
   locale: 'en' | 'fr';
   onCreateSupplier: (payload: { fullName: string }) => Promise<ExpenseLookupSupplier>;
+  onCreateCategory: (payload: { name: string }) => Promise<ExpenseLookupCategory>;
   onSaved: (expense: Record<string, unknown>) => Promise<void> | void;
 };
 
@@ -145,6 +146,7 @@ type FormValues = {
 const DEFAULT_VAT_RATE = '17';
 const DEFAULT_DUE_DATE_DELAY_DAYS = 7;
 const ADD_SUPPLIER_OPTION_VALUE = '__add_new_supplier__';
+const ADD_CATEGORY_OPTION_VALUE = '__add_new_category__';
 
 function inferDraftMimeType(file: File) {
   if (isExpenseMimeTypeAllowed(file.type)) {
@@ -428,6 +430,7 @@ export function ExpenseFormDialog({
   invoices,
   locale,
   onCreateSupplier,
+  onCreateCategory,
   onSaved,
 }: ExpenseFormDialogProps) {
   const [values, setValues] = useState<FormValues>(() => buildDefaultFormValues());
@@ -440,6 +443,10 @@ export function ExpenseFormDialog({
   const [supplierQuickCreateOpen, setSupplierQuickCreateOpen] = useState(false);
   const [supplierQuickCreateName, setSupplierQuickCreateName] = useState('');
   const [supplierQuickCreateError, setSupplierQuickCreateError] = useState<string | null>(null);
+  const [categoryCreating, setCategoryCreating] = useState(false);
+  const [categoryQuickCreateOpen, setCategoryQuickCreateOpen] = useState(false);
+  const [categoryQuickCreateName, setCategoryQuickCreateName] = useState('');
+  const [categoryQuickCreateError, setCategoryQuickCreateError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmTarget, setConfirmTarget] = useState<SaveTarget>('default');
   const [invoiceSearchInput, setInvoiceSearchInput] = useState('');
@@ -466,6 +473,9 @@ export function ExpenseFormDialog({
     setSupplierQuickCreateOpen(false);
     setSupplierQuickCreateName('');
     setSupplierQuickCreateError(null);
+    setCategoryQuickCreateOpen(false);
+    setCategoryQuickCreateName('');
+    setCategoryQuickCreateError(null);
     setConfirmOpen(false);
     setInvoiceSearchInput('');
     setDebouncedInvoiceSearch('');
@@ -600,7 +610,8 @@ export function ExpenseFormDialog({
       expenseDate: 'Expense date',
       supplier: 'Supplier (optional)',
       category: 'Category',
-      categoryRequiredTitle: 'Expense Category (required)',
+      requiredBadge: 'Required',
+      categoryRequiredTitle: 'Expense Category ',
       categoryRequiredHint: 'Choose a category now. This is required to finalize a draft.',
       paymentMethod: 'Payment method',
       paidBy: 'Paid by',
@@ -672,6 +683,15 @@ export function ExpenseFormDialog({
       quickAddSupplierCancel: 'Cancel',
       quickAddSupplierSave: 'Save supplier',
       quickAddSupplierSuccess: 'Supplier created and selected',
+      addCategoryPlaceholder: 'Category name',
+      addCategoryOption: ' New category',
+      addCategoryInlineAction: 'New category',
+      quickAddCategoryTitle: 'Add category',
+      quickAddCategoryDescription: 'Create a category without leaving this expense. It will be selected automatically.',
+      quickAddCategoryNameLabel: 'Category name',
+      quickAddCategoryCancel: 'Cancel',
+      quickAddCategorySave: 'Save category',
+      quickAddCategorySuccess: 'Category created and selected',
       selectPlaceholder: 'Select',
       noneOption: 'None',
       invoiceSearch: 'Search linked invoice',
@@ -682,6 +702,7 @@ export function ExpenseFormDialog({
       paidByRequiredWithPayment: 'Paid by is required when payment status is Paid or Partial.',
       saveFailed: 'Failed to save expense',
       createSupplierFailed: 'Failed to create supplier',
+      createCategoryFailed: 'Failed to create category',
       selectTypeTitle: 'Select expense type',
       selectTypeDescription: 'Choose the type of expense you want to create.',
       flowSupplierTitle: 'Supplier Expense',
@@ -710,7 +731,8 @@ export function ExpenseFormDialog({
       expenseDate: 'Date de dépense',
       supplier: 'Fournisseur (optionnel)',
       category: 'Catégorie',
-      categoryRequiredTitle: 'Catégorie de dépense (requise)',
+      requiredBadge: 'Requise',
+      categoryRequiredTitle: 'Catégorie de dépense ',
       categoryRequiredHint: 'Sélectionnez la catégorie maintenant. Ce champ est obligatoire pour finaliser un brouillon.',
       paymentMethod: 'Mode de paiement',
       paidBy: 'Payé par',
@@ -782,6 +804,15 @@ export function ExpenseFormDialog({
       quickAddSupplierCancel: 'Annuler',
       quickAddSupplierSave: 'Enregistrer',
       quickAddSupplierSuccess: 'Fournisseur créé et sélectionné',
+      addCategoryPlaceholder: 'Nom de la catégorie',
+      addCategoryOption: '+ Nouvelle catégorie',
+      addCategoryInlineAction: '+ Nouvelle catégorie',
+      quickAddCategoryTitle: 'Ajouter une catégorie',
+      quickAddCategoryDescription: 'Créez une catégorie sans quitter cette dépense. Elle sera sélectionnée automatiquement.',
+      quickAddCategoryNameLabel: 'Nom de la catégorie',
+      quickAddCategoryCancel: 'Annuler',
+      quickAddCategorySave: 'Enregistrer la catégorie',
+      quickAddCategorySuccess: 'Catégorie créée et sélectionnée',
       selectPlaceholder: 'Sélectionner',
       noneOption: 'Aucun',
       invoiceSearch: 'Recherche facture liée',
@@ -792,6 +823,7 @@ export function ExpenseFormDialog({
       paidByRequiredWithPayment: 'Le champ payé par est requis lorsque le statut est Payé ou Partiel.',
       saveFailed: 'Échec enregistrement dépense',
       createSupplierFailed: 'Échec création fournisseur',
+      createCategoryFailed: 'Échec création catégorie',
       selectTypeTitle: 'Sélectionner le type de dépense',
       selectTypeDescription: 'Choisissez le type de dépense que vous souhaitez créer.',
       flowSupplierTitle: 'Dépense fournisseur',
@@ -1097,6 +1129,21 @@ export function ExpenseFormDialog({
     updateField('supplierId', nextValue);
   }
 
+  function openCategoryQuickCreate() {
+    setCategoryQuickCreateError(null);
+    setCategoryQuickCreateName('');
+    setCategoryQuickCreateOpen(true);
+  }
+
+  function handleCategorySelectionChange(nextValue: string) {
+    if (nextValue === ADD_CATEGORY_OPTION_VALUE) {
+      openCategoryQuickCreate();
+      return;
+    }
+
+    updateField('categoryId', nextValue);
+  }
+
   async function handleCreateSupplier() {
     const supplierName = supplierQuickCreateName.trim();
     if (!supplierName) return;
@@ -1117,6 +1164,29 @@ export function ExpenseFormDialog({
       toast.error(message);
     } finally {
       setSupplierCreating(false);
+    }
+  }
+
+  async function handleCreateCategory() {
+    const categoryName = categoryQuickCreateName.trim();
+    if (!categoryName) return;
+
+    setCategoryCreating(true);
+    setCategoryQuickCreateError(null);
+    setError(null);
+
+    try {
+      const created = await onCreateCategory({ name: categoryName });
+      updateField('categoryId', created._id);
+      setCategoryQuickCreateName('');
+      setCategoryQuickCreateOpen(false);
+      toast.success(t.quickAddCategorySuccess);
+    } catch (creationError) {
+      const message = creationError instanceof Error ? creationError.message : t.createCategoryFailed;
+      setCategoryQuickCreateError(message);
+      toast.error(message);
+    } finally {
+      setCategoryCreating(false);
     }
   }
 
@@ -1657,31 +1727,49 @@ export function ExpenseFormDialog({
 
           <div
             className={cn(
-              'space-y-2 rounded-xl border px-3 py-3',
+              'space-y-3 rounded-2xl border px-3.5 py-3.5 shadow-sm',
               values.categoryId
-                ? 'border-border/70 bg-muted/20'
+                ? 'border-emerald-200/70 bg-emerald-50/40 dark:border-emerald-900/40 dark:bg-emerald-950/15'
                 : 'border-amber-300/85 bg-amber-50/70 dark:border-amber-900/55 dark:bg-amber-950/25'
             )}
           >
-            <div className="space-y-1">
+            <div className="flex items-start justify-between gap-3">
+              <div className="space-y-1">
               <Label htmlFor="expense-required-category" className="text-sm font-semibold">
                 {t.categoryRequiredTitle}
               </Label>
               <p className="text-xs text-muted-foreground">{t.categoryRequiredHint}</p>
+              </div>
+              <span className="rounded-full border border-amber-300/70 bg-amber-100/70 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-900 dark:border-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+                {t.requiredBadge}
+              </span>
             </div>
-            <select
-              id="expense-required-category"
-              className={selectClassName}
-              value={values.categoryId}
-              onChange={(event) => updateField('categoryId', event.target.value)}
-            >
-              <option value="">{t.selectPlaceholder}</option>
-              {categories.map((category) => (
-                <option key={category._id} value={category._id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <select
+                id="expense-required-category"
+                className={cn(selectClassName, 'sm:flex-1')}
+                value={values.categoryId}
+                onChange={(event) => handleCategorySelectionChange(event.target.value)}
+              >
+                <option value="">{t.selectPlaceholder}</option>
+                <option value={ADD_CATEGORY_OPTION_VALUE}>{t.addCategoryOption}</option>
+                {categories.map((category) => (
+                  <option key={category._id} value={category._id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-10 sm:w-auto sm:whitespace-nowrap"
+                onClick={openCategoryQuickCreate}
+                disabled={categoryCreating || saving || cameraDraftLoading}
+              >
+                <PlusIcon className="size-4" />
+                {t.addCategoryInlineAction}
+              </Button>
+            </div>
           </div>
 
           {/* === Supplier flow: supplier === */}
@@ -2461,6 +2549,74 @@ export function ExpenseFormDialog({
               >
                 {supplierCreating ? <Loader2Icon className="size-4 animate-spin" /> : <PlusIcon className="size-4" />}
                 {t.quickAddSupplierSave}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog
+          open={categoryQuickCreateOpen}
+          onOpenChange={(nextOpen) => {
+            if (categoryCreating && !nextOpen) {
+              return;
+            }
+
+            setCategoryQuickCreateOpen(nextOpen);
+            if (!nextOpen) {
+              setCategoryQuickCreateName('');
+              setCategoryQuickCreateError(null);
+            }
+          }}
+        >
+          <DialogContent className="w-[calc(100%-1rem)] gap-3 p-4 pr-4 sm:max-w-md sm:gap-4 sm:p-5 sm:pr-12">
+            <DialogHeader className="pr-8">
+              <DialogTitle>{t.quickAddCategoryTitle}</DialogTitle>
+              <DialogDescription>{t.quickAddCategoryDescription}</DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="expense-quick-category-name">{t.quickAddCategoryNameLabel}</Label>
+              <Input
+                id="expense-quick-category-name"
+                value={categoryQuickCreateName}
+                onChange={(event) => setCategoryQuickCreateName(event.target.value)}
+                placeholder={t.addCategoryPlaceholder}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    if (!categoryCreating && categoryQuickCreateName.trim()) {
+                      void handleCreateCategory();
+                    }
+                  }
+                }}
+                autoFocus
+              />
+            </div>
+
+            {categoryQuickCreateError ? <p className="text-sm text-destructive">{categoryQuickCreateError}</p> : null}
+
+            <DialogFooter className="gap-2 sm:justify-end">
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-8 sm:w-auto sm:whitespace-nowrap"
+                onClick={() => {
+                  setCategoryQuickCreateOpen(false);
+                  setCategoryQuickCreateName('');
+                  setCategoryQuickCreateError(null);
+                }}
+                disabled={categoryCreating}
+              >
+                {t.quickAddCategoryCancel}
+              </Button>
+              <Button
+                type="button"
+                className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-8 sm:w-auto sm:whitespace-nowrap"
+                onClick={() => void handleCreateCategory()}
+                disabled={categoryCreating || !categoryQuickCreateName.trim()}
+              >
+                {categoryCreating ? <Loader2Icon className="size-4 animate-spin" /> : <PlusIcon className="size-4" />}
+                {t.quickAddCategorySave}
               </Button>
             </DialogFooter>
           </DialogContent>

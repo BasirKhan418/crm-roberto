@@ -129,3 +129,29 @@ export async function createInlineExpenseSupplier(input: {
 
   return payload.supplier;
 }
+
+export async function createInlineExpenseCategory(input: {
+  name: string;
+  isEnabled?: boolean;
+  sortOrder?: number;
+}) {
+  const response = await fetch('/api/expenses/categories', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+
+  const payload = (await response.json().catch(() => null)) as
+    | {
+        success: boolean;
+        message?: string;
+        category?: ExpenseLookupCategory;
+      }
+    | null;
+
+  if (!response.ok || !payload?.success || !payload.category) {
+    throw new Error(payload?.message || 'Failed to create category');
+  }
+
+  return payload.category;
+}

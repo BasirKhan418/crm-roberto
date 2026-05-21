@@ -68,7 +68,7 @@ import {
 import { useAuthMe } from '@/hooks/useAuthMe';
 import { ExpenseDetail } from '@/hooks/useExpenseDetail';
 import { useExpensesActionCount } from '@/hooks/useExpensesActionCount';
-import { createInlineExpenseSupplier, useExpenseLookups } from '@/hooks/useExpenseLookups';
+import { createInlineExpenseCategory, createInlineExpenseSupplier, useExpenseLookups } from '@/hooks/useExpenseLookups';
 import { ExpenseListItem, useExpenses } from '@/hooks/useExpenses';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { EXPENSE_PAYMENT_STATUS, EXPENSE_STATUS } from '@/lib/expenses/constants';
@@ -2686,6 +2686,11 @@ export default function ExpensesPage() {
           await refetchLookups();
           return created;
         }}
+        onCreateCategory={async (input) => {
+          const created = await createInlineExpenseCategory(input);
+          await refetchLookups();
+          return created;
+        }}
         onSaved={async () => {
           await Promise.all([refetch(), refetchLookups()]);
           setFeedback('success', t.actionCreateSuccess);
@@ -2710,6 +2715,11 @@ export default function ExpensesPage() {
           locale={locale}
           onCreateSupplier={async (input) => {
             const created = await createInlineExpenseSupplier(input);
+            await refetchLookups();
+            return created;
+          }}
+          onCreateCategory={async (input) => {
+            const created = await createInlineExpenseCategory(input);
             await refetchLookups();
             return created;
           }}
