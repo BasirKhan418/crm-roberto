@@ -177,6 +177,27 @@ function getSupplierName(expense: ExpenseListItem, supplierNameById?: Record<str
   return '-';
 }
 
+function isDuplicatedExpense(expense: Pick<ExpenseListItem, 'isDuplicate' | 'duplicatedFromExpenseId'>) {
+  return Boolean(expense.isDuplicate || expense.duplicatedFromExpenseId);
+}
+
+function getDuplicateBadgeLabel(locale: 'en' | 'fr') {
+  return locale === 'fr' ? 'COPIE' : 'COPY';
+}
+
+function formatDuplicatedSupplierLabel(baseLabel: string, status: string, locale: 'en' | 'fr') {
+  const suffix =
+    locale === 'fr'
+      ? status === 'draft'
+        ? ' — Copie brouillon'
+        : ' (Copie)'
+      : status === 'draft'
+        ? ' — Draft Copy'
+        : ' (Copy)';
+
+  return `${baseLabel}${suffix}`;
+}
+
 function getCategoryName(expense: ExpenseListItem) {
   if (typeof expense.categoryId === 'object' && expense.categoryId) {
     return expense.categoryId.name || '-';
@@ -388,7 +409,14 @@ export default function ExpensesPage() {
     [suppliers]
   );
 
-  const getExpenseSupplierLabel = (expense: ExpenseListItem) => getSupplierName(expense, supplierNameById);
+  const getExpenseSupplierLabel = (expense: ExpenseListItem) => {
+    const baseLabel = getSupplierName(expense, supplierNameById);
+    if (!isDuplicatedExpense(expense)) {
+      return baseLabel;
+    }
+
+    return formatDuplicatedSupplierLabel(baseLabel, expense.status, locale);
+  };
 
   const { expenses, pagination, loading, error, refetch } = useExpenses({
     page,
@@ -1800,7 +1828,14 @@ export default function ExpensesPage() {
                         className={`flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between sm:gap-2 sm:p-2.5 ${getExpenseSurfaceClass(expense.status, expense.paymentStatus)}`}
                       >
                         <div className="min-w-0 space-y-1">
-                          <p className="truncate text-sm font-medium">{getExpenseSupplierLabel(expense)}</p>
+                          <div className="flex min-w-0 items-center gap-1.5">
+                            <p className="truncate text-sm font-medium">{getExpenseSupplierLabel(expense)}</p>
+                            {isDuplicatedExpense(expense) ? (
+                              <span className="inline-flex shrink-0 items-center rounded-full border border-sky-300/70 bg-linear-to-r from-sky-500 to-cyan-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white shadow-xs">
+                                {getDuplicateBadgeLabel(locale)}
+                              </span>
+                            ) : null}
+                          </div>
                           <p className="text-xs text-muted-foreground">
                             {formatDateDisplay(expense.expenseDate)} · {getCategoryName(expense)}
                           </p>
@@ -2302,7 +2337,14 @@ export default function ExpensesPage() {
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold">{getExpenseSupplierLabel(expense)}</p>
+                          <div className="flex min-w-0 items-center gap-1.5">
+                            <p className="truncate text-sm font-semibold">{getExpenseSupplierLabel(expense)}</p>
+                            {isDuplicatedExpense(expense) ? (
+                              <span className="inline-flex shrink-0 items-center rounded-full border border-sky-300/70 bg-linear-to-r from-sky-500 to-cyan-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white shadow-xs">
+                                {getDuplicateBadgeLabel(locale)}
+                              </span>
+                            ) : null}
+                          </div>
                           <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                             <span>{formatDateDisplay(expense.expenseDate)}</span>
                             <span>•</span>
@@ -2509,7 +2551,16 @@ export default function ExpensesPage() {
                     return (
                       <TableRow key={expense._id} className={`cursor-pointer ${getTableRowToneClass(expense.status, expense.paymentStatus)}`}>
                         <TableCell className="whitespace-nowrap text-muted-foreground">{formatDateDisplay(expense.expenseDate)}</TableCell>
-                        <TableCell className="max-w-44 truncate font-medium">{getExpenseSupplierLabel(expense)}</TableCell>
+                        <TableCell className="max-w-52">
+                          <div className="flex min-w-0 items-center gap-1.5">
+                            <span className="truncate font-medium">{getExpenseSupplierLabel(expense)}</span>
+                            {isDuplicatedExpense(expense) ? (
+                              <span className="inline-flex shrink-0 items-center rounded-full border border-sky-300/70 bg-linear-to-r from-sky-500 to-cyan-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white shadow-xs">
+                                {getDuplicateBadgeLabel(locale)}
+                              </span>
+                            ) : null}
+                          </div>
+                        </TableCell>
                         <TableCell className="max-w-44 truncate">{getCategoryName(expense)}</TableCell>
                         <TableCell className="max-w-44 truncate">
                           {expense.supplierRef ? (

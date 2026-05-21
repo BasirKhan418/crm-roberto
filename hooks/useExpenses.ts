@@ -8,6 +8,9 @@ export type ExpenseListItem = {
   _id: string;
   expenseDate?: string | null;
   supplierRef?: string | null;
+  isDuplicate?: boolean;
+  duplicatedFromExpenseId?: string | null;
+  duplicatedAt?: string | null;
   amountExclVatCents: number;
   vatAmountCents: number;
   amountInclVatCents: number;

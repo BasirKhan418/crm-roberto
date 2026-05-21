@@ -290,6 +290,27 @@ function resolveEntityLabel(
   return value.fullName || value.companyName || value.invoiceNumber || value.name || value._id;
 }
 
+function isDuplicatedExpense(value: { isDuplicate?: boolean; duplicatedFromExpenseId?: string | null } | null | undefined) {
+  return Boolean(value?.isDuplicate || value?.duplicatedFromExpenseId);
+}
+
+function getDuplicateBadgeLabel(locale: 'en' | 'fr') {
+  return locale === 'fr' ? 'COPIE' : 'COPY';
+}
+
+function formatDuplicatedSupplierLabel(baseLabel: string, status: string | undefined, locale: 'en' | 'fr') {
+  const suffix =
+    locale === 'fr'
+      ? status === 'draft'
+        ? ' — Copie brouillon'
+        : ' (Copie)'
+      : status === 'draft'
+        ? ' — Draft Copy'
+        : ' (Copy)';
+
+  return `${baseLabel}${suffix}`;
+}
+
 function resolveUserLabel(
   value:
     | string
@@ -1011,6 +1032,12 @@ export default function ExpenseDetailPage() {
 
   const isDraftExpense = expense?.status === 'draft';
   const isExpenseArchived = expense?.status === 'archived';
+  const isDuplicateCopy = isDuplicatedExpense(expense);
+  const supplierBaseLabel = expense ? resolveEntityLabel(expense.supplierId) : '-';
+  const supplierDisplayLabel =
+    expense && isDuplicateCopy
+      ? formatDuplicatedSupplierLabel(supplierBaseLabel, expense.status, locale)
+      : supplierBaseLabel;
   const expensePaymentReady = expense ? isExpenseReadyForPayment(expense) : false;
   const paymentBlockedReason =
     expense && !expensePaymentReady && !isExpenseArchived && expense.paymentStatus !== 'paid'
@@ -1220,7 +1247,7 @@ export default function ExpenseDetailPage() {
 
       if (action === 'duplicate') {
         const duplicatedExpenseId = resolveExpenseIdFromActionPayload(payload);
-        const copyLabel = expense.supplierRef?.trim() || resolveEntityLabel(expense.supplierId) || expense._id;
+        const copyLabel = expense.supplierRef?.trim() || supplierDisplayLabel || expense._id;
 
         toast.success(t.duplicateSuccess);
         pushFeedback('success', t.duplicateSuccess);
@@ -1669,7 +1696,14 @@ export default function ExpenseDetailPage() {
               <CardHeader className="pb-3">
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="space-y-1">
-                    <CardTitle className="text-base">{resolveEntityLabel(expense.supplierId)}</CardTitle>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <CardTitle className="text-base">{supplierDisplayLabel}</CardTitle>
+                      {isDuplicateCopy ? (
+                        <span className="inline-flex items-center rounded-full border border-sky-300/70 bg-linear-to-r from-sky-500 to-cyan-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white shadow-xs">
+                          {getDuplicateBadgeLabel(locale)}
+                        </span>
+                      ) : null}
+                    </div>
                     <CardDescription>
                       {formatDate(expense.expenseDate)} - {expense.supplierRef || '-'}
                     </CardDescription>
@@ -2177,7 +2211,14 @@ export default function ExpenseDetailPage() {
                   <CardContent className="grid gap-3 sm:grid-cols-2">
                     <div className="rounded-md border border-border/60 p-2">
                       <p className="text-xs text-muted-foreground">{t.supplier}</p>
-                      <p className="font-medium">{resolveEntityLabel(expense.supplierId)}</p>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <p className="font-medium">{supplierDisplayLabel}</p>
+                        {isDuplicateCopy ? (
+                          <span className="inline-flex items-center rounded-full border border-sky-300/70 bg-linear-to-r from-sky-500 to-cyan-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white shadow-xs">
+                            {getDuplicateBadgeLabel(locale)}
+                          </span>
+                        ) : null}
+                      </div>
                     </div>
                     <div className="rounded-md border border-border/60 p-2">
                       <p className="text-xs text-muted-foreground">{t.category}</p>
@@ -2627,7 +2668,7 @@ export default function ExpenseDetailPage() {
           amountPaidCents={expense.amountPaidCents || 0}
           mode="settle"
           locale={locale}
-          expenseLabel={resolveEntityLabel(expense.supplierId)}
+          expenseLabel={supplierDisplayLabel}
           expenseDate={expense.expenseDate || null}
           supplierRef={expense.supplierRef || null}
           receiptAttachment={dialogAttachments[0] ?? null}
@@ -2653,7 +2694,7 @@ export default function ExpenseDetailPage() {
           amountPaidCents={expense.amountPaidCents || 0}
           mode="add"
           locale={locale}
-          expenseLabel={resolveEntityLabel(expense.supplierId)}
+          expenseLabel={supplierDisplayLabel}
           expenseDate={expense.expenseDate || null}
           supplierRef={expense.supplierRef || null}
           receiptAttachment={dialogAttachments[0] ?? null}
@@ -2697,8 +2738,8 @@ export default function ExpenseDetailPage() {
           prefill={{
             linkedType: 'expense',
             linkedId: expense._id,
-            linkedLabel: `${resolveEntityLabel(expense.supplierId)} - ${expense.supplierRef || expense._id}`,
-            title: `${resolveEntityLabel(expense.supplierId)} - ${expense.supplierRef || expense._id}`,
+            linkedLabel: `${supplierDisplayLabel} - ${expense.supplierRef || expense._id}`,
+            title: `${supplierDisplayLabel} - ${expense.supplierRef || expense._id}`,
           }}
           onCreated={async () => {
             await Promise.all([refetchLinkedTickets(), refetch()]);

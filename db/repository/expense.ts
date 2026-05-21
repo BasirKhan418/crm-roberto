@@ -1370,6 +1370,9 @@ export async function duplicateExpense(params: {
     invoiceId: source.invoiceId,
     createdBy: params.duplicatedBy,
     updatedBy: params.duplicatedBy,
+    isDuplicate: true,
+    duplicatedFromExpenseId: source._id,
+    duplicatedAt: new Date(),
     archivedAt: null,
     deletedAt: null,
   };

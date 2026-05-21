@@ -70,6 +70,9 @@ export type ExpenseDetail = {
   _id: string;
   status: ExpenseStatus;
   paymentStatus: ExpensePaymentStatus;
+  isDuplicate?: boolean;
+  duplicatedFromExpenseId?: string | null;
+  duplicatedAt?: string | null;
   amountExclVatCents: number;
   vatAmountCents: number;
   amountInclVatCents: number;

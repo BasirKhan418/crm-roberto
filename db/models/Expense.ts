@@ -144,6 +144,21 @@ const ExpenseSchema = new mongoose.Schema(
       default: null,
       index: true,
     },
+    isDuplicate: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    duplicatedFromExpenseId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Expense",
+      default: null,
+      index: true,
+    },
+    duplicatedAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );
