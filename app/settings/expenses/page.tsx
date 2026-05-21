@@ -35,7 +35,9 @@ type RowDraft = {
 type CategoryApiResponse = {
   success: boolean;
   message?: string;
+  code?: string;
   category?: ExpenseCategoryItem;
+  conflictCategory?: ExpenseCategoryItem;
 };
 
 type Feedback = {
@@ -84,6 +86,11 @@ const pageMessages = {
     orderingSuccess: 'Category order updated',
     toggleSuccess: 'Category status updated',
     createFailed: 'Failed to create category',
+    createExistsDisabledPrompt:
+      'Category already exists but is currently disabled. Do you want to reactivate it?',
+    reactivateAction: 'Reactivate category',
+    reactivating: 'Reactivating...',
+    reactivateSuccess: 'Category reactivated successfully',
     updateFailed: 'Failed to update category',
     nameRequired: 'At least one category name (EN or FR) is required',
     invalidSortOrder: 'Sort order must be a valid integer',
@@ -128,6 +135,11 @@ const pageMessages = {
     orderingSuccess: 'Ordre des catégories mis à jour',
     toggleSuccess: 'Statut de la catégorie mis à jour',
     createFailed: 'Échec création catégorie',
+    createExistsDisabledPrompt:
+      'La catégorie existe déjà mais est désactivée. Voulez-vous la réactiver ?',
+    reactivateAction: 'Réactiver catégorie',
+    reactivating: 'Réactivation...',
+    reactivateSuccess: 'Catégorie réactivée avec succès',
     updateFailed: 'Échec mise à jour catégorie',
     nameRequired: 'Au moins un nom (EN ou FR) est requis',
     invalidSortOrder: "L'ordre doit être un entier valide",
@@ -159,6 +171,7 @@ export default function ExpenseCategoriesSettingsPage() {
   const [busyActionKey, setBusyActionKey] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [reactivateCandidate, setReactivateCandidate] = useState<ExpenseCategoryItem | null>(null);
 
   useEffect(() => {
     setRowDrafts(
@@ -241,11 +254,13 @@ export default function ExpenseCategoriesSettingsPage() {
 
       await refetch();
       setFeedbackMessage({ type: 'success', text: successMessage });
+      return true;
     } catch (patchError) {
       setFeedbackMessage({
         type: 'error',
         text: patchError instanceof Error ? patchError.message : t.updateFailed,
       });
+      return false;
     } finally {
       setBusyActionKey(null);
     }
@@ -268,6 +283,7 @@ export default function ExpenseCategoriesSettingsPage() {
     }
 
     setCreateError(null);
+    setReactivateCandidate(null);
     setBusyActionKey('create');
 
     try {
@@ -285,9 +301,16 @@ export default function ExpenseCategoriesSettingsPage() {
 
       const result = (await response.json().catch(() => null)) as CategoryApiResponse | null;
       if (!response.ok || !result?.success) {
+        if (result?.code === 'CATEGORY_EXISTS_DISABLED' && result.conflictCategory?._id) {
+          setReactivateCandidate(result.conflictCategory);
+          setCreateError(result.message || t.createExistsDisabledPrompt);
+          return;
+        }
+
         throw new Error(result?.message || t.createFailed);
       }
 
+      setReactivateCandidate(null);
       setNewCategoryNameEn('');
       setNewCategoryNameFr('');
       setNewCategorySortOrder('');
@@ -301,6 +324,27 @@ export default function ExpenseCategoriesSettingsPage() {
     } finally {
       setBusyActionKey(null);
     }
+  }
+
+  async function handleReactivateCategory() {
+    if (!canManageExpenses || !reactivateCandidate?._id) {
+      return;
+    }
+
+    const reactivated = await patchCategory(
+      reactivateCandidate._id,
+      { isEnabled: true },
+      t.reactivateSuccess,
+      'reactivate'
+    );
+
+    if (!reactivated) {
+      return;
+    }
+
+    setCreateError(null);
+    setReactivateCandidate(null);
+    setNewCategoryEnabled(true);
   }
 
   async function handleSaveRow(category: ExpenseCategoryItem) {
@@ -471,6 +515,7 @@ export default function ExpenseCategoriesSettingsPage() {
                   value={newCategoryNameEn}
                   onChange={(event) => {
                     setCreateError(null);
+                    setReactivateCandidate(null);
                     setNewCategoryNameEn(event.target.value);
                   }}
                   placeholder={t.categoryNameEnPlaceholder}
@@ -484,6 +529,7 @@ export default function ExpenseCategoriesSettingsPage() {
                   value={newCategoryNameFr}
                   onChange={(event) => {
                     setCreateError(null);
+                    setReactivateCandidate(null);
                     setNewCategoryNameFr(event.target.value);
                   }}
                   placeholder={t.categoryNameFrPlaceholder}
@@ -498,6 +544,7 @@ export default function ExpenseCategoriesSettingsPage() {
                   value={newCategorySortOrder}
                   onChange={(event) => {
                     setCreateError(null);
+                    setReactivateCandidate(null);
                     setNewCategorySortOrder(event.target.value);
                   }}
                   disabled={!canManageExpenses || isBusy('create')}
@@ -529,7 +576,23 @@ export default function ExpenseCategoriesSettingsPage() {
               </div>
             </div>
 
-            {createError ? <p className="mt-2 text-sm text-destructive">{createError}</p> : null}
+            {createError ? (
+              <div className="mt-2 space-y-2">
+                <p className="text-sm text-destructive">{createError}</p>
+                {reactivateCandidate ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void handleReactivateCategory()}
+                    disabled={!canManageExpenses || isBusy('reactivate')}
+                  >
+                    {isBusy('reactivate') ? <Loader2Icon className="size-3.5 animate-spin" /> : <RefreshCwIcon className="size-3.5" />}
+                    {isBusy('reactivate') ? t.reactivating : t.reactivateAction}
+                  </Button>
+                ) : null}
+              </div>
+            ) : null}
           </div>
 
           {loading ? (

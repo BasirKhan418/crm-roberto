@@ -60,6 +60,9 @@ type ExistingCategoryShape = {
   name?: string;
   nameEn?: string;
   nameFr?: string;
+  isEnabled?: boolean;
+  isDefault?: boolean;
+  sortOrder?: number;
 };
 
 function resolveCategoryCanonicalFromRecord(category: ExistingCategoryShape) {
@@ -85,7 +88,7 @@ async function findCategoryConflictByCanonicalKey(params: {
     companyId: params.companyId,
     ...(params.excludeCategoryId ? { _id: { $ne: params.excludeCategoryId } } : {}),
   })
-    .select("_id canonicalKey slug name nameEn nameFr")
+    .select("_id canonicalKey slug name nameEn nameFr isEnabled isDefault sortOrder")
     .lean<ExistingCategoryShape[]>();
 
   return (
@@ -183,6 +186,16 @@ export async function createExpenseCategory(companyId: string, input: CreateExpe
   });
 
   if (conflict) {
+    if (conflict.isEnabled === false) {
+      return {
+        success: false as const,
+        code: "CATEGORY_EXISTS_DISABLED",
+        message:
+          "Category already exists but is currently disabled. Do you want to reactivate it?",
+        conflictCategory: conflict,
+      };
+    }
+
     return { success: false as const, message: "Category already exists" };
   }
 
