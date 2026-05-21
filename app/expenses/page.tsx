@@ -159,9 +159,13 @@ function formatDateDisplay(value?: string | null) {
   return date.toLocaleDateString('fr-FR');
 }
 
-function getSupplierName(expense: ExpenseListItem) {
+function getSupplierName(expense: ExpenseListItem, supplierNameById?: Record<string, string>) {
   if (typeof expense.supplierId === 'object' && expense.supplierId) {
     return expense.supplierId.fullName || expense.supplierId.companyName || '-';
+  }
+
+  if (typeof expense.supplierId === 'string' && expense.supplierId) {
+    return supplierNameById?.[expense.supplierId] || '-';
   }
 
   return '-';
@@ -350,6 +354,17 @@ export default function ExpensesPage() {
     error: lookupsError,
     refetch: refetchLookups,
   } = useExpenseLookups(undefined, 80);
+
+  const supplierNameById = useMemo<Record<string, string>>(
+    () =>
+      suppliers.reduce((accumulator, supplier) => {
+        accumulator[supplier._id] = supplier.fullName || supplier.companyName || '-';
+        return accumulator;
+      }, {} as Record<string, string>),
+    [suppliers]
+  );
+
+  const getExpenseSupplierLabel = (expense: ExpenseListItem) => getSupplierName(expense, supplierNameById);
 
   const { expenses, pagination, loading, error, refetch } = useExpenses({
     page,
@@ -1237,7 +1252,7 @@ export default function ExpensesPage() {
       }
 
       const duplicatedExpenseId = resolveExpenseIdFromActionPayload(payload);
-      const copyLabel = expense.supplierRef?.trim() || getSupplierName(expense) || expense._id;
+      const copyLabel = expense.supplierRef?.trim() || getExpenseSupplierLabel(expense) || expense._id;
       toast.success(t.actionDuplicateSuccess);
       setFeedback('success', t.actionDuplicateSuccess);
 
@@ -1756,7 +1771,7 @@ export default function ExpensesPage() {
                         className={`flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between sm:gap-2 sm:p-2.5 ${getExpenseSurfaceClass(expense.status, expense.paymentStatus)}`}
                       >
                         <div className="min-w-0 space-y-1">
-                          <p className="truncate text-sm font-medium">{getSupplierName(expense)}</p>
+                          <p className="truncate text-sm font-medium">{getExpenseSupplierLabel(expense)}</p>
                           <p className="text-xs text-muted-foreground">
                             {formatDateDisplay(expense.expenseDate)} · {getCategoryName(expense)}
                           </p>
@@ -2258,7 +2273,7 @@ export default function ExpensesPage() {
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold">{getSupplierName(expense)}</p>
+                          <p className="truncate text-sm font-semibold">{getExpenseSupplierLabel(expense)}</p>
                           <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                             <span>{formatDateDisplay(expense.expenseDate)}</span>
                             <span>•</span>
@@ -2465,7 +2480,7 @@ export default function ExpensesPage() {
                     return (
                       <TableRow key={expense._id} className={`cursor-pointer ${getTableRowToneClass(expense.status, expense.paymentStatus)}`}>
                         <TableCell className="whitespace-nowrap text-muted-foreground">{formatDateDisplay(expense.expenseDate)}</TableCell>
-                        <TableCell className="max-w-44 truncate font-medium">{getSupplierName(expense)}</TableCell>
+                        <TableCell className="max-w-44 truncate font-medium">{getExpenseSupplierLabel(expense)}</TableCell>
                         <TableCell className="max-w-44 truncate">{getCategoryName(expense)}</TableCell>
                         <TableCell className="max-w-44 truncate">
                           {expense.supplierRef ? (
@@ -2743,7 +2758,7 @@ export default function ExpensesPage() {
         amountPaidCents={paymentExpenseDetail?.amountPaidCents ?? settleExpenseTarget?.amountPaidCents ?? 0}
         mode="settle"
         locale={locale}
-        expenseLabel={settleExpenseTarget ? getSupplierName(settleExpenseTarget) : null}
+        expenseLabel={settleExpenseTarget ? getExpenseSupplierLabel(settleExpenseTarget) : null}
         expenseDate={paymentExpenseDetail?.expenseDate ?? settleExpenseTarget?.expenseDate ?? null}
         supplierRef={paymentExpenseDetail?.supplierRef ?? settleExpenseTarget?.supplierRef ?? null}
         receiptAttachment={paymentExpenseDetail?.attachments?.[0] ?? null}
@@ -2779,7 +2794,7 @@ export default function ExpensesPage() {
         amountPaidCents={paymentExpenseDetail?.amountPaidCents ?? addPaymentTarget?.amountPaidCents ?? 0}
         mode="add"
         locale={locale}
-        expenseLabel={addPaymentTarget ? getSupplierName(addPaymentTarget) : null}
+        expenseLabel={addPaymentTarget ? getExpenseSupplierLabel(addPaymentTarget) : null}
         expenseDate={paymentExpenseDetail?.expenseDate ?? addPaymentTarget?.expenseDate ?? null}
         supplierRef={paymentExpenseDetail?.supplierRef ?? addPaymentTarget?.supplierRef ?? null}
         receiptAttachment={paymentExpenseDetail?.attachments?.[0] ?? null}
@@ -2814,7 +2829,7 @@ export default function ExpensesPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>{t.confirmArchiveTitle}</AlertDialogTitle>
             <AlertDialogDescription>
-              {archiveTarget ? t.confirmArchiveDescription(archiveTarget.supplierRef || getSupplierName(archiveTarget)) : ''}
+              {archiveTarget ? t.confirmArchiveDescription(archiveTarget.supplierRef || getExpenseSupplierLabel(archiveTarget)) : ''}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-3">
@@ -2915,7 +2930,7 @@ export default function ExpensesPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>{t.confirmDeleteTitle}</AlertDialogTitle>
             <AlertDialogDescription>
-              {deleteTarget ? t.confirmDeleteDescription(deleteTarget.supplierRef || getSupplierName(deleteTarget)) : ''}
+              {deleteTarget ? t.confirmDeleteDescription(deleteTarget.supplierRef || getExpenseSupplierLabel(deleteTarget)) : ''}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="space-y-3">

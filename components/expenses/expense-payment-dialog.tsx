@@ -24,6 +24,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { InteractiveReceiptImage } from '@/components/expenses/interactive-receipt-image';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { EXPENSE_PAID_BY, EXPENSE_PAYMENT_METHODS } from '@/lib/expenses/constants';
@@ -400,8 +401,12 @@ export function ExpensePaymentDialog({
               </div>
               <div className="mt-3 min-h-0 flex-1 overflow-hidden rounded-lg border border-border/70 bg-background">
                 {isImageMimeType(receiptAttachment.mimeType) ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={receiptAttachment.url} alt={receiptAttachment.displayName} className="h-full w-full object-contain" />
+                  <InteractiveReceiptImage
+                    src={receiptAttachment.url}
+                    alt={receiptAttachment.displayName}
+                    locale={locale}
+                    className="h-full w-full rounded-none border-0"
+                  />
                 ) : isPdfMimeType(receiptAttachment.mimeType) ? (
                   <iframe src={receiptAttachment.url} title={receiptAttachment.displayName} className="h-full w-full" />
                 ) : (

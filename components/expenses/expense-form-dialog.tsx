@@ -27,6 +27,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { InteractiveReceiptImage } from '@/components/expenses/interactive-receipt-image';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -1597,11 +1598,11 @@ export function ExpenseFormDialog({
 
               <div className="mt-3 min-h-0 flex-1 overflow-hidden rounded-lg border border-border/70 bg-background">
                 {isInlineImageMimeType(receiptPreviewAttachment.mimeType) ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
+                  <InteractiveReceiptImage
                     src={receiptPreviewAttachment.url}
                     alt={receiptPreviewAttachment.displayName}
-                    className="h-full w-full object-contain"
+                    locale={locale}
+                    className="h-full w-full rounded-none border-0"
                   />
                 ) : isInlinePdfMimeType(receiptPreviewAttachment.mimeType) ? (
                   <iframe
