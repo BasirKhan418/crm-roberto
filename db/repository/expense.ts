@@ -963,14 +963,35 @@ export async function updateExpense(params: {
     paymentLines,
   });
 
-  const status = (nextData.status as string) || (existing.status as string);
+  const existingStatus = typeof existing.status === "string" ? existing.status : "draft";
+  const existingPaymentStatus =
+    typeof existing.paymentStatus === "string" ? existing.paymentStatus : "unpaid";
+  const explicitStatus =
+    typeof payloadWithoutFinancialConfirmation.status === "string"
+      ? payloadWithoutFinancialConfirmation.status
+      : null;
   const requestedPaymentStatus =
     typeof payloadWithoutFinancialConfirmation.paymentStatus === "string"
       ? payloadWithoutFinancialConfirmation.paymentStatus
       : null;
-  const isDraftActivation = existing.status === "draft" && status === "active";
+  const requestedAmountPaidCents = toPositiveCents(payloadWithoutFinancialConfirmation.amountPaidCents);
+  const hasPaymentIntentHints =
+    requestedAmountPaidCents > 0 ||
+    toValidExpensePaymentMethod(payloadWithoutFinancialConfirmation.paymentMethod) !== null ||
+    toValidExpensePaidBy(payloadWithoutFinancialConfirmation.paidBy) !== null ||
+    toDateOrNull(payloadWithoutFinancialConfirmation.paidAt) !== null;
 
-  const isAlreadyPaidExpense = existing.status !== "draft" && existing.paymentStatus === "paid";
+  // If client status is accidentally missing but payment intent exists while editing a draft,
+  // promote to active so finalize+pay cannot silently remain draft.
+  const status =
+    explicitStatus || (existingStatus === "draft" && hasPaymentIntentHints ? "active" : existingStatus);
+  const isDraftActivation = existingStatus === "draft" && status === "active";
+  const wantsPaidOnActivation =
+    isDraftActivation &&
+    (requestedPaymentStatus === "paid" ||
+      (requestedPaymentStatus !== "unpaid" && hasPaymentIntentHints));
+
+  const isAlreadyPaidExpense = existingStatus !== "draft" && existingPaymentStatus === "paid";
   const amountInclVatChanged = amountInclVatCents !== toPositiveCents(existing.amountInclVatCents);
   const vatRateChanged = vatRate !== Number(existing.vatRate || 0);
   const paymentFieldsTouched =
@@ -1014,8 +1035,9 @@ export async function updateExpense(params: {
   }
 
   let effectivePaymentSummary = paymentSummary;
+  let activationPaymentLineId: string | null = null;
 
-  if (isDraftActivation && requestedPaymentStatus === "paid") {
+  if (wantsPaidOnActivation) {
     const paymentMethod = toValidExpensePaymentMethod(params.payload.paymentMethod);
     if (!paymentMethod) {
       return {
@@ -1032,13 +1054,7 @@ export async function updateExpense(params: {
       };
     }
 
-    const paidAt = toDateOrNull(params.payload.paidAt);
-    if (!paidAt) {
-      return {
-        success: false as const,
-        message: "Payment date is required when finalizing draft as paid",
-      };
-    }
+    const paidAt = toDateOrNull(params.payload.paidAt) || new Date();
 
     const remainingToSettleCents = computeRemainingBalanceCents(
       amountInclVatCents,
@@ -1046,7 +1062,7 @@ export async function updateExpense(params: {
     );
 
     if (remainingToSettleCents > 0) {
-      await ExpensePaymentLine.create({
+      const createdActivationLine = await ExpensePaymentLine.create({
         companyId: params.companyId,
         expenseId: params.expenseId,
         amountPaidCents: remainingToSettleCents,
@@ -1056,6 +1072,7 @@ export async function updateExpense(params: {
         createdBy: params.updatedBy,
         source: "settle_expense",
       });
+      activationPaymentLineId = String(createdActivationLine._id);
 
       const refreshedPaymentLines = await listExpensePaymentLines({
         companyId: params.companyId,
@@ -1067,10 +1084,18 @@ export async function updateExpense(params: {
         paymentLines: refreshedPaymentLines,
       });
     }
+
+    if (effectivePaymentSummary.paymentStatus !== "paid") {
+      return {
+        success: false as const,
+        message: "Finalize and pay could not settle the expense balance completely",
+      };
+    }
   }
 
   const updatePayload: Record<string, unknown> = {
     ...payloadWithoutFinancialConfirmation,
+    status,
     amountExclVatCents,
     vatRate,
     vatAmountCents,
@@ -1083,13 +1108,33 @@ export async function updateExpense(params: {
     updatedBy: params.updatedBy,
   };
 
-  const updated = await Expense.findOneAndUpdate(
-    scopedQuery,
-    { $set: updatePayload },
-    { returnDocument: "after", runValidators: true }
-  ).lean<Record<string, unknown> | null>();
+  let updated: Record<string, unknown> | null = null;
+
+  try {
+    updated = await Expense.findOneAndUpdate(
+      scopedQuery,
+      { $set: updatePayload },
+      { returnDocument: "after", runValidators: true }
+    ).lean<Record<string, unknown> | null>();
+  } catch (updateError) {
+    if (activationPaymentLineId) {
+      await ExpensePaymentLine.deleteOne({
+        _id: activationPaymentLineId,
+        companyId: params.companyId,
+        expenseId: params.expenseId,
+      });
+    }
+    throw updateError;
+  }
 
   if (!updated) {
+    if (activationPaymentLineId) {
+      await ExpensePaymentLine.deleteOne({
+        _id: activationPaymentLineId,
+        companyId: params.companyId,
+        expenseId: params.expenseId,
+      });
+    }
     return { success: false as const, message: "Expense not found after update" };
   }
 
