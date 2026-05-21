@@ -144,6 +144,7 @@ type FormValues = {
 
 const DEFAULT_VAT_RATE = '17';
 const DEFAULT_DUE_DATE_DELAY_DAYS = 7;
+const ADD_SUPPLIER_OPTION_VALUE = '__add_new_supplier__';
 
 function inferDraftMimeType(file: File) {
   if (isExpenseMimeTypeAllowed(file.type)) {
@@ -436,7 +437,9 @@ export function ExpenseFormDialog({
   const [saving, setSaving] = useState(false);
   const [savingTarget, setSavingTarget] = useState<SaveTarget | null>(null);
   const [supplierCreating, setSupplierCreating] = useState(false);
-  const [inlineSupplierName, setInlineSupplierName] = useState('');
+  const [supplierQuickCreateOpen, setSupplierQuickCreateOpen] = useState(false);
+  const [supplierQuickCreateName, setSupplierQuickCreateName] = useState('');
+  const [supplierQuickCreateError, setSupplierQuickCreateError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmTarget, setConfirmTarget] = useState<SaveTarget>('default');
   const [invoiceSearchInput, setInvoiceSearchInput] = useState('');
@@ -460,7 +463,9 @@ export function ExpenseFormDialog({
     setError(null);
     setSaving(false);
     setSavingTarget(null);
-    setInlineSupplierName('');
+    setSupplierQuickCreateOpen(false);
+    setSupplierQuickCreateName('');
+    setSupplierQuickCreateError(null);
     setConfirmOpen(false);
     setInvoiceSearchInput('');
     setDebouncedInvoiceSearch('');
@@ -659,6 +664,14 @@ export function ExpenseFormDialog({
       addSupplier: 'Quick add supplier',
       addSupplierPlaceholder: 'Supplier name',
       createSupplier: 'Add',
+      addSupplierOption: '+ Add new supplier',
+      addSupplierInlineAction: 'Add new supplier',
+      quickAddSupplierTitle: 'Add supplier',
+      quickAddSupplierDescription: 'Create a supplier without leaving this expense. It will be selected automatically.',
+      quickAddSupplierNameLabel: 'Supplier name',
+      quickAddSupplierCancel: 'Cancel',
+      quickAddSupplierSave: 'Save supplier',
+      quickAddSupplierSuccess: 'Supplier created and selected',
       selectPlaceholder: 'Select',
       noneOption: 'None',
       invoiceSearch: 'Search linked invoice',
@@ -761,6 +774,14 @@ export function ExpenseFormDialog({
       addSupplier: 'Ajout rapide fournisseur',
       addSupplierPlaceholder: 'Nom du fournisseur',
       createSupplier: 'Ajouter',
+      addSupplierOption: '+ Ajouter un nouveau fournisseur',
+      addSupplierInlineAction: 'Nouveau fournisseur',
+      quickAddSupplierTitle: 'Ajouter un fournisseur',
+      quickAddSupplierDescription: 'Créez un fournisseur sans quitter cette dépense. Il sera sélectionné automatiquement.',
+      quickAddSupplierNameLabel: 'Nom du fournisseur',
+      quickAddSupplierCancel: 'Annuler',
+      quickAddSupplierSave: 'Enregistrer',
+      quickAddSupplierSuccess: 'Fournisseur créé et sélectionné',
       selectPlaceholder: 'Sélectionner',
       noneOption: 'Aucun',
       invoiceSearch: 'Recherche facture liée',
@@ -1061,18 +1082,39 @@ export function ExpenseFormDialog({
     });
   }
 
+  function openSupplierQuickCreate() {
+    setSupplierQuickCreateError(null);
+    setSupplierQuickCreateName('');
+    setSupplierQuickCreateOpen(true);
+  }
+
+  function handleSupplierSelectionChange(nextValue: string) {
+    if (nextValue === ADD_SUPPLIER_OPTION_VALUE) {
+      openSupplierQuickCreate();
+      return;
+    }
+
+    updateField('supplierId', nextValue);
+  }
+
   async function handleCreateSupplier() {
-    if (!inlineSupplierName.trim()) return;
+    const supplierName = supplierQuickCreateName.trim();
+    if (!supplierName) return;
 
     setSupplierCreating(true);
+    setSupplierQuickCreateError(null);
     setError(null);
 
     try {
-      const created = await onCreateSupplier({ fullName: inlineSupplierName.trim() });
+      const created = await onCreateSupplier({ fullName: supplierName });
       updateField('supplierId', created._id);
-      setInlineSupplierName('');
+      setSupplierQuickCreateName('');
+      setSupplierQuickCreateOpen(false);
+      toast.success(t.quickAddSupplierSuccess);
     } catch (creationError) {
-      setError(creationError instanceof Error ? creationError.message : t.createSupplierFailed);
+      const message = creationError instanceof Error ? creationError.message : t.createSupplierFailed;
+      setSupplierQuickCreateError(message);
+      toast.error(message);
     } finally {
       setSupplierCreating(false);
     }
@@ -1646,18 +1688,31 @@ export function ExpenseFormDialog({
           {isSupplierFlow ? (
             <div className="space-y-1.5">
               <Label>{t.supplier}</Label>
-              <select
-                className={selectClassName}
-                value={values.supplierId}
-                onChange={(event) => updateField('supplierId', event.target.value)}
-              >
-                <option value="">{t.selectPlaceholder}</option>
-                {suppliers.map((supplier) => (
-                  <option key={supplier._id} value={supplier._id}>
-                    {supplier.fullName}
-                  </option>
-                ))}
-              </select>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <select
+                  className={cn(selectClassName, 'sm:flex-1')}
+                  value={values.supplierId}
+                  onChange={(event) => handleSupplierSelectionChange(event.target.value)}
+                >
+                  <option value="">{t.selectPlaceholder}</option>
+                  <option value={ADD_SUPPLIER_OPTION_VALUE}>{t.addSupplierOption}</option>
+                  {suppliers.map((supplier) => (
+                    <option key={supplier._id} value={supplier._id}>
+                      {supplier.fullName}
+                    </option>
+                  ))}
+                </select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-10 sm:w-auto sm:whitespace-nowrap"
+                  onClick={openSupplierQuickCreate}
+                  disabled={supplierCreating || saving || cameraDraftLoading}
+                >
+                  <PlusIcon className="size-4" />
+                  {t.addSupplierInlineAction}
+                </Button>
+              </div>
             </div>
           ) : null}
 
@@ -1857,27 +1912,6 @@ export function ExpenseFormDialog({
                     </div>
                   </div>
 
-                  <div className="space-y-1.5">
-                    <Label>{t.addSupplier}</Label>
-                    <div className="flex flex-col gap-2 sm:flex-row">
-                      <Input
-                        value={inlineSupplierName}
-                        onChange={(event) => setInlineSupplierName(event.target.value)}
-                        placeholder={t.addSupplierPlaceholder}
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-8 sm:w-auto sm:whitespace-nowrap"
-                        onClick={() => void handleCreateSupplier()}
-                        disabled={supplierCreating || !inlineSupplierName.trim()}
-                      >
-                        {supplierCreating ? <Loader2Icon className="size-4 animate-spin" /> : <PlusIcon className="size-4" />}
-                        {t.createSupplier}
-                      </Button>
-                    </div>
-                  </div>
-
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div className="space-y-1.5">
                       <Label>{t.client}</Label>
@@ -2056,36 +2090,29 @@ export function ExpenseFormDialog({
                 <div className="space-y-3">
                   <div className="space-y-1.5">
                     <Label>{t.supplier}</Label>
-                    <select
-                      className={selectClassName}
-                      value={values.supplierId}
-                      onChange={(event) => updateField('supplierId', event.target.value)}
-                    >
-                      <option value="">{t.selectPlaceholder}</option>
-                      {suppliers.map((supplier) => (
-                        <option key={supplier._id} value={supplier._id}>
-                          {supplier.fullName}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>{t.addSupplier}</Label>
-                    <div className="flex flex-col gap-2 sm:flex-row">
-                      <Input
-                        value={inlineSupplierName}
-                        onChange={(event) => setInlineSupplierName(event.target.value)}
-                        placeholder={t.addSupplierPlaceholder}
-                      />
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                      <select
+                        className={cn(selectClassName, 'sm:flex-1')}
+                        value={values.supplierId}
+                        onChange={(event) => handleSupplierSelectionChange(event.target.value)}
+                      >
+                        <option value="">{t.selectPlaceholder}</option>
+                        <option value={ADD_SUPPLIER_OPTION_VALUE}>{t.addSupplierOption}</option>
+                        {suppliers.map((supplier) => (
+                          <option key={supplier._id} value={supplier._id}>
+                            {supplier.fullName}
+                          </option>
+                        ))}
+                      </select>
                       <Button
                         type="button"
                         variant="outline"
-                        className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-8 sm:w-auto sm:whitespace-nowrap"
-                        onClick={() => void handleCreateSupplier()}
-                        disabled={supplierCreating || !inlineSupplierName.trim()}
+                        className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-10 sm:w-auto sm:whitespace-nowrap"
+                        onClick={openSupplierQuickCreate}
+                        disabled={supplierCreating || saving || cameraDraftLoading}
                       >
-                        {supplierCreating ? <Loader2Icon className="size-4 animate-spin" /> : <PlusIcon className="size-4" />}
-                        {t.createSupplier}
+                        <PlusIcon className="size-4" />
+                        {t.addSupplierInlineAction}
                       </Button>
                     </div>
                   </div>
@@ -2123,18 +2150,31 @@ export function ExpenseFormDialog({
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div className="space-y-1.5">
                       <Label>{t.supplier}</Label>
-                      <select
-                        className={selectClassName}
-                        value={values.supplierId}
-                        onChange={(event) => updateField('supplierId', event.target.value)}
-                      >
-                        <option value="">{t.selectPlaceholder}</option>
-                        {suppliers.map((supplier) => (
-                          <option key={supplier._id} value={supplier._id}>
-                            {supplier.fullName}
-                          </option>
-                        ))}
-                      </select>
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                        <select
+                          className={cn(selectClassName, 'sm:flex-1')}
+                          value={values.supplierId}
+                          onChange={(event) => handleSupplierSelectionChange(event.target.value)}
+                        >
+                          <option value="">{t.selectPlaceholder}</option>
+                          <option value={ADD_SUPPLIER_OPTION_VALUE}>{t.addSupplierOption}</option>
+                          {suppliers.map((supplier) => (
+                            <option key={supplier._id} value={supplier._id}>
+                              {supplier.fullName}
+                            </option>
+                          ))}
+                        </select>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-10 sm:w-auto sm:whitespace-nowrap"
+                          onClick={openSupplierQuickCreate}
+                          disabled={supplierCreating || saving || cameraDraftLoading}
+                        >
+                          <PlusIcon className="size-4" />
+                          {t.addSupplierInlineAction}
+                        </Button>
+                      </div>
                     </div>
                     <div className="space-y-1.5">
                       <Label>{t.supplierRef}</Label>
@@ -2142,27 +2182,6 @@ export function ExpenseFormDialog({
                         value={values.supplierRef}
                         onChange={(event) => updateField('supplierRef', event.target.value)}
                       />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label>{t.addSupplier}</Label>
-                    <div className="flex flex-col gap-2 sm:flex-row">
-                      <Input
-                        value={inlineSupplierName}
-                        onChange={(event) => setInlineSupplierName(event.target.value)}
-                        placeholder={t.addSupplierPlaceholder}
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-8 sm:w-auto sm:whitespace-nowrap"
-                        onClick={() => void handleCreateSupplier()}
-                        disabled={supplierCreating || !inlineSupplierName.trim()}
-                      >
-                        {supplierCreating ? <Loader2Icon className="size-4 animate-spin" /> : <PlusIcon className="size-4" />}
-                        {t.createSupplier}
-                      </Button>
                     </div>
                   </div>
 
@@ -2378,6 +2397,74 @@ export function ExpenseFormDialog({
           </DialogFooter>
         </form>
         </div>
+
+        <Dialog
+          open={supplierQuickCreateOpen}
+          onOpenChange={(nextOpen) => {
+            if (supplierCreating && !nextOpen) {
+              return;
+            }
+
+            setSupplierQuickCreateOpen(nextOpen);
+            if (!nextOpen) {
+              setSupplierQuickCreateName('');
+              setSupplierQuickCreateError(null);
+            }
+          }}
+        >
+          <DialogContent className="w-[calc(100%-1rem)] gap-3 p-4 pr-4 sm:max-w-md sm:gap-4 sm:p-5 sm:pr-12">
+            <DialogHeader className="pr-8">
+              <DialogTitle>{t.quickAddSupplierTitle}</DialogTitle>
+              <DialogDescription>{t.quickAddSupplierDescription}</DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="expense-quick-supplier-name">{t.quickAddSupplierNameLabel}</Label>
+              <Input
+                id="expense-quick-supplier-name"
+                value={supplierQuickCreateName}
+                onChange={(event) => setSupplierQuickCreateName(event.target.value)}
+                placeholder={t.addSupplierPlaceholder}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    if (!supplierCreating && supplierQuickCreateName.trim()) {
+                      void handleCreateSupplier();
+                    }
+                  }
+                }}
+                autoFocus
+              />
+            </div>
+
+            {supplierQuickCreateError ? <p className="text-sm text-destructive">{supplierQuickCreateError}</p> : null}
+
+            <DialogFooter className="gap-2 sm:justify-end">
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-8 sm:w-auto sm:whitespace-nowrap"
+                onClick={() => {
+                  setSupplierQuickCreateOpen(false);
+                  setSupplierQuickCreateName('');
+                  setSupplierQuickCreateError(null);
+                }}
+                disabled={supplierCreating}
+              >
+                {t.quickAddSupplierCancel}
+              </Button>
+              <Button
+                type="button"
+                className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-8 sm:w-auto sm:whitespace-nowrap"
+                onClick={() => void handleCreateSupplier()}
+                disabled={supplierCreating || !supplierQuickCreateName.trim()}
+              >
+                {supplierCreating ? <Loader2Icon className="size-4 animate-spin" /> : <PlusIcon className="size-4" />}
+                {t.quickAddSupplierSave}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {mode === 'edit' ? (
           <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
