@@ -102,6 +102,12 @@ type UploadItem = {
   expenseId: string | null;
 };
 
+type SavedExpenseSnapshot = {
+  id: string;
+  status: string | null;
+  paymentStatus: string | null;
+};
+
 type PresignResponse = {
   success: boolean;
   message?: string;
@@ -264,6 +270,23 @@ function resolveExpenseIdFromActionPayload(payload: GenericApiResponse | null) {
   return typeof candidateId === 'string' && candidateId.trim() ? candidateId : null;
 }
 
+function resolveSavedExpenseSnapshot(payload: Record<string, unknown> | null | undefined): SavedExpenseSnapshot | null {
+  if (!payload) {
+    return null;
+  }
+
+  const candidateId = payload._id;
+  if (typeof candidateId !== 'string' || !candidateId.trim()) {
+    return null;
+  }
+
+  return {
+    id: candidateId,
+    status: typeof payload.status === 'string' ? payload.status : null,
+    paymentStatus: typeof payload.paymentStatus === 'string' ? payload.paymentStatus : null,
+  };
+}
+
 export default function ExpensesPage() {
   const { locale } = useLocale();
   const router = useRouter();
@@ -299,6 +322,7 @@ export default function ExpensesPage() {
   const [archiveTarget, setArchiveTarget] = useState<ExpenseListItem | null>(null);
   const [draftDeleteTarget, setDraftDeleteTarget] = useState<ExpenseListItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ExpenseListItem | null>(null);
+  const [queueEditingExpenseId, setQueueEditingExpenseId] = useState<string | null>(null);
   const [deletePassword, setDeletePassword] = useState('');
   const [deleteReason, setDeleteReason] = useState('');
   const [deleteValidationError, setDeleteValidationError] = useState<string | null>(null);
@@ -1063,6 +1087,11 @@ export default function ExpensesPage() {
         expenseId: draftPayload.expense._id,
       });
 
+      // Keep imported drafts discoverable immediately by switching to Drafts view.
+      setStatusFilter('draft');
+      setPaymentStatusFilter('');
+      setPage(1);
+
       void refetch();
     } catch (uploadError) {
       updateUploadItem(uploadId, {
@@ -1163,8 +1192,9 @@ export default function ExpensesPage() {
     }, 3000);
   }
 
-  async function openEditExpense(expenseId: string) {
+  async function openEditExpense(expenseId: string, source: 'list' | 'queue' = 'list') {
     setActionLoadingId(expenseId);
+    setQueueEditingExpenseId(source === 'queue' ? expenseId : null);
 
     try {
       const response = await fetch(`/api/expenses/${expenseId}`, { cache: 'no-store' });
@@ -1183,6 +1213,7 @@ export default function ExpensesPage() {
       setEditingExpense(payload.expense);
       setEditDialogOpen(true);
     } catch (openError) {
+      setQueueEditingExpenseId(null);
       setFeedback('error', openError instanceof Error ? openError.message : t.editLoadFailed);
     } finally {
       setActionLoadingId(null);
@@ -1696,7 +1727,7 @@ export default function ExpensesPage() {
                           className="h-auto min-h-7 w-full whitespace-normal px-3 py-2 text-center sm:w-auto sm:whitespace-nowrap"
                           onClick={() => {
                             if (item.expenseId) {
-                              void openEditExpense(item.expenseId);
+                              void openEditExpense(item.expenseId, 'queue');
                             }
                           }}
                           disabled={actionLoadingId === item.expenseId}
@@ -2717,6 +2748,7 @@ export default function ExpensesPage() {
             setEditDialogOpen(open);
             if (!open) {
               setEditingExpense(null);
+              setQueueEditingExpenseId(null);
             }
           }}
           mode="edit"
@@ -2736,8 +2768,26 @@ export default function ExpensesPage() {
             await refetchLookups();
             return created;
           }}
-          onSaved={async () => {
+          onSaved={async (savedExpense) => {
+            const snapshot = resolveSavedExpenseSnapshot(savedExpense);
+
             await Promise.all([refetch(), refetchLookups()]);
+
+            if (snapshot && queueEditingExpenseId && snapshot.id === queueEditingExpenseId) {
+              if (snapshot.status === 'draft') {
+                setStatusFilter('draft');
+                setPaymentStatusFilter('');
+                setPage(1);
+                setMobileDraftsExpanded(true);
+              } else if (snapshot.status === 'active') {
+                setStatusFilter('active');
+                setPaymentStatusFilter(snapshot.paymentStatus === 'partial' || snapshot.paymentStatus === 'paid' ? snapshot.paymentStatus : 'unpaid');
+                setPage(1);
+                setUploads((previous) => previous.filter((item) => item.expenseId !== snapshot.id));
+              }
+            }
+
+            setQueueEditingExpenseId(null);
             setFeedback('success', t.actionUpdateSuccess);
           }}
         />
