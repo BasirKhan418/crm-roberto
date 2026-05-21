@@ -434,6 +434,7 @@ export function ExpenseFormDialog({
   const [uiFlow, setUiFlow] = useState<UiFlow>(() => deriveUiFlow(initialExpense));
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [savingTarget, setSavingTarget] = useState<SaveTarget | null>(null);
   const [supplierCreating, setSupplierCreating] = useState(false);
   const [inlineSupplierName, setInlineSupplierName] = useState('');
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -457,6 +458,8 @@ export function ExpenseFormDialog({
     const initialValues = buildInitialValues(initialExpense);
     setValues(initialValues);
     setError(null);
+    setSaving(false);
+    setSavingTarget(null);
     setInlineSupplierName('');
     setConfirmOpen(false);
     setInvoiceSearchInput('');
@@ -592,6 +595,8 @@ export function ExpenseFormDialog({
       expenseDate: 'Expense date',
       supplier: 'Supplier (optional)',
       category: 'Category',
+      categoryRequiredTitle: 'Expense Category (required)',
+      categoryRequiredHint: 'Choose a category now. This is required to finalize a draft.',
       paymentMethod: 'Payment method',
       paidBy: 'Paid by',
       paymentStatus: 'Payment status',
@@ -692,6 +697,8 @@ export function ExpenseFormDialog({
       expenseDate: 'Date de dépense',
       supplier: 'Fournisseur (optionnel)',
       category: 'Catégorie',
+      categoryRequiredTitle: 'Catégorie de dépense (requise)',
+      categoryRequiredHint: 'Sélectionnez la catégorie maintenant. Ce champ est obligatoire pour finaliser un brouillon.',
       paymentMethod: 'Mode de paiement',
       paidBy: 'Payé par',
       paymentStatus: 'Statut paiement',
@@ -1085,6 +1092,7 @@ export function ExpenseFormDialog({
     }
 
     setSaving(true);
+    setSavingTarget(saveTarget);
     setError(null);
 
     try {
@@ -1120,6 +1128,7 @@ export function ExpenseFormDialog({
         if (hasPaymentStatus && !values.paidBy) {
           setError(t.paidByRequiredWithPayment);
           setSaving(false);
+          setSavingTarget(null);
           return;
         }
 
@@ -1222,6 +1231,7 @@ export function ExpenseFormDialog({
       setError(submitError instanceof Error ? submitError.message : t.saveFailed);
     } finally {
       setSaving(false);
+      setSavingTarget(null);
     }
   }
 
@@ -1239,6 +1249,9 @@ export function ExpenseFormDialog({
   const canPreviewCapturedImage = Boolean(
     pendingCameraCapture && pendingCameraCapture.mimeType.startsWith('image/')
   );
+  const isSavingDefault = saving && savingTarget === 'default';
+  const isSavingDraft = saving && savingTarget === 'draft';
+  const isSavingActivate = saving && savingTarget === 'activate';
 
   const uiFlowLabel =
     isManualFlow ? t.flowManualTitle : isClientProjectFlow ? t.flowClientTitle : t.flowSupplierTitle;
@@ -1600,60 +1613,57 @@ export function ExpenseFormDialog({
             ) : null}
           </div>
 
-          {/* === Supplier flow: supplier + category === */}
+          <div
+            className={cn(
+              'space-y-2 rounded-xl border px-3 py-3',
+              values.categoryId
+                ? 'border-border/70 bg-muted/20'
+                : 'border-amber-300/85 bg-amber-50/70 dark:border-amber-900/55 dark:bg-amber-950/25'
+            )}
+          >
+            <div className="space-y-1">
+              <Label htmlFor="expense-required-category" className="text-sm font-semibold">
+                {t.categoryRequiredTitle}
+              </Label>
+              <p className="text-xs text-muted-foreground">{t.categoryRequiredHint}</p>
+            </div>
+            <select
+              id="expense-required-category"
+              className={selectClassName}
+              value={values.categoryId}
+              onChange={(event) => updateField('categoryId', event.target.value)}
+            >
+              <option value="">{t.selectPlaceholder}</option>
+              {categories.map((category) => (
+                <option key={category._id} value={category._id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* === Supplier flow: supplier === */}
           {isSupplierFlow ? (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label>{t.supplier}</Label>
-                <select
-                  className={selectClassName}
-                  value={values.supplierId}
-                  onChange={(event) => updateField('supplierId', event.target.value)}
-                >
-                  <option value="">{t.selectPlaceholder}</option>
-                  {suppliers.map((supplier) => (
-                    <option key={supplier._id} value={supplier._id}>
-                      {supplier.fullName}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>{t.category}</Label>
-                <select
-                  className={selectClassName}
-                  value={values.categoryId}
-                  onChange={(event) => updateField('categoryId', event.target.value)}
-                >
-                  <option value="">{t.selectPlaceholder}</option>
-                  {categories.map((category) => (
-                    <option key={category._id} value={category._id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            <div className="space-y-1.5">
+              <Label>{t.supplier}</Label>
+              <select
+                className={selectClassName}
+                value={values.supplierId}
+                onChange={(event) => updateField('supplierId', event.target.value)}
+              >
+                <option value="">{t.selectPlaceholder}</option>
+                {suppliers.map((supplier) => (
+                  <option key={supplier._id} value={supplier._id}>
+                    {supplier.fullName}
+                  </option>
+                ))}
+              </select>
             </div>
           ) : null}
 
-          {/* === Manual flow: category + payment === */}
+          {/* === Manual flow: payment === */}
           {isManualFlow ? (
             <div className="space-y-3">
-              <div className="space-y-1.5">
-                <Label>{t.category}</Label>
-                <select
-                  className={selectClassName}
-                  value={values.categoryId}
-                  onChange={(event) => updateField('categoryId', event.target.value)}
-                >
-                  <option value="">{t.selectPlaceholder}</option>
-                  {categories.map((category) => (
-                    <option key={category._id} value={category._id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
               {mode === 'create' ? (
                 <>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -1773,7 +1783,7 @@ export function ExpenseFormDialog({
             </div>
           ) : null}
 
-          {/* === Client/Project flow: client + project + category === */}
+          {/* === Client/Project flow: client + project === */}
           {isClientProjectFlow ? (
             <div className="space-y-3">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -1799,21 +1809,6 @@ export function ExpenseFormDialog({
                     onChange={(event) => updateField('projectId', event.target.value)}
                   />
                 </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label>{t.category}</Label>
-                <select
-                  className={selectClassName}
-                  value={values.categoryId}
-                  onChange={(event) => updateField('categoryId', event.target.value)}
-                >
-                  <option value="">{t.selectPlaceholder}</option>
-                  {categories.map((category) => (
-                    <option key={category._id} value={category._id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
               </div>
             </div>
           ) : null}
@@ -2335,7 +2330,7 @@ export function ExpenseFormDialog({
                     onClick={() => requestSubmit('draft')}
                     disabled={saving || cameraDraftLoading || captureDecisionPending}
                   >
-                    {saving ? <Loader2Icon className="size-4 animate-spin" /> : null}
+                    {isSavingDraft ? <Loader2Icon className="size-4 animate-spin" /> : null}
                     {t.saveDraft}
                   </Button>
                   <Button
@@ -2343,7 +2338,7 @@ export function ExpenseFormDialog({
                     className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-8 sm:w-auto sm:whitespace-nowrap"
                     disabled={saving || cameraDraftLoading || captureDecisionPending}
                   >
-                    {saving ? <Loader2Icon className="size-4 animate-spin" /> : null}
+                    {isSavingDefault ? <Loader2Icon className="size-4 animate-spin" /> : null}
                     {t.createAndValidate}
                   </Button>
                 </>
@@ -2356,7 +2351,7 @@ export function ExpenseFormDialog({
                     onClick={() => requestSubmit('default')}
                     disabled={saving}
                   >
-                    {saving ? <Loader2Icon className="size-4 animate-spin" /> : null}
+                    {isSavingDefault ? <Loader2Icon className="size-4 animate-spin" /> : null}
                     {t.saveDraft}
                   </Button>
                   <Button
@@ -2365,7 +2360,7 @@ export function ExpenseFormDialog({
                     onClick={() => requestSubmit('activate')}
                     disabled={saving}
                   >
-                    {saving ? <Loader2Icon className="size-4 animate-spin" /> : null}
+                    {isSavingActivate ? <Loader2Icon className="size-4 animate-spin" /> : null}
                     {t.activateDraft}
                   </Button>
                 </>
@@ -2375,7 +2370,7 @@ export function ExpenseFormDialog({
                   className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-8 sm:w-auto sm:whitespace-nowrap"
                   disabled={saving}
                 >
-                  {saving ? <Loader2Icon className="size-4 animate-spin" /> : null}
+                  {isSavingDefault ? <Loader2Icon className="size-4 animate-spin" /> : null}
                   {t.save}
                 </Button>
               )}
