@@ -354,6 +354,43 @@ export default function ExpensesPage() {
 
   const photoInputRef = useRef<HTMLInputElement | null>(null);
   const importInputRef = useRef<HTMLInputElement | null>(null);
+  const quickFiltersTouchStartRef = useRef<{ x: number; y: number } | null>(null);
+
+  function handleQuickFiltersWheel(event: React.WheelEvent<HTMLDivElement>) {
+    const predominantlyVertical = Math.abs(event.deltaY) > Math.abs(event.deltaX);
+    if (!predominantlyVertical) return;
+
+    event.currentTarget.scrollLeft += event.deltaY;
+    event.preventDefault();
+  }
+
+  function handleQuickFiltersTouchStart(event: React.TouchEvent<HTMLDivElement>) {
+    if (event.touches.length !== 1) {
+      quickFiltersTouchStartRef.current = null;
+      return;
+    }
+
+    const [touch] = event.touches;
+    quickFiltersTouchStartRef.current = { x: touch.clientX, y: touch.clientY };
+  }
+
+  function handleQuickFiltersTouchMove(event: React.TouchEvent<HTMLDivElement>) {
+    if (event.touches.length !== 1 || !quickFiltersTouchStartRef.current) {
+      return;
+    }
+
+    const [touch] = event.touches;
+    const deltaX = Math.abs(touch.clientX - quickFiltersTouchStartRef.current.x);
+    const deltaY = Math.abs(touch.clientY - quickFiltersTouchStartRef.current.y);
+
+    if (deltaY > deltaX) {
+      event.preventDefault();
+    }
+  }
+
+  function handleQuickFiltersTouchEnd() {
+    quickFiltersTouchStartRef.current = null;
+  }
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -1923,7 +1960,14 @@ export default function ExpensesPage() {
             <Tabs value={activeQuickFilter} onValueChange={(value) => applyQuickFilter(value as ExpenseQuickFilterKey)}>
               <div className="space-y-1.5">
                 <Label>{t.quickFiltersLabel}</Label>
-                <div className="overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <div
+                  className="overflow-x-auto overflow-y-hidden touch-pan-x overscroll-y-none [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                  onWheel={handleQuickFiltersWheel}
+                  onTouchStart={handleQuickFiltersTouchStart}
+                  onTouchMove={handleQuickFiltersTouchMove}
+                  onTouchEnd={handleQuickFiltersTouchEnd}
+                  onTouchCancel={handleQuickFiltersTouchEnd}
+                >
                   <TabsList className="inline-flex h-auto min-w-max items-center gap-1 rounded-lg border border-border/80 bg-muted/10 p-1 shadow-xs">
                     <TabsTrigger value="all" className="min-h-9 rounded-md border border-transparent px-3 py-2.5 sm:py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
                       <span>{t.all}</span>
