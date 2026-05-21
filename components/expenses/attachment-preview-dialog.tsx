@@ -2,6 +2,7 @@
 
 import { ExternalLinkIcon } from 'lucide-react';
 
+import { InteractiveReceiptImage } from '@/components/expenses/interactive-receipt-image';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -60,12 +61,14 @@ export function AttachmentPreviewDialog({ open, onOpenChange, attachment, locale
           <div className="space-y-3">
             <div className="overflow-hidden rounded-lg border bg-muted/20 p-2">
               {isImageMime(attachment.mimeType) ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={attachment.url}
-                  alt={attachment.name}
-                  className="max-h-[50vh] w-full rounded-md object-contain sm:max-h-[70vh]"
-                />
+                <div className="h-[50vh] sm:h-[70vh]">
+                  <InteractiveReceiptImage
+                    src={attachment.url}
+                    alt={attachment.name}
+                    locale={locale}
+                    className="h-full w-full rounded-md border-border/60"
+                  />
+                </div>
               ) : null}
 
               {isPdfMime(attachment.mimeType) ? (
