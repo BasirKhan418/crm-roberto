@@ -935,9 +935,14 @@ export async function updateExpense(params: {
     };
   }
 
+  const {
+    confirmPaidFinancialChange,
+    ...payloadWithoutFinancialConfirmation
+  } = params.payload;
+
   const nextData: Record<string, unknown> = {
     ...existing,
-    ...params.payload,
+    ...payloadWithoutFinancialConfirmation,
     updatedBy: toObjectId(params.updatedBy),
   };
 
@@ -960,8 +965,33 @@ export async function updateExpense(params: {
 
   const status = (nextData.status as string) || (existing.status as string);
   const requestedPaymentStatus =
-    typeof params.payload.paymentStatus === "string" ? params.payload.paymentStatus : null;
+    typeof payloadWithoutFinancialConfirmation.paymentStatus === "string"
+      ? payloadWithoutFinancialConfirmation.paymentStatus
+      : null;
   const isDraftActivation = existing.status === "draft" && status === "active";
+
+  const isAlreadyPaidExpense = existing.status !== "draft" && existing.paymentStatus === "paid";
+  const amountInclVatChanged = amountInclVatCents !== toPositiveCents(existing.amountInclVatCents);
+  const vatRateChanged = vatRate !== Number(existing.vatRate || 0);
+  const paymentFieldsTouched =
+    typeof payloadWithoutFinancialConfirmation.amountPaidCents === "number" ||
+    typeof payloadWithoutFinancialConfirmation.paymentStatus === "string" ||
+    typeof payloadWithoutFinancialConfirmation.paymentMethod === "string" ||
+    typeof payloadWithoutFinancialConfirmation.paidBy === "string" ||
+    payloadWithoutFinancialConfirmation.paidAt !== undefined;
+  const hasAccountingImpactingChange = amountInclVatChanged || vatRateChanged || paymentFieldsTouched;
+
+  if (
+    isAlreadyPaidExpense &&
+    hasAccountingImpactingChange &&
+    confirmPaidFinancialChange !== true
+  ) {
+    return {
+      success: false as const,
+      message:
+        "Financial values changed on a paid expense. Confirm this accounting-impacting update before saving.",
+    };
+  }
 
   if (isDraftActivation && requestedPaymentStatus === "partial") {
     return {
@@ -1040,7 +1070,7 @@ export async function updateExpense(params: {
   }
 
   const updatePayload: Record<string, unknown> = {
-    ...params.payload,
+    ...payloadWithoutFinancialConfirmation,
     amountExclVatCents,
     vatRate,
     vatAmountCents,

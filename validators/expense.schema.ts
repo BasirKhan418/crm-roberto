@@ -155,6 +155,7 @@ export const createDraftExpenseSchema = z.object({
 export const updateExpenseSchema = z
   .object({
     status: z.enum(EXPENSE_STATUS).optional(),
+    confirmPaidFinancialChange: z.boolean().optional(),
     amountExclVatCents: optionalMoneyToCentsSchema,
     vatRate: z.preprocess(toNumber, z.number().min(0).max(100).optional()),
     expenseDate: optionalDateSchema.optional(),
@@ -202,7 +203,7 @@ export const updateExpenseSchema = z
       });
     }
   })
-  .refine((input) => Object.keys(input).length > 0, {
+  .refine((input) => Object.keys(input).some((key) => key !== "confirmPaidFinancialChange"), {
     message: "At least one field must be provided",
   });
 

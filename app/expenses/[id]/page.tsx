@@ -761,8 +761,7 @@ export default function ExpenseDetailPage() {
           deleteSuccessExpense: 'Expense deleted',
           confirmArchive: 'Archive this expense?',
           confirmArchiveTitle: 'Archive expense',
-          confirmArchiveDescription: (label: string) =>
-            `This expense (${label}) will be moved to archived records and become read-only until restored.`,
+          confirmArchiveDescription: 'Archive this expense? It will remain stored and can be restored later.',
           confirmArchiveCancel: 'Cancel',
           confirmArchiveAction: 'Archive expense',
           confirmDeleteDraftTitle: 'Delete draft?',
@@ -902,8 +901,7 @@ export default function ExpenseDetailPage() {
           deleteSuccessExpense: 'Dépense supprimée',
           confirmArchive: 'Archiver cette dépense ?',
           confirmArchiveTitle: 'Archiver la dépense',
-          confirmArchiveDescription: (label: string) =>
-            `Cette dépense (${label}) sera déplacée dans les archives et restera en lecture seule jusqu'à restauration.`,
+          confirmArchiveDescription: 'Archiver cette dépense ? Elle restera stockée et pourra être restaurée plus tard.',
           confirmArchiveCancel: 'Annuler',
           confirmArchiveAction: 'Archiver dépense',
           confirmDeleteDraftTitle: 'Supprimer le brouillon ?',
@@ -2720,7 +2718,7 @@ export default function ExpenseDetailPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>{t.confirmArchiveTitle}</AlertDialogTitle>
             <AlertDialogDescription>
-              {expense ? t.confirmArchiveDescription(expense.supplierRef || resolveEntityLabel(expense.supplierId)) : ''}
+              {expense ? t.confirmArchiveDescription : ''}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-3">

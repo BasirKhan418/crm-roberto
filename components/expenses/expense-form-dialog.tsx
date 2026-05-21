@@ -250,6 +250,15 @@ function toNonNegativeNumber(value: string) {
   return Math.max(parsed, 0);
 }
 
+function formatCurrencyFromUnits(value: number, locale: 'en' | 'fr') {
+  return new Intl.NumberFormat(locale === 'fr' ? 'fr-FR' : 'en-GB', {
+    style: 'currency',
+    currency: 'EUR',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
 function formatInvoiceDateLabel(value: string | undefined, locale: 'en' | 'fr') {
   if (!value) return '-';
   const date = new Date(value);
@@ -682,6 +691,10 @@ export function ExpenseFormDialog({
       confirmEditDescriptionDefault: 'This will save your edits and update expense history.',
       confirmEditDescriptionActivate: 'This will finalize the draft and make it actionable.',
       confirmEditDescriptionActivateAndPay: 'This will finalize the draft and register full payment immediately.',
+      confirmEditDescriptionPaidFinancialWarning:
+        'Warning: financial values changed on a paid expense. This can impact paid totals and accounting consistency.',
+      confirmEditDescriptionPaidFinancialSummary: (paid: string, remaining: string) =>
+        `Paid history stays at ${paid}. New projected remaining balance: ${remaining}.`,
       confirmEditCancel: 'Cancel',
       confirmEditAction: 'Confirm update',
       addSupplier: 'Quick add supplier',
@@ -810,6 +823,10 @@ export function ExpenseFormDialog({
       confirmEditDescriptionDefault: "Cette action enregistre vos modifications et met à jour l'historique.",
       confirmEditDescriptionActivate: 'Cette action finalise le brouillon et le rend exploitable.',
       confirmEditDescriptionActivateAndPay: 'Cette action finalise le brouillon et enregistre immédiatement le paiement complet.',
+      confirmEditDescriptionPaidFinancialWarning:
+        'Attention : des valeurs financieres ont ete modifiees sur une depense payee. Cela peut impacter les totaux payes et la coherence comptable.',
+      confirmEditDescriptionPaidFinancialSummary: (paid: string, remaining: string) =>
+        `Historique paye conserve a ${paid}. Nouveau solde restant projete : ${remaining}.`,
       confirmEditCancel: 'Annuler',
       confirmEditAction: 'Confirmer',
       addSupplier: 'Ajout rapide fournisseur',
@@ -878,6 +895,20 @@ export function ExpenseFormDialog({
           ? amountPaid
           : 0;
   const remaining = toTwoDecimals(Math.max(amountInclVat - computedAmountPaid, 0));
+  const isPaidExpenseEdit =
+    mode === 'edit' && initialExpense?.status === 'active' && initialExpense?.paymentStatus === 'paid';
+  const initialAmountInclVat = toTwoDecimals((initialExpense?.amountInclVatCents || 0) / 100);
+  const initialVatRate =
+    typeof initialExpense?.vatRate === 'number' && Number.isFinite(initialExpense.vatRate)
+      ? initialExpense.vatRate
+      : 0;
+  const hasPaidFinancialImpactChange =
+    isPaidExpenseEdit &&
+    (Math.abs(amountInclVat - initialAmountInclVat) > 0.0001 || Math.abs(vatRate - initialVatRate) > 0.0001);
+  const projectedPaidTotalAfterFinancialEdit = toTwoDecimals(Math.min(amountPaidFromHistory, amountInclVat));
+  const projectedRemainingAfterFinancialEdit = toTwoDecimals(
+    Math.max(amountInclVat - projectedPaidTotalAfterFinancialEdit, 0)
+  );
 
   const invoiceOptions = useMemo(() => {
     const normalizedSearch = debouncedInvoiceSearch.trim().toLowerCase();
@@ -1321,6 +1352,10 @@ export function ExpenseFormDialog({
 
       if (mode === 'edit' && initialExpense?._id) {
         const shouldFinalizeAndPay = isDraftEditMode && saveTarget === 'activate' && finalizeAsPaid;
+
+        if (hasPaidFinancialImpactChange) {
+          payload.confirmPaidFinancialChange = true;
+        }
 
         if (saveTarget === 'activate') {
           payload.status = 'active';
@@ -2790,8 +2825,18 @@ export function ExpenseFormDialog({
                     ? finalizeAsPaid
                       ? t.confirmEditDescriptionActivateAndPay
                       : t.confirmEditDescriptionActivate
-                    : t.confirmEditDescriptionDefault}
+                    : hasPaidFinancialImpactChange
+                      ? t.confirmEditDescriptionPaidFinancialWarning
+                      : t.confirmEditDescriptionDefault}
                 </AlertDialogDescription>
+                {confirmTarget !== 'activate' && hasPaidFinancialImpactChange ? (
+                  <div className="rounded-md border border-amber-300/70 bg-amber-50/80 p-2.5 text-xs text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
+                    {t.confirmEditDescriptionPaidFinancialSummary(
+                      formatCurrencyFromUnits(projectedPaidTotalAfterFinancialEdit, locale),
+                      formatCurrencyFromUnits(projectedRemainingAfterFinancialEdit, locale)
+                    )}
+                  </div>
+                ) : null}
               </AlertDialogHeader>
               <AlertDialogFooter className="gap-3">
                 <AlertDialogCancel asChild>
@@ -2807,7 +2852,12 @@ export function ExpenseFormDialog({
                 <AlertDialogAction asChild>
                   <Button
                     type="button"
-                    className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-8 sm:w-auto sm:whitespace-nowrap"
+                    className={cn(
+                      'h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-8 sm:w-auto sm:whitespace-nowrap',
+                      confirmTarget !== 'activate' && hasPaidFinancialImpactChange
+                        ? 'bg-amber-600 text-white hover:bg-amber-700 hover:text-white'
+                        : undefined
+                    )}
                     disabled={saving}
                     onClick={() => {
                       setConfirmOpen(false);

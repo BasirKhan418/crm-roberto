@@ -563,8 +563,7 @@ export default function ExpensesPage() {
       archivedReadOnlyHint: 'Archived expenses are read-only. Restore first to edit, pay, attach files, or duplicate.',
       confirmArchive: 'Archive this expense?',
       confirmArchiveTitle: 'Archive expense',
-      confirmArchiveDescription: (label: string) =>
-        `This expense (${label}) will be moved to archived records and become read-only until restored.`,
+      confirmArchiveDescription: 'Archive this expense? It will remain stored and can be restored later.',
       confirmArchiveCancel: 'Cancel',
       confirmArchiveAction: 'Archive expense',
       confirmDeleteDraftTitle: 'Delete draft?',
@@ -728,8 +727,7 @@ export default function ExpensesPage() {
       archivedReadOnlyHint: "Les dépenses archivées sont en lecture seule. Restaurez d'abord pour modifier, payer, ajouter des pièces ou dupliquer.",
       confirmArchive: 'Archiver cette dépense ?',
       confirmArchiveTitle: 'Archiver la dépense',
-      confirmArchiveDescription: (label: string) =>
-        `Cette dépense (${label}) sera déplacée dans les archives et restera en lecture seule jusqu'à restauration.`,
+      confirmArchiveDescription: 'Archiver cette dépense ? Elle restera stockée et pourra être restaurée plus tard.',
       confirmArchiveCancel: 'Annuler',
       confirmArchiveAction: 'Archiver dépense',
       confirmDeleteDraftTitle: 'Supprimer le brouillon ?',
@@ -2829,7 +2827,7 @@ export default function ExpensesPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>{t.confirmArchiveTitle}</AlertDialogTitle>
             <AlertDialogDescription>
-              {archiveTarget ? t.confirmArchiveDescription(archiveTarget.supplierRef || getExpenseSupplierLabel(archiveTarget)) : ''}
+              {archiveTarget ? t.confirmArchiveDescription : ''}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-3">
