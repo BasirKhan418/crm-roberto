@@ -959,6 +959,16 @@ export async function updateExpense(params: {
   });
 
   const status = (nextData.status as string) || (existing.status as string);
+  const requestedPaymentStatus =
+    typeof params.payload.paymentStatus === "string" ? params.payload.paymentStatus : null;
+  const isDraftActivation = existing.status === "draft" && status === "active";
+
+  if (isDraftActivation && requestedPaymentStatus === "partial") {
+    return {
+      success: false as const,
+      message: "Draft activation only supports unpaid or fully paid. Use Add payment after activation for partial payments.",
+    };
+  }
 
   const activateCandidate = {
     amountInclVatCents,
@@ -973,17 +983,73 @@ export async function updateExpense(params: {
     };
   }
 
+  let effectivePaymentSummary = paymentSummary;
+
+  if (isDraftActivation && requestedPaymentStatus === "paid") {
+    const paymentMethod = toValidExpensePaymentMethod(params.payload.paymentMethod);
+    if (!paymentMethod) {
+      return {
+        success: false as const,
+        message: "Payment method is required when finalizing draft as paid",
+      };
+    }
+
+    const paidBy = toValidExpensePaidBy(params.payload.paidBy);
+    if (!paidBy) {
+      return {
+        success: false as const,
+        message: "Paid by is required when finalizing draft as paid",
+      };
+    }
+
+    const paidAt = toDateOrNull(params.payload.paidAt);
+    if (!paidAt) {
+      return {
+        success: false as const,
+        message: "Payment date is required when finalizing draft as paid",
+      };
+    }
+
+    const remainingToSettleCents = computeRemainingBalanceCents(
+      amountInclVatCents,
+      paymentSummary.amountPaidCents
+    );
+
+    if (remainingToSettleCents > 0) {
+      await ExpensePaymentLine.create({
+        companyId: params.companyId,
+        expenseId: params.expenseId,
+        amountPaidCents: remainingToSettleCents,
+        paidAt,
+        paymentMethod,
+        paidBy,
+        createdBy: params.updatedBy,
+        source: "settle_expense",
+      });
+
+      const refreshedPaymentLines = await listExpensePaymentLines({
+        companyId: params.companyId,
+        expenseId: params.expenseId,
+      });
+
+      effectivePaymentSummary = summarizeExpensePayments({
+        amountInclVatCents,
+        paymentLines: refreshedPaymentLines,
+      });
+    }
+  }
+
   const updatePayload: Record<string, unknown> = {
     ...params.payload,
     amountExclVatCents,
     vatRate,
     vatAmountCents,
     amountInclVatCents,
-    amountPaidCents: paymentSummary.amountPaidCents,
-    paymentStatus: paymentSummary.paymentStatus,
-    paymentMethod: paymentSummary.paymentMethod,
-    paidBy: paymentSummary.paidBy,
-    paidAt: paymentSummary.paidAt,
+    amountPaidCents: effectivePaymentSummary.amountPaidCents,
+    paymentStatus: effectivePaymentSummary.paymentStatus,
+    paymentMethod: effectivePaymentSummary.paymentMethod,
+    paidBy: effectivePaymentSummary.paidBy,
+    paidAt: effectivePaymentSummary.paidAt,
     updatedBy: params.updatedBy,
   };
 

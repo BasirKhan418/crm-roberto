@@ -160,6 +160,11 @@ export const updateExpenseSchema = z
     expenseDate: optionalDateSchema.optional(),
     supplierId: optionalObjectIdSchema,
     categoryId: optionalObjectIdSchema,
+    paymentMethod: z.enum(EXPENSE_PAYMENT_METHODS).optional(),
+    paidBy: z.enum(EXPENSE_PAID_BY).optional(),
+    paymentStatus: z.enum(EXPENSE_PAYMENT_STATUS).optional(),
+    amountPaidCents: optionalMoneyToCentsSchema,
+    paidAt: optionalDateSchema.optional(),
     dueDate: optionalDateSchema.optional(),
     supplierRef: z.preprocess(toNullableString, z.string().trim().max(140).nullable().optional()),
     expenseType: z.enum(EXPENSE_TYPES).optional(),
@@ -167,6 +172,35 @@ export const updateExpenseSchema = z
     clientId: optionalObjectIdSchema,
     projectId: z.preprocess(toNullableString, z.string().trim().max(120).nullable().optional()),
     invoiceId: optionalObjectIdSchema,
+  })
+  .superRefine((input, context) => {
+    if (input.status !== "active" || input.paymentStatus !== "paid") {
+      return;
+    }
+
+    if (!input.paymentMethod) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Payment method is required when finalizing draft as paid",
+        path: ["paymentMethod"],
+      });
+    }
+
+    if (!input.paidBy) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Paid by is required when finalizing draft as paid",
+        path: ["paidBy"],
+      });
+    }
+
+    if (!input.paidAt) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Payment date is required when finalizing draft as paid",
+        path: ["paidAt"],
+      });
+    }
   })
   .refine((input) => Object.keys(input).length > 0, {
     message: "At least one field must be provided",

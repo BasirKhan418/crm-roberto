@@ -18,6 +18,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -456,6 +457,9 @@ export function ExpenseFormDialog({
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [cameraDraftLoading, setCameraDraftLoading] = useState(false);
   const [pendingCameraCapture, setPendingCameraCapture] = useState<PendingCameraCapture | null>(null);
+  const [finalizeAsPaid, setFinalizeAsPaid] = useState(false);
+
+  const isDraftEditMode = mode === 'edit' && initialExpense?.status === 'draft';
 
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -480,6 +484,7 @@ export function ExpenseFormDialog({
     setInvoiceSearchInput('');
     setDebouncedInvoiceSearch('');
     setPendingCameraCapture(null);
+    setFinalizeAsPaid(Boolean(mode === 'edit' && initialExpense?.status === 'draft' && initialExpense?.paymentStatus === 'paid'));
 
     if (mode === 'create') {
       if (initialReceiptFile) {
@@ -644,10 +649,15 @@ export function ExpenseFormDialog({
       save: 'Save changes',
       saveDraft: 'Save as draft',
       activateDraft: 'Finalize draft',
+      activateAndPayDraft: 'Finalize & pay',
       createSuccess: 'Expense created',
       createDraftSuccess: 'Draft saved',
       updateSuccess: 'Expense updated',
       activateSuccess: 'Expense finalized',
+      activateAndPaySuccess: 'Expense finalized and paid',
+      finalizeDraftPaymentSection: 'Finalize payment',
+      alreadyPaidLabel: 'Already paid',
+      alreadyPaidHint: 'If enabled, finalizing will register full payment immediately.',
       cameraDraftTitle: 'Receipt photo',
       cameraDraftDescription: 'Take a receipt photo, review it, then save a quick draft or continue in the form.',
       cameraDraftAction: 'Take photo',
@@ -670,6 +680,7 @@ export function ExpenseFormDialog({
       confirmEditTitle: 'Confirm expense update',
       confirmEditDescriptionDefault: 'This will save your edits and update expense history.',
       confirmEditDescriptionActivate: 'This will finalize the draft and make it actionable.',
+      confirmEditDescriptionActivateAndPay: 'This will finalize the draft and register full payment immediately.',
       confirmEditCancel: 'Cancel',
       confirmEditAction: 'Confirm update',
       addSupplier: 'Quick add supplier',
@@ -699,6 +710,7 @@ export function ExpenseFormDialog({
       invoiceSearchLoading: 'Searching invoices...',
       invoiceNoResults: 'No invoice matches this search.',
       requiredFieldsError: 'Total amount (incl. VAT), date, and category are required to finalize the draft.',
+      paymentMethodRequiredOnFinalizePaid: 'Payment method is required when finalizing as paid.',
       paidByRequiredWithPayment: 'Paid by is required when payment status is Paid or Partial.',
       saveFailed: 'Failed to save expense',
       createSupplierFailed: 'Failed to create supplier',
@@ -765,10 +777,15 @@ export function ExpenseFormDialog({
       save: 'Enregistrer',
       saveDraft: 'Sauvegarder brouillon',
       activateDraft: 'Finaliser le brouillon',
+      activateAndPayDraft: 'Finaliser et payer',
       createSuccess: 'Dépense créée',
       createDraftSuccess: 'Brouillon enregistré',
       updateSuccess: 'Dépense mise à jour',
       activateSuccess: 'Dépense finalisée',
+      activateAndPaySuccess: 'Dépense finalisée et payée',
+      finalizeDraftPaymentSection: 'Paiement à la finalisation',
+      alreadyPaidLabel: 'Déjà payée',
+      alreadyPaidHint: 'Si activé, la finalisation enregistre immédiatement le paiement complet.',
       cameraDraftTitle: 'Photo du reçu',
       cameraDraftDescription: 'Prenez une photo du reçu, vérifiez-la, puis sauvegardez un brouillon rapide ou continuez dans le formulaire.',
       cameraDraftAction: 'Prendre une photo',
@@ -791,6 +808,7 @@ export function ExpenseFormDialog({
       confirmEditTitle: 'Confirmer la mise à jour',
       confirmEditDescriptionDefault: "Cette action enregistre vos modifications et met à jour l'historique.",
       confirmEditDescriptionActivate: 'Cette action finalise le brouillon et le rend exploitable.',
+      confirmEditDescriptionActivateAndPay: 'Cette action finalise le brouillon et enregistre immédiatement le paiement complet.',
       confirmEditCancel: 'Annuler',
       confirmEditAction: 'Confirmer',
       addSupplier: 'Ajout rapide fournisseur',
@@ -820,6 +838,7 @@ export function ExpenseFormDialog({
       invoiceSearchLoading: 'Recherche des factures...',
       invoiceNoResults: 'Aucune facture ne correspond à cette recherche.',
       requiredFieldsError: 'Montant TTC, date et catégorie requis pour finaliser le brouillon.',
+      paymentMethodRequiredOnFinalizePaid: 'Le mode de paiement est requis pour finaliser comme payée.',
       paidByRequiredWithPayment: 'Le champ payé par est requis lorsque le statut est Payé ou Partiel.',
       saveFailed: 'Échec enregistrement dépense',
       createSupplierFailed: 'Échec création fournisseur',
@@ -908,6 +927,43 @@ export function ExpenseFormDialog({
       };
     });
   }, [mode, values.paymentStatus]);
+
+  useEffect(() => {
+    if (!isDraftEditMode || finalizeAsPaid) {
+      return;
+    }
+
+    setValues((previous) => {
+      if (!previous.paymentMethod && !previous.paidBy && !previous.paidAt && !previous.amountPaid) {
+        return previous;
+      }
+
+      return {
+        ...previous,
+        paymentMethod: '',
+        paidBy: '',
+        paidAt: '',
+        amountPaid: '',
+      };
+    });
+  }, [finalizeAsPaid, isDraftEditMode]);
+
+  useEffect(() => {
+    if (!isDraftEditMode || !finalizeAsPaid) {
+      return;
+    }
+
+    setValues((previous) => {
+      if (previous.paidAt) {
+        return previous;
+      }
+
+      return {
+        ...previous,
+        paidAt: toInputDateFromDate(new Date()),
+      };
+    });
+  }, [finalizeAsPaid, isDraftEditMode]);
 
   function handleExpenseDateChange(nextDate: string) {
     setValues((previous) => {
@@ -1263,8 +1319,40 @@ export function ExpenseFormDialog({
       }
 
       if (mode === 'edit' && initialExpense?._id) {
+        const shouldFinalizeAndPay = isDraftEditMode && saveTarget === 'activate' && finalizeAsPaid;
+
         if (saveTarget === 'activate') {
           payload.status = 'active';
+
+          if (isDraftEditMode) {
+            if (finalizeAsPaid) {
+              if (!values.paymentMethod) {
+                setError(t.paymentMethodRequiredOnFinalizePaid);
+                setSaving(false);
+                setSavingTarget(null);
+                return;
+              }
+
+              if (!values.paidBy) {
+                setError(t.paidByRequiredWithPayment);
+                setSaving(false);
+                setSavingTarget(null);
+                return;
+              }
+
+              payload.paymentStatus = 'paid';
+              payload.amountPaidCents = amountInclVat;
+              payload.paymentMethod = values.paymentMethod;
+              payload.paidBy = values.paidBy;
+              payload.paidAt = values.paidAt || new Date().toISOString().slice(0, 10);
+            } else {
+              payload.paymentStatus = 'unpaid';
+              payload.amountPaidCents = 0;
+              payload.paymentMethod = undefined;
+              payload.paidBy = undefined;
+              payload.paidAt = undefined;
+            }
+          }
         } else if (initialExpense.status === 'draft') {
           payload.status = 'draft';
         }
@@ -1289,7 +1377,13 @@ export function ExpenseFormDialog({
 
         dispatchExpenseRefresh(getExpenseIdFromPayload(result.expense) || initialExpense._id);
         await onSaved(result.expense);
-        toast.success(saveTarget === 'activate' ? t.activateSuccess : t.updateSuccess);
+        toast.success(
+          saveTarget === 'activate'
+            ? shouldFinalizeAndPay
+              ? t.activateAndPaySuccess
+              : t.activateSuccess
+            : t.updateSuccess
+        );
         onOpenChange(false);
         return;
       }
@@ -2398,6 +2492,69 @@ export function ExpenseFormDialog({
             </div>
           ) : null}
 
+          {isDraftEditMode ? (
+            <div className="space-y-3 rounded-xl border border-primary/20 bg-primary/5 p-3">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t.finalizeDraftPaymentSection}</p>
+              <div className="flex items-start gap-2">
+                <Checkbox
+                  id="expense-finalize-already-paid"
+                  checked={finalizeAsPaid}
+                  onCheckedChange={(checked) => setFinalizeAsPaid(Boolean(checked))}
+                  disabled={saving}
+                />
+                <div className="space-y-1">
+                  <Label htmlFor="expense-finalize-already-paid" className="cursor-pointer text-sm font-medium">
+                    {t.alreadyPaidLabel}
+                  </Label>
+                  <p className="text-xs text-muted-foreground">{t.alreadyPaidHint}</p>
+                </div>
+              </div>
+
+              {finalizeAsPaid ? (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <div className="space-y-1.5">
+                    <Label>{t.paymentMethod}</Label>
+                    <select
+                      className={selectClassName}
+                      value={values.paymentMethod}
+                      onChange={(event) => updateField('paymentMethod', event.target.value)}
+                    >
+                      <option value="">{t.noneOption}</option>
+                      {EXPENSE_PAYMENT_METHODS.map((method) => (
+                        <option key={method} value={method}>
+                          {getExpensePaymentMethodLabel(method, locale)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>{t.paidBy}</Label>
+                    <select
+                      className={selectClassName}
+                      value={values.paidBy}
+                      onChange={(event) => updateField('paidBy', event.target.value)}
+                    >
+                      <option value="">{t.noneOption}</option>
+                      {EXPENSE_PAID_BY.map((payer) => (
+                        <option key={payer} value={payer}>
+                          {getExpensePaidByLabel(payer, locale)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>{t.paidAt}</Label>
+                    <Input
+                      type="date"
+                      value={values.paidAt}
+                      onChange={(event) => updateField('paidAt', event.target.value)}
+                    />
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
           <DialogFooter className="gap-3 sm:justify-between">
@@ -2468,7 +2625,7 @@ export function ExpenseFormDialog({
                     disabled={saving}
                   >
                     {isSavingActivate ? <Loader2Icon className="size-4 animate-spin" /> : null}
-                    {t.activateDraft}
+                    {finalizeAsPaid ? t.activateAndPayDraft : t.activateDraft}
                   </Button>
                 </>
               ) : (
@@ -2628,7 +2785,11 @@ export function ExpenseFormDialog({
               <AlertDialogHeader>
                 <AlertDialogTitle>{t.confirmEditTitle}</AlertDialogTitle>
                 <AlertDialogDescription>
-                  {confirmTarget === 'activate' ? t.confirmEditDescriptionActivate : t.confirmEditDescriptionDefault}
+                  {confirmTarget === 'activate'
+                    ? finalizeAsPaid
+                      ? t.confirmEditDescriptionActivateAndPay
+                      : t.confirmEditDescriptionActivate
+                    : t.confirmEditDescriptionDefault}
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter className="gap-3">
@@ -2653,7 +2814,11 @@ export function ExpenseFormDialog({
                     }}
                   >
                     {saving ? <Loader2Icon className="size-4 animate-spin" /> : null}
-                    {confirmTarget === 'activate' ? t.activateDraft : t.confirmEditAction}
+                    {confirmTarget === 'activate'
+                      ? finalizeAsPaid
+                        ? t.activateAndPayDraft
+                        : t.activateDraft
+                      : t.confirmEditAction}
                   </Button>
                 </AlertDialogAction>
               </AlertDialogFooter>
