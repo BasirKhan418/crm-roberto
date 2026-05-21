@@ -53,6 +53,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import EmptyState from '@/components/ui/EmptyState';
 import ErrorMessage from '@/components/ui/ErrorMessage';
+import FinancialTotalsBar from '@/components/ui/FinancialTotalsBar';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -634,6 +635,12 @@ export default function ExpensesPage() {
       delete: 'Delete',
       deleteDraft: 'Delete draft',
       noReference: '-',
+      totalsFooterTitle: 'Footer totals',
+      totalsFooterScope: (shown: number, total: number) => `${shown} shown on this page / ${total} in filtered results`,
+      totalsMetricDocuments: 'Documents',
+      totalsMetricTtc: 'Total TTC',
+      totalsMetricPaid: 'Total Paid',
+      totalsMetricRemaining: 'Total Remaining',
       pageInfo: (current: number, total: number, count: number) => `Page ${current}/${total || 1} - ${count} items`,
       previous: 'Previous',
       next: 'Next',
@@ -798,6 +805,12 @@ export default function ExpensesPage() {
       delete: 'Supprimer',
       deleteDraft: 'Supprimer brouillon',
       noReference: '-',
+      totalsFooterTitle: 'Totaux de pied de page',
+      totalsFooterScope: (shown: number, total: number) => `${shown} affichées sur cette page / ${total} dans les résultats filtrés`,
+      totalsMetricDocuments: 'Documents',
+      totalsMetricTtc: 'Total TTC',
+      totalsMetricPaid: 'Total payé',
+      totalsMetricRemaining: 'Total restant',
       pageInfo: (current: number, total: number, count: number) => `Page ${current}/${total || 1} - ${count} éléments`,
       previous: 'Précédent',
       next: 'Suivant',
@@ -1047,6 +1060,25 @@ export default function ExpensesPage() {
       expenses.length,
       pagination.total,
       t,
+      totalsInView.totalPaid,
+      totalsInView.totalRemaining,
+      totalsInView.totalTtc,
+    ]
+  );
+
+  const expenseFooterMetrics = useMemo(
+    () => [
+      { key: 'documents', label: t.totalsMetricDocuments, value: expenses.length, kind: 'count' as const },
+      { key: 'ttc', label: t.totalsMetricTtc, value: totalsInView.totalTtc, kind: 'currency' as const },
+      { key: 'paid', label: t.totalsMetricPaid, value: totalsInView.totalPaid, kind: 'currency' as const, tone: 'success' as const },
+      { key: 'remaining', label: t.totalsMetricRemaining, value: totalsInView.totalRemaining, kind: 'currency' as const, tone: 'danger' as const },
+    ],
+    [
+      expenses.length,
+      t.totalsMetricDocuments,
+      t.totalsMetricPaid,
+      t.totalsMetricRemaining,
+      t.totalsMetricTtc,
       totalsInView.totalPaid,
       totalsInView.totalRemaining,
       totalsInView.totalTtc,
@@ -2809,6 +2841,18 @@ export default function ExpensesPage() {
                 </TableBody>
               </Table>
             )}
+
+            {expenses.length > 0 ? (
+              <div className="space-y-2 rounded-lg border border-border/70 bg-muted/20 p-2.5" data-tour-expenses-totals>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs font-semibold text-foreground/85">{t.totalsFooterTitle}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {t.totalsFooterScope(expenses.length, pagination.total || expenses.length)}
+                  </p>
+                </div>
+                <FinancialTotalsBar metrics={expenseFooterMetrics} locale={locale as 'en' | 'fr'} />
+              </div>
+            ) : null}
 
             {expenses.length > 0 ? (
               <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/70 pt-2">
