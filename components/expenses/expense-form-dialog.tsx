@@ -123,7 +123,7 @@ type ExpenseFormDialogProps = {
 };
 
 type FormValues = {
-  amountExclVat: string;
+  amountInclVat: string;
   vatRate: string;
   expenseDate: string;
   supplierId: string;
@@ -197,7 +197,7 @@ function buildDefaultFormValues(): FormValues {
   const expenseDate = toInputDateFromDate(new Date());
 
   return {
-    amountExclVat: '',
+    amountInclVat: '',
     vatRate: DEFAULT_VAT_RATE,
     expenseDate,
     supplierId: '',
@@ -234,6 +234,15 @@ function toDecimalFromCents(cents?: number) {
 
 function toTwoDecimals(value: number) {
   return Math.round(value * 100) / 100;
+}
+
+function toNonNegativeNumber(value: string) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return 0;
+  }
+
+  return Math.max(parsed, 0);
 }
 
 function formatInvoiceDateLabel(value: string | undefined, locale: 'en' | 'fr') {
@@ -386,7 +395,7 @@ function buildInitialValues(expense?: ExpenseDetail | null): FormValues {
 
   return {
     ...buildDefaultFormValues(),
-    amountExclVat: toDecimalFromCents(expense.amountExclVatCents),
+    amountInclVat: toDecimalFromCents(expense.amountInclVatCents),
     vatRate: String(typeof expense.vatRate === 'number' ? expense.vatRate : 17),
     expenseDate,
     supplierId: resolveEntityId(expense.supplierId),
@@ -574,9 +583,12 @@ export function ExpenseFormDialog({
       createTitle: 'Create Expense',
       editTitle: initialExpense?.status === 'draft' ? 'Edit Draft Expense' : 'Edit Expense',
       description: 'Fill all required fields. Completing a draft requires amount, date, and category.',
-      amountExclVat: 'Amount excl. VAT',
+      amountInclVat: 'Total amount (incl. VAT)',
+      amountInclVatHint: 'Enter the final amount shown on the receipt (TTC).',
+      amountExclVat: 'Amount excl. VAT (auto-calculated)',
+      amountExclVatHint: 'Calculated from total amount and VAT rate.',
+      vatAmountPreview: 'VAT amount (preview)',
       vatRate: 'VAT rate',
-      amountInclVatPreview: 'Amount incl. VAT (preview)',
       expenseDate: 'Expense date',
       supplier: 'Supplier (optional)',
       category: 'Category',
@@ -648,7 +660,7 @@ export function ExpenseFormDialog({
       invoiceSearchPlaceholder: 'Search by invoice number, client name, or amount...',
       invoiceSearchLoading: 'Searching invoices...',
       invoiceNoResults: 'No invoice matches this search.',
-      requiredFieldsError: 'Amount, date, and category are required to finalize the draft.',
+      requiredFieldsError: 'Total amount (incl. VAT), date, and category are required to finalize the draft.',
       paidByRequiredWithPayment: 'Paid by is required when payment status is Paid or Partial.',
       saveFailed: 'Failed to save expense',
       createSupplierFailed: 'Failed to create supplier',
@@ -671,9 +683,12 @@ export function ExpenseFormDialog({
       createTitle: 'Créer une dépense',
       editTitle: initialExpense?.status === 'draft' ? 'Modifier le brouillon' : 'Modifier la dépense',
       description: 'Renseignez les champs requis. Finalisation du brouillon : montant, date et catégorie.',
-      amountExclVat: 'Montant HT',
+      amountInclVat: 'Montant TTC (total ticket)',
+      amountInclVatHint: 'Saisissez le montant final visible sur le reçu (TTC).',
+      amountExclVat: 'Montant HT (calculé automatiquement)',
+      amountExclVatHint: 'Calculé à partir du montant TTC et du taux TVA.',
+      vatAmountPreview: 'Montant TVA (aperçu)',
       vatRate: 'Taux TVA',
-      amountInclVatPreview: 'Montant TTC (aperçu)',
       expenseDate: 'Date de dépense',
       supplier: 'Fournisseur (optionnel)',
       category: 'Catégorie',
@@ -745,7 +760,7 @@ export function ExpenseFormDialog({
       invoiceSearchPlaceholder: 'Rechercher par numéro, client ou montant...',
       invoiceSearchLoading: 'Recherche des factures...',
       invoiceNoResults: 'Aucune facture ne correspond à cette recherche.',
-      requiredFieldsError: 'Montant, date et catégorie requis pour finaliser le brouillon.',
+      requiredFieldsError: 'Montant TTC, date et catégorie requis pour finaliser le brouillon.',
       paidByRequiredWithPayment: 'Le champ payé par est requis lorsque le statut est Payé ou Partiel.',
       saveFailed: 'Échec enregistrement dépense',
       createSupplierFailed: 'Échec création fournisseur',
@@ -766,10 +781,12 @@ export function ExpenseFormDialog({
     },
   }[locale];
 
-  const amountExclVat = Number(values.amountExclVat || 0);
-  const vatRate = Number(values.vatRate || 0);
-  const amountInclVat = toTwoDecimals(amountExclVat + amountExclVat * (vatRate / 100));
-  const amountPaid = Number(values.amountPaid || 0);
+  const amountInclVat = toTwoDecimals(toNonNegativeNumber(values.amountInclVat));
+  const vatRate = toNonNegativeNumber(values.vatRate);
+  const vatDivisor = 1 + vatRate / 100;
+  const amountExclVat = vatDivisor > 0 ? toTwoDecimals(amountInclVat / vatDivisor) : 0;
+  const vatAmount = toTwoDecimals(Math.max(amountInclVat - amountExclVat, 0));
+  const amountPaid = toNonNegativeNumber(values.amountPaid);
   const amountPaidFromHistory = toTwoDecimals((initialExpense?.amountPaidCents || 0) / 100);
 
   const computedAmountPaid =
@@ -850,7 +867,7 @@ export function ExpenseFormDialog({
 
   function canActivateDraft() {
     return (
-      Number(values.amountExclVat || 0) > 0 &&
+      amountInclVat > 0 &&
       Boolean(values.expenseDate) &&
       Boolean(values.categoryId)
     );
@@ -1078,8 +1095,8 @@ export function ExpenseFormDialog({
       }
 
       const payload: Record<string, unknown> = {
-        amountExclVatCents: Number(values.amountExclVat || 0),
-        vatRate: Number(values.vatRate || 0),
+        amountExclVatCents: amountExclVat,
+        vatRate,
         expenseDate: values.expenseDate || undefined,
         supplierId: values.supplierId || null,
         categoryId: values.categoryId || null,
@@ -1496,19 +1513,16 @@ export function ExpenseFormDialog({
           {/* === Financial fields === */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="space-y-1.5 sm:col-span-2">
-              <Label>{t.amountExclVat}</Label>
+              <Label>{t.amountInclVat}</Label>
               <Input
                 type="number"
                 min="0"
                 step="0.01"
-                value={values.amountExclVat}
-                onChange={(event) => updateField('amountExclVat', event.target.value)}
+                value={values.amountInclVat}
+                onChange={(event) => updateField('amountInclVat', event.target.value)}
+                className="text-base font-semibold"
               />
-              {amountInclVat > 0 ? (
-                <p className="text-xs text-muted-foreground">
-                  = {amountInclVat.toFixed(2)} {locale === 'fr' ? 'TTC' : 'incl. VAT'}
-                </p>
-              ) : null}
+              <p className="text-xs text-muted-foreground">{t.amountInclVatHint}</p>
             </div>
             <div className="space-y-1.5">
               <Label>{t.vatRate}</Label>
@@ -1545,6 +1559,22 @@ export function ExpenseFormDialog({
                   );
                 })}
               </div>
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label>{t.amountExclVat}</Label>
+              <Input
+                type="number"
+                value={values.amountInclVat ? amountExclVat.toFixed(2) : ''}
+                readOnly
+                className="bg-muted/30 font-medium"
+              />
+              <p className="text-xs text-muted-foreground">{t.amountExclVatHint}</p>
+            </div>
+            <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2.5 sm:col-span-1">
+              <p className="text-xs text-muted-foreground">{t.vatAmountPreview}</p>
+              <p className="mt-1 text-sm font-semibold">
+                {values.amountInclVat ? vatAmount.toFixed(2) : '-'}
+              </p>
             </div>
           </div>
 
