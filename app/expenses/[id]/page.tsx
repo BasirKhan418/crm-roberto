@@ -9,6 +9,7 @@ import {
   ArchiveIcon,
   ArrowLeftIcon,
   CheckCircle2Icon,
+  ChevronDownIcon,
   CopyIcon,
   ExternalLinkIcon,
   FileUpIcon,
@@ -57,6 +58,7 @@ import { Input } from '@/components/ui/input';
 import { useAuthMe } from '@/hooks/useAuthMe';
 import { useExpenseDetail } from '@/hooks/useExpenseDetail';
 import { createInlineExpenseCategory, createInlineExpenseSupplier, useExpenseLookups } from '@/hooks/useExpenseLookups';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { useTickets } from '@/hooks/useTickets';
 import { canPermanentlyDeleteExpense, canRestoreArchivedExpense } from '@/lib/expenses/access';
 import { isExpenseReadyForPayment } from '@/lib/expenses/payment-readiness';
@@ -223,9 +225,21 @@ const AUDIT_ACTION_LABELS = {
 
 const ATTACHMENT_OTHER_REASON_MIN_CHARS = 10;
 const EXPENSE_DELETE_REASON_MIN_CHARS = 10;
+const EXPENSE_DETAIL_LIST_PAGE_SIZE = 10;
 
 type LinkedInvoiceStatus = 'unpaid' | 'partial_paid' | 'paid' | 'overdue';
 type ExpenseDetailTab = 'summary' | 'attachments' | 'audit' | 'tickets';
+type MobileSummarySectionKey = 'draftPreview' | 'financial' | 'summary' | 'paymentHistory' | 'links' | 'lifecycle' | 'notes';
+
+const DEFAULT_MOBILE_SUMMARY_SECTIONS: Record<MobileSummarySectionKey, boolean> = {
+  draftPreview: false,
+  financial: true,
+  summary: false,
+  paymentHistory: false,
+  links: false,
+  lifecycle: false,
+  notes: false,
+};
 
 function toLocaleString(locale: 'en' | 'fr') {
   return locale === 'fr' ? 'fr-FR' : 'en-GB';
@@ -602,6 +616,7 @@ export default function ExpenseDetailPage() {
   const searchParams = useSearchParams();
   const expenseId = typeof params?.id === 'string' ? params.id : '';
   const { locale } = useLocale();
+  const isMobile = useIsMobile();
   const { user, loading: authLoading } = useAuthMe();
   const { expense, loading, error, refetch } = useExpenseDetail(expenseId);
   const { categories, suppliers, clients, invoices, refetch: refetchLookups } = useExpenseLookups(undefined, 80);
@@ -632,6 +647,12 @@ export default function ExpenseDetailPage() {
   const [previewAttachment, setPreviewAttachment] = useState<ExpenseAttachment | null>(null);
   const [ticketDialogOpen, setTicketDialogOpen] = useState(false);
   const [attachments, setAttachments] = useState<ExpenseAttachment[]>([]);
+  const [ticketsPage, setTicketsPage] = useState(1);
+  const [paymentHistoryPage, setPaymentHistoryPage] = useState(1);
+  const [auditPage, setAuditPage] = useState(1);
+  const [mobileSummarySections, setMobileSummarySections] = useState<Record<MobileSummarySectionKey, boolean>>(
+    DEFAULT_MOBILE_SUMMARY_SECTIONS
+  );
 
   const openedFromDuplicate = searchParams.get('fromDuplicate') === '1';
   const copiedFromExpenseId = (searchParams.get('copiedFrom') || '').trim();
@@ -783,6 +804,11 @@ export default function ExpenseDetailPage() {
           heroAmountPaid: 'Paid to date',
           heroRemaining: 'Outstanding balance',
           heroAttachments: 'Attached files',
+          expandSection: 'Expand section',
+          collapseSection: 'Collapse section',
+          paginationPrevious: 'Previous',
+          paginationNext: 'Next',
+          paginationPage: (page: number, total: number) => `Page ${page} of ${total}`,
         },
         fr: {
           shellTitle: 'Détail dépense',
@@ -919,6 +945,11 @@ export default function ExpenseDetailPage() {
           heroAmountPaid: 'Déjà payé',
           heroRemaining: 'Solde restant',
           heroAttachments: 'Fichiers joints',
+          expandSection: 'Developper la section',
+          collapseSection: 'Replier la section',
+          paginationPrevious: 'Precedent',
+          paginationNext: 'Suivant',
+          paginationPage: (page: number, total: number) => `Page ${page} sur ${total}`,
         },
       })[locale],
     [locale]
@@ -932,6 +963,7 @@ export default function ExpenseDetailPage() {
 
   const {
     tickets: linkedTickets,
+    pagination: linkedTicketsPagination,
     loading: linkedTicketsLoading,
     error: linkedTicketsError,
     refetch: refetchLinkedTickets,
@@ -941,8 +973,8 @@ export default function ExpenseDetailPage() {
       linkedId: expenseId,
       sortBy: 'updatedAt',
       sortOrder: 'desc',
-      page: 1,
-      limit: 20,
+      page: ticketsPage,
+      limit: EXPENSE_DETAIL_LIST_PAGE_SIZE,
     },
     Boolean(expenseId) && canViewTickets
   );
@@ -950,6 +982,33 @@ export default function ExpenseDetailPage() {
   const visibleAuditLogs = useMemo(
     () => (expense?.auditLogs || []).filter((log) => !shouldHideAuditLog(log as AuditLogEntry)),
     [expense?.auditLogs]
+  );
+
+  const paymentHistory = useMemo(() => expense?.payments || [], [expense?.payments]);
+  const paymentHistoryTotalPages = Math.max(
+    1,
+    Math.ceil(paymentHistory.length / EXPENSE_DETAIL_LIST_PAGE_SIZE)
+  );
+  const visiblePaymentHistory = useMemo(
+    () =>
+      paymentHistory.slice(
+        (paymentHistoryPage - 1) * EXPENSE_DETAIL_LIST_PAGE_SIZE,
+        paymentHistoryPage * EXPENSE_DETAIL_LIST_PAGE_SIZE
+      ),
+    [paymentHistory, paymentHistoryPage]
+  );
+
+  const auditTotalPages = Math.max(
+    1,
+    Math.ceil(visibleAuditLogs.length / EXPENSE_DETAIL_LIST_PAGE_SIZE)
+  );
+  const pagedAuditLogs = useMemo(
+    () =>
+      visibleAuditLogs.slice(
+        (auditPage - 1) * EXPENSE_DETAIL_LIST_PAGE_SIZE,
+        auditPage * EXPENSE_DETAIL_LIST_PAGE_SIZE
+      ),
+    [auditPage, visibleAuditLogs]
   );
 
   const isDraftExpense = expense?.status === 'draft';
@@ -963,6 +1022,38 @@ export default function ExpenseDetailPage() {
     expense && expensePaymentReady && !isExpenseArchived && expense.paymentStatus !== 'paid'
   );
   const dialogAttachments = expense ? (attachments.length > 0 ? attachments : expense.attachments || []) : [];
+
+  function isSummarySectionOpen(section: MobileSummarySectionKey) {
+    if (!isMobile) return true;
+    return mobileSummarySections[section];
+  }
+
+  function toggleSummarySection(section: MobileSummarySectionKey) {
+    setMobileSummarySections((previous) => ({
+      ...previous,
+      [section]: !previous[section],
+    }));
+  }
+
+  useEffect(() => {
+    setPaymentHistoryPage(1);
+    setAuditPage(1);
+    setTicketsPage(1);
+    setMobileSummarySections(DEFAULT_MOBILE_SUMMARY_SECTIONS);
+  }, [expenseId]);
+
+  useEffect(() => {
+    setPaymentHistoryPage((previous) => Math.min(previous, paymentHistoryTotalPages));
+  }, [paymentHistoryTotalPages]);
+
+  useEffect(() => {
+    setAuditPage((previous) => Math.min(previous, auditTotalPages));
+  }, [auditTotalPages]);
+
+  useEffect(() => {
+    const totalPages = Math.max(1, linkedTicketsPagination.totalPages || 1);
+    setTicketsPage((previous) => Math.min(previous, totalPages));
+  }, [linkedTicketsPagination.totalPages]);
 
   const linkedInvoiceSummary = useMemo(() => {
     const invoiceValue = expense?.invoiceId;
@@ -1776,23 +1867,57 @@ export default function ExpenseDetailPage() {
                 {expense.status === 'draft' && attachments.length > 0 ? (
                   <Card className="border-amber-200/80 bg-amber-50/45 dark:border-amber-900/35 dark:bg-amber-950/14 lg:col-span-3">
                     <CardHeader className="pb-2">
-                      <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                          <CardTitle className="text-base">{t.draftAttachmentPreview}</CardTitle>
-                          <CardDescription>{t.draftAttachmentPreviewHint}</CardDescription>
-                        </div>
-                        <Button
+                      {isMobile ? (
+                        <button
                           type="button"
-                          size="sm"
-                          variant="outline"
-                          className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:w-auto sm:whitespace-nowrap"
-                          onClick={() => setActiveTab('attachments')}
+                          className="flex w-full items-center justify-between gap-2 text-left"
+                          onClick={() => toggleSummarySection('draftPreview')}
+                          aria-expanded={isSummarySectionOpen('draftPreview')}
+                          aria-label={isSummarySectionOpen('draftPreview') ? t.collapseSection : t.expandSection}
                         >
-                          {t.openAttachmentsTab}
-                        </Button>
-                      </div>
+                          <div className="min-w-0">
+                            <p className="text-base font-semibold">{t.draftAttachmentPreview}</p>
+                            <p className="text-sm text-muted-foreground">{t.draftAttachmentPreviewHint}</p>
+                          </div>
+                          <ChevronDownIcon
+                            className={`size-4 shrink-0 text-muted-foreground transition-transform ${
+                              isSummarySectionOpen('draftPreview') ? 'rotate-180' : ''
+                            }`}
+                          />
+                        </button>
+                      ) : (
+                        <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
+                          <div>
+                            <CardTitle className="text-base">{t.draftAttachmentPreview}</CardTitle>
+                            <CardDescription>{t.draftAttachmentPreviewHint}</CardDescription>
+                          </div>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:w-auto sm:whitespace-nowrap"
+                            onClick={() => setActiveTab('attachments')}
+                          >
+                            {t.openAttachmentsTab}
+                          </Button>
+                        </div>
+                      )}
                     </CardHeader>
+                    {isSummarySectionOpen('draftPreview') ? (
                     <CardContent>
+                      {isMobile ? (
+                        <div className="mb-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-auto w-full whitespace-normal px-3 py-2 text-center"
+                            onClick={() => setActiveTab('attachments')}
+                          >
+                            {t.openAttachmentsTab}
+                          </Button>
+                        </div>
+                      ) : null}
                       {isImageMimeType(attachments[0]?.mimeType) ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
@@ -1821,13 +1946,32 @@ export default function ExpenseDetailPage() {
                         </div>
                       )}
                     </CardContent>
+                    ) : null}
                   </Card>
                 ) : null}
 
                 <Card className="border-sky-200/80 bg-sky-50/40 dark:border-sky-900/35 dark:bg-sky-950/14 lg:col-span-2">
                   <CardHeader>
-                    <CardTitle className="text-base">{t.financial}</CardTitle>
+                    {isMobile ? (
+                      <button
+                        type="button"
+                        className="flex w-full items-center justify-between gap-2 text-left"
+                        onClick={() => toggleSummarySection('financial')}
+                        aria-expanded={isSummarySectionOpen('financial')}
+                        aria-label={isSummarySectionOpen('financial') ? t.collapseSection : t.expandSection}
+                      >
+                        <p className="text-base font-semibold">{t.financial}</p>
+                        <ChevronDownIcon
+                          className={`size-4 shrink-0 text-muted-foreground transition-transform ${
+                            isSummarySectionOpen('financial') ? 'rotate-180' : ''
+                          }`}
+                        />
+                      </button>
+                    ) : (
+                      <CardTitle className="text-base">{t.financial}</CardTitle>
+                    )}
                   </CardHeader>
+                  {isSummarySectionOpen('financial') ? (
                   <CardContent className="grid gap-3 sm:grid-cols-2">
                     <div className="rounded-lg border border-slate-200/70 bg-slate-50/70 p-3 dark:border-slate-800/65 dark:bg-slate-900/35">
                       <p className="text-xs text-muted-foreground">{t.amountExclVat}</p>
@@ -1850,12 +1994,31 @@ export default function ExpenseDetailPage() {
                       <ExpenseMoneyDisplay cents={expense.remainingBalanceCents || 0} locale={locale === 'fr' ? 'fr-FR' : 'en-GB'} className="text-sm font-medium" />
                     </div>
                   </CardContent>
+                  ) : null}
                 </Card>
 
                 <Card className="border-slate-200/80 bg-slate-50/45 dark:border-slate-800/70 dark:bg-slate-950/16">
                   <CardHeader>
-                    <CardTitle className="text-base">{t.summary}</CardTitle>
+                    {isMobile ? (
+                      <button
+                        type="button"
+                        className="flex w-full items-center justify-between gap-2 text-left"
+                        onClick={() => toggleSummarySection('summary')}
+                        aria-expanded={isSummarySectionOpen('summary')}
+                        aria-label={isSummarySectionOpen('summary') ? t.collapseSection : t.expandSection}
+                      >
+                        <p className="text-base font-semibold">{t.summary}</p>
+                        <ChevronDownIcon
+                          className={`size-4 shrink-0 text-muted-foreground transition-transform ${
+                            isSummarySectionOpen('summary') ? 'rotate-180' : ''
+                          }`}
+                        />
+                      </button>
+                    ) : (
+                      <CardTitle className="text-base">{t.summary}</CardTitle>
+                    )}
                   </CardHeader>
+                  {isSummarySectionOpen('summary') ? (
                   <CardContent className="space-y-2 text-sm">
                     <div className="rounded-md border border-border/60 p-2">
                       <p className="text-xs text-muted-foreground">{t.date}</p>
@@ -1882,18 +2045,42 @@ export default function ExpenseDetailPage() {
                       </p>
                     </div>
                   </CardContent>
+                  ) : null}
                 </Card>
 
                 <Card className="border-emerald-200/80 bg-emerald-50/35 dark:border-emerald-900/35 dark:bg-emerald-950/12 lg:col-span-3">
                   <CardHeader>
-                    <CardTitle className="text-base">{t.paymentHistory}</CardTitle>
-                    <CardDescription>{t.paymentHistoryHint}</CardDescription>
+                    {isMobile ? (
+                      <button
+                        type="button"
+                        className="flex w-full items-center justify-between gap-2 text-left"
+                        onClick={() => toggleSummarySection('paymentHistory')}
+                        aria-expanded={isSummarySectionOpen('paymentHistory')}
+                        aria-label={isSummarySectionOpen('paymentHistory') ? t.collapseSection : t.expandSection}
+                      >
+                        <div className="min-w-0">
+                          <p className="text-base font-semibold">{t.paymentHistory}</p>
+                          <p className="text-sm text-muted-foreground">{t.paymentHistoryHint}</p>
+                        </div>
+                        <ChevronDownIcon
+                          className={`size-4 shrink-0 text-muted-foreground transition-transform ${
+                            isSummarySectionOpen('paymentHistory') ? 'rotate-180' : ''
+                          }`}
+                        />
+                      </button>
+                    ) : (
+                      <>
+                        <CardTitle className="text-base">{t.paymentHistory}</CardTitle>
+                        <CardDescription>{t.paymentHistoryHint}</CardDescription>
+                      </>
+                    )}
                   </CardHeader>
+                  {isSummarySectionOpen('paymentHistory') ? (
                   <CardContent className="space-y-2.5">
-                    {!expense.payments || expense.payments.length === 0 ? (
+                    {paymentHistory.length === 0 ? (
                       <p className="text-sm text-muted-foreground">{t.noPaymentHistory}</p>
                     ) : (
-                      expense.payments.map((payment) => (
+                      visiblePaymentHistory.map((payment) => (
                         <div key={payment._id} className="rounded-lg border border-emerald-200/70 bg-emerald-50/65 p-3 dark:border-emerald-900/40 dark:bg-emerald-950/20">
                           <div className="grid gap-2 text-xs sm:grid-cols-2 lg:grid-cols-6">
                             <div>
@@ -1934,13 +2121,61 @@ export default function ExpenseDetailPage() {
                         </div>
                       ))
                     )}
+                    {paymentHistoryTotalPages > 1 ? (
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-2">
+                        <p className="text-xs text-muted-foreground">{t.paginationPage(paymentHistoryPage, paymentHistoryTotalPages)}</p>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setPaymentHistoryPage((previous) => Math.max(1, previous - 1))}
+                            disabled={paymentHistoryPage <= 1}
+                          >
+                            {t.paginationPrevious}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              setPaymentHistoryPage((previous) =>
+                                Math.min(paymentHistoryTotalPages, previous + 1)
+                              )
+                            }
+                            disabled={paymentHistoryPage >= paymentHistoryTotalPages}
+                          >
+                            {t.paginationNext}
+                          </Button>
+                        </div>
+                      </div>
+                    ) : null}
                   </CardContent>
+                  ) : null}
                 </Card>
 
                 <Card className="border-sky-200/80 bg-sky-50/38 dark:border-sky-900/35 dark:bg-sky-950/12 lg:col-span-2">
                   <CardHeader>
-                    <CardTitle className="text-base">{t.links}</CardTitle>
+                    {isMobile ? (
+                      <button
+                        type="button"
+                        className="flex w-full items-center justify-between gap-2 text-left"
+                        onClick={() => toggleSummarySection('links')}
+                        aria-expanded={isSummarySectionOpen('links')}
+                        aria-label={isSummarySectionOpen('links') ? t.collapseSection : t.expandSection}
+                      >
+                        <p className="text-base font-semibold">{t.links}</p>
+                        <ChevronDownIcon
+                          className={`size-4 shrink-0 text-muted-foreground transition-transform ${
+                            isSummarySectionOpen('links') ? 'rotate-180' : ''
+                          }`}
+                        />
+                      </button>
+                    ) : (
+                      <CardTitle className="text-base">{t.links}</CardTitle>
+                    )}
                   </CardHeader>
+                  {isSummarySectionOpen('links') ? (
                   <CardContent className="grid gap-3 sm:grid-cols-2">
                     <div className="rounded-md border border-border/60 p-2">
                       <p className="text-xs text-muted-foreground">{t.supplier}</p>
@@ -1996,12 +2231,31 @@ export default function ExpenseDetailPage() {
                       </p>
                     </div>
                   </CardContent>
+                  ) : null}
                 </Card>
 
                 <Card className="border-slate-200/80 bg-slate-50/45 dark:border-slate-800/70 dark:bg-slate-950/16">
                   <CardHeader>
-                    <CardTitle className="text-base">{t.lifecycle}</CardTitle>
+                    {isMobile ? (
+                      <button
+                        type="button"
+                        className="flex w-full items-center justify-between gap-2 text-left"
+                        onClick={() => toggleSummarySection('lifecycle')}
+                        aria-expanded={isSummarySectionOpen('lifecycle')}
+                        aria-label={isSummarySectionOpen('lifecycle') ? t.collapseSection : t.expandSection}
+                      >
+                        <p className="text-base font-semibold">{t.lifecycle}</p>
+                        <ChevronDownIcon
+                          className={`size-4 shrink-0 text-muted-foreground transition-transform ${
+                            isSummarySectionOpen('lifecycle') ? 'rotate-180' : ''
+                          }`}
+                        />
+                      </button>
+                    ) : (
+                      <CardTitle className="text-base">{t.lifecycle}</CardTitle>
+                    )}
                   </CardHeader>
+                  {isSummarySectionOpen('lifecycle') ? (
                   <CardContent className="space-y-2 text-sm">
                     <div className="rounded-md border border-border/60 p-2">
                       <p className="text-xs text-muted-foreground">{t.lifecycleStatus}</p>
@@ -2036,15 +2290,35 @@ export default function ExpenseDetailPage() {
                       <p className="font-medium">{formatDateTime(expense.updatedAt)}</p>
                     </div>
                   </CardContent>
+                  ) : null}
                 </Card>
 
                 <Card className="border-amber-200/80 bg-amber-50/32 dark:border-amber-900/35 dark:bg-amber-950/12 lg:col-span-3">
                   <CardHeader>
-                    <CardTitle className="text-base">{t.notes}</CardTitle>
+                    {isMobile ? (
+                      <button
+                        type="button"
+                        className="flex w-full items-center justify-between gap-2 text-left"
+                        onClick={() => toggleSummarySection('notes')}
+                        aria-expanded={isSummarySectionOpen('notes')}
+                        aria-label={isSummarySectionOpen('notes') ? t.collapseSection : t.expandSection}
+                      >
+                        <p className="text-base font-semibold">{t.notes}</p>
+                        <ChevronDownIcon
+                          className={`size-4 shrink-0 text-muted-foreground transition-transform ${
+                            isSummarySectionOpen('notes') ? 'rotate-180' : ''
+                          }`}
+                        />
+                      </button>
+                    ) : (
+                      <CardTitle className="text-base">{t.notes}</CardTitle>
+                    )}
                   </CardHeader>
+                  {isSummarySectionOpen('notes') ? (
                   <CardContent>
                     <p className="whitespace-pre-wrap text-sm text-muted-foreground">{expense.notes || t.noNotes}</p>
                   </CardContent>
+                  ) : null}
                 </Card>
               </div>
             ) : null}
@@ -2160,7 +2434,7 @@ export default function ExpenseDetailPage() {
                   {visibleAuditLogs.length === 0 ? (
                     <p className="text-sm text-muted-foreground">{t.noAudit}</p>
                   ) : (
-                    visibleAuditLogs.map((log) => (
+                    pagedAuditLogs.map((log) => (
                       <div key={log._id} className="rounded-lg border border-slate-200/70 bg-slate-50/70 p-3 dark:border-slate-800/60 dark:bg-slate-900/35">
                         <div className="grid gap-2 text-xs sm:grid-cols-3 lg:grid-cols-6">
                           <div>
@@ -2191,6 +2465,31 @@ export default function ExpenseDetailPage() {
                       </div>
                     ))
                   )}
+                  {auditTotalPages > 1 ? (
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-2">
+                      <p className="text-xs text-muted-foreground">{t.paginationPage(auditPage, auditTotalPages)}</p>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setAuditPage((previous) => Math.max(1, previous - 1))}
+                          disabled={auditPage <= 1}
+                        >
+                          {t.paginationPrevious}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setAuditPage((previous) => Math.min(auditTotalPages, previous + 1))}
+                          disabled={auditPage >= auditTotalPages}
+                        >
+                          {t.paginationNext}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : null}
                 </CardContent>
               </Card>
             ) : null}
@@ -2250,6 +2549,40 @@ export default function ExpenseDetailPage() {
                       </div>
                     ))
                   )}
+                  {(linkedTicketsPagination.totalPages || 1) > 1 ? (
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-2">
+                      <p className="text-xs text-muted-foreground">
+                        {t.paginationPage(ticketsPage, Math.max(1, linkedTicketsPagination.totalPages || 1))}
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setTicketsPage((previous) => Math.max(1, previous - 1))}
+                          disabled={ticketsPage <= 1 || linkedTicketsLoading}
+                        >
+                          {t.paginationPrevious}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            setTicketsPage((previous) =>
+                              Math.min(Math.max(1, linkedTicketsPagination.totalPages || 1), previous + 1)
+                            )
+                          }
+                          disabled={
+                            linkedTicketsLoading ||
+                            ticketsPage >= Math.max(1, linkedTicketsPagination.totalPages || 1)
+                          }
+                        >
+                          {t.paginationNext}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : null}
                 </CardContent>
               </Card>
             ) : null}
