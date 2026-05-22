@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { ExpensePaymentStatus, ExpenseStatus } from '@/lib/expenses/constants';
 
@@ -92,6 +92,8 @@ export function useExpenses(filters?: ExpensesFilters) {
   const [pagination, setPagination] = useState(initialPagination);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const requestIdRef = useRef(0);
+  const activeRequestControllerRef = useRef<AbortController | null>(null);
 
   const query = useMemo(() => {
     const params = new URLSearchParams();
@@ -112,11 +114,25 @@ export function useExpenses(filters?: ExpensesFilters) {
   }, [filters]);
 
   const refetch = useCallback(async () => {
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
+
+    activeRequestControllerRef.current?.abort();
+    const requestController = new AbortController();
+    activeRequestControllerRef.current = requestController;
+
     setLoading(true);
     setError(null);
 
     try {
-      const response = await fetch(`/api/expenses?${query}`, { cache: 'no-store' });
+      const response = await fetch(`/api/expenses?${query}`, {
+        cache: 'no-store',
+        signal: requestController.signal,
+      });
+
+      if (requestId !== requestIdRef.current) {
+        return;
+      }
 
       if (response.status === 404) {
         setExpenses([]);
@@ -126,6 +142,10 @@ export function useExpenses(filters?: ExpensesFilters) {
 
       const payload = (await response.json()) as ExpensesApiResponse;
 
+      if (requestId !== requestIdRef.current) {
+        return;
+      }
+
       if (!response.ok || !payload.success) {
         throw new Error(payload.message || 'Failed to load expenses');
       }
@@ -133,11 +153,17 @@ export function useExpenses(filters?: ExpensesFilters) {
       setExpenses(payload.items || payload.data || []);
       setPagination(payload.pagination || initialPagination);
     } catch (fetchError) {
+      if (requestController.signal.aborted || requestId !== requestIdRef.current) {
+        return;
+      }
+
       setExpenses([]);
       setPagination(initialPagination);
       setError(fetchError instanceof Error ? fetchError.message : 'Failed to load expenses');
     } finally {
-      setLoading(false);
+      if (!requestController.signal.aborted && requestId === requestIdRef.current) {
+        setLoading(false);
+      }
     }
   }, [query]);
 
@@ -170,6 +196,13 @@ export function useExpenses(filters?: ExpensesFilters) {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [refetch]);
+
+  useEffect(
+    () => () => {
+      activeRequestControllerRef.current?.abort();
+    },
+    []
+  );
 
   return {
     expenses,

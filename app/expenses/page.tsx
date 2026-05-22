@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ChangeEvent, DragEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { ChangeEvent, DragEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 import {
@@ -920,12 +920,18 @@ export default function ExpensesPage() {
     }
   }, [draftPanelExpenses.length]);
 
-  function applyQuickFilter(filter: ExpenseQuickFilterKey) {
+  const applyQuickFilter = useCallback((filter: ExpenseQuickFilterKey, options?: { forceRefresh?: boolean }) => {
+    const isSameFilter = filter === activeQuickFilter;
+
     setPage(1);
 
     if (filter === 'all') {
       setStatusFilter('');
       setPaymentStatusFilter('');
+      if (isSameFilter || options?.forceRefresh) {
+        void Promise.all([refetch(), refetchDraftPanel()]);
+        bumpCountsRefresh();
+      }
       return;
     }
 
@@ -933,30 +939,50 @@ export default function ExpensesPage() {
       setStatusFilter('draft');
       setPaymentStatusFilter('');
       setMobileDraftsExpanded(false);
+      if (isSameFilter || options?.forceRefresh) {
+        void Promise.all([refetch(), refetchDraftPanel()]);
+        bumpCountsRefresh();
+      }
       return;
     }
 
     if (filter === 'archived') {
       setStatusFilter('archived');
       setPaymentStatusFilter('');
+      if (isSameFilter || options?.forceRefresh) {
+        void Promise.all([refetch(), refetchDraftPanel()]);
+        bumpCountsRefresh();
+      }
       return;
     }
 
     if (filter === 'unpaid') {
       setStatusFilter('active');
       setPaymentStatusFilter('unpaid');
+      if (isSameFilter || options?.forceRefresh) {
+        void Promise.all([refetch(), refetchDraftPanel()]);
+        bumpCountsRefresh();
+      }
       return;
     }
 
     if (filter === 'partial') {
       setStatusFilter('active');
       setPaymentStatusFilter('partial');
+      if (isSameFilter || options?.forceRefresh) {
+        void Promise.all([refetch(), refetchDraftPanel()]);
+        bumpCountsRefresh();
+      }
       return;
     }
 
     setStatusFilter('active');
     setPaymentStatusFilter('paid');
-  }
+    if (isSameFilter || options?.forceRefresh) {
+      void Promise.all([refetch(), refetchDraftPanel()]);
+      bumpCountsRefresh();
+    }
+  }, [activeQuickFilter, refetch, refetchDraftPanel]);
 
   const expensesKpiCards = useMemo<KpiCard[]>(
     () => [
@@ -969,8 +995,7 @@ export default function ExpensesPage() {
         icon: 'clock',
         active: statusFilter === 'draft',
         onClick: () => {
-          setStatusFilter('draft');
-          setPaymentStatusFilter('');
+          applyQuickFilter('drafts', { forceRefresh: true });
         },
       },
       {
@@ -982,8 +1007,7 @@ export default function ExpensesPage() {
         icon: 'alert-triangle',
         active: paymentStatusFilter === 'unpaid' && (statusFilter === 'active' || !statusFilter),
         onClick: () => {
-          setStatusFilter('active');
-          setPaymentStatusFilter('unpaid');
+          applyQuickFilter('unpaid', { forceRefresh: true });
         },
       },
       {
@@ -995,8 +1019,7 @@ export default function ExpensesPage() {
         icon: 'clock',
         active: paymentStatusFilter === 'partial' && (statusFilter === 'active' || !statusFilter),
         onClick: () => {
-          setStatusFilter('active');
-          setPaymentStatusFilter('partial');
+          applyQuickFilter('partial', { forceRefresh: true });
         },
       },
       {
@@ -1008,8 +1031,7 @@ export default function ExpensesPage() {
         icon: 'check-circle',
         active: paymentStatusFilter === 'paid' && (statusFilter === 'active' || !statusFilter),
         onClick: () => {
-          setStatusFilter('active');
-          setPaymentStatusFilter('paid');
+          applyQuickFilter('paid', { forceRefresh: true });
         },
       },
     ],
@@ -1021,6 +1043,7 @@ export default function ExpensesPage() {
       partialCount,
       partialExpenses,
       paymentStatusFilter,
+      applyQuickFilter,
       statusFilter,
       t.kpiDrafts,
       t.kpiPartial,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 export interface ExpensesActionCount {
   allCount: number;
@@ -20,22 +20,31 @@ export function useExpensesActionCount(refreshKey = 0): ExpensesActionCount {
     paidCount: 0,
     archivedCount: 0,
   });
+  const requestIdRef = useRef(0);
+  const activeRequestControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
     async function fetchCounts() {
+      const requestId = requestIdRef.current + 1;
+      requestIdRef.current = requestId;
+
+      activeRequestControllerRef.current?.abort();
+      const requestController = new AbortController();
+      activeRequestControllerRef.current = requestController;
+
       try {
         const [allRes, draftsRes, unpaidRes, partialRes, paidRes, archivedRes] = await Promise.all([
-          fetch('/api/expenses?limit=1', { cache: 'no-store' }),
-          fetch('/api/expenses?status=draft&limit=1', { cache: 'no-store' }),
-          fetch('/api/expenses?status=active&paymentStatus=unpaid&limit=1', { cache: 'no-store' }),
-          fetch('/api/expenses?status=active&paymentStatus=partial&limit=1', { cache: 'no-store' }),
-          fetch('/api/expenses?status=active&paymentStatus=paid&limit=1', { cache: 'no-store' }),
-          fetch('/api/expenses?status=archived&limit=1', { cache: 'no-store' }),
+          fetch('/api/expenses?limit=1', { cache: 'no-store', signal: requestController.signal }),
+          fetch('/api/expenses?status=draft&limit=1', { cache: 'no-store', signal: requestController.signal }),
+          fetch('/api/expenses?status=active&paymentStatus=unpaid&limit=1', { cache: 'no-store', signal: requestController.signal }),
+          fetch('/api/expenses?status=active&paymentStatus=partial&limit=1', { cache: 'no-store', signal: requestController.signal }),
+          fetch('/api/expenses?status=active&paymentStatus=paid&limit=1', { cache: 'no-store', signal: requestController.signal }),
+          fetch('/api/expenses?status=archived&limit=1', { cache: 'no-store', signal: requestController.signal }),
         ]);
 
-        if (cancelled) return;
+        if (cancelled || requestController.signal.aborted || requestId !== requestIdRef.current) return;
 
         const allPayload = allRes.ok ? ((await allRes.json()) as { pagination?: { total?: number } }) : null;
         const draftsPayload = draftsRes.ok ? ((await draftsRes.json()) as { pagination?: { total?: number } }) : null;
@@ -44,7 +53,7 @@ export function useExpensesActionCount(refreshKey = 0): ExpensesActionCount {
         const paidPayload = paidRes.ok ? ((await paidRes.json()) as { pagination?: { total?: number } }) : null;
         const archivedPayload = archivedRes.ok ? ((await archivedRes.json()) as { pagination?: { total?: number } }) : null;
 
-        if (!cancelled) {
+        if (!cancelled && !requestController.signal.aborted && requestId === requestIdRef.current) {
           setCounts({
             allCount: allPayload?.pagination?.total ?? 0,
             draftsCount: draftsPayload?.pagination?.total ?? 0,
@@ -54,7 +63,11 @@ export function useExpensesActionCount(refreshKey = 0): ExpensesActionCount {
             archivedCount: archivedPayload?.pagination?.total ?? 0,
           });
         }
-      } catch {
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          return;
+        }
+
         // Keep previous values on transient network errors.
       }
     }
@@ -78,6 +91,7 @@ export function useExpensesActionCount(refreshKey = 0): ExpensesActionCount {
 
     return () => {
       cancelled = true;
+      activeRequestControllerRef.current?.abort();
       window.clearInterval(intervalId);
       window.removeEventListener('focus', handleRefresh);
       window.removeEventListener('expenses:refresh', handleRefresh as EventListener);
