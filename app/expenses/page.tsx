@@ -488,7 +488,7 @@ export default function ExpensesPage() {
     return formatDuplicatedSupplierLabel(baseLabel, expense.status, locale);
   };
 
-  const { expenses, pagination, loading, error, refetch } = useExpenses({
+  const { expenses, pagination, totals, loading, error, refetch } = useExpenses({
     page,
     limit,
     status: statusFilter ? (statusFilter as (typeof EXPENSE_STATUS)[number]) : undefined,
@@ -500,6 +500,7 @@ export default function ExpensesPage() {
     search: debouncedSearch || undefined,
     sortBy,
     sortOrder,
+    includeTotals: true,
   });
 
   const {
@@ -553,6 +554,15 @@ export default function ExpensesPage() {
         { totalTtc: 0, totalPaid: 0, totalRemaining: 0 }
       ),
     [expenses]
+  );
+
+  const filteredTotals = useMemo(
+    () => ({
+      totalTtc: totals?.totalTtcCents ?? totalsInView.totalTtc,
+      totalPaid: totals?.totalPaidCents ?? totalsInView.totalPaid,
+      totalRemaining: totals?.totalRemainingCents ?? totalsInView.totalRemaining,
+    }),
+    [totals, totalsInView.totalPaid, totalsInView.totalRemaining, totalsInView.totalTtc]
   );
 
   const t = {
@@ -1162,19 +1172,19 @@ export default function ExpensesPage() {
   const expenseFooterMetrics = useMemo(
     () => [
       { key: 'documents', label: t.totalsMetricDocuments, value: expenses.length, kind: 'count' as const },
-      { key: 'ttc', label: t.totalsMetricTtc, value: totalsInView.totalTtc, kind: 'currency' as const },
-      { key: 'paid', label: t.totalsMetricPaid, value: totalsInView.totalPaid, kind: 'currency' as const, tone: 'success' as const },
-      { key: 'remaining', label: t.totalsMetricRemaining, value: totalsInView.totalRemaining, kind: 'currency' as const, tone: 'danger' as const },
+      { key: 'ttc', label: t.totalsMetricTtc, value: filteredTotals.totalTtc, kind: 'currency' as const },
+      { key: 'paid', label: t.totalsMetricPaid, value: filteredTotals.totalPaid, kind: 'currency' as const, tone: 'success' as const },
+      { key: 'remaining', label: t.totalsMetricRemaining, value: filteredTotals.totalRemaining, kind: 'currency' as const, tone: 'danger' as const },
     ],
     [
       expenses.length,
+      filteredTotals.totalPaid,
+      filteredTotals.totalRemaining,
+      filteredTotals.totalTtc,
       t.totalsMetricDocuments,
       t.totalsMetricPaid,
       t.totalsMetricRemaining,
       t.totalsMetricTtc,
-      totalsInView.totalPaid,
-      totalsInView.totalRemaining,
-      totalsInView.totalTtc,
     ]
   );
 

@@ -57,6 +57,11 @@ type ExpensesApiResponse = {
   message?: string;
   data?: ExpenseListItem[];
   items?: ExpenseListItem[];
+  totals?: {
+    totalTtcCents?: number;
+    totalPaidCents?: number;
+    totalRemainingCents?: number;
+  };
   categories?: ExpenseCategoryItem[];
   pagination?: {
     page: number;
@@ -78,6 +83,13 @@ type ExpensesFilters = {
   sortOrder?: 'asc' | 'desc';
   page?: number;
   limit?: number;
+  includeTotals?: boolean;
+};
+
+type ExpenseTotals = {
+  totalTtcCents: number;
+  totalPaidCents: number;
+  totalRemainingCents: number;
 };
 
 const initialPagination = {
@@ -90,6 +102,7 @@ const initialPagination = {
 export function useExpenses(filters?: ExpensesFilters) {
   const [expenses, setExpenses] = useState<ExpenseListItem[]>([]);
   const [pagination, setPagination] = useState(initialPagination);
+  const [totals, setTotals] = useState<ExpenseTotals | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const requestIdRef = useRef(0);
@@ -109,6 +122,7 @@ export function useExpenses(filters?: ExpensesFilters) {
     if (filters?.search) params.set('search', filters.search);
     if (filters?.sortBy) params.set('sortBy', filters.sortBy);
     if (filters?.sortOrder) params.set('sortOrder', filters.sortOrder);
+    if (filters?.includeTotals) params.set('includeTotals', '1');
 
     return params.toString();
   }, [filters]);
@@ -137,6 +151,7 @@ export function useExpenses(filters?: ExpensesFilters) {
       if (response.status === 404) {
         setExpenses([]);
         setPagination(initialPagination);
+        setTotals(null);
         return;
       }
 
@@ -152,6 +167,15 @@ export function useExpenses(filters?: ExpensesFilters) {
 
       setExpenses(payload.items || payload.data || []);
       setPagination(payload.pagination || initialPagination);
+      setTotals(
+        payload.totals
+          ? {
+              totalTtcCents: Math.max(0, Math.round(payload.totals.totalTtcCents || 0)),
+              totalPaidCents: Math.max(0, Math.round(payload.totals.totalPaidCents || 0)),
+              totalRemainingCents: Math.max(0, Math.round(payload.totals.totalRemainingCents || 0)),
+            }
+          : null
+      );
     } catch (fetchError) {
       if (requestController.signal.aborted || requestId !== requestIdRef.current) {
         return;
@@ -159,6 +183,7 @@ export function useExpenses(filters?: ExpensesFilters) {
 
       setExpenses([]);
       setPagination(initialPagination);
+      setTotals(null);
       setError(fetchError instanceof Error ? fetchError.message : 'Failed to load expenses');
     } finally {
       if (!requestController.signal.aborted && requestId === requestIdRef.current) {
@@ -207,6 +232,7 @@ export function useExpenses(filters?: ExpensesFilters) {
   return {
     expenses,
     pagination,
+    totals,
     loading,
     error,
     refetch,

@@ -34,6 +34,11 @@ import { listAuditLogsForEntity, recordAuditLog, recordEntityFieldDiff } from "@
 type ExpenseListResult = {
   items: Array<Record<string, unknown>>;
   pagination: PaginationMeta;
+  totals?: {
+    totalTtcCents: number;
+    totalPaidCents: number;
+    totalRemainingCents: number;
+  };
 };
 
 type AccessScope = {
@@ -702,6 +707,7 @@ export async function listExpenses(params: {
   options: ListQueryOptions;
   filters?: ExpenseListFilterDTO;
   access?: AccessScope;
+  includeTotals?: boolean;
 }): Promise<ExpenseListResult> {
   await ConnectDb();
 
@@ -759,9 +765,79 @@ export async function listExpenses(params: {
     ];
   }
 
+  const aggregateQuery: Record<string, unknown> = {
+    ...query,
+    companyId: isValidObjectId(params.companyId) ? toObjectId(params.companyId) : params.companyId,
+  };
+
+  if (typeof aggregateQuery.createdBy === "string" && isValidObjectId(aggregateQuery.createdBy)) {
+    aggregateQuery.createdBy = toObjectId(aggregateQuery.createdBy);
+  }
+
+  if (typeof aggregateQuery.categoryId === "string" && isValidObjectId(aggregateQuery.categoryId)) {
+    aggregateQuery.categoryId = toObjectId(aggregateQuery.categoryId);
+  }
+
+  if (typeof aggregateQuery.supplierId === "string" && isValidObjectId(aggregateQuery.supplierId)) {
+    aggregateQuery.supplierId = toObjectId(aggregateQuery.supplierId);
+  }
+
+  if (aggregateQuery.$or && Array.isArray(aggregateQuery.$or)) {
+    aggregateQuery.$or = aggregateQuery.$or.map((condition) => {
+      if (!condition || typeof condition !== "object") {
+        return condition;
+      }
+
+      const candidate = { ...(condition as Record<string, unknown>) };
+      const supplierIdCondition = candidate.supplierId;
+
+      if (
+        supplierIdCondition &&
+        typeof supplierIdCondition === "object" &&
+        "$in" in supplierIdCondition &&
+        Array.isArray((supplierIdCondition as { $in?: unknown[] }).$in)
+      ) {
+        candidate.supplierId = {
+          $in: (supplierIdCondition as { $in: unknown[] }).$in
+            .map((value) => {
+              if (value instanceof mongoose.Types.ObjectId) {
+                return value;
+              }
+
+              if (typeof value === "string" && isValidObjectId(value)) {
+                return toObjectId(value);
+              }
+
+              return null;
+            })
+            .filter(Boolean),
+        };
+      }
+
+      return candidate;
+    });
+  }
+
+  if (aggregateQuery.expenseDate && typeof aggregateQuery.expenseDate === "object") {
+    const sourceDateQuery = aggregateQuery.expenseDate as { $gte?: unknown; $lte?: unknown };
+    const dateQuery: { $gte?: Date; $lte?: Date } = {};
+
+    const gte = toDateOrNull(sourceDateQuery.$gte);
+    const lte = toDateOrNull(sourceDateQuery.$lte);
+
+    if (gte) {
+      dateQuery.$gte = gte;
+    }
+    if (lte) {
+      dateQuery.$lte = lte;
+    }
+
+    aggregateQuery.expenseDate = dateQuery;
+  }
+
   const skip = (params.options.page - 1) * params.options.limit;
 
-  const [items, total] = await Promise.all([
+  const [items, total, totalsAggregate] = await Promise.all([
     Expense.find(query)
       .sort(parseSort(params.options))
       .skip(skip)
@@ -770,6 +846,76 @@ export async function listExpenses(params: {
       .populate("categoryId", "name nameEn nameFr canonicalKey")
       .lean(),
     Expense.countDocuments(query),
+    params.includeTotals
+      ? Expense.aggregate<{
+          totalTtcCents?: number;
+          totalPaidCents?: number;
+          totalRemainingCents?: number;
+        }>([
+          { $match: aggregateQuery },
+          {
+            $addFields: {
+              _amountInclVatCentsSafe: {
+                $convert: {
+                  input: { $ifNull: ["$amountInclVatCents", 0] },
+                  to: "double",
+                  onError: 0,
+                  onNull: 0,
+                },
+              },
+              _amountPaidCentsSafe: {
+                $convert: {
+                  input: { $ifNull: ["$amountPaidCents", 0] },
+                  to: "double",
+                  onError: 0,
+                  onNull: 0,
+                },
+              },
+            },
+          },
+          {
+            $group: {
+              _id: null,
+              totalTtcCents: {
+                $sum: {
+                  $cond: [
+                    { $gt: ["$_amountInclVatCentsSafe", 0] },
+                    "$_amountInclVatCentsSafe",
+                    0,
+                  ],
+                },
+              },
+              totalPaidCents: {
+                $sum: {
+                  $cond: [
+                    { $gt: ["$_amountPaidCentsSafe", 0] },
+                    "$_amountPaidCentsSafe",
+                    0,
+                  ],
+                },
+              },
+              totalRemainingCents: {
+                $sum: {
+                  $cond: [
+                    {
+                      $gt: [
+                        {
+                          $subtract: ["$_amountInclVatCentsSafe", "$_amountPaidCentsSafe"],
+                        },
+                        0,
+                      ],
+                    },
+                    {
+                      $subtract: ["$_amountInclVatCentsSafe", "$_amountPaidCentsSafe"],
+                    },
+                    0,
+                  ],
+                },
+              },
+            },
+          },
+        ])
+      : Promise.resolve([]),
   ]);
 
   const expenseObjectIds = items
@@ -804,6 +950,8 @@ export async function listExpenses(params: {
     attachmentCountRows.map((row) => [String(row._id), row.count])
   );
 
+  const aggregateRow = totalsAggregate[0] || null;
+
   return {
     items: items.map((item) => ({
       ...item,
@@ -811,6 +959,13 @@ export async function listExpenses(params: {
       remainingBalanceCents: buildRemainingBalance(item),
     })),
     pagination: buildPagination(params.options.page, params.options.limit, total),
+    totals: params.includeTotals
+      ? {
+          totalTtcCents: toPositiveCents(aggregateRow?.totalTtcCents),
+          totalPaidCents: toPositiveCents(aggregateRow?.totalPaidCents),
+          totalRemainingCents: toPositiveCents(aggregateRow?.totalRemainingCents),
+        }
+      : undefined,
   };
 }
 

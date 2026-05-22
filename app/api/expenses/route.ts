@@ -43,6 +43,9 @@ export async function GET(request: NextRequest) {
       sortOrder: parsedFilters.data.sortOrder || "desc",
     } as const;
 
+    const includeTotalsRaw = request.nextUrl.searchParams.get("includeTotals");
+    const includeTotals = includeTotalsRaw === "1" || includeTotalsRaw === "true";
+
     const result = await listExpenses({
       companyId: auth.context.user.companyId || "",
       options,
@@ -55,12 +58,14 @@ export async function GET(request: NextRequest) {
         periodEnd: parsedFilters.data.periodEnd,
       },
       access: auth.context.accessScope,
+      includeTotals,
     });
 
     return NextResponse.json({
       success: true,
       items: result.items,
       pagination: result.pagination,
+      totals: result.totals,
     });
   } catch (error) {
     return NextResponse.json(
