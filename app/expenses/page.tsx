@@ -366,6 +366,7 @@ export default function ExpensesPage() {
   const photoInputRef = useRef<HTMLInputElement | null>(null);
   const importInputRef = useRef<HTMLInputElement | null>(null);
   const quickFiltersTouchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const pendingQuickFilterScrollYRef = useRef<number | null>(null);
 
   function handleQuickFiltersWheel(event: React.WheelEvent<HTMLDivElement>) {
     const predominantlyVertical = Math.abs(event.deltaY) > Math.abs(event.deltaX);
@@ -408,6 +409,18 @@ export default function ExpensesPage() {
 
   function handleQuickFiltersTouchEnd() {
     quickFiltersTouchStartRef.current = null;
+  }
+
+  function handleQuickFiltersMouseDown(event: React.MouseEvent<HTMLDivElement>) {
+    const target = event.target as HTMLElement | null;
+    if (!target) {
+      return;
+    }
+
+    if (target.closest('[role="tab"]')) {
+      // Prevent browser focus-scroll behavior while switching quick filters.
+      event.preventDefault();
+    }
   }
 
   useEffect(() => {
@@ -920,7 +933,49 @@ export default function ExpensesPage() {
     }
   }, [draftPanelExpenses.length]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    if (pendingQuickFilterScrollYRef.current === null) {
+      return;
+    }
+
+    const targetY = pendingQuickFilterScrollYRef.current;
+    const restoreScrollPosition = () => {
+      window.scrollTo({
+        top: targetY,
+        left: window.scrollX,
+        behavior: 'auto',
+      });
+    };
+
+    // Run multiple restoration passes because filter changes can cause consecutive layout shifts.
+    const rafIdOne = window.requestAnimationFrame(() => {
+      restoreScrollPosition();
+
+      window.requestAnimationFrame(() => {
+        restoreScrollPosition();
+      });
+    });
+
+    const timeoutId = window.setTimeout(() => {
+      restoreScrollPosition();
+      pendingQuickFilterScrollYRef.current = null;
+    }, 120);
+
+    return () => {
+      window.cancelAnimationFrame(rafIdOne);
+      window.clearTimeout(timeoutId);
+    };
+  }, [activeQuickFilter, draftPanelExpenses.length, expenses.length, loading]);
+
   const applyQuickFilter = useCallback((filter: ExpenseQuickFilterKey, options?: { forceRefresh?: boolean }) => {
+    if (typeof window !== 'undefined') {
+      pendingQuickFilterScrollYRef.current = window.scrollY;
+    }
+
     const isSameFilter = filter === activeQuickFilter;
 
     setPage(1);
@@ -997,6 +1052,7 @@ export default function ExpensesPage() {
         onClick: () => {
           applyQuickFilter('drafts', { forceRefresh: true });
         },
+        onMouseDown: (event) => event.preventDefault(),
       },
       {
         key: 'unpaid',
@@ -1009,6 +1065,7 @@ export default function ExpensesPage() {
         onClick: () => {
           applyQuickFilter('unpaid', { forceRefresh: true });
         },
+        onMouseDown: (event) => event.preventDefault(),
       },
       {
         key: 'partial',
@@ -1021,6 +1078,7 @@ export default function ExpensesPage() {
         onClick: () => {
           applyQuickFilter('partial', { forceRefresh: true });
         },
+        onMouseDown: (event) => event.preventDefault(),
       },
       {
         key: 'paid',
@@ -1033,6 +1091,7 @@ export default function ExpensesPage() {
         onClick: () => {
           applyQuickFilter('paid', { forceRefresh: true });
         },
+        onMouseDown: (event) => event.preventDefault(),
       },
     ],
     [
@@ -1607,7 +1666,7 @@ export default function ExpensesPage() {
 
   return (
     <CrmShell title={t.shellTitle}>
-      <div className="space-y-4 sm:space-y-5">
+      <div className="space-y-4 sm:space-y-5 [overflow-anchor:none]">
         <section
           className="space-y-2.5 rounded-2xl border border-slate-200/80 bg-linear-to-r from-slate-50 via-white to-amber-50/40 p-3.5 shadow-sm dark:border-slate-800/70 dark:from-slate-950/45 dark:via-slate-950/25 dark:to-amber-950/15 sm:space-y-3 sm:p-4"
           data-tour-expenses-header
@@ -1632,8 +1691,8 @@ export default function ExpensesPage() {
         {!isMobile ? (
           <>
             <section className="space-y-3" data-tour-expenses-kpis>
-              <KpiCards cards={expensesKpiCards} locale={locale as 'en' | 'fr'} loading={loading} />
-              {!loading ? <KpiCards cards={expensesTotalsCards} locale={locale as 'en' | 'fr'} cols={3} /> : null}
+              <KpiCards cards={expensesKpiCards} locale={locale as 'en' | 'fr'} loading={loading && expenses.length === 0} />
+              <KpiCards cards={expensesTotalsCards} locale={locale as 'en' | 'fr'} cols={3} />
             </section>
 
             <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5" data-tour-expenses-capture>
@@ -2053,6 +2112,7 @@ export default function ExpensesPage() {
                 <Label>{t.quickFiltersLabel}</Label>
                 <div
                   className="overflow-x-auto overflow-y-hidden touch-pan-x overscroll-y-none [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                  onMouseDown={handleQuickFiltersMouseDown}
                   onWheel={handleQuickFiltersWheel}
                   onTouchStart={handleQuickFiltersTouchStart}
                   onTouchMove={handleQuickFiltersTouchMove}
