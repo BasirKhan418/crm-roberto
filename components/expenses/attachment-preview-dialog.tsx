@@ -66,6 +66,7 @@ export function AttachmentPreviewDialog({ open, onOpenChange, attachment, locale
                     src={attachment.url}
                     alt={attachment.name}
                     locale={locale}
+                    maxScale={8}
                     className="h-full w-full rounded-md border-border/60"
                   />
                 </div>

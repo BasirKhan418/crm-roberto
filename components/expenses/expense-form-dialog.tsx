@@ -1682,6 +1682,7 @@ export function ExpenseFormDialog({
                     src={receiptPreviewAttachment.url}
                     alt={receiptPreviewAttachment.displayName}
                     locale={locale}
+                    maxScale={8}
                     className="h-full w-full rounded-none border-0"
                   />
                 ) : isInlinePdfMimeType(receiptPreviewAttachment.mimeType) ? (

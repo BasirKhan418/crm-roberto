@@ -428,6 +428,7 @@ export function ExpensePaymentDialog({
                     src={receiptAttachment.url}
                     alt={receiptAttachment.displayName}
                     locale={locale}
+                    maxScale={8}
                     className="h-full w-full rounded-none border-0"
                   />
                 ) : isPdfMimeType(receiptAttachment.mimeType) ? (
