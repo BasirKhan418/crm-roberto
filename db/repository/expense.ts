@@ -986,8 +986,8 @@ export async function updateExpense(params: {
   const status =
     explicitStatus || (existingStatus === "draft" && hasPaymentIntentHints ? "active" : existingStatus);
   const isDraftActivation = existingStatus === "draft" && status === "active";
-  const wantsPaidOnActivation =
-    isDraftActivation &&
+  const wantsPaidSettlement =
+    status === "active" &&
     (requestedPaymentStatus === "paid" ||
       (requestedPaymentStatus !== "unpaid" && hasPaymentIntentHints));
 
@@ -1037,12 +1037,12 @@ export async function updateExpense(params: {
   let effectivePaymentSummary = paymentSummary;
   let activationPaymentLineId: string | null = null;
 
-  if (wantsPaidOnActivation) {
+  if (wantsPaidSettlement) {
     const paymentMethod = toValidExpensePaymentMethod(params.payload.paymentMethod);
     if (!paymentMethod) {
       return {
         success: false as const,
-        message: "Payment method is required when finalizing draft as paid",
+        message: "Payment method is required when setting expense as paid",
       };
     }
 
@@ -1050,7 +1050,7 @@ export async function updateExpense(params: {
     if (!paidBy) {
       return {
         success: false as const,
-        message: "Paid by is required when finalizing draft as paid",
+        message: "Paid by is required when setting expense as paid",
       };
     }
 
