@@ -365,14 +365,13 @@ export default function ExpensesPage() {
 
   const photoInputRef = useRef<HTMLInputElement | null>(null);
   const importInputRef = useRef<HTMLInputElement | null>(null);
-  const quickFiltersTouchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const quickFiltersTouchStartRef = useRef<{ x: number; y: number; scrollLeft: number } | null>(null);
   const pendingQuickFilterScrollYRef = useRef<number | null>(null);
 
   function handleQuickFiltersWheel(event: React.WheelEvent<HTMLDivElement>) {
-    const predominantlyVertical = Math.abs(event.deltaY) > Math.abs(event.deltaX);
-    if (!predominantlyVertical) return;
-
-    event.currentTarget.scrollLeft += event.deltaY;
+    // Keep wheel/trackpad interaction horizontal-only on this rail.
+    const horizontalDelta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+    event.currentTarget.scrollLeft += horizontalDelta;
     event.preventDefault();
   }
 
@@ -387,7 +386,11 @@ export default function ExpensesPage() {
       quickFiltersTouchStartRef.current = null;
       return;
     }
-    quickFiltersTouchStartRef.current = { x: touch.clientX, y: touch.clientY };
+    quickFiltersTouchStartRef.current = {
+      x: touch.clientX,
+      y: touch.clientY,
+      scrollLeft: event.currentTarget.scrollLeft,
+    };
   }
 
   function handleQuickFiltersTouchMove(event: React.TouchEvent<HTMLDivElement>) {
@@ -399,12 +402,11 @@ export default function ExpensesPage() {
     if (!touch) {
       return;
     }
-    const deltaX = Math.abs(touch.clientX - quickFiltersTouchStartRef.current.x);
-    const deltaY = Math.abs(touch.clientY - quickFiltersTouchStartRef.current.y);
+    const deltaX = touch.clientX - quickFiltersTouchStartRef.current.x;
 
-    if (deltaY > deltaX) {
-      event.preventDefault();
-    }
+    // Force horizontal drag behavior and suppress vertical page movement.
+    event.currentTarget.scrollLeft = quickFiltersTouchStartRef.current.scrollLeft - deltaX;
+    event.preventDefault();
   }
 
   function handleQuickFiltersTouchEnd() {
@@ -2120,7 +2122,7 @@ export default function ExpensesPage() {
               <div className="space-y-1.5">
                 <Label>{t.quickFiltersLabel}</Label>
                 <div
-                  className="overflow-x-auto overflow-y-hidden touch-pan-x overscroll-y-none [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                  className="overflow-x-auto overflow-y-hidden touch-none overscroll-y-none overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                   onMouseDown={handleQuickFiltersMouseDown}
                   onWheel={handleQuickFiltersWheel}
                   onTouchStart={handleQuickFiltersTouchStart}
