@@ -174,9 +174,10 @@ function isInlinePdfMimeType(mimeType?: string) {
 
 function toInputDate(value?: string | null) {
   if (!value) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
-  return date.toISOString().slice(0, 10);
+  return toInputDateFromDate(date);
 }
 
 function toInputDateFromDate(value: Date) {
@@ -200,9 +201,16 @@ function addDaysToInputDate(value: string, days: number) {
 }
 
 function openDateInputPicker(input: HTMLInputElement) {
-  if (typeof input.showPicker === 'function') {
-    input.showPicker();
+  try {
+    if (typeof input.showPicker === 'function') {
+      input.showPicker();
+      return;
+    }
+  } catch {
+    // Ignore and fallback below.
   }
+
+  input.focus({ preventScroll: true });
 }
 
 function buildDefaultFormValues(): FormValues {
@@ -1382,7 +1390,7 @@ export function ExpenseFormDialog({
           payload.paidAt = values.paidAt || undefined;
 
           if (normalizedPaymentStatus === 'paid' && !values.paidAt) {
-            payload.paidAt = new Date().toISOString().slice(0, 10);
+            payload.paidAt = toInputDateFromDate(new Date());
           }
         }
       }
@@ -1417,7 +1425,7 @@ export function ExpenseFormDialog({
               payload.amountPaidCents = amountInclVat;
               payload.paymentMethod = values.paymentMethod;
               payload.paidBy = values.paidBy;
-              payload.paidAt = values.paidAt || new Date().toISOString().slice(0, 10);
+              payload.paidAt = values.paidAt || toInputDateFromDate(new Date());
             } else {
               payload.paymentStatus = 'unpaid';
               payload.amountPaidCents = 0;

@@ -62,10 +62,27 @@ function isPdfMimeType(mimeType?: string) {
   return mimeType === 'application/pdf';
 }
 
+function toInputDateFromDate(value: Date) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+
+  const year = String(date.getFullYear());
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 function openDateInputPicker(input: HTMLInputElement) {
-  if (typeof input.showPicker === 'function') {
-    input.showPicker();
+  try {
+    if (typeof input.showPicker === 'function') {
+      input.showPicker();
+      return;
+    }
+  } catch {
+    // Ignore and fallback below.
   }
+
+  input.focus({ preventScroll: true });
 }
 
 export function ExpensePaymentDialog({
@@ -99,7 +116,7 @@ export function ExpensePaymentDialog({
 
     setPaymentMethod('');
     setPaidBy('');
-    setPaidAt(new Date().toISOString().slice(0, 10));
+    setPaidAt(toInputDateFromDate(new Date()));
     setPaymentAmount(mode === 'add' && remainingCents > 0 ? (remainingCents / 100).toFixed(2) : '');
     setError(null);
     setConfirmOpen(false);
