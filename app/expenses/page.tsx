@@ -502,11 +502,17 @@ export default function ExpensesPage() {
 
   const {
     expenses: draftPanelExpenses,
+    pagination: draftPanelPagination,
     refetch: refetchDraftPanel,
   } = useExpenses({
     page: 1,
-    limit: 100,
+    limit: 5000,
     status: 'draft',
+    categoryId: categoryFilter || undefined,
+    supplierId: supplierFilter || undefined,
+    periodStart: periodStart || undefined,
+    periodEnd: periodEnd || undefined,
+    search: debouncedSearch || undefined,
     sortBy: 'expenseDate',
     sortOrder: 'desc',
   });
@@ -909,7 +915,8 @@ export default function ExpensesPage() {
   );
 
   const expenseCountsRefreshKey = countsRefreshNonce;
-  const { allCount, draftsCount, unpaidCount, partialCount, paidCount, archivedCount } = useExpensesActionCount(expenseCountsRefreshKey);
+  const { allCount, draftsCount: actionDraftsCount, unpaidCount, partialCount, paidCount, archivedCount } = useExpensesActionCount(expenseCountsRefreshKey);
+  const draftsCount = draftPanelPagination.total || actionDraftsCount;
 
   const activeQuickFilter = useMemo<ExpenseQuickFilterKey>(() => {
     if (statusFilter === 'draft') return 'drafts';
@@ -919,6 +926,8 @@ export default function ExpensesPage() {
     if ((statusFilter === 'active' || !statusFilter) && paymentStatusFilter === 'paid') return 'paid';
     return 'all';
   }, [paymentStatusFilter, statusFilter]);
+
+  const listDraftCount = activeQuickFilter === 'drafts' ? (pagination.total || expenses.length) : draftsCount;
 
   useEffect(() => {
     if (!isMobile) {
@@ -2485,7 +2494,7 @@ export default function ExpensesPage() {
               <div>
                 <div className="flex items-center gap-2">
                   <CardTitle className="text-base">{t.listTitle}</CardTitle>
-                  <Badge variant="outline">{t.draftsCountLabel(draftsCount)}</Badge>
+                  <Badge variant="outline">{t.draftsCountLabel(listDraftCount)}</Badge>
                 </div>
                 <CardDescription>{t.listSubtitle}</CardDescription>
               </div>
