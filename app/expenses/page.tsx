@@ -142,6 +142,8 @@ const extensionToMime: Record<string, (typeof EXPENSE_ALLOWED_MIME_TYPES)[number
 
 const ACCEPTED_FILES = '.pdf,.jpg,.jpeg,.png,.heic';
 const MIN_DELETE_REASON_LENGTH = 10;
+const NEW_BADGE_DURATION_MS = 60 * 60 * 1000;
+const NEW_BADGE_REFRESH_MS = 60 * 1000;
 
 function createUploadId() {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -318,6 +320,16 @@ function resolveSavedExpenseSnapshot(payload: Record<string, unknown> | null | u
   };
 }
 
+function isRecentlyCreated(createdAt: string | null | undefined, nowMs: number) {
+  if (!createdAt) return false;
+
+  const createdAtMs = new Date(createdAt).getTime();
+  if (Number.isNaN(createdAtMs)) return false;
+
+  const ageMs = nowMs - createdAtMs;
+  return ageMs >= 0 && ageMs < NEW_BADGE_DURATION_MS;
+}
+
 export default function ExpensesPage() {
   const { locale } = useLocale();
   const router = useRouter();
@@ -362,6 +374,7 @@ export default function ExpensesPage() {
   const [mobileAdvancedFiltersOpen, setMobileAdvancedFiltersOpen] = useState(false);
   const [mobileDraftsExpanded, setMobileDraftsExpanded] = useState(false);
   const [countsRefreshNonce, setCountsRefreshNonce] = useState(0);
+  const [badgeNowMs, setBadgeNowMs] = useState(() => Date.now());
 
   const photoInputRef = useRef<HTMLInputElement | null>(null);
   const importInputRef = useRef<HTMLInputElement | null>(null);
@@ -432,6 +445,14 @@ export default function ExpensesPage() {
 
     return () => window.clearTimeout(timeout);
   }, [searchInput]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setBadgeNowMs(Date.now());
+    }, NEW_BADGE_REFRESH_MS);
+
+    return () => window.clearInterval(timer);
+  }, []);
 
   // Open create dialog via URL param (?newExpense=1) or custom event (expenses:new)
   useEffect(() => {
@@ -612,6 +633,7 @@ export default function ExpensesPage() {
       },
       draftsSectionTitle: 'Drafts to complete',
       draftsSectionSubtitle: 'Quick access to draft expenses that still need review and completion.',
+      newBadge: 'NEW',
       draftsCountLabel: (count: number) => `${count} Draft${count > 1 ? 's' : ''}`,
       noDraftsInView: 'No draft expenses available.',
       filtersTitle: 'Filters and sorting',
@@ -782,6 +804,7 @@ export default function ExpensesPage() {
       },
       draftsSectionTitle: 'Brouillons à compléter',
       draftsSectionSubtitle: 'Accès rapide aux brouillons qui doivent encore être vérifiés et complétés.',
+      newBadge: 'NOUVEAU',
       draftsCountLabel: (count: number) => `${count} brouillon${count > 1 ? 's' : ''}`,
       noDraftsInView: 'Aucun brouillon disponible.',
       filtersTitle: 'Filtres et tri',
@@ -2029,6 +2052,7 @@ export default function ExpensesPage() {
                 ) : (
                   (isMobile ? draftPanelExpenses.slice(0, 2) : draftPanelExpenses).map((expense) => {
                     const rowLoading = actionLoadingId === expense._id;
+                    const isNewExpense = isRecentlyCreated(expense.createdAt, badgeNowMs);
 
                     return (
                       <div
@@ -2042,6 +2066,14 @@ export default function ExpensesPage() {
                               <span className="inline-flex shrink-0 items-center rounded-full border border-sky-300/70 bg-linear-to-r from-sky-500 to-cyan-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white shadow-xs">
                                 {getDuplicateBadgeLabel(locale)}
                               </span>
+                            ) : null}
+                            {isNewExpense ? (
+                              <Badge
+                                variant="secondary"
+                                className="h-5 shrink-0 rounded-full border border-emerald-300/80 bg-emerald-50 px-1.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700 dark:border-emerald-800/70 dark:bg-emerald-950/35 dark:text-emerald-200"
+                              >
+                                {t.newBadge}
+                              </Badge>
                             ) : null}
                           </div>
                           <p className="text-xs text-muted-foreground">
@@ -2545,6 +2577,7 @@ export default function ExpensesPage() {
                   const paymentReady = isExpenseReadyForPayment(expense);
                   const canRecordPayment = paymentReady && expense.paymentStatus !== 'paid' && !isArchived;
                   const isDraftAction = canManageExpenses && expense.status === 'draft' && !isArchived;
+                  const isNewExpense = isRecentlyCreated(expense.createdAt, badgeNowMs);
 
                   return (
                     <div
@@ -2559,6 +2592,14 @@ export default function ExpensesPage() {
                               <span className="inline-flex shrink-0 items-center rounded-full border border-sky-300/70 bg-linear-to-r from-sky-500 to-cyan-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white shadow-xs">
                                 {getDuplicateBadgeLabel(locale)}
                               </span>
+                            ) : null}
+                            {isNewExpense ? (
+                              <Badge
+                                variant="secondary"
+                                className="h-5 shrink-0 rounded-full border border-emerald-300/80 bg-emerald-50 px-1.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700 dark:border-emerald-800/70 dark:bg-emerald-950/35 dark:text-emerald-200"
+                              >
+                                {t.newBadge}
+                              </Badge>
                             ) : null}
                           </div>
                           <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
@@ -2763,6 +2804,7 @@ export default function ExpensesPage() {
                     const isArchived = expense.status === 'archived';
                     const paymentReady = isExpenseReadyForPayment(expense);
                     const canRecordPayment = paymentReady && expense.paymentStatus !== 'paid' && !isArchived;
+                    const isNewExpense = isRecentlyCreated(expense.createdAt, badgeNowMs);
 
                     return (
                       <TableRow key={expense._id} className={`cursor-pointer ${getTableRowToneClass(expense.status, expense.paymentStatus)}`}>
@@ -2774,6 +2816,14 @@ export default function ExpensesPage() {
                               <span className="inline-flex shrink-0 items-center rounded-full border border-sky-300/70 bg-linear-to-r from-sky-500 to-cyan-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white shadow-xs">
                                 {getDuplicateBadgeLabel(locale)}
                               </span>
+                            ) : null}
+                            {isNewExpense ? (
+                              <Badge
+                                variant="secondary"
+                                className="h-5 shrink-0 rounded-full border border-emerald-300/80 bg-emerald-50 px-1.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700 dark:border-emerald-800/70 dark:bg-emerald-950/35 dark:text-emerald-200"
+                              >
+                                {t.newBadge}
+                              </Badge>
                             ) : null}
                           </div>
                         </TableCell>
