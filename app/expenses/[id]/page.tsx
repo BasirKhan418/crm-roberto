@@ -1899,8 +1899,30 @@ export default function ExpenseDetailPage() {
               <Button type="button" size="sm" variant={activeTab === 'summary' ? 'default' : 'outline'} onClick={() => setActiveTab('summary')} className="w-full sm:w-auto">
                 {t.summaryTab}
               </Button>
-              <Button type="button" size="sm" variant={activeTab === 'attachments' ? 'default' : 'outline'} onClick={() => setActiveTab('attachments')} className="w-full sm:w-auto">
-                {t.attachmentsTab}
+              <Button
+                type="button"
+                size="sm"
+                variant={activeTab === 'attachments' ? 'default' : 'outline'}
+                onClick={() => setActiveTab('attachments')}
+                className={`w-full sm:w-auto ${
+                  activeTab === 'attachments'
+                    ? ''
+                    : 'border-sky-200/80 bg-sky-50/70 text-sky-700 hover:bg-sky-100/75 dark:border-sky-900/45 dark:bg-sky-950/25 dark:text-sky-200 dark:hover:bg-sky-950/40'
+                }`}
+              >
+                <PaperclipIcon className="size-4" />
+                <span>{t.attachmentsTab}</span>
+                {attachments.length > 0 ? (
+                  <span
+                    className={`inline-flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums ${
+                      activeTab === 'attachments'
+                        ? 'bg-primary-foreground/20 text-primary-foreground'
+                        : 'bg-sky-100 text-sky-700 dark:bg-sky-900/60 dark:text-sky-100'
+                    }`}
+                  >
+                    {attachments.length}
+                  </span>
+                ) : null}
               </Button>
               <Button type="button" size="sm" variant={activeTab === 'audit' ? 'default' : 'outline'} onClick={() => setActiveTab('audit')} className="w-full sm:w-auto">
                 {t.auditTab}
