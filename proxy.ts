@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { jwtVerify } from 'jose';
 
+import { canAccessCrmPath, getDefaultCrmLandingPath } from '@/lib/route-access';
+
 interface TokenPayload {
   sub: string;
   name: string;
@@ -117,6 +119,9 @@ export default async function proxy(request: NextRequest) {
     }
     if(payload.isEmailVerified && !payload.isOnboardingComplete){
       return NextResponse.redirect(new URL('/onboarding', request.url));
+    }
+    if (!canAccessCrmPath(pathname, payload.role)) {
+      return NextResponse.redirect(new URL(getDefaultCrmLandingPath(payload.role), request.url));
     }
     return NextResponse.next();
   }

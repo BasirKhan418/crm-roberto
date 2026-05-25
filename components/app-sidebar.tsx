@@ -18,6 +18,7 @@ import {
 import { Building2Icon, FileTextIcon, LayoutDashboardIcon, MessageSquareIcon, NotebookPenIcon, PackageSearchIcon, ReceiptTextIcon, SettingsIcon, TruckIcon, UsersIcon, WalletCardsIcon } from "lucide-react"
 import { useLocale } from "@/components/providers/locale-provider"
 import { useAuthMe } from "@/hooks/useAuthMe"
+import { canAccessCrmPath } from "@/lib/route-access"
 import { useSidebarBadges } from "@/hooks/useSidebarBadges"
 
 type NavKey =
@@ -136,6 +137,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { user } = useAuthMe()
   const { badges } = useSidebarBadges()
   const visibleNavItems = navItems.filter((item) => {
+    if (!canAccessCrmPath(item.url, user?.role)) {
+      return false
+    }
     if (item.key === "dashboard") {
       return user?.featureFlags?.financialDashboard !== false
     }
