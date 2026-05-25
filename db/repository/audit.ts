@@ -10,9 +10,11 @@ type AuditAction =
   | "duplicated"
   | "status_changed"
   | "marked_paid"
-  | "payment_added";
+  | "payment_added"
+  | "exported"
+  | "downloaded";
 
-type AuditEntity = "expense" | "invoice" | "supplier" | "user" | "ticket";
+type AuditEntity = "expense" | "invoice" | "supplier" | "user" | "ticket" | "report";
 
 type AuditSource = "ui" | "api" | "system";
 

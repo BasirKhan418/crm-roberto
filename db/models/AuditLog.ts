@@ -4,7 +4,7 @@ const AuditLogSchema = new mongoose.Schema(
   {
     entityType: {
       type: String,
-      enum: ["expense", "invoice", "supplier", "user", "ticket"],
+      enum: ["expense", "invoice", "supplier", "user", "ticket", "report"],
       required: true,
       index: true,
     },
@@ -30,6 +30,8 @@ const AuditLogSchema = new mongoose.Schema(
         "status_changed",
         "marked_paid",
         "payment_added",
+        "exported",
+        "downloaded",
       ],
       required: true,
       index: true,

@@ -2,9 +2,12 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Download, Paperclip } from 'lucide-react';
+import { toast } from 'sonner';
 
 import { FinancialPeriodSelector } from '@/components/dashboard/financial-period-selector';
 import { useLocale } from '@/components/providers/locale-provider';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import EmptyState from '@/components/ui/EmptyState';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import { PriceDisplay } from '@/components/ui/PriceDisplay';
@@ -62,6 +65,10 @@ const purchaseCopy = {
     amounts: 'Amounts',
     payment: 'Payment',
     attachments: 'Attachments',
+    selectAll: 'Select all with attachments',
+    selectedCount: 'selected',
+    downloadZip: 'Download ZIP',
+    zipFailed: 'Failed to download attachment ZIP',
     empty: 'No purchase invoices match these filters.',
     total: 'Total',
     paidTotal: 'Paid',
@@ -85,6 +92,10 @@ const purchaseCopy = {
     amounts: 'Montants',
     payment: 'Paiement',
     attachments: 'Pieces jointes',
+    selectAll: 'Tout selectionner avec pieces jointes',
+    selectedCount: 'selectionnes',
+    downloadZip: 'Telecharger ZIP',
+    zipFailed: 'Echec du telechargement ZIP',
     empty: 'Aucune facture d achat ne correspond a ces filtres.',
     total: 'Total',
     paidTotal: 'Paye',
@@ -109,6 +120,14 @@ export default function AccountantPortalPurchaseInvoicesPage() {
   const [lookupLoading, setLookupLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<PurchaseInvoiceResponse | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [downloadingZip, setDownloadingZip] = useState(false);
+
+  function extractFileName(disposition: string | null, fallback: string) {
+    if (!disposition) return fallback;
+    const match = disposition.match(/filename="?([^\"]+)"?/i);
+    return match?.[1] || fallback;
+  }
 
   useEffect(() => {
     const controller = new AbortController();
@@ -181,6 +200,49 @@ export default function AccountantPortalPurchaseInvoicesPage() {
   }, [period, search, paymentStatus, supplierId, categoryId, page]);
 
   const totals = useMemo(() => data?.totals, [data]);
+  const selectableIds = useMemo(
+    () => (data?.items || []).filter((item) => item.attachmentsCount > 0).map((item) => item.id),
+    [data]
+  );
+  const allSelectableChecked = selectableIds.length > 0 && selectableIds.every((id) => selectedIds.includes(id));
+
+  useEffect(() => {
+    setSelectedIds((current) => current.filter((id) => selectableIds.includes(id)));
+  }, [selectableIds]);
+
+  async function downloadSelectedAttachments() {
+    if (selectedIds.length === 0 || downloadingZip) {
+      return;
+    }
+
+    setDownloadingZip(true);
+    try {
+      const response = await fetch('/api/accountant/purchase-invoices/attachments-zip', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ expenseIds: selectedIds }),
+      });
+
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+        throw new Error(payload?.message || t.zipFailed);
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = extractFileName(response.headers.get('Content-Disposition'), 'purchase-invoice-attachments.zip');
+      document.body.append(anchor);
+      anchor.click();
+      anchor.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (zipError) {
+      toast.error(zipError instanceof Error ? zipError.message : t.zipFailed);
+    } finally {
+      setDownloadingZip(false);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -242,6 +304,22 @@ export default function AccountantPortalPurchaseInvoicesPage() {
 
       <Card className="border-border/70 bg-white/90 shadow-sm">
         <CardContent className="pt-4">
+          {selectableIds.length > 0 ? (
+            <div className="mb-4 flex flex-col gap-3 rounded-xl border border-dashed border-slate-200 bg-slate-50/70 p-3 md:flex-row md:items-center md:justify-between">
+              <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Checkbox checked={allSelectableChecked} onCheckedChange={(checked) => setSelectedIds(checked === true ? selectableIds : [])} />
+                <span>{t.selectAll}</span>
+              </label>
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-muted-foreground">{selectedIds.length} {t.selectedCount}</span>
+                <Button type="button" variant="outline" onClick={() => void downloadSelectedAttachments()} disabled={selectedIds.length === 0 || downloadingZip}>
+                  <Download className="size-4" />
+                  {downloadingZip ? '...' : t.downloadZip}
+                </Button>
+              </div>
+            </div>
+          ) : null}
+
           {loading ? (
             <div className="space-y-2">
               {Array.from({ length: 6 }).map((_, index) => <Skeleton key={index} className="h-12 rounded-lg" />)}
@@ -251,6 +329,7 @@ export default function AccountantPortalPurchaseInvoicesPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-12" />
                     <TableHead>{t.date}</TableHead>
                     <TableHead>{t.dueDate}</TableHead>
                     <TableHead>{t.supplierColumn}</TableHead>
@@ -263,6 +342,13 @@ export default function AccountantPortalPurchaseInvoicesPage() {
                 <TableBody>
                   {data.items.map((item) => (
                     <TableRow key={item.id}>
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedIds.includes(item.id)}
+                          disabled={item.attachmentsCount === 0}
+                          onCheckedChange={(checked) => setSelectedIds((current) => checked === true ? [...current, item.id] : current.filter((id) => id !== item.id))}
+                        />
+                      </TableCell>
                       <TableCell>{item.expenseDate ? new Date(item.expenseDate).toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-GB') : '-'}</TableCell>
                       <TableCell>{item.dueDate ? new Date(item.dueDate).toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-GB') : '-'}</TableCell>
                       <TableCell>
