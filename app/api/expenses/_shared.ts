@@ -5,6 +5,8 @@ import {
   getExpensePermissionState,
   type ExpensePermission,
 } from "@/lib/expenses/access";
+import { requireCompanyFeature } from "@/lib/company-features";
+import { requireModulePermission } from "@/lib/role-matrix";
 import getMe from "@/utils/middlewares/useMe";
 
 export type ExpenseRouteContext = {
@@ -39,6 +41,14 @@ export async function authorizeExpenseRoute(permission: ExpensePermission): Prom
     };
   }
 
+  const featureCheck = await requireCompanyFeature(me.user.companyId, "expenses");
+  if (!featureCheck.success) {
+    return {
+      success: false,
+      response: NextResponse.json({ success: false, message: featureCheck.message }, { status: featureCheck.status }),
+    };
+  }
+
   const permissionCheck = checkExpensePermission(me.user.role, permission);
   if (!permissionCheck.success) {
     return {
@@ -47,6 +57,19 @@ export async function authorizeExpenseRoute(permission: ExpensePermission): Prom
         { success: false, message: permissionCheck.message },
         { status: permissionCheck.status }
       ),
+    };
+  }
+
+  const matrixCheck = await requireModulePermission({
+    companyId: me.user.companyId,
+    role: me.user.role,
+    moduleKey: "expenses",
+    action: permission === "view" ? "view" : permission === "delete" ? "delete" : "manage",
+  });
+  if (!matrixCheck.success) {
+    return {
+      success: false,
+      response: NextResponse.json({ success: false, message: matrixCheck.message }, { status: matrixCheck.status }),
     };
   }
 

@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BellIcon, CreditCardIcon, LayoutGridIcon, ReceiptTextIcon, UsersIcon } from 'lucide-react';
+import { BellIcon, CreditCardIcon, LayoutGridIcon, ReceiptTextIcon, ShieldCheckIcon, UsersIcon } from 'lucide-react';
 
 import CrmShell from '@/components/crm-shell';
 import { useLocale } from '@/components/providers/locale-provider';
@@ -13,7 +13,7 @@ import { hasPermission } from '@/lib/permissions';
 import { cn } from '@/lib/utils';
 
 type SettingsNavItem = {
-  key: 'overview' | 'reminders' | 'stripe' | 'users' | 'expenses';
+  key: 'overview' | 'reminders' | 'stripe' | 'users' | 'expenses' | 'roles';
   href: string;
   icon: ReactNode;
 };
@@ -44,6 +44,11 @@ const settingsNavItems: SettingsNavItem[] = [
     href: '/settings/users',
     icon: <UsersIcon className="size-4" />,
   },
+  {
+    key: 'roles',
+    href: '/settings/roles',
+    icon: <ShieldCheckIcon className="size-4" />,
+  },
 ];
 
 const settingsMessages = {
@@ -57,6 +62,7 @@ const settingsMessages = {
       stripe: 'Payments',
       expenses: 'Expenses',
       users: 'Users',
+      roles: 'Role Matrix',
     },
   },
   fr: {
@@ -69,6 +75,7 @@ const settingsMessages = {
       stripe: 'Paiements',
       expenses: 'Dépenses',
       users: 'Utilisateurs',
+      roles: 'Matrice des roles',
     },
   },
 } as const;
@@ -80,10 +87,12 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
   const t = settingsMessages[locale];
   const canViewUsers = hasPermission(user?.role, 'users.view');
   const canViewExpenses = hasPermission(user?.role, 'expenses.view');
+  const canManageRoles = (user?.role === 'administrator' || user?.role === 'super_admin') && Boolean(user?.featureFlags?.advancedRoles);
 
   const visibleNavItems = settingsNavItems.filter((item) => {
     if (item.key === 'users') return canViewUsers;
     if (item.key === 'expenses') return canViewExpenses;
+    if (item.key === 'roles') return canManageRoles;
     return true;
   });
 

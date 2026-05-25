@@ -24,6 +24,8 @@ export const APP_PERMISSIONS = [
 ] as const;
 
 export type AppPermission = (typeof APP_PERMISSIONS)[number];
+export type PermissionModuleAction = "view" | "create" | "edit" | "delete" | "export" | "manage";
+export type PermissionModuleKey = "users" | "expenses" | "tickets";
 
 type RolePermissionsMap = Record<AppRole, readonly AppPermission[]>;
 
@@ -94,4 +96,39 @@ export function canManageTargetRole(actorRole: string | null | undefined, target
   }
 
   return false;
+}
+
+export function getDefaultModulePermissions(role: string | null | undefined, moduleKey: PermissionModuleKey) {
+  const normalizedRole = normalizeRole(role);
+
+  if (moduleKey === "users") {
+    return {
+      canView: hasPermission(normalizedRole, "users.view"),
+      canCreate: hasPermission(normalizedRole, "users.invite"),
+      canEdit: hasPermission(normalizedRole, "users.update_role"),
+      canDelete: hasPermission(normalizedRole, "users.revoke"),
+      canExport: false,
+      canManage: hasPermission(normalizedRole, "users.update_role"),
+    };
+  }
+
+  if (moduleKey === "expenses") {
+    return {
+      canView: hasPermission(normalizedRole, "expenses.view"),
+      canCreate: hasPermission(normalizedRole, "expenses.manage"),
+      canEdit: hasPermission(normalizedRole, "expenses.manage"),
+      canDelete: hasPermission(normalizedRole, "expenses.delete"),
+      canExport: normalizedRole === "super_admin" || normalizedRole === "administrator" || normalizedRole === "manager",
+      canManage: hasPermission(normalizedRole, "expenses.manage"),
+    };
+  }
+
+  return {
+    canView: hasPermission(normalizedRole, "tickets.view"),
+    canCreate: hasPermission(normalizedRole, "tickets.manage"),
+    canEdit: hasPermission(normalizedRole, "tickets.manage"),
+    canDelete: false,
+    canExport: false,
+    canManage: hasPermission(normalizedRole, "tickets.manage"),
+  };
 }

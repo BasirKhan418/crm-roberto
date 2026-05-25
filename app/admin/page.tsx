@@ -1,536 +1,459 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  ShieldCheck,
-  ShieldOff,
-  Users,
-  Loader2,
-  ShieldAlert,
-  Mail,
-  Calendar,
-  CheckCircle2,
-  XCircle,
-  Search,
-  Filter,
-  RefreshCw,
-} from 'lucide-react';
+import { BarChart3, Building2, Loader2, Plus, RefreshCw, ShieldAlert, UserRound, Users } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { useLocale } from '@/components/providers/locale-provider';
 
-interface AdminUser {
+type AdminUser = {
   _id: string;
   name: string;
   email: string;
   account_status: 'active' | 'suspended';
-  isEmailVerified: boolean;
-  isOnboardingComplete: boolean;
-  createdAt: string;
-}
+};
 
-const adminMessages = {
+type CompanyListItem = {
+  _id: string;
+  name: string;
+  slug: string;
+  status: 'active' | 'suspended';
+  ownerUserId?: { name?: string; email?: string } | null;
+  featureFlags: Record<string, boolean>;
+  userSummary: {
+    totalUsers: number;
+    activeUsers: number;
+    accountantUsers: number;
+  };
+};
+
+type PlatformStats = {
+  companyCount: number;
+  activeCompanies: number;
+  activeUsers: number;
+  activeAccountants: number;
+  moduleUsage: Record<string, number>;
+  recentAuditEvents: Array<{
+    _id: string;
+    entityType: string;
+    action: string;
+    performedBy?: { name?: string; email?: string } | null;
+  }>;
+};
+
+const messages = {
   en: {
-    heading: 'User Management',
-    subtitle: 'Manage user accounts — activate or suspend access.',
-    totalUsers: 'Total Users',
-    activeUsers: 'Active',
-    suspendedUsers: 'Suspended',
-    userList: 'All Users',
-    name: 'Name',
-    email: 'Email',
+    heading: 'Super Admin',
+    subtitle: 'Manage companies, feature flags, and platform activity from one workspace.',
+    companies: 'Companies',
+    createCompany: 'Create company',
+    name: 'Company name',
+    slug: 'Slug',
+    owner: 'Owner user',
+    search: 'Search company or slug',
     status: 'Status',
-    emailVerified: 'Email Verified',
-    joined: 'Joined',
-    actions: 'Actions',
-    activate: 'Activate',
-    suspend: 'Suspend',
+    all: 'All',
     active: 'Active',
     suspended: 'Suspended',
-    yes: 'Yes',
-    no: 'No',
-    loadError: 'Could not load users.',
-    updateSuccess: 'Account status updated.',
-    updateError: 'Failed to update account status.',
-    confirmSuspendTitle: 'Suspend User',
-    confirmSuspendDesc: (name: string) => `"${name}" will immediately lose access and cannot log in until reactivated.`,
-    confirmActivateTitle: 'Activate User',
-    confirmActivateDesc: (name: string) => `"${name}" will regain full access to their account.`,
-    cancel: 'Cancel',
-    confirmSuspend: 'Yes, Suspend',
-    confirmActivate: 'Yes, Activate',
-    searchPlaceholder: 'Search by name or email…',
-    filterAll: 'All statuses',
-    filterActive: 'Active only',
-    filterSuspended: 'Suspended only',
-    noResults: 'No users match your filters.',
     refresh: 'Refresh',
-    verifiedAll: 'Any verification',
-    verifiedOnly: 'Verified only',
-    unverifiedOnly: 'Unverified only',
-    clearFilters: 'Clear filters',
-    showingOf: (shown: number, total: number) => `Showing ${shown} of ${total} users`,
+    totalCompanies: 'Companies',
+    activeCompanies: 'Active companies',
+    activeUsers: 'Active users',
+    activeAccountants: 'Active accountants',
+    recentAuditEvents: 'Recent audit events',
+    moduleUsage: 'Module usage',
+    users: 'Users',
+    accountants: 'Accountants',
+    view: 'View',
+    suspend: 'Suspend',
+    activate: 'Activate',
+    create: 'Create',
+    loadError: 'Failed to load platform data.',
+    createError: 'Failed to create company.',
+    createSuccess: 'Company created.',
+    updateSuccess: 'Company status updated.',
+    updateError: 'Failed to update company status.',
+    confirmSuspendTitle: 'Suspend company',
+    confirmActivateTitle: 'Activate company',
+    confirmSuspendDescription: (name: string) => `${name} will be suspended and sign-in will be blocked for company users.`,
+    confirmActivateDescription: (name: string) => `${name} will be reactivated. Suspended users remain suspended until reactivated individually.`,
   },
   fr: {
-    heading: 'Gestion des utilisateurs',
-    subtitle: "Gérez les comptes utilisateurs — activez ou suspendez l'accès.",
-    totalUsers: 'Total Utilisateurs',
-    activeUsers: 'Actifs',
-    suspendedUsers: 'Suspendus',
-    userList: 'Tous les utilisateurs',
-    name: 'Nom',
-    email: 'E-mail',
+    heading: 'Super Admin',
+    subtitle: 'Gerez les entreprises, les flags produit et l activite plateforme depuis un seul espace.',
+    companies: 'Entreprises',
+    createCompany: 'Creer une entreprise',
+    name: 'Nom de l entreprise',
+    slug: 'Slug',
+    owner: 'Utilisateur proprietaire',
+    search: 'Rechercher une entreprise ou un slug',
     status: 'Statut',
-    emailVerified: 'E-mail vérifié',
-    joined: 'Inscrit le',
-    actions: 'Actions',
-    activate: 'Activer',
-    suspend: 'Suspendre',
-    active: 'Actif',
-    suspended: 'Suspendu',
-    yes: 'Oui',
-    no: 'Non',
-    loadError: 'Impossible de charger les utilisateurs.',
-    updateSuccess: 'Statut mis à jour.',
-    updateError: 'Échec de la mise à jour.',
-    confirmSuspendTitle: "Suspendre l'utilisateur",
-    confirmSuspendDesc: (name: string) => `« ${name} » perdra immédiatement l'accès et ne pourra plus se connecter.`,
-    confirmActivateTitle: "Activer l'utilisateur",
-    confirmActivateDesc: (name: string) => `« ${name} » retrouvera un accès complet à son compte.`,
-    cancel: 'Annuler',
-    confirmSuspend: 'Oui, suspendre',
-    confirmActivate: 'Oui, activer',
-    searchPlaceholder: 'Rechercher par nom ou e-mail…',
-    filterAll: 'Tous les statuts',
-    filterActive: 'Actifs uniquement',
-    filterSuspended: 'Suspendus uniquement',
-    noResults: 'Aucun utilisateur ne correspond aux filtres.',
+    all: 'Tous',
+    active: 'Active',
+    suspended: 'Suspendue',
     refresh: 'Actualiser',
-    verifiedAll: 'Toute vérification',
-    verifiedOnly: 'Vérifiés uniquement',
-    unverifiedOnly: 'Non vérifiés uniquement',
-    clearFilters: 'Effacer les filtres',
-    showingOf: (shown: number, total: number) => `${shown} sur ${total} utilisateurs`,
+    totalCompanies: 'Entreprises',
+    activeCompanies: 'Entreprises actives',
+    activeUsers: 'Utilisateurs actifs',
+    activeAccountants: 'Comptables actifs',
+    recentAuditEvents: 'Evenements audit recents',
+    moduleUsage: 'Usage modules',
+    users: 'Utilisateurs',
+    accountants: 'Comptables',
+    view: 'Voir',
+    suspend: 'Suspendre',
+    activate: 'Activer',
+    create: 'Creer',
+    loadError: 'Echec du chargement des donnees plateforme.',
+    createError: 'Echec de creation de l entreprise.',
+    createSuccess: 'Entreprise creee.',
+    updateSuccess: 'Statut entreprise mis a jour.',
+    updateError: 'Echec de mise a jour du statut.',
+    confirmSuspendTitle: 'Suspendre l entreprise',
+    confirmActivateTitle: 'Activer l entreprise',
+    confirmSuspendDescription: (name: string) => `${name} sera suspendue et la connexion des utilisateurs de cette entreprise sera bloquee.`,
+    confirmActivateDescription: (name: string) => `${name} sera reactivee. Les utilisateurs suspendus restent suspendus tant qu ils ne sont pas reactives.`,
   },
 } as const;
 
-function formatDate(dateStr: string, locale: 'en' | 'fr'): string {
-  const d = new Date(dateStr);
-  if (!Number.isFinite(d.getTime())) return '--';
-  return d.toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
+function MetricCard({ title, value, icon: Icon }: { title: string; value: number; icon: typeof Building2 }) {
+  return (
+    <Card className="border-border/70 bg-white/90 shadow-sm">
+      <CardContent className="flex items-center gap-3 py-5">
+        <div className="rounded-xl bg-primary/10 p-2.5">
+          <Icon className="size-5 text-primary" />
+        </div>
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{title}</p>
+          <p className="text-2xl font-semibold text-slate-950">{value}</p>
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 export default function AdminPage() {
   const router = useRouter();
   const { locale } = useLocale();
-  const t = adminMessages[locale];
+  const t = messages[locale];
 
-  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [stats, setStats] = useState<PlatformStats | null>(null);
+  const [companies, setCompanies] = useState<CompanyListItem[]>([]);
+  const [owners, setOwners] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [updatingId, setUpdatingId] = useState<string | null>(null);
-  const [confirmModal, setConfirmModal] = useState<{ userId: string; name: string; newStatus: 'active' | 'suspended' } | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [mutatingId, setMutatingId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'suspended'>('all');
-  const [verifiedFilter, setVerifiedFilter] = useState<'all' | 'verified' | 'unverified'>('all');
+  const [confirmCompany, setConfirmCompany] = useState<{ id: string; name: string; nextStatus: 'active' | 'suspended' } | null>(null);
+  const [form, setForm] = useState({ name: '', slug: '', ownerUserId: '' });
 
-  const fetchUsers = useCallback(async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      setError(null);
-      const res = await fetch('/api/admin/users', { cache: 'no-store' });
-      if (res.status === 403 || res.status === 401) {
+      const params = new URLSearchParams();
+      if (search.trim()) params.set('search', search.trim());
+      if (statusFilter !== 'all') params.set('status', statusFilter);
+
+      const [statsResponse, companiesResponse, usersResponse] = await Promise.all([
+        fetch('/api/admin/stats', { cache: 'no-store' }),
+        fetch(`/api/admin/companies?${params.toString()}`, { cache: 'no-store' }),
+        fetch('/api/admin/users', { cache: 'no-store' }),
+      ]);
+
+      if ([statsResponse, companiesResponse, usersResponse].some((response) => response.status === 401 || response.status === 403)) {
         router.replace('/admin/login');
         return;
       }
-      if (!res.ok) throw new Error();
-      const data = await res.json();
-      if (data.success) {
-        setUsers(data.users);
-      } else {
-        setError(data.message || t.loadError);
+
+      const statsPayload = (await statsResponse.json().catch(() => null)) as { success?: boolean; data?: PlatformStats } | null;
+      const companiesPayload = (await companiesResponse.json().catch(() => null)) as { success?: boolean; data?: { items?: CompanyListItem[] } } | null;
+      const usersPayload = (await usersResponse.json().catch(() => null)) as { success?: boolean; users?: AdminUser[] } | null;
+
+      if (!statsResponse.ok || !statsPayload?.success || !statsPayload.data) {
+        throw new Error(t.loadError);
       }
-    } catch {
-      setError(t.loadError);
+
+      setStats(statsPayload.data);
+      setCompanies(companiesPayload?.data?.items || []);
+      setOwners((usersPayload?.users || []).filter((user) => user.account_status === 'active'));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t.loadError);
+      setStats(null);
+      setCompanies([]);
+      setOwners([]);
     } finally {
       setLoading(false);
     }
-  }, [t.loadError, router]);
+  }, [router, search, statusFilter, t.loadError]);
 
   useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
+    void loadData();
+  }, [loadData]);
 
-  const filteredUsers = useMemo(() => {
-    const q = search.toLowerCase().trim();
-    return users.filter((u) => {
-      if (q && !u.name.toLowerCase().includes(q) && !u.email.toLowerCase().includes(q)) return false;
-      if (statusFilter !== 'all' && u.account_status !== statusFilter) return false;
-      if (verifiedFilter === 'verified' && !u.isEmailVerified) return false;
-      if (verifiedFilter === 'unverified' && u.isEmailVerified) return false;
-      return true;
-    });
-  }, [users, search, statusFilter, verifiedFilter]);
+  const moduleBadges = useMemo(() => {
+    if (!stats?.moduleUsage) return [];
+    return [
+      ['expenses', stats.moduleUsage.expenses || 0],
+      ['tickets', stats.moduleUsage.tickets || 0],
+      ['financialDashboard', stats.moduleUsage.financialDashboard || 0],
+      ['accountantPortal', stats.moduleUsage.accountantPortal || 0],
+      ['exports', stats.moduleUsage.exports || 0],
+      ['advancedRoles', stats.moduleUsage.advancedRoles || 0],
+    ] as const;
+  }, [stats]);
 
-  function requestStatusChange(userId: string, name: string, newStatus: 'active' | 'suspended') {
-    setConfirmModal({ userId, name, newStatus });
-  }
-
-  async function handleStatusChange() {
-    if (!confirmModal) return;
-    const { userId, newStatus } = confirmModal;
-    setConfirmModal(null);
-    setUpdatingId(userId);
+  async function handleCreateCompany(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setCreating(true);
     try {
-      const res = await fetch('/api/admin/users', {
-        method: 'PATCH',
+      const response = await fetch('/api/admin/companies', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, account_status: newStatus }),
+        body: JSON.stringify(form),
       });
-      if (res.status === 403 || res.status === 401) {
-        router.replace('/admin/login');
-        return;
+      const payload = (await response.json().catch(() => null)) as { success?: boolean; message?: string } | null;
+      if (!response.ok || !payload?.success) {
+        throw new Error(payload?.message || t.createError);
       }
-      const data = await res.json();
-      if (data.success) {
-        toast.success(t.updateSuccess);
-        setUsers((prev) => prev.map((u) => (u._id === userId ? { ...u, account_status: newStatus } : u)));
-      } else {
-        toast.error(data.message || t.updateError);
-      }
-    } catch {
-      toast.error(t.updateError);
+      toast.success(t.createSuccess);
+      setForm({ name: '', slug: '', ownerUserId: '' });
+      await loadData();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t.createError);
     } finally {
-      setUpdatingId(null);
+      setCreating(false);
     }
   }
 
-  function clearFilters() {
-    setSearch('');
-    setStatusFilter('all');
-    setVerifiedFilter('all');
+  async function updateCompanyStatus() {
+    if (!confirmCompany) return;
+    const current = confirmCompany;
+    setConfirmCompany(null);
+    setMutatingId(current.id);
+    try {
+      const response = await fetch(`/api/admin/companies/${current.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: current.nextStatus }),
+      });
+      const payload = (await response.json().catch(() => null)) as { success?: boolean; message?: string } | null;
+      if (!response.ok || !payload?.success) {
+        throw new Error(payload?.message || t.updateError);
+      }
+      toast.success(t.updateSuccess);
+      await loadData();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t.updateError);
+    } finally {
+      setMutatingId(null);
+    }
   }
-
-  const isSuspendAction = confirmModal?.newStatus === 'suspended';
-
-  const activeCount = users.filter((u) => u.account_status === 'active').length;
-  const suspendedCount = users.filter((u) => u.account_status === 'suspended').length;
-  const hasActiveFilters = search !== '' || statusFilter !== 'all' || verifiedFilter !== 'all';
 
   return (
     <>
-      {/* Confirm modal */}
-      <Dialog open={!!confirmModal} onOpenChange={(open) => { if (!open) setConfirmModal(null); }}>
-        <DialogContent className="w-[calc(100vw-2rem)] max-w-md rounded-xl sm:rounded-xl">
-          <DialogHeader className="gap-3">
-            <div className={`mx-auto flex h-12 w-12 items-center justify-center rounded-full ${isSuspendAction ? 'bg-red-100 dark:bg-red-950/40' : 'bg-emerald-100 dark:bg-emerald-950/40'}`}>
-              {isSuspendAction
-                ? <ShieldOff className="size-6 text-red-600 dark:text-red-400" strokeWidth={1.75} />
-                : <ShieldCheck className="size-6 text-emerald-600 dark:text-emerald-400" strokeWidth={1.75} />}
-            </div>
-            <DialogTitle className="text-center text-base">
-              {isSuspendAction ? t.confirmSuspendTitle : t.confirmActivateTitle}
-            </DialogTitle>
-            <DialogDescription className="text-center text-sm leading-relaxed">
-              {confirmModal
-                ? isSuspendAction
-                  ? t.confirmSuspendDesc(confirmModal.name)
-                  : t.confirmActivateDesc(confirmModal.name)
+      <AlertDialog open={Boolean(confirmCompany)} onOpenChange={(open) => { if (!open) setConfirmCompany(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {confirmCompany?.nextStatus === 'suspended' ? t.confirmSuspendTitle : t.confirmActivateTitle}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmCompany
+                ? confirmCompany.nextStatus === 'suspended'
+                  ? t.confirmSuspendDescription(confirmCompany.name)
+                  : t.confirmActivateDescription(confirmCompany.name)
                 : null}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="mt-2 flex-col-reverse gap-2 sm:flex-row sm:gap-2">
-            <Button
-              variant="outline"
-              className="w-full sm:w-auto"
-              onClick={() => setConfirmModal(null)}
-            >
-              {t.cancel}
-            </Button>
-            <Button
-              className={`w-full sm:w-auto ${isSuspendAction ? 'bg-red-600 text-white hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600' : 'bg-emerald-600 text-white hover:bg-emerald-700 dark:bg-emerald-700 dark:hover:bg-emerald-600'}`}
-              onClick={handleStatusChange}
-            >
-              {isSuspendAction ? t.confirmSuspend : t.confirmActivate}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void updateCompanyStatus()}>Proceed</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
-    <div className="space-y-6">
-      {/* Page header */}
-      <div className="flex flex-col gap-3 border-b border-border/60 pb-5 sm:flex-row sm:items-center sm:justify-between">
-        <div className="space-y-0.5">
-          <div className="flex items-center gap-2">
-            <ShieldAlert className="size-5 text-primary" strokeWidth={1.75} />
-            <h1 className="text-xl font-bold tracking-tight">{t.heading}</h1>
+      <div className="space-y-6">
+        <div className="flex flex-col gap-3 border-b border-border/60 pb-5 lg:flex-row lg:items-end lg:justify-between">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <ShieldAlert className="size-5 text-primary" />
+              <h1 className="text-2xl font-bold tracking-tight">{t.heading}</h1>
+            </div>
+            <p className="text-sm text-muted-foreground">{t.subtitle}</p>
           </div>
-          <p className="text-sm text-muted-foreground">{t.subtitle}</p>
+          <Button variant="outline" onClick={() => void loadData()} disabled={loading}>
+            <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
+            {t.refresh}
+          </Button>
         </div>
-        <Button variant="outline" size="sm" onClick={fetchUsers} disabled={loading} className="w-full gap-1.5 sm:w-auto">
-          <RefreshCw className={`size-3.5 ${loading ? 'animate-spin' : ''}`} />
-          {t.refresh}
-        </Button>
-      </div>
 
-      {/* Error banner */}
-      {error && !loading && (
-        <Card className="border-destructive/30 bg-destructive/5">
-          <CardContent className="flex items-center gap-3 py-4">
-            <XCircle className="size-5 shrink-0 text-destructive" />
-            <p className="text-sm font-medium text-destructive">{error}</p>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Stats row */}
-      <div className="grid grid-cols-3 gap-3">
-        <Card className="border-2 border-primary/20">
-          <CardContent className="flex items-center gap-3 py-4">
-            <div className="hidden rounded-lg bg-primary/10 p-2 sm:flex">
-              <Users className="size-4 text-primary" strokeWidth={1.75} />
-            </div>
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">{t.totalUsers}</p>
-              {loading ? <Skeleton className="mt-1 h-7 w-8" /> : <p className="text-xl font-bold text-primary">{users.length}</p>}
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-2 border-emerald-400/25">
-          <CardContent className="flex items-center gap-3 py-4">
-            <div className="hidden rounded-lg bg-emerald-100 p-2 dark:bg-emerald-900/40 sm:flex">
-              <ShieldCheck className="size-4 text-emerald-600 dark:text-emerald-400" strokeWidth={1.75} />
-            </div>
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">{t.activeUsers}</p>
-              {loading ? <Skeleton className="mt-1 h-7 w-8" /> : <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">{activeCount}</p>}
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-2 border-red-400/25">
-          <CardContent className="flex items-center gap-3 py-4">
-            <div className="hidden rounded-lg bg-red-100 p-2 dark:bg-red-900/40 sm:flex">
-              <ShieldOff className="size-4 text-red-600 dark:text-red-400" strokeWidth={1.75} />
-            </div>
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">{t.suspendedUsers}</p>
-              {loading ? <Skeleton className="mt-1 h-7 w-8" /> : <p className="text-xl font-bold text-red-600 dark:text-red-400">{suspendedCount}</p>}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Users table */}
-      <Card className="overflow-hidden pt-0">
-        <CardHeader className="border-b bg-muted/30 px-5 py-4">
-          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-            <CardTitle className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
-              {t.userList}
-            </CardTitle>
-            {!loading && (
-              <span className="text-xs text-muted-foreground">{t.showingOf(filteredUsers.length, users.length)}</span>
-            )}
+        {loading && !stats ? (
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, index) => <Skeleton key={index} className="h-28 rounded-xl" />)}
           </div>
-
-          {/* Search + Filters */}
-          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
-            <div className="relative flex-1">
-              <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder={t.searchPlaceholder}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="h-8 pl-8 text-sm"
-              />
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
-                <SelectTrigger className="h-8 w-full gap-1 text-xs sm:w-38">
-                  <Filter className="size-3 text-muted-foreground" />
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{t.filterAll}</SelectItem>
-                  <SelectItem value="active">{t.filterActive}</SelectItem>
-                  <SelectItem value="suspended">{t.filterSuspended}</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={verifiedFilter} onValueChange={(v) => setVerifiedFilter(v as typeof verifiedFilter)}>
-                <SelectTrigger className="h-8 w-full gap-1 text-xs sm:w-38">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{t.verifiedAll}</SelectItem>
-                  <SelectItem value="verified">{t.verifiedOnly}</SelectItem>
-                  <SelectItem value="unverified">{t.unverifiedOnly}</SelectItem>
-                </SelectContent>
-              </Select>
-              {hasActiveFilters && (
-                <Button variant="ghost" size="sm" className="h-8 gap-1 px-2 text-xs" onClick={clearFilters}>
-                  <XCircle className="size-3.5" />
-                  {t.clearFilters}
-                </Button>
-              )}
-            </div>
+        ) : stats ? (
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <MetricCard title={t.totalCompanies} value={stats.companyCount} icon={Building2} />
+            <MetricCard title={t.activeCompanies} value={stats.activeCompanies} icon={BarChart3} />
+            <MetricCard title={t.activeUsers} value={stats.activeUsers} icon={Users} />
+            <MetricCard title={t.activeAccountants} value={stats.activeAccountants} icon={UserRound} />
           </div>
-        </CardHeader>
+        ) : null}
 
-        <CardContent className="p-0">
-          {loading ? (
-            <div className="divide-y">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="flex items-center gap-4 px-5 py-4">
-                  <Skeleton className="h-9 w-9 shrink-0 rounded-full" />
-                  <div className="flex-1 space-y-2">
-                    <Skeleton className="h-4 w-36" />
-                    <Skeleton className="h-3 w-48" />
-                  </div>
-                  <Skeleton className="h-7 w-20" />
+        <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+          <Card className="border-border/70 bg-white/90 shadow-sm">
+            <CardHeader>
+              <CardTitle>{t.createCompany}</CardTitle>
+              <CardDescription>{t.subtitle}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form className="grid gap-3 md:grid-cols-2" onSubmit={handleCreateCompany}>
+                <div className="space-y-1.5">
+                  <Label>{t.name}</Label>
+                  <Input value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} required />
                 </div>
-              ))}
-            </div>
-          ) : filteredUsers.length === 0 ? (
-            <div className="flex flex-col items-center gap-3 py-14 text-muted-foreground">
-              <Users className="size-9 opacity-30" />
-              <p className="text-sm">{hasActiveFilters ? t.noResults : t.loadError}</p>
-              {hasActiveFilters && (
-                <Button variant="ghost" size="sm" className="text-xs" onClick={clearFilters}>
-                  {t.clearFilters}
-                </Button>
-              )}
-            </div>
-          ) : (
-            <>
-              {/* Desktop table */}
-              <div className="hidden overflow-x-auto lg:block">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b bg-muted/20">
-                      <th className="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{t.name}</th>
-                      <th className="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{t.email}</th>
-                      <th className="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{t.status}</th>
-                      <th className="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{t.emailVerified}</th>
-                      <th className="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{t.joined}</th>
-                      <th className="px-5 py-3 text-right text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{t.actions}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {filteredUsers.map((u) => (
-                      <tr key={u._id} className={`transition-colors hover:bg-muted/20 ${u.account_status === 'suspended' ? 'bg-red-50/30 dark:bg-red-950/10' : ''}`}>
-                        <td className="px-5 py-3.5">
-                          <div className="flex items-center gap-2.5">
-                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-                              {u.name.charAt(0).toUpperCase()}
-                            </div>
-                            <span className="font-medium text-foreground">{u.name}</span>
-                          </div>
-                        </td>
-                        <td className="px-5 py-3.5 text-muted-foreground">{u.email}</td>
-                        <td className="px-5 py-3.5">
-                          <Badge variant="outline" className={`text-[10px] ${u.account_status === 'active' ? 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400' : 'border-red-300 bg-red-50 text-red-700 dark:border-red-700 dark:bg-red-950/30 dark:text-red-400'}`}>
-                            {u.account_status === 'active' ? t.active : t.suspended}
-                          </Badge>
-                        </td>
-                        <td className="px-5 py-3.5">
-                          {u.isEmailVerified
-                            ? <CheckCircle2 className="size-4 text-emerald-500" />
-                            : <XCircle className="size-4 text-muted-foreground/40" />}
-                        </td>
-                        <td className="px-5 py-3.5 text-xs text-muted-foreground">{formatDate(u.createdAt, locale)}</td>
-                        <td className="px-5 py-3.5 text-right">
-                          {u.account_status === 'active' ? (
-                            <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 border-red-300 text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-950/40" disabled={updatingId === u._id} onClick={() => requestStatusChange(u._id, u.name, 'suspended')}>
-                              {updatingId === u._id ? <Loader2 className="size-3.5 animate-spin" /> : <ShieldOff className="size-3.5" strokeWidth={2} />}
-                              {t.suspend}
-                            </Button>
-                          ) : (
-                            <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 border-emerald-300 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 dark:border-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-950/40" disabled={updatingId === u._id} onClick={() => requestStatusChange(u._id, u.name, 'active')}>
-                              {updatingId === u._id ? <Loader2 className="size-3.5 animate-spin" /> : <ShieldCheck className="size-3.5" strokeWidth={2} />}
-                              {t.activate}
-                            </Button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                <div className="space-y-1.5">
+                  <Label>{t.slug}</Label>
+                  <Input value={form.slug} onChange={(event) => setForm((current) => ({ ...current, slug: event.target.value.toLowerCase() }))} required />
+                </div>
+                <div className="space-y-1.5 md:col-span-2">
+                  <Label>{t.owner}</Label>
+                  <Select value={form.ownerUserId} onValueChange={(value) => setForm((current) => ({ ...current, ownerUserId: value }))}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={t.owner} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {owners.map((user) => (
+                        <SelectItem key={user._id} value={user._id}>{user.name} - {user.email}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="md:col-span-2">
+                  <Button type="submit" disabled={creating || !form.ownerUserId}>
+                    {creating ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+                    {t.create}
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
 
-              {/* Mobile cards */}
-              <div className="divide-y lg:hidden">
-                {filteredUsers.map((u) => (
-                  <div key={u._id} className={`px-4 py-4 ${u.account_status === 'suspended' ? 'bg-red-50/30 dark:bg-red-950/10' : ''}`}>
-                    <div className="flex items-start gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
-                        {u.name.charAt(0).toUpperCase()}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-foreground">{u.name}</p>
-                        <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-                          <Mail className="size-3 shrink-0" />
-                          <span className="truncate">{u.email}</span>
-                        </div>
-                        <div className="mt-2 flex flex-wrap items-center gap-2">
-                          <Badge variant="outline" className={`text-[10px] ${u.account_status === 'active' ? 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400' : 'border-red-300 bg-red-50 text-red-700 dark:border-red-700 dark:bg-red-950/30 dark:text-red-400'}`}>
-                            {u.account_status === 'active' ? t.active : t.suspended}
-                          </Badge>
-                          <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                            {u.isEmailVerified ? <CheckCircle2 className="size-3 text-emerald-500" /> : <XCircle className="size-3 text-muted-foreground/40" />}
-                            {u.isEmailVerified ? t.yes : t.no}
-                          </span>
-                          <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                            <Calendar className="size-3" />
-                            {formatDate(u.createdAt, locale)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="mt-3 flex justify-end">
-                      {u.account_status === 'active' ? (
-                        <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 border-red-300 text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-950/40" disabled={updatingId === u._id} onClick={() => requestStatusChange(u._id, u.name, 'suspended')}>
-                          {updatingId === u._id ? <Loader2 className="size-3.5 animate-spin" /> : <ShieldOff className="size-3.5" strokeWidth={2} />}
-                          {t.suspend}
-                        </Button>
-                      ) : (
-                        <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 border-emerald-300 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 dark:border-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-950/40" disabled={updatingId === u._id} onClick={() => requestStatusChange(u._id, u.name, 'active')}>
-                          {updatingId === u._id ? <Loader2 className="size-3.5 animate-spin" /> : <ShieldCheck className="size-3.5" strokeWidth={2} />}
-                          {t.activate}
-                        </Button>
-                      )}
-                    </div>
+          <Card className="border-border/70 bg-white/90 shadow-sm">
+            <CardHeader>
+              <CardTitle>{t.moduleUsage}</CardTitle>
+              <CardDescription>{t.recentAuditEvents}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-wrap gap-2">
+                {moduleBadges.map(([key, value]) => (
+                  <Badge key={key} variant="secondary">{key}: {value}</Badge>
+                ))}
+              </div>
+              <div className="space-y-3">
+                {stats?.recentAuditEvents?.map((event) => (
+                  <div key={event._id} className="rounded-lg border border-border/60 bg-slate-50/70 p-3 text-sm">
+                    <div className="font-medium text-slate-900">{event.entityType} / {event.action}</div>
+                    <div className="text-muted-foreground">{event.performedBy?.name || event.performedBy?.email || 'System'}</div>
                   </div>
                 ))}
               </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <Card className="border-border/70 bg-white/90 shadow-sm">
+          <CardHeader className="gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <CardTitle>{t.companies}</CardTitle>
+              <CardDescription>{t.subtitle}</CardDescription>
+            </div>
+            <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_180px] lg:w-120">
+              <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t.search} />
+              <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as 'all' | 'active' | 'suspended')}>
+                <SelectTrigger>
+                  <SelectValue placeholder={t.status} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t.all}</SelectItem>
+                  <SelectItem value="active">{t.active}</SelectItem>
+                  <SelectItem value="suspended">{t.suspended}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {loading ? (
+              <div className="space-y-3">
+                {Array.from({ length: 4 }).map((_, index) => <Skeleton key={index} className="h-24 rounded-xl" />)}
+              </div>
+            ) : companies.length > 0 ? (
+              companies.map((company) => (
+                <div key={company._id} className="rounded-2xl border border-border/70 bg-slate-50/70 p-4">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h2 className="text-lg font-semibold text-slate-950">{company.name}</h2>
+                        <Badge variant={company.status === 'active' ? 'default' : 'destructive'}>{company.status}</Badge>
+                        <Badge variant="outline">{company.slug}</Badge>
+                      </div>
+                      <div className="grid gap-1 text-sm text-muted-foreground md:grid-cols-3">
+                        <span>{t.owner}: {company.ownerUserId?.name || company.ownerUserId?.email || '-'}</span>
+                        <span>{t.users}: {company.userSummary.totalUsers}</span>
+                        <span>{t.accountants}: {company.userSummary.accountantUsers}</span>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {Object.entries(company.featureFlags).map(([key, enabled]) => (
+                          <Badge key={key} variant={enabled ? 'secondary' : 'outline'}>{key}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button asChild variant="outline">
+                        <Link href={`/admin/companies/${company._id}`}>{t.view}</Link>
+                      </Button>
+                      <Button
+                        variant={company.status === 'active' ? 'destructive' : 'default'}
+                        disabled={mutatingId === company._id}
+                        onClick={() => setConfirmCompany({
+                          id: company._id,
+                          name: company.name,
+                          nextStatus: company.status === 'active' ? 'suspended' : 'active',
+                        })}
+                      >
+                        {mutatingId === company._id ? <Loader2 className="size-4 animate-spin" /> : null}
+                        {company.status === 'active' ? t.suspend : t.activate}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-muted-foreground">{t.loadError}</p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </>
   );
 }

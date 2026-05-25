@@ -16,6 +16,8 @@ import { canManageTargetRole, requirePermission } from "@/lib/permissions";
 import { sendInvitationEmail } from "@/emails/auth/sendInvitationEmail";
 import { createI18nKey as i18nKey } from "@/lib/i18n/messages";
 import { resolveLocaleFromRequest } from "@/lib/i18n/locale";
+import { createConnectionLog } from "@/db/repository/connection-log";
+import { getClientIp } from "@/utils/api/request";
 
 function getAppBaseUrl(request: NextRequest) {
   const configured = process.env.NEXT_PUBLIC_APP_URL;
@@ -228,6 +230,17 @@ export async function PATCH(request: NextRequest) {
       account_status: validation.data.account_status,
       revokeAccess: validation.data.revokeAccess,
     });
+
+    if (result.success && validation.data.revokeAccess) {
+      void createConnectionLog({
+        userId: validation.data.userId,
+        companyId: me.user.companyId,
+        role: target.role,
+        eventType: 'revoke_access',
+        ipAddress: getClientIp(request),
+        userAgent: request.headers.get('user-agent'),
+      });
+    }
 
     return NextResponse.json(result, { status: result.success ? 200 : 400 });
   } catch (error) {

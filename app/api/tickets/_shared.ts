@@ -5,6 +5,8 @@ import {
   getTicketPermissionState,
   type TicketPermission,
 } from "@/lib/tickets/access";
+import { requireCompanyFeature } from "@/lib/company-features";
+import { requireModulePermission } from "@/lib/role-matrix";
 import getMe from "@/utils/middlewares/useMe";
 
 export type TicketRouteContext = {
@@ -42,6 +44,14 @@ export async function authorizeTicketRoute(permission: TicketPermission): Promis
     };
   }
 
+  const featureCheck = await requireCompanyFeature(me.user.companyId, "tickets");
+  if (!featureCheck.success) {
+    return {
+      success: false,
+      response: NextResponse.json({ success: false, message: featureCheck.message }, { status: featureCheck.status }),
+    };
+  }
+
   const permissionCheck = checkTicketPermission(me.user.role, permission);
   if (!permissionCheck.success) {
     return {
@@ -50,6 +60,19 @@ export async function authorizeTicketRoute(permission: TicketPermission): Promis
         { success: false, message: permissionCheck.message },
         { status: permissionCheck.status }
       ),
+    };
+  }
+
+  const matrixCheck = await requireModulePermission({
+    companyId: me.user.companyId,
+    role: me.user.role,
+    moduleKey: "tickets",
+    action: permission === "view" ? "view" : "manage",
+  });
+  if (!matrixCheck.success) {
+    return {
+      success: false,
+      response: NextResponse.json({ success: false, message: matrixCheck.message }, { status: matrixCheck.status }),
     };
   }
 

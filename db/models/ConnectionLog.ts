@@ -7,6 +7,9 @@ const CONNECTION_LOG_EVENT_TYPES = [
   "portal_login_success",
   "portal_login_failed",
   "force_logout",
+  "revoke_access",
+  "impersonation_start",
+  "impersonation_stop",
 ] as const;
 
 const ConnectionLogSchema = new mongoose.Schema(

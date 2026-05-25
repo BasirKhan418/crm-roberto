@@ -4,7 +4,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  UsersRound,
+  Building2,
+  ClipboardList,
   LogOut,
   ShieldCheck,
 } from 'lucide-react';
@@ -23,31 +24,34 @@ import {
 import { useLocale } from '@/components/providers/locale-provider';
 
 const adminNavItems = [
-  { key: 'users', url: '/admin', icon: <UsersRound /> },
+  { key: 'dashboard', url: '/admin', icon: <Building2 /> },
+  { key: 'users', url: '/admin/logs', icon: <ClipboardList /> },
 ] as const;
 
 const sidebarMessages = {
   en: {
     brand: 'Roby',
-    tagline: 'Admin Panel',
+    tagline: 'Super Admin',
     management: 'Management',
-    users: 'User Management',
+    dashboard: 'Platform Dashboard',
+    users: 'Logs',
     session: 'Session',
     logout: 'Logout',
   },
   fr: {
     brand: 'Roby',
-    tagline: 'Panneau Admin',
+    tagline: 'Super Admin',
     management: 'Gestion',
-    users: 'Gestion des utilisateurs',
+    dashboard: 'Tableau plateforme',
+    users: 'Logs',
     session: 'Session',
     logout: 'Déconnexion',
   },
 } as const;
 
 const navLabels = {
-  en: { users: 'User Management' },
-  fr: { users: 'Gestion des utilisateurs' },
+  en: { dashboard: 'Platform Dashboard', users: 'Logs' },
+  fr: { dashboard: 'Tableau plateforme', users: 'Logs' },
 } as const;
 
 export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
@@ -93,7 +97,7 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
               <SidebarMenuItem key={item.key}>
                 <SidebarMenuButton
                   asChild
-                  isActive={pathname === item.url}
+                  isActive={pathname === item.url || pathname.startsWith(`${item.url}/`)}
                   className="h-10 bg-transparent text-(--color-text-secondary) hover:bg-transparent hover:text-(--color-text-secondary) data-[active=true]:bg-(--color-background-info) data-[active=true]:text-(--color-text-info)"
                 >
                   <Link href={item.url}>

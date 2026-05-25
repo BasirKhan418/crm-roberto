@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getFinancialSmartAlertsData } from "@/db/repository/financial-dashboard";
+import { requireCompanyFeature } from "@/lib/company-features";
 import getMe from "@/utils/middlewares/useMe";
 
 export async function GET() {
@@ -9,6 +10,11 @@ export async function GET() {
 
     if (!me.success || !me.user) {
       return NextResponse.json({ success: false, message: me.message || "Unauthorized" }, { status: 401 });
+    }
+
+    const featureCheck = await requireCompanyFeature(me.user.companyId, "financialDashboard");
+    if (!featureCheck.success) {
+      return NextResponse.json({ success: false, message: featureCheck.message }, { status: featureCheck.status });
     }
 
     const result = await getFinancialSmartAlertsData({

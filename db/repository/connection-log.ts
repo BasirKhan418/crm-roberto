@@ -9,7 +9,10 @@ export type ConnectionLogEventType =
   | "logout"
   | "portal_login_success"
   | "portal_login_failed"
-  | "force_logout";
+  | "force_logout"
+  | "revoke_access"
+  | "impersonation_start"
+  | "impersonation_stop";
 
 type CreateConnectionLogParams = {
   userId?: string | null;

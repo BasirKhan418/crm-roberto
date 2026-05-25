@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/sidebar"
 import { Building2Icon, FileTextIcon, LayoutDashboardIcon, MessageSquareIcon, NotebookPenIcon, PackageSearchIcon, ReceiptTextIcon, SettingsIcon, TruckIcon, UsersIcon, WalletCardsIcon } from "lucide-react"
 import { useLocale } from "@/components/providers/locale-provider"
+import { useAuthMe } from "@/hooks/useAuthMe"
 import { useSidebarBadges } from "@/hooks/useSidebarBadges"
 
 type NavKey =
@@ -132,7 +133,20 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname()
   const { locale } = useLocale()
   const t = sidebarMessages[locale]
+  const { user } = useAuthMe()
   const { badges } = useSidebarBadges()
+  const visibleNavItems = navItems.filter((item) => {
+    if (item.key === "dashboard") {
+      return user?.featureFlags?.financialDashboard !== false
+    }
+    if (item.key === "tickets") {
+      return user?.featureFlags?.tickets !== false
+    }
+    if (item.key === "expenses") {
+      return user?.featureFlags?.expenses !== false
+    }
+    return true
+  })
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>
@@ -161,7 +175,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <SidebarGroup className="pt-1">
           <SidebarGroupLabel>{t.workspace}</SidebarGroupLabel>
           <SidebarMenu className="px-2">
-            {navItems.map((item) => {
+            {visibleNavItems.map((item) => {
               const isActive = pathname === item.url || pathname.startsWith(`${item.url}/`)
 
               let badgeNode: React.ReactNode = null

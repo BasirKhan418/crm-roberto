@@ -1,5 +1,6 @@
 'use client';
 
+import type { CompanyFeatureFlags } from '@/lib/company-features';
 import { useEffect, useState } from 'react';
 
 interface AuthUser {
@@ -10,6 +11,7 @@ interface AuthUser {
   isOnboardingComplete?: boolean;
   role?: string;
   companyId?: string | null;
+  featureFlags?: CompanyFeatureFlags;
 }
 
 interface UseAuthMeResult {

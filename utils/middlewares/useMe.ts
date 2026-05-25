@@ -1,3 +1,4 @@
+import type { CompanyFeatureFlags } from '@/lib/company-features';
 import checkMe from '@/utils/middlewares/checkMe';
 
 export interface AuthorizedUser {
@@ -9,6 +10,7 @@ export interface AuthorizedUser {
   isEmailVerified?: boolean;
   role?: string;
   companyId?: string | null;
+  featureFlags?: CompanyFeatureFlags;
 }
 
 interface UseMeResult {

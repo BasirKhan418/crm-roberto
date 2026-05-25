@@ -20,7 +20,7 @@ export function GlobalTicketCreate({ trigger = 'button' }: GlobalTicketCreatePro
   const { locale } = useLocale();
   const { user, loading } = useAuthMe();
 
-  if (loading || !hasPermission(user?.role, 'tickets.manage')) {
+  if (loading || user?.featureFlags?.tickets === false || !hasPermission(user?.role, 'tickets.manage')) {
     return null;
   }
 

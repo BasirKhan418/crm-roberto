@@ -3,6 +3,7 @@ import jwt, { JsonWebTokenError, NotBeforeError, TokenExpiredError } from "jsonw
 
 import ConnectDb from "@/db/connectDb";
 import User from "@/db/models/User";
+import { requireCompanyFeature } from "@/lib/company-features";
 import { createI18nKey as i18nKey } from "@/lib/i18n/messages";
 
 type AccountantJwtPayload = {
@@ -95,6 +96,11 @@ export default async function getAccountantSession(): Promise<AccountantSessionR
 
       if (user.role !== "external_accountant" || !user.companyId) {
         return { success: false, message: "Forbidden" };
+      }
+
+      const featureCheck = await requireCompanyFeature(String(user.companyId), "accountantPortal");
+      if (!featureCheck.success) {
+        return { success: false, message: featureCheck.message };
       }
 
       return {
