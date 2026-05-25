@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { loginAccountantUser } from "@/db/repository/auth";
 import { createConnectionLog } from "@/db/repository/connection-log";
 import { signAuthToken } from "@/lib/auth-session";
+import { requireCompanyFeature } from "@/lib/company-features";
 import { createI18nKey as i18nKey } from "@/lib/i18n/messages";
 import { buildValidationError } from "@/utils/api/validation";
 import { getClientIp } from "@/utils/api/request";
@@ -30,6 +31,15 @@ export async function POST(request: NextRequest) {
       });
 
       return NextResponse.json(result, { status: 401 });
+    }
+
+    const featureCheck = await requireCompanyFeature(result.user.companyId, "accountantPortal");
+    if (!featureCheck.success) {
+      cookieStore.delete("accountant-token");
+      return NextResponse.json(
+        { success: false, message: featureCheck.message },
+        { status: featureCheck.status }
+      );
     }
 
     const token = signAuthToken({
