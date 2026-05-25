@@ -8,13 +8,28 @@ interface TokenPayload {
   isOnboardingComplete?: boolean;
   isEmailVerified?: boolean;
   kind?: string;
+  role?: string;
 }
 
 const bypassRoutePrefixes = ['/sign'];
-const protectedRoutePrefixes = ['/dashboard', '/clients', '/suppliers', '/notes', '/follow-up-tracking', '/profile', '/products', '/quotes', '/invoices', '/catalogue', '/settings'];
+const protectedRoutePrefixes = [
+  '/dashboard',
+  '/clients',
+  '/suppliers',
+  '/notes',
+  '/follow-up-tracking',
+  '/profile',
+  '/products',
+  '/quotes',
+  '/invoices',
+  '/expenses',
+  '/tickets',
+  '/catalogue',
+  '/settings',
+];
 const adminProtectedPrefixes = ['/admin'];
 const adminPublicRoutes = ['/admin/login'];
-const publicRoutes = ['/', '/login', '/signup', '/forgot-password'];
+const publicRoutes = ['/', '/login', '/signup', '/workspace-setup', '/forgot-password'];
 
 function matchesRoutePrefix(pathname: string, route: string): boolean {
   return pathname === route || pathname.startsWith(`${route}/`);
@@ -28,6 +43,10 @@ async function verifyToken(token: string): Promise<TokenPayload | null> {
   } catch {
     return null;
   }
+}
+
+function isExternalAccountant(payload: TokenPayload | null): boolean {
+  return payload?.role === 'external_accountant';
 }
 
 export default async function proxy(request: NextRequest) {
@@ -64,6 +83,11 @@ export default async function proxy(request: NextRequest) {
     if (!payload) {
       return NextResponse.redirect(new URL('/login', request.url));
     }
+    if (isExternalAccountant(payload)) {
+      const response = NextResponse.redirect(new URL('/login', request.url));
+      response.cookies.delete('token');
+      return response;
+    }
     if(payload.isEmailVerified && !payload.isOnboardingComplete){
       return NextResponse.redirect(new URL('/onboarding', request.url));
     }
@@ -73,6 +97,11 @@ export default async function proxy(request: NextRequest) {
   if (publicRoutes.includes(pathname)) {
     const payload = token ? await verifyToken(token) : null;
     if (payload) {
+      if (isExternalAccountant(payload)) {
+        const response = NextResponse.next();
+        response.cookies.delete('token');
+        return response;
+      }
       if (payload.isEmailVerified && !payload.isOnboardingComplete) {
         return NextResponse.redirect(new URL('/onboarding', request.url));
       }
@@ -85,6 +114,11 @@ export default async function proxy(request: NextRequest) {
     const payload = token ? await verifyToken(token) : null;
     if (!payload) {
       return NextResponse.redirect(new URL('/login', request.url));
+    }
+    if (isExternalAccountant(payload)) {
+      const response = NextResponse.redirect(new URL('/login', request.url));
+      response.cookies.delete('token');
+      return response;
     }
     if (payload.isOnboardingComplete) {
       return NextResponse.redirect(new URL('/dashboard', request.url));

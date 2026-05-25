@@ -27,15 +27,19 @@ export async function GET(request: NextRequest) {
           ? 'rejected'
           : undefined;
 
-    const sort: 'date' | 'amount' =
-      sortParam === 'amount'
-        ? 'amount'
-        : 'date';
+    const sort: 'number_desc' | 'number_asc' | 'date' | 'amount' =
+      sortParam === 'number_asc'
+        ? 'number_asc'
+        : sortParam === 'date'
+          ? 'date'
+          : sortParam === 'amount'
+            ? 'amount'
+            : 'number_desc';
     const page = Number.isFinite(pageParam) ? Math.max(1, pageParam) : 1;
     const limit = Number.isFinite(limitParam) ? Math.max(1, Math.min(100, limitParam)) : 10;
 
     const result = await listQuotes(me.user.id, {
-      status: status,
+      status: statusParam === 'pending' ? 'pending' : status,
       search: searchParam,
       sort,
       page,

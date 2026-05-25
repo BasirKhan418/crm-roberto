@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { ArrowRight, Loader2, ArrowLeft, Check, LayoutDashboard, BadgeCheck, BuildingIcon, UploadIcon, CheckCircle2Icon, ImageIcon } from "lucide-react"
+import { ArrowRight, Loader2, ArrowLeft, Check, BadgeCheck, BuildingIcon, UploadIcon, CheckCircle2Icon, ImageIcon } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import Image from "next/image"
 
@@ -324,8 +324,7 @@ export default function IdentitySetupPage() {
       })
 
       if (!uploadRes.ok) {
-        const errText = await uploadRes.text().catch(() => uploadRes.status.toString())
-        throw new Error(`S3 PUT failed (${uploadRes.status}): ${errText}`)
+        throw new Error(t.step2UploadFailed)
       }
 
       const updateRes = await fetch("/api/cprofile/logo", {
@@ -343,8 +342,7 @@ export default function IdentitySetupPage() {
       }
 
       setLogoUrl(presignJson.fileUrl)
-    } catch (err) {
-      console.error('[Logo upload error]', err)
+    } catch {
       toast.error(t.step2UploadFailed)
     } finally {
       setLogoUploading(false)
@@ -375,11 +373,8 @@ export default function IdentitySetupPage() {
 
         <div className="relative z-10 flex flex-col h-full p-12 xl:p-14">
 
-          <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-white/10 border border-white/15 p-2.5 backdrop-blur-sm">
-              <LayoutDashboard className="h-4 w-4 text-white" />
-            </div>
-            <p className="text-[13px] font-bold tracking-widest text-white/90 uppercase">CRM Roberto</p>
+          <div className="inline-flex items-center rounded-xl bg-white/95 px-4 py-2 shadow-sm">
+            <Image src="/logo.png" alt="Roby" width={130} height={45} style={{ height: "auto" }} />
           </div>
 
           <div className="my-auto">

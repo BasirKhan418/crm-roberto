@@ -34,8 +34,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const pepper = process.env.PASSWORD_PEPPER;
-    const isValid = await argon2.verify(admin.password, password + pepper);
+    const pepper = process.env.PASSWORD_PEPPER || "";
+    let isValid = await argon2.verify(admin.password, password + pepper);
+
+    // Backward compatibility for admins seeded before PASSWORD_PEPPER was configured.
+    if (!isValid && pepper) {
+      const legacyValid = await argon2.verify(admin.password, password);
+      if (legacyValid) {
+        isValid = true;
+        admin.password = await argon2.hash(password + pepper);
+        await admin.save();
+      }
+    }
 
     if (!isValid) {
       return NextResponse.json(
@@ -52,8 +62,8 @@ export async function POST(request: NextRequest) {
 
     cookieStore.set("admin-token", token, {
       httpOnly: true,
-      secure: process.env.COOKIE_SECURE === "true",
-      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
       maxAge: 12 * 60 * 60,
       path: "/",
     });

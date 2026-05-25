@@ -3,39 +3,84 @@ import setConnectionRedis from "./connectRedis";
 // Maximum failed OTP attempts before the key is invalidated.
 const MAX_OTP_ATTEMPTS = 5;
 
-export const verifyOtp = async (key: string, otp: string): Promise<{ message: string; success: boolean }> => {
+type VerifyOtpSuccessResult = {
+    message: string;
+    success: true;
+};
+
+type VerifyOtpErrorReason = "invalid_otp" | "otp_expired" | "too_many_attempts" | "store_unavailable";
+
+type VerifyOtpErrorResult = {
+    message: string;
+    success: false;
+    reason: VerifyOtpErrorReason;
+};
+
+export type VerifyOtpResult = VerifyOtpSuccessResult | VerifyOtpErrorResult;
+
+export const verifyOtp = async (key: string, otp: string): Promise<VerifyOtpResult> => {
     try{
-        const redisClient = await setConnectionRedis();
+        const redisClient = setConnectionRedis();
+        if (redisClient.status === "wait") {
+            await redisClient.connect();
+        }
 
         // Brute-force protection: track failed attempts.
         const attemptKey = `otp_attempts:${key}`;
-        const attempts = await redisClient.get(attemptKey);
-        if (attempts && parseInt(attempts) >= MAX_OTP_ATTEMPTS) {
+        const attemptsRaw = await redisClient.get(attemptKey);
+        const attempts = Number.parseInt(attemptsRaw ?? "0", 10);
+
+        if (attempts >= MAX_OTP_ATTEMPTS) {
             // Invalidate the OTP so it can't be used even if guessed.
-            await redisClient.del(key);
-            return { message: "Too many failed attempts. Please request a new OTP.", success: false };
+            await Promise.all([redisClient.del(key), redisClient.del(attemptKey)]);
+            return {
+                message: "Too many failed attempts. Please request a new OTP.",
+                success: false,
+                reason: "too_many_attempts",
+            };
         }
 
         const storedOtp = await redisClient.get(key);
 
         if (!storedOtp) {
-            return { message: "OTP not found or expired", success: false };
+            await redisClient.del(attemptKey);
+            return {
+                message: "OTP not found or expired",
+                success: false,
+                reason: "otp_expired",
+            };
         }
 
         if (storedOtp !== otp) {
             // Increment the attempt counter, expire it alongside the OTP TTL.
             const remaining = await redisClient.ttl(key);
-            await redisClient.set(attemptKey, String((parseInt(attempts ?? "0") + 1)), "EX", remaining > 0 ? remaining : 300);
-            return { message: "Invalid OTP", success: false };
+            const nextAttempts = await redisClient.incr(attemptKey);
+            if (nextAttempts === 1) {
+                await redisClient.expire(attemptKey, remaining > 0 ? remaining : 300);
+            }
+
+            if (nextAttempts >= MAX_OTP_ATTEMPTS) {
+                await Promise.all([redisClient.del(key), redisClient.del(attemptKey)]);
+                return {
+                    message: "Too many failed attempts. Please request a new OTP.",
+                    success: false,
+                    reason: "too_many_attempts",
+                };
+            }
+
+            return { message: "Invalid OTP", success: false, reason: "invalid_otp" };
         }
 
         // Clean up on success.
-        await redisClient.del(key);
-        await redisClient.del(attemptKey);
+        await Promise.all([redisClient.del(key), redisClient.del(attemptKey)]);
         return { message: "OTP verified successfully", success: true };
     }
     catch(error){
         console.error("Error verifying OTP:", error);
-        return { message: "Error verifying OTP: " + error, success: false };
+        return {
+            message: "OTP verification service is temporarily unavailable. Please try again.",
+            success: false,
+            reason: "store_unavailable",
+        };
     }
 }

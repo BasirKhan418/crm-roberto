@@ -2,8 +2,16 @@ import Valkey from "ioredis";
 
 let redisInstance: Valkey | null = null;
 
+const REUSABLE_STATUSES = new Set([
+    "wait",
+    "connecting",
+    "connect",
+    "ready",
+    "reconnecting",
+]);
+
 const setConnectionRedis = (): Valkey => {
-    if (redisInstance && redisInstance.status === 'ready') {
+    if (redisInstance && REUSABLE_STATUSES.has(redisInstance.status)) {
         return redisInstance;
     }
     
@@ -14,26 +22,25 @@ const setConnectionRedis = (): Valkey => {
         throw new Error('REDIS_HOST environment variable is required');
     }
     
-    const redisConfig: any = {
+    if (!redisPassword) {
+        throw new Error('REDIS_PASSWORD environment variable is required');
+    }
+    
+    const redisConfig = {
         host: redisHost,
         port: process.env.REDIS_PORT ? Number(process.env.REDIS_PORT) : 6379,
-        maxRetriesPerRequest: 3,
+        username: process.env.REDIS_USER || 'default',
+        password: redisPassword,
+        tls: {},
+        maxRetriesPerRequest: null,
         retryDelayOnClusterDown: 300,
         retryDelayOnFailover: 100,
+        retryStrategy: (attempt: number) => Math.min(attempt * 200, 2000),
         lazyConnect: true,
         keepAlive: 30000, 
         connectTimeout: 10000,
         commandTimeout: 5000,
     };
-
-    if (process.env.REDIS_USER) {
-        redisConfig.username = process.env.REDIS_USER;
-    }
-    
-    if (redisPassword) {
-        redisConfig.password = redisPassword;
-        redisConfig.tls = {};
-    }
 
     redisInstance = new Valkey(redisConfig);
     
@@ -43,11 +50,14 @@ const setConnectionRedis = (): Valkey => {
     
     redisInstance.on('error', (error) => {
         console.error('Redis connection error:', error);
-        redisInstance = null;
     });
     
     redisInstance.on('close', () => {
         console.log('Redis connection closed');
+    });
+
+    redisInstance.on('end', () => {
+        console.log('Redis connection ended');
         redisInstance = null;
     });
     

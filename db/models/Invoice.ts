@@ -1,9 +1,15 @@
 import mongoose, { type InferSchemaType, type Model } from "mongoose";
+import { formatCanonicalInvoiceNumber, parseInvoiceNumber } from '@/lib/invoice-number';
 
 export const INVOICE_STATUS = ["unpaid", "partial_paid", "paid", "overdue"] as const;
 
 const InvoiceLineItemSchema = new mongoose.Schema(
   {
+    lineType: {
+      type: String,
+      enum: ['catalog', 'custom', 'free_text', 'item'],
+      default: 'custom',
+    },
     productId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "CatalogueItem",
@@ -73,11 +79,6 @@ const InvoiceLineItemSchema = new mongoose.Schema(
       min: [0, "Total including tax cannot be negative"],
       default: 0,
     },
-    lineType: {
-      type: String,
-      enum: ['catalog', 'custom', 'free_text', 'item', null],
-      default: null,
-    },
   },
   { _id: true }
 );
@@ -106,12 +107,178 @@ const InvoiceClientSnapshotSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const InvoiceReminderStateSchema = new mongoose.Schema(
+  {
+    level: {
+      type: Number,
+      min: 0,
+      max: 4,
+      default: 0,
+    },
+    lastSentAt: {
+      type: Date,
+      default: null,
+    },
+    nextScheduledAt: {
+      type: Date,
+      default: null,
+    },
+    isPaused: {
+      type: Boolean,
+      default: false,
+    },
+    lateFeeAmount: {
+      type: Number,
+      min: 0,
+      default: 0,
+    },
+    formalNoticeSentAt: {
+      type: Date,
+      default: null,
+    },
+    formalNoticeDeadline: {
+      type: Date,
+      default: null,
+    },
+    legalRecoveryInitiatedAt: {
+      type: Date,
+      default: null,
+    },
+    legalRecoverySentToCourtAt: {
+      type: Date,
+      default: null,
+    },
+    legalRecoveryRegisteredMailNumber: {
+      type: String,
+      trim: true,
+      default: null,
+      maxlength: 64,
+    },
+    legalRecoveryRegisteredMailDate: {
+      type: Date,
+      default: null,
+    },
+    legalRecoveryClaimAmount: {
+      type: Number,
+      min: 0,
+      default: null,
+    },
+  },
+  { _id: false }
+);
+
+const InvoiceRecurrenceTemplateSchema = new mongoose.Schema(
+  {
+    lineItems: {
+      type: [InvoiceLineItemSchema],
+      default: undefined,
+    },
+    totalExcludingTax: {
+      type: Number,
+      min: 0,
+      default: null,
+    },
+    totalVat: {
+      type: Number,
+      min: 0,
+      default: null,
+    },
+    totalIncludingTax: {
+      type: Number,
+      min: 0,
+      default: null,
+    },
+    depositPercentage: {
+      type: Number,
+      min: 0,
+      max: 100,
+      default: null,
+    },
+    notes: {
+      type: String,
+      trim: true,
+      default: null,
+      maxlength: 2000,
+    },
+  },
+  { _id: false }
+);
+
+const InvoiceRecurrenceSchema = new mongoose.Schema(
+  {
+    isActive: {
+      type: Boolean,
+      default: false,
+    },
+    frequency: {
+      type: String,
+      enum: ["monthly", "quarterly", "yearly", "custom"],
+      default: null,
+    },
+    customIntervalDays: {
+      type: Number,
+      min: 1,
+      default: null,
+    },
+    nextOccurrenceAt: {
+      type: Date,
+      default: null,
+    },
+    lastGeneratedAt: {
+      type: Date,
+      default: null,
+    },
+    lastGeneratedInvoiceId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Invoice",
+      default: null,
+    },
+    endDate: {
+      type: Date,
+      default: null,
+    },
+    stoppedAt: {
+      type: Date,
+      default: null,
+    },
+    stoppedReason: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    autoGenerate: {
+      type: Boolean,
+      default: false,
+    },
+    autoSend: {
+      type: Boolean,
+      default: false,
+    },
+    template: {
+      type: InvoiceRecurrenceTemplateSchema,
+      default: null,
+    },
+  },
+  { _id: false }
+);
+
 const InvoiceSchema = new mongoose.Schema(
   {
     invoiceNumber: {
       type: String,
       required: true,
       trim: true,
+    },
+    invoiceNumberYear: {
+      type: Number,
+      default: null,
+      min: 2000,
+      max: 9999,
+    },
+    invoiceNumberSequence: {
+      type: Number,
+      default: null,
+      min: 1,
     },
     quoteId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -132,6 +299,17 @@ const InvoiceSchema = new mongoose.Schema(
     dueDate: {
       type: Date,
       default: null,
+    },
+    sentAt: {
+      type: Date,
+      default: null,
+    },
+    // Short object/subject label for quick invoice identification.
+    subject: {
+      type: String,
+      trim: true,
+      default: null,
+      maxlength: [200, "Subject cannot exceed 200 characters"],
     },
     status: {
       type: String,
@@ -217,50 +395,94 @@ const InvoiceSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
-    sentAt: {
-      type: Date,
+    legalRecoveryCourtLocation: {
+      type: String,
+      enum: ['luxembourg', 'esch_sur_alzette', 'diekirch', null],
       default: null,
     },
     reminderState: {
-      type: new mongoose.Schema({
-        level: { type: Number, default: 0 },
-        lastSentAt: { type: Date, default: null },
-        nextScheduledAt: { type: Date, default: null },
-        isPaused: { type: Boolean, default: false },
-        lateFeeAmount: { type: Number, default: 0 },
-        formalNoticeSentAt: { type: Date, default: null },
-        formalNoticeDeadline: { type: Date, default: null },
-        legalRecoveryInitiatedAt: { type: Date, default: null },
-        legalRecoveryClaimAmount: { type: Number, default: null },
-      }, { _id: false }),
+      type: InvoiceReminderStateSchema,
       default: null,
     },
-    recurrenceState: {
-      type: new mongoose.Schema({
-        isActive: { type: Boolean, default: false },
-        frequency: { type: String, default: null },
-        nextOccurrenceAt: { type: Date, default: null },
-        lastGeneratedAt: { type: Date, default: null },
-        occurrenceCount: { type: Number, default: 0 },
-        maxOccurrences: { type: Number, default: null },
-        parentInvoiceId: { type: mongoose.Schema.Types.ObjectId, default: null },
-      }, { _id: false }),
+    recurrence: {
+      type: InvoiceRecurrenceSchema,
       default: null,
+    },
+
+    ownerHasUnread: {
+      type: Boolean,
+      default: true,
+      index: true,
     },
   },
   { timestamps: true }
 );
 
 InvoiceSchema.pre("validate", function computeDepositAmount() {
+  const parsedInvoiceNumber = parseInvoiceNumber(this.invoiceNumber);
+  if (!parsedInvoiceNumber) {
+    this.invalidate('invoiceNumber', 'Invoice number must follow FAC-YYYY-### format');
+  } else {
+    this.invoiceNumber = formatCanonicalInvoiceNumber(parsedInvoiceNumber.year, parsedInvoiceNumber.sequence);
+    this.invoiceNumberYear = parsedInvoiceNumber.year;
+    this.invoiceNumberSequence = parsedInvoiceNumber.sequence;
+  }
+
   const percent = this.depositPercentage ?? 100;
   const total = this.totalIncludingTax ?? 0;
   this.depositAmount = Math.round(total * (percent / 100));
 });
 
+type PreFn = (
+  method: string | string[],
+  fn: (this: unknown) => void
+) => void;
+const preInvoiceHook = (InvoiceSchema.pre as unknown as PreFn).bind(InvoiceSchema);
+
+preInvoiceHook("save", function () {
+  const doc = this as mongoose.HydratedDocument<InvoiceDocument>;
+  if (doc.isNew) return;
+  if (doc.isModified("ownerHasUnread")) return;
+  const otherModified = doc.modifiedPaths().some((p) => p !== "ownerHasUnread");
+  if (otherModified) {
+    doc.ownerHasUnread = true;
+  }
+});
+
+preInvoiceHook(["updateOne", "findOneAndUpdate", "updateMany"], function () {
+  const query = this as mongoose.Query<unknown, InvoiceDocument>;
+  const update = query.getUpdate() as Record<string, unknown> | null;
+  if (!update) {
+    return;
+  }
+
+  const $set = (update.$set ?? {}) as Record<string, unknown>;
+  const hasExplicitFlag =
+    "ownerHasUnread" in update || "ownerHasUnread" in $set;
+
+  if (!hasExplicitFlag) {
+    update.$set = { ...$set, ownerHasUnread: true };
+    query.setUpdate(update);
+  }
+});
+
 InvoiceSchema.index({ userId: 1, invoiceNumber: 1 }, { unique: true, name: "unique_user_invoice_number" });
+InvoiceSchema.index(
+  { userId: 1, invoiceNumberYear: 1, invoiceNumberSequence: 1 },
+  {
+    unique: true,
+    name: 'unique_user_invoice_number_sequence',
+    partialFilterExpression: {
+      invoiceNumberYear: { $type: 'number' },
+      invoiceNumberSequence: { $type: 'number' },
+    },
+  }
+);
 InvoiceSchema.index({ userId: 1, createdAt: -1 });
 InvoiceSchema.index({ userId: 1, status: 1 });
 InvoiceSchema.index({ userId: 1, quoteId: 1 });
+InvoiceSchema.index({ "reminderState.nextScheduledAt": 1 }, { sparse: true });
+InvoiceSchema.index({ "recurrence.nextOccurrenceAt": 1 }, { sparse: true });
 InvoiceSchema.index(
   { paymentToken: 1 },
   {
@@ -272,8 +494,27 @@ InvoiceSchema.index(
 
 export type InvoiceDocument = InferSchemaType<typeof InvoiceSchema>;
 
+const INVOICE_MODEL_VERSION = 4;
+
+type VersionedInvoiceModel = Model<InvoiceDocument> & { __ownerUnreadVersion?: number };
+
+const existingInvoiceModel = mongoose.models.Invoice as VersionedInvoiceModel | undefined;
+
+if (
+  existingInvoiceModel &&
+  (!existingInvoiceModel.schema.path("ownerHasUnread") ||
+    !existingInvoiceModel.schema.path('invoiceNumberYear') ||
+    !existingInvoiceModel.schema.path('invoiceNumberSequence') ||
+    !existingInvoiceModel.schema.path('legalRecoveryCourtLocation') ||
+    existingInvoiceModel.__ownerUnreadVersion !== INVOICE_MODEL_VERSION)
+) {
+  delete (mongoose.models as Record<string, VersionedInvoiceModel>).Invoice;
+}
+
 const InvoiceModel =
-  (mongoose.models.Invoice as Model<InvoiceDocument>) ||
-  mongoose.model<InvoiceDocument>("Invoice", InvoiceSchema);
+  ((mongoose.models.Invoice as VersionedInvoiceModel | undefined) ||
+    mongoose.model<InvoiceDocument>("Invoice", InvoiceSchema)) as VersionedInvoiceModel;
+
+InvoiceModel.__ownerUnreadVersion = INVOICE_MODEL_VERSION;
 
 export default InvoiceModel;

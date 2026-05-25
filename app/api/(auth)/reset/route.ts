@@ -11,14 +11,21 @@ export async function POST(request: NextRequest) {
         if (!parseResult.success) {
             return NextResponse.json(buildValidationError(parseResult.error), { status: 400 });
         }
+
+        const jwtSecret = process.env.JWT_SECRET;
+        if (!jwtSecret) {
+            console.error("[reset] JWT_SECRET missing");
+            return NextResponse.json({ message: "Server configuration error", success: false }, { status: 500 });
+        }
+
         //verify token
         try{
-            const decoded = jwt.verify(token, process.env.JWT_SECRET ||"") as { email: string };
-            if(decoded.email !== email){
+            const decoded = jwt.verify(token, jwtSecret) as { email: string; purpose?: string };
+            if(decoded.email !== email || decoded.purpose !== "password_reset"){
                 return NextResponse.json({ message: "Session expired, please request a new one", success: false },{ status: 400 });
             }
                 //update password in db
-                const pepper = process.env.PASSWORD_PEPPER;
+                const pepper = process.env.PASSWORD_PEPPER || "";
                 const hashedPassword = await argon2.hash(password + pepper);
                 //update password in db
                 // Assuming you have a function updateUserPassword that takes email and new hashed password

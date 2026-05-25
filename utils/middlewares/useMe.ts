@@ -7,6 +7,8 @@ export interface AuthorizedUser {
   locale?: 'en' | 'fr';
   isOnboardingComplete?: boolean;
   isEmailVerified?: boolean;
+  role?: string;
+  companyId?: string | null;
 }
 
 interface UseMeResult {

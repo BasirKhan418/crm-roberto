@@ -1,14 +1,46 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
-const ConnectDb = async () => {
-    try {
-        await mongoose.connect(process.env.MONGO_URI||"");
-        console.log('MongoDB connected');
-    } catch (error) {
-        console.log("uri is",process.env.MONGO_URI);
-        console.error('Database connection error:', error);
-        throw error; // Propagate the error to handle it in the server startup
-    }
+type MongooseCache = {
+    conn: mongoose.Mongoose | null;
+    promise: Promise<mongoose.Mongoose> | null;
 };
+
+declare global {
+    var _mongooseCache: MongooseCache | undefined;
+}
+
+const globalForMongoose = globalThis as typeof globalThis & {
+    _mongooseCache?: MongooseCache;
+};
+
+const mongoUri = process.env.MONGO_URI;
+
+async function ConnectDb() {
+    if (!mongoUri) {
+        throw new Error("MONGO_URI is not configured");
+    }
+
+    if (!globalForMongoose._mongooseCache) {
+        globalForMongoose._mongooseCache = { conn: null, promise: null };
+    }
+
+    const cache = globalForMongoose._mongooseCache;
+
+    if (cache.conn) {
+        return cache.conn;
+    }
+
+    if (!cache.promise) {
+        cache.promise = mongoose.connect(mongoUri);
+    }
+
+    try {
+        cache.conn = await cache.promise;
+        return cache.conn;
+    } catch (error) {
+        cache.promise = null;
+        throw error;
+    }
+}
 
 export default ConnectDb;

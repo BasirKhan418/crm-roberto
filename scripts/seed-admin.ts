@@ -6,9 +6,13 @@
  *   npx tsx scripts/seed-admin.ts admin@crm.com MyStr0ngPass "Super Admin"
  */
 
-import 'dotenv/config';
+import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import argon2 from 'argon2';
+
+// Match Next.js env precedence so seeded password hashes are compatible with runtime login.
+dotenv.config({ path: '.env.local' });
+dotenv.config();
 
 const MONGO_URI = process.env.MONGO_URI || '';
 
@@ -61,6 +65,7 @@ async function main() {
 
   await Admin.create({ name, email: email.toLowerCase(), password: hashedPassword });
   console.log(`✔  Admin account created: "${name}" (${email.toLowerCase()})`);
+  console.log(`🔐  Password used: "${password}"`);
 
   await mongoose.disconnect();
   process.exit(0);

@@ -19,7 +19,7 @@ type SentLevelBucket = {
 
 // Keep legacy partial-payment statuses to avoid dropping historical invoices
 // from dashboard collection counters.
-const COLLECTION_STATUSES = ['unpaid', 'partial_paid', 'overdue', 'deposit_paid', 'initial_paid'] as unknown as string[];
+const COLLECTION_STATUSES = ['unpaid', 'partial_paid', 'overdue', 'deposit_paid', 'initial_paid'] as const;
 
 export async function GET() {
   try {
@@ -64,18 +64,16 @@ export async function GET() {
           },
         },
       ]),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       Invoice.countDocuments({
         userId: me.user.id,
         status: { $in: COLLECTION_STATUSES },
         'reminderState.isPaused': true,
-      } as any),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      }),
       Invoice.countDocuments({
         userId: me.user.id,
         status: { $in: ['unpaid', 'partial_paid', 'deposit_paid', 'initial_paid'] },
         'reminderState.formalNoticeDeadline': { $lt: now },
-      } as any),
+      }),
       Invoice.find({
         userId: me.user.id,
         'recurrence.isActive': true,

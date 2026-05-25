@@ -2,6 +2,34 @@ import mongoose, { type InferSchemaType, type Model } from "mongoose";
 export type QuoteStatus = "draft" | "sent" | "accepted" | "refused" | "rejected";
 export type QuoteSignedStatus = "not_signed" | "signed";
 
+const QUOTE_NUMBER_REGEX = /^DEV-(\d{4})-(\d+)$/i;
+
+function parseQuoteNumber(input: string | null | undefined): { year: number; sequence: number } | null {
+  if (!input) {
+    return null;
+  }
+
+  const normalized = input.trim().toUpperCase();
+  const match = QUOTE_NUMBER_REGEX.exec(normalized);
+  if (!match) {
+    return null;
+  }
+
+  const year = Number.parseInt(match[1], 10);
+  const sequence = Number.parseInt(match[2], 10);
+  if (!Number.isFinite(year) || !Number.isFinite(sequence) || sequence <= 0) {
+    return null;
+  }
+
+  return { year, sequence };
+}
+
+function formatCanonicalQuoteNumber(year: number, sequence: number): string {
+  const normalizedSequence = Math.max(1, Math.round(sequence));
+  const width = Math.max(3, String(normalizedSequence).length);
+  return `DEV-${year}-${String(normalizedSequence).padStart(width, '0')}`;
+}
+
 const LineItemSchema = new mongoose.Schema(
   {
     productId: {
@@ -137,6 +165,17 @@ const QuoteSchema = new mongoose.Schema(
       required: true,
       trim: true,
       // example: "DEV-001"
+    },
+    quoteNumberYear: {
+      type: Number,
+      default: null,
+      min: 2000,
+      max: 9999,
+    },
+    quoteNumberSequence: {
+      type: Number,
+      default: null,
+      min: 1,
     },
 
     date: {
@@ -295,14 +334,18 @@ const QuoteSchema = new mongoose.Schema(
       default: null,
     },
 
-    // Token preserved after rejection so the client can revisit their sign page
+    ownerHasUnread: {
+      type: Boolean,
+      default: true,
+      index: true,
+    },
+
     rejectedSignToken: {
       type: String,
       default: null,
       index: true,
     },
 
-    // Admin reply message stored after admin responds to a rejection
     adminReplyMessage: {
       type: String,
       trim: true,
@@ -310,7 +353,6 @@ const QuoteSchema = new mongoose.Schema(
       maxlength: [2000, "Admin reply cannot exceed 2000 characters"],
     },
 
-    // Back-and-forth conversation thread after a rejection (admin ↔ client)
     conversationMessages: {
       type: [
         {
@@ -347,11 +389,35 @@ const QuoteSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+QuoteSchema.pre('validate', function normalizeQuoteNumber() {
+  const parsed = parseQuoteNumber(this.quoteNumber);
+  if (!parsed) {
+    this.invalidate('quoteNumber', 'Quote number must follow DEV-YYYY-### format');
+    return;
+  }
+
+  this.quoteNumber = formatCanonicalQuoteNumber(parsed.year, parsed.sequence);
+  this.quoteNumberYear = parsed.year;
+  this.quoteNumberSequence = parsed.sequence;
+});
+
 
 
 QuoteSchema.index({ user: 1, createdAt: -1 });
 
 QuoteSchema.index({ user: 1, quoteNumber: 1 }, { unique: true, name: 'unique_user_quote_number' });
+
+QuoteSchema.index(
+  { user: 1, quoteNumberYear: 1, quoteNumberSequence: 1 },
+  {
+    unique: true,
+    name: 'unique_user_quote_number_sequence',
+    partialFilterExpression: {
+      quoteNumberYear: { $type: 'number' },
+      quoteNumberSequence: { $type: 'number' },
+    },
+  }
+);
 
 QuoteSchema.index({ user: 1, status: 1 });
 
@@ -362,21 +428,65 @@ QuoteSchema.index(
   { name: "quote_search_index" }
 );
 
+
+type PreFn = (
+  method: string | string[],
+  fn: (this: unknown) => void
+) => void;
+const preHook = (QuoteSchema.pre as unknown as PreFn).bind(QuoteSchema);
+
+preHook("save", function () {
+  const doc = this as mongoose.HydratedDocument<QuoteDocument>;
+  if (doc.isNew) return;
+  if (doc.isModified("ownerHasUnread")) return;
+  const otherModified = doc.modifiedPaths().some((p) => p !== "ownerHasUnread");
+  if (otherModified) {
+    doc.ownerHasUnread = true;
+  }
+});
+
+preHook(["updateOne", "findOneAndUpdate", "updateMany"], function () {
+  const query = this as mongoose.Query<unknown, QuoteDocument>;
+  const update = query.getUpdate() as Record<string, unknown> | null;
+  if (!update) {
+    return;
+  }
+
+  const $set = (update.$set ?? {}) as Record<string, unknown>;
+  const hasExplicitFlag =
+    "ownerHasUnread" in update || "ownerHasUnread" in $set;
+
+  if (!hasExplicitFlag) {
+    update.$set = { ...$set, ownerHasUnread: true };
+    query.setUpdate(update);
+  }
+});
+
 export type QuoteDocument = InferSchemaType<typeof QuoteSchema>;
 
-const existingQuoteModel = mongoose.models.Quote as Model<QuoteDocument> | undefined;
+const QUOTE_MODEL_VERSION = 4;
+
+type VersionedQuoteModel = Model<QuoteDocument> & { __ownerUnreadVersion?: number };
+
+const existingQuoteModel = mongoose.models.Quote as VersionedQuoteModel | undefined;
 
 if (
   existingQuoteModel &&
   (!existingQuoteModel.schema.path("rejectedSignToken") ||
     !existingQuoteModel.schema.path("adminReplyMessage") ||
-    !existingQuoteModel.schema.path("conversationMessages"))
+    !existingQuoteModel.schema.path("conversationMessages") ||
+    !existingQuoteModel.schema.path('quoteNumberYear') ||
+    !existingQuoteModel.schema.path('quoteNumberSequence') ||
+    !existingQuoteModel.schema.path("ownerHasUnread") ||
+    existingQuoteModel.__ownerUnreadVersion !== QUOTE_MODEL_VERSION)
 ) {
-  delete (mongoose.models as Record<string, Model<QuoteDocument>>).Quote;
+  delete (mongoose.models as Record<string, VersionedQuoteModel>).Quote;
 }
 
 const QuoteModel =
-  (mongoose.models.Quote as Model<QuoteDocument>) ||
-  mongoose.model<QuoteDocument>("Quote", QuoteSchema);
+  ((mongoose.models.Quote as VersionedQuoteModel | undefined) ||
+    mongoose.model<QuoteDocument>("Quote", QuoteSchema)) as VersionedQuoteModel;
+
+QuoteModel.__ownerUnreadVersion = QUOTE_MODEL_VERSION;
 
 export default QuoteModel;

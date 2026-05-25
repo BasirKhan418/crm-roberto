@@ -2,6 +2,8 @@ import mongoose from 'mongoose';
 
 import ConnectDb from '@/db/connectDb';
 import ActivityLog from '@/db/models/Activity';
+import Invoice from '@/db/models/Invoice';
+import Quote from '@/db/models/Quote';
 import { emitActivityChanged } from '@/lib/activity-events';
 import type { CreateActivityDTO, UpdateActivityDTO } from '@/validators/activity.schema';
 import type { ListQueryOptions, PaginationMeta } from '@/utils/api/query';
@@ -14,7 +16,7 @@ interface ActivityListQueryOptions extends ListQueryOptions {
 export interface ActivityRecord {
   _id: string;
   action: string;
-  entityType: 'client' | 'supplier' | 'note' | 'product' | 'quote' | 'invoice';
+  entityType: 'client' | 'supplier' | 'note' | 'product' | 'quote' | 'invoice' | 'ticket';
   entityName: string;
   entityId?: string | null;
   metadata?: Record<string, unknown> | null;
@@ -36,6 +38,10 @@ function isValidObjectId(value: string): boolean {
 
 export const createActivityLog = async (userId: string, payload: CreateActivityDTO): Promise<ActivityRecord> => {
   await ConnectDb();
+
+  if (!payload?.action) {
+    throw new Error('Action not initialized');
+  }
 
   const created = await ActivityLog.create({
     ...payload,
@@ -88,19 +94,33 @@ export const listActivities = async (userId: string, options: ActivityListQueryO
   };
 };
 
-export const listClientActivities = async (userId: string, clientId: string): Promise<ActivityRecord[]> => {
+export const listClientActivities = async (userId: string, clientId: string, limit = 200): Promise<ActivityRecord[]> => {
   await ConnectDb();
 
   if (!isValidObjectId(clientId)) {
     return [];
   }
 
-  const items = await ActivityLog.find({
-    user: userId,
-    entityType: 'client',
-    entityId: clientId,
-  })
+  const clientObjectId = new mongoose.Types.ObjectId(clientId);
+
+  const [invoiceIds, quoteIds] = await Promise.all([
+    Invoice.find({ userId, clientId: clientObjectId }).distinct('_id'),
+    Quote.find({ user: userId, clientId: clientObjectId }).distinct('_id'),
+  ]);
+
+  const orClauses: Record<string, unknown>[] = [
+    { entityType: 'client', entityId: clientObjectId },
+    { 'metadata.clientId': clientId },
+  ];
+
+  const relatedEntityIds = [...invoiceIds, ...quoteIds];
+  if (relatedEntityIds.length > 0) {
+    orClauses.push({ entityId: { $in: relatedEntityIds } });
+  }
+
+  const items = await ActivityLog.find({ user: userId, $or: orClauses })
     .sort({ createdAt: -1 })
+    .limit(Math.max(1, Math.min(limit, 500)))
     .lean();
 
   return items as ActivityRecord[];
@@ -134,7 +154,7 @@ export const updateActivityById = async (
   };
 
   const updated = await ActivityLog.findOneAndUpdate({ _id: activityId, user: userId }, normalizedPayload, {
-    new: true,
+    returnDocument: 'after',
     runValidators: true,
   }).lean();
 

@@ -4,14 +4,16 @@ import type { ReactNode } from 'react';
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BellIcon, CreditCardIcon, LayoutGridIcon } from 'lucide-react';
+import { BellIcon, CreditCardIcon, LayoutGridIcon, ReceiptTextIcon, UsersIcon } from 'lucide-react';
 
 import CrmShell from '@/components/crm-shell';
 import { useLocale } from '@/components/providers/locale-provider';
+import { useAuthMe } from '@/hooks/useAuthMe';
+import { hasPermission } from '@/lib/permissions';
 import { cn } from '@/lib/utils';
 
 type SettingsNavItem = {
-  key: 'overview' | 'reminders' | 'stripe';
+  key: 'overview' | 'reminders' | 'stripe' | 'users' | 'expenses';
   href: string;
   icon: ReactNode;
 };
@@ -32,6 +34,16 @@ const settingsNavItems: SettingsNavItem[] = [
     href: '/settings/stripe',
     icon: <CreditCardIcon className="size-4" />,
   },
+  {
+    key: 'expenses',
+    href: '/settings/expenses',
+    icon: <ReceiptTextIcon className="size-4" />,
+  },
+  {
+    key: 'users',
+    href: '/settings/users',
+    icon: <UsersIcon className="size-4" />,
+  },
 ];
 
 const settingsMessages = {
@@ -43,6 +55,8 @@ const settingsMessages = {
       overview: 'Overview',
       reminders: 'Reminders',
       stripe: 'Payments',
+      expenses: 'Expenses',
+      users: 'Users',
     },
   },
   fr: {
@@ -53,6 +67,8 @@ const settingsMessages = {
       overview: 'Vue d\'ensemble',
       reminders: 'Relances',
       stripe: 'Paiements',
+      expenses: 'Dépenses',
+      users: 'Utilisateurs',
     },
   },
 } as const;
@@ -60,19 +76,28 @@ const settingsMessages = {
 export default function SettingsLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { locale } = useLocale();
+  const { user } = useAuthMe();
   const t = settingsMessages[locale];
+  const canViewUsers = hasPermission(user?.role, 'users.view');
+  const canViewExpenses = hasPermission(user?.role, 'expenses.view');
+
+  const visibleNavItems = settingsNavItems.filter((item) => {
+    if (item.key === 'users') return canViewUsers;
+    if (item.key === 'expenses') return canViewExpenses;
+    return true;
+  });
 
   return (
     <CrmShell title={t.shellTitle}>
       <div className="space-y-6">
-        <div className="space-y-1.5">
+        <div className="space-y-1.5" data-tour-settings-header>
           <h1 className="font-heading text-2xl font-semibold tracking-tight">{t.heading}</h1>
           <p className="text-sm text-muted-foreground">{t.subtitle}</p>
         </div>
 
-        <nav className="w-full" aria-label={t.heading}>
+        <nav className="w-full" aria-label={t.heading} data-tour-settings-nav>
           <div className="flex items-stretch gap-0.5 rounded-2xl border border-border/60 bg-muted/40 p-1.5 shadow-sm">
-            {settingsNavItems.map((item) => {
+            {visibleNavItems.map((item) => {
               const isActive =
                 item.href === '/settings'
                   ? pathname === '/settings'

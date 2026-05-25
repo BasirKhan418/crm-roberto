@@ -4,9 +4,9 @@ import { createI18nKey as i18nKey } from '@/lib/i18n/messages';
 
 export const forgotPasswordSchema = z.object({
   email: z.string().email(i18nKey('validation.enterValidBusinessEmail')),
-  status: z.enum(["forgot","verify","reset"], {
+  status: z.enum(["forgot","verify"], {
     message: i18nKey('validation.invalidStatusValue')
-  }).optional(),
+  }),
   otp: z.string().min(6, i18nKey('validation.otpMin6')).optional(),
 });
 

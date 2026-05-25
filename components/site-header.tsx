@@ -4,11 +4,12 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useMemo } from "react"
 
-import { ArrowLeftIcon, CircleUserRoundIcon, KeyRoundIcon, LayoutDashboardIcon, LogOutIcon } from "lucide-react"
+import { ArrowLeftIcon, CircleUserRoundIcon, KeyRoundIcon, LayoutDashboardIcon, LogOutIcon, PlusIcon } from "lucide-react"
 
 import { LanguageThemeToggle } from "@/components/language-theme-toggle"
 import { NotificationsBell } from "@/components/notifications-bell"
 import { useLocale } from "@/components/providers/locale-provider"
+import { GlobalTicketCreate } from "@/components/tickets/global-ticket-create"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
@@ -36,6 +37,8 @@ const headerMessages = {
     changePassword: "Change Password",
     logout: "Logout",
     userFallback: "User",
+    newExpense: "New Expense",
+    quickActions: "Quick Actions",
   },
   fr: {
     back: "Retour",
@@ -46,6 +49,8 @@ const headerMessages = {
     changePassword: "Changer le mot de passe",
     logout: "Déconnexion",
     userFallback: "Utilisateur",
+    newExpense: "Nouvelle dépense",
+    quickActions: "Actions rapides",
   },
 } as const
 
@@ -144,6 +149,15 @@ export function SiteHeader({ title = "Documents" }: { title?: string }) {
     router.push(backFallbackHref)
   }
 
+  function handleCreateExpense() {
+    if (pathname === "/expenses") {
+      window.dispatchEvent(new CustomEvent("expenses:new"))
+      return
+    }
+
+    router.push("/expenses?newExpense=1")
+  }
+
   return (
     <header className="shrink-0 border-b bg-background/95 transition-[width,height] ease-linear supports-backdrop-filter:bg-background/80">
       <div className="flex min-h-(--header-height) w-full flex-wrap items-center gap-2 px-4 py-3 lg:gap-3 lg:px-6">
@@ -180,13 +194,51 @@ export function SiteHeader({ title = "Documents" }: { title?: string }) {
         ) : null}
 
         <div className="order-2 flex shrink-0 items-center gap-2 lg:order-3 lg:ml-auto">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-9 w-9 shrink-0 rounded-full p-0 lg:hidden"
+                aria-label={t.quickActions}
+              >
+                <PlusIcon className="size-4" />
+                <span className="sr-only">{t.quickActions}</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48 lg:hidden">
+              <DropdownMenuGroup>
+                <DropdownMenuItem onSelect={handleCreateExpense}>
+                  <PlusIcon className="size-4" />
+                  {t.newExpense}
+                </DropdownMenuItem>
+                <GlobalTicketCreate trigger="menu-item" />
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <div className="hidden items-center gap-2 lg:flex">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-9 shrink-0 rounded-full px-3"
+              onClick={handleCreateExpense}
+            >
+              <PlusIcon className="size-4" />
+              <span>{t.newExpense}</span>
+            </Button>
+            <GlobalTicketCreate />
+          </div>
+
           <NotificationsBell />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 type="button"
                 variant="ghost"
-                className="h-10 w-10 rounded-full border border-border bg-background p-0 hover:bg-muted sm:w-auto sm:max-w-56 sm:justify-start sm:gap-2 sm:px-2.5"
+                className="h-10 w-10 rounded-full border border-border bg-background p-0 hover:bg-muted"
                 aria-label={userDisplayName}
               >
                 <span className="grid size-8 shrink-0 place-items-center rounded-full border border-border/70 bg-background">
@@ -194,7 +246,6 @@ export function SiteHeader({ title = "Documents" }: { title?: string }) {
                     <AvatarFallback className="text-[11px] font-semibold">{userInitials}</AvatarFallback>
                   </Avatar>
                 </span>
-                <span className="hidden truncate text-sm font-medium sm:inline">{userDisplayName}</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-52">

@@ -3,7 +3,8 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { LayoutDashboard, BadgeCheck } from "lucide-react";
+import Image from "next/image";
+import { BadgeCheck } from "lucide-react";
 import { LanguageThemeToggle } from "@/components/language-theme-toggle";
 import { useLocale } from "@/components/providers/locale-provider";
 import { WorldMapBg } from "@/components/ui/WorldMapBg";
@@ -42,18 +43,15 @@ export default function AuthLayout({
     <div className="flex w-full flex-col bg-[#f8fafc]" style={{ minHeight: 'var(--app-viewport-height)' }}>
       {/* Mobile top bar */}
       <header className="lg:hidden flex items-center justify-between px-5 py-4 bg-white border-b border-zinc-100">
-        <div className="flex items-center gap-2.5">
-          <div className="rounded-lg bg-[#020b18] border border-[#020b18] p-1.5">
-            <LayoutDashboard className="h-4 w-4 text-white" />
-          </div>
-          <p className="text-sm font-bold text-[#020b18] tracking-tight">CRM Roberto</p>
+        <div className="flex items-center">
+          <Image src="/logo.png" alt="Roby" width={92} height={32} style={{ height: "auto" }} className="mix-blend-multiply" />
         </div>
         <LanguageThemeToggle />
       </header>
 
       <div className="flex flex-1 items-stretch min-h-0 lg:overflow-hidden">
         {/* Left panel */}
-        <aside className="hidden lg:flex w-[420px] xl:w-[480px] shrink-0 flex-col bg-[#020b18] text-white relative overflow-hidden">
+        <aside className="hidden lg:flex w-[360px] xl:w-[400px] shrink-0 flex-col bg-[#020b18] text-white relative overflow-hidden">
           {/* World map background */}
           <WorldMapBg
             className="absolute inset-0 w-full h-full object-cover pointer-events-none"
@@ -70,13 +68,10 @@ export default function AuthLayout({
           {/* Subtle emerald glow */}
           <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72 rounded-full bg-emerald-500/5 blur-3xl pointer-events-none" />
 
-          <div className="relative z-10 flex flex-col h-full p-12 xl:p-14">
+          <div className="relative z-10 items-center flex flex-col h-full p-8 xl:p-10">
             {/* Brand mark */}
-            <div className="flex items-center gap-3">
-              <div className="rounded-xl bg-white/10 border border-white/15 p-2.5 backdrop-blur-sm">
-                <LayoutDashboard className="h-4 w-4 text-white" />
-              </div>
-              <p className="text-[13px] font-bold tracking-widest text-white/90 uppercase">CRM Roberto</p>
+            <div className="inline-flex items-center justify-center rounded-xl bg-white/95  w-[150px] shadow-sm">
+              <Image src="/logo.png" alt="Roby" width={112} height={39} style={{ height: "auto" }} />
             </div>
 
             {/* Centred content */}
@@ -113,7 +108,7 @@ export default function AuthLayout({
           </div>
 
           <div className="flex-1 overflow-y-auto scroll-pb-[calc(5rem+var(--app-keyboard-inset-height))]">
-            <div className="min-h-full flex flex-col justify-center px-5 py-10 pb-[calc(2.5rem+var(--app-keyboard-inset-height))] sm:px-10 md:px-16 lg:px-20 xl:px-24">
+            <div className="min-h-full flex flex-col justify-center px-5 py-10 pb-[calc(2.5rem+var(--app-keyboard-inset-height))] sm:px-8 md:px-10 lg:px-12 xl:px-16">
               <AnimatePresence mode="wait" initial={false}>
                 <motion.div
                   key={pathname}
@@ -129,8 +124,8 @@ export default function AuthLayout({
             </div>
           </div>
 
-          <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-zinc-100 bg-white px-5 py-5 pb-[calc(1.25rem+var(--app-safe-area-bottom))] text-[10px] font-semibold uppercase tracking-[0.15em] text-zinc-400 sm:px-10 md:px-16 lg:px-20 xl:px-24">
-            <span>© 2026 CRM Roberto</span>
+          <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-zinc-100 bg-white px-5 py-5 pb-[calc(1.25rem+var(--app-safe-area-bottom))] text-[10px] font-semibold uppercase tracking-[0.15em] text-zinc-400 sm:px-8 md:px-10 lg:px-12 xl:px-16">
+            <span>© 2026 Roby</span>
             <div className="flex gap-5">
               <Link href="#" className="hover:text-zinc-600 transition-colors">{t.privacy}</Link>
               <Link href="#" className="hover:text-zinc-600 transition-colors">{t.terms}</Link>

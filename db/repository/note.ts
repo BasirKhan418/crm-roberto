@@ -206,7 +206,7 @@ export const updateNoteById = async (
   }
 
   const updated = (await Note.findOneAndUpdate({ _id: noteId, user: userId }, payload, {
-    new: true,
+    returnDocument: 'after',
     runValidators: true,
   })
     .lean()) as RawNoteRecord | null;

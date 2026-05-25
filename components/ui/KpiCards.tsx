@@ -37,6 +37,7 @@ export interface KpiCard {
   footnote?: string;
   active?: boolean;
   onClick?: () => void;
+  onMouseDown?: (event: React.MouseEvent<HTMLButtonElement>) => void;
 }
 
 export type KpiCardIcon =
@@ -192,6 +193,7 @@ export default function KpiCards({ cards, locale, loading = false, cols = 4, ske
             key={card.key}
             type="button"
             onClick={card.onClick}
+            onMouseDown={card.onMouseDown}
             disabled={!isClickable}
             aria-pressed={isClickable ? card.active : undefined}
             className={cn(

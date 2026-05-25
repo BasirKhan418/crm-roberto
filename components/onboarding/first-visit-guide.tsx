@@ -82,7 +82,7 @@ const TOUR_BY_ROUTE: Record<string, (locale: Locale) => TourStep[]> = {
   '/catalogue': (locale) => [
     {
       element: '[data-tour-catalogue-header]',
-      title: locale === 'fr' ? 'Etape 1 - Produits et services' : 'Step 1 - Products and services',
+      title: locale === 'fr' ? 'Étape 1 - Produits et services' : 'Step 1 - Products and services',
       description:
         locale === 'fr'
           ? 'Cette page centralise vos produits et services reutilisables pour devis et factures.'
@@ -90,7 +90,7 @@ const TOUR_BY_ROUTE: Record<string, (locale: Locale) => TourStep[]> = {
     },
     {
       element: '[data-tour-catalogue-quick-add]',
-      title: locale === 'fr' ? 'Etape 2 - Ajout rapide' : 'Step 2 - Quick add',
+      title: locale === 'fr' ? 'Étape 2 - Ajout rapide' : 'Step 2 - Quick add',
       description:
         locale === 'fr'
           ? 'Ajoutez rapidement un produit/service réutilisable (nom, prix HT, type) sans ouvrir la modale.'
@@ -98,7 +98,7 @@ const TOUR_BY_ROUTE: Record<string, (locale: Locale) => TourStep[]> = {
     },
     {
       element: '[data-tour-catalogue-new-item]',
-      title: locale === 'fr' ? 'Etape 3 - Formulaire complet' : 'Step 3 - Full form',
+      title: locale === 'fr' ? 'Étape 3 - Formulaire complet' : 'Step 3 - Full form',
       description:
         locale === 'fr'
           ? 'Utilisez ce bouton si vous avez besoin de plus de détails (description, pièce jointe, TVA personnalisée).'
@@ -106,17 +106,17 @@ const TOUR_BY_ROUTE: Record<string, (locale: Locale) => TourStep[]> = {
     },
     {
       element: '[data-tour-catalogue-search]',
-      title: locale === 'fr' ? 'Etape 4 - Recherche' : 'Step 4 - Search',
+      title: locale === 'fr' ? 'Étape 4 - Recherche' : 'Step 4 - Search',
       description: locale === 'fr' ? 'Retrouvez vite un element par nom ou description.' : 'Find any item quickly by name or description.',
     },
     {
       element: '[data-tour-catalogue-filters]',
-      title: locale === 'fr' ? 'Etape 5 - Filtres et tri' : 'Step 5 - Filters and sorting',
+      title: locale === 'fr' ? 'Étape 5 - Filtres et tri' : 'Step 5 - Filters and sorting',
       description: locale === 'fr' ? 'Filtrez par type et triez par nom, prix ou date.' : 'Filter by type and sort by name, price, or date.',
     },
     {
       element: '[data-tour-catalogue-table]',
-      title: locale === 'fr' ? 'Etape 6 - Table catalogue' : 'Step 6 - Catalogue table',
+      title: locale === 'fr' ? 'Étape 6 - Table catalogue' : 'Step 6 - Catalogue table',
       description:
         locale === 'fr'
           ? 'Gerez vos produits/services depuis cette table: modifier, supprimer et reutiliser dans vos documents.'
@@ -126,7 +126,7 @@ const TOUR_BY_ROUTE: Record<string, (locale: Locale) => TourStep[]> = {
   '/quotes': (locale) => [
     {
       element: '[data-tour-quotes-header]',
-      title: locale === 'fr' ? 'Etape 1 - Espace devis' : 'Step 1 - Quote workspace',
+      title: locale === 'fr' ? 'Étape 1 - Espace devis' : 'Step 1 - Quote workspace',
       description:
         locale === 'fr'
           ? 'Commencez ici: cette page centralise le suivi complet de vos devis.'
@@ -134,7 +134,7 @@ const TOUR_BY_ROUTE: Record<string, (locale: Locale) => TourStep[]> = {
     },
     {
       element: '[data-tour-new-quote]',
-      title: locale === 'fr' ? 'Etape 2 - Nouveau devis' : 'Step 2 - New quote',
+      title: locale === 'fr' ? 'Étape 2 - Nouveau devis' : 'Step 2 - New quote',
       description:
         locale === 'fr'
           ? 'Créez rapidement un devis quand vous démarrez une nouvelle opportunité.'
@@ -142,7 +142,7 @@ const TOUR_BY_ROUTE: Record<string, (locale: Locale) => TourStep[]> = {
     },
     {
       element: '[data-tour-quotes-filters]',
-      title: locale === 'fr' ? 'Etape 3 - Filtrer la liste' : 'Step 3 - Filter the list',
+      title: locale === 'fr' ? 'Étape 3 - Filtrer la liste' : 'Step 3 - Filter the list',
       description:
         locale === 'fr'
           ? 'Affinez la vue par statut et recherchez par client ou numéro de devis.'
@@ -150,7 +150,7 @@ const TOUR_BY_ROUTE: Record<string, (locale: Locale) => TourStep[]> = {
     },
     {
       element: '[data-tour-quotes-columns]',
-      title: locale === 'fr' ? 'Etape 4 - Personnaliser les colonnes' : 'Step 4 - Customize columns',
+      title: locale === 'fr' ? 'Étape 4 - Personnaliser les colonnes' : 'Step 4 - Customize columns',
       description:
         locale === 'fr'
           ? 'Ouvrez Colonnes, cochez les colonnes à afficher, puis cliquez sur Appliquer. Votre vue personnalisée est conservée.'
@@ -158,7 +158,7 @@ const TOUR_BY_ROUTE: Record<string, (locale: Locale) => TourStep[]> = {
     },
     {
       element: '[data-tour-quotes-table]',
-      title: locale === 'fr' ? 'Etape 5 - Table des devis' : 'Step 5 - Quotes table',
+      title: locale === 'fr' ? 'Étape 5 - Table des devis' : 'Step 5 - Quotes table',
       description:
         locale === 'fr'
           ? 'Utilisez cette table avec les colonnes choisies pour ouvrir un devis et lancer les actions: voir, modifier, PDF, dupliquer, envoyer, historique et conversion en facture si éligible.'
@@ -166,7 +166,7 @@ const TOUR_BY_ROUTE: Record<string, (locale: Locale) => TourStep[]> = {
     },
     {
       element: '[data-tour-quotes-totals]',
-      title: locale === 'fr' ? 'Etape 6 - Totaux visibles' : 'Step 6 - Visible totals',
+      title: locale === 'fr' ? 'Étape 6 - Totaux visibles' : 'Step 6 - Visible totals',
       description:
         locale === 'fr'
           ? 'Ce resume calcule uniquement les devis affiches (page, filtres et recherche en cours): nombre, total HT, TVA, TTC et total accepte.'
@@ -223,7 +223,7 @@ const TOUR_BY_ROUTE: Record<string, (locale: Locale) => TourStep[]> = {
   '/invoices': (locale) => [
     {
       element: '[data-tour-invoices-header]',
-      title: locale === 'fr' ? 'Etape 1 - Espace factures' : 'Step 1 - Invoice workspace',
+      title: locale === 'fr' ? 'Étape 1 - Espace factures' : 'Step 1 - Invoice workspace',
       description:
         locale === 'fr'
           ? 'Commencez ici: suivez les paiements, les retards et les échéances en un seul endroit.'
@@ -231,7 +231,7 @@ const TOUR_BY_ROUTE: Record<string, (locale: Locale) => TourStep[]> = {
     },
     {
       element: '[data-tour-new-invoice]',
-      title: locale === 'fr' ? 'Etape 2 - Nouvelle facture' : 'Step 2 - New invoice',
+      title: locale === 'fr' ? 'Étape 2 - Nouvelle facture' : 'Step 2 - New invoice',
       description:
         locale === 'fr'
           ? 'Créez une facture manuelle ou générez-la depuis un devis converti.'
@@ -239,7 +239,7 @@ const TOUR_BY_ROUTE: Record<string, (locale: Locale) => TourStep[]> = {
     },
     {
       element: '[data-tour-invoices-filters]',
-      title: locale === 'fr' ? 'Etape 3 - Filtrer la liste' : 'Step 3 - Filter the list',
+      title: locale === 'fr' ? 'Étape 3 - Filtrer la liste' : 'Step 3 - Filter the list',
       description:
         locale === 'fr'
           ? 'Filtrez rapidement les factures impayées, partiellement payées, payées ou en retard.'
@@ -247,7 +247,7 @@ const TOUR_BY_ROUTE: Record<string, (locale: Locale) => TourStep[]> = {
     },
     {
       element: '[data-tour-invoices-columns]',
-      title: locale === 'fr' ? 'Etape 4 - Personnaliser les colonnes' : 'Step 4 - Customize columns',
+      title: locale === 'fr' ? 'Étape 4 - Personnaliser les colonnes' : 'Step 4 - Customize columns',
       description:
         locale === 'fr'
           ? 'Ouvrez Colonnes, sélectionnez les informations utiles (montant payé, restant, progression, etc.), puis cliquez sur Appliquer.'
@@ -255,7 +255,7 @@ const TOUR_BY_ROUTE: Record<string, (locale: Locale) => TourStep[]> = {
     },
     {
       element: '[data-tour-invoices-table]',
-      title: locale === 'fr' ? 'Etape 5 - Table factures' : 'Step 5 - Invoice table',
+      title: locale === 'fr' ? 'Étape 5 - Table factures' : 'Step 5 - Invoice table',
       description:
         locale === 'fr'
           ? 'Dans cette table personnalisée, gérez chaque facture: ouvrir, modifier (si éligible), envoyer, PDF, suppression, marquage payé et solde des acomptes.'
@@ -263,7 +263,7 @@ const TOUR_BY_ROUTE: Record<string, (locale: Locale) => TourStep[]> = {
     },
     {
       element: '[data-tour-invoices-totals]',
-      title: locale === 'fr' ? 'Etape 6 - Totaux visibles' : 'Step 6 - Visible totals',
+      title: locale === 'fr' ? 'Étape 6 - Totaux visibles' : 'Step 6 - Visible totals',
       description:
         locale === 'fr'
           ? 'Ce resume calcule uniquement les factures affichees (page, filtres et recherche en cours): nombre, total HT, TVA, TTC, total paye et total restant.'
@@ -358,7 +358,7 @@ const TOUR_BY_ROUTE: Record<string, (locale: Locale) => TourStep[]> = {
   '/notes': (locale) => [
     {
       element: '[data-tour-notes-header]',
-      title: locale === 'fr' ? 'Etape 1 - Espace notes' : 'Step 1 - Notes workspace',
+      title: locale === 'fr' ? 'Étape 1 - Espace notes' : 'Step 1 - Notes workspace',
       description:
         locale === 'fr'
           ? 'Cette page centralise vos notes de suivi liees aux clients et fournisseurs.'
@@ -366,7 +366,7 @@ const TOUR_BY_ROUTE: Record<string, (locale: Locale) => TourStep[]> = {
     },
     {
       element: '[data-tour-notes-add]',
-      title: locale === 'fr' ? 'Etape 2 - Creer une note' : 'Step 2 - Create a note',
+      title: locale === 'fr' ? 'Étape 2 - Créer une note' : 'Step 2 - Create a note',
       description:
         locale === 'fr'
           ? 'Utilisez ce bouton pour ajouter une nouvelle note et la lier à un client ou un fournisseur.'
@@ -374,7 +374,7 @@ const TOUR_BY_ROUTE: Record<string, (locale: Locale) => TourStep[]> = {
     },
     {
       element: '[data-tour-notes-search]',
-      title: locale === 'fr' ? 'Etape 3 - Recherche' : 'Step 3 - Search',
+      title: locale === 'fr' ? 'Étape 3 - Recherche' : 'Step 3 - Search',
       description:
         locale === 'fr'
           ? 'Retrouvez rapidement une note par contenu, client, fournisseur ou objet associe.'
@@ -382,7 +382,7 @@ const TOUR_BY_ROUTE: Record<string, (locale: Locale) => TourStep[]> = {
     },
     {
       element: '[data-tour-notes-filter]',
-      title: locale === 'fr' ? 'Etape 4 - Filtres' : 'Step 4 - Filters',
+      title: locale === 'fr' ? 'Étape 4 - Filtres' : 'Step 4 - Filters',
       description:
         locale === 'fr'
           ? 'Filtrez les notes selon leur statut pour vous concentrer sur les actions a traiter.'
@@ -390,7 +390,7 @@ const TOUR_BY_ROUTE: Record<string, (locale: Locale) => TourStep[]> = {
     },
     {
       element: '[data-tour-notes-list]',
-      title: locale === 'fr' ? 'Etape 5 - Liste des notes' : 'Step 5 - Notes list',
+      title: locale === 'fr' ? 'Étape 5 - Liste des notes' : 'Step 5 - Notes list',
       description:
         locale === 'fr'
           ? 'Parcourez les cartes de notes et ouvrez les actions rapides pour modifier, supprimer ou marquer terminee.'
@@ -398,11 +398,97 @@ const TOUR_BY_ROUTE: Record<string, (locale: Locale) => TourStep[]> = {
     },
     {
       element: '[data-tour-notes-panel]',
-      title: locale === 'fr' ? 'Etape 6 - Panneau principal' : 'Step 6 - Main panel',
+      title: locale === 'fr' ? 'Étape 6 - Panneau principal' : 'Step 6 - Main panel',
       description:
         locale === 'fr'
           ? 'Ici vous gérez toutes les notes: consulter, modifier, supprimer, marquer un suivi terminé, et ouvrir le client/fournisseur lié.'
           : 'This is your notes grid where you can manage everything: view, edit, delete, mark follow-up done, and open the linked client/supplier.',
+    },
+  ],
+  '/expenses': (locale) => [
+    {
+      element: '[data-tour-expenses-header]',
+      title: locale === 'fr' ? 'Étape 1 - Espace dépenses' : 'Step 1 - Expenses workspace',
+      description:
+        locale === 'fr'
+          ? 'Cette page centralise la capture, la création manuelle et la gestion complète de vos dépenses.'
+          : 'This page centralizes capture, manual entry, and full lifecycle management of your expenses.',
+    },
+    {
+      element: '[data-tour-expenses-capture]',
+      title: locale === 'fr' ? 'Étape 2 - Modes de saisie' : 'Step 2 - Entry methods',
+      description:
+        locale === 'fr'
+          ? 'Ajoutez une dépense en prenant une photo, en important un fichier, par glisser-déposer, ou via le formulaire manuel.'
+          : 'Add expenses by taking a photo, importing a file, drag-and-drop, or opening the manual form.',
+    },
+    {
+      element: '[data-tour-expenses-filters]',
+      title: locale === 'fr' ? 'Étape 3 - Filtres et tri' : 'Step 3 - Filters and sorting',
+      description:
+        locale === 'fr'
+          ? 'Filtrez par statut, paiement, catégorie, fournisseur ou période pour retrouver rapidement une dépense.'
+          : 'Filter by status, payment, category, supplier, or date range to find any expense quickly.',
+    },
+    {
+      element: '[data-tour-expenses-list]',
+      title: locale === 'fr' ? 'Étape 4 - Liste des dépenses' : 'Step 4 - Expenses list',
+      description:
+        locale === 'fr'
+          ? 'Gérez chaque dépense depuis cette liste: ouvrir, modifier, ajouter un paiement, solder, dupliquer, archiver ou supprimer.'
+          : 'Manage each expense from this list: open, edit, add payment, settle expense, duplicate, archive, or delete.',
+    },
+  ],
+  '/tickets': (locale) => [
+    {
+      element: '[data-tour-tickets-header]',
+      title: locale === 'fr' ? 'Étape 1 - Espace tickets' : 'Step 1 - Tickets workspace',
+      description:
+        locale === 'fr'
+          ? 'Les tickets permettent de suivre les discussions internes liées à vos dépenses, factures, fournisseurs et clients.'
+          : 'Tickets let you track internal threads linked to expenses, invoices, suppliers, and clients.',
+    },
+    {
+      element: '[data-tour-new-ticket]',
+      title: locale === 'fr' ? 'Étape 2 - Nouveau ticket' : 'Step 2 - New ticket',
+      description:
+        locale === 'fr'
+          ? 'Créez un ticket pour lancer une discussion, soumettre un document ou signaler un litige.'
+          : 'Create a ticket to start a thread, submit a document, or flag a dispute.',
+    },
+    {
+      element: '[data-tour-tickets-filters]',
+      title: locale === 'fr' ? 'Étape 3 - Filtres' : 'Step 3 - Filters',
+      description:
+        locale === 'fr'
+          ? 'Filtrez par statut, type, lien, ou cochez les cases pour voir les tickets qui vous sont assignés ou que vous avez créés.'
+          : 'Filter by status, type, linked record, or use checkboxes to see tickets assigned to or created by you.',
+    },
+    {
+      element: '[data-tour-tickets-list]',
+      title: locale === 'fr' ? 'Étape 4 - Liste des tickets' : 'Step 4 - Ticket list',
+      description:
+        locale === 'fr'
+          ? 'Parcourez la liste et ouvrez un ticket pour répondre, changer le statut ou consulter l\'historique des échanges.'
+          : 'Browse the list and open a ticket to reply, change status, or review the full conversation history.',
+    },
+  ],
+  '/settings': (locale) => [
+    {
+      element: '[data-tour-settings-header]',
+      title: locale === 'fr' ? 'Étape 1 - Paramètres' : 'Step 1 - Settings',
+      description:
+        locale === 'fr'
+          ? 'Configurez ici les paiements Stripe, les relances automatiques, les modèles d\'emails, les récurrences et la gestion des utilisateurs.'
+          : 'Configure Stripe payments, automatic reminders, email templates, recurrence rules, and user management here.',
+    },
+    {
+      element: '[data-tour-settings-nav]',
+      title: locale === 'fr' ? 'Étape 2 - Navigation paramètres' : 'Step 2 - Settings navigation',
+      description:
+        locale === 'fr'
+          ? 'Naviguez entre les sections: Vue d\'ensemble, Relances, Paiements, Dépenses et Utilisateurs selon vos besoins.'
+          : 'Navigate between sections: Overview, Reminders, Payments, Expenses, and Users as needed.',
     },
   ],
 };
@@ -412,6 +498,9 @@ const TOUR_STORAGE_KEY_BY_ROUTE: Partial<Record<string, string>> = {
   '/quotes': '/quotes:v2',
   '/invoices': '/invoices:v2',
   '/notes': '/notes:v2',
+  '/expenses': '/expenses:v1',
+  '/tickets': '/tickets:v1',
+  '/settings': '/settings:v1',
 };
 
 function normalizePathKey(pathname: string): string {

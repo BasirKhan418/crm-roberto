@@ -8,6 +8,8 @@ interface AuthUser {
   email: string;
   locale?: 'en' | 'fr';
   isOnboardingComplete?: boolean;
+  role?: string;
+  companyId?: string | null;
 }
 
 interface UseAuthMeResult {

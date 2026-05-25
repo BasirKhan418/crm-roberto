@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 export const runtime = "edge";
-export const alt = "CRM Roberto social card";
+export const alt = "Roby social card";
 export const size = {
   width: 1200,
   height: 630,
@@ -25,7 +25,7 @@ export default function TwitterImage() {
         }}
       >
         <div style={{ fontSize: "30px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" }}>
-          CRM Roberto
+          Roby
         </div>
         <div style={{ marginTop: "24px", fontSize: "72px", fontWeight: 800, lineHeight: 1.04 }}>
           Business context,

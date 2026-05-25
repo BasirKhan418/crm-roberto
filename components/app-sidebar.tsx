@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import Image from "next/image"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
@@ -14,7 +15,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { Building2Icon, FileTextIcon, LayoutDashboard, LayoutDashboardIcon, NotebookPenIcon, PackageSearchIcon, ReceiptTextIcon, SettingsIcon, TruckIcon, UsersIcon } from "lucide-react"
+import { Building2Icon, FileTextIcon, LayoutDashboardIcon, MessageSquareIcon, NotebookPenIcon, PackageSearchIcon, ReceiptTextIcon, SettingsIcon, TruckIcon, UsersIcon, WalletCardsIcon } from "lucide-react"
 import { useLocale } from "@/components/providers/locale-provider"
 import { useSidebarBadges } from "@/hooks/useSidebarBadges"
 
@@ -25,6 +26,8 @@ type NavKey =
   | "catalogue"
   | "quotes"
   | "invoices"
+  | "tickets"
+  | "expenses"
   | "notes"
   | "settings"
   | "companyProfile"
@@ -40,6 +43,8 @@ const navItems: ReadonlyArray<{
   { key: "catalogue", url: "/catalogue", icon: <PackageSearchIcon /> },
   { key: "quotes", url: "/quotes", icon: <ReceiptTextIcon /> },
   { key: "invoices", url: "/invoices", icon: <FileTextIcon /> },
+  { key: "tickets", url: "/tickets", icon: <MessageSquareIcon /> },
+  { key: "expenses", url: "/expenses", icon: <WalletCardsIcon /> },
   { key: "notes", url: "/notes", icon: <NotebookPenIcon /> },
   { key: "settings", url: "/settings", icon: <SettingsIcon /> },
   { key: "companyProfile", url: "/profile", icon: <Building2Icon /> },
@@ -55,6 +60,7 @@ const sidebarMessages = {
       rejected: (n: number) => `${n} new rejected`,
       paid: (n: number) => `${n} new paid`,
       overdue: (n: number) => `${n} new overdue`,
+      unreadTickets: (n: number) => `${n} unread tickets`,
     },
     nav: {
       dashboard: "Dashboard",
@@ -63,8 +69,10 @@ const sidebarMessages = {
       catalogue: "Products & Services",
       quotes: "Quotes",
       notes: "Notes",
+      expenses: "Expenses",
       settings: "Settings",
       invoices: "Invoices",
+      tickets: "Tickets",
       companyProfile: "Company profile",
     },
   },
@@ -77,6 +85,7 @@ const sidebarMessages = {
       rejected: (n: number) => `${n} nouveau(x) refusé(s)`,
       paid: (n: number) => `${n} nouvelle(s) payée(s)`,
       overdue: (n: number) => `${n} nouvelle(s) en retard`,
+      unreadTickets: (n: number) => `${n} ticket(s) non lu(s)`,
     },
     nav: {
       dashboard: "Tableau de bord",
@@ -85,8 +94,10 @@ const sidebarMessages = {
       catalogue: "Produits & Services",
       quotes: "Devis",
       notes: "Notes",
+      expenses: "Dépenses",
       settings: "Paramètres",
       invoices: "Factures",
+      tickets: "Tickets",
       companyProfile: "Profil d'entreprise",
     },
   },
@@ -125,16 +136,18 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <SidebarMenu className="px-1 pt-1">
           <SidebarMenuItem>
             <SidebarMenuButton
-              className="h-auto rounded-xl border border-sidebar-border/80 bg-sidebar-accent/50 p-2 data-[slot=sidebar-menu-button]:p-2!"
+              className="h-auto rounded-xl border border-sidebar-border/60 bg-sidebar-accent/40 px-3 py-3 data-[slot=sidebar-menu-button]:p-3! hover:bg-sidebar-accent/60"
             >
-              <div className="flex items-center gap-2">
-                <div className="rounded-lg bg-primary p-1.5 text-primary-foreground">
-                  <LayoutDashboard className="size-4" />
-                </div>
-                <div className="grid text-left leading-tight">
-                  <span className="text-base font-semibold">CRM Roberto</span>
-                  <span className="text-xs text-muted-foreground">{t.tagline}</span>
-                </div>
+              <div className="flex w-full flex-col items-center gap-1.5">
+                <Image
+                  src="/logo.png"
+                  alt="Roby"
+                  width={110}
+                  height={38}
+                  style={{ height: "auto" }}
+                  className="mix-blend-multiply dark:mix-blend-normal dark:brightness-0 dark:invert"
+                />
+                <span className="text-[11px] text-muted-foreground tracking-wide">{t.tagline}</span>
               </div>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -167,6 +180,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                       <StatusBadge count={paid} tone="green" title={t.badgeTitles.paid(paid)} />
                       <StatusBadge count={pending} tone="orange" title={t.badgeTitles.pending(pending)} />
                       <StatusBadge count={overdue} tone="red" title={t.badgeTitles.overdue(overdue)} />
+                    </span>
+                  )
+                }
+              } else if (item.key === "tickets") {
+                const unread = badges.tickets.unread
+                if (unread > 0) {
+                  badgeNode = (
+                    <span className="ml-auto flex items-center gap-1">
+                      <StatusBadge count={unread} tone="red" title={t.badgeTitles.unreadTickets(unread)} />
                     </span>
                   )
                 }

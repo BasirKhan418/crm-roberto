@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 export const runtime = "edge";
-export const alt = "CRM Roberto - Executive CRM Platform";
+export const alt = "Roby - Executive CRM Platform";
 export const size = {
   width: 1200,
   height: 630,
@@ -21,7 +21,7 @@ export default function OpenGraphImage() {
           background:
             "linear-gradient(135deg, #001e3c 0%, #003a70 45%, #f2f8ff 100%)",
           color: "#ffffff",
-          padding: "64px",
+          padding: "64px 36px",
           fontFamily: "Arial",
         }}
       >
@@ -39,10 +39,10 @@ export default function OpenGraphImage() {
               fontWeight: 700,
             }}
           >
-            CRM
+            R
           </div>
           <div style={{ fontSize: "28px", fontWeight: 700, letterSpacing: "0.03em" }}>
-            CRM Roberto
+            Roby
           </div>
         </div>
 

@@ -226,7 +226,7 @@ function InvoicesPageContent() {
       totalHT: 'Total HT',
       totalTVA: 'Total TVA',
       totalTTC: 'Total TTC',
-      totalPaid: 'Total paye',
+      totalPaid: 'Total payé',
       totalDue: 'Total reste',
       actionOverdue: (n: number) => `${n} facture${n === 1 ? '' : 's'} en retard — encaissez maintenant`,
       actionOverdueHint: 'Disparaît lorsque la facture est marquée comme payée',

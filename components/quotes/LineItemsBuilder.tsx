@@ -74,7 +74,7 @@ export default function LineItemsBuilder({ lineItems, onChange, mode = 'quote' }
       addLine: 'Ajouter une ligne',
       addProductService: 'Ajouter produit / service',
       addFreeTextLine: 'Ajouter texte libre',
-      addCustomLine: 'Ajouter ligne personnalisee',
+      addCustomLine: 'Ajouter ligne personnalisée',
       pickerTitle: 'Ajouter un produit / service',
       pickerSearch: 'Rechercher...',
       pickerEmpty: 'Aucun produit trouv\u00e9',
