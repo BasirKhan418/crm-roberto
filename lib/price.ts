@@ -15,12 +15,15 @@ export function formatCurrencyFromCents(
   currency: string = 'EUR',
   options?: Intl.NumberFormatOptions
 ) {
+  const minimumFractionDigits = options?.minimumFractionDigits ?? 2;
+  const maximumFractionDigits = options?.maximumFractionDigits ?? Math.max(2, minimumFractionDigits);
+
   return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
     ...options,
+    minimumFractionDigits: Math.min(minimumFractionDigits, maximumFractionDigits),
+    maximumFractionDigits,
   }).format((Number.isFinite(cents) ? cents : 0) / 100);
 }
 
