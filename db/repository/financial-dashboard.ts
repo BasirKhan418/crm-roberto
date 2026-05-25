@@ -244,6 +244,7 @@ async function resolveFinancialAccessContext(params: {
   companyId?: string | null;
   userId: string;
   role?: string | null;
+  allowExternalAccountant?: boolean;
 }): Promise<RepositoryResult<FinancialAccessContext>> {
   await ConnectDb();
 
@@ -256,12 +257,18 @@ async function resolveFinancialAccessContext(params: {
   }
 
   const normalizedRole = normalizeRole(params.role);
+  const isExternalAccountantPortal =
+    params.allowExternalAccountant === true && normalizedRole === "external_accountant";
 
-  if (!hasPermission(normalizedRole, "expenses.view")) {
+  if (!isExternalAccountantPortal && !hasPermission(normalizedRole, "expenses.view")) {
     return { success: false, status: 403, message: "Forbidden" };
   }
 
-  const scope: FinancialAccessScope = COMPANY_WIDE_FINANCIAL_ROLES.has(normalizedRole) ? "company" : "own";
+  const scope: FinancialAccessScope = isExternalAccountantPortal
+    ? "company"
+    : COMPANY_WIDE_FINANCIAL_ROLES.has(normalizedRole)
+      ? "company"
+      : "own";
   const companyId = String(params.companyId);
   const userId = String(params.userId);
 
@@ -968,6 +975,7 @@ export async function getFinancialDashboardData(params: {
   userId: string;
   role?: string | null;
   period: FinancialPeriodSelection;
+  allowExternalAccountant?: boolean;
 }): Promise<RepositoryResult<FinancialDashboardData>> {
   const access = await resolveFinancialAccessContext(params);
   if (!access.success) {
@@ -1036,6 +1044,7 @@ export async function getFinancialSmartAlertsData(params: {
   companyId?: string | null;
   userId: string;
   role?: string | null;
+  allowExternalAccountant?: boolean;
 }): Promise<RepositoryResult<FinancialSmartAlertsData>> {
   const access = await resolveFinancialAccessContext(params);
   if (!access.success) {

@@ -9,6 +9,7 @@ interface TokenPayload {
   isEmailVerified?: boolean;
   kind?: string;
   role?: string;
+  companyId?: string | null;
 }
 
 const bypassRoutePrefixes = ['/sign'];
@@ -29,6 +30,8 @@ const protectedRoutePrefixes = [
 ];
 const adminProtectedPrefixes = ['/admin'];
 const adminPublicRoutes = ['/admin/login'];
+const accountantPortalProtectedPrefixes = ['/accountant-portal'];
+const accountantPortalPublicRoutes = ['/accountant-portal/login'];
 const publicRoutes = ['/', '/login', '/signup', '/workspace-setup', '/forgot-password'];
 
 function matchesRoutePrefix(pathname: string, route: string): boolean {
@@ -49,9 +52,14 @@ function isExternalAccountant(payload: TokenPayload | null): boolean {
   return payload?.role === 'external_accountant';
 }
 
+function isValidAccountantPortalSession(payload: TokenPayload | null): boolean {
+  return Boolean(payload && payload.kind === 'accountant_portal' && payload.role === 'external_accountant');
+}
+
 export default async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get('token')?.value;
+  const accountantToken = request.cookies.get('accountant-token')?.value;
 
   if (bypassRoutePrefixes.some((route) => matchesRoutePrefix(pathname, route))) {
     return NextResponse.next();
@@ -78,13 +86,32 @@ export default async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  if (accountantPortalProtectedPrefixes.some((route) => matchesRoutePrefix(pathname, route))) {
+    const accountantPayload = accountantToken ? await verifyToken(accountantToken) : null;
+
+    if (accountantPortalPublicRoutes.includes(pathname)) {
+      if (isValidAccountantPortalSession(accountantPayload)) {
+        return NextResponse.redirect(new URL('/accountant-portal', request.url));
+      }
+      return NextResponse.next();
+    }
+
+    if (!isValidAccountantPortalSession(accountantPayload)) {
+      const response = NextResponse.redirect(new URL('/accountant-portal/login', request.url));
+      response.cookies.delete('accountant-token');
+      return response;
+    }
+
+    return NextResponse.next();
+  }
+
   if (protectedRoutePrefixes.some((route) => matchesRoutePrefix(pathname, route))) {
     const payload = token ? await verifyToken(token) : null;
     if (!payload) {
       return NextResponse.redirect(new URL('/login', request.url));
     }
     if (isExternalAccountant(payload)) {
-      const response = NextResponse.redirect(new URL('/login', request.url));
+      const response = NextResponse.redirect(new URL('/accountant-portal/login', request.url));
       response.cookies.delete('token');
       return response;
     }
@@ -98,7 +125,7 @@ export default async function proxy(request: NextRequest) {
     const payload = token ? await verifyToken(token) : null;
     if (payload) {
       if (isExternalAccountant(payload)) {
-        const response = NextResponse.next();
+        const response = NextResponse.redirect(new URL('/accountant-portal/login', request.url));
         response.cookies.delete('token');
         return response;
       }
@@ -116,7 +143,7 @@ export default async function proxy(request: NextRequest) {
       return NextResponse.redirect(new URL('/login', request.url));
     }
     if (isExternalAccountant(payload)) {
-      const response = NextResponse.redirect(new URL('/login', request.url));
+      const response = NextResponse.redirect(new URL('/accountant-portal/login', request.url));
       response.cookies.delete('token');
       return response;
     }

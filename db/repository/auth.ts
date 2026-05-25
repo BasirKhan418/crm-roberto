@@ -9,6 +9,40 @@ import { createI18nKey as i18nKey } from "@/lib/i18n/messages";
 const MAX_FAILED_LOGIN_ATTEMPTS = 5;
 const LOCK_MINUTES = 15;
 
+async function resetLoginGuards(userId: string, updateLastLoginAt: Date | null = null) {
+    const update: Record<string, unknown> = {
+        failedLoginCount: 0,
+        lockedUntil: null,
+    };
+
+    if (updateLastLoginAt) {
+        update.lastLoginAt = updateLastLoginAt;
+    }
+
+    await User.updateOne(
+        { _id: userId },
+        {
+            $set: update,
+        }
+    );
+}
+
+async function registerFailedLogin(userId: string, failedLoginCount: number) {
+    const setLockedUntil = failedLoginCount >= MAX_FAILED_LOGIN_ATTEMPTS
+        ? new Date(Date.now() + LOCK_MINUTES * 60 * 1000)
+        : null;
+
+    await User.updateOne(
+        { _id: userId },
+        {
+            $set: {
+                failedLoginCount,
+                lockedUntil: setLockedUntil,
+            },
+        }
+    );
+}
+
 const registerUser = async (_name: string, email: string, _password: string) => {
     try{
         void _password;
@@ -68,34 +102,14 @@ const loginUser = async (email: string, password: string) => {
 
         if (!isValid) {
             const failedLoginCount = Number(user.failedLoginCount || 0) + 1;
-            const setLockedUntil = failedLoginCount >= MAX_FAILED_LOGIN_ATTEMPTS
-                ? new Date(Date.now() + LOCK_MINUTES * 60 * 1000)
-                : null;
-
-            await User.updateOne(
-                { _id: user._id },
-                {
-                    $set: {
-                        failedLoginCount,
-                        lockedUntil: setLockedUntil,
-                    },
-                }
-            );
+            await registerFailedLogin(String(user._id), failedLoginCount);
 
             return { message: i18nKey("auth.invalidPassword"), success: false };
         }
 
         if (user.role === "external_accountant") {
             if (Number(user.failedLoginCount || 0) !== 0 || user.lockedUntil) {
-                await User.updateOne(
-                    { _id: user._id },
-                    {
-                        $set: {
-                            failedLoginCount: 0,
-                            lockedUntil: null,
-                        },
-                    }
-                );
+                await resetLoginGuards(String(user._id));
             }
 
             return { message: i18nKey("auth.externalAccountantPortalOnly"), success: false };
@@ -127,14 +141,72 @@ const loginUser = async (email: string, password: string) => {
             }
         }
 
+        await resetLoginGuards(String(user._id), now);
         user.failedLoginCount = 0;
         user.lockedUntil = null;
         user.lastLoginAt = now;
-        await user.save();
 
         return { message: i18nKey("auth.loginSuccessful"), success: true, user };
     } catch (error) {
         console.error("loginUser failed", error);
+        return { message: i18nKey("auth.loginError"), success: false };
+    }
+};
+
+const loginAccountantUser = async (email: string, password: string) => {
+    try {
+        await ConnectDb();
+        const user = await User.findOne({ email, isEmailVerified: true }).select(
+            "+password name email locale isOnboardingComplete isEmailVerified account_status role companyId invitedBy accessRevokedAt forceLogoutAfter failedLoginCount lockedUntil"
+        );
+
+        if (!user) {
+            return { message: i18nKey("auth.userNotFound"), success: false };
+        }
+
+        const now = new Date();
+
+        if (user.account_status === 'suspended') {
+            return { message: i18nKey("auth.accountSuspended"), success: false };
+        }
+
+        if (user.accessRevokedAt && user.accessRevokedAt <= now) {
+            return { message: i18nKey("auth.accountRevoked"), success: false };
+        }
+
+        if (user.lockedUntil && user.lockedUntil > now) {
+            return { message: i18nKey("auth.accountTemporarilyLocked"), success: false };
+        }
+
+        const pepper = process.env.PASSWORD_PEPPER || "";
+        const isValid = await argon2.verify(user.password, password + pepper);
+
+        if (!isValid) {
+            const failedLoginCount = Number(user.failedLoginCount || 0) + 1;
+            await registerFailedLogin(String(user._id), failedLoginCount);
+            return { message: i18nKey("auth.invalidPassword"), success: false };
+        }
+
+        if (user.role !== "external_accountant") {
+            if (Number(user.failedLoginCount || 0) !== 0 || user.lockedUntil) {
+                await resetLoginGuards(String(user._id));
+            }
+
+            return { message: i18nKey("auth.invalidPassword"), success: false };
+        }
+
+        if (!user.companyId) {
+            return { message: i18nKey("users.companyContextMissing"), success: false };
+        }
+
+        await resetLoginGuards(String(user._id), now);
+        user.failedLoginCount = 0;
+        user.lockedUntil = null;
+        user.lastLoginAt = now;
+
+        return { message: i18nKey("auth.loginSuccessful"), success: true, user };
+    } catch (error) {
+        console.error("loginAccountantUser failed", error);
         return { message: i18nKey("auth.loginError"), success: false };
     }
 };
@@ -160,4 +232,4 @@ const markEmailAsVerified = async (email: string) => {
 
 
 
-export { registerUser, loginUser, markEmailAsVerified };
+export { registerUser, loginUser, loginAccountantUser, markEmailAsVerified };

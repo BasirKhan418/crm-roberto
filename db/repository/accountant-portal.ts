@@ -1,0 +1,723 @@
+import mongoose from "mongoose";
+
+import ConnectDb from "@/db/connectDb";
+import Company from "@/db/models/Company";
+import CompanyProfile from "@/db/models/CompanyProfile";
+import ExpenseAttachment from "@/db/models/ExpenseAttachment";
+import Invoice from "@/db/models/Invoice";
+import Payment from "@/db/models/Payment";
+import Supplier from "@/db/models/Supplier";
+import Ticket from "@/db/models/Ticket";
+import User from "@/db/models/User";
+import { listExpenses } from "@/db/repository/expense";
+import { listExpenseCategories } from "@/db/repository/expenseCategory";
+import {
+  getFinancialDashboardData,
+  type FinancialDashboardData,
+} from "@/db/repository/financial-dashboard";
+import {
+  resolveFinancialPeriod,
+  type FinancialPeriodSelection,
+} from "@/lib/financial-periods";
+
+type RepositoryErrorResult = {
+  success: false;
+  status: number;
+  message: string;
+};
+
+type RepositorySuccessResult<T> = {
+  success: true;
+  data: T;
+};
+
+type RepositoryResult<T> = RepositoryErrorResult | RepositorySuccessResult<T>;
+
+type PortalDashboardData = FinancialDashboardData & {
+  openTicketsAssignedCount: number;
+};
+
+type AccountantAttachmentItem = {
+  id: string;
+  displayName: string;
+  url: string;
+  mimeType: string;
+  extension: string;
+  sizeBytes: number;
+  createdAt: string | null;
+};
+
+type AccountantPurchaseInvoiceItem = {
+  id: string;
+  status: string;
+  paymentStatus: string;
+  expenseDate: string | null;
+  dueDate: string | null;
+  amountExclVatCents: number;
+  vatAmountCents: number;
+  amountInclVatCents: number;
+  amountPaidCents: number;
+  amountRemainingCents: number;
+  supplierRef: string | null;
+  notes: string | null;
+  attachmentsCount: number;
+  attachments: AccountantAttachmentItem[];
+  supplier: {
+    id: string | null;
+    fullName: string;
+    companyName: string | null;
+  } | null;
+  category: {
+    id: string | null;
+    name: string;
+    nameEn: string | null;
+    nameFr: string | null;
+    canonicalKey: string | null;
+  } | null;
+};
+
+type AccountantPurchaseInvoicesData = {
+  items: AccountantPurchaseInvoiceItem[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+  totals?: {
+    totalTtcCents: number;
+    totalPaidCents: number;
+    totalRemainingCents: number;
+  };
+};
+
+type AccountantSalesInvoiceItem = {
+  id: string;
+  invoiceNumber: string;
+  clientName: string;
+  clientCompanyName: string | null;
+  date: string | null;
+  dueDate: string | null;
+  status: "unpaid" | "partial_paid" | "paid" | "overdue";
+  totalExcludingTaxCents: number;
+  totalVatCents: number;
+  totalIncludingTaxCents: number;
+  amountPaidCents: number;
+  amountRemainingCents: number;
+  pdfDownloadUrl: string;
+};
+
+type AccountantSalesInvoicesData = {
+  items: AccountantSalesInvoiceItem[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+  totals: {
+    totalIncludingTaxCents: number;
+    totalPaidCents: number;
+    totalRemainingCents: number;
+  };
+};
+
+type AccountantLookupsData = {
+  suppliers: Array<{
+    id: string;
+    fullName: string;
+    companyName: string | null;
+    email: string | null;
+  }>;
+  categories: Array<{
+    id: string;
+    name: string;
+    nameEn: string | null;
+    nameFr: string | null;
+    canonicalKey: string | null;
+  }>;
+};
+
+type AccountantCompanyProfile = {
+  companyName?: string | null;
+  ownerName?: string | null;
+  address?: string | null;
+  streetNumber?: string | null;
+  streetName?: string | null;
+  postalCode?: string | null;
+  city?: string | null;
+  country?: string | null;
+  phone?: string | null;
+  businessEmail?: string | null;
+  vatNumber?: string | null;
+  rcsNumber?: string | null;
+  businessAuthorizationNumber?: string | null;
+  matriculeNumber?: string | null;
+  iban?: string | null;
+  bankName?: string | null;
+  legalIdentifier?: string | null;
+  logoUrl?: string | null;
+};
+
+function isValidObjectId(value: string | null | undefined) {
+  return Boolean(value && mongoose.Types.ObjectId.isValid(value));
+}
+
+function toObjectId(value: string) {
+  return new mongoose.Types.ObjectId(value);
+}
+
+function toCents(value: unknown) {
+  return Math.max(0, Math.round(Number(value) || 0));
+}
+
+function toIsoStringOrNull(value: unknown) {
+  if (!value) return null;
+  const parsed = value instanceof Date ? value : new Date(String(value));
+  return Number.isFinite(parsed.getTime()) ? parsed.toISOString() : null;
+}
+
+function normalizeInvoiceStatus(status: unknown, dueDate: unknown) {
+  const normalizedStatus = typeof status === "string" ? status : "unpaid";
+  if (normalizedStatus === "paid" || normalizedStatus === "overdue") {
+    return normalizedStatus as AccountantSalesInvoiceItem["status"];
+  }
+
+  const due = dueDate ? new Date(String(dueDate)) : null;
+  if (
+    due &&
+    Number.isFinite(due.getTime()) &&
+    (normalizedStatus === "unpaid" || normalizedStatus === "partial_paid") &&
+    due.getTime() < Date.now()
+  ) {
+    return "overdue";
+  }
+
+  if (normalizedStatus === "partial_paid") {
+    return "partial_paid";
+  }
+
+  return "unpaid";
+}
+
+async function getCompanyUserObjectIds(companyId: string) {
+  const users = await User.find({ companyId: toObjectId(companyId) })
+    .select("_id")
+    .lean<Array<{ _id: mongoose.Types.ObjectId }>>();
+
+  return users.map((user) => user._id);
+}
+
+async function resolveCompanyProfileByCompanyId(companyId: string) {
+  const company = await Company.findById(companyId)
+    .select("ownerUserId")
+    .lean<{ ownerUserId?: mongoose.Types.ObjectId | null } | null>();
+
+  if (!company?.ownerUserId) {
+    return null;
+  }
+
+  return CompanyProfile.findOne({ user: company.ownerUserId }).lean<AccountantCompanyProfile | null>();
+}
+
+function buildPeriodRange(selection?: FinancialPeriodSelection | null) {
+  if (!selection) {
+    return null;
+  }
+
+  const period = resolveFinancialPeriod(selection);
+  return {
+    startDate: period.startDate,
+    endDate: new Date(period.endDateExclusive.getTime() - 1),
+  };
+}
+
+export async function getAccountantPortalDashboard(params: {
+  companyId: string;
+  userId: string;
+  period: FinancialPeriodSelection;
+}): Promise<RepositoryResult<PortalDashboardData>> {
+  const financial = await getFinancialDashboardData({
+    companyId: params.companyId,
+    userId: params.userId,
+    role: "external_accountant",
+    period: params.period,
+    allowExternalAccountant: true,
+  });
+
+  if (!financial.success) {
+    return financial;
+  }
+
+  await ConnectDb();
+
+  const openTicketsAssignedCount = await Ticket.countDocuments({
+    companyId: toObjectId(params.companyId),
+    archivedAt: null,
+    assignedTo: toObjectId(params.userId),
+    status: { $in: ["open", "waiting"] },
+  });
+
+  return {
+    success: true,
+    data: {
+      ...financial.data,
+      openTicketsAssignedCount,
+    },
+  };
+}
+
+export async function listAccountantPortalLookups(params: {
+  companyId: string;
+}): Promise<RepositoryResult<AccountantLookupsData>> {
+  await ConnectDb();
+
+  if (!isValidObjectId(params.companyId)) {
+    return { success: false, status: 400, message: "Missing company context" };
+  }
+
+  const companyUserIds = await getCompanyUserObjectIds(params.companyId);
+  const [categoriesResult, suppliers] = await Promise.all([
+    listExpenseCategories(params.companyId, false),
+    Supplier.find({ user: { $in: companyUserIds } })
+      .select("_id fullName companyName email")
+      .sort({ fullName: 1 })
+      .lean<Array<{ _id: mongoose.Types.ObjectId; fullName?: string; companyName?: string | null; email?: string | null }>>(),
+  ]);
+
+  if (!categoriesResult.success) {
+    return { success: false, status: 400, message: categoriesResult.message || "Failed to load lookups" };
+  }
+
+  return {
+    success: true,
+    data: {
+      suppliers: suppliers.map((supplier) => ({
+        id: String(supplier._id),
+        fullName: String(supplier.fullName || supplier.companyName || "Unknown supplier"),
+        companyName: supplier.companyName ?? null,
+        email: supplier.email ?? null,
+      })),
+      categories: categoriesResult.categories.map((category) => ({
+        id: String(category._id),
+        name: String(category.name || category.nameEn || category.nameFr || "Uncategorized"),
+        nameEn: typeof category.nameEn === "string" ? category.nameEn : null,
+        nameFr: typeof category.nameFr === "string" ? category.nameFr : null,
+        canonicalKey: typeof category.canonicalKey === "string" ? category.canonicalKey : null,
+      })),
+    },
+  };
+}
+
+export async function listAccountantPurchaseInvoices(params: {
+  companyId: string;
+  page: number;
+  limit: number;
+  search?: string;
+  sortBy?: "expenseDate" | "amountInclVatCents" | "supplierRef" | "status" | "createdAt";
+  sortOrder?: "asc" | "desc";
+  paymentStatus?: string;
+  supplierId?: string;
+  categoryId?: string;
+  period?: FinancialPeriodSelection | null;
+}): Promise<RepositoryResult<AccountantPurchaseInvoicesData>> {
+  if (!isValidObjectId(params.companyId)) {
+    return { success: false, status: 400, message: "Missing company context" };
+  }
+
+  const periodRange = buildPeriodRange(params.period);
+  const result = await listExpenses({
+    companyId: params.companyId,
+    options: {
+      page: params.page,
+      limit: params.limit,
+      search: params.search || "",
+      sortBy: params.sortBy || "expenseDate",
+      sortOrder: params.sortOrder || "desc",
+    },
+    filters: {
+      status: "active",
+      paymentStatus: params.paymentStatus as "unpaid" | "partial" | "paid" | undefined,
+      supplierId: params.supplierId,
+      categoryId: params.categoryId,
+      periodStart: periodRange?.startDate,
+      periodEnd: periodRange?.endDate,
+    },
+    includeTotals: true,
+  });
+
+  const expenseIds = result.items
+    .map((item) => String((item as { _id?: unknown })._id || ""))
+    .filter((value) => isValidObjectId(value));
+
+  await ConnectDb();
+
+  const attachments = expenseIds.length > 0
+    ? await ExpenseAttachment.find({
+        companyId: toObjectId(params.companyId),
+        expenseId: { $in: expenseIds.map((value) => toObjectId(value)) },
+      })
+        .select("_id expenseId displayName url mimeType extension sizeBytes createdAt")
+        .sort({ createdAt: -1 })
+        .lean<Array<{
+          _id: mongoose.Types.ObjectId;
+          expenseId: mongoose.Types.ObjectId;
+          displayName?: string;
+          url?: string;
+          mimeType?: string;
+          extension?: string;
+          sizeBytes?: number;
+          createdAt?: Date | null;
+        }>>()
+    : [];
+
+  const attachmentsByExpenseId = new Map<string, AccountantAttachmentItem[]>();
+
+  for (const attachment of attachments) {
+    const expenseId = String(attachment.expenseId);
+    const list = attachmentsByExpenseId.get(expenseId) || [];
+    list.push({
+      id: String(attachment._id),
+      displayName: String(attachment.displayName || "Attachment"),
+      url: String(attachment.url || ""),
+      mimeType: String(attachment.mimeType || "application/octet-stream"),
+      extension: String(attachment.extension || "file"),
+      sizeBytes: Math.max(0, Number(attachment.sizeBytes || 0)),
+      createdAt: toIsoStringOrNull(attachment.createdAt),
+    });
+    attachmentsByExpenseId.set(expenseId, list);
+  }
+
+  const items = result.items.map((item) => {
+    const expense = item as {
+      _id: mongoose.Types.ObjectId;
+      status?: string;
+      paymentStatus?: string;
+      expenseDate?: Date | null;
+      dueDate?: Date | null;
+      amountExclVatCents?: number;
+      vatAmountCents?: number;
+      amountInclVatCents?: number;
+      amountPaidCents?: number;
+      supplierRef?: string | null;
+      notes?: string | null;
+      attachmentsCount?: number;
+      supplierId?: { _id?: mongoose.Types.ObjectId; fullName?: string; companyName?: string | null } | null;
+      categoryId?: {
+        _id?: mongoose.Types.ObjectId;
+        name?: string;
+        nameEn?: string | null;
+        nameFr?: string | null;
+        canonicalKey?: string | null;
+      } | null;
+    };
+    const normalizedAttachments = attachmentsByExpenseId.get(String(expense._id)) || [];
+    const amountInclVatCents = toCents(expense.amountInclVatCents);
+    const amountPaidCents = toCents(expense.amountPaidCents);
+
+    return {
+      id: String(expense._id),
+      status: String(expense.status || "active"),
+      paymentStatus: String(expense.paymentStatus || "unpaid"),
+      expenseDate: toIsoStringOrNull(expense.expenseDate),
+      dueDate: toIsoStringOrNull(expense.dueDate),
+      amountExclVatCents: toCents(expense.amountExclVatCents),
+      vatAmountCents: toCents(expense.vatAmountCents),
+      amountInclVatCents,
+      amountPaidCents,
+      amountRemainingCents: Math.max(0, amountInclVatCents - amountPaidCents),
+      supplierRef: expense.supplierRef ?? null,
+      notes: expense.notes ?? null,
+      attachmentsCount: Math.max(Number(expense.attachmentsCount || normalizedAttachments.length), normalizedAttachments.length),
+      attachments: normalizedAttachments,
+      supplier: expense.supplierId
+        ? {
+            id: expense.supplierId._id ? String(expense.supplierId._id) : null,
+            fullName: String(expense.supplierId.fullName || expense.supplierId.companyName || "Unknown supplier"),
+            companyName: expense.supplierId.companyName ?? null,
+          }
+        : null,
+      category: expense.categoryId
+        ? {
+            id: expense.categoryId._id ? String(expense.categoryId._id) : null,
+            name: String(expense.categoryId.name || expense.categoryId.nameEn || expense.categoryId.nameFr || "Uncategorized"),
+            nameEn: expense.categoryId.nameEn ?? null,
+            nameFr: expense.categoryId.nameFr ?? null,
+            canonicalKey: expense.categoryId.canonicalKey ?? null,
+          }
+        : null,
+    } satisfies AccountantPurchaseInvoiceItem;
+  });
+
+  return {
+    success: true,
+    data: {
+      items,
+      pagination: result.pagination,
+      totals: result.totals,
+    },
+  };
+}
+
+export async function listAccountantSalesInvoices(params: {
+  companyId: string;
+  page: number;
+  limit: number;
+  search?: string;
+  status?: "unpaid" | "partial_paid" | "paid" | "overdue";
+  sortBy?: "date" | "dueDate" | "invoiceNumber" | "totalIncludingTax" | "status";
+  sortOrder?: "asc" | "desc";
+  period?: FinancialPeriodSelection | null;
+}): Promise<RepositoryResult<AccountantSalesInvoicesData>> {
+  await ConnectDb();
+
+  if (!isValidObjectId(params.companyId)) {
+    return { success: false, status: 400, message: "Missing company context" };
+  }
+
+  const companyUserIds = await getCompanyUserObjectIds(params.companyId);
+  const direction: 1 | -1 = params.sortOrder === "asc" ? 1 : -1;
+  const sortBy = params.sortBy || "date";
+  const page = Math.max(1, params.page);
+  const limit = Math.max(1, Math.min(100, params.limit));
+  const skip = (page - 1) * limit;
+  const periodRange = params.period ? resolveFinancialPeriod(params.period) : null;
+
+  const query: Record<string, unknown> = {
+    userId: { $in: companyUserIds },
+  };
+
+  if (periodRange) {
+    query.date = {
+      $gte: periodRange.startDate,
+      $lt: periodRange.endDateExclusive,
+    };
+  }
+
+  if (params.status) {
+    if (params.status === "overdue") {
+      query.$or = [
+        { status: "overdue" },
+        {
+          status: { $in: ["unpaid", "partial_paid"] },
+          dueDate: { $lt: new Date() },
+        },
+      ];
+    } else {
+      query.status = params.status;
+    }
+  }
+
+  if (params.search) {
+    const escaped = params.search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    query.$and = [
+      ...((query.$and as unknown[] | undefined) ?? []),
+      {
+        $or: [
+          { invoiceNumber: { $regex: escaped, $options: "i" } },
+          { "clientSnapshot.fullName": { $regex: escaped, $options: "i" } },
+          { "clientSnapshot.companyName": { $regex: escaped, $options: "i" } },
+        ],
+      },
+    ];
+  }
+
+  const [items, total] = await Promise.all([
+    Invoice.find(query)
+      .select("_id invoiceNumber date dueDate status totalExcludingTax totalVat totalIncludingTax clientSnapshot")
+      .sort({ [sortBy]: direction })
+      .skip(skip)
+      .limit(limit)
+      .lean<Array<{
+        _id: mongoose.Types.ObjectId;
+        invoiceNumber: string;
+        date?: Date | null;
+        dueDate?: Date | null;
+        status?: string;
+        totalExcludingTax?: number;
+        totalVat?: number;
+        totalIncludingTax?: number;
+        clientSnapshot?: { fullName?: string; companyName?: string | null };
+      }>>(),
+    Invoice.countDocuments(query),
+  ]);
+
+  const invoiceIds = items.map((invoice) => invoice._id);
+  const payments = invoiceIds.length > 0
+    ? await Payment.aggregate<{ _id: mongoose.Types.ObjectId; totalPaidCents: number }>([
+        {
+          $match: {
+            invoiceId: { $in: invoiceIds },
+            status: "succeeded",
+          },
+        },
+        {
+          $group: {
+            _id: "$invoiceId",
+            totalPaidCents: { $sum: "$amount" },
+          },
+        },
+      ])
+    : [];
+
+  const paidByInvoiceId = new Map(payments.map((payment) => [String(payment._id), toCents(payment.totalPaidCents)]));
+
+  const normalizedItems = items.map((invoice) => {
+    const amountPaidCents = paidByInvoiceId.get(String(invoice._id)) || 0;
+    const totalIncludingTaxCents = toCents(invoice.totalIncludingTax);
+
+    return {
+      id: String(invoice._id),
+      invoiceNumber: invoice.invoiceNumber,
+      clientName: String(invoice.clientSnapshot?.fullName || invoice.clientSnapshot?.companyName || "Unknown client"),
+      clientCompanyName: invoice.clientSnapshot?.companyName ?? null,
+      date: toIsoStringOrNull(invoice.date),
+      dueDate: toIsoStringOrNull(invoice.dueDate),
+      status: normalizeInvoiceStatus(invoice.status, invoice.dueDate),
+      totalExcludingTaxCents: toCents(invoice.totalExcludingTax),
+      totalVatCents: toCents(invoice.totalVat),
+      totalIncludingTaxCents,
+      amountPaidCents,
+      amountRemainingCents: Math.max(0, totalIncludingTaxCents - amountPaidCents),
+      pdfDownloadUrl: `/api/accountant/sales-invoices/${String(invoice._id)}/pdf`,
+    } satisfies AccountantSalesInvoiceItem;
+  });
+
+  const totals = normalizedItems.reduce(
+    (accumulator, item) => ({
+      totalIncludingTaxCents: accumulator.totalIncludingTaxCents + item.totalIncludingTaxCents,
+      totalPaidCents: accumulator.totalPaidCents + item.amountPaidCents,
+      totalRemainingCents: accumulator.totalRemainingCents + item.amountRemainingCents,
+    }),
+    {
+      totalIncludingTaxCents: 0,
+      totalPaidCents: 0,
+      totalRemainingCents: 0,
+    }
+  );
+
+  return {
+    success: true,
+    data: {
+      items: normalizedItems,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+      },
+      totals,
+    },
+  };
+}
+
+export async function getAccountantSalesInvoicePdfData(params: {
+  companyId: string;
+  invoiceId: string;
+}): Promise<RepositoryResult<{
+  invoice: {
+    _id: mongoose.Types.ObjectId;
+    invoiceNumber: string;
+    quoteNumber?: string | null;
+    date: Date;
+    dueDate?: Date | null;
+    status: string;
+    lineItems: Array<{
+      name: string;
+      quantity: number;
+      baseUnitPriceExcludingTax: number;
+      discountPercentage: number;
+      discountAmountExcludingTax: number;
+      vatRate: number;
+      totalExcludingTax: number;
+      lineType?: string | null;
+    }>;
+    totalExcludingTax: number;
+    totalVat: number;
+    totalIncludingTax: number;
+    depositPercentage?: number | null;
+    notes?: string | null;
+    paymentToken?: string | null;
+    paymentTokenExpiry?: Date | null;
+    clientSnapshot: unknown;
+  };
+  payments: Array<{
+    amount: number;
+    method?: string | null;
+    type?: string | null;
+    paidAt?: Date | null;
+    createdAt?: Date | null;
+  }>;
+  profile: AccountantCompanyProfile | null;
+}>> {
+  await ConnectDb();
+
+  if (!isValidObjectId(params.companyId) || !isValidObjectId(params.invoiceId)) {
+    return { success: false, status: 400, message: "Invalid invoice context" };
+  }
+
+  const companyUserIds = await getCompanyUserObjectIds(params.companyId);
+  const invoice = await Invoice.findOne({
+    _id: toObjectId(params.invoiceId),
+    userId: { $in: companyUserIds },
+  })
+    .select(
+      "_id invoiceNumber quoteNumber date dueDate status lineItems totalExcludingTax totalVat totalIncludingTax depositPercentage notes paymentToken paymentTokenExpiry clientSnapshot"
+    )
+    .lean<{
+      _id: mongoose.Types.ObjectId;
+      invoiceNumber: string;
+      quoteNumber?: string | null;
+      date: Date;
+      dueDate?: Date | null;
+      status: string;
+      lineItems: Array<{
+        name: string;
+        quantity: number;
+        baseUnitPriceExcludingTax: number;
+        discountPercentage: number;
+        discountAmountExcludingTax: number;
+        vatRate: number;
+        totalExcludingTax: number;
+        lineType?: string | null;
+      }>;
+      totalExcludingTax: number;
+      totalVat: number;
+      totalIncludingTax: number;
+      depositPercentage?: number | null;
+      notes?: string | null;
+      paymentToken?: string | null;
+      paymentTokenExpiry?: Date | null;
+      clientSnapshot: unknown;
+    } | null>();
+
+  if (!invoice) {
+    return { success: false, status: 404, message: "Invoice not found" };
+  }
+
+  const [payments, profile] = await Promise.all([
+    Payment.find({
+      invoiceId: invoice._id,
+      status: "succeeded",
+    })
+      .sort({ paidAt: -1, createdAt: -1 })
+      .select("amount method type paidAt createdAt")
+      .lean<Array<{
+        amount: number;
+        method?: string | null;
+        type?: string | null;
+        paidAt?: Date | null;
+        createdAt?: Date | null;
+      }>>(),
+    resolveCompanyProfileByCompanyId(params.companyId),
+  ]);
+
+  return {
+    success: true,
+    data: {
+      invoice,
+      payments,
+      profile,
+    },
+  };
+}
