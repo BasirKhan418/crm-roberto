@@ -32,7 +32,7 @@ flowchart LR
   Api --> SMTP[SMTP via Nodemailer]
   Api --> Redis[(Redis / Valkey)]
 
-  VercelCron[Vercel Cron] --> CronApi[/api/cron/reminders]
+  VercelCron[Vercel Cron] --> CronApi["/api/cron/reminders"]
   LocalCron[Optional local scheduler] --> CronApi
   CronApi --> Redis
   CronApi --> Mongo
@@ -201,7 +201,7 @@ sequenceDiagram
 
 ```mermaid
 flowchart LR
-  Scheduler[Vercel Cron or local scheduler] --> Cron[/api/cron/reminders]
+  Scheduler[Vercel Cron or local scheduler] --> Cron["/api/cron/reminders"]
   Cron --> Auth[Validate CRON_SECRET]
   Auth --> ReminderPass[runReminderPass]
   Auth --> RecurrencePass[runRecurrencePass]
