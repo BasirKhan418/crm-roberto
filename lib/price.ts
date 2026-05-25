@@ -9,6 +9,22 @@ export function centsToEuros(cents: number): string {
 }
 
 
+export function formatCurrencyFromCents(
+  cents: number,
+  locale: string = 'fr-FR',
+  currency: string = 'EUR',
+  options?: Intl.NumberFormatOptions
+) {
+  return new Intl.NumberFormat(locale, {
+    style: 'currency',
+    currency,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+    ...options,
+  }).format((Number.isFinite(cents) ? cents : 0) / 100);
+}
+
+
 export function calcLineItem(unitPriceCents: number, quantity: number, vatRate: number) {
   const totalExclTax = unitPriceCents * quantity;
   const vatAmount = Math.round(totalExclTax * (vatRate / 100));
