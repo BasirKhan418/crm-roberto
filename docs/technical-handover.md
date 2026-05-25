@@ -32,12 +32,14 @@ flowchart LR
   Api --> SMTP[SMTP via Nodemailer]
   Api --> Redis[(Redis / Valkey)]
 
-  VercelCron[Vercel Cron] --> CronApi["/api/cron/reminders"]
+  VercelCron[Vercel Cron] --> CronApi[Cron reminders API]
   LocalCron[Optional local scheduler] --> CronApi
   CronApi --> Redis
   CronApi --> Mongo
   CronApi --> SMTP
 ```
+
+Cron endpoint: `/api/cron/reminders`.
 
 ## 3. Runtime Architecture
 
@@ -201,7 +203,7 @@ sequenceDiagram
 
 ```mermaid
 flowchart LR
-  Scheduler[Vercel Cron or local scheduler] --> Cron["/api/cron/reminders"]
+  Scheduler[Vercel Cron or local scheduler] --> Cron[Cron reminders API]
   Cron --> Auth[Validate CRON_SECRET]
   Auth --> ReminderPass[runReminderPass]
   Auth --> RecurrencePass[runRecurrencePass]
@@ -214,6 +216,8 @@ flowchart LR
   RecurrencePass --> Generate[Generate next recurring invoice]
   Generate --> Activity[Create activity/notification]
 ```
+
+Cron endpoint: `/api/cron/reminders`.
 
 ## 8. Integration Architecture
 
