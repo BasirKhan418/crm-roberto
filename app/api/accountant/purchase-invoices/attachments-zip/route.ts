@@ -1,3 +1,4 @@
+import { GetObjectCommand } from "@aws-sdk/client-s3";
 import JSZip from "jszip";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -6,8 +7,11 @@ import { authorizeAccountantTicketAccess } from "@/app/api/accountant/_shared/ti
 import { buildValidationError } from "@/utils/api/validation";
 import { accountantAttachmentZipSchema } from "@/validators/accountant-export.schema";
 import { getClientIp } from "@/utils/api/request";
+import s3 from "@/utils/s3/s3Client";
 
 export const runtime = "nodejs";
+
+const BUCKET = process.env.AWS_S3_BUCKET || "";
 
 function sanitizePathSegment(value: string) {
   return value.replace(/[<>:"/\\|?*]+/g, "-").trim() || "file";
@@ -15,9 +19,16 @@ function sanitizePathSegment(value: string) {
 
 export async function POST(request: NextRequest) {
   try {
+    if (!BUCKET) {
+      return NextResponse.json({ success: false, message: "AWS_S3_BUCKET is not configured" }, { status: 500 });
+    }
+
     const auth = await authorizeAccountantTicketAccess();
     if (!auth.success) {
       return auth.response;
+    }
+    if (auth.context.user.featureFlags?.exports === false) {
+      return NextResponse.json({ success: false, message: "Feature disabled" }, { status: 403 });
     }
 
     const body = await request.json();
@@ -40,13 +51,24 @@ export async function POST(request: NextRequest) {
 
     for (const file of bundleResult.data.files) {
       try {
-        const response = await fetch(file.url);
-        if (!response.ok) {
-          failures.push(`${file.fileName} -> ${response.status}`);
+        if (!file.storageKey) {
+          failures.push(`${file.fileName} -> missing storage key`);
           continue;
         }
 
-        const buffer = Buffer.from(await response.arrayBuffer());
+        const objectResponse = await s3.send(
+          new GetObjectCommand({
+            Bucket: BUCKET,
+            Key: file.storageKey,
+          })
+        );
+
+        if (!objectResponse.Body) {
+          failures.push(`${file.fileName} -> empty object body`);
+          continue;
+        }
+
+        const buffer = Buffer.from(await objectResponse.Body.transformToByteArray());
         const folder = `${sanitizePathSegment(file.expenseDate || "undated")}-${sanitizePathSegment(file.supplierName)}`;
         zip.file(`${folder}/${sanitizePathSegment(file.fileName)}`, buffer);
       } catch (error) {

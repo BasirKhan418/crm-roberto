@@ -13,6 +13,9 @@ export async function GET(request: NextRequest) {
     if (!session.success || !session.user) {
       return NextResponse.json({ success: false, message: session.message || "Unauthorized" }, { status: 401 });
     }
+    if (session.user.featureFlags?.exports === false) {
+      return NextResponse.json({ success: false, message: "Feature disabled" }, { status: 403 });
+    }
 
     const parsed = parseAccountantExportRequest(request);
     if (!parsed.success) {

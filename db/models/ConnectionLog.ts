@@ -59,5 +59,6 @@ const ConnectionLogSchema = new mongoose.Schema(
 ConnectionLogSchema.index({ companyId: 1, createdAt: -1 });
 ConnectionLogSchema.index({ userId: 1, createdAt: -1 });
 ConnectionLogSchema.index({ eventType: 1, createdAt: -1 });
+ConnectionLogSchema.index({ companyId: 1, userId: 1, eventType: 1, createdAt: -1 });
 
 export default mongoose.models.ConnectionLog || mongoose.model("ConnectionLog", ConnectionLogSchema);

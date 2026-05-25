@@ -255,12 +255,19 @@ Auditability already present:
 |---|---|---|
 | OCR-assisted expense workflow | Roadmap | Add document text extraction after S3 upload, map extracted fields into expense drafts, and keep human approval before activation. |
 | Email expense import | Placeholder route exists | Complete inbound email provider setup, verify HMAC/secret, parse attachments, upload to S3, create draft expenses, and add audit events. |
+| Attachment malware scanning | Post-MVP limitation | Uploaded files are stored in S3 after validation of type and size, but there is no antivirus or sandbox scanning pipeline yet. Add quarantine plus scan-before-release for production hardening. |
 | Background jobs | Roadmap | Move email/PDF/long-running tasks to a queue such as Inngest, BullMQ, or a managed background job service. |
 | External accountant portal | Role exists | Build a separate read-only accountant interface with scoped documents and export permissions. |
 | Security hardening | Ongoing | Add rate limiting, request logging, structured audit reports, MFA, and automated dependency scanning. |
 | Scale readiness | Ongoing | Add observability, database index validation, S3 lifecycle rules, queue-based email delivery, and load testing for dashboard aggregates. |
 
-## 11. Developer Handover Checklist
+## 11. Known Post-MVP Limitations
+
+- Full mailbox ingestion is not complete. The expense email ingest route is a protected placeholder that accepts validated payloads, but it does not yet include provider-specific inbound mailbox setup, signature verification beyond the shared secret, or autonomous mailbox polling.
+- Attachment malware scanning is not implemented. Uploads are validated for size and MIME/extension expectations, but there is no antivirus scan, quarantine bucket, or asynchronous file reputation workflow before files become available for download.
+- Platform rate limiting is still a hardening follow-up. Login, password reset, tokenized public routes, and upload-related endpoints should move behind request throttling before a broader production rollout.
+
+## 12. Developer Handover Checklist
 
 - Read all docs in `docs/`.
 - Run `npm install`, `npm run lint`, and `npm run build` locally.

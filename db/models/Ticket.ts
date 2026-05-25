@@ -84,5 +84,6 @@ const TicketSchema = new mongoose.Schema(
 TicketSchema.index({ companyId: 1, status: 1, updatedAt: -1 });
 TicketSchema.index({ companyId: 1, assignedTo: 1, status: 1, updatedAt: -1 });
 TicketSchema.index({ companyId: 1, linkedType: 1, linkedId: 1, updatedAt: -1 });
+TicketSchema.index({ companyId: 1, updatedAt: -1 });
 
 export default mongoose.models.Ticket || mongoose.model("Ticket", TicketSchema);

@@ -7,6 +7,7 @@ import { BookOpenText, Calculator, FileDown, LayoutDashboard, LogOut, ReceiptTex
 
 import { LanguageThemeToggle } from '@/components/language-theme-toggle';
 import { Button } from '@/components/ui/button';
+import type { CompanyFeatureFlags } from '@/lib/company-features';
 import { cn } from '@/lib/utils';
 
 const NAV_ITEMS = [
@@ -17,10 +18,11 @@ const NAV_ITEMS = [
   { href: '/accountant-portal/exports', icon: FileDown, label: 'Exports', labelFr: 'Exports' },
 ] as const;
 
-export function AccountantPortalShell({ children }: { children: React.ReactNode }) {
+export function AccountantPortalShell({ children, featureFlags }: { children: React.ReactNode; featureFlags?: CompanyFeatureFlags }) {
   const pathname = usePathname();
   const router = useRouter();
   const isLoginPage = pathname === '/accountant-portal/login';
+  const navItems = NAV_ITEMS.filter((item) => item.href !== '/accountant-portal/exports' || featureFlags?.exports !== false);
 
   async function handleLogout() {
     await fetch('/api/accountant/auth/logout', {
@@ -32,19 +34,19 @@ export function AccountantPortalShell({ children }: { children: React.ReactNode 
   }
 
   if (isLoginPage) {
-    return <div className="min-h-dvh bg-[radial-gradient(circle_at_top,_rgba(245,158,11,0.12),_transparent_34%),linear-gradient(180deg,_rgba(15,23,42,0.02),_transparent_28%)]">{children}</div>;
+    return <div className="min-h-dvh bg-[radial-gradient(circle_at_top,rgba(245,158,11,0.12),transparent_34%),linear-gradient(180deg,rgba(15,23,42,0.02),transparent_28%)]">{children}</div>;
   }
 
   return (
     <div
-      className="min-h-dvh bg-[radial-gradient(circle_at_top_left,_rgba(245,158,11,0.12),_transparent_28%),radial-gradient(circle_at_bottom_right,_rgba(15,23,42,0.06),_transparent_30%),linear-gradient(180deg,_rgba(255,255,255,0.94),_rgba(248,250,252,1))]"
+      className="min-h-dvh bg-[radial-gradient(circle_at_top_left,rgba(245,158,11,0.12),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(15,23,42,0.06),transparent_30%),linear-gradient(180deg,rgba(255,255,255,0.94),rgba(248,250,252,1))]"
       style={
         {
           '--portal-accent': '#b45309',
         } as CSSProperties
       }
     >
-      <div className="mx-auto flex min-h-dvh w-full max-w-[1480px] flex-col lg:flex-row">
+      <div className="mx-auto flex min-h-dvh w-full max-w-370 flex-col lg:flex-row">
         <aside className="border-b border-border/60 bg-white/80 px-4 py-4 backdrop-blur lg:min-h-dvh lg:w-72 lg:border-b-0 lg:border-r lg:px-5 lg:py-6">
           <div className="flex items-start justify-between gap-3 lg:block">
             <div className="space-y-2">
@@ -62,7 +64,7 @@ export function AccountantPortalShell({ children }: { children: React.ReactNode 
           </div>
 
           <nav className="mt-4 flex gap-2 overflow-x-auto pb-1 lg:mt-8 lg:flex-col lg:overflow-visible">
-            {NAV_ITEMS.map((item) => {
+            {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = pathname === item.href;
               return (

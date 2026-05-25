@@ -66,7 +66,7 @@ type PurchaseAttachmentBundleInput = {
     expenseDate: string | null;
     supplierName: string;
     fileName: string;
-    url: string;
+    storageKey: string;
   }>;
 };
 
@@ -625,10 +625,10 @@ export async function buildPurchaseAttachmentBundleInput(params: {
     companyId: toObjectId(params.companyId),
     expenseId: { $in: expenses.map((expense) => expense._id) },
   })
-    .select("expenseId displayName url")
+    .select("expenseId displayName storageKey")
     .sort({ createdAt: 1 })
     .limit(MAX_ATTACHMENT_FILES)
-    .lean<Array<{ expenseId: mongoose.Types.ObjectId; displayName?: string; url?: string }>>();
+    .lean<Array<{ expenseId: mongoose.Types.ObjectId; displayName?: string; storageKey?: string }>>();
 
   if (attachments.length === 0) {
     return { success: false, status: 404, message: "No attachments found for the selected purchase invoices" };
@@ -658,7 +658,7 @@ export async function buildPurchaseAttachmentBundleInput(params: {
           expenseDate: expense?.expenseDate ?? null,
           supplierName: expense?.supplierName ?? "supplier",
           fileName: String(attachment.displayName || "attachment"),
-          url: String(attachment.url || ""),
+          storageKey: String(attachment.storageKey || ""),
         };
       }),
     },

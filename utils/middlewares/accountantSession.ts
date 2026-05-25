@@ -3,6 +3,7 @@ import jwt, { JsonWebTokenError, NotBeforeError, TokenExpiredError } from "jsonw
 
 import ConnectDb from "@/db/connectDb";
 import User from "@/db/models/User";
+import type { CompanyFeatureFlags } from "@/lib/company-features";
 import { requireCompanyFeature } from "@/lib/company-features";
 import { createI18nKey as i18nKey } from "@/lib/i18n/messages";
 
@@ -37,6 +38,7 @@ export interface AccountantSessionUser {
   locale?: "en" | "fr";
   role: "external_accountant";
   companyId: string;
+  featureFlags?: CompanyFeatureFlags;
 }
 
 type AccountantSessionResult = {
@@ -113,6 +115,7 @@ export default async function getAccountantSession(): Promise<AccountantSessionR
           locale: user.locale,
           role: "external_accountant",
           companyId: String(user.companyId),
+          featureFlags: featureCheck.featureFlags,
         },
       };
     } catch (error) {

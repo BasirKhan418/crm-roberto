@@ -8,6 +8,7 @@ import { FinancialPeriodSelector } from '@/components/dashboard/financial-period
 import { useLocale } from '@/components/providers/locale-provider';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import EmptyState from '@/components/ui/EmptyState';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -71,11 +72,40 @@ export default function AccountantPortalExportsPage() {
   const [scope, setScope] = useState<'all' | 'purchase' | 'sale'>('all');
   const [status, setStatus] = useState('all');
   const [categoryId, setCategoryId] = useState('all');
+  const [exportsEnabled, setExportsEnabled] = useState<boolean | null>(null);
   const [lookups, setLookups] = useState<LookupData>({ suppliers: [], categories: [] });
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [downloadingKey, setDownloadingKey] = useState<string | null>(null);
 
   useEffect(() => {
+    const controller = new AbortController();
+
+    async function loadSession() {
+      try {
+        const response = await fetch('/api/accountant/auth/me', { cache: 'no-store', signal: controller.signal });
+        const payload = (await response.json().catch(() => null)) as { success?: boolean; user?: { featureFlags?: { exports?: boolean } } } | null;
+        if (!response.ok || !payload?.success) {
+          setExportsEnabled(false);
+          return;
+        }
+
+        setExportsEnabled(payload.user?.featureFlags?.exports !== false);
+      } catch {
+        if (!controller.signal.aborted) {
+          setExportsEnabled(false);
+        }
+      }
+    }
+
+    void loadSession();
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    if (exportsEnabled !== true) {
+      return;
+    }
+
     const controller = new AbortController();
 
     async function loadLookups() {
@@ -96,7 +126,7 @@ export default function AccountantPortalExportsPage() {
 
     void loadLookups();
     return () => controller.abort();
-  }, []);
+  }, [exportsEnabled]);
 
   async function handleDownload(dataset: 'accounting-rows' | 'vat-summary' | 'general-ledger', format: 'csv' | 'xlsx') {
     const key = `${dataset}-${format}`;
@@ -129,6 +159,10 @@ export default function AccountantPortalExportsPage() {
     } finally {
       setDownloadingKey(null);
     }
+  }
+
+  if (exportsEnabled === false) {
+    return <EmptyState message={locale === 'fr' ? 'Les exports sont desactives pour cette entreprise.' : 'Exports are disabled for this company.'} />;
   }
 
   return (

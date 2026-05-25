@@ -168,5 +168,6 @@ ExpenseSchema.index({ companyId: 1, status: 1, createdAt: -1 });
 ExpenseSchema.index({ companyId: 1, supplierId: 1, expenseDate: -1 });
 ExpenseSchema.index({ companyId: 1, categoryId: 1, expenseDate: -1 });
 ExpenseSchema.index({ companyId: 1, paymentStatus: 1, expenseDate: -1 });
+ExpenseSchema.index({ companyId: 1, status: 1, paymentStatus: 1, expenseDate: -1 });
 
 export default mongoose.models.Expense || mongoose.model("Expense", ExpenseSchema);
