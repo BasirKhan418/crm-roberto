@@ -873,12 +873,12 @@ async function buildSmartAlerts(context: FinancialAccessContext) {
     unpaidSupplierInvoices: {
       count: Number(unpaidSupplierSummary.count || 0),
       totalCents: toCents(unpaidSupplierSummary.totalCents),
-      href: "/expenses?paymentStatus=unpaid,partial",
+      href: "/expenses?paymentStatus=unpaid",
     },
     overdueSupplierInvoices: {
       count: overdueSupplierItems.length,
       totalCents: overdueSupplierTotalCents,
-      href: "/expenses?quickFilter=overdue",
+      href: "/expenses?paymentStatus=unpaid&sortBy=dueDate&sortOrder=asc",
       items: overdueSupplierItems,
     },
     ticketsWithoutReply48h: {
@@ -888,7 +888,7 @@ async function buildSmartAlerts(context: FinancialAccessContext) {
     },
     potentialDuplicateExpenses: {
       count: duplicateItems.length,
-      href: "/expenses?flag=potential-duplicates",
+      href: "/expenses?sortBy=expenseDate&sortOrder=desc",
       items: duplicateItems,
     },
   } satisfies SmartAlerts;

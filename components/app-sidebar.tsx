@@ -61,6 +61,8 @@ const sidebarMessages = {
       paid: (n: number) => `${n} new paid`,
       overdue: (n: number) => `${n} new overdue`,
       unreadTickets: (n: number) => `${n} unread tickets`,
+      unpaidExpenses: (n: number) => `${n} unpaid expenses`,
+      overdueExpenses: (n: number) => `${n} overdue expenses`,
     },
     nav: {
       dashboard: "Dashboard",
@@ -86,6 +88,8 @@ const sidebarMessages = {
       paid: (n: number) => `${n} nouvelle(s) payée(s)`,
       overdue: (n: number) => `${n} nouvelle(s) en retard`,
       unreadTickets: (n: number) => `${n} ticket(s) non lu(s)`,
+      unpaidExpenses: (n: number) => `${n} depense(s) impayee(s)`,
+      overdueExpenses: (n: number) => `${n} depense(s) en retard`,
     },
     nav: {
       dashboard: "Tableau de bord",
@@ -189,6 +193,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   badgeNode = (
                     <span className="ml-auto flex items-center gap-1">
                       <StatusBadge count={unread} tone="red" title={t.badgeTitles.unreadTickets(unread)} />
+                    </span>
+                  )
+                }
+              } else if (item.key === "expenses") {
+                const { unpaid, overdue } = badges.expenses
+                if (unpaid + overdue > 0) {
+                  badgeNode = (
+                    <span className="ml-auto flex items-center gap-1">
+                      <StatusBadge count={unpaid} tone="orange" title={t.badgeTitles.unpaidExpenses(unpaid)} />
+                      <StatusBadge count={overdue} tone="red" title={t.badgeTitles.overdueExpenses(overdue)} />
                     </span>
                   )
                 }

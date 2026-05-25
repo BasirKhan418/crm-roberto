@@ -434,7 +434,7 @@ function TodaySnapshotCard({ data, loading }: { data: FinancialDashboardData['my
   );
 }
 
-export function FinancialOverviewFoundation() {
+export function FinancialOverviewFoundation({ showTodaySnapshot = true }: { showTodaySnapshot?: boolean }) {
   const { locale } = useLocale();
   const { data, period, setPeriod, loading, error } = useFinancialDashboard();
   const t = {
@@ -488,7 +488,7 @@ export function FinancialOverviewFoundation() {
 
       <FinancialMetricCards metrics={data.metrics} loading={loading} />
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(260px,0.9fr)]">
+      <div className={`grid grid-cols-1 gap-4 ${showTodaySnapshot ? 'xl:grid-cols-[minmax(0,2fr)_minmax(260px,0.9fr)]' : ''}`}>
         <div className="space-y-4">
           <div className="grid grid-cols-1 gap-4 2xl:grid-cols-2">
             <MonthlyTrendChart data={data.charts.monthlyTrend} loading={loading} />
@@ -501,7 +501,7 @@ export function FinancialOverviewFoundation() {
         </div>
 
         <div className="space-y-4">
-          <TodaySnapshotCard data={data.myExpensesToday} loading={loading} />
+          {showTodaySnapshot ? <TodaySnapshotCard data={data.myExpensesToday} loading={loading} /> : null}
 
           <Card className="border shadow-sm">
             <CardHeader>
@@ -535,7 +535,7 @@ export function FinancialOverviewFoundation() {
               ) : (
                 <div className="rounded-xl border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
                   <CircleAlert className="mx-auto mb-2 size-5" />
-                  No comparison data yet.
+                  {locale === 'fr' ? 'Aucune comparaison disponible pour le moment.' : 'No comparison data yet.'}
                 </div>
               )}
             </CardContent>

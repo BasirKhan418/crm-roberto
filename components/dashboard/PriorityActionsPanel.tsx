@@ -17,7 +17,9 @@ import EmptyState from '@/components/ui/EmptyState';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { FollowUpItem } from '@/hooks/useDashboard';
+import { useSmartAlerts } from '@/hooks/useSmartAlerts';
 import { formatInvoiceDisplayNumber } from '@/lib/i18n/messages';
+import { formatCurrencyFromCents } from '@/lib/price';
 
 const DAY_IN_MS = 86_400_000;
 
@@ -324,6 +326,7 @@ export default function PriorityActionsPanel({
   const [invoiceRowLoadingId, setInvoiceRowLoadingId] = useState<string | null>(null);
   const [selectedAcceptedQuoteId, setSelectedAcceptedQuoteId] = useState<string>('');
   const { locale } = useLocale();
+  const { data: financialAlertsData, loading: financialAlertsLoading } = useSmartAlerts();
 
   const t = {
     en: {
@@ -371,6 +374,17 @@ export default function PriorityActionsPanel({
       ticketsNoReply: (count: number) => `${count} tickets waiting over 48h`,
       noTicketsNoReply: 'No waiting tickets older than 48h',
       ticketsNoReplyDescription: 'Waiting tickets without reply for at least 48 hours.',
+      unpaidSupplierInvoices: (count: number) => `${count} supplier invoices still unpaid`,
+      unpaidSupplierInvoicesEmpty: 'No unpaid supplier invoices right now',
+      unpaidSupplierInvoicesDescription: (total: string) => `Current unpaid purchase exposure: ${total}.`,
+      overdueSupplierInvoices: (count: number) => `${count} supplier invoices overdue`,
+      overdueSupplierInvoicesEmpty: 'No overdue supplier invoices',
+      overdueSupplierInvoicesDescription: (total: string) => `Purchase invoices past due date totaling ${total}.`,
+      duplicateExpenses: (count: number) => `${count} potential duplicate expense groups`,
+      duplicateExpensesEmpty: 'No potential duplicate expenses flagged',
+      duplicateExpensesDescription: 'Same supplier and amount detected within 30 days.',
+      reviewExpensesAction: 'Review expenses',
+      reviewDuplicatesAction: 'Review duplicates',
       reviewTicketsAction: 'Review tickets',
       openTicketAction: 'Open ticket',
       sendReminderActionButton: 'Send reminder',
@@ -443,6 +457,17 @@ export default function PriorityActionsPanel({
       ticketsNoReply: (count: number) => `${count} tickets en attente depuis plus de 48 h`,
       noTicketsNoReply: 'Aucun ticket en attente depuis plus de 48 h',
       ticketsNoReplyDescription: 'Tickets en attente sans r\u00e9ponse depuis au moins 48 heures.',
+      unpaidSupplierInvoices: (count: number) => `${count} factures fournisseur encore impayees`,
+      unpaidSupplierInvoicesEmpty: 'Aucune facture fournisseur impayee',
+      unpaidSupplierInvoicesDescription: (total: string) => `Exposition achat impayee actuelle: ${total}.`,
+      overdueSupplierInvoices: (count: number) => `${count} factures fournisseur en retard`,
+      overdueSupplierInvoicesEmpty: 'Aucune facture fournisseur en retard',
+      overdueSupplierInvoicesDescription: (total: string) => `Factures achat depassees pour un total de ${total}.`,
+      duplicateExpenses: (count: number) => `${count} groupes de depenses potentiellement en double`,
+      duplicateExpensesEmpty: 'Aucune depense potentiellement dupliquee',
+      duplicateExpensesDescription: 'Meme fournisseur et meme montant detectes sur 30 jours.',
+      reviewExpensesAction: 'Voir depenses',
+      reviewDuplicatesAction: 'Voir doublons',
       reviewTicketsAction: 'Voir tickets',
       openTicketAction: 'Ouvrir ticket',
       sendReminderActionButton: 'Envoyer rappel',
@@ -620,7 +645,13 @@ export default function PriorityActionsPanel({
   const overdueInvoiceItems = smartActionsData?.overdueInvoices.items ?? [];
   const noReplyTicketTarget = smartActionsData?.ticketsWithoutReply48h.target ?? null;
   const noReplyTicketCount = smartActionsData?.ticketsWithoutReply48h.count ?? 0;
+  const unpaidSupplierInvoiceCount = financialAlertsData.alerts.unpaidSupplierInvoices.count;
+  const unpaidSupplierInvoiceTotalCents = financialAlertsData.alerts.unpaidSupplierInvoices.totalCents;
+  const overdueSupplierInvoiceCount = financialAlertsData.alerts.overdueSupplierInvoices.count;
+  const overdueSupplierInvoiceTotalCents = financialAlertsData.alerts.overdueSupplierInvoices.totalCents;
+  const duplicateExpenseCount = financialAlertsData.alerts.potentialDuplicateExpenses.count;
   const isAcceptedInvoiceLoading = actionLoadingKey === 'accepted-to-invoice';
+  const priceLocale = locale === 'fr' ? 'fr-FR' : 'en-IE';
 
   useEffect(() => {
     if (!acceptedItems.length) {
@@ -811,6 +842,48 @@ export default function PriorityActionsPanel({
                         router.push(`/tickets/${noReplyTicketTarget._id}`);
                       }}
                       disabled={smartActionsLoading}
+                    />
+
+                    <SmartActionRow
+                      title={
+                        unpaidSupplierInvoiceCount > 0
+                          ? t.unpaidSupplierInvoices(unpaidSupplierInvoiceCount)
+                          : t.unpaidSupplierInvoicesEmpty
+                      }
+                      description={t.unpaidSupplierInvoicesDescription(
+                        formatCurrencyFromCents(unpaidSupplierInvoiceTotalCents, priceLocale)
+                      )}
+                      buttonLabel={t.reviewExpensesAction}
+                      tone={unpaidSupplierInvoiceCount > 0 ? 'medium' : 'neutral'}
+                      Icon={ReceiptTextIcon}
+                      onClick={() => router.push(financialAlertsData.alerts.unpaidSupplierInvoices.href)}
+                      disabled={financialAlertsLoading}
+                    />
+
+                    <SmartActionRow
+                      title={
+                        overdueSupplierInvoiceCount > 0
+                          ? t.overdueSupplierInvoices(overdueSupplierInvoiceCount)
+                          : t.overdueSupplierInvoicesEmpty
+                      }
+                      description={t.overdueSupplierInvoicesDescription(
+                        formatCurrencyFromCents(overdueSupplierInvoiceTotalCents, priceLocale)
+                      )}
+                      buttonLabel={t.reviewExpensesAction}
+                      tone={overdueSupplierInvoiceCount > 0 ? 'urgent' : 'neutral'}
+                      Icon={AlertTriangleIcon}
+                      onClick={() => router.push(financialAlertsData.alerts.overdueSupplierInvoices.href)}
+                      disabled={financialAlertsLoading}
+                    />
+
+                    <SmartActionRow
+                      title={duplicateExpenseCount > 0 ? t.duplicateExpenses(duplicateExpenseCount) : t.duplicateExpensesEmpty}
+                      description={t.duplicateExpensesDescription}
+                      buttonLabel={t.reviewDuplicatesAction}
+                      tone={duplicateExpenseCount > 0 ? 'medium' : 'neutral'}
+                      Icon={RepeatIcon}
+                      onClick={() => router.push(financialAlertsData.alerts.potentialDuplicateExpenses.href)}
+                      disabled={financialAlertsLoading}
                     />
 
                     <SmartActionRow
