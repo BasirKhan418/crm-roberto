@@ -154,14 +154,6 @@ export function AccountantPortalSidebar({ featureFlags, userName, userEmail, ...
                   <p className="truncate text-xs text-muted-foreground">{userEmail || t.accountant}</p>
                 </div>
               </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <span className="inline-flex items-center rounded-full border border-emerald-200/70 bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300">
-                  {t.readOnly}
-                </span>
-                <span className="inline-flex items-center rounded-full border border-sidebar-border/60 bg-background/70 px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
-                  {t.scope}
-                </span>
-              </div>
             </div>
           </SidebarMenuItem>
           <SidebarMenuItem>

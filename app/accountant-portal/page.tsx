@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { BadgeEuro, CircleDollarSign, FileClock, ReceiptText, Ticket } from 'lucide-react';
+import { BadgeEuro, CircleDollarSign, FileClock, LineChart as LineChartIcon, PieChartIcon, ReceiptText, Ticket, TrendingUp, Truck } from 'lucide-react';
+import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, Pie, PieChart, XAxis, YAxis } from 'recharts';
 
 import { FinancialPeriodSelector } from '@/components/dashboard/financial-period-selector';
 import { useLocale } from '@/components/providers/locale-provider';
@@ -9,25 +10,28 @@ import EmptyState from '@/components/ui/EmptyState';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import { PriceDisplay } from '@/components/ui/PriceDisplay';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from '@/components/ui/chart';
 import { Skeleton } from '@/components/ui/skeleton';
+import type {
+  FinancialCategorySpendPoint,
+  FinancialComparisonPoint,
+  FinancialDashboardData,
+  FinancialMonthlyTrendPoint,
+  FinancialSupplierSpendPoint,
+} from '@/hooks/useFinancialDashboard';
 import { buildFinancialPeriodSearchParams, getDefaultFinancialPeriodSelection, type FinancialPeriodSelection } from '@/lib/financial-periods';
+import { formatCurrencyFromCents } from '@/lib/price';
 
-type DashboardMetrics = {
-  totalExpensesExclVatCents: number;
-  totalRevenueExclVatCents: number;
-  grossProfitCents: number;
-  collectedVatCents: number;
-  deductibleVatCents: number;
-  vatBalanceCents: number;
-  unpaidPurchaseCount: number;
-  unpaidPurchaseTotalCents: number;
-  unpaidSalesCount: number;
-  unpaidSalesTotalCents: number;
-};
+const PIE_COLORS = ['#0f766e', '#0284c7', '#f59e0b', '#ef4444', '#6366f1', '#14b8a6', '#84cc16'];
 
-type DashboardPayload = {
-  metrics: DashboardMetrics;
-  period: { label: string };
+type DashboardPayload = FinancialDashboardData & {
   openTicketsAssignedCount: number;
 };
 
@@ -50,6 +54,25 @@ const dashboardCopy = {
     empty: 'No dashboard data is available for this period yet.',
     items: 'items',
     assignedNow: 'Assigned right now',
+    chartsTitle: 'Financial visibility',
+    chartsSubtitle: 'Trend and composition charts for the current accounting window.',
+    trendTitle: 'Revenue vs expenses trend',
+    trendDescription: 'Rolling monthly movement across the last 12 months.',
+    trendEmpty: 'No monthly trend is available yet.',
+    revenueShort: 'Revenue',
+    expensesShort: 'Expenses',
+    comparisonTitle: 'Current vs previous period',
+    comparisonDescription: 'Fast comparison for the main financial signals.',
+    comparisonEmpty: 'No comparison data is available yet.',
+    current: 'Current',
+    previous: 'Previous',
+    categoryTitle: 'Expenses by category',
+    categoryDescription: 'Current-period spend composition.',
+    categoryEmpty: 'No category split is available for this period.',
+    supplierTitle: 'Top suppliers by spend',
+    supplierDescription: 'Largest purchase exposure in the selected window.',
+    supplierEmpty: 'No supplier spend is available for this period.',
+    spend: 'Spend',
   },
   fr: {
     eyebrow: 'Vue comptable',
@@ -69,6 +92,25 @@ const dashboardCopy = {
     empty: 'Aucune donnee comptable disponible pour cette periode.',
     items: 'elements',
     assignedNow: 'Assignes maintenant',
+    chartsTitle: 'Visibilite financiere',
+    chartsSubtitle: 'Graphiques de tendance et de repartition pour la periode comptable courante.',
+    trendTitle: 'Tendance revenus vs depenses',
+    trendDescription: 'Evolution mensuelle glissante sur 12 mois.',
+    trendEmpty: 'Aucune tendance mensuelle disponible.',
+    revenueShort: 'Revenus',
+    expensesShort: 'Depenses',
+    comparisonTitle: 'Periode actuelle vs precedente',
+    comparisonDescription: 'Comparaison rapide des principaux signaux financiers.',
+    comparisonEmpty: 'Aucune comparaison disponible.',
+    current: 'Actuelle',
+    previous: 'Precedente',
+    categoryTitle: 'Depenses par categorie',
+    categoryDescription: 'Repartition des depenses sur la periode.',
+    categoryEmpty: 'Aucune repartition categorie disponible sur cette periode.',
+    supplierTitle: 'Top fournisseurs par depense',
+    supplierDescription: 'Exposition achat la plus forte sur la fenetre selectionnee.',
+    supplierEmpty: 'Aucune depense fournisseur disponible sur cette periode.',
+    spend: 'Depense',
   },
 } as const;
 
@@ -111,6 +153,250 @@ function DashboardMetricCard({
           <PriceDisplay cents={cents || 0} locale={priceLocale} />
         </div>
         {footer ? <p className="text-xs text-muted-foreground">{footer}</p> : null}
+      </CardContent>
+    </Card>
+  );
+}
+
+function ChartEmptyState({ message }: { message: string }) {
+  return <div className="rounded-2xl border border-dashed border-border/70 px-4 py-10 text-center text-sm text-muted-foreground">{message}</div>;
+}
+
+function SectionHeading({ title, description }: { title: string; description: string }) {
+  return (
+    <div className="space-y-1">
+      <h2 className="text-lg font-semibold tracking-tight text-slate-950 dark:text-slate-50">{title}</h2>
+      <p className="text-sm text-muted-foreground">{description}</p>
+    </div>
+  );
+}
+
+function MonthlyTrendChart({ data, loading, locale, title, description, empty, revenueLabel, expensesLabel }: {
+  data: FinancialMonthlyTrendPoint[];
+  loading: boolean;
+  locale: string;
+  title: string;
+  description: string;
+  empty: string;
+  revenueLabel: string;
+  expensesLabel: string;
+}) {
+  const priceLocale = locale === 'fr' ? 'fr-FR' : 'en-IE';
+  const chartConfig = {
+    revenueExclVatCents: { label: revenueLabel, color: '#0f766e' },
+    expensesExclVatCents: { label: expensesLabel, color: '#b45309' },
+  } satisfies ChartConfig;
+
+  return (
+    <Card className="overflow-hidden rounded-[24px] border-border/70 bg-white/90 shadow-sm dark:bg-slate-950/45 xl:col-span-2">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base"><LineChartIcon className="size-4" /> {title}</CardTitle>
+        <CardDescription>{description}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {loading ? (
+          <Skeleton className="h-72 w-full rounded-2xl" />
+        ) : data.length === 0 ? (
+          <ChartEmptyState message={empty} />
+        ) : (
+          <ChartContainer className="h-72 w-full" config={chartConfig}>
+            <LineChart data={data} margin={{ left: 8, right: 8, top: 8 }}>
+              <CartesianGrid vertical={false} />
+              <XAxis dataKey="label" tickLine={false} axisLine={false} minTickGap={24} />
+              <YAxis
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={(value) => formatCurrencyFromCents(Number(value), priceLocale, 'EUR', { notation: 'compact', maximumFractionDigits: 1 })}
+              />
+              <ChartTooltip
+                content={
+                  <ChartTooltipContent
+                    indicator="line"
+                    formatter={(value, name) => (
+                      <div className="flex min-w-48 items-center justify-between gap-3">
+                        <span className="text-muted-foreground">{String(name)}</span>
+                        <span className="font-medium text-foreground">{formatCurrencyFromCents(Number(value), priceLocale)}</span>
+                      </div>
+                    )}
+                  />
+                }
+              />
+              <ChartLegend content={<ChartLegendContent />} />
+              <Line type="monotone" dataKey="revenueExclVatCents" stroke="var(--color-revenueExclVatCents)" strokeWidth={2.5} dot={false} />
+              <Line type="monotone" dataKey="expensesExclVatCents" stroke="var(--color-expensesExclVatCents)" strokeWidth={2.5} dot={false} />
+            </LineChart>
+          </ChartContainer>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function ComparisonChart({ data, loading, locale, title, description, empty, currentLabel, previousLabel }: {
+  data: FinancialComparisonPoint[];
+  loading: boolean;
+  locale: string;
+  title: string;
+  description: string;
+  empty: string;
+  currentLabel: string;
+  previousLabel: string;
+}) {
+  const priceLocale = locale === 'fr' ? 'fr-FR' : 'en-IE';
+  const chartConfig = {
+    currentCents: { label: currentLabel, color: '#0f766e' },
+    previousCents: { label: previousLabel, color: '#94a3b8' },
+  } satisfies ChartConfig;
+
+  return (
+    <Card className="overflow-hidden rounded-[24px] border-border/70 bg-white/90 shadow-sm dark:bg-slate-950/45">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base"><TrendingUp className="size-4" /> {title}</CardTitle>
+        <CardDescription>{description}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {loading ? (
+          <Skeleton className="h-72 w-full rounded-2xl" />
+        ) : data.length === 0 ? (
+          <ChartEmptyState message={empty} />
+        ) : (
+          <ChartContainer className="h-72 w-full" config={chartConfig}>
+            <BarChart data={data} margin={{ left: 8, right: 8, top: 8 }}>
+              <CartesianGrid vertical={false} />
+              <XAxis dataKey="label" tickLine={false} axisLine={false} interval={0} angle={-12} textAnchor="end" height={52} />
+              <YAxis
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={(value) => formatCurrencyFromCents(Number(value), priceLocale, 'EUR', { notation: 'compact', maximumFractionDigits: 1 })}
+              />
+              <ChartTooltip
+                content={
+                  <ChartTooltipContent
+                    formatter={(value, name) => (
+                      <div className="flex min-w-48 items-center justify-between gap-3">
+                        <span className="text-muted-foreground">{String(name)}</span>
+                        <span className="font-medium text-foreground">{formatCurrencyFromCents(Number(value), priceLocale)}</span>
+                      </div>
+                    )}
+                  />
+                }
+              />
+              <ChartLegend content={<ChartLegendContent />} />
+              <Bar dataKey="currentCents" radius={[8, 8, 0, 0]} fill="var(--color-currentCents)" />
+              <Bar dataKey="previousCents" radius={[8, 8, 0, 0]} fill="var(--color-previousCents)" />
+            </BarChart>
+          </ChartContainer>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function CategorySpendChart({ data, loading, locale, title, description, empty }: {
+  data: FinancialCategorySpendPoint[];
+  loading: boolean;
+  locale: string;
+  title: string;
+  description: string;
+  empty: string;
+}) {
+  const priceLocale = locale === 'fr' ? 'fr-FR' : 'en-IE';
+  const chartConfig = Object.fromEntries(
+    data.map((row, index) => [row.label, { label: row.label, color: PIE_COLORS[index % PIE_COLORS.length] }])
+  ) satisfies ChartConfig;
+
+  return (
+    <Card className="overflow-hidden rounded-[24px] border-border/70 bg-white/90 shadow-sm dark:bg-slate-950/45">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base"><PieChartIcon className="size-4" /> {title}</CardTitle>
+        <CardDescription>{description}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {loading ? (
+          <Skeleton className="h-72 w-full rounded-2xl" />
+        ) : data.length === 0 ? (
+          <ChartEmptyState message={empty} />
+        ) : (
+          <ChartContainer className="h-72 w-full" config={chartConfig}>
+            <PieChart>
+              <ChartTooltip
+                content={
+                  <ChartTooltipContent
+                    formatter={(value, name) => (
+                      <div className="flex min-w-48 items-center justify-between gap-3">
+                        <span className="text-muted-foreground">{String(name)}</span>
+                        <span className="font-medium text-foreground">{formatCurrencyFromCents(Number(value), priceLocale)}</span>
+                      </div>
+                    )}
+                  />
+                }
+              />
+              <Pie data={data} dataKey="totalCents" nameKey="label" innerRadius={64} outerRadius={92} paddingAngle={3}>
+                {data.map((entry, index) => (
+                  <Cell key={entry.label} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                ))}
+              </Pie>
+              <ChartLegend content={<ChartLegendContent nameKey="label" className="flex-wrap gap-2 pt-4" />} />
+            </PieChart>
+          </ChartContainer>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function SupplierSpendChart({ data, loading, locale, title, description, empty, spendLabel }: {
+  data: FinancialSupplierSpendPoint[];
+  loading: boolean;
+  locale: string;
+  title: string;
+  description: string;
+  empty: string;
+  spendLabel: string;
+}) {
+  const priceLocale = locale === 'fr' ? 'fr-FR' : 'en-IE';
+  const chartConfig = {
+    totalCents: { label: spendLabel, color: '#0369a1' },
+  } satisfies ChartConfig;
+
+  return (
+    <Card className="overflow-hidden rounded-[24px] border-border/70 bg-white/90 shadow-sm dark:bg-slate-950/45 xl:col-span-2">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base"><Truck className="size-4" /> {title}</CardTitle>
+        <CardDescription>{description}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {loading ? (
+          <Skeleton className="h-72 w-full rounded-2xl" />
+        ) : data.length === 0 ? (
+          <ChartEmptyState message={empty} />
+        ) : (
+          <ChartContainer className="h-72 w-full" config={chartConfig}>
+            <BarChart data={data} layout="vertical" margin={{ left: 8, right: 8, top: 8 }}>
+              <CartesianGrid horizontal={false} />
+              <XAxis
+                type="number"
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={(value) => formatCurrencyFromCents(Number(value), priceLocale, 'EUR', { notation: 'compact', maximumFractionDigits: 1 })}
+              />
+              <YAxis type="category" dataKey="label" width={120} tickLine={false} axisLine={false} />
+              <ChartTooltip
+                content={
+                  <ChartTooltipContent
+                    formatter={(value, name) => (
+                      <div className="flex min-w-48 items-center justify-between gap-3">
+                        <span className="text-muted-foreground">{String(name)}</span>
+                        <span className="font-medium text-foreground">{formatCurrencyFromCents(Number(value), priceLocale)}</span>
+                      </div>
+                    )}
+                  />
+                }
+              />
+              <Bar dataKey="totalCents" radius={[0, 8, 8, 0]} fill="var(--color-totalCents)" />
+            </BarChart>
+          </ChartContainer>
+        )}
       </CardContent>
     </Card>
   );
@@ -264,6 +550,49 @@ export default function AccountantPortalDashboardPage() {
                 <p className="text-xs text-muted-foreground">{data.period.label}</p>
               </CardContent>
             </Card>
+          </div>
+
+          <div className="space-y-4 pt-2">
+            <SectionHeading title={t.chartsTitle} description={t.chartsSubtitle} />
+            <div className="grid gap-4 xl:grid-cols-3">
+              <MonthlyTrendChart
+                data={data.charts.monthlyTrend}
+                loading={loading}
+                locale={locale}
+                title={t.trendTitle}
+                description={t.trendDescription}
+                empty={t.trendEmpty}
+                revenueLabel={t.revenueShort}
+                expensesLabel={t.expensesShort}
+              />
+              <ComparisonChart
+                data={data.charts.currentPeriodVsPreviousPeriod}
+                loading={loading}
+                locale={locale}
+                title={t.comparisonTitle}
+                description={t.comparisonDescription}
+                empty={t.comparisonEmpty}
+                currentLabel={t.current}
+                previousLabel={t.previous}
+              />
+              <CategorySpendChart
+                data={data.charts.expensesByCategory}
+                loading={loading}
+                locale={locale}
+                title={t.categoryTitle}
+                description={t.categoryDescription}
+                empty={t.categoryEmpty}
+              />
+              <SupplierSpendChart
+                data={data.charts.topSuppliersBySpend}
+                loading={loading}
+                locale={locale}
+                title={t.supplierTitle}
+                description={t.supplierDescription}
+                empty={t.supplierEmpty}
+                spendLabel={t.spend}
+              />
+            </div>
           </div>
         </>
       ) : (
