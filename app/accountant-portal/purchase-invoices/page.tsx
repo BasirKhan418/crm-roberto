@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 
 import { FinancialPeriodSelector } from '@/components/dashboard/financial-period-selector';
 import { useLocale } from '@/components/providers/locale-provider';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import EmptyState from '@/components/ui/EmptyState';
@@ -17,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { buildFinancialPeriodSearchParams, getDefaultFinancialPeriodSelection, type FinancialPeriodSelection } from '@/lib/financial-periods';
+import { cn } from '@/lib/utils';
 
 type LookupData = {
   suppliers: Array<{ id: string; fullName: string; companyName: string | null }>;
@@ -73,6 +75,15 @@ const purchaseCopy = {
     total: 'Total',
     paidTotal: 'Paid',
     remaining: 'Remaining',
+    paidLabel: 'Paid',
+    remainingLabel: 'Left',
+    referenceLabel: 'Reference',
+    totalsEyebrow: 'Finance totals',
+    tableEyebrow: 'Invoice register',
+    statusFilterHint: 'Accounting-ready filters for supplier costs, due dates, and attachments.',
+    pageSummary: 'results',
+    prev: 'Prev',
+    next: 'Next',
   },
   fr: {
     title: 'Factures d achat',
@@ -100,8 +111,57 @@ const purchaseCopy = {
     total: 'Total',
     paidTotal: 'Paye',
     remaining: 'Reste',
+    paidLabel: 'Paye',
+    remainingLabel: 'Reste',
+    referenceLabel: 'Reference',
+    totalsEyebrow: 'Totaux financiers',
+    tableEyebrow: 'Registre des factures',
+    statusFilterHint: 'Filtres comptables pour les fournisseurs, echeances et pieces jointes.',
+    pageSummary: 'resultats',
+    prev: 'Prec',
+    next: 'Suiv',
   },
 } as const;
+
+const STATUS_ROW_BG: Record<string, string> = {
+  unpaid: 'rgba(244, 63, 94, 0.045)',
+  partial: 'rgba(245, 158, 11, 0.06)',
+  paid: 'rgba(16, 185, 129, 0.05)',
+};
+
+const STATUS_ACCENT: Record<string, string> = {
+  unpaid: '#e11d48',
+  partial: '#d97706',
+  paid: '#059669',
+};
+
+function isAbortError(error: unknown) {
+  return error instanceof DOMException && error.name === 'AbortError';
+}
+
+function getPaymentLabel(status: string, copy: typeof purchaseCopy.en) {
+  if (status === 'paid') {
+    return copy.paid;
+  }
+
+  if (status === 'partial') {
+    return copy.partial;
+  }
+
+  return copy.unpaid;
+}
+
+function getPaymentBadgeClass(status: string) {
+  if (status === 'paid') {
+    return 'bg-emerald-100 text-emerald-800 ring-1 ring-emerald-300 dark:bg-emerald-950/45 dark:text-emerald-200 dark:ring-emerald-800';
+  }
+
+  if (status === 'partial') {
+    return 'bg-orange-100 text-orange-800 ring-1 ring-orange-300 dark:bg-orange-950/45 dark:text-orange-200 dark:ring-orange-800';
+  }
+
+  return 'bg-rose-100 text-rose-800 ring-1 ring-rose-300 dark:bg-rose-950/45 dark:text-rose-200 dark:ring-rose-800';
+}
 
 export default function AccountantPortalPurchaseInvoicesPage() {
   const { locale } = useLocale();
@@ -139,6 +199,10 @@ export default function AccountantPortalPurchaseInvoicesPage() {
         const payload = (await response.json().catch(() => null)) as { success?: boolean; data?: LookupData } | null;
         if (response.ok && payload?.success && payload.data) {
           setLookups(payload.data);
+        }
+      } catch (lookupError) {
+        if (controller.signal.aborted || isAbortError(lookupError)) {
+          return;
         }
       } finally {
         if (!controller.signal.aborted) {
@@ -246,13 +310,17 @@ export default function AccountantPortalPurchaseInvoicesPage() {
 
   return (
     <div className="space-y-6">
-      <Card className="border-border/70 bg-white/90 shadow-sm">
+      <Card className="overflow-hidden rounded-[28px] border-border/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(248,250,252,0.92))] shadow-sm dark:bg-[linear-gradient(135deg,rgba(2,6,23,0.92),rgba(15,23,42,0.82))]">
         <CardHeader>
+          <div className="inline-flex w-fit items-center rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-sky-700 dark:border-sky-900/60 dark:bg-sky-950/40 dark:text-sky-300">
+            {t.tableEyebrow}
+          </div>
           <CardTitle>{t.title}</CardTitle>
           <CardDescription>{t.subtitle}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <FinancialPeriodSelector value={period} onChange={setPeriod} />
+          <p className="text-sm text-muted-foreground">{t.statusFilterHint}</p>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t.search} />
             <Select value={paymentStatus} onValueChange={setPaymentStatus}>
@@ -294,15 +362,15 @@ export default function AccountantPortalPurchaseInvoicesPage() {
 
       {totals ? (
         <div className="grid gap-4 md:grid-cols-3">
-          <Card className="border-border/70 bg-white/90 shadow-sm"><CardHeader className="pb-2"><CardDescription>{t.total}</CardDescription></CardHeader><CardContent><div className="text-xl font-semibold"><PriceDisplay cents={totals.totalTtcCents} locale={priceLocale} /></div></CardContent></Card>
-          <Card className="border-border/70 bg-white/90 shadow-sm"><CardHeader className="pb-2"><CardDescription>{t.paidTotal}</CardDescription></CardHeader><CardContent><div className="text-xl font-semibold"><PriceDisplay cents={totals.totalPaidCents} locale={priceLocale} /></div></CardContent></Card>
-          <Card className="border-border/70 bg-white/90 shadow-sm"><CardHeader className="pb-2"><CardDescription>{t.remaining}</CardDescription></CardHeader><CardContent><div className="text-xl font-semibold"><PriceDisplay cents={totals.totalRemainingCents} locale={priceLocale} /></div></CardContent></Card>
+          <Card className="overflow-hidden rounded-[24px] border-sky-200/80 bg-sky-50/70 shadow-sm dark:border-sky-950/50 dark:bg-sky-950/20"><CardHeader className="pb-2"><CardDescription>{t.total}</CardDescription></CardHeader><CardContent><div className="text-xl font-semibold text-slate-950 dark:text-slate-50"><PriceDisplay cents={totals.totalTtcCents} locale={priceLocale} /></div></CardContent></Card>
+          <Card className="overflow-hidden rounded-[24px] border-emerald-200/80 bg-emerald-50/70 shadow-sm dark:border-emerald-950/50 dark:bg-emerald-950/20"><CardHeader className="pb-2"><CardDescription>{t.paidTotal}</CardDescription></CardHeader><CardContent><div className="text-xl font-semibold text-slate-950 dark:text-slate-50"><PriceDisplay cents={totals.totalPaidCents} locale={priceLocale} /></div></CardContent></Card>
+          <Card className="overflow-hidden rounded-[24px] border-amber-200/80 bg-amber-50/70 shadow-sm dark:border-amber-950/50 dark:bg-amber-950/20"><CardHeader className="pb-2"><CardDescription>{t.remaining}</CardDescription></CardHeader><CardContent><div className="text-xl font-semibold text-slate-950 dark:text-slate-50"><PriceDisplay cents={totals.totalRemainingCents} locale={priceLocale} /></div></CardContent></Card>
         </div>
       ) : null}
 
       {error ? <ErrorMessage message={error} /> : null}
 
-      <Card className="border-border/70 bg-white/90 shadow-sm">
+      <Card className="overflow-hidden rounded-[28px] border-border/70 bg-white/92 shadow-sm dark:bg-slate-950/45">
         <CardContent className="pt-4">
           {selectableIds.length > 0 ? (
             <div className="mb-4 flex flex-col gap-3 rounded-xl border border-dashed border-slate-200 bg-slate-50/70 p-3 md:flex-row md:items-center md:justify-between">
@@ -326,8 +394,9 @@ export default function AccountantPortalPurchaseInvoicesPage() {
             </div>
           ) : data && data.items.length > 0 ? (
             <>
+              <div className="overflow-hidden rounded-[24px] border border-slate-200/80 bg-white/80 shadow-sm dark:border-slate-800/70 dark:bg-slate-950/30">
               <Table>
-                <TableHeader>
+                <TableHeader className="bg-slate-50/90 dark:bg-slate-900/70">
                   <TableRow>
                     <TableHead className="w-12" />
                     <TableHead>{t.date}</TableHead>
@@ -341,8 +410,15 @@ export default function AccountantPortalPurchaseInvoicesPage() {
                 </TableHeader>
                 <TableBody>
                   {data.items.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell>
+                    <TableRow
+                      key={item.id}
+                      className="border-b border-slate-200/70 dark:border-slate-800/70"
+                      style={{ backgroundColor: STATUS_ROW_BG[item.paymentStatus] ?? 'transparent' }}
+                    >
+                      <TableCell
+                        className="border-l-4"
+                        style={{ borderLeftColor: STATUS_ACCENT[item.paymentStatus] ?? 'transparent' }}
+                      >
                         <Checkbox
                           checked={selectedIds.includes(item.id)}
                           disabled={item.attachmentsCount === 0}
@@ -355,20 +431,39 @@ export default function AccountantPortalPurchaseInvoicesPage() {
                         <div className="min-w-40 whitespace-normal">
                           <p className="font-medium text-slate-950">{item.supplier?.fullName || item.supplierRef || '-'}</p>
                           {item.supplier?.companyName ? <p className="text-xs text-muted-foreground">{item.supplier.companyName}</p> : null}
+                          {item.supplierRef ? <p className="mt-1 text-[11px] text-muted-foreground">{t.referenceLabel}: {item.supplierRef}</p> : null}
                         </div>
                       </TableCell>
-                      <TableCell>{locale === 'fr' ? item.category?.nameFr || item.category?.name || '-' : item.category?.nameEn || item.category?.name || '-'}</TableCell>
                       <TableCell>
-                        <div className="space-y-1 text-xs">
-                          <div><PriceDisplay cents={item.amountInclVatCents} locale={priceLocale} /></div>
+                        {item.category ? (
+                          <Badge className="bg-slate-100 text-slate-700 ring-1 ring-slate-300 dark:bg-slate-900/60 dark:text-slate-200 dark:ring-slate-700">
+                            {locale === 'fr' ? item.category.nameFr || item.category.name : item.category.nameEn || item.category.name}
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="space-y-1.5 text-xs">
+                          <div className="text-sm font-semibold text-slate-950 dark:text-slate-50"><PriceDisplay cents={item.amountInclVatCents} locale={priceLocale} /></div>
                           <div className="text-muted-foreground">VAT <PriceDisplay cents={item.vatAmountCents} locale={priceLocale} /></div>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="space-y-1 text-xs">
-                          <div className="rounded-full bg-slate-100 px-2 py-1 font-medium capitalize text-slate-700">{item.paymentStatus.replace('_', ' ')}</div>
-                          <div className="text-muted-foreground">Paid <PriceDisplay cents={item.amountPaidCents} locale={priceLocale} /></div>
-                          <div className="text-muted-foreground">Left <PriceDisplay cents={item.amountRemainingCents} locale={priceLocale} /></div>
+                        <div className="space-y-2 text-xs">
+                          <Badge className={cn('capitalize', getPaymentBadgeClass(item.paymentStatus))}>
+                            {getPaymentLabel(item.paymentStatus, t)}
+                          </Badge>
+                          <div className="rounded-xl border border-slate-200/70 bg-white/70 px-2.5 py-2 dark:border-slate-800/70 dark:bg-slate-950/40">
+                            <div className="flex items-center justify-between gap-3 text-muted-foreground">
+                              <span>{t.paidLabel}</span>
+                              <span className="font-medium text-slate-700 dark:text-slate-200"><PriceDisplay cents={item.amountPaidCents} locale={priceLocale} /></span>
+                            </div>
+                            <div className="mt-1 flex items-center justify-between gap-3 text-muted-foreground">
+                              <span>{t.remainingLabel}</span>
+                              <span className="font-medium text-slate-700 dark:text-slate-200"><PriceDisplay cents={item.amountRemainingCents} locale={priceLocale} /></span>
+                            </div>
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -380,14 +475,14 @@ export default function AccountantPortalPurchaseInvoicesPage() {
                                 href={attachment.url}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                                className="inline-flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-700 hover:bg-sky-100 dark:border-sky-900/60 dark:bg-sky-950/30 dark:text-sky-300 dark:hover:bg-sky-950/50"
                               >
                                 <Download className="size-3" />
                                 {attachment.displayName}
                               </a>
                             ))}
                             {item.attachmentsCount > item.attachments.length ? (
-                              <span className="inline-flex items-center gap-1 rounded-full border border-dashed border-slate-200 px-2 py-1 text-xs text-muted-foreground">
+                              <span className="inline-flex items-center gap-1 rounded-full border border-dashed border-slate-300 px-2.5 py-1 text-xs text-muted-foreground dark:border-slate-700">
                                 <Paperclip className="size-3" />
                                 +{item.attachmentsCount - item.attachments.length}
                               </span>
@@ -401,12 +496,13 @@ export default function AccountantPortalPurchaseInvoicesPage() {
                   ))}
                 </TableBody>
               </Table>
+              </div>
               <div className="mt-4 flex items-center justify-between gap-3 text-sm text-muted-foreground">
-                <span>{data.pagination.total} item(s)</span>
+                <span>{data.pagination.total} {t.pageSummary}</span>
                 <div className="flex items-center gap-2">
-                  <button type="button" className="rounded-lg border px-3 py-1.5 disabled:opacity-50" disabled={data.pagination.page <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>Prev</button>
+                  <Button type="button" variant="outline" size="sm" disabled={data.pagination.page <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>{t.prev}</Button>
                   <span>{data.pagination.page} / {data.pagination.totalPages}</span>
-                  <button type="button" className="rounded-lg border px-3 py-1.5 disabled:opacity-50" disabled={data.pagination.page >= data.pagination.totalPages} onClick={() => setPage((current) => current + 1)}>Next</button>
+                  <Button type="button" variant="outline" size="sm" disabled={data.pagination.page >= data.pagination.totalPages} onClick={() => setPage((current) => current + 1)}>{t.next}</Button>
                 </div>
               </div>
             </>
