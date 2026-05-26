@@ -23,6 +23,7 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { useAuthMe } from "@/hooks/useAuthMe"
+import { canAccessCrmPath, hasModuleActionAccess } from "@/lib/route-access"
 
 const NAVIGATION_STACK_KEY = "crm-navigation-stack"
 const MAX_STACK_LENGTH = 24
@@ -103,8 +104,16 @@ export function SiteHeader({ title = "Documents" }: { title?: string }) {
   const { locale } = useLocale()
   const t = headerMessages[locale]
   const isDashboard = pathname === "/dashboard"
-  const canUseDashboard = user?.featureFlags?.financialDashboard !== false
-  const canUseExpenses = user?.featureFlags?.expenses !== false
+  const canUseDashboard = canAccessCrmPath("/dashboard", user?.role, user?.modulePermissions, user?.featureFlags)
+  const canUseExpenses = canAccessCrmPath("/expenses", user?.role, user?.modulePermissions, user?.featureFlags)
+  const canCreateExpense =
+    canUseExpenses &&
+    hasModuleActionAccess({
+      role: user?.role,
+      modulePermissions: user?.modulePermissions,
+      moduleKey: "expenses",
+      action: "manage",
+    })
 
   const backFallbackHref = useMemo(() => getBackFallbackHref(pathname), [pathname])
   const userDisplayName = user?.name?.trim() || t.userFallback
@@ -152,6 +161,10 @@ export function SiteHeader({ title = "Documents" }: { title?: string }) {
   }
 
   function handleCreateExpense() {
+    if (!canCreateExpense) {
+      return
+    }
+
     if (pathname === "/expenses") {
       window.dispatchEvent(new CustomEvent("expenses:new"))
       return
@@ -225,7 +238,7 @@ export function SiteHeader({ title = "Documents" }: { title?: string }) {
           </DropdownMenu>
 
           <div className="hidden items-center gap-2 lg:flex">
-            {canUseExpenses ? (
+            {canCreateExpense ? (
               <Button
                 type="button"
                 variant="outline"

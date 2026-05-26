@@ -22,7 +22,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useLocale } from '@/components/providers/locale-provider';
 import { resolveTranslatedError, resolveTranslatedText } from '@/lib/i18n/messages';
-import { COMPANY_ASSIGNABLE_ROLES, hasPermission } from '@/lib/permissions';
+import { hasModuleActionAccess } from '@/lib/route-access';
+import { COMPANY_ASSIGNABLE_ROLES } from '@/lib/permissions';
 
 type CompanyUser = {
   _id: string;
@@ -229,11 +230,20 @@ export default function SettingsUsersPage() {
   const [pendingAction, setPendingAction] = useState<PendingUserAction | null>(null);
   const [isApplyingAction, setIsApplyingAction] = useState(false);
 
-  const canViewUsers = useMemo(() => hasPermission(user?.role, 'users.view'), [user?.role]);
-  const canInviteUsers = useMemo(() => hasPermission(user?.role, 'users.invite'), [user?.role]);
+  const canViewUsers = useMemo(
+    () => hasModuleActionAccess({ role: user?.role, modulePermissions: user?.modulePermissions, moduleKey: 'users', action: 'view' }),
+    [user?.modulePermissions, user?.role]
+  );
+  const canInviteUsers = useMemo(
+    () => hasModuleActionAccess({ role: user?.role, modulePermissions: user?.modulePermissions, moduleKey: 'users', action: 'create' }),
+    [user?.modulePermissions, user?.role]
+  );
   const canUpdateUsers = useMemo(
-    () => hasPermission(user?.role, 'users.update_role') || hasPermission(user?.role, 'users.revoke'),
-    [user?.role]
+    () =>
+      hasModuleActionAccess({ role: user?.role, modulePermissions: user?.modulePermissions, moduleKey: 'users', action: 'edit' }) ||
+      hasModuleActionAccess({ role: user?.role, modulePermissions: user?.modulePermissions, moduleKey: 'users', action: 'delete' }) ||
+      hasModuleActionAccess({ role: user?.role, modulePermissions: user?.modulePermissions, moduleKey: 'users', action: 'manage' }),
+    [user?.modulePermissions, user?.role]
   );
 
   const loadUsers = useCallback(async () => {

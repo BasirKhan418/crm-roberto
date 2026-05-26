@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowDownIcon, ArrowUpIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -21,6 +21,8 @@ import { useLocale } from '@/components/providers/locale-provider';
 import { Button } from '@/components/ui/button';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import { useDashboard } from '@/hooks/useDashboard';
+import { useAuthMe } from '@/hooks/useAuthMe';
+import { canAccessCrmPath, getDefaultCrmLandingPath, hasModuleActionAccess } from '@/lib/route-access';
 
 type DashboardBlockKey = 'smartActions' | 'financialOverview' | 'stats' | 'expensesToday' | 'myTickets' | 'collection' | 'activity' | 'recentQuotes' | 'recurrences';
 type DashboardPrefs = {
@@ -87,8 +89,10 @@ function persistDashboardPrefs(prefs: DashboardPrefs) {
 }
 
 function DashboardPageContent() {
+  const router = useRouter();
   const { locale } = useLocale();
   const searchParams = useSearchParams();
+  const { user, loading: authLoading } = useAuthMe();
   const handledStripeReturnRef = useRef(false);
   const t = {
     en: {
@@ -147,6 +151,18 @@ function DashboardPageContent() {
   const [draftVisibleBlocks, setDraftVisibleBlocks] = useState<Record<DashboardBlockKey, boolean>>(DEFAULT_BLOCK_VISIBILITY);
   const [draftBlockOrder, setDraftBlockOrder] = useState<DashboardBlockKey[]>(DEFAULT_BLOCK_ORDER);
   const [hasLoadedPrefs, setHasLoadedPrefs] = useState(false);
+  const canViewDashboard = canAccessCrmPath('/dashboard', user?.role, user?.modulePermissions, user?.featureFlags);
+  const canViewExpenses = hasModuleActionAccess({ role: user?.role, modulePermissions: user?.modulePermissions, moduleKey: 'expenses', action: 'view' }) && user?.featureFlags?.expenses !== false;
+  const canViewTickets = hasModuleActionAccess({ role: user?.role, modulePermissions: user?.modulePermissions, moduleKey: 'tickets', action: 'view' }) && user?.featureFlags?.tickets !== false;
+  const canViewQuotes = hasModuleActionAccess({ role: user?.role, modulePermissions: user?.modulePermissions, moduleKey: 'quotes', action: 'view' });
+
+  useEffect(() => {
+    if (authLoading || canViewDashboard) {
+      return;
+    }
+
+    router.replace(getDefaultCrmLandingPath(user?.role, user?.modulePermissions, user?.featureFlags));
+  }, [authLoading, canViewDashboard, router, user?.featureFlags, user?.modulePermissions, user?.role]);
 
   const blockLabels: Record<DashboardBlockKey, string> = useMemo(
     () => ({
@@ -250,7 +266,25 @@ function DashboardPageContent() {
     setIsCustomizeOpen(false);
   }
 
-  const renderedBlocks = blockOrder.filter((key) => visibleBlocks[key]);
+  const renderedBlocks = blockOrder.filter((key) => {
+    if (!visibleBlocks[key]) {
+      return false;
+    }
+
+    if (key === 'expensesToday') {
+      return canViewExpenses;
+    }
+
+    if (key === 'myTickets') {
+      return canViewTickets;
+    }
+
+    if (key === 'recentQuotes') {
+      return canViewQuotes;
+    }
+
+    return true;
+  });
 
   return (
     <CrmShell title={t.title} contentClassName="gap-4 px-4 py-3 lg:px-6 lg:py-4">

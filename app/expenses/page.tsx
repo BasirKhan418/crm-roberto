@@ -72,6 +72,7 @@ import { useExpensesActionCount } from '@/hooks/useExpensesActionCount';
 import { createInlineExpenseCategory, createInlineExpenseSupplier, useExpenseLookups } from '@/hooks/useExpenseLookups';
 import { ExpenseListItem, useExpenses } from '@/hooks/useExpenses';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { getDefaultCrmLandingPath, hasModuleActionAccess } from '@/lib/route-access';
 import { resolveExpenseCategoryNameByLocale } from '@/lib/expenses/category-i18n';
 import { EXPENSE_PAYMENT_STATUS, EXPENSE_STATUS } from '@/lib/expenses/constants';
 import { canPermanentlyDeleteExpense, canRestoreArchivedExpense } from '@/lib/expenses/access';
@@ -83,7 +84,6 @@ import {
   getExpenseFileExtension,
   isExpenseMimeTypeAllowed,
 } from '@/lib/expenses/upload';
-import { hasPermission } from '@/lib/permissions';
 
 type UploadStatus =
   | 'queued'
@@ -513,10 +513,19 @@ export default function ExpensesPage() {
     setPage(1);
   }, [debouncedSearch, statusFilter, paymentStatusFilter, paymentStatusGroupFilter, categoryFilter, supplierFilter, periodStart, periodEnd, dueStart, dueEnd, dueBefore, sortBy, sortOrder, limit]);
 
-  const canViewExpenses = hasPermission(user?.role, 'expenses.view');
-  const canManageExpenses = hasPermission(user?.role, 'expenses.manage');
-  const canPermanentlyDelete = canPermanentlyDeleteExpense(user?.role);
-  const canRestoreArchived = canRestoreArchivedExpense(user?.role);
+  const canViewExpenses = hasModuleActionAccess({ role: user?.role, modulePermissions: user?.modulePermissions, moduleKey: 'expenses', action: 'view' });
+  const canManageExpenses = hasModuleActionAccess({ role: user?.role, modulePermissions: user?.modulePermissions, moduleKey: 'expenses', action: 'manage' });
+  const canDeleteExpenses = hasModuleActionAccess({ role: user?.role, modulePermissions: user?.modulePermissions, moduleKey: 'expenses', action: 'delete' });
+  const canPermanentlyDelete = canDeleteExpenses && canPermanentlyDeleteExpense(user?.role);
+  const canRestoreArchived = canManageExpenses && canRestoreArchivedExpense(user?.role);
+
+  useEffect(() => {
+    if (authLoading || canViewExpenses) {
+      return;
+    }
+
+    router.replace(getDefaultCrmLandingPath(user?.role, user?.modulePermissions, user?.featureFlags));
+  }, [authLoading, canViewExpenses, router, user?.featureFlags, user?.modulePermissions, user?.role]);
 
   const {
     categories,

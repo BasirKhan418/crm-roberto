@@ -1,6 +1,7 @@
 'use client';
 
 import type { CompanyFeatureFlags } from '@/lib/company-features';
+import type { ModulePermissionsMap } from '@/lib/permissions';
 import { useEffect, useState } from 'react';
 
 interface AuthUser {
@@ -12,6 +13,7 @@ interface AuthUser {
   role?: string;
   companyId?: string | null;
   featureFlags?: CompanyFeatureFlags;
+  modulePermissions?: ModulePermissionsMap;
 }
 
 interface UseAuthMeResult {

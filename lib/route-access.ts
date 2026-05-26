@@ -1,39 +1,48 @@
-import { hasPermission, normalizeRole, type AppRole } from "@/lib/permissions";
+import type { CompanyFeatureFlags } from "@/lib/company-features";
+import { hasModuleActionAccess, canManageRoleMatrix } from "@/lib/module-access";
+import type { ModulePermissionsMap } from "@/lib/permissions";
+
+export { canManageRoleMatrix, hasModuleActionAccess } from "@/lib/module-access";
 
 function matchesRoutePrefix(pathname: string, route: string): boolean {
   return pathname === route || pathname.startsWith(`${route}/`);
 }
 
-function hasRoleAccess(role: string | null | undefined, allowedRoles: readonly AppRole[]) {
-  return allowedRoles.includes(normalizeRole(role));
+function isFeatureEnabled(
+  featureFlags: Partial<CompanyFeatureFlags> | null | undefined,
+  feature: keyof CompanyFeatureFlags
+) {
+  return featureFlags?.[feature] !== false;
 }
 
-const COMPANY_ADMIN_ROLES: readonly AppRole[] = ["super_admin", "administrator", "manager"];
-const CONTACT_MANAGER_ROLES: readonly AppRole[] = ["super_admin", "administrator", "manager", "secretary"];
-
-export function canAccessCrmPath(pathname: string, role: string | null | undefined): boolean {
+export function canAccessCrmPath(
+  pathname: string,
+  role: string | null | undefined,
+  modulePermissions?: ModulePermissionsMap | null,
+  featureFlags?: Partial<CompanyFeatureFlags> | null
+): boolean {
   if (matchesRoutePrefix(pathname, "/dashboard")) {
-    return hasPermission(role, "expenses.view");
+    return isFeatureEnabled(featureFlags, "financialDashboard") && hasModuleActionAccess({ role, modulePermissions, moduleKey: "financialDashboard", action: "view" });
   }
 
   if (matchesRoutePrefix(pathname, "/expenses")) {
-    return hasPermission(role, "expenses.view");
+    return isFeatureEnabled(featureFlags, "expenses") && hasModuleActionAccess({ role, modulePermissions, moduleKey: "expenses", action: "view" });
   }
 
   if (matchesRoutePrefix(pathname, "/tickets")) {
-    return hasPermission(role, "tickets.view");
+    return isFeatureEnabled(featureFlags, "tickets") && hasModuleActionAccess({ role, modulePermissions, moduleKey: "tickets", action: "view" });
   }
 
   if (matchesRoutePrefix(pathname, "/settings/users")) {
-    return hasPermission(role, "users.view");
+    return hasModuleActionAccess({ role, modulePermissions, moduleKey: "users", action: "view" });
   }
 
   if (matchesRoutePrefix(pathname, "/settings/roles")) {
-    return hasRoleAccess(role, ["super_admin", "administrator"]);
+    return canManageRoleMatrix(role, featureFlags);
   }
 
   if (matchesRoutePrefix(pathname, "/settings/expenses")) {
-    return hasPermission(role, "expenses.view");
+    return isFeatureEnabled(featureFlags, "expenses") && hasModuleActionAccess({ role, modulePermissions, moduleKey: "expenses", action: "view" });
   }
 
   if (
@@ -41,33 +50,71 @@ export function canAccessCrmPath(pathname: string, role: string | null | undefin
     matchesRoutePrefix(pathname, "/settings/reminders") ||
     matchesRoutePrefix(pathname, "/settings/stripe")
   ) {
-    return hasRoleAccess(role, COMPANY_ADMIN_ROLES);
+    return hasModuleActionAccess({ role, modulePermissions, moduleKey: "settings", action: "view" });
   }
 
-  if (matchesRoutePrefix(pathname, "/clients") || matchesRoutePrefix(pathname, "/suppliers")) {
-    return hasRoleAccess(role, CONTACT_MANAGER_ROLES);
+  if (matchesRoutePrefix(pathname, "/clients")) {
+    return hasModuleActionAccess({ role, modulePermissions, moduleKey: "clients", action: "view" });
   }
 
-  if (
-    matchesRoutePrefix(pathname, "/catalogue") ||
-    matchesRoutePrefix(pathname, "/quotes") ||
-    matchesRoutePrefix(pathname, "/invoices") ||
-    matchesRoutePrefix(pathname, "/notes")
-  ) {
-    return hasRoleAccess(role, COMPANY_ADMIN_ROLES);
+  if (matchesRoutePrefix(pathname, "/suppliers")) {
+    return hasModuleActionAccess({ role, modulePermissions, moduleKey: "suppliers", action: "view" });
+  }
+
+  if (matchesRoutePrefix(pathname, "/catalogue")) {
+    return hasModuleActionAccess({ role, modulePermissions, moduleKey: "catalogue", action: "view" });
+  }
+
+  if (matchesRoutePrefix(pathname, "/quotes")) {
+    return hasModuleActionAccess({ role, modulePermissions, moduleKey: "quotes", action: "view" });
+  }
+
+  if (matchesRoutePrefix(pathname, "/notes")) {
+    return hasModuleActionAccess({ role, modulePermissions, moduleKey: "notes", action: "view" });
+  }
+
+  if (matchesRoutePrefix(pathname, "/invoices")) {
+    return hasModuleActionAccess({ role, modulePermissions, moduleKey: "invoices", action: "view" });
   }
 
   return true;
 }
 
-export function getDefaultCrmLandingPath(role: string | null | undefined): string {
-  if (hasPermission(role, "expenses.view")) {
-    return "/dashboard";
-  }
+export function getSettingsLandingPath(
+  role: string | null | undefined,
+  modulePermissions?: ModulePermissionsMap | null,
+  featureFlags?: Partial<CompanyFeatureFlags> | null
+) {
+  const candidates = ["/settings", "/settings/users", "/settings/expenses", "/settings/roles"] as const;
 
-  if (hasPermission(role, "tickets.view")) {
-    return "/tickets";
-  }
+  return (
+    candidates.find((pathname) => canAccessCrmPath(pathname, role, modulePermissions, featureFlags)) || null
+  );
+}
 
-  return "/logout";
+export function getDefaultCrmLandingPath(
+  role: string | null | undefined,
+  modulePermissions?: ModulePermissionsMap | null,
+  featureFlags?: Partial<CompanyFeatureFlags> | null
+): string {
+  const settingsLandingPath = getSettingsLandingPath(role, modulePermissions, featureFlags);
+  const candidates = [
+    "/dashboard",
+    "/expenses",
+    "/tickets",
+    "/clients",
+    "/suppliers",
+    "/catalogue",
+    "/quotes",
+    "/invoices",
+    "/notes",
+    settingsLandingPath,
+    "/profile",
+  ];
+
+  const nextPath = candidates.find(
+    (pathname): pathname is string => Boolean(pathname) && canAccessCrmPath(pathname, role, modulePermissions, featureFlags)
+  );
+
+  return nextPath || "/logout";
 }

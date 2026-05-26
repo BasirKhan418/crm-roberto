@@ -26,8 +26,8 @@ import {
   uploadTicketFiles,
   useTicketThread,
 } from '@/hooks/useTickets';
+import { getDefaultCrmLandingPath, hasModuleActionAccess } from '@/lib/route-access';
 import { TICKET_STATUSES, type TicketStatus, type TicketType } from '@/lib/tickets/constants';
-import { hasPermission } from '@/lib/permissions';
 
 const FILE_ACCEPT = '.pdf,.jpg,.jpeg,.png,.heic';
 
@@ -256,10 +256,18 @@ export default function TicketDetailPage() {
     },
   }[locale];
 
-  const canViewTickets = hasPermission(user?.role, 'tickets.view');
-  const canManageTickets = hasPermission(user?.role, 'tickets.manage');
+  const canViewTickets = hasModuleActionAccess({ role: user?.role, modulePermissions: user?.modulePermissions, moduleKey: 'tickets', action: 'view' });
+  const canManageTickets = hasModuleActionAccess({ role: user?.role, modulePermissions: user?.modulePermissions, moduleKey: 'tickets', action: 'manage' });
 
   const canReply = canManageTickets && ticket?.status !== 'archived';
+
+  useEffect(() => {
+    if (authLoading || canViewTickets) {
+      return;
+    }
+
+    router.replace(getDefaultCrmLandingPath(user?.role, user?.modulePermissions, user?.featureFlags));
+  }, [authLoading, canViewTickets, router, user?.featureFlags, user?.modulePermissions, user?.role]);
 
   useEffect(() => {
     if (!ticket?.status) {

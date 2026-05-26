@@ -43,9 +43,23 @@ export type PermissionModuleKey =
   | "invoices"
   | "clients"
   | "suppliers"
+  | "catalogue"
+  | "quotes"
+  | "notes"
   | "financialDashboard"
   | "settings"
   | "auditTrail";
+
+export type ModulePermissionSet = {
+  canView: boolean;
+  canCreate: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
+  canExport: boolean;
+  canManage: boolean;
+};
+
+export type ModulePermissionsMap = Partial<Record<PermissionModuleKey, ModulePermissionSet>>;
 
 type RolePermissionsMap = Record<AppRole, readonly AppPermission[]>;
 
@@ -118,12 +132,13 @@ export function canManageTargetRole(actorRole: string | null | undefined, target
   return false;
 }
 
-export function getDefaultModulePermissions(role: string | null | undefined, moduleKey: PermissionModuleKey) {
+export function getDefaultModulePermissions(
+  role: string | null | undefined,
+  moduleKey: PermissionModuleKey
+): ModulePermissionSet {
   const normalizedRole = normalizeRole(role);
   const canAdministerCompany = normalizedRole === "super_admin" || normalizedRole === "administrator";
   const canManageOperations = canAdministerCompany || normalizedRole === "manager";
-  const canUseOperationalRecords = canManageOperations || normalizedRole === "standard_user" || normalizedRole === "secretary";
-  const canViewOperationalRecords = canUseOperationalRecords || normalizedRole === "read_only";
 
   if (moduleKey === "users") {
     return {
@@ -147,14 +162,21 @@ export function getDefaultModulePermissions(role: string | null | undefined, mod
     };
   }
 
-  if (moduleKey === "invoices" || moduleKey === "clients" || moduleKey === "suppliers") {
+  if (
+    moduleKey === "invoices" ||
+    moduleKey === "clients" ||
+    moduleKey === "suppliers" ||
+    moduleKey === "catalogue" ||
+    moduleKey === "quotes" ||
+    moduleKey === "notes"
+  ) {
     return {
-      canView: canViewOperationalRecords,
-      canCreate: canUseOperationalRecords,
-      canEdit: canUseOperationalRecords,
+      canView: canAdministerCompany,
+      canCreate: canAdministerCompany,
+      canEdit: canAdministerCompany,
       canDelete: canAdministerCompany,
-      canExport: canManageOperations,
-      canManage: canUseOperationalRecords,
+      canExport: canAdministerCompany,
+      canManage: canAdministerCompany,
     };
   }
 

@@ -18,7 +18,7 @@ import {
 import { Building2Icon, FileTextIcon, LayoutDashboardIcon, MessageSquareIcon, NotebookPenIcon, PackageSearchIcon, ReceiptTextIcon, SettingsIcon, TruckIcon, UsersIcon, WalletCardsIcon } from "lucide-react"
 import { useLocale } from "@/components/providers/locale-provider"
 import { useAuthMe } from "@/hooks/useAuthMe"
-import { canAccessCrmPath } from "@/lib/route-access"
+import { canAccessCrmPath, getSettingsLandingPath } from "@/lib/route-access"
 import { useSidebarBadges } from "@/hooks/useSidebarBadges"
 
 type NavKey =
@@ -136,20 +136,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const t = sidebarMessages[locale]
   const { user } = useAuthMe()
   const { badges } = useSidebarBadges()
-  const visibleNavItems = navItems.filter((item) => {
-    if (!canAccessCrmPath(item.url, user?.role)) {
+  const settingsUrl = getSettingsLandingPath(user?.role, user?.modulePermissions, user?.featureFlags)
+  const resolvedNavItems = navItems.map((item) =>
+    item.key === "settings" && settingsUrl ? { ...item, url: settingsUrl } : item
+  )
+  const visibleNavItems = resolvedNavItems.filter((item) => {
+    if (item.key === "settings" && !settingsUrl) {
       return false
     }
-    if (item.key === "dashboard") {
-      return user?.featureFlags?.financialDashboard !== false
-    }
-    if (item.key === "tickets") {
-      return user?.featureFlags?.tickets !== false
-    }
-    if (item.key === "expenses") {
-      return user?.featureFlags?.expenses !== false
-    }
-    return true
+
+    return canAccessCrmPath(item.url, user?.role, user?.modulePermissions, user?.featureFlags)
   })
 
   return (

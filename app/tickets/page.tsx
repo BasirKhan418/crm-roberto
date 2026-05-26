@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { FilterIcon, Loader2Icon, MessageSquarePlusIcon, RefreshCwIcon, SearchIcon } from 'lucide-react';
 
@@ -26,7 +26,7 @@ import {
   type TicketStatus,
   type TicketType,
 } from '@/lib/tickets/constants';
-import { hasPermission } from '@/lib/permissions';
+import { getDefaultCrmLandingPath, hasModuleActionAccess } from '@/lib/route-access';
 
 function parseBoolean(value: string | null): boolean {
   if (!value) return false;
@@ -124,6 +124,7 @@ function buildLinkedTypeLabel(type: TicketLinkedType, locale: 'en' | 'fr') {
 }
 
 export default function TicketsPage() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const { locale } = useLocale();
   const { user, loading: authLoading } = useAuthMe();
@@ -161,7 +162,16 @@ export default function TicketsPage() {
     return () => window.clearTimeout(timer);
   }, [searchInput]);
 
-  const canViewTickets = hasPermission(user?.role, 'tickets.view');
+  const canViewTickets = hasModuleActionAccess({ role: user?.role, modulePermissions: user?.modulePermissions, moduleKey: 'tickets', action: 'view' });
+  const canManageTickets = hasModuleActionAccess({ role: user?.role, modulePermissions: user?.modulePermissions, moduleKey: 'tickets', action: 'manage' });
+
+  useEffect(() => {
+    if (authLoading || canViewTickets) {
+      return;
+    }
+
+    router.replace(getDefaultCrmLandingPath(user?.role, user?.modulePermissions, user?.featureFlags));
+  }, [authLoading, canViewTickets, router, user?.featureFlags, user?.modulePermissions, user?.role]);
 
   const { tickets, pagination, loading, error, refetch } = useTickets(
     {
@@ -294,7 +304,7 @@ export default function TicketsPage() {
             {loading ? <Loader2Icon className="size-4 animate-spin" /> : <RefreshCwIcon className="size-4" />}
             {t.refresh}
           </Button>
-          <Button type="button" onClick={() => setCreateOpen(true)} disabled={!canViewTickets} data-tour-new-ticket>
+          <Button type="button" onClick={() => setCreateOpen(true)} disabled={!canManageTickets} data-tour-new-ticket>
             <MessageSquarePlusIcon className="size-4" />
             {t.newTicket}
           </Button>
