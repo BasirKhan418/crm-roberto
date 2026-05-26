@@ -5,6 +5,7 @@ import { Download } from 'lucide-react';
 
 import { FinancialPeriodSelector } from '@/components/dashboard/financial-period-selector';
 import { useLocale } from '@/components/providers/locale-provider';
+import { Button } from '@/components/ui/button';
 import EmptyState from '@/components/ui/EmptyState';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import { InvoiceStatusBadge, type InvoiceStatus } from '@/components/ui/InvoiceStatusBadge';
@@ -15,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { buildFinancialPeriodSearchParams, getDefaultFinancialPeriodSelection, type FinancialPeriodSelection } from '@/lib/financial-periods';
+import { cn } from '@/lib/utils';
 
 type SalesInvoiceItem = {
   id: string;
@@ -55,6 +57,12 @@ const salesCopy = {
     pdf: 'PDF',
     empty: 'No sales invoices match these filters.',
     total: 'Total incl. VAT',
+    registerEyebrow: 'Receivables register',
+    filterHint: 'Accounting-safe visibility into invoice status, collection progress, and document access.',
+    pageSummary: 'results',
+    prev: 'Prev',
+    next: 'Next',
+    exVat: 'ex VAT',
   },
   fr: {
     title: 'Factures de vente',
@@ -72,8 +80,32 @@ const salesCopy = {
     pdf: 'PDF',
     empty: 'Aucune facture de vente ne correspond a ces filtres.',
     total: 'Total TTC',
+    registerEyebrow: 'Registre clients',
+    filterHint: 'Visibilite comptable sur les statuts facture, l avancement des encaissements et les documents.',
+    pageSummary: 'resultats',
+    prev: 'Prec',
+    next: 'Suiv',
+    exVat: 'HT',
   },
 } as const;
+
+const STATUS_ROW_BG: Record<InvoiceStatus, string> = {
+  unpaid: 'rgba(100, 116, 139, 0.04)',
+  partial_paid: 'rgba(217, 119, 6, 0.06)',
+  paid: 'rgba(34, 197, 94, 0.05)',
+  overdue: 'rgba(239, 68, 68, 0.055)',
+};
+
+const STATUS_ACCENT: Record<InvoiceStatus, string> = {
+  unpaid: '#475569',
+  partial_paid: '#b45309',
+  paid: '#15803d',
+  overdue: '#b91c1c',
+};
+
+function isAbortError(error: unknown) {
+  return error instanceof DOMException && error.name === 'AbortError';
+}
 
 export default function AccountantPortalSalesInvoicesPage() {
   const { locale } = useLocale();
@@ -120,7 +152,7 @@ export default function AccountantPortalSalesInvoicesPage() {
 
         setData(payload.data);
       } catch (fetchError) {
-        if (controller.signal.aborted) return;
+        if (controller.signal.aborted || isAbortError(fetchError)) return;
         setError(fetchError instanceof Error ? fetchError.message : 'Failed to load sales invoices');
         setData(null);
       } finally {
@@ -138,13 +170,17 @@ export default function AccountantPortalSalesInvoicesPage() {
 
   return (
     <div className="space-y-6">
-      <Card className="border-border/70 bg-white/90 shadow-sm">
+      <Card className="overflow-hidden rounded-[28px] border-border/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(248,250,252,0.92))] shadow-sm dark:bg-[linear-gradient(135deg,rgba(2,6,23,0.92),rgba(15,23,42,0.82))]">
         <CardHeader>
+          <div className="inline-flex w-fit items-center rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-sky-700 dark:border-sky-900/60 dark:bg-sky-950/40 dark:text-sky-300">
+            {t.registerEyebrow}
+          </div>
           <CardTitle>{t.title}</CardTitle>
           <CardDescription>{t.subtitle}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <FinancialPeriodSelector value={period} onChange={setPeriod} />
+          <p className="text-sm text-muted-foreground">{t.filterHint}</p>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t.search} />
             <Select value={status} onValueChange={setStatus}>
@@ -165,15 +201,15 @@ export default function AccountantPortalSalesInvoicesPage() {
 
       {totals ? (
         <div className="grid gap-4 md:grid-cols-3">
-          <Card className="border-border/70 bg-white/90 shadow-sm"><CardHeader className="pb-2"><CardDescription>{t.total}</CardDescription></CardHeader><CardContent><div className="text-xl font-semibold"><PriceDisplay cents={totals.totalIncludingTaxCents} locale={priceLocale} /></div></CardContent></Card>
-          <Card className="border-border/70 bg-white/90 shadow-sm"><CardHeader className="pb-2"><CardDescription>{t.paid}</CardDescription></CardHeader><CardContent><div className="text-xl font-semibold"><PriceDisplay cents={totals.totalPaidCents} locale={priceLocale} /></div></CardContent></Card>
-          <Card className="border-border/70 bg-white/90 shadow-sm"><CardHeader className="pb-2"><CardDescription>{t.remaining}</CardDescription></CardHeader><CardContent><div className="text-xl font-semibold"><PriceDisplay cents={totals.totalRemainingCents} locale={priceLocale} /></div></CardContent></Card>
+          <Card className="overflow-hidden rounded-[24px] border-sky-200/80 bg-sky-50/70 shadow-sm dark:border-sky-950/50 dark:bg-sky-950/20"><CardHeader className="pb-2"><CardDescription>{t.total}</CardDescription></CardHeader><CardContent><div className="text-xl font-semibold text-slate-950 dark:text-slate-50"><PriceDisplay cents={totals.totalIncludingTaxCents} locale={priceLocale} /></div></CardContent></Card>
+          <Card className="overflow-hidden rounded-[24px] border-emerald-200/80 bg-emerald-50/70 shadow-sm dark:border-emerald-950/50 dark:bg-emerald-950/20"><CardHeader className="pb-2"><CardDescription>{t.paid}</CardDescription></CardHeader><CardContent><div className="text-xl font-semibold text-slate-950 dark:text-slate-50"><PriceDisplay cents={totals.totalPaidCents} locale={priceLocale} /></div></CardContent></Card>
+          <Card className="overflow-hidden rounded-[24px] border-amber-200/80 bg-amber-50/70 shadow-sm dark:border-amber-950/50 dark:bg-amber-950/20"><CardHeader className="pb-2"><CardDescription>{t.remaining}</CardDescription></CardHeader><CardContent><div className="text-xl font-semibold text-slate-950 dark:text-slate-50"><PriceDisplay cents={totals.totalRemainingCents} locale={priceLocale} /></div></CardContent></Card>
         </div>
       ) : null}
 
       {error ? <ErrorMessage message={error} /> : null}
 
-      <Card className="border-border/70 bg-white/90 shadow-sm">
+      <Card className="overflow-hidden rounded-[28px] border-border/70 bg-white/92 shadow-sm dark:bg-slate-950/45">
         <CardContent className="pt-4">
           {loading ? (
             <div className="space-y-2">
@@ -181,8 +217,9 @@ export default function AccountantPortalSalesInvoicesPage() {
             </div>
           ) : data && data.items.length > 0 ? (
             <>
+              <div className="overflow-hidden rounded-[24px] border border-slate-200/80 bg-white/80 shadow-sm dark:border-slate-800/70 dark:bg-slate-950/30">
               <Table>
-                <TableHeader>
+                <TableHeader className="bg-slate-50/90 dark:bg-slate-900/70">
                   <TableRow>
                     <TableHead>{t.invoice}</TableHead>
                     <TableHead>{t.client}</TableHead>
@@ -197,8 +234,20 @@ export default function AccountantPortalSalesInvoicesPage() {
                 </TableHeader>
                 <TableBody>
                   {data.items.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell className="font-medium text-slate-950">{item.invoiceNumber}</TableCell>
+                    <TableRow
+                      key={item.id}
+                      className="border-b border-slate-200/70 dark:border-slate-800/70"
+                      style={{ backgroundColor: STATUS_ROW_BG[item.status] }}
+                    >
+                      <TableCell
+                        className="border-l-4"
+                        style={{ borderLeftColor: STATUS_ACCENT[item.status] }}
+                      >
+                        <div className="space-y-1">
+                          <p className="font-semibold text-slate-950 dark:text-slate-50">{item.invoiceNumber}</p>
+                          <p className="text-[11px] text-muted-foreground">{item.status.replace('_', ' ')}</p>
+                        </div>
+                      </TableCell>
                       <TableCell>
                         <div className="min-w-44 whitespace-normal">
                           <p className="font-medium text-slate-950">{item.clientName}</p>
@@ -209,18 +258,27 @@ export default function AccountantPortalSalesInvoicesPage() {
                       <TableCell>{item.dueDate ? new Date(item.dueDate).toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-GB') : '-'}</TableCell>
                       <TableCell><InvoiceStatusBadge status={item.status} locale={locale} /></TableCell>
                       <TableCell>
-                        <div className="space-y-1 text-xs">
-                          <div><PriceDisplay cents={item.totalIncludingTaxCents} locale={priceLocale} /></div>
-                          <div className="text-muted-foreground">ex VAT <PriceDisplay cents={item.totalExcludingTaxCents} locale={priceLocale} /></div>
+                        <div className="space-y-1.5 text-xs">
+                          <div className="text-sm font-semibold text-slate-950 dark:text-slate-50"><PriceDisplay cents={item.totalIncludingTaxCents} locale={priceLocale} /></div>
+                          <div className="text-muted-foreground">{t.exVat} <PriceDisplay cents={item.totalExcludingTaxCents} locale={priceLocale} /></div>
                           <div className="text-muted-foreground">VAT <PriceDisplay cents={item.totalVatCents} locale={priceLocale} /></div>
                         </div>
                       </TableCell>
-                      <TableCell><PriceDisplay cents={item.amountPaidCents} locale={priceLocale} /></TableCell>
-                      <TableCell><PriceDisplay cents={item.amountRemainingCents} locale={priceLocale} /></TableCell>
+                      <TableCell>
+                        <span className="font-medium text-slate-900 dark:text-slate-100"><PriceDisplay cents={item.amountPaidCents} locale={priceLocale} /></span>
+                      </TableCell>
+                      <TableCell>
+                        <span className={cn(
+                          'font-medium',
+                          item.amountRemainingCents > 0 ? 'text-amber-700 dark:text-amber-300' : 'text-emerald-700 dark:text-emerald-300'
+                        )}>
+                          <PriceDisplay cents={item.amountRemainingCents} locale={priceLocale} />
+                        </span>
+                      </TableCell>
                       <TableCell>
                         <a
                           href={item.pdfDownloadUrl}
-                          className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                          className="inline-flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-700 hover:bg-sky-100 dark:border-sky-900/60 dark:bg-sky-950/30 dark:text-sky-300 dark:hover:bg-sky-950/50"
                         >
                           <Download className="size-3" />
                           PDF
@@ -230,12 +288,13 @@ export default function AccountantPortalSalesInvoicesPage() {
                   ))}
                 </TableBody>
               </Table>
+              </div>
               <div className="mt-4 flex items-center justify-between gap-3 text-sm text-muted-foreground">
-                <span>{data.pagination.total} item(s)</span>
+                <span>{data.pagination.total} {t.pageSummary}</span>
                 <div className="flex items-center gap-2">
-                  <button type="button" className="rounded-lg border px-3 py-1.5 disabled:opacity-50" disabled={data.pagination.page <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>Prev</button>
+                  <Button type="button" variant="outline" size="sm" disabled={data.pagination.page <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>{t.prev}</Button>
                   <span>{data.pagination.page} / {data.pagination.totalPages}</span>
-                  <button type="button" className="rounded-lg border px-3 py-1.5 disabled:opacity-50" disabled={data.pagination.page >= data.pagination.totalPages} onClick={() => setPage((current) => current + 1)}>Next</button>
+                  <Button type="button" variant="outline" size="sm" disabled={data.pagination.page >= data.pagination.totalPages} onClick={() => setPage((current) => current + 1)}>{t.next}</Button>
                 </div>
               </div>
             </>

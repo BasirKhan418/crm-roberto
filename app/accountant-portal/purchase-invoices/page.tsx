@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Download, Paperclip } from 'lucide-react';
+import { Download, Loader2, Paperclip } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { FinancialPeriodSelector } from '@/components/dashboard/financial-period-selector';
@@ -70,7 +70,10 @@ const purchaseCopy = {
     selectAll: 'Select all with attachments',
     selectedCount: 'selected',
     downloadZip: 'Download ZIP',
+    downloadZipBusy: 'Preparing ZIP...',
     zipFailed: 'Failed to download attachment ZIP',
+    zipHint: 'The ZIP bundles selected receipt and invoice attachments only.',
+    zipBusyHint: 'Collecting files and building the archive. This can take a moment for larger selections.',
     empty: 'No purchase invoices match these filters.',
     total: 'Total',
     paidTotal: 'Paid',
@@ -106,7 +109,10 @@ const purchaseCopy = {
     selectAll: 'Tout selectionner avec pieces jointes',
     selectedCount: 'selectionnes',
     downloadZip: 'Telecharger ZIP',
+    downloadZipBusy: 'Preparation du ZIP...',
     zipFailed: 'Echec du telechargement ZIP',
+    zipHint: 'Le ZIP regroupe uniquement les pieces jointes selectionnees.',
+    zipBusyHint: 'Recuperation des fichiers et generation de l archive. Cela peut prendre un moment si la selection est large.',
     empty: 'Aucune facture d achat ne correspond a ces filtres.',
     total: 'Total',
     paidTotal: 'Paye',
@@ -379,10 +385,13 @@ export default function AccountantPortalPurchaseInvoicesPage() {
                 <span>{t.selectAll}</span>
               </label>
               <div className="flex items-center gap-3">
-                <span className="text-sm text-muted-foreground">{selectedIds.length} {t.selectedCount}</span>
+                <div className="text-right">
+                  <p className="text-sm text-muted-foreground">{selectedIds.length} {t.selectedCount}</p>
+                  <p className="text-xs text-muted-foreground">{downloadingZip ? t.zipBusyHint : t.zipHint}</p>
+                </div>
                 <Button type="button" variant="outline" onClick={() => void downloadSelectedAttachments()} disabled={selectedIds.length === 0 || downloadingZip}>
-                  <Download className="size-4" />
-                  {downloadingZip ? '...' : t.downloadZip}
+                  {downloadingZip ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
+                  {downloadingZip ? t.downloadZipBusy : t.downloadZip}
                 </Button>
               </div>
             </div>
