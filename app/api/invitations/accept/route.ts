@@ -35,7 +35,14 @@ export async function POST(request: NextRequest) {
 
     if (isExternalAccountant) {
       const token = signAuthToken({
-        ...result.user,
+        _id: result.user._id,
+        name: result.user.name,
+        email: result.user.email,
+        locale: result.user.locale,
+        isOnboardingComplete: result.user.isOnboardingComplete,
+        isEmailVerified: result.user.isEmailVerified,
+        role: result.user.role,
+        companyId: result.user.companyId ? String(result.user.companyId) : null,
         kind: "accountant_portal",
       });
       cookieStore.delete("token");

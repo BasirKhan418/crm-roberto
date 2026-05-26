@@ -30,7 +30,6 @@ const loginCopy = {
     password: 'Password',
     submit: 'Sign in',
     loading: 'Signing in...',
-    help: 'Use the invitation email sent from Settings > Users. Main CRM credentials do not work here unless the user role is accountant.',
     crmLoginPrompt: 'Not an accountant?',
     crmLoginCta: 'Back to CRM login',
     missingCredentials: 'Enter your email address and password.',
@@ -50,7 +49,6 @@ const loginCopy = {
     password: 'Mot de passe',
     submit: 'Se connecter',
     loading: 'Connexion...',
-    help: 'Utilisez l invitation envoyee depuis Parametres > Utilisateurs. Les identifiants CRM standard ne fonctionnent ici que pour le role comptable.',
     crmLoginPrompt: 'Pas comptable ?',
     crmLoginCta: 'Retour connexion CRM',
     missingCredentials: 'Saisissez votre adresse e-mail et votre mot de passe.',
@@ -228,10 +226,6 @@ export default function AccountantPortalLoginPage() {
                     )}
                   </Button>
                 </form>
-
-                <div className="rounded-xl border border-zinc-200 bg-white px-4 py-3 text-xs leading-5 text-zinc-500 shadow-sm">
-                  {t.help}
-                </div>
 
                 <p className="text-center text-sm text-zinc-500">
                   {t.crmLoginPrompt}{' '}
