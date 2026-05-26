@@ -9,6 +9,7 @@ import * as z from "zod"
 import { toast } from "sonner"
 import { 
   ArrowRight,
+  Calculator,
   Loader2,
   Eye,
   EyeOff
@@ -40,6 +41,8 @@ const loginMessages = {
     signupCta: "Accept invitation",
     workspacePrompt: "Need to onboard a new company?",
     workspaceCta: "Create workspace",
+    accountantPrompt: "External accountant?",
+    accountantCta: "Open accountant portal",
     toastLoginSuccess: "Login successful! Redirecting to dashboard...",
     toastLoginFailed: "Login failed. Please check your credentials and try again.",
     toastLoginError: "An error occurred during login. Please try again.",
@@ -55,6 +58,8 @@ const loginMessages = {
     signupCta: "Accepter l'invitation",
     workspacePrompt: "Besoin d'onboarder une nouvelle entreprise ?",
     workspaceCta: "Créer un espace",
+    accountantPrompt: "Comptable externe ?",
+    accountantCta: "Ouvrir le portail comptable",
     toastLoginSuccess: "Connexion r\u00e9ussie\u00a0! Redirection vers le tableau de bord...",
     toastLoginFailed: "\u00c9chec de la connexion. Veuillez v\u00e9rifier vos identifiants et r\u00e9essayer.",
     toastLoginError: "Une erreur s'est produite lors de la connexion. Veuillez r\u00e9essayer.",
@@ -201,6 +206,22 @@ export default function LoginPage() {
           )}
         </Button>
       </form>
+
+      <Link
+        href="/accountant-portal/login"
+        className="flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50/70 px-4 py-3 text-sm text-amber-950 transition-colors hover:bg-amber-100/80"
+      >
+        <span className="flex min-w-0 items-center gap-3">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-white text-amber-800 ring-1 ring-amber-200">
+            <Calculator className="size-4" />
+          </span>
+          <span className="min-w-0">
+            <span className="block font-semibold">{t.accountantPrompt}</span>
+            <span className="block text-xs text-amber-800">{t.accountantCta}</span>
+          </span>
+        </span>
+        <ArrowRight className="size-4 shrink-0" />
+      </Link>
 
       <p className="text-center text-sm text-zinc-500">
         {t.signupPrompt}{" "}

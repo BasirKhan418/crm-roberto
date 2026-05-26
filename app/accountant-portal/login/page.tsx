@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Calculator, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -20,6 +21,8 @@ const loginCopy = {
     submit: 'Sign in',
     loading: 'Signing in...',
     help: 'Use the invitation email sent from Settings > Users. Main CRM credentials do not work here unless the user role is accountant.',
+    crmLoginPrompt: 'Not an accountant?',
+    crmLoginCta: 'Back to CRM login',
     failed: 'Unable to sign in to the accountant portal.',
   },
   fr: {
@@ -30,6 +33,8 @@ const loginCopy = {
     submit: 'Se connecter',
     loading: 'Connexion...',
     help: 'Utilisez l invitation envoyee depuis Parametres > Utilisateurs. Les identifiants CRM standard ne fonctionnent ici que pour le role comptable.',
+    crmLoginPrompt: 'Pas comptable ?',
+    crmLoginCta: 'Retour connexion CRM',
     failed: 'Impossible de se connecter au portail comptable.',
   },
 } as const;
@@ -134,6 +139,12 @@ export default function AccountantPortalLoginPage() {
             </Button>
           </form>
           <p className="text-xs leading-5 text-muted-foreground">{t.help}</p>
+          <p className="text-center text-sm text-muted-foreground">
+            {t.crmLoginPrompt}{' '}
+            <Link href="/login" className="font-semibold text-foreground underline-offset-4 hover:underline">
+              {t.crmLoginCta}
+            </Link>
+          </p>
         </CardContent>
       </Card>
     </div>
