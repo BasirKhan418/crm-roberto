@@ -20,6 +20,11 @@ const adminMessages = {
       description: 'Operate companies, feature access, and platform activity from the same workspace framing used across the CRM.',
       tone: 'bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.12),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.4),rgba(241,245,249,0.96))]',
     },
+    companies: {
+      title: 'Companies',
+      description: 'Review company health, feature exposure, and ownership at a glance before drilling into activity details.',
+      tone: 'bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.12),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.4),rgba(236,253,245,0.92))]',
+    },
     logs: {
       title: 'Platform logs',
       description: 'Review admin activity, access attempts, and platform signals in a more structured operations workspace.',
@@ -33,6 +38,11 @@ const adminMessages = {
       title: 'Tableau plateforme',
       description: 'Pilotez les entreprises, les modules et l activite plateforme dans un cadre aligne sur le CRM.',
       tone: 'bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.12),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.4),rgba(241,245,249,0.96))]',
+    },
+    companies: {
+      title: 'Entreprises',
+      description: 'Suivez la sante des entreprises, leurs modules actifs et leur proprietaire avant de plonger dans les logs.',
+      tone: 'bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.12),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.4),rgba(236,253,245,0.92))]',
     },
     logs: {
       title: 'Journaux plateforme',
@@ -49,6 +59,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const t = adminMessages[locale];
 
   const routeMeta = useMemo(() => {
+    if (pathname.startsWith('/admin/companies')) {
+      return t.companies;
+    }
+
     if (pathname.startsWith('/admin/logs')) {
       return t.logs;
     }

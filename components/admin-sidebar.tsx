@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   Building2,
+  LayoutGrid,
   ClipboardList,
   LogOut,
   ShieldCheck,
@@ -24,8 +25,9 @@ import {
 import { useLocale } from '@/components/providers/locale-provider';
 
 const adminNavItems = [
-  { key: 'dashboard', url: '/admin', icon: <Building2 /> },
-  { key: 'users', url: '/admin/logs', icon: <ClipboardList /> },
+  { key: 'dashboard', url: '/admin', icon: <LayoutGrid /> },
+  { key: 'companies', url: '/admin/companies', icon: <Building2 /> },
+  { key: 'logs', url: '/admin/logs', icon: <ClipboardList /> },
 ] as const;
 
 const sidebarMessages = {
@@ -34,7 +36,8 @@ const sidebarMessages = {
     tagline: 'Platform operations cockpit',
     management: 'Management',
     dashboard: 'Platform Dashboard',
-    users: 'Logs',
+    companies: 'Companies',
+    logs: 'Logs',
     session: 'Session',
     logout: 'Logout',
   },
@@ -43,15 +46,16 @@ const sidebarMessages = {
     tagline: 'Cockpit operations plateforme',
     management: 'Gestion',
     dashboard: 'Tableau plateforme',
-    users: 'Logs',
+    companies: 'Entreprises',
+    logs: 'Logs',
     session: 'Session',
     logout: 'Déconnexion',
   },
 } as const;
 
 const navLabels = {
-  en: { dashboard: 'Platform Dashboard', users: 'Logs' },
-  fr: { dashboard: 'Tableau plateforme', users: 'Logs' },
+  en: { dashboard: 'Platform Dashboard', companies: 'Companies', logs: 'Logs' },
+  fr: { dashboard: 'Tableau plateforme', companies: 'Entreprises', logs: 'Logs' },
 } as const;
 
 export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
