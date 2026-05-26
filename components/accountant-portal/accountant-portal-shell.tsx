@@ -7,6 +7,8 @@ import { usePathname } from 'next/navigation';
 import { LanguageThemeToggle } from '@/components/language-theme-toggle';
 import { AccountantPortalSidebar } from '@/components/accountant-portal/accountant-portal-sidebar';
 import { useLocale } from '@/components/providers/locale-provider';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { WorkspaceHeader } from '@/components/workspace-header';
 import type { CompanyFeatureFlags } from '@/lib/company-features';
@@ -14,8 +16,8 @@ import { cn } from '@/lib/utils';
 
 const shellMessages = {
   en: {
-    eyebrow: 'Accountant portal',
-    badge: 'Read-only access',
+    role: 'Accountant',
+    fallbackName: 'Accountant',
     dashboard: {
       title: 'Accounting dashboard',
       description: 'Track revenue, VAT exposure, unpaid documents, and assigned accounting work from one shared workspace shell.',
@@ -43,8 +45,8 @@ const shellMessages = {
     },
   },
   fr: {
-    eyebrow: 'Portail comptable',
-    badge: 'Lecture seule',
+    role: 'Comptable',
+    fallbackName: 'Comptable',
     dashboard: {
       title: 'Tableau comptable',
       description: 'Suivez le chiffre, la TVA, les documents impayes et les tickets assignes dans un shell partage avec le CRM.',
@@ -85,6 +87,16 @@ export function AccountantPortalShell({ children, featureFlags, userName, userEm
   const { locale } = useLocale();
   const isLoginPage = pathname === '/accountant-portal/login';
   const t = shellMessages[locale];
+  const displayName = userName?.trim() || t.fallbackName;
+  const userInitials = useMemo(() => {
+    const parts = displayName.split(' ').filter(Boolean);
+
+    if (parts.length >= 2) {
+      return `${parts[0]?.[0] || ''}${parts[1]?.[0] || ''}`.toUpperCase();
+    }
+
+    return displayName.slice(0, 2).toUpperCase();
+  }, [displayName]);
 
   const routeMeta = useMemo(() => {
     if (pathname.startsWith('/accountant-portal/purchase-invoices')) {
@@ -123,12 +135,36 @@ export function AccountantPortalShell({ children, featureFlags, userName, userEm
           <WorkspaceHeader
             title={routeMeta.title}
             description={routeMeta.description}
-            eyebrow={t.eyebrow}
-            statusBadge={t.badge}
             actions={
               <>
-                <div className="hidden rounded-full border border-slate-200/80 bg-white/80 px-3 py-1 text-xs font-medium text-slate-600 shadow-sm dark:border-slate-800 dark:bg-slate-950/80 dark:text-slate-300 lg:inline-flex">
-                  {userEmail || userName || t.eyebrow}
+                <div className="relative group/profile">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-11 w-11 rounded-full border border-slate-200/80 bg-white/85 p-0 shadow-sm hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950/80 dark:hover:bg-slate-900"
+                    aria-label={displayName}
+                  >
+                    <Avatar size="lg" className="size-9 rounded-full bg-slate-100 dark:bg-slate-900">
+                      <AvatarFallback className="text-[13px] font-semibold tracking-wide text-slate-700 dark:text-slate-200">
+                        {userInitials}
+                      </AvatarFallback>
+                    </Avatar>
+                  </Button>
+
+                  <div className="pointer-events-none absolute right-0 top-[calc(100%+0.6rem)] z-30 w-64 translate-y-2 rounded-2xl border border-slate-200/80 bg-white/96 p-4 text-left opacity-0 shadow-[0_18px_48px_rgba(15,23,42,0.14)] transition-all duration-150 group-hover/profile:pointer-events-auto group-hover/profile:translate-y-0 group-hover/profile:opacity-100 group-focus-within/profile:pointer-events-auto group-focus-within/profile:translate-y-0 group-focus-within/profile:opacity-100 dark:border-slate-800/80 dark:bg-slate-950/96 dark:shadow-[0_18px_48px_rgba(2,6,23,0.45)]">
+                    <div className="flex items-start gap-3">
+                      <Avatar size="lg" className="size-10 rounded-full bg-slate-100 dark:bg-slate-900">
+                        <AvatarFallback className="text-sm font-semibold tracking-wide text-slate-700 dark:text-slate-200">
+                          {userInitials}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <p className="truncate text-sm font-semibold text-slate-950 dark:text-slate-50">{displayName}</p>
+                        {userEmail ? <p className="truncate text-xs text-muted-foreground">{userEmail}</p> : null}
+                        <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{t.role}</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
                 <LanguageThemeToggle className="shrink-0" />
               </>
