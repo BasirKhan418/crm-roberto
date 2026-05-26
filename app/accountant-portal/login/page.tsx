@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { WorldMapBg } from '@/components/ui/WorldMapBg';
+import { createI18nKey as i18nKey, resolveTranslatedText } from '@/lib/i18n/messages';
 
 const loginCopy = {
   en: {
@@ -32,7 +33,8 @@ const loginCopy = {
     help: 'Use the invitation email sent from Settings > Users. Main CRM credentials do not work here unless the user role is accountant.',
     crmLoginPrompt: 'Not an accountant?',
     crmLoginCta: 'Back to CRM login',
-    failed: 'Unable to sign in to the accountant portal.',
+    missingCredentials: 'Enter your email address and password.',
+    failed: 'Unable to sign in. Check your email, password, and that your accountant invitation is still active.',
   },
   fr: {
     sideHeadingLine1: 'La Reference',
@@ -51,7 +53,8 @@ const loginCopy = {
     help: 'Utilisez l invitation envoyee depuis Parametres > Utilisateurs. Les identifiants CRM standard ne fonctionnent ici que pour le role comptable.',
     crmLoginPrompt: 'Pas comptable ?',
     crmLoginCta: 'Retour connexion CRM',
-    failed: 'Impossible de se connecter au portail comptable.',
+    missingCredentials: 'Saisissez votre adresse e-mail et votre mot de passe.',
+    failed: 'Connexion impossible. Verifiez votre e-mail, votre mot de passe et que votre invitation comptable est toujours active.',
   },
 } as const;
 
@@ -68,6 +71,7 @@ export default function AccountantPortalLoginPage() {
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!email.trim() || !password.trim()) {
+      toast.error(t.missingCredentials);
       return;
     }
 
@@ -81,7 +85,11 @@ export default function AccountantPortalLoginPage() {
       const payload = (await response.json().catch(() => null)) as { success?: boolean; message?: string; data?: { redirectTo?: string } } | null;
 
       if (!response.ok || !payload?.success) {
-        toast.error(payload?.message || t.failed);
+        const errorMessage =
+          payload?.message === i18nKey('auth.loginError')
+            ? t.failed
+            : resolveTranslatedText(locale, payload?.message, t.failed);
+        toast.error(errorMessage);
         return;
       }
 
