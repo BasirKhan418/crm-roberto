@@ -423,26 +423,28 @@ export default function AdminPage() {
         </div>
 
         <Card className="rounded-2xl border-slate-200/80 bg-white shadow-sm dark:border-slate-800/70 dark:bg-slate-950/40">
-          <CardHeader className="gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div>
+          <CardHeader className="gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="lg:max-w-sm">
               <CardTitle className="font-heading text-xl">{t.companies}</CardTitle>
               <CardDescription>{t.subtitle}</CardDescription>
             </div>
-            <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_180px] lg:w-120">
-              <div className="relative">
+            <div className="grid w-full min-w-0 gap-2 sm:grid-cols-2 lg:max-w-2xl lg:flex-1">
+              <div className="relative min-w-0">
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <Input className="h-10 rounded-xl pl-9" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t.search} />
+                <Input className="h-11 w-full rounded-xl pl-9" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t.search} />
               </div>
-              <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as 'all' | 'active' | 'suspended')}>
-                <SelectTrigger className="h-10 rounded-xl">
-                  <SelectValue placeholder={t.status} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{t.all}</SelectItem>
-                  <SelectItem value="active">{t.active}</SelectItem>
-                  <SelectItem value="suspended">{t.suspended}</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="min-w-0">
+                <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as 'all' | 'active' | 'suspended')}>
+                  <SelectTrigger className="h-11 w-full rounded-xl">
+                    <SelectValue placeholder={t.status} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">{t.all}</SelectItem>
+                    <SelectItem value="active">{t.active}</SelectItem>
+                    <SelectItem value="suspended">{t.suspended}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </CardHeader>
           <CardContent className="space-y-3">

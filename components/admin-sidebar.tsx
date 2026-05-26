@@ -60,6 +60,14 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
   const { locale } = useLocale();
   const t = sidebarMessages[locale];
 
+  function isItemActive(url: (typeof adminNavItems)[number]['url']) {
+    if (url === '/admin') {
+      return pathname === '/admin';
+    }
+
+    return pathname === url || pathname.startsWith(`${url}/`);
+  }
+
   async function handleLogout() {
     await fetch('/api/admin/logout', { method: 'POST' });
     router.replace('/admin/login');
@@ -97,7 +105,7 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
               <SidebarMenuItem key={item.key}>
                 <SidebarMenuButton
                   asChild
-                  isActive={pathname === item.url || pathname.startsWith(`${item.url}/`)}
+                  isActive={isItemActive(item.url)}
                   className="h-10 bg-transparent text-(--color-text-secondary) hover:bg-transparent hover:text-(--color-text-secondary) data-[active=true]:bg-(--color-background-info) data-[active=true]:text-(--color-text-info)"
                 >
                   <Link href={item.url}>
