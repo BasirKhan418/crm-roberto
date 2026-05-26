@@ -80,8 +80,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <WorkspaceHeader
             title={routeMeta.title}
             description={routeMeta.description}
-            eyebrow={t.eyebrow}
-            statusBadge={t.badge}
             actions={
               <>
                 <div className="hidden rounded-full border border-slate-200/80 bg-white/80 px-3 py-1 text-xs font-medium text-slate-600 shadow-sm dark:border-slate-800 dark:bg-slate-950/80 dark:text-slate-300 lg:inline-flex">

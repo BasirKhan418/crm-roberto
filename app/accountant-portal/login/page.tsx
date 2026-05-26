@@ -28,6 +28,7 @@ const loginCopy = {
     subtitle: 'Sign in with your invitation-backed accountant account.',
     email: 'Email Address',
     password: 'Password',
+    forgotPassword: 'Forgot password?',
     submit: 'Sign in',
     loading: 'Signing in...',
     crmLoginPrompt: 'Not an accountant?',
@@ -47,6 +48,7 @@ const loginCopy = {
     subtitle: 'Connectez-vous avec votre compte comptable invite.',
     email: 'Adresse e-mail',
     password: 'Mot de passe',
+    forgotPassword: 'Mot de passe oublié ?',
     submit: 'Se connecter',
     loading: 'Connexion...',
     crmLoginPrompt: 'Pas comptable ?',
@@ -182,9 +184,17 @@ export default function AccountantPortalLoginPage() {
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label htmlFor="accountant-password" className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
-                      {t.password}
-                    </Label>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="accountant-password" className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                        {t.password}
+                      </Label>
+                      <Link
+                        href="/accountant-portal/forgot-password"
+                        className="text-[11px] font-semibold text-[#001e3c] transition-colors underline-offset-4 hover:underline"
+                      >
+                        {t.forgotPassword}
+                      </Link>
+                    </div>
                     <div className="relative">
                       <Input
                         id="accountant-password"

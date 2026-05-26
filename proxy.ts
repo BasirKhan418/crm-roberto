@@ -33,7 +33,7 @@ const protectedRoutePrefixes = [
 const adminProtectedPrefixes = ['/admin'];
 const adminPublicRoutes = ['/admin/login'];
 const accountantPortalProtectedPrefixes = ['/accountant-portal'];
-const accountantPortalPublicRoutes = ['/accountant-portal/login'];
+const accountantPortalPublicRoutes = ['/accountant-portal/login', '/accountant-portal/forgot-password'];
 const publicRoutes = ['/', '/login', '/signup', '/workspace-setup', '/forgot-password'];
 
 function matchesRoutePrefix(pathname: string, route: string): boolean {

@@ -85,7 +85,7 @@ type AccountantPortalShellProps = {
 export function AccountantPortalShell({ children, featureFlags, userName, userEmail }: AccountantPortalShellProps) {
   const pathname = usePathname();
   const { locale } = useLocale();
-  const isLoginPage = pathname === '/accountant-portal/login';
+  const isAuthPage = pathname === '/accountant-portal/login' || pathname === '/accountant-portal/forgot-password';
   const t = shellMessages[locale];
   const displayName = userName?.trim() || t.fallbackName;
   const userInitials = useMemo(() => {
@@ -115,7 +115,7 @@ export function AccountantPortalShell({ children, featureFlags, userName, userEm
     return t.dashboard;
   }, [pathname, t]);
 
-  if (isLoginPage) {
+  if (isAuthPage) {
     return <div className="min-h-dvh bg-[radial-gradient(circle_at_top,rgba(245,158,11,0.12),transparent_34%),linear-gradient(180deg,rgba(15,23,42,0.02),transparent_28%)]">{children}</div>;
   }
 

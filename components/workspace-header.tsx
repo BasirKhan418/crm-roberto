@@ -11,6 +11,7 @@ type WorkspaceHeaderProps = {
   description?: string;
   eyebrow?: string;
   statusBadge?: string;
+  metaStyle?: 'pills' | 'inline';
   actions?: ReactNode;
   className?: string;
 };
@@ -20,6 +21,7 @@ export function WorkspaceHeader({
   description,
   eyebrow,
   statusBadge,
+  metaStyle = 'pills',
   actions,
   className,
 }: WorkspaceHeaderProps) {
@@ -39,18 +41,26 @@ export function WorkspaceHeader({
 
           <div className="min-w-0 space-y-2">
             {eyebrow || statusBadge ? (
-              <div className="flex flex-wrap items-center gap-2">
-                {eyebrow ? (
-                  <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-100/80 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-600 dark:border-slate-800 dark:bg-slate-900/70 dark:text-slate-300">
-                    {eyebrow}
-                  </span>
-                ) : null}
-                {statusBadge ? (
-                  <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300">
-                    {statusBadge}
-                  </span>
-                ) : null}
-              </div>
+              metaStyle === 'inline' ? (
+                <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
+                  {eyebrow ? <span>{eyebrow}</span> : null}
+                  {eyebrow && statusBadge ? <span className="h-1 w-1 rounded-full bg-emerald-500/70 dark:bg-emerald-400/70" aria-hidden="true" /> : null}
+                  {statusBadge ? <span className="text-emerald-700 dark:text-emerald-300">{statusBadge}</span> : null}
+                </div>
+              ) : (
+                <div className="flex flex-wrap items-center gap-2">
+                  {eyebrow ? (
+                    <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-100/80 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-600 dark:border-slate-800 dark:bg-slate-900/70 dark:text-slate-300">
+                      {eyebrow}
+                    </span>
+                  ) : null}
+                  {statusBadge ? (
+                    <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300">
+                      {statusBadge}
+                    </span>
+                  ) : null}
+                </div>
+              )
             ) : null}
 
             <div className="min-w-0 space-y-1">
