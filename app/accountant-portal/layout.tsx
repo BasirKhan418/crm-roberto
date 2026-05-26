@@ -7,7 +7,11 @@ export default async function AccountantPortalLayout({ children }: { children: R
   const session = await getAccountantSession();
 
   return (
-    <AccountantPortalShell featureFlags={session.success && session.user ? session.user.featureFlags : undefined}>
+    <AccountantPortalShell
+      featureFlags={session.success && session.user ? session.user.featureFlags : undefined}
+      userName={session.success && session.user ? session.user.name : undefined}
+      userEmail={session.success && session.user ? session.user.email : undefined}
+    >
       {children}
     </AccountantPortalShell>
   );

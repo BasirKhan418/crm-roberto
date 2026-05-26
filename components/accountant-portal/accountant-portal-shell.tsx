@@ -1,105 +1,155 @@
 'use client';
 
 import type { CSSProperties } from 'react';
-import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { BookOpenText, Calculator, FileDown, LayoutDashboard, LogOut, ReceiptText } from 'lucide-react';
+import { useMemo } from 'react';
+import { usePathname } from 'next/navigation';
 
 import { LanguageThemeToggle } from '@/components/language-theme-toggle';
-import { Button } from '@/components/ui/button';
+import { AccountantPortalSidebar } from '@/components/accountant-portal/accountant-portal-sidebar';
+import { useLocale } from '@/components/providers/locale-provider';
+import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
+import { WorkspaceHeader } from '@/components/workspace-header';
 import type { CompanyFeatureFlags } from '@/lib/company-features';
 import { cn } from '@/lib/utils';
 
-const NAV_ITEMS = [
-  { href: '/accountant-portal', icon: LayoutDashboard, label: 'Dashboard', labelFr: 'Tableau de bord' },
-  { href: '/accountant-portal/purchase-invoices', icon: ReceiptText, label: 'Purchase invoices', labelFr: 'Achats' },
-  { href: '/accountant-portal/sales-invoices', icon: BookOpenText, label: 'Sales invoices', labelFr: 'Ventes' },
-  { href: '/accountant-portal/tickets', icon: Calculator, label: 'Tickets', labelFr: 'Tickets' },
-  { href: '/accountant-portal/exports', icon: FileDown, label: 'Exports', labelFr: 'Exports' },
-] as const;
+const shellMessages = {
+  en: {
+    eyebrow: 'Accountant portal',
+    badge: 'Read-only access',
+    dashboard: {
+      title: 'Accounting dashboard',
+      description: 'Track revenue, VAT exposure, unpaid documents, and assigned accounting work from one shared workspace shell.',
+      tone: 'bg-[radial-gradient(circle_at_top,rgba(14,165,233,0.12),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.4),rgba(241,245,249,0.96))]',
+    },
+    purchaseInvoices: {
+      title: 'Purchase invoices',
+      description: 'Review supplier costs, payment state, and source attachments with the same table framing used across the CRM.',
+      tone: 'bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.12),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.4),rgba(236,253,245,0.88))]',
+    },
+    salesInvoices: {
+      title: 'Sales invoices',
+      description: 'Follow receivables, invoice status, and secure PDF access inside the same high-clarity workspace layout.',
+      tone: 'bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.12),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.4),rgba(239,246,255,0.92))]',
+    },
+    tickets: {
+      title: 'Accounting tickets',
+      description: 'Stay aligned with the company team through the same structured support workspace patterns used in the CRM.',
+      tone: 'bg-[radial-gradient(circle_at_top,rgba(168,85,247,0.12),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.4),rgba(245,243,255,0.9))]',
+    },
+    exports: {
+      title: 'Accounting exports',
+      description: 'Generate accounting rows and statutory packs in a focused export workspace that matches the refreshed portal chrome.',
+      tone: 'bg-[radial-gradient(circle_at_top,rgba(245,158,11,0.14),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.4),rgba(255,251,235,0.92))]',
+    },
+  },
+  fr: {
+    eyebrow: 'Portail comptable',
+    badge: 'Lecture seule',
+    dashboard: {
+      title: 'Tableau comptable',
+      description: 'Suivez le chiffre, la TVA, les documents impayes et les tickets assignes dans un shell partage avec le CRM.',
+      tone: 'bg-[radial-gradient(circle_at_top,rgba(14,165,233,0.12),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.4),rgba(241,245,249,0.96))]',
+    },
+    purchaseInvoices: {
+      title: 'Achats',
+      description: 'Relisez les couts fournisseurs, le statut de paiement et les pieces jointes dans le meme cadre que les ecrans CRM.',
+      tone: 'bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.12),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.4),rgba(236,253,245,0.88))]',
+    },
+    salesInvoices: {
+      title: 'Ventes',
+      description: 'Suivez les creances, les statuts facture et les PDF securises dans une presentation plus claire et uniforme.',
+      tone: 'bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.12),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.4),rgba(239,246,255,0.92))]',
+    },
+    tickets: {
+      title: 'Tickets comptables',
+      description: 'Retrouvez les echanges comptables dans le meme espace de travail structure que le CRM principal.',
+      tone: 'bg-[radial-gradient(circle_at_top,rgba(168,85,247,0.12),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.4),rgba(245,243,255,0.9))]',
+    },
+    exports: {
+      title: 'Exports comptables',
+      description: 'Telechargez les ecritures et les syntheses dans un espace export aligne avec le nouveau chrome du portail.',
+      tone: 'bg-[radial-gradient(circle_at_top,rgba(245,158,11,0.14),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.4),rgba(255,251,235,0.92))]',
+    },
+  },
+} as const;
 
-export function AccountantPortalShell({ children, featureFlags }: { children: React.ReactNode; featureFlags?: CompanyFeatureFlags }) {
+type AccountantPortalShellProps = {
+  children: React.ReactNode;
+  featureFlags?: CompanyFeatureFlags;
+  userName?: string;
+  userEmail?: string;
+};
+
+export function AccountantPortalShell({ children, featureFlags, userName, userEmail }: AccountantPortalShellProps) {
   const pathname = usePathname();
-  const router = useRouter();
+  const { locale } = useLocale();
   const isLoginPage = pathname === '/accountant-portal/login';
-  const navItems = NAV_ITEMS.filter((item) => item.href !== '/accountant-portal/exports' || featureFlags?.exports !== false);
+  const t = shellMessages[locale];
 
-  async function handleLogout() {
-    await fetch('/api/accountant/auth/logout', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-    }).catch(() => null);
-    router.push('/accountant-portal/login');
-    router.refresh();
-  }
+  const routeMeta = useMemo(() => {
+    if (pathname.startsWith('/accountant-portal/purchase-invoices')) {
+      return t.purchaseInvoices;
+    }
+    if (pathname.startsWith('/accountant-portal/sales-invoices')) {
+      return t.salesInvoices;
+    }
+    if (pathname.startsWith('/accountant-portal/tickets')) {
+      return t.tickets;
+    }
+    if (pathname.startsWith('/accountant-portal/exports')) {
+      return t.exports;
+    }
+
+    return t.dashboard;
+  }, [pathname, t]);
 
   if (isLoginPage) {
     return <div className="min-h-dvh bg-[radial-gradient(circle_at_top,rgba(245,158,11,0.12),transparent_34%),linear-gradient(180deg,rgba(15,23,42,0.02),transparent_28%)]">{children}</div>;
   }
 
   return (
-    <div
-      className="min-h-dvh bg-[radial-gradient(circle_at_top_left,rgba(245,158,11,0.12),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(15,23,42,0.06),transparent_30%),linear-gradient(180deg,rgba(255,255,255,0.94),rgba(248,250,252,1))]"
+    <SidebarProvider
       style={
         {
-          '--portal-accent': '#b45309',
+          '--sidebar-width': 'calc(var(--spacing) * 74)',
+          '--header-height': 'calc(var(--spacing) * 14)',
         } as CSSProperties
       }
     >
-      <div className="mx-auto flex min-h-dvh w-full max-w-370 flex-col lg:flex-row">
-        <aside className="border-b border-border/60 bg-white/80 px-4 py-4 backdrop-blur lg:min-h-dvh lg:w-72 lg:border-b-0 lg:border-r lg:px-5 lg:py-6">
-          <div className="flex items-start justify-between gap-3 lg:block">
-            <div className="space-y-2">
-              <div className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-700">
-                Accountant Portal
+      <AccountantPortalSidebar variant="inset" featureFlags={featureFlags} userName={userName} userEmail={userEmail} />
+      <SidebarInset className="overflow-hidden bg-transparent">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(245,158,11,0.10),transparent_24%),radial-gradient(circle_at_bottom_right,rgba(15,23,42,0.06),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.94),rgba(248,250,252,1))] dark:bg-[radial-gradient(circle_at_top_left,rgba(245,158,11,0.12),transparent_22%),radial-gradient(circle_at_bottom_right,rgba(14,165,233,0.10),transparent_26%),linear-gradient(180deg,rgba(2,6,23,0.94),rgba(15,23,42,1))]" />
+        <div className="relative flex min-h-svh flex-1 flex-col">
+          <WorkspaceHeader
+            title={routeMeta.title}
+            description={routeMeta.description}
+            eyebrow={t.eyebrow}
+            statusBadge={t.badge}
+            actions={
+              <>
+                <div className="hidden rounded-full border border-slate-200/80 bg-white/80 px-3 py-1 text-xs font-medium text-slate-600 shadow-sm dark:border-slate-800 dark:bg-slate-950/80 dark:text-slate-300 lg:inline-flex">
+                  {userEmail || userName || t.eyebrow}
+                </div>
+                <LanguageThemeToggle className="shrink-0" />
+              </>
+            }
+          />
+
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div
+              className={cn(
+                '@container/main flex min-h-0 min-w-0 flex-1 flex-col gap-4 px-4 py-4 pb-[calc(1rem+var(--app-safe-area-bottom)+var(--app-keyboard-inset-height))] scroll-pb-[calc(5rem+var(--app-keyboard-inset-height))] lg:px-6 lg:py-6',
+                routeMeta.tone,
+              )}
+            >
+              <div className="relative min-w-0 overflow-x-clip rounded-[28px] border border-white/70 bg-white/88 p-3 shadow-[0_24px_80px_rgba(15,23,42,0.08)] backdrop-blur-sm dark:border-slate-800/70 dark:bg-slate-950/55 dark:shadow-[0_24px_80px_rgba(2,6,23,0.45)] sm:p-4">
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-slate-200/80 to-transparent dark:via-slate-700/70" />
+                <div className="relative flex min-w-0 flex-col gap-4 *:min-w-0">{children}</div>
               </div>
-              <div>
-                <h1 className="font-heading text-xl font-semibold text-slate-950">Read-only accounting workspace</h1>
-                <p className="mt-1 text-sm text-muted-foreground">Dedicated access for external accountants with company-scoped finance views.</p>
-              </div>
-            </div>
-            <div className="hidden lg:flex lg:items-center lg:gap-2">
-              <LanguageThemeToggle />
             </div>
           </div>
-
-          <nav className="mt-4 flex gap-2 overflow-x-auto pb-1 lg:mt-8 lg:flex-col lg:overflow-visible">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = pathname === item.href;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cn(
-                    'inline-flex min-w-fit items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition-colors lg:w-full',
-                    isActive
-                      ? 'border-amber-300 bg-amber-50 text-amber-900 shadow-sm'
-                      : 'border-transparent bg-transparent text-slate-600 hover:border-slate-200 hover:bg-slate-50 hover:text-slate-900'
-                  )}
-                >
-                  <Icon className="size-4" />
-                  <span>{item.label}</span>
-                </Link>
-              );
-            })}
-          </nav>
-
-          <div className="mt-4 flex items-center gap-2 lg:mt-auto lg:flex-col lg:items-stretch">
-            <div className="lg:hidden">
-              <LanguageThemeToggle />
-            </div>
-            <Button type="button" variant="outline" className="w-full justify-center gap-2" onClick={handleLogout}>
-              <LogOut className="size-4" />
-              Sign out
-            </Button>
-          </div>
-        </aside>
-
-        <main className="flex min-h-dvh min-w-0 flex-1 flex-col px-4 py-4 lg:px-6 lg:py-6">
-          {children}
-        </main>
-      </div>
-    </div>
+        </div>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }
