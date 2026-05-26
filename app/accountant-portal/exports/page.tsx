@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { DownloadIcon, FileSpreadsheetIcon, FileTextIcon } from 'lucide-react';
+import { DownloadIcon, FileSpreadsheetIcon, FileTextIcon, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { FinancialPeriodSelector } from '@/components/dashboard/financial-period-selector';
@@ -13,6 +13,7 @@ import ErrorMessage from '@/components/ui/ErrorMessage';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { buildFinancialPeriodSearchParams, getDefaultFinancialPeriodSelection, type FinancialPeriodSelection } from '@/lib/financial-periods';
+import { cn } from '@/lib/utils';
 
 type LookupData = {
   suppliers: Array<{ id: string; fullName: string; companyName: string | null }>;
@@ -43,6 +44,11 @@ const copy = {
     generalLedgerHelp: 'Journal-style debit and credit rows built from purchase and sales documents.',
     csv: 'CSV',
     xlsx: 'XLSX',
+    filterHint: 'Each export card is color-coded by dataset so accounting, VAT, and ledger outputs are easier to distinguish.',
+    accountingRowsTone: 'Operational rows',
+    vatSummaryTone: 'Tax summary',
+    generalLedgerTone: 'Ledger pack',
+    preparing: 'Preparing...',
   },
   fr: {
     title: 'Exports',
@@ -61,6 +67,29 @@ const copy = {
     generalLedgerHelp: 'Lignes debit et credit de style journal a partir des achats et ventes.',
     csv: 'CSV',
     xlsx: 'XLSX',
+    filterHint: 'Chaque carte export est coloree par dataset pour mieux distinguer les sorties comptables, TVA et grand livre.',
+    accountingRowsTone: 'Lignes operationnelles',
+    vatSummaryTone: 'Synthese TVA',
+    generalLedgerTone: 'Pack grand livre',
+    preparing: 'Preparation...',
+  },
+} as const;
+
+const EXPORT_CARD_TONES = {
+  'accounting-rows': {
+    card: 'border-sky-200/80 bg-sky-50/70 dark:border-sky-950/50 dark:bg-sky-950/20',
+    icon: 'bg-white/80 text-sky-700 dark:bg-slate-950/60 dark:text-sky-300',
+    button: 'border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100 dark:border-sky-900/60 dark:bg-sky-950/30 dark:text-sky-300 dark:hover:bg-sky-950/50',
+  },
+  'vat-summary': {
+    card: 'border-emerald-200/80 bg-emerald-50/70 dark:border-emerald-950/50 dark:bg-emerald-950/20',
+    icon: 'bg-white/80 text-emerald-700 dark:bg-slate-950/60 dark:text-emerald-300',
+    button: 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-300 dark:hover:bg-emerald-950/50',
+  },
+  'general-ledger': {
+    card: 'border-amber-200/80 bg-amber-50/70 dark:border-amber-950/50 dark:bg-amber-950/20',
+    icon: 'bg-white/80 text-amber-700 dark:bg-slate-950/60 dark:text-amber-300',
+    button: 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-300 dark:hover:bg-amber-950/50',
   },
 } as const;
 
@@ -174,6 +203,7 @@ export default function AccountantPortalExportsPage() {
         </CardHeader>
         <CardContent className="space-y-4 pb-4 xl:pb-5">
           <FinancialPeriodSelector value={period} onChange={setPeriod} />
+          <p className="text-sm text-muted-foreground">{t.filterHint}</p>
           <div className="grid gap-3 md:grid-cols-3">
             <div className="space-y-1.5">
               <Label>{t.type}</Label>
@@ -222,25 +252,47 @@ export default function AccountantPortalExportsPage() {
 
       <div className="grid gap-4 xl:grid-cols-3">
         {[
-          { id: 'accounting-rows', title: t.accountingRows, description: t.accountingRowsHelp, icon: FileTextIcon },
-          { id: 'vat-summary', title: t.vatSummary, description: t.vatSummaryHelp, icon: DownloadIcon },
-          { id: 'general-ledger', title: t.generalLedger, description: t.generalLedgerHelp, icon: FileSpreadsheetIcon },
+          { id: 'accounting-rows', title: t.accountingRows, description: t.accountingRowsHelp, eyebrow: t.accountingRowsTone, icon: FileTextIcon },
+          { id: 'vat-summary', title: t.vatSummary, description: t.vatSummaryHelp, eyebrow: t.vatSummaryTone, icon: DownloadIcon },
+          { id: 'general-ledger', title: t.generalLedger, description: t.generalLedgerHelp, eyebrow: t.generalLedgerTone, icon: FileSpreadsheetIcon },
         ].map((item) => {
           const Icon = item.icon;
+          const tone = EXPORT_CARD_TONES[item.id as keyof typeof EXPORT_CARD_TONES];
           return (
-            <Card key={item.id} className="border-border/70 bg-white/90 shadow-sm">
+            <Card key={item.id} className={cn('rounded-[24px] shadow-sm', tone.card)}>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Icon className="size-5" /> {item.title}</CardTitle>
+                <div className="space-y-3">
+                  <span className="inline-flex w-fit items-center rounded-full border border-white/70 bg-white/75 px-2.5 py-1 text-[11px] font-medium text-slate-600 dark:border-slate-800/70 dark:bg-slate-950/60 dark:text-slate-300">
+                    {item.eyebrow}
+                  </span>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <span className={cn('rounded-2xl p-2 shadow-sm', tone.icon)}>
+                      <Icon className="size-5" />
+                    </span>
+                    {item.title}
+                  </CardTitle>
+                </div>
                 <CardDescription>{item.description}</CardDescription>
               </CardHeader>
               <CardContent className="flex gap-3">
-                <Button type="button" variant="outline" onClick={() => void handleDownload(item.id as 'accounting-rows' | 'vat-summary' | 'general-ledger', 'csv')} disabled={downloadingKey !== null}>
-                  <FileTextIcon className="size-4" />
-                  {downloadingKey === `${item.id}-csv` ? '...' : t.csv}
+                <Button
+                  type="button"
+                  variant="outline"
+                  className={cn('shadow-sm', tone.button)}
+                  onClick={() => void handleDownload(item.id as 'accounting-rows' | 'vat-summary' | 'general-ledger', 'csv')}
+                  disabled={downloadingKey !== null}
+                >
+                  {downloadingKey === `${item.id}-csv` ? <Loader2 className="size-4 animate-spin" /> : <FileTextIcon className="size-4" />}
+                  {downloadingKey === `${item.id}-csv` ? t.preparing : t.csv}
                 </Button>
-                <Button type="button" onClick={() => void handleDownload(item.id as 'accounting-rows' | 'vat-summary' | 'general-ledger', 'xlsx')} disabled={downloadingKey !== null}>
-                  <FileSpreadsheetIcon className="size-4" />
-                  {downloadingKey === `${item.id}-xlsx` ? '...' : t.xlsx}
+                <Button
+                  type="button"
+                  className="shadow-sm"
+                  onClick={() => void handleDownload(item.id as 'accounting-rows' | 'vat-summary' | 'general-ledger', 'xlsx')}
+                  disabled={downloadingKey !== null}
+                >
+                  {downloadingKey === `${item.id}-xlsx` ? <Loader2 className="size-4 animate-spin" /> : <FileSpreadsheetIcon className="size-4" />}
+                  {downloadingKey === `${item.id}-xlsx` ? t.preparing : t.xlsx}
                 </Button>
               </CardContent>
             </Card>

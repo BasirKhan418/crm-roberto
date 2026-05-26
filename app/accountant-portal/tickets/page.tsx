@@ -20,6 +20,22 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useAccountantTickets } from '@/hooks/useAccountantTickets';
 import { TICKET_STATUSES, type TicketStatus, type TicketType } from '@/lib/tickets/constants';
 
+const STATUS_ROW_BG: Record<TicketStatus, string> = {
+  open: 'rgba(14, 165, 233, 0.05)',
+  waiting: 'rgba(245, 158, 11, 0.07)',
+  replied: 'rgba(99, 102, 241, 0.06)',
+  resolved: 'rgba(16, 185, 129, 0.06)',
+  archived: 'rgba(100, 116, 139, 0.05)',
+};
+
+const STATUS_ACCENT: Record<TicketStatus, string> = {
+  open: '#0284c7',
+  waiting: '#d97706',
+  replied: '#4f46e5',
+  resolved: '#059669',
+  archived: '#64748b',
+};
+
 function formatDateTime(value: string | undefined, locale: 'en' | 'fr') {
   if (!value) return '-';
   const date = new Date(value);
@@ -68,6 +84,7 @@ const copy = {
     page: 'Page',
     previous: 'Previous',
     next: 'Next',
+    filterHint: 'Color-coded ticket cards make status, unread state, and ownership easier to scan.',
   },
   fr: {
     title: 'Tickets',
@@ -87,6 +104,7 @@ const copy = {
     page: 'Page',
     previous: 'Precedent',
     next: 'Suivant',
+    filterHint: 'Les cartes colorees rendent le statut, les non lus et l attribution plus faciles a lire.',
   },
 } as const;
 
@@ -136,6 +154,7 @@ export default function AccountantPortalTicketsPage() {
             <FilterIcon className="size-4 text-muted-foreground" />
             {t.filters}
           </div>
+          <p className="text-sm text-muted-foreground">{t.filterHint}</p>
           <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px_auto]">
             <div className="space-y-1.5">
               <Label>{t.search}</Label>
@@ -182,23 +201,33 @@ export default function AccountantPortalTicketsPage() {
                   : '-';
 
                 return (
-                  <div key={ticket._id} className="rounded-2xl border border-border/70 bg-slate-50/80 p-4">
+                  <div
+                    key={ticket._id}
+                    className="rounded-2xl border border-border/70 p-4 shadow-sm transition-colors"
+                    style={{
+                      borderLeftWidth: '4px',
+                      borderLeftColor: STATUS_ACCENT[ticket.status],
+                      backgroundColor: STATUS_ROW_BG[ticket.status],
+                    }}
+                  >
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                       <div className="space-y-2">
                         <div className="flex flex-wrap items-center gap-2">
                           <h2 className="text-lg font-semibold text-slate-950">{ticket.title}</h2>
-                          <Badge variant="secondary">{resolveTypeLabel(ticket.type, locale)}</Badge>
+                          <Badge variant="secondary" className="border-white/70 bg-white/80 text-slate-700 dark:border-slate-800/70 dark:bg-slate-950/60 dark:text-slate-200">
+                            {resolveTypeLabel(ticket.type, locale)}
+                          </Badge>
                           <TicketStatusBadge status={ticket.status} locale={locale} />
                           <TicketUnreadIndicator unreadCount={ticket.unreadCount} locale={locale} />
                         </div>
                         <div className="grid gap-2 text-sm text-muted-foreground md:grid-cols-2">
-                          <span>{t.createdBy}: {resolveUserName(ticket.createdBy, '-')}</span>
-                          <span>{t.assignedTo}: {assignedNames || '-'}</span>
-                          <span>{t.messages}: {ticket.messageCount || 0}</span>
-                          <span>{t.updatedAt}: {formatDateTime(ticket.updatedAt || ticket.lastMessageAt, locale)}</span>
+                          <span><span className="font-medium text-slate-700 dark:text-slate-200">{t.createdBy}:</span> {resolveUserName(ticket.createdBy, '-')}</span>
+                          <span><span className="font-medium text-slate-700 dark:text-slate-200">{t.assignedTo}:</span> {assignedNames || '-'}</span>
+                          <span><span className="font-medium text-slate-700 dark:text-slate-200">{t.messages}:</span> {ticket.messageCount || 0}</span>
+                          <span><span className="font-medium text-slate-700 dark:text-slate-200">{t.updatedAt}:</span> {formatDateTime(ticket.updatedAt || ticket.lastMessageAt, locale)}</span>
                         </div>
                       </div>
-                      <Button asChild>
+                      <Button asChild className="shrink-0 rounded-xl shadow-sm">
                         <Link href={`/accountant-portal/tickets/${ticket._id}`}>{t.open}</Link>
                       </Button>
                     </div>
