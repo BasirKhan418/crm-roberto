@@ -229,11 +229,12 @@ Use the External Accountant account.
 | 2 | Open `/login`. | Normal CRM login page opens. |
 | 3 | Look for the `External accountant?` / `Open accountant portal` link. | The accountant portal option is visible on the normal login page. |
 | 4 | Click `Open accountant portal`. | `/accountant-portal/login` opens. |
-| 5 | Enter accountant email and password. | Login succeeds. |
-| 6 | Confirm destination page. | `/accountant-portal` dashboard opens. |
-| 7 | Check navigation. | Portal navigation is separate from normal CRM sidebar. |
-| 8 | Log out and return to `/accountant-portal/login`. | Accountant login page opens. |
-| 9 | Click `Back to CRM login` if visible. | `/login` opens for normal CRM users. |
+| 5 | Click the language switch button in the top-right corner. | Accountant login text switches between English and French. |
+| 6 | Enter accountant email and password. | Login succeeds. |
+| 7 | Confirm destination page. | `/accountant-portal` dashboard opens. |
+| 8 | Check navigation. | Portal navigation is separate from normal CRM sidebar. |
+| 9 | Log out and return to `/accountant-portal/login`. | Accountant login page opens. |
+| 10 | Click `Back to CRM login` if visible. | `/login` opens for normal CRM users. |
 
 ### Test 4.2 - Accountant Cannot Access Normal CRM
 
