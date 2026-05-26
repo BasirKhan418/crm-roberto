@@ -167,12 +167,12 @@ export default function AccountantPortalExportsPage() {
 
   return (
     <div className="space-y-6">
-      <Card className="border-border/70 bg-white/90 shadow-sm">
-        <CardHeader>
+      <Card className="border-border/70 bg-white/90 py-0 shadow-sm">
+        <CardHeader className="pt-3 xl:pt-4">
           <CardTitle>{t.title}</CardTitle>
           <CardDescription>{t.subtitle}</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 pb-4 xl:pb-5">
           <FinancialPeriodSelector value={period} onChange={setPeriod} />
           <div className="grid gap-3 md:grid-cols-3">
             <div className="space-y-1.5">

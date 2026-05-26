@@ -249,8 +249,8 @@ export default function AccountantPortalTicketDetailPage() {
 
   return (
     <div className="space-y-6">
-      <Card className="border-border/70 bg-white/90 shadow-sm">
-        <CardHeader className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+      <Card className="border-border/70 bg-white/90 py-0 shadow-sm">
+        <CardHeader className="flex flex-col gap-4 pt-3 lg:flex-row lg:items-start lg:justify-between xl:pt-4">
           <div>
             <CardTitle>{t.title}</CardTitle>
             <CardDescription>{t.subtitle}</CardDescription>

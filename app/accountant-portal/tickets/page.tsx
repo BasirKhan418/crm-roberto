@@ -120,8 +120,8 @@ export default function AccountantPortalTicketsPage() {
 
   return (
     <div className="space-y-6">
-      <Card className="border-border/70 bg-white/90 shadow-sm">
-        <CardHeader className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+      <Card className="border-border/70 bg-white/90 py-0 shadow-sm">
+        <CardHeader className="flex flex-col gap-4 pt-3 lg:flex-row lg:items-start lg:justify-between xl:pt-4">
           <div>
             <CardTitle>{t.title}</CardTitle>
             <CardDescription>{t.subtitle}</CardDescription>
@@ -131,7 +131,7 @@ export default function AccountantPortalTicketsPage() {
             {t.refresh}
           </Button>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 pb-4 xl:pb-5">
           <div className="flex items-center gap-2 text-sm font-medium text-foreground">
             <FilterIcon className="size-4 text-muted-foreground" />
             {t.filters}

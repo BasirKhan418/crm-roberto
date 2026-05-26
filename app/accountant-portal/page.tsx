@@ -37,7 +37,6 @@ type DashboardPayload = FinancialDashboardData & {
 
 const dashboardCopy = {
   en: {
-    eyebrow: 'Accounting overview',
     title: 'Accounting dashboard',
     snapshotTitle: 'Period snapshot',
     subtitle: 'Read-only financial view for the assigned company with the same structured UX as the main workspace.',
@@ -77,7 +76,6 @@ const dashboardCopy = {
     spend: 'Spend',
   },
   fr: {
-    eyebrow: 'Vue comptable',
     title: 'Tableau comptable',
     snapshotTitle: 'Vue rapide de la periode',
     subtitle: 'Vue financiere en lecture seule pour l entreprise attribuee avec une UX alignee sur l espace principal.',
@@ -465,13 +463,10 @@ export default function AccountantPortalDashboardPage() {
 
   return (
     <div className="space-y-6">
-      <Card className="overflow-hidden rounded-[28px] border-border/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(248,250,252,0.92))] shadow-sm dark:bg-[linear-gradient(135deg,rgba(2,6,23,0.92),rgba(15,23,42,0.82))]">
-        <CardContent className="grid gap-5 p-5 xl:grid-cols-[minmax(0,1.5fr)_minmax(320px,0.9fr)] xl:p-6">
+      <Card className="overflow-hidden rounded-[28px] border-border/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(248,250,252,0.92))] py-0 shadow-sm dark:bg-[linear-gradient(135deg,rgba(2,6,23,0.92),rgba(15,23,42,0.82))]">
+        <CardContent className="grid gap-5 p-4 pt-3 xl:grid-cols-[minmax(0,1.5fr)_minmax(320px,0.9fr)] xl:p-5 xl:pt-4">
           <div className="space-y-4">
             <div className="space-y-2">
-              <span className="inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-sky-700 dark:border-sky-900/60 dark:bg-sky-950/40 dark:text-sky-300">
-                {t.eyebrow}
-              </span>
               <div className="space-y-2">
                 <CardTitle className="text-2xl tracking-tight text-slate-950 dark:text-slate-50 sm:text-3xl">
                   {data?.period.label || t.snapshotTitle}

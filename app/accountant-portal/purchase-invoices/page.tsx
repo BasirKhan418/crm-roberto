@@ -81,8 +81,6 @@ const purchaseCopy = {
     paidLabel: 'Paid',
     remainingLabel: 'Left',
     referenceLabel: 'Reference',
-    totalsEyebrow: 'Finance totals',
-    tableEyebrow: 'Invoice register',
     statusFilterHint: 'Accounting-ready filters for supplier costs, due dates, and attachments.',
     pageSummary: 'results',
     prev: 'Prev',
@@ -120,8 +118,6 @@ const purchaseCopy = {
     paidLabel: 'Paye',
     remainingLabel: 'Reste',
     referenceLabel: 'Reference',
-    totalsEyebrow: 'Totaux financiers',
-    tableEyebrow: 'Registre des factures',
     statusFilterHint: 'Filtres comptables pour les fournisseurs, echeances et pieces jointes.',
     pageSummary: 'resultats',
     prev: 'Prec',
@@ -316,15 +312,12 @@ export default function AccountantPortalPurchaseInvoicesPage() {
 
   return (
     <div className="space-y-6">
-      <Card className="overflow-hidden rounded-[28px] border-border/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(248,250,252,0.92))] shadow-sm dark:bg-[linear-gradient(135deg,rgba(2,6,23,0.92),rgba(15,23,42,0.82))]">
-        <CardHeader>
-          <div className="inline-flex w-fit items-center rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-sky-700 dark:border-sky-900/60 dark:bg-sky-950/40 dark:text-sky-300">
-            {t.tableEyebrow}
-          </div>
+      <Card className="overflow-hidden rounded-[28px] border-border/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(248,250,252,0.92))] py-0 shadow-sm dark:bg-[linear-gradient(135deg,rgba(2,6,23,0.92),rgba(15,23,42,0.82))]">
+        <CardHeader className="pt-3 xl:pt-4">
           <CardTitle>{t.title}</CardTitle>
           <CardDescription>{t.subtitle}</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 pb-4 xl:pb-5">
           <FinancialPeriodSelector value={period} onChange={setPeriod} />
           <p className="text-sm text-muted-foreground">{t.statusFilterHint}</p>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
