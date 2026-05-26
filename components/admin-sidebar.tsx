@@ -141,14 +141,6 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
                   <p className="truncate text-xs text-muted-foreground">admin session</p>
                 </div>
               </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <span className="inline-flex items-center rounded-full border border-blue-200/70 bg-blue-50 px-2.5 py-1 text-[11px] font-medium text-blue-700 dark:border-blue-900/60 dark:bg-blue-950/40 dark:text-blue-300">
-                  Platform scope
-                </span>
-                <span className="inline-flex items-center rounded-full border border-sidebar-border/60 bg-background/70 px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
-                  Secure session
-                </span>
-              </div>
             </div>
           </SidebarMenuItem>
           <SidebarMenuItem>
