@@ -49,9 +49,9 @@ function FinancialMetricCards({ metrics, loading }: { metrics: FinancialMetrics;
   const priceLocale = locale === 'fr' ? 'fr-FR' : 'en-IE';
   const t = {
     en: {
-      revenue: 'Revenue',
+      revenue: 'Total revenue',
       revenueHint: 'Issued sales invoices, excl. VAT',
-      expenses: 'Expenses',
+      expenses: 'Total expenses',
       expensesHint: 'Active purchase invoices, excl. VAT',
       grossProfit: 'Gross profit',
       grossProfitHint: 'Revenue minus expenses',
@@ -63,9 +63,9 @@ function FinancialMetricCards({ metrics, loading }: { metrics: FinancialMetrics;
       vatBalanceHint: 'Collected minus deductible VAT',
     },
     fr: {
-      revenue: 'Revenus',
+      revenue: 'Total revenus',
       revenueHint: 'Factures de vente emises, hors TVA',
-      expenses: 'Depenses',
+      expenses: 'Total depenses',
       expensesHint: 'Factures achat actives, hors TVA',
       grossProfit: 'Marge brute',
       grossProfitHint: 'Revenus moins depenses',
@@ -440,7 +440,7 @@ export function FinancialOverviewFoundation({ showTodaySnapshot = true }: { show
   const t = {
     en: {
       title: 'Financial overview',
-      description: 'Sprint 1 foundation for metrics, charts, and period filtering.',
+      description: 'Company financial totals, VAT position, and trend signals for the selected period.',
       companyScope: 'Company scope',
       ownScope: 'My scope',
       currentPeriod: 'Current period',
@@ -450,7 +450,7 @@ export function FinancialOverviewFoundation({ showTodaySnapshot = true }: { show
     },
     fr: {
       title: 'Vue financiere',
-      description: 'Fondation Sprint 1 pour les indicateurs, graphiques et filtres periode.',
+      description: 'Totaux financiers, position TVA et tendances pour la periode selectionnee.',
       companyScope: 'Portee entreprise',
       ownScope: 'Ma portee',
       currentPeriod: 'Periode actuelle',

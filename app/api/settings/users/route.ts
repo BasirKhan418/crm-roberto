@@ -242,6 +242,17 @@ export async function PATCH(request: NextRequest) {
       });
     }
 
+    if (result.success && validation.data.account_status === 'suspended') {
+      void createConnectionLog({
+        userId: validation.data.userId,
+        companyId: me.user.companyId,
+        role: target.role,
+        eventType: 'force_logout',
+        ipAddress: getClientIp(request),
+        userAgent: request.headers.get('user-agent'),
+      });
+    }
+
     return NextResponse.json(result, { status: result.success ? 200 : 400 });
   } catch (error) {
     console.error("PATCH /api/settings/users failed", error);

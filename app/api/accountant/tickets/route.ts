@@ -14,7 +14,8 @@ export async function GET(request: NextRequest) {
 
     const queryPayload = {
       status: request.nextUrl.searchParams.get("status") || undefined,
-      assignedToMe: true,
+      assignedToMe: request.nextUrl.searchParams.get("assignedToMe") || undefined,
+      createdByMe: request.nextUrl.searchParams.get("createdByMe") || undefined,
       unreadOnly: request.nextUrl.searchParams.get("unreadOnly") || undefined,
       search: request.nextUrl.searchParams.get("search") || undefined,
       sortBy: request.nextUrl.searchParams.get("sortBy") || undefined,

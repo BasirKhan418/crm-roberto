@@ -1115,21 +1115,27 @@ export async function listTicketsWithoutReplyForReminder(params: {
   const olderThanHours = Math.max(1, params.olderThanHours || 48);
   const cutoffDate = new Date(Date.now() - olderThanHours * 60 * 60 * 1000);
 
-  const items = await Ticket.find({
+  const query = {
     companyId: toObjectId(params.companyId),
     status: "waiting",
     updatedAt: { $lte: cutoffDate },
     archivedAt: null,
-  })
-    .sort({ updatedAt: 1 })
-    .limit(Math.max(1, Math.min(params.limit || 100, 500)))
-    .populate("createdBy", "name email")
-    .populate("assignedTo", "name email")
-    .lean();
+  };
+
+  const [items, totalCount] = await Promise.all([
+    Ticket.find(query)
+      .sort({ updatedAt: 1 })
+      .limit(Math.max(1, Math.min(params.limit || 100, 500)))
+      .populate("createdBy", "name email")
+      .populate("assignedTo", "name email")
+      .lean(),
+    Ticket.countDocuments(query),
+  ]);
 
   return {
     success: true as const,
     items,
+    totalCount,
   };
 }
 

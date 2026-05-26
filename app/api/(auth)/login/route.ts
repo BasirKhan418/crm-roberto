@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
             ipAddress,
             userAgent,
         });
-        return NextResponse.json(result);
+        return NextResponse.json(result, { status: 401 });
     }
     catch(error){
         console.error("POST /api/(auth)/login failed", error);

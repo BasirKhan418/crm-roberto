@@ -10,6 +10,21 @@ import { PriceDisplay } from '@/components/ui/PriceDisplay';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useSmartAlerts } from '@/hooks/useSmartAlerts';
 
+function toDateParam(value: Date) {
+  return value.toISOString().slice(0, 10);
+}
+
+function getDueThisWeekHref() {
+  const now = new Date();
+  const todayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
+  const dayOfWeek = todayStart.getUTCDay();
+  const daysUntilMonday = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
+  const nextMonday = new Date(todayStart);
+  nextMonday.setUTCDate(nextMonday.getUTCDate() + daysUntilMonday);
+
+  return `/expenses?status=active&paymentStatusGroup=open&dueStart=${toDateParam(todayStart)}&dueBefore=${toDateParam(nextMonday)}&sortBy=dueDate&sortOrder=asc`;
+}
+
 export default function MyExpensesTodayWidget() {
   const { locale } = useLocale();
   const { data, loading, error } = useSmartAlerts();
@@ -48,7 +63,7 @@ export default function MyExpensesTodayWidget() {
       count: data.myExpensesToday.supplierInvoicesDueThisWeekCount,
       amount: data.myExpensesToday.supplierInvoicesDueThisWeekTotalCents,
       icon: ReceiptTextIcon,
-      href: '/expenses?sortBy=dueDate&sortOrder=asc',
+      href: getDueThisWeekHref(),
     },
     {
       label: t.tickets,

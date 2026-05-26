@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { listCompanyRoleMatrix, ROLE_MATRIX_MODULES, saveCompanyRoleMatrix, type RoleMatrixPermissions } from "@/db/repository/role-matrix";
 import { getCompanyFeatureFlags } from "@/lib/company-features";
-import { COMPANY_ASSIGNABLE_ROLES, canManageTargetRole, normalizeRole } from "@/lib/permissions";
+import { COMPANY_ASSIGNABLE_ROLES, canManageTargetRole, getDefaultModulePermissions, normalizeRole, type AppRole } from "@/lib/permissions";
 import { buildValidationError } from "@/utils/api/validation";
 import getMe from "@/utils/middlewares/useMe";
 
@@ -30,19 +30,12 @@ const roleMatrixUpdateSchema = z.object({
   ),
 });
 
-function buildDefaultRows(rows: Array<{ moduleKey: typeof ROLE_MATRIX_MODULES[number]; permissions: RoleMatrixPermissions }>) {
+function buildDefaultRows(role: AppRole, rows: Array<{ moduleKey: typeof ROLE_MATRIX_MODULES[number]; permissions: RoleMatrixPermissions }>) {
   const map = new Map(rows.map((row) => [row.moduleKey, row]));
   return ROLE_MATRIX_MODULES.map((moduleKey) =>
     map.get(moduleKey) || {
       moduleKey,
-      permissions: {
-        canView: false,
-        canCreate: false,
-        canEdit: false,
-        canDelete: false,
-        canExport: false,
-        canManage: false,
-      },
+      permissions: getDefaultModulePermissions(role, moduleKey),
     }
   );
 }
@@ -76,7 +69,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(result, { status: 400 });
   }
 
-  return NextResponse.json({ success: true, role: parsed.data.role, rows: buildDefaultRows(result.rows) }, { status: 200 });
+  return NextResponse.json({ success: true, role: parsed.data.role, rows: buildDefaultRows(parsed.data.role, result.rows) }, { status: 200 });
 }
 
 export async function PUT(request: NextRequest) {

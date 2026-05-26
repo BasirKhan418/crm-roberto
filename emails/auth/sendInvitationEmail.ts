@@ -26,10 +26,20 @@ function escapeHtml(text: string): string {
 const roleLabels: Record<Locale, Record<string, string>> = {
   en: {
     administrator: "Admin",
+    manager: "Manager",
+    standard_user: "Standard user",
+    secretary: "Secretary",
+    technician: "Technician",
+    read_only: "Read-only user",
     external_accountant: "Accountant",
   },
   fr: {
     administrator: "Admin",
+    manager: "Manager",
+    standard_user: "Utilisateur standard",
+    secretary: "Secretaire",
+    technician: "Technicien",
+    read_only: "Lecture seule",
     external_accountant: "Comptable",
   },
 };

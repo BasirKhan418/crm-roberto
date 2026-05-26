@@ -9,7 +9,15 @@ export const APP_ROLES = [
   "external_accountant",
 ] as const;
 
-export const COMPANY_ASSIGNABLE_ROLES = ["administrator", "external_accountant"] as const;
+export const COMPANY_ASSIGNABLE_ROLES = [
+  "administrator",
+  "manager",
+  "standard_user",
+  "secretary",
+  "technician",
+  "read_only",
+  "external_accountant",
+] as const;
 
 export type AppRole = (typeof APP_ROLES)[number];
 export type CompanyAssignableRole = (typeof COMPANY_ASSIGNABLE_ROLES)[number];
@@ -28,7 +36,16 @@ export const APP_PERMISSIONS = [
 
 export type AppPermission = (typeof APP_PERMISSIONS)[number];
 export type PermissionModuleAction = "view" | "create" | "edit" | "delete" | "export" | "manage";
-export type PermissionModuleKey = "users" | "expenses" | "tickets";
+export type PermissionModuleKey =
+  | "users"
+  | "expenses"
+  | "tickets"
+  | "invoices"
+  | "clients"
+  | "suppliers"
+  | "financialDashboard"
+  | "settings"
+  | "auditTrail";
 
 type RolePermissionsMap = Record<AppRole, readonly AppPermission[]>;
 
@@ -103,6 +120,10 @@ export function canManageTargetRole(actorRole: string | null | undefined, target
 
 export function getDefaultModulePermissions(role: string | null | undefined, moduleKey: PermissionModuleKey) {
   const normalizedRole = normalizeRole(role);
+  const canAdministerCompany = normalizedRole === "super_admin" || normalizedRole === "administrator";
+  const canManageOperations = canAdministerCompany || normalizedRole === "manager";
+  const canUseOperationalRecords = canManageOperations || normalizedRole === "standard_user" || normalizedRole === "secretary";
+  const canViewOperationalRecords = canUseOperationalRecords || normalizedRole === "read_only";
 
   if (moduleKey === "users") {
     return {
@@ -123,6 +144,39 @@ export function getDefaultModulePermissions(role: string | null | undefined, mod
       canDelete: hasPermission(normalizedRole, "expenses.delete"),
       canExport: normalizedRole === "super_admin" || normalizedRole === "administrator" || normalizedRole === "manager",
       canManage: hasPermission(normalizedRole, "expenses.manage"),
+    };
+  }
+
+  if (moduleKey === "invoices" || moduleKey === "clients" || moduleKey === "suppliers") {
+    return {
+      canView: canViewOperationalRecords,
+      canCreate: canUseOperationalRecords,
+      canEdit: canUseOperationalRecords,
+      canDelete: canAdministerCompany,
+      canExport: canManageOperations,
+      canManage: canUseOperationalRecords,
+    };
+  }
+
+  if (moduleKey === "financialDashboard") {
+    return {
+      canView: canManageOperations || normalizedRole === "read_only",
+      canCreate: false,
+      canEdit: false,
+      canDelete: false,
+      canExport: canManageOperations,
+      canManage: canAdministerCompany,
+    };
+  }
+
+  if (moduleKey === "settings" || moduleKey === "auditTrail") {
+    return {
+      canView: canAdministerCompany,
+      canCreate: false,
+      canEdit: canAdministerCompany,
+      canDelete: false,
+      canExport: canAdministerCompany,
+      canManage: canAdministerCompany,
     };
   }
 

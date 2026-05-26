@@ -144,6 +144,12 @@ const ACCEPTED_FILES = '.pdf,.jpg,.jpeg,.png,.heic';
 const MIN_DELETE_REASON_LENGTH = 10;
 const NEW_BADGE_DURATION_MS = 60 * 60 * 1000;
 const NEW_BADGE_REFRESH_MS = 60 * 1000;
+const EXPENSE_SORT_BY_VALUES = ['expenseDate', 'dueDate', 'amountInclVatCents', 'supplierRef', 'status', 'createdAt'] as const;
+
+function getAllowedSearchParam<T extends readonly string[]>(params: URLSearchParams, key: string, allowedValues: T) {
+  const value = params.get(key);
+  return value && allowedValues.includes(value) ? value : '';
+}
 
 function createUploadId() {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -278,6 +284,7 @@ function getSortByOptions(locale: 'en' | 'fr') {
   if (locale === 'fr') {
     return [
       { value: 'expenseDate', label: 'Date dépense' },
+      { value: 'dueDate', label: 'Date échéance' },
       { value: 'amountInclVatCents', label: 'Montant TTC' },
       { value: 'supplierRef', label: 'Référence' },
       { value: 'status', label: 'Statut' },
@@ -287,6 +294,7 @@ function getSortByOptions(locale: 'en' | 'fr') {
 
   return [
     { value: 'expenseDate', label: 'Expense date' },
+    { value: 'dueDate', label: 'Due date' },
     { value: 'amountInclVatCents', label: 'Amount incl. VAT' },
     { value: 'supplierRef', label: 'Reference' },
     { value: 'status', label: 'Status' },
@@ -341,10 +349,14 @@ export default function ExpensesPage() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [paymentStatusFilter, setPaymentStatusFilter] = useState<string>('');
+  const [paymentStatusGroupFilter, setPaymentStatusGroupFilter] = useState<'open' | ''>('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [supplierFilter, setSupplierFilter] = useState('');
   const [periodStart, setPeriodStart] = useState('');
   const [periodEnd, setPeriodEnd] = useState('');
+  const [dueStart, setDueStart] = useState('');
+  const [dueEnd, setDueEnd] = useState('');
+  const [dueBefore, setDueBefore] = useState('');
   const [sortBy, setSortBy] = useState('expenseDate');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [page, setPage] = useState(1);
@@ -454,6 +466,31 @@ export default function ExpensesPage() {
     return () => window.clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    const nextSearch = searchParams.get('search') || '';
+    const nextStatus = getAllowedSearchParam(searchParams, 'status', EXPENSE_STATUS);
+    const nextPaymentStatus = getAllowedSearchParam(searchParams, 'paymentStatus', EXPENSE_PAYMENT_STATUS);
+    const nextPaymentStatusGroup = searchParams.get('paymentStatusGroup') === 'open' ? 'open' : '';
+    const nextSortBy = getAllowedSearchParam(searchParams, 'sortBy', EXPENSE_SORT_BY_VALUES) || 'expenseDate';
+    const nextSortOrder = searchParams.get('sortOrder') === 'asc' ? 'asc' : 'desc';
+
+    setSearchInput(nextSearch);
+    setDebouncedSearch(nextSearch.trim());
+    setStatusFilter(nextStatus);
+    setPaymentStatusFilter(nextPaymentStatus);
+    setPaymentStatusGroupFilter(nextPaymentStatusGroup);
+    setCategoryFilter(searchParams.get('categoryId') || '');
+    setSupplierFilter(searchParams.get('supplierId') || '');
+    setPeriodStart(searchParams.get('periodStart') || '');
+    setPeriodEnd(searchParams.get('periodEnd') || '');
+    setDueStart(searchParams.get('dueStart') || '');
+    setDueEnd(searchParams.get('dueEnd') || '');
+    setDueBefore(searchParams.get('dueBefore') || '');
+    setSortBy(nextSortBy);
+    setSortOrder(nextSortOrder);
+    setPage(1);
+  }, [searchParams]);
+
   // Open create dialog via URL param (?newExpense=1) or custom event (expenses:new)
   useEffect(() => {
     if (searchParams.get('newExpense') === '1') {
@@ -474,7 +511,7 @@ export default function ExpensesPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, statusFilter, paymentStatusFilter, categoryFilter, supplierFilter, periodStart, periodEnd, sortBy, sortOrder, limit]);
+  }, [debouncedSearch, statusFilter, paymentStatusFilter, paymentStatusGroupFilter, categoryFilter, supplierFilter, periodStart, periodEnd, dueStart, dueEnd, dueBefore, sortBy, sortOrder, limit]);
 
   const canViewExpenses = hasPermission(user?.role, 'expenses.view');
   const canManageExpenses = hasPermission(user?.role, 'expenses.manage');
@@ -514,10 +551,14 @@ export default function ExpensesPage() {
     limit,
     status: statusFilter ? (statusFilter as (typeof EXPENSE_STATUS)[number]) : undefined,
     paymentStatus: paymentStatusFilter ? (paymentStatusFilter as (typeof EXPENSE_PAYMENT_STATUS)[number]) : undefined,
+    paymentStatusGroup: paymentStatusGroupFilter || undefined,
     categoryId: categoryFilter || undefined,
     supplierId: supplierFilter || undefined,
     periodStart: periodStart || undefined,
     periodEnd: periodEnd || undefined,
+    dueStart: dueStart || undefined,
+    dueEnd: dueEnd || undefined,
+    dueBefore: dueBefore || undefined,
     search: debouncedSearch || undefined,
     sortBy,
     sortOrder,
@@ -939,14 +980,18 @@ export default function ExpensesPage() {
         debouncedSearch,
         statusFilter,
         paymentStatusFilter,
+        paymentStatusGroupFilter,
         categoryFilter,
         supplierFilter,
         periodStart,
         periodEnd,
+        dueStart,
+        dueEnd,
+        dueBefore,
         sortBy !== 'expenseDate' ? sortBy : '',
         sortOrder !== 'desc' ? sortOrder : '',
       ].filter(Boolean).length,
-    [debouncedSearch, statusFilter, paymentStatusFilter, categoryFilter, supplierFilter, periodStart, periodEnd, sortBy, sortOrder]
+    [debouncedSearch, statusFilter, paymentStatusFilter, paymentStatusGroupFilter, categoryFilter, supplierFilter, periodStart, periodEnd, dueStart, dueEnd, dueBefore, sortBy, sortOrder]
   );
 
   const expenseCountsRefreshKey = countsRefreshNonce;
@@ -1023,6 +1068,10 @@ export default function ExpensesPage() {
     const isSameFilter = filter === activeQuickFilter;
 
     setPage(1);
+    setPaymentStatusGroupFilter('');
+    setDueStart('');
+    setDueEnd('');
+    setDueBefore('');
 
     if (filter === 'all') {
       setStatusFilter('');
@@ -1675,10 +1724,14 @@ export default function ExpensesPage() {
     setSearchInput('');
     setStatusFilter('');
     setPaymentStatusFilter('');
+    setPaymentStatusGroupFilter('');
     setCategoryFilter('');
     setSupplierFilter('');
     setPeriodStart('');
     setPeriodEnd('');
+    setDueStart('');
+    setDueEnd('');
+    setDueBefore('');
     setSortBy('expenseDate');
     setSortOrder('desc');
     setLimit(20);

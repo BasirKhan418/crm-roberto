@@ -502,7 +502,7 @@ function buildDuplicatedSupplierReference(sourceReference: unknown): string | nu
 
 function parseSort(options: ListQueryOptions) {
   const direction: 1 | -1 = options.sortOrder === "asc" ? 1 : -1;
-  const sortByAllowed = ["expenseDate", "amountInclVatCents", "supplierRef", "status", "createdAt"];
+  const sortByAllowed = ["expenseDate", "dueDate", "amountInclVatCents", "supplierRef", "status", "createdAt"];
   const sortBy = sortByAllowed.includes(options.sortBy) ? options.sortBy : "expenseDate";
   return { [sortBy]: direction } as Record<string, 1 | -1>;
 }
@@ -726,7 +726,9 @@ export async function listExpenses(params: {
     query.status = { $ne: "archived" };
   }
 
-  if (params.filters?.paymentStatus) {
+  if (params.filters?.paymentStatusGroup === "open") {
+    query.paymentStatus = { $in: ["unpaid", "partial"] };
+  } else if (params.filters?.paymentStatus) {
     query.paymentStatus = params.filters.paymentStatus;
   }
 
@@ -747,6 +749,20 @@ export async function listExpenses(params: {
       dateQuery.$lte = params.filters.periodEnd;
     }
     query.expenseDate = dateQuery;
+  }
+
+  if (params.filters?.dueStart || params.filters?.dueEnd || params.filters?.dueBefore) {
+    const dueDateQuery: Record<string, Date> = {};
+    if (params.filters.dueStart) {
+      dueDateQuery.$gte = params.filters.dueStart;
+    }
+    if (params.filters.dueEnd) {
+      dueDateQuery.$lte = params.filters.dueEnd;
+    }
+    if (params.filters.dueBefore) {
+      dueDateQuery.$lt = params.filters.dueBefore;
+    }
+    query.dueDate = dueDateQuery;
   }
 
   if (params.options.search) {
@@ -833,6 +849,27 @@ export async function listExpenses(params: {
     }
 
     aggregateQuery.expenseDate = dateQuery;
+  }
+
+  if (aggregateQuery.dueDate && typeof aggregateQuery.dueDate === "object") {
+    const sourceDateQuery = aggregateQuery.dueDate as { $gte?: unknown; $lte?: unknown; $lt?: unknown };
+    const dateQuery: { $gte?: Date; $lte?: Date; $lt?: Date } = {};
+
+    const gte = toDateOrNull(sourceDateQuery.$gte);
+    const lte = toDateOrNull(sourceDateQuery.$lte);
+    const lt = toDateOrNull(sourceDateQuery.$lt);
+
+    if (gte) {
+      dateQuery.$gte = gte;
+    }
+    if (lte) {
+      dateQuery.$lte = lte;
+    }
+    if (lt) {
+      dateQuery.$lt = lt;
+    }
+
+    aggregateQuery.dueDate = dateQuery;
   }
 
   const skip = (params.options.page - 1) * params.options.limit;

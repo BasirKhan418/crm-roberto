@@ -4,7 +4,17 @@ import ConnectDb from "@/db/connectDb";
 import RoleMatrix from "@/db/models/RoleMatrix";
 import type { AppRole } from "@/lib/permissions";
 
-export const ROLE_MATRIX_MODULES = ["users", "expenses", "tickets"] as const;
+export const ROLE_MATRIX_MODULES = [
+  "users",
+  "expenses",
+  "tickets",
+  "invoices",
+  "clients",
+  "suppliers",
+  "financialDashboard",
+  "settings",
+  "auditTrail",
+] as const;
 export type RoleMatrixModuleKey = (typeof ROLE_MATRIX_MODULES)[number];
 
 export type RoleMatrixPermissions = {

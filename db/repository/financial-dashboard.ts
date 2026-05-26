@@ -194,6 +194,7 @@ const COMPANY_WIDE_FINANCIAL_ROLES = new Set([
 ]);
 
 const UNPAID_EXPENSE_STATUSES = ["unpaid", "partial"];
+const ISSUED_INVOICE_STATUSES = ["unpaid", "partial_paid", "paid", "overdue"];
 const UNPAID_INVOICE_STATUSES = ["unpaid", "partial_paid", "overdue"];
 
 function isValidObjectId(value: string | null | undefined) {
@@ -216,6 +217,28 @@ function toIsoStringOrNull(value: unknown) {
   if (!value) return null;
   const parsed = value instanceof Date ? value : new Date(String(value));
   return Number.isFinite(parsed.getTime()) ? parsed.toISOString() : null;
+}
+
+function toDateParam(value: Date) {
+  return value.toISOString().slice(0, 10);
+}
+
+function buildExpenseOutstandingCentsExpression() {
+  return {
+    $let: {
+      vars: {
+        remainingCents: {
+          $subtract: [
+            { $ifNull: ["$amountInclVatCents", 0] },
+            { $ifNull: ["$amountPaidCents", 0] },
+          ],
+        },
+      },
+      in: {
+        $cond: [{ $gt: ["$$remainingCents", 0] }, "$$remainingCents", 0],
+      },
+    },
+  };
 }
 
 function calculateDeltaPercent(currentCents: number, previousCents: number) {
@@ -331,6 +354,7 @@ function buildActiveExpenseQuery(context: FinancialAccessContext, range?: { star
 function buildInvoiceBaseQuery(context: FinancialAccessContext) {
   return {
     userId: { $in: context.scopedUserObjectIds },
+    status: { $in: ISSUED_INVOICE_STATUSES },
   };
 }
 
@@ -406,7 +430,7 @@ async function buildPeriodMetrics(
         $group: {
           _id: null,
           unpaidPurchaseCount: { $sum: 1 },
-          unpaidPurchaseTotalCents: { $sum: "$amountInclVatCents" },
+          unpaidPurchaseTotalCents: { $sum: buildExpenseOutstandingCentsExpression() },
         },
       },
     ]),
@@ -818,7 +842,7 @@ async function buildSmartAlerts(context: FinancialAccessContext) {
     paymentStatus: { $in: UNPAID_EXPENSE_STATUSES },
   };
 
-  const [unpaidTotals, overdueRows, staleTicketsResult, duplicateItems] = await Promise.all([
+  const [unpaidTotals, overdueTotals, overdueRows, staleTicketsResult, duplicateItems] = await Promise.all([
     Expense.aggregate<{
       count: number;
       totalCents: number;
@@ -829,6 +853,19 @@ async function buildSmartAlerts(context: FinancialAccessContext) {
           _id: null,
           count: { $sum: 1 },
           totalCents: { $sum: "$amountInclVatCents" },
+        },
+      },
+    ]),
+    Expense.aggregate<{
+      count: number;
+      totalCents: number;
+    }>([
+      { $match: overdueExpenseQuery },
+      {
+        $group: {
+          _id: null,
+          count: { $sum: 1 },
+          totalCents: { $sum: buildExpenseOutstandingCentsExpression() },
         },
       },
     ]),
@@ -864,7 +901,6 @@ async function buildSmartAlerts(context: FinancialAccessContext) {
     paymentStatus: String(row.paymentStatus || "unpaid"),
   })) satisfies SmartAlertExpenseItem[];
 
-  const overdueSupplierTotalCents = overdueSupplierItems.reduce((sum, row) => sum + row.amountInclVatCents, 0);
   const staleTicketItems = staleTicketsResult.success
     ? staleTicketsResult.items.map((item) => ({
         ticketId: String((item as { _id: mongoose.Types.ObjectId })._id),
@@ -875,21 +911,23 @@ async function buildSmartAlerts(context: FinancialAccessContext) {
     : [];
 
   const unpaidSupplierSummary = unpaidTotals[0] ?? { count: 0, totalCents: 0 };
+  const overdueSupplierSummary = overdueTotals[0] ?? { count: 0, totalCents: 0 };
+  const todayParam = toDateParam(getUtcTodayStart(new Date()));
 
   return {
     unpaidSupplierInvoices: {
       count: Number(unpaidSupplierSummary.count || 0),
       totalCents: toCents(unpaidSupplierSummary.totalCents),
-      href: "/expenses?paymentStatus=unpaid",
+      href: "/expenses?status=active&paymentStatusGroup=open",
     },
     overdueSupplierInvoices: {
-      count: overdueSupplierItems.length,
-      totalCents: overdueSupplierTotalCents,
-      href: "/expenses?paymentStatus=unpaid&sortBy=dueDate&sortOrder=asc",
+      count: Number(overdueSupplierSummary.count || 0),
+      totalCents: toCents(overdueSupplierSummary.totalCents),
+      href: `/expenses?status=active&paymentStatusGroup=open&dueBefore=${todayParam}&sortBy=dueDate&sortOrder=asc`,
       items: overdueSupplierItems,
     },
     ticketsWithoutReply48h: {
-      count: staleTicketItems.length,
+      count: staleTicketsResult.success ? Number((staleTicketsResult as { totalCount?: number }).totalCount || staleTicketItems.length) : 0,
       href: "/tickets?status=waiting",
       items: staleTicketItems,
     },
@@ -935,7 +973,7 @@ async function buildMyExpensesToday(context: FinancialAccessContext, now: Date =
         $group: {
           _id: null,
           count: { $sum: 1 },
-          totalCents: { $sum: "$amountInclVatCents" },
+          totalCents: { $sum: buildExpenseOutstandingCentsExpression() },
         },
       },
     ]),
@@ -948,7 +986,7 @@ async function buildMyExpensesToday(context: FinancialAccessContext, now: Date =
         $group: {
           _id: null,
           count: { $sum: 1 },
-          totalCents: { $sum: "$amountInclVatCents" },
+          totalCents: { $sum: buildExpenseOutstandingCentsExpression() },
         },
       },
     ]),

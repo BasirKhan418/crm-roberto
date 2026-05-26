@@ -46,8 +46,7 @@ type InviteFormState = {
 type UserActionType =
   | 'suspend'
   | 'activate'
-  | 'set_admin'
-  | 'set_accountant'
+  | 'set_role'
   | 'revoke_invitation'
   | 'unrevoke_invitation';
 
@@ -64,10 +63,20 @@ const ROLE_OPTIONS = COMPANY_ASSIGNABLE_ROLES;
 const ROLE_LABELS = {
   en: {
     administrator: 'Admin',
+    manager: 'Manager',
+    standard_user: 'Standard user',
+    secretary: 'Secretary',
+    technician: 'Technician',
+    read_only: 'Read-only user',
     external_accountant: 'Accountant',
   },
   fr: {
     administrator: 'Admin',
+    manager: 'Manager',
+    standard_user: 'Utilisateur standard',
+    secretary: 'Secretaire',
+    technician: 'Technicien',
+    read_only: 'Lecture seule',
     external_accountant: 'Comptable',
   },
 } as const;
@@ -79,7 +88,7 @@ const texts = {
     unauthorized: 'You do not have permission to manage users.',
     unauthorizedHelp: 'Ask an administrator to grant access.',
     inviteTitle: 'Invite User',
-    inviteDescription: 'Send a secure invitation link and assign admin or accountant access before first login.',
+    inviteDescription: 'Send a secure invitation link and assign the right company role before first login.',
     emailLabel: 'Email',
     nameLabel: 'Name (optional)',
     roleLabel: 'Role',
@@ -99,6 +108,7 @@ const texts = {
     unrevokeInvitation: 'Unrevoke invitation',
     makeAdmin: 'Set admin',
     makeAccountant: 'Set accountant',
+    changeRole: (role: string) => `Set role to ${role}`,
     confirmActionTitle: 'Confirm action',
     confirmCancel: 'Cancel',
     confirmProceed: 'Proceed',
@@ -134,7 +144,7 @@ const texts = {
     unauthorizedHelp: "Demandez l'accès à un administrateur.",
     inviteTitle: 'Inviter un utilisateur',
     inviteDescription:
-      "Envoyez un lien d'invitation sécurisé et attribuez un rôle admin ou comptable avant la première connexion.",
+      "Envoyez un lien d'invitation sécurisé et attribuez le bon rôle entreprise avant la première connexion.",
     emailLabel: 'E-mail',
     nameLabel: 'Nom (optionnel)',
     roleLabel: 'Rôle',
@@ -154,6 +164,7 @@ const texts = {
     unrevokeInvitation: "Rétablir l'invitation",
     makeAdmin: 'Passer admin',
     makeAccountant: 'Passer comptable',
+    changeRole: (role: string) => `Passer au rôle ${role}`,
     confirmActionTitle: "Confirmer l'action",
     confirmCancel: 'Annuler',
     confirmProceed: 'Continuer',
@@ -343,12 +354,14 @@ export default function SettingsUsersPage() {
     setPendingAction(action);
   }
 
-  function getActionLabel(actionType: UserActionType) {
-    if (actionType === 'suspend') return t.suspend;
-    if (actionType === 'activate') return t.activate;
-    if (actionType === 'set_admin') return t.makeAdmin;
-    if (actionType === 'set_accountant') return t.makeAccountant;
-    if (actionType === 'unrevoke_invitation') return t.unrevokeInvitation;
+  function getActionLabel(action: PendingUserAction) {
+    if (action.type === 'suspend') return t.suspend;
+    if (action.type === 'activate') return t.activate;
+    if (action.type === 'set_role') {
+      const role = typeof action.payload.role === 'string' ? action.payload.role : '';
+      return t.changeRole(roleLabels[role as keyof typeof roleLabels] || role);
+    }
+    if (action.type === 'unrevoke_invitation') return t.unrevokeInvitation;
     return t.revokeInvitation;
   }
 
@@ -545,46 +558,28 @@ export default function SettingsUsersPage() {
                             >
                               {isSuspended ? t.activate : t.suspend}
                             </Button>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
+                            <select
+                              className="h-8 min-w-36 rounded-lg border border-input bg-background px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
+                              value={companyUser.role}
                               disabled={!canUpdateUsers || isCurrentUser || isApplyingAction}
                               title={isCurrentUser ? t.selfActionProtected : undefined}
-                              onClick={() =>
+                              onChange={(event) => {
+                                const nextRole = event.target.value;
+                                if (!nextRole || nextRole === companyUser.role) return;
                                 queueUserAction({
                                   userId: companyUser._id,
                                   userEmail: companyUser.email,
-                                  type: 'set_admin',
-                                  payload: {
-                                    role: 'administrator',
-                                  },
-                                })
-                              }
-                              hidden={companyUser.role === 'administrator'}
+                                  type: 'set_role',
+                                  payload: { role: nextRole },
+                                });
+                              }}
                             >
-                              {t.makeAdmin}
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              disabled={!canUpdateUsers || isCurrentUser || isApplyingAction}
-                              title={isCurrentUser ? t.selfActionProtected : undefined}
-                              onClick={() =>
-                                queueUserAction({
-                                  userId: companyUser._id,
-                                  userEmail: companyUser.email,
-                                  type: 'set_accountant',
-                                  payload: {
-                                    role: 'external_accountant',
-                                  },
-                                })
-                              }
-                              hidden={companyUser.role === 'external_accountant'}
-                            >
-                              {t.makeAccountant}
-                            </Button>
+                              {ROLE_OPTIONS.map((role) => (
+                                <option key={role} value={role}>
+                                  {roleLabels[role]}
+                                </option>
+                              ))}
+                            </select>
                             {canToggleInvitationRevocation ? (
                               <Button
                                 type="button"
@@ -630,7 +625,7 @@ export default function SettingsUsersPage() {
             <AlertDialogTitle>{t.confirmActionTitle}</AlertDialogTitle>
             <AlertDialogDescription>
               {pendingAction
-                ? t.confirmActionDescription(getActionLabel(pendingAction.type), pendingAction.userEmail)
+                ? t.confirmActionDescription(getActionLabel(pendingAction), pendingAction.userEmail)
                 : ''}
             </AlertDialogDescription>
           </AlertDialogHeader>

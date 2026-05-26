@@ -467,6 +467,9 @@ export async function updateCompanyUser(params: {
 
   if (params.account_status) {
     user.account_status = params.account_status;
+    if (params.account_status === "suspended") {
+      user.forceLogoutAfter = new Date();
+    }
   }
 
   if (params.revokeAccess === true) {

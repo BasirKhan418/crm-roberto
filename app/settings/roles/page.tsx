@@ -14,9 +14,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { useLocale } from '@/components/providers/locale-provider';
 import { COMPANY_ASSIGNABLE_ROLES } from '@/lib/permissions';
+import type { PermissionModuleKey } from '@/lib/permissions';
 
 type RoleMatrixRow = {
-  moduleKey: 'users' | 'expenses' | 'tickets';
+  moduleKey: PermissionModuleKey;
   permissions: {
     canView: boolean;
     canCreate: boolean;
@@ -42,6 +43,12 @@ const texts = {
     users: 'Users',
     expenses: 'Expenses',
     tickets: 'Tickets',
+    invoices: 'Invoices',
+    clients: 'Clients',
+    suppliers: 'Suppliers',
+    financialDashboard: 'Financial dashboard',
+    settings: 'Settings',
+    auditTrail: 'Audit trail',
     canView: 'View',
     canCreate: 'Create',
     canEdit: 'Edit',
@@ -63,6 +70,12 @@ const texts = {
     users: 'Utilisateurs',
     expenses: 'Depenses',
     tickets: 'Tickets',
+    invoices: 'Factures',
+    clients: 'Clients',
+    suppliers: 'Fournisseurs',
+    financialDashboard: 'Dashboard financier',
+    settings: 'Parametres',
+    auditTrail: 'Journal audit',
     canView: 'Voir',
     canCreate: 'Creer',
     canEdit: 'Modifier',
@@ -87,6 +100,11 @@ export default function SettingsRolesPage() {
 
   const roleLabels = useMemo(() => ({
     administrator: locale === 'fr' ? 'Admin' : 'Admin',
+    manager: locale === 'fr' ? 'Manager' : 'Manager',
+    standard_user: locale === 'fr' ? 'Utilisateur standard' : 'Standard user',
+    secretary: locale === 'fr' ? 'Secretaire' : 'Secretary',
+    technician: locale === 'fr' ? 'Technicien' : 'Technician',
+    read_only: locale === 'fr' ? 'Lecture seule' : 'Read-only user',
     external_accountant: locale === 'fr' ? 'Comptable' : 'Accountant',
   }), [locale]);
 

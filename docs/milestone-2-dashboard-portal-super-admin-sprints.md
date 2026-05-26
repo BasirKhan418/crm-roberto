@@ -1,5 +1,7 @@
 # CRM Roberto - Milestone 2 Sprint Build Plan
 
+> Superseded working plan: this file was found to be misaligned with the final client requirements and with the implementation that already exists in the repository. Use `docs/milestone-2-client-aligned-vibe-coding-plan.md` as the current Milestone 2 execution prompt.
+
 Financial Dashboard, Accountant Portal, Accounting Exports, Super Admin, Advanced Permissions, Connection Logs  
 Version: 1 - May 2026  
 Target milestone: Day 9 to Day 15  
