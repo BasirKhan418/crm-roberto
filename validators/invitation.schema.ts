@@ -1,14 +1,12 @@
 import { z } from "zod";
 
 import { createI18nKey as i18nKey } from "@/lib/i18n/messages";
-import { APP_ROLES } from "@/lib/permissions";
-
-const allowedInvitableRoles = APP_ROLES.filter((role) => role !== "super_admin");
+import { COMPANY_ASSIGNABLE_ROLES } from "@/lib/permissions";
 
 export const inviteUserSchema = z.object({
   email: z.string().trim().toLowerCase().email(i18nKey("validation.invalidEmailAddress")),
   name: z.string().trim().min(1, i18nKey("validation.nameRequired")).optional(),
-  role: z.enum(allowedInvitableRoles as [string, ...string[]], {
+  role: z.enum(COMPANY_ASSIGNABLE_ROLES, {
     message: i18nKey("validation.invalidRole"),
   }),
 });
@@ -32,7 +30,7 @@ export const invitationLookupSchema = z.object({
 export const updateCompanyUserSchema = z.object({
   userId: z.string().trim().min(1, i18nKey("validation.invalidUserId")),
   role: z
-    .enum(allowedInvitableRoles as [string, ...string[]], {
+    .enum(COMPANY_ASSIGNABLE_ROLES, {
       message: i18nKey("validation.invalidRole"),
     })
     .optional(),

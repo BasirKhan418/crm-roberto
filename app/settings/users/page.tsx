@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useLocale } from '@/components/providers/locale-provider';
 import { resolveTranslatedError, resolveTranslatedText } from '@/lib/i18n/messages';
-import { hasPermission } from '@/lib/permissions';
+import { COMPANY_ASSIGNABLE_ROLES, hasPermission } from '@/lib/permissions';
 
 type CompanyUser = {
   _id: string;
@@ -46,8 +46,8 @@ type InviteFormState = {
 type UserActionType =
   | 'suspend'
   | 'activate'
-  | 'set_read_only'
-  | 'set_standard'
+  | 'set_admin'
+  | 'set_accountant'
   | 'revoke_invitation'
   | 'unrevoke_invitation';
 
@@ -59,34 +59,16 @@ type PendingUserAction = {
   destructive?: boolean;
 };
 
-const ROLE_OPTIONS = [
-  'administrator',
-  'manager',
-  'standard_user',
-  'secretary',
-  'technician',
-  'read_only',
-  'external_accountant',
-] as const;
+const ROLE_OPTIONS = COMPANY_ASSIGNABLE_ROLES;
 
 const ROLE_LABELS = {
   en: {
-    administrator: 'Administrator',
-    manager: 'Manager',
-    standard_user: 'Standard user',
-    secretary: 'Secretary',
-    technician: 'Technician',
-    read_only: 'Read-only',
-    external_accountant: 'External accountant',
+    administrator: 'Admin',
+    external_accountant: 'Accountant',
   },
   fr: {
-    administrator: 'Administrateur',
-    manager: 'Manager',
-    standard_user: 'Utilisateur standard',
-    secretary: 'Secrétaire',
-    technician: 'Technicien',
-    read_only: 'Lecture seule',
-    external_accountant: 'Comptable externe',
+    administrator: 'Admin',
+    external_accountant: 'Comptable',
   },
 } as const;
 
@@ -97,7 +79,7 @@ const texts = {
     unauthorized: 'You do not have permission to manage users.',
     unauthorizedHelp: 'Ask an administrator to grant access.',
     inviteTitle: 'Invite User',
-    inviteDescription: 'Send a secure invitation link and assign role-based access before first login.',
+    inviteDescription: 'Send a secure invitation link and assign admin or accountant access before first login.',
     emailLabel: 'Email',
     nameLabel: 'Name (optional)',
     roleLabel: 'Role',
@@ -115,8 +97,8 @@ const texts = {
     activate: 'Activate',
     revokeInvitation: 'Revoke invitation',
     unrevokeInvitation: 'Unrevoke invitation',
-    makeReadOnly: 'Set read-only',
-    makeStandard: 'Set standard',
+    makeAdmin: 'Set admin',
+    makeAccountant: 'Set accountant',
     confirmActionTitle: 'Confirm action',
     confirmCancel: 'Cancel',
     confirmProceed: 'Proceed',
@@ -152,7 +134,7 @@ const texts = {
     unauthorizedHelp: "Demandez l'accès à un administrateur.",
     inviteTitle: 'Inviter un utilisateur',
     inviteDescription:
-      "Envoyez un lien d'invitation sécurisé et attribuez un rôle avant la première connexion.",
+      "Envoyez un lien d'invitation sécurisé et attribuez un rôle admin ou comptable avant la première connexion.",
     emailLabel: 'E-mail',
     nameLabel: 'Nom (optionnel)',
     roleLabel: 'Rôle',
@@ -170,8 +152,8 @@ const texts = {
     activate: 'Activer',
     revokeInvitation: "Révoquer l'invitation",
     unrevokeInvitation: "Rétablir l'invitation",
-    makeReadOnly: 'Passer en lecture seule',
-    makeStandard: 'Passer standard',
+    makeAdmin: 'Passer admin',
+    makeAccountant: 'Passer comptable',
     confirmActionTitle: "Confirmer l'action",
     confirmCancel: 'Annuler',
     confirmProceed: 'Continuer',
@@ -231,7 +213,7 @@ export default function SettingsUsersPage() {
   const [inviteForm, setInviteForm] = useState<InviteFormState>({
     email: '',
     name: '',
-    role: 'standard_user',
+    role: 'external_accountant',
   });
   const [pendingAction, setPendingAction] = useState<PendingUserAction | null>(null);
   const [isApplyingAction, setIsApplyingAction] = useState(false);
@@ -325,7 +307,7 @@ export default function SettingsUsersPage() {
         toast.error(copied ? t.inviteEmailFailedAndCopied : t.inviteEmailFailed);
       }
 
-      setInviteForm({ email: '', name: '', role: 'standard_user' });
+      setInviteForm({ email: '', name: '', role: 'external_accountant' });
       void loadUsers();
     } catch (error) {
       toast.error(resolveTranslatedError(locale, error, t.updateUserFailed));
@@ -364,8 +346,8 @@ export default function SettingsUsersPage() {
   function getActionLabel(actionType: UserActionType) {
     if (actionType === 'suspend') return t.suspend;
     if (actionType === 'activate') return t.activate;
-    if (actionType === 'set_read_only') return t.makeReadOnly;
-    if (actionType === 'set_standard') return t.makeStandard;
+    if (actionType === 'set_admin') return t.makeAdmin;
+    if (actionType === 'set_accountant') return t.makeAccountant;
     if (actionType === 'unrevoke_invitation') return t.unrevokeInvitation;
     return t.revokeInvitation;
   }
@@ -573,14 +555,35 @@ export default function SettingsUsersPage() {
                                 queueUserAction({
                                   userId: companyUser._id,
                                   userEmail: companyUser.email,
-                                  type: companyUser.role === 'read_only' ? 'set_standard' : 'set_read_only',
+                                  type: 'set_admin',
                                   payload: {
-                                    role: companyUser.role === 'read_only' ? 'standard_user' : 'read_only',
+                                    role: 'administrator',
                                   },
                                 })
                               }
+                              hidden={companyUser.role === 'administrator'}
                             >
-                              {companyUser.role === 'read_only' ? t.makeStandard : t.makeReadOnly}
+                              {t.makeAdmin}
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              disabled={!canUpdateUsers || isCurrentUser || isApplyingAction}
+                              title={isCurrentUser ? t.selfActionProtected : undefined}
+                              onClick={() =>
+                                queueUserAction({
+                                  userId: companyUser._id,
+                                  userEmail: companyUser.email,
+                                  type: 'set_accountant',
+                                  payload: {
+                                    role: 'external_accountant',
+                                  },
+                                })
+                              }
+                              hidden={companyUser.role === 'external_accountant'}
+                            >
+                              {t.makeAccountant}
                             </Button>
                             {canToggleInvitationRevocation ? (
                               <Button

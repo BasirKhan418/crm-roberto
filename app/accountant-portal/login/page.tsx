@@ -19,7 +19,7 @@ const loginCopy = {
     password: 'Password',
     submit: 'Sign in',
     loading: 'Signing in...',
-    help: 'Use the invitation email sent from Settings > Users. Main CRM credentials do not work here unless the user role is external accountant.',
+    help: 'Use the invitation email sent from Settings > Users. Main CRM credentials do not work here unless the user role is accountant.',
     failed: 'Unable to sign in to the accountant portal.',
   },
   fr: {
@@ -29,7 +29,7 @@ const loginCopy = {
     password: 'Mot de passe',
     submit: 'Se connecter',
     loading: 'Connexion...',
-    help: 'Utilisez l invitation envoyee depuis Parametres > Utilisateurs. Les identifiants CRM standard ne fonctionnent ici que pour le role comptable externe.',
+    help: 'Utilisez l invitation envoyee depuis Parametres > Utilisateurs. Les identifiants CRM standard ne fonctionnent ici que pour le role comptable.',
     failed: 'Impossible de se connecter au portail comptable.',
   },
 } as const;

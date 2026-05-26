@@ -3,12 +3,12 @@ import { z } from "zod";
 
 import { listCompanyRoleMatrix, ROLE_MATRIX_MODULES, saveCompanyRoleMatrix, type RoleMatrixPermissions } from "@/db/repository/role-matrix";
 import { getCompanyFeatureFlags } from "@/lib/company-features";
-import { APP_ROLES, canManageTargetRole, normalizeRole } from "@/lib/permissions";
+import { COMPANY_ASSIGNABLE_ROLES, canManageTargetRole, normalizeRole } from "@/lib/permissions";
 import { buildValidationError } from "@/utils/api/validation";
 import getMe from "@/utils/middlewares/useMe";
 
 const roleMatrixQuerySchema = z.object({
-  role: z.enum(APP_ROLES),
+  role: z.enum(COMPANY_ASSIGNABLE_ROLES),
 });
 
 const permissionsSchema = z.object({
@@ -21,7 +21,7 @@ const permissionsSchema = z.object({
 });
 
 const roleMatrixUpdateSchema = z.object({
-  role: z.enum(APP_ROLES),
+  role: z.enum(COMPANY_ASSIGNABLE_ROLES),
   rows: z.array(
     z.object({
       moduleKey: z.enum(ROLE_MATRIX_MODULES),

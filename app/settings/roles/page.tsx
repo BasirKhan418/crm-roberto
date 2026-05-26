@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useLocale } from '@/components/providers/locale-provider';
-import { APP_ROLES } from '@/lib/permissions';
+import { COMPANY_ASSIGNABLE_ROLES } from '@/lib/permissions';
 
 type RoleMatrixRow = {
   moduleKey: 'users' | 'expenses' | 'tickets';
@@ -27,7 +27,7 @@ type RoleMatrixRow = {
   };
 };
 
-const editableRoles = APP_ROLES.filter((role) => role !== 'super_admin');
+const editableRoles = COMPANY_ASSIGNABLE_ROLES;
 const permissionKeys = ['canView', 'canCreate', 'canEdit', 'canDelete', 'canExport', 'canManage'] as const;
 
 const texts = {
@@ -80,19 +80,14 @@ export default function SettingsRolesPage() {
   const { locale } = useLocale();
   const t = texts[locale];
 
-  const [role, setRole] = useState<(typeof editableRoles)[number]>('manager');
+  const [role, setRole] = useState<(typeof editableRoles)[number]>('administrator');
   const [rows, setRows] = useState<RoleMatrixRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const roleLabels = useMemo(() => ({
-    administrator: locale === 'fr' ? 'Administrateur' : 'Administrator',
-    manager: 'Manager',
-    standard_user: locale === 'fr' ? 'Utilisateur standard' : 'Standard user',
-    secretary: locale === 'fr' ? 'Secretaire' : 'Secretary',
-    technician: locale === 'fr' ? 'Technicien' : 'Technician',
-    read_only: locale === 'fr' ? 'Lecture seule' : 'Read-only',
-    external_accountant: locale === 'fr' ? 'Comptable externe' : 'External accountant',
+    administrator: locale === 'fr' ? 'Admin' : 'Admin',
+    external_accountant: locale === 'fr' ? 'Comptable' : 'Accountant',
   }), [locale]);
 
   const loadMatrix = useCallback(async (nextRole: string) => {

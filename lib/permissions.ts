@@ -9,7 +9,10 @@ export const APP_ROLES = [
   "external_accountant",
 ] as const;
 
+export const COMPANY_ASSIGNABLE_ROLES = ["administrator", "external_accountant"] as const;
+
 export type AppRole = (typeof APP_ROLES)[number];
+export type CompanyAssignableRole = (typeof COMPANY_ASSIGNABLE_ROLES)[number];
 
 export const APP_PERMISSIONS = [
   "users.view",
