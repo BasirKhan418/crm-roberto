@@ -13,7 +13,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useLocale } from '@/components/providers/locale-provider';
-import { COMPANY_ASSIGNABLE_ROLES } from '@/lib/permissions';
+import { broadcastAuthRefresh } from '@/lib/auth-refresh';
+import { COMPANY_ASSIGNABLE_ROLES, normalizeModulePermissionSet } from '@/lib/permissions';
 import type { PermissionModuleKey } from '@/lib/permissions';
 
 type RoleMatrixRow = {
@@ -30,6 +31,30 @@ type RoleMatrixRow = {
 
 const editableRoles = COMPANY_ASSIGNABLE_ROLES;
 const permissionKeys = ['canView', 'canCreate', 'canEdit', 'canDelete', 'canExport', 'canManage'] as const;
+
+function updateRoleMatrixPermissionRow(
+  row: RoleMatrixRow,
+  key: (typeof permissionKeys)[number],
+  checked: boolean
+): RoleMatrixRow {
+  const nextPermissions = {
+    ...row.permissions,
+    [key]: checked,
+  };
+
+  if (key === 'canView' && !checked) {
+    nextPermissions.canCreate = false;
+    nextPermissions.canEdit = false;
+    nextPermissions.canDelete = false;
+    nextPermissions.canExport = false;
+    nextPermissions.canManage = false;
+  }
+
+  return {
+    ...row,
+    permissions: normalizeModulePermissionSet(nextPermissions),
+  };
+}
 
 const texts = {
   en: {
@@ -122,7 +147,7 @@ export default function SettingsRolesPage() {
       if (!response.ok || !payload?.success || !payload.rows) {
         throw new Error(payload?.message || t.loadError);
       }
-      setRows(payload.rows);
+      setRows(payload.rows.map((row) => ({ ...row, permissions: normalizeModulePermissionSet(row.permissions) })));
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t.loadError);
       setRows([]);
@@ -145,12 +170,14 @@ export default function SettingsRolesPage() {
       const response = await fetch('/api/settings/role-matrix', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role, rows }),
+        body: JSON.stringify({ role, rows: rows.map((row) => ({ ...row, permissions: normalizeModulePermissionSet(row.permissions) })) }),
       });
       const payload = (await response.json().catch(() => null)) as { success?: boolean; message?: string } | null;
       if (!response.ok || !payload?.success) {
         throw new Error(payload?.message || t.saveError);
       }
+
+      broadcastAuthRefresh();
       toast.success(t.saveSuccess);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t.saveError);
@@ -225,13 +252,7 @@ export default function SettingsRolesPage() {
                                 setRows((current) =>
                                   current.map((item) =>
                                     item.moduleKey === row.moduleKey
-                                      ? {
-                                          ...item,
-                                          permissions: {
-                                            ...item.permissions,
-                                            [key]: checked === true,
-                                          },
-                                        }
+                                      ? updateRoleMatrixPermissionRow(item, key, checked === true)
                                       : item
                                   )
                                 )

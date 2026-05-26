@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { createActivityLog } from '@/db/repository/activity';
 import { createClient, listClients } from '@/db/repository/client';
+import { requireModulePermission } from '@/lib/role-matrix';
 import { buildValidationError } from '@/utils/api/validation';
 import getMe from '@/utils/middlewares/useMe';
 import { createClientSchema } from '@/validators/client.schema';
@@ -12,6 +13,16 @@ export async function GET(request: NextRequest) {
     const me = await getMe(true);
     if (!me.success || !me.user) {
       return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
+    }
+
+    const permission = await requireModulePermission({
+      companyId: me.user.companyId,
+      role: me.user.role,
+      moduleKey: 'clients',
+      action: 'view',
+    });
+    if (!permission.success) {
+      return NextResponse.json({ success: false, message: permission.message }, { status: permission.status });
     }
 
     const options = parseListQuery(request.nextUrl.searchParams, {
@@ -41,6 +52,16 @@ export async function POST(request: NextRequest) {
     const me = await getMe(true);
     if (!me.success || !me.user) {
       return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
+    }
+
+    const permission = await requireModulePermission({
+      companyId: me.user.companyId,
+      role: me.user.role,
+      moduleKey: 'clients',
+      action: 'create',
+    });
+    if (!permission.success) {
+      return NextResponse.json({ success: false, message: permission.message }, { status: permission.status });
     }
 
     const body = await request.json();

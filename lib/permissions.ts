@@ -61,6 +61,23 @@ export type ModulePermissionSet = {
 
 export type ModulePermissionsMap = Partial<Record<PermissionModuleKey, ModulePermissionSet>>;
 
+export function normalizeModulePermissionSet(
+  permissions: ModulePermissionSet
+): ModulePermissionSet {
+  const canView =
+    permissions.canView ||
+    permissions.canCreate ||
+    permissions.canEdit ||
+    permissions.canDelete ||
+    permissions.canExport ||
+    permissions.canManage;
+
+  return {
+    ...permissions,
+    canView,
+  };
+}
+
 type RolePermissionsMap = Record<AppRole, readonly AppPermission[]>;
 
 const ROLE_PERMISSIONS: RolePermissionsMap = {
@@ -141,25 +158,25 @@ export function getDefaultModulePermissions(
   const canManageOperations = canAdministerCompany || normalizedRole === "manager";
 
   if (moduleKey === "users") {
-    return {
+    return normalizeModulePermissionSet({
       canView: hasPermission(normalizedRole, "users.view"),
       canCreate: hasPermission(normalizedRole, "users.invite"),
       canEdit: hasPermission(normalizedRole, "users.update_role"),
       canDelete: hasPermission(normalizedRole, "users.revoke"),
       canExport: false,
       canManage: hasPermission(normalizedRole, "users.update_role"),
-    };
+    });
   }
 
   if (moduleKey === "expenses") {
-    return {
+    return normalizeModulePermissionSet({
       canView: hasPermission(normalizedRole, "expenses.view"),
       canCreate: hasPermission(normalizedRole, "expenses.manage"),
       canEdit: hasPermission(normalizedRole, "expenses.manage"),
       canDelete: hasPermission(normalizedRole, "expenses.delete"),
       canExport: normalizedRole === "super_admin" || normalizedRole === "administrator" || normalizedRole === "manager",
       canManage: hasPermission(normalizedRole, "expenses.manage"),
-    };
+    });
   }
 
   if (
@@ -170,44 +187,44 @@ export function getDefaultModulePermissions(
     moduleKey === "quotes" ||
     moduleKey === "notes"
   ) {
-    return {
+    return normalizeModulePermissionSet({
       canView: canAdministerCompany,
       canCreate: canAdministerCompany,
       canEdit: canAdministerCompany,
       canDelete: canAdministerCompany,
       canExport: canAdministerCompany,
       canManage: canAdministerCompany,
-    };
+    });
   }
 
   if (moduleKey === "financialDashboard") {
-    return {
+    return normalizeModulePermissionSet({
       canView: canManageOperations || normalizedRole === "read_only",
       canCreate: false,
       canEdit: false,
       canDelete: false,
       canExport: canManageOperations,
       canManage: canAdministerCompany,
-    };
+    });
   }
 
   if (moduleKey === "settings" || moduleKey === "auditTrail") {
-    return {
+    return normalizeModulePermissionSet({
       canView: canAdministerCompany,
       canCreate: false,
       canEdit: canAdministerCompany,
       canDelete: false,
       canExport: canAdministerCompany,
       canManage: canAdministerCompany,
-    };
+    });
   }
 
-  return {
+  return normalizeModulePermissionSet({
     canView: hasPermission(normalizedRole, "tickets.view"),
     canCreate: hasPermission(normalizedRole, "tickets.manage"),
     canEdit: hasPermission(normalizedRole, "tickets.manage"),
     canDelete: false,
     canExport: false,
     canManage: hasPermission(normalizedRole, "tickets.manage"),
-  };
+  });
 }

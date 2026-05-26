@@ -1,6 +1,7 @@
 import type { CompanyFeatureFlags } from "@/lib/company-features";
 import {
   getDefaultModulePermissions,
+  normalizeModulePermissionSet,
   normalizeRole,
   type ModulePermissionSet,
   type ModulePermissionsMap,
@@ -13,7 +14,9 @@ export function getUserModulePermissions(params: {
   modulePermissions?: ModulePermissionsMap | null;
   moduleKey: PermissionModuleKey;
 }): ModulePermissionSet {
-  return params.modulePermissions?.[params.moduleKey] || getDefaultModulePermissions(params.role, params.moduleKey);
+  return normalizeModulePermissionSet(
+    params.modulePermissions?.[params.moduleKey] || getDefaultModulePermissions(params.role, params.moduleKey)
+  );
 }
 
 export function hasModuleActionAccess(params: {

@@ -3,6 +3,13 @@ import { jwtVerify } from 'jose';
 
 import { canAccessCrmPath, getDefaultCrmLandingPath } from '@/lib/route-access';
 
+type ProxyAuthUser = {
+  role?: string;
+  isOnboardingComplete?: boolean;
+  featureFlags?: Record<string, boolean>;
+  modulePermissions?: Record<string, unknown>;
+};
+
 interface TokenPayload {
   sub: string;
   name: string;
@@ -45,6 +52,29 @@ async function verifyToken(token: string): Promise<TokenPayload | null> {
     const secret = new TextEncoder().encode(process.env.JWT_SECRET ?? '');
     const { payload } = await jwtVerify(token, secret);
     return payload as unknown as TokenPayload;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchProxyAuthUser(request: NextRequest): Promise<ProxyAuthUser | null> {
+  const cookie = request.headers.get('cookie');
+  if (!cookie) {
+    return null;
+  }
+
+  try {
+    const response = await fetch(new URL('/api/me?fch=1', request.url), {
+      headers: { cookie },
+      cache: 'no-store',
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const payload = (await response.json()) as { success?: boolean; user?: ProxyAuthUser };
+    return payload.success && payload.user ? payload.user : null;
   } catch {
     return null;
   }
@@ -117,11 +147,19 @@ export default async function proxy(request: NextRequest) {
       response.cookies.delete('token');
       return response;
     }
-    if(payload.isEmailVerified && !payload.isOnboardingComplete){
+    const proxyAuthUser = await fetchProxyAuthUser(request);
+    const resolvedRole = proxyAuthUser?.role ?? payload.role;
+    const resolvedFeatureFlags = proxyAuthUser?.featureFlags;
+    const resolvedModulePermissions = proxyAuthUser?.modulePermissions;
+    const isOnboardingComplete = proxyAuthUser?.isOnboardingComplete ?? payload.isOnboardingComplete;
+
+    if (payload.isEmailVerified && !isOnboardingComplete) {
       return NextResponse.redirect(new URL('/onboarding', request.url));
     }
-    if (!canAccessCrmPath(pathname, payload.role)) {
-      return NextResponse.redirect(new URL(getDefaultCrmLandingPath(payload.role), request.url));
+    if (!canAccessCrmPath(pathname, resolvedRole, resolvedModulePermissions, resolvedFeatureFlags)) {
+      return NextResponse.redirect(
+        new URL(getDefaultCrmLandingPath(resolvedRole, resolvedModulePermissions, resolvedFeatureFlags), request.url)
+      );
     }
     return NextResponse.next();
   }
@@ -137,7 +175,17 @@ export default async function proxy(request: NextRequest) {
       if (payload.isEmailVerified && !payload.isOnboardingComplete) {
         return NextResponse.redirect(new URL('/onboarding', request.url));
       }
-      return NextResponse.redirect(new URL('/dashboard', request.url));
+      const proxyAuthUser = await fetchProxyAuthUser(request);
+      return NextResponse.redirect(
+        new URL(
+          getDefaultCrmLandingPath(
+            proxyAuthUser?.role ?? payload.role,
+            proxyAuthUser?.modulePermissions,
+            proxyAuthUser?.featureFlags
+          ),
+          request.url
+        )
+      );
     }
     return NextResponse.next();
   }
@@ -152,8 +200,19 @@ export default async function proxy(request: NextRequest) {
       response.cookies.delete('token');
       return response;
     }
-    if (payload.isOnboardingComplete) {
-      return NextResponse.redirect(new URL('/dashboard', request.url));
+    const proxyAuthUser = await fetchProxyAuthUser(request);
+    const isOnboardingComplete = proxyAuthUser?.isOnboardingComplete ?? payload.isOnboardingComplete;
+    if (isOnboardingComplete) {
+      return NextResponse.redirect(
+        new URL(
+          getDefaultCrmLandingPath(
+            proxyAuthUser?.role ?? payload.role,
+            proxyAuthUser?.modulePermissions,
+            proxyAuthUser?.featureFlags
+          ),
+          request.url
+        )
+      );
     }
     return NextResponse.next();
   }

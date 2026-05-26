@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 
 import ConnectDb from "@/db/connectDb";
 import RoleMatrix from "@/db/models/RoleMatrix";
-import type { AppRole } from "@/lib/permissions";
+import { normalizeModulePermissionSet, type AppRole } from "@/lib/permissions";
 
 export const ROLE_MATRIX_MODULES = [
   "users",
@@ -34,6 +34,13 @@ export type RoleMatrixRow = {
   permissions: RoleMatrixPermissions;
 };
 
+function normalizeRoleMatrixRow(row: RoleMatrixRow): RoleMatrixRow {
+  return {
+    ...row,
+    permissions: normalizeModulePermissionSet(row.permissions),
+  };
+}
+
 function objectIdOrNull(value?: string | null) {
   if (!value || !mongoose.Types.ObjectId.isValid(value)) return null;
   return new mongoose.Types.ObjectId(value);
@@ -56,7 +63,10 @@ export async function listCompanyRoleMatrix(companyId: string, role: AppRole) {
       updatedBy?: mongoose.Types.ObjectId;
     }>>();
 
-  return { success: true as const, rows };
+  return {
+    success: true as const,
+    rows: rows.map((row) => normalizeRoleMatrixRow({ moduleKey: row.moduleKey, permissions: row.permissions })),
+  };
 }
 
 export async function saveCompanyRoleMatrix(params: {
@@ -78,7 +88,7 @@ export async function saveCompanyRoleMatrix(params: {
         { companyId: companyObjectId, role: params.role, moduleKey: row.moduleKey },
         {
           $set: {
-            permissions: row.permissions,
+            permissions: normalizeRoleMatrixRow(row).permissions,
             updatedBy: updatedByObjectId,
           },
         },
@@ -109,5 +119,5 @@ export async function getRoleMatrixOverride(params: {
     .select("permissions")
     .lean<{ permissions: RoleMatrixPermissions } | null>();
 
-  return row?.permissions || null;
+  return row ? normalizeModulePermissionSet(row.permissions) : null;
 }

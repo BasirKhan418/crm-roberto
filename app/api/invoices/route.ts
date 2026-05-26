@@ -12,6 +12,7 @@ import { ensureInvoiceIndexes } from '@/db/repository/ensureInvoiceIndexes';
 import { getStartOfTomorrow, isInvoiceDueOnOrBeforeToday } from '@/lib/invoices/overdue';
 import { getNextInvoiceNumberForYear, isInvoiceNumberDuplicateError } from '@/lib/invoice-number';
 import { normalizeInvoiceNumberSearchTerm } from '@/lib/i18n/messages';
+import { requireModulePermission } from '@/lib/role-matrix';
 import { computeQuoteLine, computeQuoteTotalsFromComputedLines } from '@/lib/quote-calculations';
 import { buildValidationError } from '@/utils/api/validation';
 import getMe from '@/utils/middlewares/useMe';
@@ -175,6 +176,16 @@ export async function GET(request: NextRequest) {
     const me = await getMe(true);
     if (!me.success || !me.user) {
       return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
+    }
+
+    const permission = await requireModulePermission({
+      companyId: me.user.companyId,
+      role: me.user.role,
+      moduleKey: 'invoices',
+      action: 'view',
+    });
+    if (!permission.success) {
+      return NextResponse.json({ success: false, message: permission.message }, { status: permission.status });
     }
 
     await ConnectDb();
@@ -398,6 +409,17 @@ export async function POST(request: NextRequest) {
     if (!me.success || !me.user) {
       return NextResponse.json({ message: me.message || 'Unauthorized' }, { status: 401 });
     }
+
+    const permission = await requireModulePermission({
+      companyId: me.user.companyId,
+      role: me.user.role,
+      moduleKey: 'invoices',
+      action: 'create',
+    });
+    if (!permission.success) {
+      return NextResponse.json({ success: false, message: permission.message }, { status: permission.status });
+    }
+
     const userId = me.user.id;
 
     const body = await request.json();

@@ -21,6 +21,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useLocale } from '@/components/providers/locale-provider';
+import { broadcastAuthRefresh } from '@/lib/auth-refresh';
 import { resolveTranslatedError, resolveTranslatedText } from '@/lib/i18n/messages';
 import { hasModuleActionAccess } from '@/lib/route-access';
 import { COMPANY_ASSIGNABLE_ROLES } from '@/lib/permissions';
@@ -351,6 +352,7 @@ export default function SettingsUsersPage() {
         toast.error(resolveTranslatedText(locale, result.message, t.updateUserFailed));
         return false;
       }
+      broadcastAuthRefresh();
       void loadUsers();
       return true;
     } catch (error) {
