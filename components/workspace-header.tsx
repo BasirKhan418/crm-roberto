@@ -30,7 +30,7 @@ export function WorkspaceHeader({
         className,
       )}
     >
-      <div className="flex min-h-(--header-height) w-full flex-col gap-4 px-4 py-4 lg:flex-row lg:items-center lg:px-6">
+      <div className="flex min-h-(--header-height) w-full items-start gap-3 px-4 py-4 lg:items-center lg:px-6">
         <div className="flex min-w-0 flex-1 items-start gap-3">
           <div className="flex shrink-0 items-center gap-2 pt-0.5">
             <SidebarTrigger className="-ml-1 rounded-full border border-slate-200/80 bg-white shadow-sm hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:hover:bg-slate-900" />
@@ -57,12 +57,12 @@ export function WorkspaceHeader({
               <h1 className="truncate text-lg font-semibold tracking-tight text-slate-950 dark:text-slate-50 sm:text-xl">
                 {title}
               </h1>
-              {description ? <p className="max-w-3xl text-sm text-muted-foreground">{description}</p> : null}
+              {description ? <p className="hidden max-w-3xl text-sm text-muted-foreground sm:block">{description}</p> : null}
             </div>
           </div>
         </div>
 
-        {actions ? <div className="flex shrink-0 items-center gap-2 self-stretch lg:self-auto">{actions}</div> : null}
+        {actions ? <div className="flex shrink-0 items-center justify-end gap-2 self-start">{actions}</div> : null}
       </div>
     </header>
   );

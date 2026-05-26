@@ -141,10 +141,10 @@ export function AccountantPortalShell({ children, featureFlags, userName, userEm
                   <Button
                     type="button"
                     variant="ghost"
-                    className="h-11 w-11 rounded-full border border-slate-200/80 bg-white/85 p-0 shadow-sm hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950/80 dark:hover:bg-slate-900"
+                    className="h-10 w-10 rounded-full border border-slate-200/80 bg-white/85 p-0 shadow-sm hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950/80 dark:hover:bg-slate-900 sm:h-11 sm:w-11"
                     aria-label={displayName}
                   >
-                    <Avatar size="lg" className="size-9 rounded-full bg-slate-100 dark:bg-slate-900">
+                    <Avatar size="lg" className="size-8 rounded-full bg-slate-100 dark:bg-slate-900 sm:size-9">
                       <AvatarFallback className="text-[13px] font-semibold tracking-wide text-slate-700 dark:text-slate-200">
                         {userInitials}
                       </AvatarFallback>
@@ -166,7 +166,7 @@ export function AccountantPortalShell({ children, featureFlags, userName, userEm
                     </div>
                   </div>
                 </div>
-                <LanguageThemeToggle className="shrink-0" />
+                <LanguageThemeToggle className="shrink-0" compactOnMobile />
               </>
             }
           />
