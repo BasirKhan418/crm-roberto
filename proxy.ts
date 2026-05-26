@@ -31,7 +31,7 @@ const protectedRoutePrefixes = [
   '/settings',
 ];
 const adminProtectedPrefixes = ['/admin'];
-const adminPublicRoutes = ['/admin/login'];
+const adminPublicRoutes = ['/admin/login', '/admin/forgot-password'];
 const accountantPortalProtectedPrefixes = ['/accountant-portal'];
 const accountantPortalPublicRoutes = ['/accountant-portal/login', '/accountant-portal/forgot-password'];
 const publicRoutes = ['/', '/login', '/signup', '/workspace-setup', '/forgot-password'];

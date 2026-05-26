@@ -28,6 +28,7 @@ const loginMessages = {
     subtitle: 'Sign in to the administration panel.',
     email: 'Email Address',
     password: 'Password',
+    forgotPassword: 'Forgot password?',
     login: 'Login',
     loggingIn: 'Signing in...',
     crmLoginPrompt: 'Need the standard workspace?',
@@ -46,6 +47,7 @@ const loginMessages = {
     subtitle: 'Connectez-vous au panneau d\'administration.',
     email: 'Adresse e-mail',
     password: 'Mot de passe',
+    forgotPassword: 'Mot de passe oublie ?',
     login: 'Connexion',
     loggingIn: 'Connexion...',
     crmLoginPrompt: 'Besoin de l espace standard ?',
@@ -199,6 +201,11 @@ export default function AdminLoginPage() {
                       >
                         {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
+                    </div>
+                    <div className="flex justify-end">
+                      <Link href="/admin/forgot-password" className="text-xs font-semibold text-[#001e3c] underline-offset-4 hover:underline">
+                        {t.forgotPassword}
+                      </Link>
                     </div>
                   </div>
 

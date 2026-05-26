@@ -55,7 +55,7 @@ const adminMessages = {
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { locale } = useLocale();
-  const isLoginPage = pathname === '/admin/login';
+  const isAuthPage = pathname === '/admin/login' || pathname === '/admin/forgot-password';
   const t = adminMessages[locale];
 
   const routeMeta = useMemo(() => {
@@ -70,7 +70,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return t.dashboard;
   }, [pathname, t]);
 
-  if (isLoginPage) {
+  if (isAuthPage) {
     return (
       <div className="flex min-h-dvh flex-col bg-background">
         {children}
