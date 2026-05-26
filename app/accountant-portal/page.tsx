@@ -39,7 +39,9 @@ const dashboardCopy = {
   en: {
     eyebrow: 'Accounting overview',
     title: 'Accounting dashboard',
+    snapshotTitle: 'Period snapshot',
     subtitle: 'Read-only financial view for the assigned company with the same structured UX as the main workspace.',
+    snapshotSubtitle: 'A focused summary of the selected reporting window, with key balances and workload signals at a glance.',
     periodLabel: 'Reporting period',
     periodHint: 'The selector drives every KPI on this page.',
     revenue: 'Revenue excl. VAT',
@@ -77,7 +79,9 @@ const dashboardCopy = {
   fr: {
     eyebrow: 'Vue comptable',
     title: 'Tableau comptable',
+    snapshotTitle: 'Vue rapide de la periode',
     subtitle: 'Vue financiere en lecture seule pour l entreprise attribuee avec une UX alignee sur l espace principal.',
+    snapshotSubtitle: 'Un resume cible de la fenetre comptable selectionnee avec les soldes clefs et la charge en cours.',
     periodLabel: 'Periode d analyse',
     periodHint: 'Le selecteur pilote tous les indicateurs de cette page.',
     revenue: 'Chiffre d affaires HT',
@@ -469,8 +473,10 @@ export default function AccountantPortalDashboardPage() {
                 {t.eyebrow}
               </span>
               <div className="space-y-2">
-                <CardTitle className="text-2xl tracking-tight text-slate-950 dark:text-slate-50 sm:text-3xl">{t.title}</CardTitle>
-                <CardDescription className="max-w-2xl text-sm leading-6">{t.subtitle}</CardDescription>
+                <CardTitle className="text-2xl tracking-tight text-slate-950 dark:text-slate-50 sm:text-3xl">
+                  {data?.period.label || t.snapshotTitle}
+                </CardTitle>
+                <CardDescription className="max-w-2xl text-sm leading-6">{t.snapshotSubtitle}</CardDescription>
               </div>
             </div>
 
