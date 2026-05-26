@@ -5,6 +5,7 @@ import { getCompanyDetail, updateCompanyFeatureFlags, updateCompanyStatus } from
 import { getClientIp } from "@/utils/api/request";
 import { buildValidationError } from "@/utils/api/validation";
 import {
+  companyDetailQuerySchema,
   companyIdParamsSchema,
   updateCompanyFeatureFlagsSchema,
   updateCompanyStatusSchema,
@@ -25,7 +26,18 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     return NextResponse.json(buildValidationError(parsedParams.error), { status: 400 });
   }
 
-  const result = await getCompanyDetail(parsedParams.data.id);
+  const parsedQuery = companyDetailQuerySchema.safeParse({
+    auditPage: _request.nextUrl.searchParams.get("auditPage") || undefined,
+    auditLimit: _request.nextUrl.searchParams.get("auditLimit") || undefined,
+    connectionPage: _request.nextUrl.searchParams.get("connectionPage") || undefined,
+    connectionLimit: _request.nextUrl.searchParams.get("connectionLimit") || undefined,
+  });
+
+  if (!parsedQuery.success) {
+    return NextResponse.json(buildValidationError(parsedQuery.error), { status: 400 });
+  }
+
+  const result = await getCompanyDetail({ companyId: parsedParams.data.id, ...parsedQuery.data });
   return NextResponse.json(result, { status: result.success ? 200 : result.status });
 }
 

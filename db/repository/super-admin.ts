@@ -144,13 +144,19 @@ export async function listCompanies(params: {
   };
 }
 
-export async function getCompanyDetail(companyId: string) {
+export async function getCompanyDetail(params: {
+  companyId: string;
+  auditPage?: number;
+  auditLimit?: number;
+  connectionPage?: number;
+  connectionLimit?: number;
+}) {
   await ConnectDb();
-  if (!isValidObjectId(companyId)) {
+  if (!isValidObjectId(params.companyId)) {
     return { success: false as const, status: 400, message: "Invalid company id" };
   }
 
-  const company = await Company.findOne({ _id: companyId, deletedAt: null })
+  const company = await Company.findOne({ _id: params.companyId, deletedAt: null })
     .populate("ownerUserId", "name email account_status role")
     .lean();
 
@@ -158,10 +164,20 @@ export async function getCompanyDetail(companyId: string) {
     return { success: false as const, status: 404, message: "Company not found" };
   }
 
-  const [users, auditLogs, connectionLogs] = await Promise.all([
-    User.find({ companyId }).select("name email role account_status createdAt lastLoginAt accessRevokedAt").sort({ createdAt: -1 }).lean(),
-    AuditLog.find({ companyId }).sort({ performedAt: -1 }).limit(20).populate("performedBy", "name email").lean(),
-    ConnectionLog.find({ companyId }).sort({ createdAt: -1 }).limit(20).populate("userId", "name email role").lean(),
+  const auditPage = params.auditPage || 1;
+  const auditLimit = params.auditLimit || 8;
+  const connectionPage = params.connectionPage || 1;
+  const connectionLimit = params.connectionLimit || 8;
+
+  const auditSkip = (auditPage - 1) * auditLimit;
+  const connectionSkip = (connectionPage - 1) * connectionLimit;
+
+  const [users, auditLogs, auditTotal, connectionLogs, connectionTotal] = await Promise.all([
+    User.find({ companyId: params.companyId }).select("name email role account_status createdAt lastLoginAt accessRevokedAt").sort({ createdAt: -1 }).lean(),
+    AuditLog.find({ companyId: params.companyId }).sort({ performedAt: -1 }).skip(auditSkip).limit(auditLimit).populate("performedBy", "name email").lean(),
+    AuditLog.countDocuments({ companyId: params.companyId }),
+    ConnectionLog.find({ companyId: params.companyId }).sort({ createdAt: -1 }).skip(connectionSkip).limit(connectionLimit).populate("userId", "name email role").lean(),
+    ConnectionLog.countDocuments({ companyId: params.companyId }),
   ]);
 
   return {
@@ -173,7 +189,9 @@ export async function getCompanyDetail(companyId: string) {
       },
       users,
       auditLogs,
+      auditPagination: buildPagination(auditPage, auditLimit, auditTotal),
       connectionLogs,
+      connectionPagination: buildPagination(connectionPage, connectionLimit, connectionTotal),
     },
   };
 }

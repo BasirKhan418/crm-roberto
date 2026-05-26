@@ -22,6 +22,13 @@ export const companyIdParamsSchema = z.object({
   id: z.string().trim().regex(objectIdPattern, "Invalid company id"),
 });
 
+export const companyDetailQuerySchema = z.object({
+  auditPage: z.coerce.number().int().min(1).max(200).optional(),
+  auditLimit: z.coerce.number().int().min(1).max(100).optional(),
+  connectionPage: z.coerce.number().int().min(1).max(200).optional(),
+  connectionLimit: z.coerce.number().int().min(1).max(100).optional(),
+});
+
 export const createCompanySchema = z.object({
   name: z.string().trim().min(2).max(140),
   slug: z.string().trim().min(2).max(140).regex(/^[a-z0-9-]+$/, "Slug must use lowercase letters, numbers, and hyphens"),
