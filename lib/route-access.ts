@@ -113,7 +113,7 @@ export function getDefaultCrmLandingPath(
   ];
 
   const nextPath = candidates.find(
-    (pathname): pathname is string => Boolean(pathname) && canAccessCrmPath(pathname, role, modulePermissions, featureFlags)
+    (pathname): pathname is string => typeof pathname === "string" && canAccessCrmPath(pathname, role, modulePermissions, featureFlags)
   );
 
   return nextPath || "/logout";
