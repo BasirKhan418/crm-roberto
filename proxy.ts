@@ -88,6 +88,10 @@ function isValidAccountantPortalSession(payload: TokenPayload | null): boolean {
   return Boolean(payload && payload.kind === 'accountant_portal' && payload.role === 'external_accountant');
 }
 
+function hasLiveModulePermissions(user: ProxyAuthUser | null): user is ProxyAuthUser & { modulePermissions: Record<string, unknown> } {
+  return Boolean(user?.modulePermissions && typeof user.modulePermissions === 'object');
+}
+
 export default async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get('token')?.value;
@@ -156,7 +160,7 @@ export default async function proxy(request: NextRequest) {
     if (payload.isEmailVerified && !isOnboardingComplete) {
       return NextResponse.redirect(new URL('/onboarding', request.url));
     }
-    if (!canAccessCrmPath(pathname, resolvedRole, resolvedModulePermissions, resolvedFeatureFlags)) {
+    if (hasLiveModulePermissions(proxyAuthUser) && !canAccessCrmPath(pathname, resolvedRole, resolvedModulePermissions, resolvedFeatureFlags)) {
       return NextResponse.redirect(
         new URL(getDefaultCrmLandingPath(resolvedRole, resolvedModulePermissions, resolvedFeatureFlags), request.url)
       );
