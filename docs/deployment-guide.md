@@ -1,6 +1,6 @@
 # CRM Roberto Deployment Guide
 
-Last updated: 2026-05-25
+Last updated: 2026-05-27
 
 This guide is written for a professional handover team preparing GitHub, ZIP backup, staging deployment, production deployment, and security validation.
 
@@ -10,9 +10,11 @@ This guide is written for a professional handover team preparing GitHub, ZIP bac
 - npm compatible with the lockfile used by the delivery team.
 - MongoDB Atlas or compatible MongoDB deployment.
 - Redis/Valkey service for OTP and cron locks.
+- Valkey-compatible connection URL for BullMQ-backed expense OCR jobs.
 - Stripe account with Checkout and webhook access.
 - SMTP provider credentials.
 - AWS S3 bucket and IAM credentials.
+- OpenAI API key for uploaded draft expense extraction.
 - Vercel account or equivalent Node/Next.js hosting platform.
 
 ## 2. Local Setup
@@ -28,6 +30,12 @@ Quality gates:
 ```bash
 npm run lint
 npm run build
+```
+
+If testing uploaded expense OCR locally, run the worker in a second terminal:
+
+```bash
+npm run worker:expenses-ocr
 ```
 
 Local production smoke test:
@@ -66,11 +74,22 @@ Use `.env.example` as the source of truth for variable names. Never commit `.env
 | `REDIS_PORT` | OTP/cron | Redis port. |
 | `REDIS_USER` | Optional Redis | Redis username, defaults to `default`. |
 | `REDIS_PASSWORD` | Redis | Redis password. |
+| `VALKEY_URL` | Expense OCR queue | Full Valkey/Redis connection string used by BullMQ for uploaded draft expense OCR jobs. |
 | `CRON_SECRET` | Cron | Secret required by `/api/cron/reminders`. |
 | `CRON_TARGET_URL` | Optional local cron | Target URL for `npm run cron:reminders`. |
 | `EXPENSE_EMAIL_INGEST_SECRET` | Future email import | Secret for expense email ingestion endpoint. |
 | `EXPENSE_INGEST_SECRET` | Future email import | Legacy/fallback ingest secret. |
+| `OPENAI_API_KEY` | Expense OCR | OpenAI API key used by the OCR worker to map extracted text to structured expense fields. |
+| `EXPENSE_OCR_MODEL` | Optional expense OCR | OpenAI model override for OCR field extraction. Defaults to `gpt-4.1-mini`. |
+| `EXPENSE_OCR_LANGUAGES` | Optional expense OCR | Tesseract languages loaded by the worker. Defaults to `eng+fra`. |
+| `EXPENSE_OCR_MAX_PDF_PAGES` | Optional expense OCR | Max PDF pages OCRed per uploaded draft attachment. |
+| `EXPENSE_OCR_MAX_TEXT_CHARS` | Optional expense OCR | Max OCR text sent to OpenAI per draft job. |
+| `EXPENSE_OCR_CONCURRENCY` | Optional expense OCR | BullMQ worker concurrency for draft OCR jobs. |
 | `NODE_ENV` | Runtime | `development` or `production`. |
+
+Recommended local source-of-truth file:
+
+- `.env.example` now includes the worker variables and should be kept in sync with deployment secrets.
 
 ## 4. Hosting On Vercel
 
@@ -96,6 +115,11 @@ Cron configuration:
 
 The cron route accepts either `x-cron-secret: <CRON_SECRET>` or `Authorization: Bearer <CRON_SECRET>`.
 
+Important for expense OCR:
+
+- Vercel should host the web app/API only.
+- The expense OCR worker is a separate long-running process and should not be deployed as a serverless function.
+
 ## 5. Alternative Node Hosting
 
 For a VPS/EC2-style deployment:
@@ -112,8 +136,16 @@ Recommended process manager controls:
 - Restart on crash.
 - Capture structured logs.
 - Set memory limits.
-- Run app and cron as separate processes.
+- Run app, cron, and OCR worker as separate processes.
 - Terminate TLS at a managed load balancer or reverse proxy.
+
+Recommended process split:
+
+- Web app: `npm run build` then `npm run start`
+- Reminder scheduler when needed: `npm run cron:reminders`
+- Expense OCR worker: `npm run worker:expenses-ocr`
+
+The worker requires access to the same MongoDB, Valkey, S3 bucket, and OpenAI key as the web app. It is safe for the worker to be deployed on a different host from the Next.js app as long as those shared services are reachable.
 
 ## 6. Stripe Setup
 
@@ -179,10 +211,13 @@ https://your-domain.example/api/stripe/webhook
 
 Redis/Valkey is used for OTP and cron locks. Configure TLS if supported by provider.
 
+Valkey is also used by BullMQ for uploaded draft expense OCR jobs.
+
 Validation checklist:
 
 - OTP generation and verification works.
 - Cron locks prevent duplicate reminder/recurrence processing.
+- Expense OCR jobs can be enqueued and consumed.
 - Redis credentials are not logged.
 
 ## 11. Production Deployment Checklist
@@ -193,7 +228,8 @@ Validation checklist:
 - Run `npm run lint`.
 - Run `npm run build`.
 - Deploy to staging.
-- Smoke-test login, dashboard, clients, quotes, invoice send, payment test, expense upload, ticket create, and cron dry run.
+- Start the OCR worker in staging and verify it stays connected.
+- Smoke-test login, dashboard, clients, quotes, invoice send, payment test, manual expense create, uploaded expense draft OCR, ticket create, and cron dry run.
 - Configure Stripe webhook and verify successful delivery.
 - Configure SMTP DNS and send tests.
 - Configure S3 CORS and upload tests.
@@ -252,5 +288,7 @@ After creating the ZIP, inspect it before sharing externally. Confirm it include
 - Receipt email is sent once per successful payment.
 - Reminder cron returns success with expected counters.
 - Expenses and tickets can upload attachments to S3.
+- Manual expense creation does not create OCR queue jobs.
+- Uploaded draft expenses create OCR queue jobs and the worker patches only still-empty/default draft fields.
 - Dashboard KPIs load within acceptable latency.
 - Audit/activity logs are created for important state changes.

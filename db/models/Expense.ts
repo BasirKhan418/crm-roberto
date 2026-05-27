@@ -135,6 +135,47 @@ const ExpenseSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    ocrStatus: {
+      type: String,
+      enum: ["pending", "queued", "processing", "completed", "failed"],
+      default: null,
+      index: true,
+    },
+    ocrError: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    ocrQueuedAt: {
+      type: Date,
+      default: null,
+    },
+    ocrStartedAt: {
+      type: Date,
+      default: null,
+    },
+    ocrCompletedAt: {
+      type: Date,
+      default: null,
+    },
+    ocrFailedAt: {
+      type: Date,
+      default: null,
+    },
+    ocrText: {
+      type: String,
+      default: null,
+    },
+    ocrConfidence: {
+      type: Number,
+      default: null,
+      min: 0,
+      max: 1,
+    },
+    ocrExtraction: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
     archivedAt: {
       type: Date,
       default: null,

@@ -1,10 +1,12 @@
 # CRM Roberto Technical Handover
 
-Last updated: 2026-05-25
+Last updated: 2026-05-27
 
 ## 1. Executive Summary
 
 CRM Roberto is a full-stack CRM and business operations platform built with Next.js App Router, TypeScript, MongoDB/Mongoose, Stripe, AWS S3, Redis, and SMTP email. The product centralizes CRM records, supplier management, expenses, tickets, quotes, invoices, public e-signature, payment collection, reminders, and recurring invoice generation.
+
+Uploaded draft expense extraction now also includes a separate BullMQ worker runtime backed by Valkey and OpenAI for OCR-assisted draft completion.
 
 The system is designed around three core business guarantees:
 
@@ -31,6 +33,12 @@ flowchart LR
   Api --> S3[AWS S3 presigned uploads]
   Api --> SMTP[SMTP via Nodemailer]
   Api --> Redis[(Redis / Valkey)]
+  Api --> Queue[BullMQ expense OCR queue]
+
+  Worker[Expense OCR worker] --> Queue
+  Worker --> Mongo
+  Worker --> S3
+  Worker --> OpenAI[OpenAI extraction API]
 
   VercelCron[Vercel Cron] --> CronApi[Cron reminders API]
   LocalCron[Optional local scheduler] --> CronApi
@@ -91,6 +99,7 @@ flowchart TB
 | `validators/` | Zod schemas for request payloads and form validation. |
 | `emails/` | SMTP transport and transactional email templates. |
 | `cron/` | Optional local scheduler for reminder cron execution. |
+| `workers/` | Long-running BullMQ worker processes, currently for uploaded draft expense OCR. |
 | `docs/` | Handover, deployment, API, schema, and milestone documentation. |
 
 ## 5. Main Application Modules
@@ -112,6 +121,12 @@ flowchart TB
 | Public Sign | `/sign/[token]` | Tokenized quote signature and reply flow without CRM login. |
 | Public Pay | `/pay/[token]` | Tokenized invoice payment flow without CRM login. |
 | Admin | `/admin` | Separate admin portal protected by `admin-token`. |
+
+Expense OCR runtime notes:
+
+- Only uploaded attachment-backed draft expenses are enqueued for OCR.
+- Manual expense creation through `POST /api/expenses` is unchanged and does not use the queue.
+- The worker only patches expenses that remain in `draft` status and only fills fields that are still empty or default-generated.
 
 ## 6. Authentication And Authorization
 
@@ -253,10 +268,10 @@ Auditability already present:
 
 | Item | Status | Recommended implementation direction |
 |---|---|---|
-| OCR-assisted expense workflow | Roadmap | Add document text extraction after S3 upload, map extracted fields into expense drafts, and keep human approval before activation. |
+| OCR-assisted expense workflow | Implemented for uploaded drafts | Uploaded expense drafts are enqueued on BullMQ, OCRed from S3 attachments, mapped by OpenAI into structured draft suggestions, and patched conservatively without activating the expense automatically. |
 | Email expense import | Placeholder route exists | Complete inbound email provider setup, verify HMAC/secret, parse attachments, upload to S3, create draft expenses, and add audit events. |
 | Attachment malware scanning | Post-MVP limitation | Uploaded files are stored in S3 after validation of type and size, but there is no antivirus or sandbox scanning pipeline yet. Add quarantine plus scan-before-release for production hardening. |
-| Background jobs | Roadmap | Move email/PDF/long-running tasks to a queue such as Inngest, BullMQ, or a managed background job service. |
+| Background jobs | Partially implemented | Expense OCR now runs on BullMQ with a separate worker process; email/PDF and other long-running jobs can follow the same pattern. |
 | External accountant portal | Role exists | Build a separate read-only accountant interface with scoped documents and export permissions. |
 | Security hardening | Ongoing | Add rate limiting, request logging, structured audit reports, MFA, and automated dependency scanning. |
 | Scale readiness | Ongoing | Add observability, database index validation, S3 lifecycle rules, queue-based email delivery, and load testing for dashboard aggregates. |

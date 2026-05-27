@@ -1,6 +1,6 @@
 # CRM Roberto API Reference
 
-Last updated: 2026-05-25
+Last updated: 2026-05-27
 
 All backend endpoints are implemented as Next.js App Router route handlers under `app/api`. Most endpoints return JSON and expect an authenticated user through the `token` HTTP-only cookie, unless explicitly public or admin-only.
 
@@ -131,15 +131,21 @@ Webhook events currently handled:
 
 | Route | Methods | Purpose |
 |---|---|---|
-| `/api/expenses` | GET, POST | List/create expenses with filters. |
+| `/api/expenses` | GET, POST | List expenses and create manual expenses or manual drafts. This path does not enqueue OCR jobs. |
 | `/api/expenses/[id]` | GET, PATCH, DELETE | Read/update/delete expense. |
 | `/api/expenses/[id]/actions` | POST | Expense state transitions such as archive, duplicate, mark paid. |
 | `/api/expenses/[id]/attachments` | GET, POST, DELETE | Manage expense attachments. |
 | `/api/expenses/upload-presign` | POST | Generate S3 upload URL for expenses. |
 | `/api/expenses/categories` | GET, POST, PATCH, DELETE | Manage expense categories. |
 | `/api/expenses/lookups` | GET, POST | Lookup suppliers/categories/clients for expense forms. |
-| `/api/expenses/drafts` | POST | Create or process draft expenses. |
+| `/api/expenses/drafts` | POST | Create attachment-backed draft expenses from uploaded files, then best-effort enqueue OCR extraction on BullMQ. |
 | `/api/expenses/email-ingest` | POST | Placeholder/early endpoint for email-imported expenses. |
+
+Expense queue behavior:
+
+- `POST /api/expenses` is the manual create path and never enqueues OCR.
+- `POST /api/expenses/drafts` is the upload-draft path and is the only route that enqueues the `expense-draft-ocr` BullMQ job.
+- Queue enqueue failure does not block draft creation; the draft is still created and its OCR state is marked as failed for later review.
 
 ## 10. Ticket APIs
 

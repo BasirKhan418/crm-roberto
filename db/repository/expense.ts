@@ -554,6 +554,7 @@ export async function createDraftFromAttachment(params: {
     notes: params.payload.notes ?? null,
     createdBy: params.createdBy,
     updatedBy: params.createdBy,
+    ocrStatus: "pending",
   });
 
   const attachment = await ExpenseAttachment.create({

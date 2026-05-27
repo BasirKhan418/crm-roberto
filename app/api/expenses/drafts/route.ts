@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { createDraftFromAttachment } from "@/db/repository/expense";
+import { enqueueExpenseDraftOcrJob } from "@/lib/expenses/ocr-queue";
 import { authorizeExpenseRoute } from "@/app/api/expenses/_shared";
+import { markExpenseOcrStatus } from "@/db/repository/expense-ocr";
 import { createDraftExpenseSchema } from "@/validators/expense.schema";
 import { buildValidationError } from "@/utils/api/validation";
 import { getClientIp } from "@/utils/api/request";
@@ -31,12 +33,48 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(created, { status: 400 });
     }
 
+    let ocrQueued = false;
+    let ocrQueueMessage: string | null = null;
+
+    try {
+      await enqueueExpenseDraftOcrJob({
+        companyId: auth.context.user.companyId || "",
+        expenseId: String(created.expense._id),
+        attachmentId: String(created.attachment._id),
+        createdBy: auth.context.user.id,
+      });
+
+      await markExpenseOcrStatus({
+        companyId: auth.context.user.companyId || "",
+        expenseId: String(created.expense._id),
+        status: "queued",
+      });
+
+      ocrQueued = true;
+    } catch (queueError) {
+      ocrQueueMessage = queueError instanceof Error ? queueError.message : String(queueError);
+
+      await markExpenseOcrStatus({
+        companyId: auth.context.user.companyId || "",
+        expenseId: String(created.expense._id),
+        status: "failed",
+        error: ocrQueueMessage,
+      });
+
+      console.error("Failed to enqueue expense draft OCR job", {
+        expenseId: String(created.expense._id),
+        message: ocrQueueMessage,
+      });
+    }
+
     return NextResponse.json(
       {
         success: true,
         message: "Draft expense created",
         expense: created.expense,
         attachment: created.attachment,
+        ocrQueued,
+        ocrQueueMessage,
       },
       { status: 201 }
     );

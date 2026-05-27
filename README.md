@@ -77,6 +77,36 @@ npm run build
 | `npm run start` | Serve production build. |
 | `npm run lint` | Run ESLint checks. |
 | `npm run cron:reminders` | Run the local reminder scheduler process. |
+| `npm run worker:expenses-ocr` | Start the BullMQ worker that OCRs draft expense attachments and patches draft fields. |
+
+## Draft Expense OCR Worker
+
+When a user uploads a PDF, image, or HEIC file into Expenses and the app creates a draft through `/api/expenses/drafts`, the API now also enqueues a BullMQ job using `VALKEY_URL`.
+
+This does not affect manual expense creation. The normal `POST /api/expenses` path stays synchronous and does not enqueue OCR jobs. Only the upload-to-draft path uses the queue.
+
+Run the worker in a separate terminal:
+
+```bash
+npm run worker:expenses-ocr
+```
+
+The worker will:
+
+1. Load the uploaded expense attachment from S3.
+2. OCR images with `tesseract.js`.
+3. Convert PDF pages to images and OCR them page by page.
+4. Ask OpenAI for a strict JSON extraction of supplier, reference, amounts, VAT, dates, notes, and expense type.
+5. Patch only still-empty or default draft fields so it does not overwrite values a user already filled manually.
+
+Required environment variables for the worker path: `VALKEY_URL`, `OPENAI_API_KEY`, `AWS_S3_BUCKET`, `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `MONGO_URI`.
+
+Deployment shape:
+
+- Run the Next.js app as the web process.
+- Run `npm run worker:expenses-ocr` as a separate long-running worker process.
+- Point both processes at the same MongoDB, Valkey, S3 bucket, and OpenAI credentials.
+- If the app is hosted on Vercel, keep the worker on a persistent Node host such as Railway, Render, Fly.io, a VPS, or Docker/PM2.
 
 ## Security Handover Notice
 

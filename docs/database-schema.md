@@ -320,6 +320,8 @@ Important fields:
 - Payment: `paymentMethod`, `paidBy`, `amountPaidCents`
 - `supplierRef`, `expenseType`, `notes`, `projectId`
 - User audit: `createdBy`, `updatedBy`
+- OCR state: `ocrStatus`, `ocrError`, `ocrQueuedAt`, `ocrStartedAt`, `ocrCompletedAt`, `ocrFailedAt`
+- OCR payload: `ocrText`, `ocrConfidence`, `ocrExtraction`
 - Duplicate tracking: `isDuplicate`, `duplicatedFromExpenseId`, `duplicatedAt`
 
 Indexes:
@@ -329,6 +331,13 @@ Indexes:
 - `{ companyId, supplierId, expenseDate: -1 }`
 - `{ companyId, categoryId, expenseDate: -1 }`
 - `{ companyId, paymentStatus, expenseDate: -1 }`
+- `ocrStatus`
+
+Draft OCR behavior:
+
+- Upload-created drafts start with `ocrStatus: pending`, then move through `queued`, `processing`, `completed`, or `failed`.
+- The worker only patches expenses that are still in `draft` status.
+- OCR patching is conservative: it fills empty or default draft fields and avoids overwriting values already entered manually.
 
 ### ExpenseCategory
 
