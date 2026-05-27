@@ -7,7 +7,7 @@ import { authorizeAccountantTicketAccess } from "@/app/api/accountant/_shared/ti
 import { buildValidationError } from "@/utils/api/validation";
 import { accountantAttachmentZipSchema } from "@/validators/accountant-export.schema";
 import { getClientIp } from "@/utils/api/request";
-import s3 from "@/utils/s3/s3Client";
+import { getS3Client } from "@/utils/s3/s3Client";
 
 export const runtime = "nodejs";
 
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        const objectResponse = await s3.send(
+        const objectResponse = await getS3Client().send(
           new GetObjectCommand({
             Bucket: BUCKET,
             Key: file.storageKey,

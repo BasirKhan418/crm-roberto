@@ -12,7 +12,7 @@ import {
   TICKET_MAX_FILE_SIZE_BYTES,
 } from "@/lib/tickets/constants";
 import { buildValidationError } from "@/utils/api/validation";
-import s3 from "@/utils/s3/s3Client";
+import { getS3Client } from "@/utils/s3/s3Client";
 import { expenseUploadPresignSchema } from "@/validators/expense.schema";
 
 const BUCKET = process.env.AWS_S3_BUCKET || "";
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
       CacheControl: "max-age=31536000",
     });
 
-    const uploadUrl = await getSignedUrl(s3, putCommand, { expiresIn: URL_EXPIRES_IN_SECONDS });
+    const uploadUrl = await getSignedUrl(getS3Client(), putCommand, { expiresIn: URL_EXPIRES_IN_SECONDS });
     const fileUrl = `https://${BUCKET}.s3.${REGION}.amazonaws.com/${key}`;
 
     return NextResponse.json({ success: true, uploadUrl, fileUrl, key, expiresIn: URL_EXPIRES_IN_SECONDS }, { status: 200 });

@@ -13,7 +13,7 @@ import {
 } from "@/validators/expense.schema";
 import { buildValidationError } from "@/utils/api/validation";
 import { getClientIp } from "@/utils/api/request";
-import s3 from "@/utils/s3/s3Client";
+import { getS3Client } from "@/utils/s3/s3Client";
 import {
   EXPENSE_ALLOWED_MIME_TYPES,
   EXPENSE_MAX_FILE_SIZE_BYTES,
@@ -140,7 +140,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         CacheControl: "max-age=31536000",
       });
 
-      await s3.send(putCommand);
+      await getS3Client().send(putCommand);
 
       const url = `https://${BUCKET}.s3.${REGION}.amazonaws.com/${key}`;
 

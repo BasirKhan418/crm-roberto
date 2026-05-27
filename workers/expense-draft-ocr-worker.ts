@@ -16,7 +16,7 @@ import {
   EXPENSE_DRAFT_OCR_QUEUE_NAME,
   type ExpenseDraftOcrJobData,
 } from "../lib/expenses/ocr-queue";
-import s3 from "../utils/s3/s3Client";
+import { getS3Client } from "../utils/s3/s3Client";
 
 loadEnv({ path: ".env.local" });
 loadEnv();
@@ -147,7 +147,7 @@ async function downloadAttachmentBuffer(storageKey: string) {
     throw new Error("AWS_S3_BUCKET is not configured");
   }
 
-  const object = await s3.send(
+  const object = await getS3Client().send(
     new GetObjectCommand({
       Bucket: BUCKET,
       Key: storageKey,
