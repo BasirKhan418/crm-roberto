@@ -50,7 +50,7 @@ async function getPermissionSnapshot(userId: string): Promise<PermissionSnapshot
 
     advancedRoles = company?.featureFlags?.advancedRoles === true;
 
-    if (advancedRoles && role !== "super_admin" && role !== "administrator") {
+    if (advancedRoles && role !== "super_admin") {
       const latestRoleMatrixRow = await RoleMatrix.findOne({ companyId, role })
         .sort({ updatedAt: -1 })
         .select("updatedAt")

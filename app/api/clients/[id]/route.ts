@@ -9,6 +9,8 @@ import {
 } from '@/db/repository/client';
 import { listClientInteractions } from '@/db/repository/interaction';
 import { listClientAttachments } from '@/db/repository/attachment';
+import { getCompanyUserIdStrings } from '@/lib/company-scope';
+import { requireModulePermission } from '@/lib/role-matrix';
 import { parseListQuery } from '@/utils/api/query';
 import { buildValidationError } from '@/utils/api/validation';
 import getMe from '@/utils/middlewares/useMe';
@@ -27,7 +29,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     const { id } = await params;
 
-    const client = await getClientById(me.user.id, id);
+    const permission = await requireModulePermission({ companyId: me.user.companyId, role: me.user.role, moduleKey: 'clients', action: 'view' });
+    if (!permission.success) {
+      return NextResponse.json({ success: false, message: permission.message }, { status: permission.status });
+    }
+
+    const scopedUserIds = await getCompanyUserIdStrings({ companyId: me.user.companyId, fallbackUserId: me.user.id });
+    const client = await getClientById(scopedUserIds, id);
     if (!client) {
       return NextResponse.json({ success: false, message: 'Client not found' }, { status: 404 });
     }
@@ -40,7 +48,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     });
 
     const [timeline, interactions, attachments, activities] = await Promise.all([
-      listClientTimelineNotes(me.user.id, id, {
+      listClientTimelineNotes(scopedUserIds, id, {
         page: timelineOptions.page,
         limit: timelineOptions.limit,
         search: timelineOptions.search,
@@ -81,7 +89,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json(buildValidationError(parsed.error), { status: 400 });
     }
 
-    const updated = await updateClientById(me.user.id, id, parsed.data);
+    const permission = await requireModulePermission({ companyId: me.user.companyId, role: me.user.role, moduleKey: 'clients', action: 'edit' });
+    if (!permission.success) {
+      return NextResponse.json({ success: false, message: permission.message }, { status: permission.status });
+    }
+
+    const scopedUserIds = await getCompanyUserIdStrings({ companyId: me.user.companyId, fallbackUserId: me.user.id });
+    const updated = await updateClientById(scopedUserIds, id, parsed.data);
     if (!updated) {
       return NextResponse.json({ success: false, message: 'Client not found' }, { status: 404 });
     }
@@ -107,13 +121,19 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
     }
 
     const { id } = await params;
-    const existing = await getClientById(me.user.id, id);
+    const permission = await requireModulePermission({ companyId: me.user.companyId, role: me.user.role, moduleKey: 'clients', action: 'delete' });
+    if (!permission.success) {
+      return NextResponse.json({ success: false, message: permission.message }, { status: permission.status });
+    }
+
+    const scopedUserIds = await getCompanyUserIdStrings({ companyId: me.user.companyId, fallbackUserId: me.user.id });
+    const existing = await getClientById(scopedUserIds, id);
 
     if (!existing) {
       return NextResponse.json({ success: false, message: 'Client not found' }, { status: 404 });
     }
 
-    const removed = await deleteClientById(me.user.id, id);
+    const removed = await deleteClientById(scopedUserIds, id);
     if (!removed) {
       return NextResponse.json({ success: false, message: 'Client not found' }, { status: 404 });
     }

@@ -158,6 +158,7 @@ interface InvoiceTableProps {
   selectedInvoiceIds?: string[];
   onToggleInvoiceSelection?: (invoiceId: string, checked: boolean) => void;
   onToggleSelectAllVisible?: (checked: boolean) => void;
+  canManageActions?: boolean;
 }
 
 export type InvoiceTableColumnKey =
@@ -190,6 +191,7 @@ export default function InvoiceTable({
   selectedInvoiceIds = [],
   onToggleInvoiceSelection,
   onToggleSelectAllVisible,
+  canManageActions = true,
 }: InvoiceTableProps) {
   const router = useRouter();
   const priceLocale = locale === 'fr' ? 'fr-FR' : 'en-GB';
@@ -238,11 +240,29 @@ export default function InvoiceTable({
 
   const showDepositColumns = items.some((invoice) => hasDeposit(invoice) || Boolean(invoice.depositPaidAt));
   const isVisible = (column: InvoiceTableColumnKey) => visibleColumns?.[column] !== false;
-  const selectionEnabled = typeof onToggleInvoiceSelection === 'function';
+  const selectionEnabled = canManageActions && typeof onToggleInvoiceSelection === 'function';
   const selectedIdsSet = new Set(selectedInvoiceIds);
   const allVisibleSelected = items.length > 0 && items.every((invoice) => selectedIdsSet.has(invoice._id));
 
   function renderPrimaryAction(invoice: InvoiceListItem, className?: string) {
+    if (!canManageActions) {
+      return (
+        <Button type="button" size="sm" className={`h-8 px-3 text-xs ${className ?? ''}`} asChild>
+          <Link
+            href={`/invoices/${invoice._id}`}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              void openInvoice(invoice);
+            }}
+          >
+            <EyeIcon className="size-3.5" />
+            {labels.view}
+          </Link>
+        </Button>
+      );
+    }
+
     // unpaid → send invoice
     if (invoice.status === 'unpaid') {
       return (
@@ -324,7 +344,7 @@ export default function InvoiceTable({
               {labels.view}
             </Link>
           </DropdownMenuItem>
-          {!invoice.quoteId && !invoice.sentAt ? (
+          {canManageActions && !invoice.quoteId && !invoice.sentAt ? (
             <DropdownMenuItem asChild>
               <Link href={`/invoices/${invoice._id}/edit`}>
                 <PencilIcon className="size-4" />
@@ -332,17 +352,19 @@ export default function InvoiceTable({
               </Link>
             </DropdownMenuItem>
           ) : null}
-          <DropdownMenuItem onSelect={() => onSend(invoice)} disabled={invoice.status === 'paid'}>
-            <SendIcon className="size-4" />
-            {labels.sendInvoice}
-          </DropdownMenuItem>
-          {onSendReminder && invoice.status !== 'paid' ? (
+          {canManageActions ? (
+            <DropdownMenuItem onSelect={() => onSend(invoice)} disabled={invoice.status === 'paid'}>
+              <SendIcon className="size-4" />
+              {labels.sendInvoice}
+            </DropdownMenuItem>
+          ) : null}
+          {canManageActions && onSendReminder && invoice.status !== 'paid' ? (
             <DropdownMenuItem onSelect={() => onSendReminder(invoice)}>
               <BellIcon className="size-4" />
               {getReminderActionLabel(invoice, locale)}
             </DropdownMenuItem>
           ) : null}
-          {onRecordPayment && invoice.status !== 'paid' ? (
+          {canManageActions && onRecordPayment && invoice.status !== 'paid' ? (
             <DropdownMenuItem onSelect={() => onRecordPayment(invoice)}>
               <PlusIcon className="size-4" />
               {labels.recordPayment ?? (locale === 'fr' ? 'Enregistrer un paiement' : 'Record payment')}
@@ -352,11 +374,15 @@ export default function InvoiceTable({
             <DownloadIcon className="size-4" />
             {labels.downloadPdf}
           </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem variant="destructive" onSelect={() => onDelete(invoice)}>
-            <Trash2Icon className="size-4" />
-            {labels.delete}
-          </DropdownMenuItem>
+          {canManageActions ? (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem variant="destructive" onSelect={() => onDelete(invoice)}>
+                <Trash2Icon className="size-4" />
+                {labels.delete}
+              </DropdownMenuItem>
+            </>
+          ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
     );

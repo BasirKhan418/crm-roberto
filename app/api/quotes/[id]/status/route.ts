@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { createActivityLog } from '@/db/repository/activity';
 import { updateQuoteStatusById } from '@/db/repository/quote';
+import { getCompanyUserIdStrings } from '@/lib/company-scope';
+import { requireModulePermission } from '@/lib/role-matrix';
 import { buildValidationError } from '@/utils/api/validation';
 import getMe from '@/utils/middlewares/useMe';
 import { updateQuoteStatusSchema } from '@/validators/quote.schema';
@@ -17,6 +19,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
     }
 
+    const permission = await requireModulePermission({ companyId: me.user.companyId, role: me.user.role, moduleKey: 'quotes', action: 'manage' });
+    if (!permission.success) {
+      return NextResponse.json({ success: false, message: permission.message }, { status: permission.status });
+    }
+
     const body = await request.json();
     const parsed = updateQuoteStatusSchema.safeParse(body);
     if (!parsed.success) {
@@ -24,7 +31,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     const { id } = await params;
-    const result = await updateQuoteStatusById(me.user.id, id, parsed.data);
+    const scopedUserIds = await getCompanyUserIdStrings({ companyId: me.user.companyId, fallbackUserId: me.user.id });
+    const result = await updateQuoteStatusById(scopedUserIds, id, parsed.data);
 
     if (result.kind === 'not-found') {
       return NextResponse.json({ success: false, message: 'Quote not found' }, { status: 404 });

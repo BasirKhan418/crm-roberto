@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { createActivityLog } from '@/db/repository/activity';
 import { deleteNoteById, getNoteById, updateNoteById } from '@/db/repository/note';
+import { getCompanyUserIdStrings } from '@/lib/company-scope';
+import { requireModulePermission } from '@/lib/role-matrix';
 import { buildValidationError } from '@/utils/api/validation';
 import getMe from '@/utils/middlewares/useMe';
 import { updateNoteSchema } from '@/validators/note.schema';
@@ -17,8 +19,14 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
     }
 
+    const permission = await requireModulePermission({ companyId: me.user.companyId, role: me.user.role, moduleKey: 'notes', action: 'view' });
+    if (!permission.success) {
+      return NextResponse.json({ success: false, message: permission.message }, { status: permission.status });
+    }
+
     const { id } = await params;
-    const note = await getNoteById(me.user.id, id);
+    const scopedUserIds = await getCompanyUserIdStrings({ companyId: me.user.companyId, fallbackUserId: me.user.id });
+    const note = await getNoteById(scopedUserIds, id);
 
     if (!note) {
       return NextResponse.json({ success: false, message: 'Note not found' }, { status: 404 });
@@ -37,7 +45,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
     }
 
+    const permission = await requireModulePermission({ companyId: me.user.companyId, role: me.user.role, moduleKey: 'notes', action: 'edit' });
+    if (!permission.success) {
+      return NextResponse.json({ success: false, message: permission.message }, { status: permission.status });
+    }
+
     const { id } = await params;
+    const scopedUserIds = await getCompanyUserIdStrings({ companyId: me.user.companyId, fallbackUserId: me.user.id });
     const body = await request.json();
     const parsed = updateNoteSchema.safeParse(body);
 
@@ -45,7 +59,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json(buildValidationError(parsed.error), { status: 400 });
     }
 
-    const updated = await updateNoteById(me.user.id, id, parsed.data);
+    const updated = await updateNoteById(scopedUserIds, id, parsed.data);
     if (!updated) {
       return NextResponse.json(
         { success: false, message: 'Note not found or linked client/supplier inaccessible' },
@@ -73,14 +87,20 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
     }
 
+    const permission = await requireModulePermission({ companyId: me.user.companyId, role: me.user.role, moduleKey: 'notes', action: 'delete' });
+    if (!permission.success) {
+      return NextResponse.json({ success: false, message: permission.message }, { status: permission.status });
+    }
+
     const { id } = await params;
-    const existing = await getNoteById(me.user.id, id);
+    const scopedUserIds = await getCompanyUserIdStrings({ companyId: me.user.companyId, fallbackUserId: me.user.id });
+    const existing = await getNoteById(scopedUserIds, id);
 
     if (!existing) {
       return NextResponse.json({ success: false, message: 'Note not found' }, { status: 404 });
     }
 
-    const removed = await deleteNoteById(me.user.id, id);
+    const removed = await deleteNoteById(scopedUserIds, id);
     if (!removed) {
       return NextResponse.json({ success: false, message: 'Note not found' }, { status: 404 });
     }

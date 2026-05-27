@@ -71,6 +71,19 @@ export interface ClientListResult {
   pagination: PaginationMeta;
 }
 
+type UserScope = string | string[];
+
+function userScopeQuery(userScope: UserScope) {
+  return Array.isArray(userScope) ? { user: { $in: userScope } } : { user: userScope };
+}
+
+function userScopeObjectIds(userScope: UserScope) {
+  const values = Array.isArray(userScope) ? userScope : [userScope];
+  return values
+    .filter((value) => mongoose.Types.ObjectId.isValid(value))
+    .map((value) => new mongoose.Types.ObjectId(value));
+}
+
 export interface ClientTimelineResult {
   notes: TimelineNoteRecord[];
   pagination: PaginationMeta;
@@ -147,10 +160,10 @@ export const createClient = async (userId: string, payload: CreateClientDTO): Pr
   return created.toObject() as ClientRecord;
 };
 
-export const listClients = async (userId: string, options: ListQueryOptions, clientType?: 'company' | 'individual'): Promise<ClientListResult> => {
+export const listClients = async (userId: UserScope, options: ListQueryOptions, clientType?: 'company' | 'individual'): Promise<ClientListResult> => {
   await ConnectDb();
 
-  const query: Record<string, unknown> = { user: userId };
+  const query: Record<string, unknown> = userScopeQuery(userId);
 
   if (clientType) {
     query.clientType = clientType;
@@ -186,13 +199,15 @@ export const listClients = async (userId: string, options: ListQueryOptions, cli
   const clientIds = (items as { _id: mongoose.Types.ObjectId }[]).map((c) => c._id);
 
   // Aggregate last quote status + total revenue per client in a single query
+  const scopedUserObjectIds = userScopeObjectIds(userId);
+
   const quoteAgg = await Quote.aggregate<{
     _id: mongoose.Types.ObjectId;
     lastStatus: string;
     lastDate: Date;
     totalRevenue: number;
   }>([
-    { $match: { user: new mongoose.Types.ObjectId(userId as string), clientId: { $in: clientIds } } },
+    { $match: { user: { $in: scopedUserObjectIds }, clientId: { $in: clientIds } } },
     { $sort: { date: -1 } },
     {
       $group: {
@@ -212,7 +227,7 @@ export const listClients = async (userId: string, options: ListQueryOptions, cli
     totalDue: number;
     lastInvoiceDate: Date | null;
   }>([
-    { $match: { userId: new mongoose.Types.ObjectId(userId as string), clientId: { $in: clientIds } } },
+    { $match: { userId: { $in: scopedUserObjectIds }, clientId: { $in: clientIds } } },
     {
       $lookup: {
         from: Payment.collection.name,
@@ -284,19 +299,19 @@ export const listClients = async (userId: string, options: ListQueryOptions, cli
   };
 };
 
-export const getClientById = async (userId: string, clientId: string): Promise<ClientRecord | null> => {
+export const getClientById = async (userId: UserScope, clientId: string): Promise<ClientRecord | null> => {
   await ConnectDb();
 
   if (!isValidObjectId(clientId)) {
     return null;
   }
 
-  const client = await Client.findOne({ _id: clientId, user: userId }).lean();
+  const client = await Client.findOne({ _id: clientId, ...userScopeQuery(userId) }).lean();
   return (client as ClientRecord | null) || null;
 };
 
 export const updateClientById = async (
-  userId: string,
+  userId: UserScope,
   clientId: string,
   payload: UpdateClientDTO
 ): Promise<ClientRecord | null> => {
@@ -312,7 +327,7 @@ export const updateClientById = async (
 
   const normalizedPayload = normalizeClientPayload(cleanPayload, 'update');
 
-  const updated = await Client.findOneAndUpdate({ _id: clientId, user: userId }, { $set: normalizedPayload }, {
+  const updated = await Client.findOneAndUpdate({ _id: clientId, ...userScopeQuery(userId) }, { $set: normalizedPayload }, {
     returnDocument: 'after',
     runValidators: false,
   }).lean();
@@ -320,20 +335,20 @@ export const updateClientById = async (
   return (updated as ClientRecord | null) || null;
 };
 
-export const deleteClientById = async (userId: string, clientId: string): Promise<boolean> => {
+export const deleteClientById = async (userId: UserScope, clientId: string): Promise<boolean> => {
   await ConnectDb();
 
   if (!isValidObjectId(clientId)) {
     return false;
   }
 
-  await Note.deleteMany({ user: userId, linkedType: 'client', linkedId: clientId });
-  const result = await Client.deleteOne({ _id: clientId, user: userId });
+  await Note.deleteMany({ ...userScopeQuery(userId), linkedType: 'client', linkedId: clientId });
+  const result = await Client.deleteOne({ _id: clientId, ...userScopeQuery(userId) });
   return result.deletedCount === 1;
 };
 
 export const listClientTimelineNotes = async (
-  userId: string,
+  userId: UserScope,
   clientId: string,
   options: Pick<ListQueryOptions, 'page' | 'limit' | 'search'>
 ): Promise<ClientTimelineResult> => {
@@ -347,7 +362,7 @@ export const listClientTimelineNotes = async (
   }
 
   const query: Record<string, unknown> = {
-    user: userId,
+    ...userScopeQuery(userId),
     linkedType: 'client',
     linkedId: clientId,
   };

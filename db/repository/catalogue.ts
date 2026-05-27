@@ -31,6 +31,12 @@ export interface CatalogueListResult {
   pagination: PaginationMeta;
 }
 
+type UserScope = string | string[];
+
+function userScopeQuery(userScope: UserScope) {
+  return Array.isArray(userScope) ? { user: { $in: userScope } } : { user: userScope };
+}
+
 function isValidObjectId(value: string): boolean {
   return mongoose.Types.ObjectId.isValid(value);
 }
@@ -58,13 +64,13 @@ export const createCatalogueItem = async (
 };
 
 export const listCatalogueItems = async (
-  userId: string,
+  userId: UserScope,
   options: ListQueryOptions,
   filters?: { type?: CatalogueType; minPriceExcludingTax?: number; maxPriceExcludingTax?: number }
 ): Promise<CatalogueListResult> => {
   await ConnectDb();
 
-  const query: Record<string, unknown> = { user: userId };
+  const query: Record<string, unknown> = userScopeQuery(userId);
 
   if (filters?.type) {
     query.type = filters.type;
@@ -110,19 +116,19 @@ export const listCatalogueItems = async (
   };
 };
 
-export const getCatalogueItemById = async (userId: string, itemId: string): Promise<CatalogueRecord | null> => {
+export const getCatalogueItemById = async (userId: UserScope, itemId: string): Promise<CatalogueRecord | null> => {
   await ConnectDb();
 
   if (!isValidObjectId(itemId)) {
     return null;
   }
 
-  const item = await CatalogueItem.findOne({ _id: itemId, user: userId }).lean();
+  const item = await CatalogueItem.findOne({ _id: itemId, ...userScopeQuery(userId) }).lean();
   return (item as CatalogueRecord | null) || null;
 };
 
 export const updateCatalogueItemById = async (
-  userId: string,
+  userId: UserScope,
   itemId: string,
   payload: UpdateCatalogueItemDTO
 ): Promise<CatalogueRecord | null> => {
@@ -132,7 +138,7 @@ export const updateCatalogueItemById = async (
     return null;
   }
 
-  const existing = await CatalogueItem.findOne({ _id: itemId, user: userId })
+  const existing = await CatalogueItem.findOne({ _id: itemId, ...userScopeQuery(userId) })
     .select('priceExcludingTax vatRate')
     .lean();
 
@@ -149,7 +155,7 @@ export const updateCatalogueItemById = async (
     priceIncludingTax: toPriceIncludingTax(nextPriceExcludingTax, nextVatRate),
   };
 
-  const updated = await CatalogueItem.findOneAndUpdate({ _id: itemId, user: userId }, nextPayload, {
+  const updated = await CatalogueItem.findOneAndUpdate({ _id: itemId, ...userScopeQuery(userId) }, nextPayload, {
     returnDocument: 'after',
     runValidators: true,
   }).lean();
@@ -157,7 +163,7 @@ export const updateCatalogueItemById = async (
   return (updated as CatalogueRecord | null) || null;
 };
 
-export const deleteCatalogueItemById = async (userId: string, itemId: string): Promise<CatalogueRecord | null> => {
+export const deleteCatalogueItemById = async (userId: UserScope, itemId: string): Promise<CatalogueRecord | null> => {
   await ConnectDb();
 
   if (!isValidObjectId(itemId)) {
@@ -165,6 +171,6 @@ export const deleteCatalogueItemById = async (userId: string, itemId: string): P
   }
 
   // Quotes keep item snapshots, so removing a catalogue item does not alter historical quotes.
-  const deleted = await CatalogueItem.findOneAndDelete({ _id: itemId, user: userId }).lean();
+  const deleted = await CatalogueItem.findOneAndDelete({ _id: itemId, ...userScopeQuery(userId) }).lean();
   return (deleted as CatalogueRecord | null) || null;
 };

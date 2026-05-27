@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 
 import {
-  checkTicketPermission,
   getTicketPermissionState,
   type TicketPermission,
 } from "@/lib/tickets/access";
@@ -52,17 +51,6 @@ export async function authorizeTicketRoute(permission: TicketPermission): Promis
     };
   }
 
-  const permissionCheck = checkTicketPermission(me.user.role, permission);
-  if (!permissionCheck.success) {
-    return {
-      success: false,
-      response: NextResponse.json(
-        { success: false, message: permissionCheck.message },
-        { status: permissionCheck.status }
-      ),
-    };
-  }
-
   const matrixCheck = await requireModulePermission({
     companyId: me.user.companyId,
     role: me.user.role,
@@ -76,7 +64,12 @@ export async function authorizeTicketRoute(permission: TicketPermission): Promis
     };
   }
 
-  const permissionState = getTicketPermissionState(me.user.role);
+  const defaultPermissionState = getTicketPermissionState(me.user.role);
+  const permissionState = {
+    ...defaultPermissionState,
+    canView: matrixCheck.permissions.canView,
+    canManage: matrixCheck.permissions.canManage,
+  };
 
   return {
     success: true,

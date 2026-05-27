@@ -141,7 +141,9 @@ function isAbortError(error: unknown) {
   return error instanceof DOMException && error.name === 'AbortError';
 }
 
-function getPaymentLabel(status: string, copy: typeof purchaseCopy.en) {
+type PurchaseCopy = (typeof purchaseCopy)[keyof typeof purchaseCopy];
+
+function getPaymentLabel(status: string, copy: PurchaseCopy) {
   if (status === 'paid') {
     return copy.paid;
   }

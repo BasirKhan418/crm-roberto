@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { createActivityLog } from '@/db/repository/activity';
 import { createClient, listClients } from '@/db/repository/client';
+import { getCompanyUserIdStrings } from '@/lib/company-scope';
 import { requireModulePermission } from '@/lib/role-matrix';
 import { buildValidationError } from '@/utils/api/validation';
 import getMe from '@/utils/middlewares/useMe';
@@ -35,7 +36,8 @@ export async function GET(request: NextRequest) {
     const clientTypeRaw = request.nextUrl.searchParams.get('clientType');
     const clientType = (clientTypeRaw === 'company' || clientTypeRaw === 'individual') ? clientTypeRaw : undefined;
 
-    const result = await listClients(me.user.id, options, clientType);
+    const scopedUserIds = await getCompanyUserIdStrings({ companyId: me.user.companyId, fallbackUserId: me.user.id });
+    const result = await listClients(scopedUserIds, options, clientType);
 
     return NextResponse.json({
       success: true,

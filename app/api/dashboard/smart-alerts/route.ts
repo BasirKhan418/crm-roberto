@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getFinancialSmartAlertsData } from "@/db/repository/financial-dashboard";
 import { requireCompanyFeature } from "@/lib/company-features";
+import { requireModulePermission } from "@/lib/role-matrix";
 import getMe from "@/utils/middlewares/useMe";
 
 export async function GET() {
@@ -17,10 +18,17 @@ export async function GET() {
       return NextResponse.json({ success: false, message: featureCheck.message }, { status: featureCheck.status });
     }
 
+    const permission = await requireModulePermission({ companyId: me.user.companyId, role: me.user.role, moduleKey: "financialDashboard", action: "view" });
+    if (!permission.success) {
+      return NextResponse.json({ success: false, message: permission.message }, { status: permission.status });
+    }
+
     const result = await getFinancialSmartAlertsData({
       companyId: me.user.companyId,
       userId: me.user.id,
       role: me.user.role,
+      allowFinancialDashboardAccess: true,
+      companyWideAccess: true,
     });
 
     if (!result.success) {

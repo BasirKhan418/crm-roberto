@@ -156,6 +156,11 @@ export function getDefaultModulePermissions(
   const normalizedRole = normalizeRole(role);
   const canAdministerCompany = normalizedRole === "super_admin" || normalizedRole === "administrator";
   const canManageOperations = canAdministerCompany || normalizedRole === "manager";
+  const canReadCompanyOperations = canManageOperations || normalizedRole === "read_only";
+  const canManageSales = canManageOperations;
+  const canReadSales = canReadCompanyOperations || normalizedRole === "secretary";
+  const canManageContacts = canManageOperations || normalizedRole === "secretary";
+  const canReadContacts = canReadSales;
 
   if (moduleKey === "users") {
     return normalizeModulePermissionSet({
@@ -181,19 +186,28 @@ export function getDefaultModulePermissions(
 
   if (
     moduleKey === "invoices" ||
-    moduleKey === "clients" ||
-    moduleKey === "suppliers" ||
     moduleKey === "catalogue" ||
     moduleKey === "quotes" ||
     moduleKey === "notes"
   ) {
     return normalizeModulePermissionSet({
-      canView: canAdministerCompany,
-      canCreate: canAdministerCompany,
-      canEdit: canAdministerCompany,
-      canDelete: canAdministerCompany,
-      canExport: canAdministerCompany,
-      canManage: canAdministerCompany,
+      canView: canReadSales,
+      canCreate: canManageSales,
+      canEdit: canManageSales,
+      canDelete: canManageSales,
+      canExport: canReadSales,
+      canManage: canManageSales,
+    });
+  }
+
+  if (moduleKey === "clients" || moduleKey === "suppliers") {
+    return normalizeModulePermissionSet({
+      canView: canReadContacts,
+      canCreate: canManageContacts,
+      canEdit: canManageContacts,
+      canDelete: canManageOperations,
+      canExport: canReadContacts,
+      canManage: canManageContacts,
     });
   }
 

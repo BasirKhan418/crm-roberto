@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 
 import {
-  checkExpensePermission,
   getExpensePermissionState,
   type ExpensePermission,
 } from "@/lib/expenses/access";
@@ -49,17 +48,6 @@ export async function authorizeExpenseRoute(permission: ExpensePermission): Prom
     };
   }
 
-  const permissionCheck = checkExpensePermission(me.user.role, permission);
-  if (!permissionCheck.success) {
-    return {
-      success: false,
-      response: NextResponse.json(
-        { success: false, message: permissionCheck.message },
-        { status: permissionCheck.status }
-      ),
-    };
-  }
-
   const matrixCheck = await requireModulePermission({
     companyId: me.user.companyId,
     role: me.user.role,
@@ -73,7 +61,13 @@ export async function authorizeExpenseRoute(permission: ExpensePermission): Prom
     };
   }
 
-  const permissionState = getExpensePermissionState(me.user.role);
+  const defaultPermissionState = getExpensePermissionState(me.user.role);
+  const permissionState = {
+    ...defaultPermissionState,
+    canView: matrixCheck.permissions.canView,
+    canManage: matrixCheck.permissions.canManage,
+    canDelete: matrixCheck.permissions.canDelete,
+  };
 
   return {
     success: true,

@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 
 import ConnectDb from '@/db/connectDb';
 import Quote from '@/db/models/Quote';
+import { getCompanyUserObjectIds } from '@/lib/company-scope';
+import { requireModulePermission } from '@/lib/role-matrix';
 import getMe from '@/utils/middlewares/useMe';
 
 /**
@@ -21,20 +23,25 @@ export async function GET() {
       return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
     }
 
+    const permission = await requireModulePermission({ companyId: me.user.companyId, role: me.user.role, moduleKey: 'quotes', action: 'view' });
+    if (!permission.success) {
+      return NextResponse.json({ success: false, message: permission.message }, { status: permission.status });
+    }
+
     await ConnectDb();
 
-    const userId = me.user.id;
+    const userObjectIds = await getCompanyUserObjectIds({ companyId: me.user.companyId, fallbackUserId: me.user.id });
 
     const [pendingInvoice, unacknowledgedRejected] = await Promise.all([
       // Accepted quotes where the invoice hasn't been created yet
       Quote.countDocuments({
-        user: userId,
+        user: { $in: userObjectIds },
         status: 'accepted',
         convertedToInvoice: { $ne: true },
       }),
       // Rejected (or refused) quotes the user has not acknowledged
       Quote.countDocuments({
-        user: userId,
+        user: { $in: userObjectIds },
         status: { $in: ['rejected', 'refused'] },
         rejectionAcknowledgedAt: null,
       }),

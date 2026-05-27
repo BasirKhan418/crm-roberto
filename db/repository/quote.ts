@@ -47,6 +47,12 @@ export interface QuoteListResult {
   totalPages: number;
 }
 
+type UserScope = string | string[];
+
+function userScopeQuery(userScope: UserScope) {
+  return Array.isArray(userScope) ? { user: { $in: userScope } } : { user: userScope };
+}
+
 interface QuoteDeleteRecord {
   _id: string;
   quoteNumber: string;
@@ -579,7 +585,7 @@ export const getLastQuoteNumber = async (userId: string): Promise<string | null>
 };
 
 export const listQuotes = async (
-  userId: string,
+  userId: UserScope,
   options: {
     status?: QuoteStatus | 'pending';
     search?: string;
@@ -592,7 +598,7 @@ export const listQuotes = async (
   await ConnectDb();
   await ensureTenantScopedQuoteNumberIndex();
 
-  const query: Record<string, unknown> = { user: userId };
+  const query: Record<string, unknown> = userScopeQuery(userId);
 
   if (options.clientId && mongoose.Types.ObjectId.isValid(options.clientId)) {
     query.clientId = new mongoose.Types.ObjectId(options.clientId);
@@ -674,14 +680,14 @@ export const listQuotes = async (
   };
 };
 
-export const deleteQuoteById = async (userId: string, quoteId: string): Promise<QuoteDeleteRecord | null> => {
+export const deleteQuoteById = async (userId: UserScope, quoteId: string): Promise<QuoteDeleteRecord | null> => {
   await ConnectDb();
 
   if (!isValidObjectId(quoteId)) {
     return null;
   }
 
-  const deleted = await Quote.findOneAndDelete({ _id: quoteId, user: userId })
+  const deleted = await Quote.findOneAndDelete({ _id: quoteId, ...userScopeQuery(userId) })
     .select('_id quoteNumber')
     .lean();
 
@@ -695,14 +701,14 @@ export const deleteQuoteById = async (userId: string, quoteId: string): Promise<
   };
 };
 
-export const getQuoteById = async (userId: string, quoteId: string): Promise<QuoteDetailRecord | null> => {
+export const getQuoteById = async (userId: UserScope, quoteId: string): Promise<QuoteDetailRecord | null> => {
   await ConnectDb();
 
   if (!isValidObjectId(quoteId)) {
     return null;
   }
 
-  const quote = await Quote.findOne({ _id: quoteId, user: userId }).lean();
+  const quote = await Quote.findOne({ _id: quoteId, ...userScopeQuery(userId) }).lean();
   return quote ? toQuoteRecord(quote as QuoteRecordSource) : null;
 };
 
@@ -796,7 +802,7 @@ export const createQuote = async (userId: string, payload: CreateQuoteDTO): Prom
 };
 
 export const updateQuoteById = async (
-  userId: string,
+  userId: UserScope,
   quoteId: string,
   payload: UpdateQuoteDTO
 ): Promise<UpdateQuoteResult> => {
@@ -806,7 +812,7 @@ export const updateQuoteById = async (
     return { kind: 'not-found' };
   }
 
-  const quote = await Quote.findOne({ _id: quoteId, user: userId });
+  const quote = await Quote.findOne({ _id: quoteId, ...userScopeQuery(userId) });
   if (!quote) {
     return { kind: 'not-found' };
   }
@@ -817,7 +823,7 @@ export const updateQuoteById = async (
   }
 
   if (payload.clientId && payload.clientId !== String(quote.clientId)) {
-    const clientSnapshot = await getClientSnapshot(userId, payload.clientId);
+    const clientSnapshot = await getClientSnapshot(Array.isArray(userId) ? String(quote.user) : userId, payload.clientId);
     if (!clientSnapshot) {
       return { kind: 'client-not-found' };
     }
@@ -884,7 +890,7 @@ export const updateQuoteById = async (
 };
 
 export const updateQuoteStatusById = async (
-  userId: string,
+  userId: UserScope,
   quoteId: string,
   payload: UpdateQuoteStatusDTO
 ): Promise<UpdateQuoteStatusResult> => {
@@ -894,7 +900,7 @@ export const updateQuoteStatusById = async (
     return { kind: 'not-found' };
   }
 
-  const quote = await Quote.findOne({ _id: quoteId, user: userId });
+  const quote = await Quote.findOne({ _id: quoteId, ...userScopeQuery(userId) });
   if (!quote) {
     return { kind: 'not-found' };
   }
@@ -919,15 +925,17 @@ export const updateQuoteStatusById = async (
   };
 };
 
-export const duplicateQuoteById = async (userId: string, quoteId: string): Promise<DuplicateQuoteResult> => {
+export const duplicateQuoteById = async (userId: UserScope, quoteId: string, ownerUserId?: string): Promise<DuplicateQuoteResult> => {
   await ConnectDb();
   await ensureTenantScopedQuoteNumberIndex();
+
+  const nextOwnerId = ownerUserId ?? (Array.isArray(userId) ? userId[0] : userId);
 
   if (!isValidObjectId(quoteId)) {
     return { kind: 'not-found' };
   }
 
-  const sourceQuote = await Quote.findOne({ _id: quoteId, user: userId }).lean();
+  const sourceQuote = await Quote.findOne({ _id: quoteId, ...userScopeQuery(userId) }).lean();
   if (!sourceQuote) {
     return { kind: 'not-found' };
   }
@@ -955,11 +963,11 @@ export const duplicateQuoteById = async (userId: string, quoteId: string): Promi
   const totals = computeQuoteTotalsFromComputedLines(lineItems);
 
   for (let attempt = 0; attempt < MAX_QUOTE_NUMBER_RETRIES; attempt += 1) {
-    const quoteNumber = await allocateNextQuoteNumber(userId);
+    const quoteNumber = await allocateNextQuoteNumber(nextOwnerId);
 
     try {
       const created = await Quote.create({
-        user: userId,
+        user: nextOwnerId,
         quoteNumber,
         date: new Date(),
         status: 'draft',

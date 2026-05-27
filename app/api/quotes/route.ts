@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { createActivityLog } from '@/db/repository/activity';
 import { createQuote, listQuotes, type QuoteStatus } from '@/db/repository/quote';
+import { getCompanyUserIdStrings } from '@/lib/company-scope';
+import { requireModulePermission } from '@/lib/role-matrix';
 import { buildValidationError } from '@/utils/api/validation';
 import getMe from '@/utils/middlewares/useMe';
 import { createQuoteSchema } from '@/validators/quote.schema';
@@ -11,6 +13,11 @@ export async function GET(request: NextRequest) {
     const me = await getMe(true);
     if (!me.success || !me.user) {
       return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
+    }
+
+    const permission = await requireModulePermission({ companyId: me.user.companyId, role: me.user.role, moduleKey: 'quotes', action: 'view' });
+    if (!permission.success) {
+      return NextResponse.json({ success: false, message: permission.message }, { status: permission.status });
     }
 
     const statusParam = request.nextUrl.searchParams.get('status');
@@ -38,7 +45,8 @@ export async function GET(request: NextRequest) {
     const page = Number.isFinite(pageParam) ? Math.max(1, pageParam) : 1;
     const limit = Number.isFinite(limitParam) ? Math.max(1, Math.min(100, limitParam)) : 10;
 
-    const result = await listQuotes(me.user.id, {
+    const scopedUserIds = await getCompanyUserIdStrings({ companyId: me.user.companyId, fallbackUserId: me.user.id });
+    const result = await listQuotes(scopedUserIds, {
       status: statusParam === 'pending' ? 'pending' : status,
       search: searchParam,
       sort,
@@ -67,6 +75,11 @@ export async function POST(request: NextRequest) {
     const me = await getMe(true);
     if (!me.success || !me.user) {
       return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
+    }
+
+    const permission = await requireModulePermission({ companyId: me.user.companyId, role: me.user.role, moduleKey: 'quotes', action: 'create' });
+    if (!permission.success) {
+      return NextResponse.json({ success: false, message: permission.message }, { status: permission.status });
     }
 
     const body = await request.json();

@@ -6,6 +6,7 @@ import Invoice from '@/db/models/Invoice';
 import Quote from '@/db/models/Quote';
 import Ticket from '@/db/models/Ticket';
 import { getFinancialSmartAlertsData } from '@/db/repository/financial-dashboard';
+import { getCompanyUserObjectIds } from '@/lib/company-scope';
 import getMe from '@/utils/middlewares/useMe';
 
 interface QuoteSidebarItem {
@@ -39,13 +40,14 @@ export async function GET() {
     await ConnectDb();
 
     const userObjectId = new mongoose.Types.ObjectId(me.user.id);
+    const scopedUserObjectIds = await getCompanyUserObjectIds({ companyId: me.user.companyId, fallbackUserId: me.user.id });
     const now = new Date();
 
     const [quoteDocs, invoiceDocs, unreadTicketCount, smartAlertsResult] = await Promise.all([
-      Quote.find({ user: userObjectId })
+      Quote.find({ user: { $in: scopedUserObjectIds } })
         .select('_id status createdAt updatedAt')
         .lean<Array<{ _id: mongoose.Types.ObjectId; status?: string; createdAt?: Date | null; updatedAt?: Date | null }>>(),
-      Invoice.find({ userId: userObjectId })
+      Invoice.find({ userId: { $in: scopedUserObjectIds } })
         .select('_id status dueDate createdAt updatedAt')
         .lean<Array<{ _id: mongoose.Types.ObjectId; status?: string; dueDate?: Date | null; createdAt?: Date | null; updatedAt?: Date | null }>>(),
       me.user.companyId && mongoose.Types.ObjectId.isValid(me.user.companyId)

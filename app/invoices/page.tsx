@@ -37,6 +37,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { useInvoices, type InvoiceListItem, type InvoiceStatusFilter } from '@/hooks/useInvoices';
 import { useInvoicesActionCount } from '@/hooks/useInvoicesActionCount';
 import FinancialTotalsBar from '@/components/ui/FinancialTotalsBar';
+import { useAuthMe } from '@/hooks/useAuthMe';
+import { getDefaultCrmLandingPath, hasModuleActionAccess } from '@/lib/route-access';
 
 const COLUMN_STORAGE_KEY = 'crm.invoice.visibleColumns.v1';
 const VIEW_STORAGE_KEY = 'crm.invoice.viewConfig.v1';
@@ -57,6 +59,7 @@ const DEFAULT_VISIBLE_COLUMNS: Record<InvoiceTableColumnKey, boolean> = {
 function InvoicesPageContent() {
   const router = useRouter();
   const { locale } = useLocale();
+  const { user, loading: authLoading } = useAuthMe();
   const t = {
     en: {
       shellTitle: 'Invoices',
@@ -295,6 +298,17 @@ function InvoicesPageContent() {
   const { allCount, unpaidCount, partialPaidCount, paidCount, overdueCount } = useInvoicesActionCount(
     pagination.total + invoices.length + Number(loading)
   );
+  const canViewInvoices = hasModuleActionAccess({ role: user?.role, modulePermissions: user?.modulePermissions, moduleKey: 'invoices', action: 'view' });
+  const canCreateInvoices = hasModuleActionAccess({ role: user?.role, modulePermissions: user?.modulePermissions, moduleKey: 'invoices', action: 'create' });
+  const canManageInvoices = hasModuleActionAccess({ role: user?.role, modulePermissions: user?.modulePermissions, moduleKey: 'invoices', action: 'manage' });
+
+  useEffect(() => {
+    if (authLoading || canViewInvoices) {
+      return;
+    }
+
+    router.replace(getDefaultCrmLandingPath(user?.role, user?.modulePermissions, user?.featureFlags));
+  }, [authLoading, canViewInvoices, router, user?.featureFlags, user?.modulePermissions, user?.role]);
 
   // ── KPI data ──────────────────────────────────────────────────────────────
   const [kpiData, setKpiData] = useState<{
@@ -778,12 +792,14 @@ function InvoicesPageContent() {
             <h1 className="font-heading text-2xl font-semibold tracking-tight">{t.heading}</h1>
             <p className="text-sm text-muted-foreground">{t.subtitle}</p>
           </div>
-          <Button type="button" className="h-10 w-full sm:w-auto" data-tour-new-invoice asChild>
-            <Link href="/invoices/new">
-              <PlusIcon className="size-4" />
-              {t.newInvoice}
-            </Link>
-          </Button>
+          {canCreateInvoices ? (
+            <Button type="button" className="h-10 w-full sm:w-auto" data-tour-new-invoice asChild>
+              <Link href="/invoices/new">
+                <PlusIcon className="size-4" />
+                {t.newInvoice}
+              </Link>
+            </Button>
+          ) : null}
         </div>
 
         {/* ── KPI cards row 1: per-status ───────────────────────────────────── */}
@@ -929,7 +945,11 @@ function InvoicesPageContent() {
         ) : null}
 
         {!loading && invoices.length === 0 ? (
-          <EmptyState message={t.empty} actionLabel={t.newInvoice} onAction={() => router.push('/invoices/new')} />
+          <EmptyState
+            message={t.empty}
+            actionLabel={canCreateInvoices ? t.newInvoice : undefined}
+            onAction={canCreateInvoices ? () => router.push('/invoices/new') : undefined}
+          />
         ) : (
           <>
             <div data-tour-invoices-table>
@@ -951,6 +971,7 @@ function InvoicesPageContent() {
                 setReminderTarget(invoice);
               }}
               onRecordPayment={setRecordPaymentTarget}
+              canManageActions={canManageInvoices}
               numberSortOrder={sort === 'number_asc' ? 'asc' : 'desc'}
               onToggleNumberSort={() => setSort((prev) => (prev === 'number_desc' ? 'number_asc' : 'number_desc'))}
               selectedInvoiceIds={selectedInvoiceIds}
@@ -1032,7 +1053,7 @@ function InvoicesPageContent() {
         )}
       </section>
 
-      {selectedInvoiceIds.length > 0 ? (
+      {canManageInvoices && selectedInvoiceIds.length > 0 ? (
         <div className="fixed right-4 bottom-4 left-4 z-40 rounded-xl border border-border/70 bg-card/95 p-3 shadow-lg backdrop-blur sm:max-w-[calc(100vw-2rem)] md:left-auto md:min-w-105">
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
             <p className="min-w-0 text-sm font-medium text-foreground sm:max-w-64">

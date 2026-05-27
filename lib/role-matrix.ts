@@ -19,7 +19,7 @@ export async function getEffectiveModulePermissions(params: {
     return defaults;
   }
 
-  if (normalizedRole === "super_admin" || normalizedRole === "administrator") {
+  if (normalizedRole === "super_admin") {
     return defaults;
   }
 

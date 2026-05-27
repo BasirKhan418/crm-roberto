@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getFinancialDashboardData } from "@/db/repository/financial-dashboard";
 import { requireCompanyFeature } from "@/lib/company-features";
 import { parseFinancialPeriodSearchParams } from "@/lib/financial-periods";
+import { requireModulePermission } from "@/lib/role-matrix";
 import getMe from "@/utils/middlewares/useMe";
 
 export async function GET(request: NextRequest) {
@@ -18,10 +19,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, message: featureCheck.message }, { status: featureCheck.status });
     }
 
+    const permission = await requireModulePermission({ companyId: me.user.companyId, role: me.user.role, moduleKey: "financialDashboard", action: "view" });
+    if (!permission.success) {
+      return NextResponse.json({ success: false, message: permission.message }, { status: permission.status });
+    }
+
     const result = await getFinancialDashboardData({
       companyId: me.user.companyId,
       userId: me.user.id,
       role: me.user.role,
+      allowFinancialDashboardAccess: true,
+      companyWideAccess: true,
       period: parseFinancialPeriodSearchParams(request.nextUrl.searchParams),
     });
 

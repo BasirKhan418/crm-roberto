@@ -9,6 +9,7 @@ import Payment from '@/db/models/Payment';
 import Quote from '@/db/models/Quote';
 import { createActivityLog } from '@/db/repository/activity';
 import { ensureInvoiceIndexes } from '@/db/repository/ensureInvoiceIndexes';
+import { buildUserScopeQuery, getCompanyUserObjectIds } from '@/lib/company-scope';
 import { getStartOfTomorrow, isInvoiceDueOnOrBeforeToday } from '@/lib/invoices/overdue';
 import { getNextInvoiceNumberForYear, isInvoiceNumberDuplicateError } from '@/lib/invoice-number';
 import { normalizeInvoiceNumberSearchTerm } from '@/lib/i18n/messages';
@@ -225,7 +226,8 @@ export async function GET(request: NextRequest) {
     }
 
     const tomorrowStart = getStartOfTomorrow();
-    const query: Record<string, unknown> = { userId: me.user.id };
+    const scopedUserObjectIds = await getCompanyUserObjectIds({ companyId: me.user.companyId, fallbackUserId: me.user.id });
+    const query: Record<string, unknown> = buildUserScopeQuery('userId', scopedUserObjectIds);
 
     if (clientIdParam) {
       query.clientId = new mongoose.Types.ObjectId(clientIdParam);
@@ -324,7 +326,7 @@ export async function GET(request: NextRequest) {
 
     if (paymentInvoiceIds.length > 0) {
       const paymentTimeline = await Payment.find({
-        userId: me.user.id,
+        ...buildUserScopeQuery('userId', scopedUserObjectIds),
         invoiceId: { $in: paymentInvoiceIds },
         status: 'succeeded',
       })
