@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import ConnectDb from "@/db/connectDb";
 import Company from "@/db/models/Company";
 import CompanyProfile from "@/db/models/CompanyProfile";
+import Expense from "@/db/models/Expense";
 import ExpenseAttachment from "@/db/models/ExpenseAttachment";
 import Invoice from "@/db/models/Invoice";
 import Payment from "@/db/models/Payment";
@@ -11,6 +12,7 @@ import Ticket from "@/db/models/Ticket";
 import User from "@/db/models/User";
 import { listExpenses } from "@/db/repository/expense";
 import { listExpenseCategories } from "@/db/repository/expenseCategory";
+import { createTicket } from "@/db/repository/ticket";
 import {
   getFinancialDashboardData,
   type FinancialDashboardData,
@@ -19,6 +21,11 @@ import {
   resolveFinancialPeriod,
   type FinancialPeriodSelection,
 } from "@/lib/financial-periods";
+import {
+  TICKET_ALLOWED_MIME_TYPES,
+  isTicketMimeTypeAllowed,
+} from "@/lib/tickets/constants";
+import type { AccountantPurchaseTicketReason } from "@/lib/tickets/accountant-purchase-ticket";
 
 type RepositoryErrorResult = {
   success: false;
@@ -90,6 +97,16 @@ type AccountantPurchaseInvoicesData = {
     totalRemainingCents: number;
   };
 };
+
+type AccountantPurchaseTicketData = {
+  ticketId: string;
+  ticket: Record<string, unknown>;
+  initialMessage: Record<string, unknown>;
+  recipientIds: string[];
+};
+
+type TicketAllowedMimeType =
+  (typeof TICKET_ALLOWED_MIME_TYPES)[number];
 
 type AccountantSalesInvoiceItem = {
   id: string;
@@ -718,6 +735,287 @@ export async function getAccountantSalesInvoicePdfData(params: {
       invoice,
       payments,
       profile,
+    },
+  };
+}
+
+function formatPortalMoney(cents: number, locale: "en" | "fr") {
+  return new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "en-GB", {
+    style: "currency",
+    currency: "EUR",
+  }).format(Math.max(0, cents) / 100);
+}
+
+function formatPortalDate(value: unknown, locale: "en" | "fr") {
+  const isoValue = toIsoStringOrNull(value);
+  if (!isoValue) {
+    return locale === "fr" ? "-" : "-";
+  }
+
+  return new Intl.DateTimeFormat(locale === "fr" ? "fr-FR" : "en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(isoValue));
+}
+
+function uniqueIds(values: Array<string | null | undefined>) {
+  return Array.from(new Set(values.filter((value): value is string => Boolean(value))));
+}
+
+function isPortalTicketMimeType(value: unknown): value is TicketAllowedMimeType {
+  return typeof value === "string" && isTicketMimeTypeAllowed(value);
+}
+
+function normalizePurchaseTicketReason(reason: AccountantPurchaseTicketReason, locale: "en" | "fr") {
+  const copy = {
+    en: {
+      missing_invoice: {
+        title: "Missing invoice",
+        prompt: "Please upload the missing invoice for this purchase so accounting can complete the review.",
+        type: "document",
+      },
+      need_clarification: {
+        title: "Need clarification",
+        prompt: "Please clarify the business context and any missing details for this purchase.",
+        type: "validation",
+      },
+      wrong_vat: {
+        title: "Wrong VAT",
+        prompt: "Please review the VAT treatment on this purchase and confirm the correct amount or rate.",
+        type: "accounting",
+      },
+      need_supporting_document: {
+        title: "Need supporting document",
+        prompt: "Please add the supporting document needed to finalize the accounting review for this purchase.",
+        type: "document",
+      },
+    },
+    fr: {
+      missing_invoice: {
+        title: "Facture manquante",
+        prompt: "Veuillez televerser la facture manquante pour cette depense afin que la comptabilite puisse terminer la revue.",
+        type: "document",
+      },
+      need_clarification: {
+        title: "Besoin de clarification",
+        prompt: "Veuillez preciser le contexte metier et les informations manquantes pour cette depense.",
+        type: "validation",
+      },
+      wrong_vat: {
+        title: "TVA incorrecte",
+        prompt: "Veuillez verifier le traitement TVA de cette depense et confirmer le bon montant ou taux.",
+        type: "accounting",
+      },
+      need_supporting_document: {
+        title: "Document justificatif requis",
+        prompt: "Veuillez ajouter le document justificatif necessaire pour finaliser la revue comptable de cette depense.",
+        type: "document",
+      },
+    },
+  } as const;
+
+  return copy[locale][reason];
+}
+
+async function resolvePortalPurchaseTicketRecipients(params: {
+  companyId: string;
+  expenseOwnerId?: string | null;
+}) {
+  const companyUsers = await User.find({
+    companyId: toObjectId(params.companyId),
+    accessRevokedAt: null,
+    account_status: { $ne: "suspended" },
+    role: { $ne: "external_accountant" },
+  })
+    .select("_id role")
+    .sort({ role: 1, name: 1, email: 1 })
+    .lean<Array<{ _id: mongoose.Types.ObjectId; role?: string | null }>>();
+
+  const ownerId =
+    params.expenseOwnerId && companyUsers.some((user) => String(user._id) === params.expenseOwnerId)
+      ? params.expenseOwnerId
+      : null;
+
+  const adminIds = companyUsers
+    .filter((user) => user.role === "administrator")
+    .map((user) => String(user._id));
+
+  const fallbackIds = companyUsers.slice(0, 3).map((user) => String(user._id));
+
+  return uniqueIds([ownerId, ...adminIds, ...fallbackIds]);
+}
+
+export async function createAccountantPurchaseTicket(params: {
+  companyId: string;
+  accountantUserId: string;
+  expenseId: string;
+  reason: AccountantPurchaseTicketReason;
+  note?: string | null;
+  locale: "en" | "fr";
+  ipAddress?: string | null;
+}): Promise<RepositoryResult<AccountantPurchaseTicketData>> {
+  if (
+    !isValidObjectId(params.companyId) ||
+    !isValidObjectId(params.accountantUserId) ||
+    !isValidObjectId(params.expenseId)
+  ) {
+    return { success: false, status: 400, message: "Invalid ticket context" };
+  }
+
+  await ConnectDb();
+
+  const expense = await Expense.findOne({
+    _id: toObjectId(params.expenseId),
+    companyId: toObjectId(params.companyId),
+    deletedAt: null,
+  })
+    .populate("supplierId", "fullName companyName")
+    .lean<{
+      _id: mongoose.Types.ObjectId;
+      status?: string | null;
+      paymentStatus?: string | null;
+      expenseDate?: Date | null;
+      dueDate?: Date | null;
+      amountInclVatCents?: number;
+      vatAmountCents?: number;
+      supplierRef?: string | null;
+      notes?: string | null;
+      createdBy?: mongoose.Types.ObjectId | null;
+      supplierId?: {
+        _id?: mongoose.Types.ObjectId;
+        fullName?: string | null;
+        companyName?: string | null;
+      } | null;
+    } | null>();
+
+  if (!expense) {
+    return { success: false, status: 404, message: "Purchase not found" };
+  }
+
+  if (expense.status && expense.status !== "active") {
+    return { success: false, status: 400, message: "Only active purchases can open a ticket" };
+  }
+
+  const attachments = await ExpenseAttachment.find({
+    companyId: toObjectId(params.companyId),
+    expenseId: expense._id,
+  })
+    .select("originalName displayName mimeType extension sizeBytes storageKey url checksum")
+    .sort({ createdAt: -1 })
+    .lean<
+      Array<{
+        originalName?: string;
+        displayName?: string;
+        mimeType?: string;
+        extension?: string;
+        sizeBytes?: number;
+        storageKey?: string;
+        url?: string;
+        checksum?: string | null;
+      }>
+    >();
+
+  const supplierLabel =
+    expense.supplierId?.companyName ||
+    expense.supplierId?.fullName ||
+    expense.supplierRef ||
+    `#${String(expense._id).slice(-6)}`;
+  const reasonMeta = normalizePurchaseTicketReason(params.reason, params.locale);
+  const recipientIds = await resolvePortalPurchaseTicketRecipients({
+    companyId: params.companyId,
+    expenseOwnerId: expense.createdBy ? String(expense.createdBy) : null,
+  });
+
+  const attachmentNames = attachments
+    .map((attachment) => attachment.displayName || attachment.originalName || null)
+    .filter((value): value is string => Boolean(value))
+    .slice(0, 6);
+  const attachmentSummary =
+    attachmentNames.length > 0
+      ? `${attachmentNames.join(", ")}${attachments.length > attachmentNames.length ? `${params.locale === "fr" ? ` (+${attachments.length - attachmentNames.length} autres)` : ` (+${attachments.length - attachmentNames.length} more)`}` : ""}`
+      : params.locale === "fr"
+        ? "Aucune piece jointe existante"
+        : "No existing attachments";
+
+  const bodyLines = params.locale === "fr"
+    ? [
+        "Ticket cree depuis le portail comptable ROBY.",
+        "",
+        `Motif: ${reasonMeta.title}`,
+        `Fournisseur: ${supplierLabel}`,
+        `Reference: ${expense.supplierRef || "-"}`,
+        `Date de depense: ${formatPortalDate(expense.expenseDate, params.locale)}`,
+        `Echeance: ${formatPortalDate(expense.dueDate, params.locale)}`,
+        `Total TTC: ${formatPortalMoney(toCents(expense.amountInclVatCents), params.locale)}`,
+        `TVA: ${formatPortalMoney(toCents(expense.vatAmountCents), params.locale)}`,
+        `Statut de paiement: ${expense.paymentStatus || "unpaid"}`,
+        `Pieces jointes liees: ${attachmentSummary}`,
+        expense.notes ? `Note de depense: ${expense.notes}` : null,
+        "",
+        reasonMeta.prompt,
+        params.note?.trim() ? "" : null,
+        params.note?.trim() ? `Message comptable: ${params.note.trim()}` : null,
+      ]
+    : [
+        "Ticket created from the ROBY accountant portal.",
+        "",
+        `Reason: ${reasonMeta.title}`,
+        `Supplier: ${supplierLabel}`,
+        `Reference: ${expense.supplierRef || "-"}`,
+        `Expense date: ${formatPortalDate(expense.expenseDate, params.locale)}`,
+        `Due date: ${formatPortalDate(expense.dueDate, params.locale)}`,
+        `Total incl. VAT: ${formatPortalMoney(toCents(expense.amountInclVatCents), params.locale)}`,
+        `VAT: ${formatPortalMoney(toCents(expense.vatAmountCents), params.locale)}`,
+        `Payment status: ${expense.paymentStatus || "unpaid"}`,
+        `Linked attachments: ${attachmentSummary}`,
+        expense.notes ? `Purchase note: ${expense.notes}` : null,
+        "",
+        reasonMeta.prompt,
+        params.note?.trim() ? "" : null,
+        params.note?.trim() ? `Accountant note: ${params.note.trim()}` : null,
+      ];
+
+  const created = await createTicket({
+    companyId: params.companyId,
+    createdBy: params.accountantUserId,
+    ipAddress: params.ipAddress,
+    payload: {
+      title: `${reasonMeta.title} - ${supplierLabel}`,
+      type: reasonMeta.type,
+      assignedTo: recipientIds,
+      linkedType: "expense",
+      linkedId: String(expense._id),
+      body: bodyLines.filter((line): line is string => typeof line === "string").join("\n"),
+      attachments: attachments
+        .filter(
+          (attachment): attachment is typeof attachment & { mimeType: TicketAllowedMimeType; storageKey: string; url: string } =>
+            Boolean(attachment.url && attachment.storageKey && isPortalTicketMimeType(attachment.mimeType))
+        )
+        .map((attachment) => ({
+          originalName: String(attachment.originalName || attachment.displayName || "attachment"),
+          displayName: String(attachment.displayName || attachment.originalName || "Attachment"),
+          mimeType: attachment.mimeType,
+          extension: String(attachment.extension || "file"),
+          sizeBytes: Math.max(0, Number(attachment.sizeBytes || 0)),
+          storageKey: String(attachment.storageKey),
+          url: String(attachment.url),
+          checksum: typeof attachment.checksum === "string" ? attachment.checksum : null,
+        })),
+    },
+  });
+
+  if (!created.success || !created.ticket || !created.initialMessage) {
+    return { success: false, status: 400, message: created.message || "Unable to create ticket" };
+  }
+
+  return {
+    success: true,
+    data: {
+      ticketId: String((created.ticket as { _id?: unknown })._id || ""),
+      ticket: created.ticket,
+      initialMessage: created.initialMessage,
+      recipientIds,
     },
   };
 }

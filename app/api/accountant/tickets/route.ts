@@ -1,9 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 
 import { authorizeAccountantTicketAccess } from "@/app/api/accountant/_shared/tickets";
+import { createAccountantPurchaseTicket } from "@/db/repository/accountant-portal";
 import { listTickets } from "@/db/repository/ticket";
+import { getClientIp } from "@/utils/api/request";
 import { buildValidationError } from "@/utils/api/validation";
 import { ticketListQuerySchema } from "@/validators/ticket.schema";
+import { ACCOUNTANT_PURCHASE_TICKET_REASONS } from "@/lib/tickets/accountant-purchase-ticket";
+
+const purchaseTicketSchema = z.object({
+  expenseId: z.string().trim().regex(/^[0-9a-fA-F]{24}$/, "Invalid expense id"),
+  reason: z.enum(ACCOUNTANT_PURCHASE_TICKET_REASONS),
+  note: z.string().trim().max(2500).optional().nullable(),
+  locale: z.enum(["en", "fr"]).optional().default("en"),
+});
 
 export async function GET(request: NextRequest) {
   try {
@@ -46,6 +57,54 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     return NextResponse.json(
       { success: false, message: `Error fetching accountant tickets: ${String(error)}` },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const auth = await authorizeAccountantTicketAccess();
+    if (!auth.success) {
+      return auth.response;
+    }
+
+    const body = await request.json();
+    const parsed = purchaseTicketSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(buildValidationError(parsed.error), { status: 400 });
+    }
+
+    const result = await createAccountantPurchaseTicket({
+      companyId: auth.context.user.companyId || "",
+      accountantUserId: auth.context.user.id,
+      expenseId: parsed.data.expenseId,
+      reason: parsed.data.reason,
+      note: parsed.data.note,
+      locale: parsed.data.locale,
+      ipAddress: getClientIp(request),
+    });
+
+    if (!result.success) {
+      return NextResponse.json({ success: false, message: result.message }, { status: result.status });
+    }
+
+    return NextResponse.json(
+      {
+        success: true,
+        message: "Purchase ticket created successfully",
+        ticket: result.data.ticket,
+        initialMessage: result.data.initialMessage,
+        data: {
+          ticketId: result.data.ticketId,
+          recipientIds: result.data.recipientIds,
+        },
+      },
+      { status: 201 }
+    );
+  } catch (error) {
+    return NextResponse.json(
+      { success: false, message: `Error creating accountant ticket: ${String(error)}` },
       { status: 500 }
     );
   }

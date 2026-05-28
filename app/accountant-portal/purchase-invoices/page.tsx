@@ -1,11 +1,20 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
-import { Download, Loader2, Paperclip } from 'lucide-react';
+import { Download, Loader2, MessageSquarePlus, Paperclip } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { FinancialPeriodSelector } from '@/components/dashboard/financial-period-selector';
 import { useLocale } from '@/components/providers/locale-provider';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -14,10 +23,14 @@ import ErrorMessage from '@/components/ui/ErrorMessage';
 import { PriceDisplay } from '@/components/ui/PriceDisplay';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Textarea } from '@/components/ui/textarea';
+import { createAccountantExpenseTicket } from '@/hooks/useAccountantTickets';
 import { buildFinancialPeriodSearchParams, getDefaultFinancialPeriodSelection, type FinancialPeriodSelection } from '@/lib/financial-periods';
+import { ACCOUNTANT_PURCHASE_TICKET_REASONS, type AccountantPurchaseTicketReason } from '@/lib/tickets/accountant-purchase-ticket';
 import { cn } from '@/lib/utils';
 
 type LookupData = {
@@ -40,6 +53,7 @@ type PurchaseInvoiceItem = {
   attachments: Array<{ id: string; displayName: string; url: string }>;
   supplier: { fullName: string; companyName: string | null } | null;
   category: { name: string; nameEn: string | null; nameFr: string | null } | null;
+  notes?: string | null;
 };
 
 type PurchaseInvoiceResponse = {
@@ -85,6 +99,29 @@ const purchaseCopy = {
     pageSummary: 'results',
     prev: 'Prev',
     next: 'Next',
+    ticketAction: 'Create ticket',
+    ticketActionHint: 'Contact client in ROBY',
+    ticketDialogTitle: 'Create purchase ticket',
+    ticketDialogDescription: 'Start a linked ticket from this purchase and open the conversation immediately.',
+    ticketDialogReason: 'Issue type',
+    ticketDialogMessage: 'Accountant note',
+    ticketDialogMessagePlaceholder: 'Add the exact clarification or document request the client should answer.',
+    ticketDialogPurchase: 'Selected purchase',
+    ticketDialogAttachments: 'Attachments linked automatically',
+    ticketDialogNotes: 'Purchase note',
+    ticketDialogCancel: 'Cancel',
+    ticketDialogSubmit: 'Create ticket and open thread',
+    ticketDialogSubmitting: 'Creating ticket...',
+    ticketCreated: 'Ticket created. Opening thread...',
+    ticketCreateFailed: 'Failed to create purchase ticket',
+    ticketReason_missing_invoice: 'Missing invoice',
+    ticketReason_missing_invoice_hint: 'Ask the client to add the missing invoice file.',
+    ticketReason_need_clarification: 'Need clarification',
+    ticketReason_need_clarification_hint: 'Ask for missing business details or context.',
+    ticketReason_wrong_vat: 'Wrong VAT',
+    ticketReason_wrong_vat_hint: 'Request confirmation or correction of the VAT treatment.',
+    ticketReason_need_supporting_document: 'Need supporting document',
+    ticketReason_need_supporting_document_hint: 'Request a receipt, contract, or other supporting evidence.',
   },
   fr: {
     title: 'Factures d achat',
@@ -122,6 +159,29 @@ const purchaseCopy = {
     pageSummary: 'resultats',
     prev: 'Prec',
     next: 'Suiv',
+    ticketAction: 'Creer un ticket',
+    ticketActionHint: 'Contacter le client dans ROBY',
+    ticketDialogTitle: 'Creer un ticket pour la depense',
+    ticketDialogDescription: 'Demarrez un ticket lie a cette depense et ouvrez la conversation immediatement.',
+    ticketDialogReason: 'Type de demande',
+    ticketDialogMessage: 'Note comptable',
+    ticketDialogMessagePlaceholder: 'Ajoutez la clarification precise ou le document que le client doit fournir.',
+    ticketDialogPurchase: 'Depense selectionnee',
+    ticketDialogAttachments: 'Pieces jointes liees automatiquement',
+    ticketDialogNotes: 'Note de depense',
+    ticketDialogCancel: 'Annuler',
+    ticketDialogSubmit: 'Creer le ticket et ouvrir le fil',
+    ticketDialogSubmitting: 'Creation du ticket...',
+    ticketCreated: 'Ticket cree. Ouverture du fil...',
+    ticketCreateFailed: 'Impossible de creer le ticket de depense',
+    ticketReason_missing_invoice: 'Facture manquante',
+    ticketReason_missing_invoice_hint: 'Demandez au client d ajouter la facture manquante.',
+    ticketReason_need_clarification: 'Besoin de clarification',
+    ticketReason_need_clarification_hint: 'Demandez les details metier ou le contexte manquant.',
+    ticketReason_wrong_vat: 'TVA incorrecte',
+    ticketReason_wrong_vat_hint: 'Demandez confirmation ou correction du traitement TVA.',
+    ticketReason_need_supporting_document: 'Document justificatif requis',
+    ticketReason_need_supporting_document_hint: 'Demandez un recu, contrat ou autre justificatif.',
   },
 } as const;
 
@@ -168,6 +228,7 @@ function getPaymentBadgeClass(status: string) {
 }
 
 export default function AccountantPortalPurchaseInvoicesPage() {
+  const router = useRouter();
   const { locale } = useLocale();
   const t = purchaseCopy[locale];
   const priceLocale = locale === 'fr' ? 'fr-FR' : 'en-IE';
@@ -186,6 +247,11 @@ export default function AccountantPortalPurchaseInvoicesPage() {
   const [data, setData] = useState<PurchaseInvoiceResponse | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [downloadingZip, setDownloadingZip] = useState(false);
+  const [ticketDialogOpen, setTicketDialogOpen] = useState(false);
+  const [ticketTarget, setTicketTarget] = useState<PurchaseInvoiceItem | null>(null);
+  const [ticketReason, setTicketReason] = useState<AccountantPurchaseTicketReason>('missing_invoice');
+  const [ticketNote, setTicketNote] = useState('');
+  const [creatingTicket, setCreatingTicket] = useState(false);
 
   function extractFileName(disposition: string | null, fallback: string) {
     if (!disposition) return fallback;
@@ -311,6 +377,48 @@ export default function AccountantPortalPurchaseInvoicesPage() {
       setDownloadingZip(false);
     }
   }
+
+  function openTicketDialog(item: PurchaseInvoiceItem) {
+    setTicketTarget(item);
+    setTicketReason('missing_invoice');
+    setTicketNote('');
+    setTicketDialogOpen(true);
+  }
+
+  async function createTicketFromPurchase() {
+    if (!ticketTarget || creatingTicket) {
+      return;
+    }
+
+    setCreatingTicket(true);
+    try {
+      const payload = await createAccountantExpenseTicket({
+        expenseId: ticketTarget.id,
+        reason: ticketReason,
+        note: ticketNote.trim() || null,
+        locale,
+      });
+
+      const createdTicketId = payload.data?.ticketId || payload.ticket?._id;
+      if (!createdTicketId) {
+        throw new Error(t.ticketCreateFailed);
+      }
+
+      toast.success(t.ticketCreated);
+      setTicketDialogOpen(false);
+      router.push(`/accountant-portal/tickets/${createdTicketId}`);
+    } catch (ticketError) {
+      toast.error(ticketError instanceof Error ? ticketError.message : t.ticketCreateFailed);
+    } finally {
+      setCreatingTicket(false);
+    }
+  }
+
+  const ticketReasonOptions = ACCOUNTANT_PURCHASE_TICKET_REASONS.map((reason) => ({
+    value: reason,
+    label: t[`ticketReason_${reason}`],
+    hint: t[`ticketReason_${reason}_hint`],
+  }));
 
   return (
     <div className="space-y-6">
@@ -471,30 +579,50 @@ export default function AccountantPortalPurchaseInvoicesPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        {item.attachments.length > 0 ? (
-                          <div className="flex flex-wrap gap-2">
-                            {item.attachments.slice(0, 2).map((attachment) => (
-                              <a
-                                key={attachment.id}
-                                href={attachment.url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="inline-flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-700 hover:bg-sky-100 dark:border-sky-900/60 dark:bg-sky-950/30 dark:text-sky-300 dark:hover:bg-sky-950/50"
-                              >
-                                <Download className="size-3" />
-                                {attachment.displayName}
-                              </a>
-                            ))}
-                            {item.attachmentsCount > item.attachments.length ? (
-                              <span className="inline-flex items-center gap-1 rounded-full border border-dashed border-slate-300 px-2.5 py-1 text-xs text-muted-foreground dark:border-slate-700">
-                                <Paperclip className="size-3" />
-                                +{item.attachmentsCount - item.attachments.length}
+                        <div className="space-y-2.5">
+                          {item.attachments.length > 0 ? (
+                            <div className="flex flex-wrap gap-2">
+                              {item.attachments.slice(0, 2).map((attachment) => (
+                                <a
+                                  key={attachment.id}
+                                  href={attachment.url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-700 hover:bg-sky-100 dark:border-sky-900/60 dark:bg-sky-950/30 dark:text-sky-300 dark:hover:bg-sky-950/50"
+                                >
+                                  <Download className="size-3" />
+                                  {attachment.displayName}
+                                </a>
+                              ))}
+                              {item.attachmentsCount > item.attachments.length ? (
+                                <span className="inline-flex items-center gap-1 rounded-full border border-dashed border-slate-300 px-2.5 py-1 text-xs text-muted-foreground dark:border-slate-700">
+                                  <Paperclip className="size-3" />
+                                  +{item.attachmentsCount - item.attachments.length}
+                                </span>
+                              ) : null}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">-</span>
+                          )}
+
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-auto w-full justify-start whitespace-normal rounded-xl border-slate-200 bg-slate-50 px-3 py-2 text-left hover:bg-slate-100"
+                            onClick={() => openTicketDialog(item)}
+                          >
+                            <span className="flex min-w-0 items-center gap-2.5">
+                              <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-white text-slate-700 ring-1 ring-slate-200">
+                                <MessageSquarePlus className="size-4" />
                               </span>
-                            ) : null}
-                          </div>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">-</span>
-                        )}
+                              <span className="min-w-0">
+                                <span className="block font-semibold text-slate-900">{t.ticketAction}</span>
+                                <span className="block text-xs font-normal text-muted-foreground">{t.ticketActionHint}</span>
+                              </span>
+                            </span>
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -515,6 +643,82 @@ export default function AccountantPortalPurchaseInvoicesPage() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={ticketDialogOpen} onOpenChange={(open) => {
+        if (!creatingTicket) {
+          setTicketDialogOpen(open);
+        }
+      }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{t.ticketDialogTitle}</DialogTitle>
+            <DialogDescription>{t.ticketDialogDescription}</DialogDescription>
+          </DialogHeader>
+
+          {ticketTarget ? (
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{t.ticketDialogPurchase}</p>
+                <div className="mt-2 space-y-1.5 text-sm text-slate-700">
+                  <p className="text-base font-semibold text-slate-950">{ticketTarget.supplier?.fullName || ticketTarget.supplierRef || '-'}</p>
+                  <p>{t.referenceLabel}: {ticketTarget.supplierRef || '-'}</p>
+                  <p>{t.date}: {ticketTarget.expenseDate ? new Date(ticketTarget.expenseDate).toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-GB') : '-'}</p>
+                  <p>{t.total}: <span className="font-semibold"><PriceDisplay cents={ticketTarget.amountInclVatCents} locale={priceLocale} /></span></p>
+                  <p>{t.ticketDialogAttachments}: {ticketTarget.attachmentsCount}</p>
+                  {ticketTarget.notes ? <p>{t.ticketDialogNotes}: {ticketTarget.notes}</p> : null}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>{t.ticketDialogReason}</Label>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {ticketReasonOptions.map((option) => {
+                    const active = ticketReason === option.value;
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => setTicketReason(option.value)}
+                        className={cn(
+                          'rounded-2xl border px-3 py-3 text-left transition-colors',
+                          active
+                            ? 'border-[#001e3c] bg-[#001e3c]/5 shadow-sm'
+                            : 'border-slate-200 bg-white hover:bg-slate-50'
+                        )}
+                      >
+                        <span className="block font-semibold text-slate-950">{option.label}</span>
+                        <span className="mt-1 block text-xs text-muted-foreground">{option.hint}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="purchase-ticket-note">{t.ticketDialogMessage}</Label>
+                <Textarea
+                  id="purchase-ticket-note"
+                  rows={4}
+                  value={ticketNote}
+                  onChange={(event) => setTicketNote(event.target.value)}
+                  placeholder={t.ticketDialogMessagePlaceholder}
+                  maxLength={2500}
+                />
+              </div>
+            </div>
+          ) : null}
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setTicketDialogOpen(false)} disabled={creatingTicket}>
+              {t.ticketDialogCancel}
+            </Button>
+            <Button type="button" onClick={() => void createTicketFromPurchase()} disabled={!ticketTarget || creatingTicket}>
+              {creatingTicket ? <Loader2 className="size-4 animate-spin" /> : <MessageSquarePlus className="size-4" />}
+              {creatingTicket ? t.ticketDialogSubmitting : t.ticketDialogSubmit}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
