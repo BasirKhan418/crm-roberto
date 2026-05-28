@@ -710,7 +710,7 @@ function formatAccountingRows(rows: RawAccountingRow[]): AccountingRow[] {
 function buildAccountingExportRows(rows: AccountingRow[], locale: ExportLocale): ExportRow[] {
   return rows.map((row) => {
     if (locale === "fr") {
-      return {
+      const exportRow: ExportRow = {
         "Source": row.sourceId,
         "Type": localizeTypeLabel(row.type, locale),
         "Date": row.date,
@@ -722,9 +722,10 @@ function buildAccountingExportRows(rows: AccountingRow[], locale: ExportLocale):
         "TVA": row.vat,
         "Montant TTC": row.includingVat,
       };
+      return exportRow;
     }
 
-    return {
+    const exportRow: ExportRow = {
       "Source": row.sourceId,
       "Type": localizeTypeLabel(row.type, locale),
       "Date": row.date,
@@ -736,6 +737,7 @@ function buildAccountingExportRows(rows: AccountingRow[], locale: ExportLocale):
       "VAT": row.vat,
       "Amount incl. VAT": row.includingVat,
     };
+    return exportRow;
   });
 }
 
@@ -754,7 +756,7 @@ function buildJournalExportRows(rows: RawAccountingRow[], locale: ExportLocale):
     };
 
     if (locale === "fr") {
-      return {
+      const localizedRow: ExportRow = {
         "Date": exportRow.date,
         "Référence": exportRow.reference,
         "Tiers": exportRow.counterparty,
@@ -765,9 +767,10 @@ function buildJournalExportRows(rows: RawAccountingRow[], locale: ExportLocale):
         "TVA": exportRow.vat,
         "TTC": exportRow.includingVat,
       };
+      return localizedRow;
     }
 
-    return {
+    const localizedRow: ExportRow = {
       "Date": exportRow.date,
       "Reference": exportRow.reference,
       "Counterparty": exportRow.counterparty,
@@ -778,6 +781,7 @@ function buildJournalExportRows(rows: RawAccountingRow[], locale: ExportLocale):
       "VAT": exportRow.vat,
       "Gross": exportRow.includingVat,
     };
+    return localizedRow;
   });
 }
 
@@ -830,22 +834,24 @@ function buildVatSummaryRows(rows: RawAccountingRow[], locale: ExportLocale): Va
 function buildVatSummaryExportRows(rows: VatSummaryRow[], locale: ExportLocale): ExportRow[] {
   return rows.map((row) => {
     if (locale === "fr") {
-      return {
+      const exportRow: ExportRow = {
         "Rubrique": row.section,
         "Nb écritures": row.entryCount,
         "HT": row.excludingVat,
         "TVA": row.vat,
         "TTC": row.includingVat,
       };
+      return exportRow;
     }
 
-    return {
+    const exportRow: ExportRow = {
       "Section": row.section,
       "Entries": row.entryCount,
       "Net": row.excludingVat,
       "VAT": row.vat,
       "Gross": row.includingVat,
     };
+    return exportRow;
   });
 }
 
@@ -955,9 +961,9 @@ function buildGeneralLedgerExportRows(rows: GeneralLedgerRow[], locale: ExportLo
   const totalDebitCents = rows.reduce((sum, row) => sum + row.debitCents, 0);
   const totalCreditCents = rows.reduce((sum, row) => sum + row.creditCents, 0);
 
-  const exportRows = rows.map((row) => {
+  const exportRows: ExportRow[] = rows.map((row) => {
     if (locale === "fr") {
-      return {
+      const exportRow: ExportRow = {
         "Date": row.date,
         "Type": localizeTypeLabel(row.type, locale),
         "Référence": row.reference,
@@ -970,9 +976,10 @@ function buildGeneralLedgerExportRows(rows: GeneralLedgerRow[], locale: ExportLo
         "Statut": localizeStatusLabel(row.status, locale),
         "Confirmation solde": "",
       };
+      return exportRow;
     }
 
-    return {
+    const exportRow: ExportRow = {
       "Date": row.date,
       "Type": localizeTypeLabel(row.type, locale),
       "Reference": row.reference,
@@ -985,6 +992,7 @@ function buildGeneralLedgerExportRows(rows: GeneralLedgerRow[], locale: ExportLo
       "Status": localizeStatusLabel(row.status, locale),
       "Balance confirmation": "",
     };
+    return exportRow;
   });
 
   if (locale === "fr") {
@@ -1108,16 +1116,18 @@ function buildExportInfoRows(params: {
 
   return infoEntries.map(([label, value]) => {
     if (params.locale === "fr") {
-      return {
+      const exportRow: ExportRow = {
         "Paramètre": label,
         "Valeur": value,
       };
+      return exportRow;
     }
 
-    return {
+    const exportRow: ExportRow = {
       "Parameter": label,
       "Value": value,
     };
+    return exportRow;
   });
 }
 

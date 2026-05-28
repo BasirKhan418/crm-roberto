@@ -129,12 +129,13 @@ export default function AccountantPortalExportsPage() {
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [downloadingKey, setDownloadingKey] = useState<string | null>(null);
   const availableStatuses = STATUS_OPTIONS[scope];
+  const availableStatusValues: readonly string[] = availableStatuses;
 
   useEffect(() => {
-    if (status !== 'all' && !availableStatuses.includes(status as (typeof availableStatuses)[number])) {
+    if (status !== 'all' && !availableStatusValues.includes(status)) {
       setStatus('all');
     }
-  }, [availableStatuses, status]);
+  }, [availableStatusValues, status]);
 
   useEffect(() => {
     const controller = new AbortController();
