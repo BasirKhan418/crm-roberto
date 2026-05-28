@@ -19,7 +19,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAccountantTickets } from '@/hooks/useAccountantTickets';
 import { formatInvoiceReferencesInText } from '@/lib/i18n/messages';
-import { TICKET_STATUSES, type TicketStatus, type TicketType } from '@/lib/tickets/constants';
+import { getTicketStatusLabel, getTicketTypeLabel } from '@/lib/tickets/i18n';
+import { TICKET_STATUSES, type TicketStatus } from '@/lib/tickets/constants';
 
 const STATUS_ROW_BG: Record<TicketStatus, string> = {
   open: 'rgba(14, 165, 233, 0.05)',
@@ -57,15 +58,6 @@ function resolveUserName(user: unknown, fallback: string) {
   return candidate.name?.trim() || candidate.email?.trim() || fallback;
 }
 
-function resolveTypeLabel(type: TicketType, locale: 'en' | 'fr') {
-  const labels = {
-    en: { accounting: 'Accounting', validation: 'Validation', document: 'Document', dispute: 'Dispute' },
-    fr: { accounting: 'Comptabilite', validation: 'Validation', document: 'Document', dispute: 'Litige' },
-  } as const;
-
-  return labels[locale][type] || type;
-}
-
 const copy = {
   en: {
     title: 'Tickets',
@@ -89,7 +81,7 @@ const copy = {
   },
   fr: {
     title: 'Tickets',
-    subtitle: 'Discussions assignees pour cette entreprise. Repondez et resolvez depuis le portail.',
+    subtitle: 'Discussions assignées pour cette entreprise. Répondez et résolvez depuis le portail.',
     filters: 'Filtres',
     search: 'Rechercher titre ou message',
     status: 'Statut',
@@ -97,15 +89,15 @@ const copy = {
     unreadOnly: 'Non lus seulement',
     refresh: 'Actualiser',
     open: 'Ouvrir',
-    createdBy: 'Cree par',
-    assignedTo: 'Assigne a',
+    createdBy: 'Créé par',
+    assignedTo: 'Assigné à',
     messages: 'Messages',
-    updatedAt: 'Mis a jour',
-    empty: 'Aucun ticket assigne ne correspond a ces filtres.',
+    updatedAt: 'Mis à jour',
+    empty: 'Aucun ticket assigné ne correspond à ces filtres.',
     page: 'Page',
-    previous: 'Precedent',
+    previous: 'Précédent',
     next: 'Suivant',
-    filterHint: 'Les cartes colorees rendent le statut, les non lus et l attribution plus faciles a lire.',
+    filterHint: 'Les cartes colorées rendent le statut, les non lus et l’attribution plus faciles à lire.',
   },
 } as const;
 
@@ -173,7 +165,7 @@ export default function AccountantPortalTicketsPage() {
                 <SelectContent>
                   <SelectItem value="all">{t.all}</SelectItem>
                   {TICKET_STATUSES.map((status) => (
-                    <SelectItem key={status} value={status}>{status.replace('_', ' ')}</SelectItem>
+                    <SelectItem key={status} value={status}>{getTicketStatusLabel(status, locale)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -216,7 +208,7 @@ export default function AccountantPortalTicketsPage() {
                         <div className="flex flex-wrap items-center gap-2">
                           <h2 className="text-lg font-semibold text-slate-950">{formatInvoiceReferencesInText(locale, ticket.title)}</h2>
                           <Badge variant="secondary" className="border-white/70 bg-white/80 text-slate-700 dark:border-slate-800/70 dark:bg-slate-950/60 dark:text-slate-200">
-                            {resolveTypeLabel(ticket.type, locale)}
+                            {getTicketTypeLabel(ticket.type, locale)}
                           </Badge>
                           <TicketStatusBadge status={ticket.status} locale={locale} />
                           <TicketUnreadIndicator unreadCount={ticket.unreadCount} locale={locale} />

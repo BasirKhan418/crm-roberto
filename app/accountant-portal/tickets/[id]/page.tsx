@@ -19,7 +19,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { changeAccountantTicketStatus, replyAccountantTicket, uploadAccountantTicketFiles, useAccountantTicketThread } from '@/hooks/useAccountantTickets';
 import type { TicketAttachment, TicketMessage } from '@/hooks/useTickets';
 import { formatInvoiceReferencesInText } from '@/lib/i18n/messages';
-import type { TicketStatus, TicketType } from '@/lib/tickets/constants';
+import { getTicketLinkedTypeLabel, getTicketStatusLabel, getTicketTypeLabel } from '@/lib/tickets/i18n';
+import type { TicketStatus } from '@/lib/tickets/constants';
 
 const FILE_ACCEPT = '.pdf,.jpg,.jpeg,.png,.heic';
 
@@ -78,14 +79,6 @@ function resolveUserName(value: unknown, fallback: string) {
   return typed.name?.trim() || typed.email?.trim() || fallback;
 }
 
-function resolveTypeLabel(type: TicketType, locale: 'en' | 'fr') {
-  const labels = {
-    en: { accounting: 'Accounting', validation: 'Validation', document: 'Document', dispute: 'Dispute' },
-    fr: { accounting: 'Comptabilite', validation: 'Validation', document: 'Document', dispute: 'Litige' },
-  } as const;
-  return labels[locale][type] || type;
-}
-
 function resolveMessageAuthor(message: TicketMessage, locale: 'en' | 'fr') {
   const fallback = locale === 'fr' ? 'Collaborateur' : 'Teammate';
   return resolveUserName(message.author || message.authorId, fallback);
@@ -95,13 +88,11 @@ function resolveLinkedRecordLabel(linkedType: string | null | undefined, linkedI
   const id = resolveUserId(linkedId);
   if (!linkedType) return '-';
 
-  const labels = {
-    en: { expense: 'Expense', invoice: 'Invoice', supplier: 'Supplier', client: 'Client' },
-    fr: { expense: 'Depense', invoice: 'Facture', supplier: 'Fournisseur', client: 'Client' },
-  } as const;
+  if (linkedType === 'expense' || linkedType === 'invoice' || linkedType === 'supplier' || linkedType === 'client') {
+    return `${getTicketLinkedTypeLabel(linkedType, locale)}${id ? ` #${id.slice(-6)}` : ''}`;
+  }
 
-  const typed = linkedType as keyof typeof labels.en;
-  return `${labels[locale][typed] || linkedType}${id ? ` #${id.slice(-6)}` : ''}`;
+  return `${linkedType}${id ? ` #${id.slice(-6)}` : ''}`;
 }
 
 const copy = {
@@ -138,33 +129,33 @@ const copy = {
   },
   fr: {
     title: 'Fil du ticket',
-    subtitle: 'Repondez aux tickets assignes et faites avancer leur resolution.',
+    subtitle: 'Répondez aux tickets assignés et faites avancer leur résolution.',
     back: 'Retour aux tickets',
     refresh: 'Actualiser',
     type: 'Type',
-    createdBy: 'Cree par',
-    assignedTo: 'Assigne a',
-    linkedRecord: 'Ressource liee',
-    createdAt: 'Cree le',
-    updatedAt: 'Mis a jour le',
+    createdBy: 'Créé par',
+    assignedTo: 'Assigné à',
+    linkedRecord: 'Ressource liée',
+    createdAt: 'Créé le',
+    updatedAt: 'Mis à jour le',
     status: 'Statut',
-    updateStatus: 'Mettre a jour',
-    reply: 'Repondre',
-    replyDescription: 'Publiez une reponse, demandez des fichiers manquants ou faites avancer le ticket.',
-    replyPlaceholder: 'Ecrivez votre mise a jour...',
+    updateStatus: 'Mettre à jour',
+    reply: 'Répondre',
+    replyDescription: 'Publiez une réponse, demandez des fichiers manquants ou faites avancer le ticket.',
+    replyPlaceholder: 'Écrivez votre mise à jour...',
     addFiles: 'Ajouter des fichiers',
-    sendReply: 'Envoyer la reponse',
+    sendReply: 'Envoyer la réponse',
     sending: 'Envoi...',
-    archivedReadOnly: 'Les tickets archives sont en lecture seule.',
-    statusUpdated: 'Statut mis a jour',
-    statusFailed: 'Echec de mise a jour du statut',
-    replySent: 'Reponse envoyee',
-    replyFailed: 'Echec d envoi de la reponse',
+    archivedReadOnly: 'Les tickets archivés sont en lecture seule.',
+    statusUpdated: 'Statut mis à jour',
+    statusFailed: 'Échec de mise à jour du statut',
+    replySent: 'Réponse envoyée',
+    replyFailed: 'Échec d’envoi de la réponse',
     empty: 'Aucun message dans ce fil.',
     notFound: 'Ticket introuvable.',
-    attachments: 'Pieces jointes',
+    attachments: 'Pièces jointes',
     conversation: 'Conversation',
-    conversationDescription: 'Tout ce qui a deja ete partage sur ce ticket reste groupe au meme endroit.',
+    conversationDescription: 'Tout ce qui a déjà été partagé sur ce ticket reste groupé au même endroit.',
     messageNumber: (value: number) => `Message ${value}`,
   },
 } as const;
@@ -312,9 +303,9 @@ export default function AccountantPortalTicketDetailPage() {
                       </SelectTrigger>
                       <SelectContent>
                         {['open', 'waiting', 'replied', 'resolved'].map((status) => (
-                          <SelectItem key={status} value={status}>{status.replace('_', ' ')}</SelectItem>
+                          <SelectItem key={status} value={status}>{getTicketStatusLabel(status as TicketStatus, locale)}</SelectItem>
                         ))}
-                        {ticket.status === 'archived' ? <SelectItem value="archived">archived</SelectItem> : null}
+                        {ticket.status === 'archived' ? <SelectItem value="archived">{getTicketStatusLabel('archived', locale)}</SelectItem> : null}
                       </SelectContent>
                     </Select>
                     </div>
@@ -329,7 +320,7 @@ export default function AccountantPortalTicketDetailPage() {
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                 <div className="rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-sm">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">{t.type}</p>
-                  <p className="mt-2 text-sm font-medium text-slate-950">{resolveTypeLabel(ticket.type, locale)}</p>
+                  <p className="mt-2 text-sm font-medium text-slate-950">{getTicketTypeLabel(ticket.type, locale)}</p>
                 </div>
                 <div className="rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-sm">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">{t.createdBy}</p>

@@ -19,6 +19,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useAuthMe } from '@/hooks/useAuthMe';
 import { type TicketListItem, useTickets } from '@/hooks/useTickets';
 import { formatInvoiceReferencesInText } from '@/lib/i18n/messages';
+import { getTicketLinkedTypeLabel, getTicketStatusLabel, getTicketTypeLabel } from '@/lib/tickets/i18n';
 import {
   TICKET_LINKED_TYPES,
   TICKET_STATUSES,
@@ -84,44 +85,6 @@ function buildLinkedRecordPath(ticket: TicketListItem): string | null {
   if (ticket.linkedType === 'client') return `/clients/${linkedId}`;
 
   return null;
-}
-
-function buildTypeLabel(type: TicketType, locale: 'en' | 'fr') {
-  const labels = {
-    en: {
-      accounting: 'Accounting',
-      validation: 'Validation',
-      document: 'Document',
-      dispute: 'Dispute',
-    },
-    fr: {
-      accounting: 'Comptabilité',
-      validation: 'Validation',
-      document: 'Document',
-      dispute: 'Litige',
-    },
-  } as const;
-
-  return labels[locale][type] || type;
-}
-
-function buildLinkedTypeLabel(type: TicketLinkedType, locale: 'en' | 'fr') {
-  const labels = {
-    en: {
-      expense: 'Expense',
-      invoice: 'Invoice',
-      supplier: 'Supplier',
-      client: 'Client',
-    },
-    fr: {
-      expense: 'Dépense',
-      invoice: 'Facture',
-      supplier: 'Fournisseur',
-      client: 'Client',
-    },
-  } as const;
-
-  return labels[locale][type] || type;
 }
 
 export default function TicketsPage() {
@@ -228,7 +191,6 @@ export default function TicketsPage() {
       next: 'Next',
       linkedRecord: 'Linked record',
       loadError: 'Could not load tickets.',
-      statusLabels: { open: 'Open', waiting: 'Waiting', replied: 'Replied', resolved: 'Resolved', archived: 'Archived' },
     },
     fr: {
       shellTitle: 'Tickets',
@@ -265,7 +227,6 @@ export default function TicketsPage() {
       next: 'Suivant',
       linkedRecord: 'Ressource liée',
       loadError: 'Impossible de charger les tickets.',
-      statusLabels: { open: 'Ouvert', waiting: 'En attente', replied: 'Répondu', resolved: 'Résolu', archived: 'Archivé' },
     },
   }[locale];
 
@@ -336,7 +297,7 @@ export default function TicketsPage() {
             <select className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm" value={statusFilter} onChange={(event) => { setStatusFilter((event.target.value || '') as TicketStatus | ''); setPage(1); }}>
               <option value="">{t.all}</option>
               {TICKET_STATUSES.map((status) => (
-                <option key={status} value={status}>{t.statusLabels[status as keyof typeof t.statusLabels] ?? status}</option>
+                <option key={status} value={status}>{getTicketStatusLabel(status, locale)}</option>
               ))}
             </select>
           </div>
@@ -346,7 +307,7 @@ export default function TicketsPage() {
             <select className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm" value={typeFilter} onChange={(event) => { setTypeFilter((event.target.value || '') as TicketType | ''); setPage(1); }}>
               <option value="">{t.all}</option>
               {TICKET_TYPES.map((type) => (
-                <option key={type} value={type}>{buildTypeLabel(type, locale)}</option>
+                <option key={type} value={type}>{getTicketTypeLabel(type, locale)}</option>
               ))}
             </select>
           </div>
@@ -356,7 +317,7 @@ export default function TicketsPage() {
             <select className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm" value={linkedTypeFilter} onChange={(event) => { setLinkedTypeFilter((event.target.value || '') as TicketLinkedType | ''); setPage(1); }}>
               <option value="">{t.all}</option>
               {TICKET_LINKED_TYPES.map((linkedType) => (
-                <option key={linkedType} value={linkedType}>{buildLinkedTypeLabel(linkedType, locale)}</option>
+                <option key={linkedType} value={linkedType}>{getTicketLinkedTypeLabel(linkedType, locale)}</option>
               ))}
             </select>
           </div>
@@ -425,7 +386,7 @@ export default function TicketsPage() {
               const createdByLabel = getUserDisplayName(ticket.createdBy, '-');
               const linkedPath = buildLinkedRecordPath(ticket);
               const linkedLabel = ticket.linkedType
-                ? `${buildLinkedTypeLabel(ticket.linkedType, locale)} ${getLinkedEntityId(ticket.linkedId) || ''}`.trim()
+                ? `${getTicketLinkedTypeLabel(ticket.linkedType, locale)} ${getLinkedEntityId(ticket.linkedId) || ''}`.trim()
                 : '-';
 
               return (
@@ -442,7 +403,7 @@ export default function TicketsPage() {
 
                       <div className="grid gap-1 text-xs text-muted-foreground sm:grid-cols-2">
                         <p>
-                          {t.type}: <span className="font-medium text-foreground">{buildTypeLabel(ticket.type, locale)}</span>
+                          {t.type}: <span className="font-medium text-foreground">{getTicketTypeLabel(ticket.type, locale)}</span>
                         </p>
                         <p>
                           {t.lastUpdate}: <span className="font-medium text-foreground">{formatDateTime(ticket.lastMessageAt || ticket.updatedAt, locale)}</span>

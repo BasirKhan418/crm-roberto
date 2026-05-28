@@ -29,6 +29,7 @@ import {
   type TicketLinkedType,
   type TicketType,
 } from '@/lib/tickets/constants';
+import { getTicketLinkedTypeLabel, getTicketTypeLabel } from '@/lib/tickets/i18n';
 import {
   createTicket,
   uploadTicketFiles,
@@ -228,18 +229,6 @@ export function CreateTicketDialog({
             created: 'Ticket créé avec succès.',
             failed: 'Impossible de créer le ticket.',
             refreshRecipients: 'Actualiser',
-            types: {
-              accounting: 'Comptabilité',
-              validation: 'Validation',
-              document: 'Document',
-              dispute: 'Litige',
-            },
-            linkedTypes: {
-              expense: 'Dépense',
-              invoice: 'Facture',
-              supplier: 'Fournisseur',
-              client: 'Client',
-            },
           }
         : {
             title: 'Create Ticket',
@@ -274,18 +263,6 @@ export function CreateTicketDialog({
             created: 'Ticket created successfully.',
             failed: 'Failed to create ticket.',
             refreshRecipients: 'Refresh',
-            types: {
-              accounting: 'Accounting',
-              validation: 'Validation',
-              document: 'Document',
-              dispute: 'Dispute',
-            },
-            linkedTypes: {
-              expense: 'Expense',
-              invoice: 'Invoice',
-              supplier: 'Supplier',
-              client: 'Client',
-            },
           },
     [locale]
   );
@@ -429,7 +406,7 @@ export function CreateTicketDialog({
               >
                 {TICKET_TYPES.map((option) => (
                   <option key={option} value={option}>
-                    {t.types[option]}
+                    {getTicketTypeLabel(option, locale)}
                   </option>
                 ))}
               </select>
@@ -519,7 +496,7 @@ export function CreateTicketDialog({
                 <option value="">-</option>
                 {TICKET_LINKED_TYPES.map((option) => (
                   <option key={option} value={option}>
-                    {t.linkedTypes[option]}
+                    {getTicketLinkedTypeLabel(option, locale)}
                   </option>
                 ))}
               </select>

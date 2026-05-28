@@ -28,7 +28,8 @@ import {
 } from '@/hooks/useTickets';
 import { formatInvoiceReferencesInText } from '@/lib/i18n/messages';
 import { getDefaultCrmLandingPath, hasModuleActionAccess } from '@/lib/route-access';
-import { TICKET_STATUSES, type TicketStatus, type TicketType } from '@/lib/tickets/constants';
+import { getTicketStatusLabel, getTicketTypeLabel } from '@/lib/tickets/i18n';
+import { TICKET_STATUSES, type TicketStatus } from '@/lib/tickets/constants';
 
 const FILE_ACCEPT = '.pdf,.jpg,.jpeg,.png,.heic';
 
@@ -113,25 +114,6 @@ function resolveUserName(value: unknown, fallback: string) {
   return typed.name?.trim() || typed.email?.trim() || fallback;
 }
 
-function resolveTypeLabel(type: TicketType, locale: 'en' | 'fr') {
-  const labels = {
-    en: {
-      accounting: 'Accounting',
-      validation: 'Validation',
-      document: 'Document',
-      dispute: 'Dispute',
-    },
-    fr: {
-      accounting: 'Comptabilité',
-      validation: 'Validation',
-      document: 'Document',
-      dispute: 'Litige',
-    },
-  } as const;
-
-  return labels[locale][type] || type;
-}
-
 function resolveLinkedRecordPath(linkedType: string | null | undefined, linkedId: unknown): string | null {
   const id = resolveUserId(linkedId);
   if (!linkedType || !id) {
@@ -203,13 +185,6 @@ export default function TicketDetailPage() {
       openLinkedRecord: 'Open linked record',
       createdAt: 'Created',
       updatedAt: 'Updated',
-      statusLabel: {
-        open: 'Open',
-        waiting: 'Waiting',
-        replied: 'Replied',
-        resolved: 'Resolved',
-        archived: 'Archived',
-      },
       unassigned: 'Unassigned',
       unreadLabel: 'Unread messages',
     },
@@ -245,13 +220,6 @@ export default function TicketDetailPage() {
       openLinkedRecord: 'Ouvrir la ressource liée',
       createdAt: 'Créé le',
       updatedAt: 'Mis à jour le',
-      statusLabel: {
-        open: 'Ouvert',
-        waiting: 'En attente',
-        replied: 'Répondu',
-        resolved: 'Résolu',
-        archived: 'Archivé',
-      },
       unassigned: 'Non assigné',
       unreadLabel: 'Messages non lus',
     },
@@ -434,9 +402,10 @@ export default function TicketDetailPage() {
             <div className="mt-3 grid gap-1.5 text-sm text-muted-foreground sm:grid-cols-2">
               <p>
                 {t.type}: <span className="font-medium text-foreground">{resolveTypeLabel(ticket.type, locale)}</span>
+                {t.type}: <span className="font-medium text-foreground">{getTicketTypeLabel(ticket.type, locale)}</span>
               </p>
               <p>
-                {t.status}: <span className="font-medium text-foreground">{t.statusLabel[ticket.status]}</span>
+                  {t.status}: <span className="font-medium text-foreground">{getTicketStatusLabel(ticket.status, locale)}</span>
               </p>
               <p>
                 {t.createdBy}: <span className="font-medium text-foreground">{resolveUserName(ticket.createdBy, '-')}</span>
@@ -464,7 +433,7 @@ export default function TicketDetailPage() {
                   className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm sm:w-48"
                 >
                   {TICKET_STATUSES.map((status) => (
-                    <option key={status} value={status}>{t.statusLabel[status]}</option>
+                    <option key={status} value={status}>{getTicketStatusLabel(status, locale)}</option>
                   ))}
                 </select>
               </div>

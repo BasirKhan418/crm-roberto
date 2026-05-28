@@ -1,6 +1,7 @@
 'use client';
 
 import { Badge } from '@/components/ui/badge';
+import { getTicketStatusLabel } from '@/lib/tickets/i18n';
 import { type TicketStatus } from '@/lib/tickets/constants';
 
 const STATUS_STYLES: Record<TicketStatus, string> = {
@@ -11,23 +12,6 @@ const STATUS_STYLES: Record<TicketStatus, string> = {
   archived: 'border-slate-200 bg-slate-100 text-slate-600',
 };
 
-const STATUS_LABELS = {
-  en: {
-    open: 'Open',
-    waiting: 'Waiting',
-    replied: 'Replied',
-    resolved: 'Resolved',
-    archived: 'Archived',
-  },
-  fr: {
-    open: 'Ouvert',
-    waiting: 'En attente',
-    replied: 'Repondu',
-    resolved: 'Resolu',
-    archived: 'Archive',
-  },
-} as const;
-
 export function TicketStatusBadge({
   status,
   locale = 'en',
@@ -35,11 +19,9 @@ export function TicketStatusBadge({
   status: TicketStatus;
   locale?: 'en' | 'fr';
 }) {
-  const labels = locale === 'fr' ? STATUS_LABELS.fr : STATUS_LABELS.en;
-
   return (
     <Badge variant="outline" className={STATUS_STYLES[status]}>
-      {labels[status]}
+      {getTicketStatusLabel(status, locale)}
     </Badge>
   );
 }
