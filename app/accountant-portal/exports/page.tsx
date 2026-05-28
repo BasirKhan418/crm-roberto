@@ -15,6 +15,29 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { buildFinancialPeriodSearchParams, getDefaultFinancialPeriodSelection, type FinancialPeriodSelection } from '@/lib/financial-periods';
 import { cn } from '@/lib/utils';
 
+const STATUS_OPTIONS = {
+  all: ['unpaid', 'partial', 'partial_paid', 'paid', 'overdue'],
+  purchase: ['unpaid', 'partial', 'paid'],
+  sale: ['unpaid', 'partial_paid', 'paid', 'overdue'],
+} as const;
+
+const STATUS_LABELS = {
+  en: {
+    unpaid: 'Unpaid',
+    partial: 'Partial payment',
+    partial_paid: 'Partial payment',
+    paid: 'Paid',
+    overdue: 'Overdue',
+  },
+  fr: {
+    unpaid: 'Impayé',
+    partial: 'Paiement partiel',
+    partial_paid: 'Paiement partiel',
+    paid: 'Réglé',
+    overdue: 'En retard',
+  },
+} as const;
+
 type LookupData = {
   suppliers: Array<{ id: string; fullName: string; companyName: string | null }>;
   categories: Array<{ id: string; name: string; nameEn: string | null; nameFr: string | null }>;
@@ -105,6 +128,13 @@ export default function AccountantPortalExportsPage() {
   const [lookups, setLookups] = useState<LookupData>({ suppliers: [], categories: [] });
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [downloadingKey, setDownloadingKey] = useState<string | null>(null);
+  const availableStatuses = STATUS_OPTIONS[scope];
+
+  useEffect(() => {
+    if (status !== 'all' && !availableStatuses.includes(status as (typeof availableStatuses)[number])) {
+      setStatus('all');
+    }
+  }, [availableStatuses, status]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -222,13 +252,9 @@ export default function AccountantPortalExportsPage() {
                 <SelectTrigger><SelectValue placeholder={t.status} /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">{t.all}</SelectItem>
-                  {scope === 'sale' ? (
-                    ['unpaid', 'partial_paid', 'paid', 'overdue'].map((value) => <SelectItem key={value} value={value}>{value.replace('_', ' ')}</SelectItem>)
-                  ) : scope === 'purchase' ? (
-                    ['unpaid', 'partial', 'paid'].map((value) => <SelectItem key={value} value={value}>{value.replace('_', ' ')}</SelectItem>)
-                  ) : (
-                    ['unpaid', 'partial', 'partial_paid', 'paid', 'overdue'].map((value) => <SelectItem key={value} value={value}>{value.replace('_', ' ')}</SelectItem>)
-                  )}
+                  {availableStatuses.map((value) => (
+                    <SelectItem key={value} value={value}>{STATUS_LABELS[locale][value]}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

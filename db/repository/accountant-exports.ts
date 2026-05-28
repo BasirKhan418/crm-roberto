@@ -27,6 +27,8 @@ type RepositorySuccessResult<T> = {
 
 type RepositoryResult<T> = RepositoryErrorResult | RepositorySuccessResult<T>;
 
+type ExportRow = Record<string, string | number>;
+
 type AccountingRow = {
   sourceId: string;
   type: "purchase" | "sale";
@@ -55,8 +57,9 @@ type GeneralLedgerRow = {
   counterparty: string;
   accountCode: string;
   accountLabel: string;
-  debit: string;
-  credit: string;
+  entryLabel: string;
+  debitCents: number;
+  creditCents: number;
   status: string;
 };
 
@@ -119,6 +122,85 @@ function formatMoney(cents: number) {
   return centsToEuros(cents);
 }
 
+function formatEntryDate(value: Date | null | undefined, locale: ExportLocale) {
+  if (!value || !Number.isFinite(value.getTime())) {
+    return locale === "fr" ? "Date inconnue" : "Unknown date";
+  }
+
+  return new Intl.DateTimeFormat(locale === "fr" ? "fr-FR" : "en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(value);
+}
+
+function localizeTypeLabel(type: "purchase" | "sale", locale: ExportLocale) {
+  if (locale === "fr") {
+    return type === "purchase" ? "Achat" : "Vente";
+  }
+
+  return type === "purchase" ? "Purchase" : "Sale";
+}
+
+function localizeStatusLabel(status: string, locale: ExportLocale) {
+  const normalized = status.trim().toLowerCase();
+
+  if (locale === "fr") {
+    switch (normalized) {
+      case "paid":
+        return "Réglé";
+      case "partial":
+      case "partial_paid":
+        return "Paiement partiel";
+      case "overdue":
+        return "En retard";
+      case "unpaid":
+      default:
+        return "Impayé";
+    }
+  }
+
+  switch (normalized) {
+    case "paid":
+      return "Paid";
+    case "partial":
+    case "partial_paid":
+      return "Partially paid";
+    case "overdue":
+      return "Overdue";
+    case "unpaid":
+    default:
+      return "Unpaid";
+  }
+}
+
+function getUnknownCounterparty(type: "purchase" | "sale", locale: ExportLocale) {
+  if (locale === "fr") {
+    return type === "purchase" ? "Fournisseur inconnu" : "Client inconnu";
+  }
+
+  return type === "purchase" ? "Unknown supplier" : "Unknown client";
+}
+
+function buildEntryLabel(row: RawAccountingRow, locale: ExportLocale) {
+  if (row.type === "sale") {
+    const base = locale === "fr" ? "Facture client" : "Customer invoice";
+    return row.reference ? `${base} ${row.reference}` : `${base} ${row.counterparty}`;
+  }
+
+  return [row.category, row.counterparty, formatEntryDate(row.date, locale)].filter(Boolean).join(" ");
+}
+
+function buildBalanceConfirmation(totalDebitCents: number, totalCreditCents: number, locale: ExportLocale) {
+  const delta = totalDebitCents - totalCreditCents;
+  if (delta === 0) {
+    return locale === "fr" ? "OK - débit = crédit" : "OK - debit = credit";
+  }
+
+  const amount = formatMoney(Math.abs(delta));
+  return locale === "fr" ? `Écart de ${amount}` : `Difference of ${amount}`;
+}
+
 function statusMatchesType(type: ExportType, status?: string | null) {
   if (!status) return undefined;
 
@@ -158,9 +240,9 @@ function localizeCategoryName(category: {
   nameEn?: string | null;
   nameFr?: string | null;
 } | null | undefined, locale: ExportLocale) {
-  if (!category) return locale === "fr" ? "Sans categorie" : "Uncategorized";
+  if (!category) return locale === "fr" ? "Sans catégorie" : "Uncategorized";
   if (locale === "fr") {
-    return String(category.nameFr || category.name || category.nameEn || "Sans categorie");
+    return String(category.nameFr || category.name || category.nameEn || "Sans catégorie");
   }
   return String(category.nameEn || category.name || category.nameFr || "Uncategorized");
 }
@@ -247,7 +329,7 @@ async function loadRawAccountingRows(params: {
         sourceId: String(expense._id),
         type: "purchase",
         date: expense.expenseDate ?? null,
-        counterparty: String(expense.supplierId?.fullName || expense.supplierId?.companyName || expense.supplierRef || "Unknown supplier"),
+        counterparty: String(expense.supplierId?.fullName || expense.supplierId?.companyName || expense.supplierRef || getUnknownCounterparty("purchase", params.locale)),
         reference: String(expense.supplierRef || expense._id),
         category: localizeCategoryName(expense.categoryId, params.locale),
         status: String(expense.paymentStatus || "unpaid"),
@@ -307,7 +389,7 @@ async function loadRawAccountingRows(params: {
         sourceId: String(invoice._id),
         type: "sale",
         date: invoice.date ?? null,
-        counterparty: String(invoice.clientSnapshot?.companyName || invoice.clientSnapshot?.fullName || "Unknown client"),
+        counterparty: String(invoice.clientSnapshot?.companyName || invoice.clientSnapshot?.fullName || getUnknownCounterparty("sale", params.locale)),
         reference: invoice.invoiceNumber,
         category: localizeSalesCategory(params.locale),
         status: normalizeInvoiceStatus(invoice.status, invoice.dueDate),
@@ -349,6 +431,38 @@ function formatAccountingRows(rows: RawAccountingRow[]): AccountingRow[] {
   }));
 }
 
+function buildAccountingExportRows(rows: AccountingRow[], locale: ExportLocale): ExportRow[] {
+  return rows.map((row) => {
+    if (locale === "fr") {
+      return {
+        "Source": row.sourceId,
+        "Type": localizeTypeLabel(row.type, locale),
+        "Date": row.date,
+        "Tiers": row.counterparty,
+        "Référence": row.reference,
+        "Catégorie": row.category,
+        "Statut": localizeStatusLabel(row.status, locale),
+        "Montant HT": row.excludingVat,
+        "TVA": row.vat,
+        "Montant TTC": row.includingVat,
+      };
+    }
+
+    return {
+      "Source": row.sourceId,
+      "Type": localizeTypeLabel(row.type, locale),
+      "Date": row.date,
+      "Counterparty": row.counterparty,
+      "Reference": row.reference,
+      "Category": row.category,
+      "Status": localizeStatusLabel(row.status, locale),
+      "Amount excl. VAT": row.excludingVat,
+      "VAT": row.vat,
+      "Amount incl. VAT": row.includingVat,
+    };
+  });
+}
+
 function buildVatSummaryRows(rows: RawAccountingRow[], locale: ExportLocale): VatSummaryRow[] {
   const purchaseRows = rows.filter((row) => row.type === "purchase");
   const salesRows = rows.filter((row) => row.type === "sale");
@@ -386,18 +500,41 @@ function buildVatSummaryRows(rows: RawAccountingRow[], locale: ExportLocale): Va
   ];
 }
 
+function buildVatSummaryExportRows(rows: VatSummaryRow[], locale: ExportLocale): ExportRow[] {
+  return rows.map((row) => {
+    if (locale === "fr") {
+      return {
+        "Section": row.section,
+        "Nombre d'écritures": row.entryCount,
+        "Montant HT": row.excludingVat,
+        "TVA": row.vat,
+        "Montant TTC": row.includingVat,
+      };
+    }
+
+    return {
+      "Section": row.section,
+      "Entry count": row.entryCount,
+      "Amount excl. VAT": row.excludingVat,
+      "VAT": row.vat,
+      "Amount incl. VAT": row.includingVat,
+    };
+  });
+}
+
 function buildGeneralLedgerRows(rows: RawAccountingRow[], locale: ExportLocale): GeneralLedgerRow[] {
-  const purchaseExpenseLabel = locale === "fr" ? "Charge d achat" : "Purchase expense";
+  const purchaseExpenseLabel = locale === "fr" ? "Charge d'achat" : "Purchase expense";
   const purchaseVatLabel = locale === "fr" ? "TVA deductible" : "Input VAT";
   const supplierPayableLabel = locale === "fr" ? "Dettes fournisseurs" : "Accounts payable";
   const receivableLabel = locale === "fr" ? "Clients" : "Accounts receivable";
   const salesRevenueLabel = locale === "fr" ? "Produits de vente" : "Sales revenue";
-  const outputVatLabel = locale === "fr" ? "TVA collectee" : "Output VAT";
+  const outputVatLabel = locale === "fr" ? "TVA collectée" : "Output VAT";
 
   const ledgerRows: GeneralLedgerRow[] = [];
 
   for (const row of rows) {
     const date = toIsoDate(row.date);
+    const entryLabel = buildEntryLabel(row, locale);
 
     if (row.type === "purchase") {
       ledgerRows.push({
@@ -407,8 +544,9 @@ function buildGeneralLedgerRows(rows: RawAccountingRow[], locale: ExportLocale):
         counterparty: row.counterparty,
         accountCode: "601",
         accountLabel: purchaseExpenseLabel,
-        debit: formatMoney(row.excludingVatCents),
-        credit: formatMoney(0),
+        entryLabel,
+        debitCents: row.excludingVatCents,
+        creditCents: 0,
         status: row.status,
       });
 
@@ -420,8 +558,9 @@ function buildGeneralLedgerRows(rows: RawAccountingRow[], locale: ExportLocale):
           counterparty: row.counterparty,
           accountCode: "44566",
           accountLabel: purchaseVatLabel,
-          debit: formatMoney(row.vatCents),
-          credit: formatMoney(0),
+          entryLabel,
+          debitCents: row.vatCents,
+          creditCents: 0,
           status: row.status,
         });
       }
@@ -433,8 +572,9 @@ function buildGeneralLedgerRows(rows: RawAccountingRow[], locale: ExportLocale):
         counterparty: row.counterparty,
         accountCode: "401",
         accountLabel: supplierPayableLabel,
-        debit: formatMoney(0),
-        credit: formatMoney(row.includingVatCents),
+        entryLabel,
+        debitCents: 0,
+        creditCents: row.includingVatCents,
         status: row.status,
       });
     } else {
@@ -445,8 +585,9 @@ function buildGeneralLedgerRows(rows: RawAccountingRow[], locale: ExportLocale):
         counterparty: row.counterparty,
         accountCode: "411",
         accountLabel: receivableLabel,
-        debit: formatMoney(row.includingVatCents),
-        credit: formatMoney(0),
+        entryLabel,
+        debitCents: row.includingVatCents,
+        creditCents: 0,
         status: row.status,
       });
 
@@ -457,8 +598,9 @@ function buildGeneralLedgerRows(rows: RawAccountingRow[], locale: ExportLocale):
         counterparty: row.counterparty,
         accountCode: "706",
         accountLabel: salesRevenueLabel,
-        debit: formatMoney(0),
-        credit: formatMoney(row.excludingVatCents),
+        entryLabel,
+        debitCents: 0,
+        creditCents: row.excludingVatCents,
         status: row.status,
       });
 
@@ -470,8 +612,9 @@ function buildGeneralLedgerRows(rows: RawAccountingRow[], locale: ExportLocale):
           counterparty: row.counterparty,
           accountCode: "44571",
           accountLabel: outputVatLabel,
-          debit: formatMoney(0),
-          credit: formatMoney(row.vatCents),
+          entryLabel,
+          debitCents: 0,
+          creditCents: row.vatCents,
           status: row.status,
         });
       }
@@ -479,6 +622,102 @@ function buildGeneralLedgerRows(rows: RawAccountingRow[], locale: ExportLocale):
   }
 
   return ledgerRows;
+}
+
+function buildGeneralLedgerExportRows(rows: GeneralLedgerRow[], locale: ExportLocale): ExportRow[] {
+  const totalDebitCents = rows.reduce((sum, row) => sum + row.debitCents, 0);
+  const totalCreditCents = rows.reduce((sum, row) => sum + row.creditCents, 0);
+
+  const exportRows = rows.map((row) => {
+    if (locale === "fr") {
+      return {
+        "Date": row.date,
+        "Type": localizeTypeLabel(row.type, locale),
+        "Référence": row.reference,
+        "Tiers": row.counterparty,
+        "Compte": row.accountCode,
+        "Libellé comptable": row.accountLabel,
+        "Libellé écriture": row.entryLabel,
+        "Débit": formatMoney(row.debitCents),
+        "Crédit": formatMoney(row.creditCents),
+        "Statut": localizeStatusLabel(row.status, locale),
+        "Confirmation solde": "",
+      };
+    }
+
+    return {
+      "Date": row.date,
+      "Type": localizeTypeLabel(row.type, locale),
+      "Reference": row.reference,
+      "Counterparty": row.counterparty,
+      "Account code": row.accountCode,
+      "Account label": row.accountLabel,
+      "Entry label": row.entryLabel,
+      "Debit": formatMoney(row.debitCents),
+      "Credit": formatMoney(row.creditCents),
+      "Status": localizeStatusLabel(row.status, locale),
+      "Balance confirmation": "",
+    };
+  });
+
+  if (locale === "fr") {
+    exportRows.push({
+      "Date": "",
+      "Type": "",
+      "Référence": "",
+      "Tiers": "",
+      "Compte": "",
+      "Libellé comptable": "",
+      "Libellé écriture": "Totaux",
+      "Débit": formatMoney(totalDebitCents),
+      "Crédit": formatMoney(totalCreditCents),
+      "Statut": "",
+      "Confirmation solde": "",
+    });
+    exportRows.push({
+      "Date": "",
+      "Type": "",
+      "Référence": "",
+      "Tiers": "",
+      "Compte": "",
+      "Libellé comptable": "",
+      "Libellé écriture": "Contrôle équilibre",
+      "Débit": "",
+      "Crédit": "",
+      "Statut": "",
+      "Confirmation solde": buildBalanceConfirmation(totalDebitCents, totalCreditCents, locale),
+    });
+    return exportRows;
+  }
+
+  exportRows.push({
+    "Date": "",
+    "Type": "",
+    "Reference": "",
+    "Counterparty": "",
+    "Account code": "",
+    "Account label": "",
+    "Entry label": "Totals",
+    "Debit": formatMoney(totalDebitCents),
+    "Credit": formatMoney(totalCreditCents),
+    "Status": "",
+    "Balance confirmation": "",
+  });
+  exportRows.push({
+    "Date": "",
+    "Type": "",
+    "Reference": "",
+    "Counterparty": "",
+    "Account code": "",
+    "Account label": "",
+    "Entry label": "Balance check",
+    "Debit": "",
+    "Credit": "",
+    "Status": "",
+    "Balance confirmation": buildBalanceConfirmation(totalDebitCents, totalCreditCents, locale),
+  });
+
+  return exportRows;
 }
 
 function buildCsvBuffer<T extends Record<string, unknown>>(rows: T[]) {
@@ -517,13 +756,15 @@ export async function buildAccountingRowsExport(params: {
     return rowsResult;
   }
 
-  const rows = formatAccountingRows(rowsResult.data);
+  const rows = buildAccountingExportRows(formatAccountingRows(rowsResult.data), params.locale);
   const fileName = `accounting-rows-${params.type}.${params.format}`;
 
   return {
     success: true,
     data: {
-      buffer: params.format === "csv" ? buildCsvBuffer(rows) : buildXlsxBuffer("Accounting Rows", rows),
+      buffer: params.format === "csv"
+        ? buildCsvBuffer(rows)
+        : buildXlsxBuffer(params.locale === "fr" ? "Écritures" : "Accounting Rows", rows),
       fileName,
       contentType: params.format === "csv"
         ? "text/csv; charset=utf-8"
@@ -546,13 +787,15 @@ export async function buildVatSummaryExport(params: {
     return rowsResult;
   }
 
-  const rows = buildVatSummaryRows(rowsResult.data, params.locale);
+  const rows = buildVatSummaryExportRows(buildVatSummaryRows(rowsResult.data, params.locale), params.locale);
   const fileName = `vat-summary-${params.type}.${params.format}`;
 
   return {
     success: true,
     data: {
-      buffer: params.format === "csv" ? buildCsvBuffer(rows) : buildXlsxBuffer("VAT Summary", rows),
+      buffer: params.format === "csv"
+        ? buildCsvBuffer(rows)
+        : buildXlsxBuffer(params.locale === "fr" ? "Résumé TVA" : "VAT Summary", rows),
       fileName,
       contentType: params.format === "csv"
         ? "text/csv; charset=utf-8"
@@ -575,13 +818,15 @@ export async function buildGeneralLedgerExport(params: {
     return rowsResult;
   }
 
-  const rows = buildGeneralLedgerRows(rowsResult.data, params.locale);
+  const rows = buildGeneralLedgerExportRows(buildGeneralLedgerRows(rowsResult.data, params.locale), params.locale);
   const fileName = `general-ledger-${params.type}.${params.format}`;
 
   return {
     success: true,
     data: {
-      buffer: params.format === "csv" ? buildCsvBuffer(rows) : buildXlsxBuffer("General Ledger", rows),
+      buffer: params.format === "csv"
+        ? buildCsvBuffer(rows)
+        : buildXlsxBuffer(params.locale === "fr" ? "Grand livre" : "General Ledger", rows),
       fileName,
       contentType: params.format === "csv"
         ? "text/csv; charset=utf-8"
