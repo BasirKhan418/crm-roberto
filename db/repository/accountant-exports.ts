@@ -50,6 +50,26 @@ type VatSummaryRow = {
   includingVat: string;
 };
 
+function buildVatBalanceSectionLabel(vatDeltaCents: number, locale: ExportLocale) {
+  if (locale === "fr") {
+    if (vatDeltaCents > 0) {
+      return "Solde TVA à payer";
+    }
+    if (vatDeltaCents < 0) {
+      return "Crédit de TVA";
+    }
+    return "Solde TVA nul";
+  }
+
+  if (vatDeltaCents > 0) {
+    return "VAT payable balance";
+  }
+  if (vatDeltaCents < 0) {
+    return "VAT credit balance";
+  }
+  return "VAT balance cleared";
+}
+
 type GeneralLedgerRow = {
   date: string;
   type: "purchase" | "sale";
@@ -474,27 +494,28 @@ function buildVatSummaryRows(rows: RawAccountingRow[], locale: ExportLocale): Va
   const salesVat = salesRows.reduce((sum, row) => sum + row.vatCents, 0);
   const salesEx = salesRows.reduce((sum, row) => sum + row.excludingVatCents, 0);
   const salesIncl = salesRows.reduce((sum, row) => sum + row.includingVatCents, 0);
+  const vatDelta = salesVat - purchaseVat;
 
   return [
     {
-      section: locale === "fr" ? "TVA collectee" : "Collected VAT",
+      section: locale === "fr" ? "TVA collectée" : "Collected VAT",
       entryCount: salesRows.length,
       excludingVat: formatMoney(salesEx),
       vat: formatMoney(salesVat),
       includingVat: formatMoney(salesIncl),
     },
     {
-      section: locale === "fr" ? "TVA deductible" : "Deductible VAT",
+      section: locale === "fr" ? "TVA déductible" : "Deductible VAT",
       entryCount: purchaseRows.length,
       excludingVat: formatMoney(purchaseEx),
       vat: formatMoney(purchaseVat),
       includingVat: formatMoney(purchaseIncl),
     },
     {
-      section: locale === "fr" ? "Solde TVA" : "VAT balance",
+      section: buildVatBalanceSectionLabel(vatDelta, locale),
       entryCount: rows.length,
       excludingVat: formatMoney(salesEx - purchaseEx),
-      vat: formatMoney(salesVat - purchaseVat),
+      vat: formatMoney(vatDelta),
       includingVat: formatMoney(salesIncl - purchaseIncl),
     },
   ];
@@ -504,20 +525,20 @@ function buildVatSummaryExportRows(rows: VatSummaryRow[], locale: ExportLocale):
   return rows.map((row) => {
     if (locale === "fr") {
       return {
-        "Section": row.section,
-        "Nombre d'écritures": row.entryCount,
-        "Montant HT": row.excludingVat,
+        "Rubrique": row.section,
+        "Nb écritures": row.entryCount,
+        "HT": row.excludingVat,
         "TVA": row.vat,
-        "Montant TTC": row.includingVat,
+        "TTC": row.includingVat,
       };
     }
 
     return {
       "Section": row.section,
-      "Entry count": row.entryCount,
-      "Amount excl. VAT": row.excludingVat,
+      "Entries": row.entryCount,
+      "Net": row.excludingVat,
       "VAT": row.vat,
-      "Amount incl. VAT": row.includingVat,
+      "Gross": row.includingVat,
     };
   });
 }
