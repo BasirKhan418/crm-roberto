@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { TicketAttachment, TicketFilters, TicketListItem, TicketThread } from '@/hooks/useTickets';
 import { TICKET_ALLOWED_MIME_TYPES } from '@/lib/tickets/constants';
 import type { AccountantPurchaseTicketReason } from '@/lib/tickets/accountant-purchase-ticket';
+import type { AccountantSalesTicketReason } from '@/lib/tickets/accountant-sales-ticket';
 import { getExpenseFileExtension, isExpenseMimeTypeAllowed } from '@/lib/expenses/upload';
 
 type TicketListResponse = {
@@ -233,6 +234,26 @@ export async function createAccountantExpenseTicket(input: {
   const payload = (await response.json().catch(() => null)) as TicketMutationResponse | null;
   if (!response.ok || !payload?.success) {
     throw new Error(payload?.message || 'Failed to create accountant ticket');
+  }
+
+  return payload;
+}
+
+export async function createAccountantInvoiceTicket(input: {
+  invoiceId: string;
+  reason: AccountantSalesTicketReason;
+  note?: string | null;
+  locale: 'en' | 'fr';
+}) {
+  const response = await fetch('/api/accountant/tickets', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+
+  const payload = (await response.json().catch(() => null)) as TicketMutationResponse | null;
+  if (!response.ok || !payload?.success) {
+    throw new Error(payload?.message || 'Failed to create accountant invoice ticket');
   }
 
   return payload;

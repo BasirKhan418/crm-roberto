@@ -26,6 +26,7 @@ import {
   isTicketMimeTypeAllowed,
 } from "@/lib/tickets/constants";
 import type { AccountantPurchaseTicketReason } from "@/lib/tickets/accountant-purchase-ticket";
+import type { AccountantSalesTicketReason } from "@/lib/tickets/accountant-sales-ticket";
 
 type RepositoryErrorResult = {
   success: false;
@@ -104,6 +105,8 @@ type AccountantPurchaseTicketData = {
   initialMessage: Record<string, unknown>;
   recipientIds: string[];
 };
+
+type AccountantSalesTicketData = AccountantPurchaseTicketData;
 
 type TicketAllowedMimeType =
   (typeof TICKET_ALLOWED_MIME_TYPES)[number];
@@ -818,6 +821,57 @@ function normalizePurchaseTicketReason(reason: AccountantPurchaseTicketReason, l
   return copy[locale][reason];
 }
 
+function normalizeSalesTicketReason(reason: AccountantSalesTicketReason, locale: "en" | "fr") {
+  const copy = {
+    en: {
+      payment_clarification: {
+        title: "Payment clarification",
+        prompt: "Please clarify the payment situation for this invoice and confirm what has already been received.",
+        type: "accounting",
+      },
+      missing_payment_proof: {
+        title: "Missing payment proof",
+        prompt: "Please provide the payment proof or transfer confirmation for this invoice.",
+        type: "document",
+      },
+      accounting_question: {
+        title: "Accounting question",
+        prompt: "Please confirm the accounting treatment or business context for this invoice.",
+        type: "validation",
+      },
+      invoice_dispute: {
+        title: "Invoice dispute",
+        prompt: "Please explain the dispute on this invoice and share the next action needed to resolve it.",
+        type: "dispute",
+      },
+    },
+    fr: {
+      payment_clarification: {
+        title: "Clarification de paiement",
+        prompt: "Veuillez clarifier la situation de paiement de cette facture et confirmer ce qui a deja ete recu.",
+        type: "accounting",
+      },
+      missing_payment_proof: {
+        title: "Preuve de paiement manquante",
+        prompt: "Veuillez fournir la preuve de paiement ou la confirmation de virement pour cette facture.",
+        type: "document",
+      },
+      accounting_question: {
+        title: "Question comptable",
+        prompt: "Veuillez confirmer le traitement comptable ou le contexte metier de cette facture.",
+        type: "validation",
+      },
+      invoice_dispute: {
+        title: "Litige sur facture",
+        prompt: "Veuillez expliquer le litige sur cette facture et partager la prochaine action necessaire pour le resoudre.",
+        type: "dispute",
+      },
+    },
+  } as const;
+
+  return copy[locale][reason];
+}
+
 async function resolvePortalPurchaseTicketRecipients(params: {
   companyId: string;
   expenseOwnerId?: string | null;
@@ -835,6 +889,34 @@ async function resolvePortalPurchaseTicketRecipients(params: {
   const ownerId =
     params.expenseOwnerId && companyUsers.some((user) => String(user._id) === params.expenseOwnerId)
       ? params.expenseOwnerId
+      : null;
+
+  const adminIds = companyUsers
+    .filter((user) => user.role === "administrator")
+    .map((user) => String(user._id));
+
+  const fallbackIds = companyUsers.slice(0, 3).map((user) => String(user._id));
+
+  return uniqueIds([ownerId, ...adminIds, ...fallbackIds]);
+}
+
+async function resolvePortalInvoiceTicketRecipients(params: {
+  companyId: string;
+  invoiceOwnerId?: string | null;
+}) {
+  const companyUsers = await User.find({
+    companyId: toObjectId(params.companyId),
+    accessRevokedAt: null,
+    account_status: { $ne: "suspended" },
+    role: { $ne: "external_accountant" },
+  })
+    .select("_id role")
+    .sort({ role: 1, name: 1, email: 1 })
+    .lean<Array<{ _id: mongoose.Types.ObjectId; role?: string | null }>>();
+
+  const ownerId =
+    params.invoiceOwnerId && companyUsers.some((user) => String(user._id) === params.invoiceOwnerId)
+      ? params.invoiceOwnerId
       : null;
 
   const adminIds = companyUsers
@@ -1002,6 +1084,168 @@ export async function createAccountantPurchaseTicket(params: {
           url: String(attachment.url),
           checksum: typeof attachment.checksum === "string" ? attachment.checksum : null,
         })),
+    },
+  });
+
+  if (!created.success || !created.ticket || !created.initialMessage) {
+    return { success: false, status: 400, message: created.message || "Unable to create ticket" };
+  }
+
+  return {
+    success: true,
+    data: {
+      ticketId: String((created.ticket as { _id?: unknown })._id || ""),
+      ticket: created.ticket,
+      initialMessage: created.initialMessage,
+      recipientIds,
+    },
+  };
+}
+
+export async function createAccountantSalesTicket(params: {
+  companyId: string;
+  accountantUserId: string;
+  invoiceId: string;
+  reason: AccountantSalesTicketReason;
+  note?: string | null;
+  locale: "en" | "fr";
+  ipAddress?: string | null;
+}): Promise<RepositoryResult<AccountantSalesTicketData>> {
+  if (
+    !isValidObjectId(params.companyId) ||
+    !isValidObjectId(params.accountantUserId) ||
+    !isValidObjectId(params.invoiceId)
+  ) {
+    return { success: false, status: 400, message: "Invalid ticket context" };
+  }
+
+  await ConnectDb();
+
+  const companyUserIds = await getCompanyUserObjectIds(params.companyId);
+  const invoice = await Invoice.findOne({
+    _id: toObjectId(params.invoiceId),
+    userId: { $in: companyUserIds },
+  })
+    .select(
+      "_id invoiceNumber date dueDate status totalExcludingTax totalVat totalIncludingTax notes userId clientSnapshot"
+    )
+    .lean<{
+      _id: mongoose.Types.ObjectId;
+      invoiceNumber: string;
+      date?: Date | null;
+      dueDate?: Date | null;
+      status?: string | null;
+      totalExcludingTax?: number;
+      totalVat?: number;
+      totalIncludingTax?: number;
+      notes?: string | null;
+      userId?: mongoose.Types.ObjectId | null;
+      clientSnapshot?: {
+        fullName?: string | null;
+        companyName?: string | null;
+        email?: string | null;
+      } | null;
+    } | null>();
+
+  if (!invoice) {
+    return { success: false, status: 404, message: "Invoice not found" };
+  }
+
+  const succeededPayments = await Payment.find({
+    invoiceId: invoice._id,
+    status: "succeeded",
+  })
+    .sort({ paidAt: -1, createdAt: -1 })
+    .select("amount method type paidAt createdAt")
+    .lean<Array<{
+      amount?: number;
+      method?: string | null;
+      type?: string | null;
+      paidAt?: Date | null;
+      createdAt?: Date | null;
+    }>>();
+
+  const amountPaidCents = succeededPayments.reduce(
+    (sum, payment) => sum + toCents(payment.amount),
+    0
+  );
+  const totalIncludingTaxCents = toCents(invoice.totalIncludingTax);
+  const amountRemainingCents = Math.max(0, totalIncludingTaxCents - amountPaidCents);
+  const latestPayment = succeededPayments[0] || null;
+  const clientLabel =
+    invoice.clientSnapshot?.companyName ||
+    invoice.clientSnapshot?.fullName ||
+    invoice.invoiceNumber;
+  const reasonMeta = normalizeSalesTicketReason(params.reason, params.locale);
+  const recipientIds = await resolvePortalInvoiceTicketRecipients({
+    companyId: params.companyId,
+    invoiceOwnerId: invoice.userId ? String(invoice.userId) : null,
+  });
+  const normalizedStatus = normalizeInvoiceStatus(invoice.status, invoice.dueDate);
+
+  const paymentSummary =
+    succeededPayments.length > 0
+      ? params.locale === "fr"
+        ? `${succeededPayments.length} paiement(s) enregistre(s), dernier ${formatPortalMoney(toCents(latestPayment?.amount), params.locale)} le ${formatPortalDate(latestPayment?.paidAt || latestPayment?.createdAt, params.locale)}`
+        : `${succeededPayments.length} recorded payment(s), latest ${formatPortalMoney(toCents(latestPayment?.amount), params.locale)} on ${formatPortalDate(latestPayment?.paidAt || latestPayment?.createdAt, params.locale)}`
+      : params.locale === "fr"
+        ? "Aucun paiement enregistre"
+        : "No recorded payments";
+
+  const bodyLines = params.locale === "fr"
+    ? [
+        "Ticket cree depuis le portail comptable ROBY.",
+        "",
+        `Motif: ${reasonMeta.title}`,
+        `Facture: ${invoice.invoiceNumber}`,
+        `Client: ${clientLabel}`,
+        `Date de facture: ${formatPortalDate(invoice.date, params.locale)}`,
+        `Echeance: ${formatPortalDate(invoice.dueDate, params.locale)}`,
+        `Statut: ${normalizedStatus}`,
+        `Total TTC: ${formatPortalMoney(totalIncludingTaxCents, params.locale)}`,
+        `Montant paye: ${formatPortalMoney(amountPaidCents, params.locale)}`,
+        `Montant restant: ${formatPortalMoney(amountRemainingCents, params.locale)}`,
+        `Paiements: ${paymentSummary}`,
+        invoice.notes ? `Note de facture: ${invoice.notes}` : null,
+        invoice.clientSnapshot?.email ? `Email client: ${invoice.clientSnapshot.email}` : null,
+        "",
+        reasonMeta.prompt,
+        params.note?.trim() ? "" : null,
+        params.note?.trim() ? `Message comptable: ${params.note.trim()}` : null,
+      ]
+    : [
+        "Ticket created from the ROBY accountant portal.",
+        "",
+        `Reason: ${reasonMeta.title}`,
+        `Invoice: ${invoice.invoiceNumber}`,
+        `Client: ${clientLabel}`,
+        `Invoice date: ${formatPortalDate(invoice.date, params.locale)}`,
+        `Due date: ${formatPortalDate(invoice.dueDate, params.locale)}`,
+        `Status: ${normalizedStatus}`,
+        `Total incl. VAT: ${formatPortalMoney(totalIncludingTaxCents, params.locale)}`,
+        `Amount paid: ${formatPortalMoney(amountPaidCents, params.locale)}`,
+        `Amount remaining: ${formatPortalMoney(amountRemainingCents, params.locale)}`,
+        `Payments: ${paymentSummary}`,
+        invoice.notes ? `Invoice note: ${invoice.notes}` : null,
+        invoice.clientSnapshot?.email ? `Client email: ${invoice.clientSnapshot.email}` : null,
+        "",
+        reasonMeta.prompt,
+        params.note?.trim() ? "" : null,
+        params.note?.trim() ? `Accountant note: ${params.note.trim()}` : null,
+      ];
+
+  const created = await createTicket({
+    companyId: params.companyId,
+    createdBy: params.accountantUserId,
+    ipAddress: params.ipAddress,
+    payload: {
+      title: `${reasonMeta.title} - ${invoice.invoiceNumber}`,
+      type: reasonMeta.type,
+      assignedTo: recipientIds,
+      linkedType: "invoice",
+      linkedId: String(invoice._id),
+      body: bodyLines.filter((line): line is string => typeof line === "string").join("\n"),
+      attachments: [],
     },
   });
 

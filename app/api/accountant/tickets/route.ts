@@ -2,16 +2,27 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { authorizeAccountantTicketAccess } from "@/app/api/accountant/_shared/tickets";
-import { createAccountantPurchaseTicket } from "@/db/repository/accountant-portal";
+import {
+  createAccountantPurchaseTicket,
+  createAccountantSalesTicket,
+} from "@/db/repository/accountant-portal";
 import { listTickets } from "@/db/repository/ticket";
 import { getClientIp } from "@/utils/api/request";
 import { buildValidationError } from "@/utils/api/validation";
 import { ticketListQuerySchema } from "@/validators/ticket.schema";
 import { ACCOUNTANT_PURCHASE_TICKET_REASONS } from "@/lib/tickets/accountant-purchase-ticket";
+import { ACCOUNTANT_SALES_TICKET_REASONS } from "@/lib/tickets/accountant-sales-ticket";
 
 const purchaseTicketSchema = z.object({
   expenseId: z.string().trim().regex(/^[0-9a-fA-F]{24}$/, "Invalid expense id"),
   reason: z.enum(ACCOUNTANT_PURCHASE_TICKET_REASONS),
+  note: z.string().trim().max(2500).optional().nullable(),
+  locale: z.enum(["en", "fr"]).optional().default("en"),
+});
+
+const salesTicketSchema = z.object({
+  invoiceId: z.string().trim().regex(/^[0-9a-fA-F]{24}$/, "Invalid invoice id"),
+  reason: z.enum(ACCOUNTANT_SALES_TICKET_REASONS),
   note: z.string().trim().max(2500).optional().nullable(),
   locale: z.enum(["en", "fr"]).optional().default("en"),
 });
@@ -70,6 +81,42 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
+
+    if (typeof body?.invoiceId === "string") {
+      const parsed = salesTicketSchema.safeParse(body);
+      if (!parsed.success) {
+        return NextResponse.json(buildValidationError(parsed.error), { status: 400 });
+      }
+
+      const result = await createAccountantSalesTicket({
+        companyId: auth.context.user.companyId || "",
+        accountantUserId: auth.context.user.id,
+        invoiceId: parsed.data.invoiceId,
+        reason: parsed.data.reason,
+        note: parsed.data.note,
+        locale: parsed.data.locale,
+        ipAddress: getClientIp(request),
+      });
+
+      if (!result.success) {
+        return NextResponse.json({ success: false, message: result.message }, { status: result.status });
+      }
+
+      return NextResponse.json(
+        {
+          success: true,
+          message: "Invoice ticket created successfully",
+          ticket: result.data.ticket,
+          initialMessage: result.data.initialMessage,
+          data: {
+            ticketId: result.data.ticketId,
+            recipientIds: result.data.recipientIds,
+          },
+        },
+        { status: 201 }
+      );
+    }
+
     const parsed = purchaseTicketSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(buildValidationError(parsed.error), { status: 400 });
