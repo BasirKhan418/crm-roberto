@@ -1146,7 +1146,7 @@ function buildCsvBuffer<T extends Record<string, unknown>>(rows: T[]) {
   return Buffer.from(lines.join("\n"), "utf-8");
 }
 
-function buildXlsxBuffer<T extends Record<string, unknown>>(sheetName: string, rows: T[]) {
+function buildXlsxBuffer(sheetName: string, rows: ExportRow[]) {
   return buildWorkbookXlsxBuffer([{ name: sheetName, rows }]);
 }
 
