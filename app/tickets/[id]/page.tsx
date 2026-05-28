@@ -401,7 +401,6 @@ export default function TicketDetailPage() {
 
             <div className="mt-3 grid gap-1.5 text-sm text-muted-foreground sm:grid-cols-2">
               <p>
-                {t.type}: <span className="font-medium text-foreground">{resolveTypeLabel(ticket.type, locale)}</span>
                 {t.type}: <span className="font-medium text-foreground">{getTicketTypeLabel(ticket.type, locale)}</span>
               </p>
               <p>
