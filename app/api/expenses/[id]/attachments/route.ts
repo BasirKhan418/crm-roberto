@@ -21,14 +21,13 @@ import {
   getExpenseFileExtension,
   isExpenseMimeTypeAllowed,
 } from "@/lib/expenses/upload";
+import { buildPrivateStoragePlaceholderUrl } from "@/lib/storage/private-file-urls";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
 const BUCKET = process.env.AWS_S3_BUCKET || "";
-const REGION = process.env.AWS_REGION || "eu-west-3";
-
 function inferUploadMimeType(
   fileName: string,
   fileType: string
@@ -142,7 +141,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
       await getS3Client().send(putCommand);
 
-      const url = `https://${BUCKET}.s3.${REGION}.amazonaws.com/${key}`;
+      const url = buildPrivateStoragePlaceholderUrl(key);
 
       created = await createExpenseAttachment({
         companyId: auth.context.user.companyId || "",

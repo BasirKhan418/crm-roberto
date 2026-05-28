@@ -25,6 +25,7 @@ import {
   TICKET_ALLOWED_MIME_TYPES,
   isTicketMimeTypeAllowed,
 } from "@/lib/tickets/constants";
+import { buildAccountantPurchaseAttachmentFileUrl } from "@/lib/storage/private-file-urls";
 import type { AccountantPurchaseTicketReason } from "@/lib/tickets/accountant-purchase-ticket";
 import type { AccountantSalesTicketReason } from "@/lib/tickets/accountant-sales-ticket";
 
@@ -399,7 +400,7 @@ export async function listAccountantPurchaseInvoices(params: {
     list.push({
       id: String(attachment._id),
       displayName: String(attachment.displayName || "Attachment"),
-      url: String(attachment.url || ""),
+      url: buildAccountantPurchaseAttachmentFileUrl(String(attachment._id)),
       mimeType: String(attachment.mimeType || "application/octet-stream"),
       extension: String(attachment.extension || "file"),
       sizeBytes: Math.max(0, Number(attachment.sizeBytes || 0)),

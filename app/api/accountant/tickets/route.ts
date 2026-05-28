@@ -7,11 +7,29 @@ import {
   createAccountantSalesTicket,
 } from "@/db/repository/accountant-portal";
 import { listTickets } from "@/db/repository/ticket";
+import { buildAccountantTicketAttachmentFileUrl } from "@/lib/storage/private-file-urls";
 import { getClientIp } from "@/utils/api/request";
 import { buildValidationError } from "@/utils/api/validation";
 import { ticketListQuerySchema } from "@/validators/ticket.schema";
 import { ACCOUNTANT_PURCHASE_TICKET_REASONS } from "@/lib/tickets/accountant-purchase-ticket";
 import { ACCOUNTANT_SALES_TICKET_REASONS } from "@/lib/tickets/accountant-sales-ticket";
+
+function mapTicketAttachmentUrls<T extends { _id?: unknown; url?: unknown }>(attachments: T[] | undefined) {
+  if (!Array.isArray(attachments)) {
+    return attachments;
+  }
+
+  return attachments.map((attachment) => {
+    const attachmentId = typeof attachment._id === "string" ? attachment._id : "";
+
+    return attachmentId
+      ? {
+          ...attachment,
+          url: buildAccountantTicketAttachmentFileUrl(attachmentId),
+        }
+      : attachment;
+  });
+}
 
 const purchaseTicketSchema = z.object({
   expenseId: z.string().trim().regex(/^[0-9a-fA-F]{24}$/, "Invalid expense id"),
@@ -107,7 +125,12 @@ export async function POST(request: NextRequest) {
           success: true,
           message: "Invoice ticket created successfully",
           ticket: result.data.ticket,
-          initialMessage: result.data.initialMessage,
+          initialMessage: result.data.initialMessage
+            ? {
+                ...result.data.initialMessage,
+                attachments: mapTicketAttachmentUrls(result.data.initialMessage.attachments as Array<Record<string, unknown>> | undefined),
+              }
+            : result.data.initialMessage,
           data: {
             ticketId: result.data.ticketId,
             recipientIds: result.data.recipientIds,
@@ -141,7 +164,12 @@ export async function POST(request: NextRequest) {
         success: true,
         message: "Purchase ticket created successfully",
         ticket: result.data.ticket,
-        initialMessage: result.data.initialMessage,
+        initialMessage: result.data.initialMessage
+          ? {
+              ...result.data.initialMessage,
+              attachments: mapTicketAttachmentUrls(result.data.initialMessage.attachments as Array<Record<string, unknown>> | undefined),
+            }
+          : result.data.initialMessage,
         data: {
           ticketId: result.data.ticketId,
           recipientIds: result.data.recipientIds,

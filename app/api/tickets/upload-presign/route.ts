@@ -14,9 +14,9 @@ import {
   isTicketMimeTypeAllowed,
   TICKET_MAX_FILE_SIZE_BYTES,
 } from "@/lib/tickets/constants";
+import { buildPrivateStoragePlaceholderUrl } from "@/lib/storage/private-file-urls";
 
 const BUCKET = process.env.AWS_S3_BUCKET || "";
-const REGION = process.env.AWS_REGION || "eu-west-3";
 const URL_EXPIRES_IN_SECONDS = 60 * 5;
 
 export async function POST(request: NextRequest) {
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
     });
 
     const uploadUrl = await getSignedUrl(getS3Client(), putCommand, { expiresIn: URL_EXPIRES_IN_SECONDS });
-    const fileUrl = `https://${BUCKET}.s3.${REGION}.amazonaws.com/${key}`;
+    const fileUrl = buildPrivateStoragePlaceholderUrl(key);
 
     return NextResponse.json(
       {

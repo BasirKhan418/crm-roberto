@@ -16,6 +16,7 @@ import {
   EXPENSE_PAYMENT_METHODS,
   type ExpenseAttachmentDeleteReason,
 } from "@/lib/expenses/constants";
+import { buildExpenseAttachmentFileUrl } from "@/lib/storage/private-file-urls";
 import { normalizeRole } from "@/lib/permissions";
 import { isExpenseReadyForPayment } from "@/lib/expenses/payment-readiness";
 import type { ListQueryOptions, PaginationMeta } from "@/utils/api/query";
@@ -449,6 +450,18 @@ function addAccessScopeToQuery(query: Record<string, unknown>, access?: AccessSc
   }
 
   return query;
+}
+
+function mapExpenseAttachmentForResponse<T extends { _id?: unknown; url?: unknown }>(attachment: T) {
+  const attachmentId = extractObjectIdString(attachment._id);
+  if (!attachmentId) {
+    return attachment;
+  }
+
+  return {
+    ...attachment,
+    url: buildExpenseAttachmentFileUrl(attachmentId),
+  };
 }
 
 function escapeRegex(value: string) {
@@ -1080,7 +1093,7 @@ export async function getExpenseById(params: {
         toPositiveCents(expense.amountInclVatCents),
         paymentSummary.amountPaidCents
       ),
-      attachments,
+      attachments: attachments.map((attachment) => mapExpenseAttachmentForResponse(attachment)),
       payments,
       linkedTickets: [],
       auditLogs,
@@ -1941,7 +1954,7 @@ export async function listExpenseAttachments(params: {
 
   return {
     success: true as const,
-    attachments,
+    attachments: attachments.map((attachment) => mapExpenseAttachmentForResponse(attachment)),
   };
 }
 
@@ -2034,7 +2047,7 @@ export async function createExpenseAttachment(params: {
 
   return {
     success: true as const,
-    attachment: refreshed || attachment.toObject(),
+    attachment: mapExpenseAttachmentForResponse(refreshed || attachment.toObject()),
   };
 }
 

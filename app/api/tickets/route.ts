@@ -2,9 +2,27 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { authorizeTicketRoute } from "@/app/api/tickets/_shared";
 import { createTicket, listTickets } from "@/db/repository/ticket";
+import { buildTicketAttachmentFileUrl } from "@/lib/storage/private-file-urls";
 import { getClientIp } from "@/utils/api/request";
 import { buildValidationError } from "@/utils/api/validation";
 import { createTicketSchema, ticketListQuerySchema } from "@/validators/ticket.schema";
+
+function mapTicketAttachmentUrls<T extends { _id?: unknown; url?: unknown }>(attachments: T[] | undefined) {
+  if (!Array.isArray(attachments)) {
+    return attachments;
+  }
+
+  return attachments.map((attachment) => {
+    const attachmentId = typeof attachment._id === "string" ? attachment._id : "";
+
+    return attachmentId
+      ? {
+          ...attachment,
+          url: buildTicketAttachmentFileUrl(attachmentId),
+        }
+      : attachment;
+  });
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -92,7 +110,12 @@ export async function POST(request: NextRequest) {
         success: true,
         message: "Ticket created successfully",
         ticket: created.ticket,
-        initialMessage: created.initialMessage,
+        initialMessage: created.initialMessage
+          ? {
+              ...created.initialMessage,
+              attachments: mapTicketAttachmentUrls(created.initialMessage.attachments as Array<Record<string, unknown>> | undefined),
+            }
+          : created.initialMessage,
       },
       { status: 201 }
     );
