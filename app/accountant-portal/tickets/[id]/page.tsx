@@ -407,7 +407,7 @@ export default function AccountantPortalTicketDetailPage() {
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                         <div>
                           <div className="font-medium text-slate-950">{resolveMessageAuthor(message, locale)}</div>
-                          <div className="mt-1 text-xs text-muted-foreground">{t.messageNumber(index + 1)}</div>
+                          <div className="mt-1 text-xs text-muted-foreground">{t.messageNumber(ticket.messages.length - index)}</div>
                         </div>
                         <div className="text-xs text-muted-foreground">{formatDateTime(message.createdAt, locale)}</div>
                       </div>

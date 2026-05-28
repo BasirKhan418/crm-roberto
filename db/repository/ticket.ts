@@ -572,7 +572,7 @@ export async function getTicketThread(params: {
       companyId: toObjectId(params.companyId),
       ticketId: toObjectId(params.ticketId),
     })
-      .sort({ createdAt: 1 })
+      .sort({ createdAt: -1 })
       .populate("authorId", "name email")
       .lean<Record<string, unknown>[]>(),
     TicketAttachment.find({
