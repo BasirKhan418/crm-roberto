@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import * as XLSX from "xlsx";
 
 import ConnectDb from "@/db/connectDb";
+import Company from "@/db/models/Company";
 import Expense from "@/db/models/Expense";
 import ExpenseAttachment from "@/db/models/ExpenseAttachment";
 import Invoice from "@/db/models/Invoice";
@@ -34,6 +35,8 @@ type WorkbookSheet = {
   rows: ExportRow[];
   headers?: string[];
 };
+
+type ExportFileKind = "accountingRows" | "vatSummary" | "generalLedger";
 
 type AccountingRow = {
   sourceId: string;
@@ -148,6 +151,18 @@ function formatMoney(cents: number) {
   return centsToEuros(cents);
 }
 
+function slugifyFileSegment(value: string | null | undefined) {
+  const normalized = String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .replace(/_+/g, "_");
+
+  return normalized || "export";
+}
+
 function formatEntryDate(value: Date | null | undefined, locale: ExportLocale) {
   if (!value || !Number.isFinite(value.getTime())) {
     return locale === "fr" ? "Date inconnue" : "Unknown date";
@@ -189,6 +204,54 @@ function localizeExportTypeLabel(type: ExportType, locale: ExportLocale) {
     case "all":
     default:
       return "Purchases and sales";
+  }
+}
+
+function localizeExportScopeToken(type: ExportType, locale: ExportLocale) {
+  if (locale === "fr") {
+    switch (type) {
+      case "purchase":
+        return "achats";
+      case "sale":
+        return "ventes";
+      case "all":
+      default:
+        return "complet";
+    }
+  }
+
+  switch (type) {
+    case "purchase":
+      return "purchases";
+    case "sale":
+      return "sales";
+    case "all":
+    default:
+      return "full";
+  }
+}
+
+function localizeExportFileBaseName(kind: ExportFileKind, locale: ExportLocale) {
+  if (locale === "fr") {
+    switch (kind) {
+      case "generalLedger":
+        return "grand_livre";
+      case "vatSummary":
+        return "resume_tva";
+      case "accountingRows":
+      default:
+        return "ecritures_comptables";
+    }
+  }
+
+  switch (kind) {
+    case "generalLedger":
+      return "general_ledger";
+    case "vatSummary":
+      return "vat_summary";
+    case "accountingRows":
+    default:
+      return "accounting_rows";
   }
 }
 
@@ -282,6 +345,70 @@ function formatPeriodLabel(period: FinancialPeriodSelection | null | undefined, 
   }
 
   return resolved.label;
+}
+
+function buildPeriodFileToken(period: FinancialPeriodSelection | null | undefined, locale: ExportLocale) {
+  if (!period) {
+    return locale === "fr" ? "toutes_periodes" : "all_periods";
+  }
+
+  const resolved = resolveFinancialPeriod(period);
+  if (period.kind === "month") {
+    const year = resolved.startDate.getUTCFullYear();
+    const month = String(resolved.startDate.getUTCMonth() + 1).padStart(2, "0");
+    return `${year}_${month}`;
+  }
+
+  if (period.kind === "quarter") {
+    const year = resolved.startDate.getUTCFullYear();
+    const quarter = Math.floor(resolved.startDate.getUTCMonth() / 3) + 1;
+    return locale === "fr" ? `${year}_t${quarter}` : `${year}_q${quarter}`;
+  }
+
+  if (period.kind === "year") {
+    return String(resolved.startDate.getUTCFullYear());
+  }
+
+  const endDate = new Date(resolved.endDateExclusive.getTime() - 24 * 60 * 60 * 1000);
+  return `${toIsoDate(resolved.startDate).replace(/-/g, "_")}_${toIsoDate(endDate).replace(/-/g, "_")}`;
+}
+
+async function getCompanyFileToken(companyId: string) {
+  if (!isValidObjectId(companyId)) {
+    return "company";
+  }
+
+  const company = await Company.findById(toObjectId(companyId))
+    .select("slug name")
+    .lean<{ slug?: string | null; name?: string | null } | null>();
+
+  return slugifyFileSegment(company?.slug || company?.name || "company");
+}
+
+async function buildExportFileName(params: {
+  companyId: string;
+  kind: ExportFileKind;
+  locale: ExportLocale;
+  type: ExportType;
+  period?: FinancialPeriodSelection | null;
+  format: ExportFormat;
+}) {
+  const periodToken = buildPeriodFileToken(params.period, params.locale);
+  const scopeToken = localizeExportScopeToken(params.type, params.locale);
+
+  if (params.kind === "accountingRows") {
+    const companyToken = await getCompanyFileToken(params.companyId);
+    const datasetToken = params.type === "all"
+      ? localizeExportFileBaseName(params.kind, params.locale)
+      : scopeToken;
+
+    return `${companyToken}_${datasetToken}_${periodToken}.${params.format}`;
+  }
+
+  const baseToken = localizeExportFileBaseName(params.kind, params.locale);
+  const scopedBase = params.type === "all" ? baseToken : `${baseToken}_${scopeToken}`;
+
+  return `${scopedBase}_${periodToken}.${params.format}`;
 }
 
 function localizeSheetName(key: "generalLedger" | "purchaseJournal" | "salesJournal" | "vatSummary" | "exportInfo", locale: ExportLocale) {
@@ -1049,7 +1176,14 @@ export async function buildAccountingRowsExport(params: {
   }
 
   const rows = buildAccountingExportRows(formatAccountingRows(rowsResult.data), params.locale);
-  const fileName = `accounting-rows-${params.type}.${params.format}`;
+  const fileName = await buildExportFileName({
+    companyId: params.companyId,
+    kind: "accountingRows",
+    locale: params.locale,
+    type: params.type,
+    period: params.period,
+    format: params.format,
+  });
 
   return {
     success: true,
@@ -1080,7 +1214,14 @@ export async function buildVatSummaryExport(params: {
   }
 
   const rows = buildVatSummaryExportRows(buildVatSummaryRows(rowsResult.data, params.locale), params.locale);
-  const fileName = `vat-summary-${params.type}.${params.format}`;
+  const fileName = await buildExportFileName({
+    companyId: params.companyId,
+    kind: "vatSummary",
+    locale: params.locale,
+    type: params.type,
+    period: params.period,
+    format: params.format,
+  });
 
   return {
     success: true,
@@ -1113,7 +1254,14 @@ export async function buildGeneralLedgerExport(params: {
   const rawRows = rowsResult.data;
   const ledgerRows = buildGeneralLedgerRows(rawRows, params.locale);
   const rows = buildGeneralLedgerExportRows(ledgerRows, params.locale);
-  const fileName = `general-ledger-${params.type}.${params.format}`;
+  const fileName = await buildExportFileName({
+    companyId: params.companyId,
+    kind: "generalLedger",
+    locale: params.locale,
+    type: params.type,
+    period: params.period,
+    format: params.format,
+  });
 
   const workbookSheets: WorkbookSheet[] = [
     {
