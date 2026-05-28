@@ -26,6 +26,7 @@ import {
   uploadTicketFiles,
   useTicketThread,
 } from '@/hooks/useTickets';
+import { formatInvoiceReferencesInText } from '@/lib/i18n/messages';
 import { getDefaultCrmLandingPath, hasModuleActionAccess } from '@/lib/route-access';
 import { TICKET_STATUSES, type TicketStatus, type TicketType } from '@/lib/tickets/constants';
 
@@ -416,7 +417,7 @@ export default function TicketDetailPage() {
           <section className="rounded-2xl border border-border/70 bg-card p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
-                <h2 className="text-lg font-semibold text-foreground">{ticket.title}</h2>
+                <h2 className="text-lg font-semibold text-foreground">{formatInvoiceReferencesInText(locale, ticket.title)}</h2>
                 <div className="mt-1 flex flex-wrap items-center gap-2">
                   <TicketStatusBadge status={ticket.status} locale={locale} />
                   <TicketUnreadIndicator unreadCount={ticket.unreadCount} locale={locale} />
@@ -544,7 +545,7 @@ export default function TicketDetailPage() {
                         <p className="text-[11px] text-muted-foreground">{formatDateTime(message.createdAt, locale)}</p>
                       </div>
 
-                      {message.body ? <p className="mt-1 whitespace-pre-wrap wrap-break-word text-sm text-foreground">{message.body}</p> : null}
+                      {message.body ? <p className="mt-1 whitespace-pre-wrap wrap-break-word text-sm text-foreground">{formatInvoiceReferencesInText(locale, message.body)}</p> : null}
 
                       {Array.isArray(message.attachments) && message.attachments.length > 0 ? (
                         <div className="mt-2 rounded-lg border border-primary/20 bg-primary/5 p-2">

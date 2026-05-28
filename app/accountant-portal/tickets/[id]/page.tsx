@@ -18,6 +18,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { changeAccountantTicketStatus, replyAccountantTicket, uploadAccountantTicketFiles, useAccountantTicketThread } from '@/hooks/useAccountantTickets';
 import type { TicketAttachment, TicketMessage } from '@/hooks/useTickets';
+import { formatInvoiceReferencesInText } from '@/lib/i18n/messages';
 import type { TicketStatus, TicketType } from '@/lib/tickets/constants';
 
 const FILE_ACCEPT = '.pdf,.jpg,.jpeg,.png,.heic';
@@ -291,7 +292,7 @@ export default function AccountantPortalTicketDetailPage() {
             <CardContent className="space-y-6 px-5 py-6 sm:px-6 lg:px-7">
               <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
                 <div className="min-w-0 space-y-3">
-                  <h1 className="text-2xl font-semibold tracking-tight text-slate-950 sm:text-[2rem]">{ticket.title}</h1>
+                  <h1 className="text-2xl font-semibold tracking-tight text-slate-950 sm:text-[2rem]">{formatInvoiceReferencesInText(locale, ticket.title)}</h1>
                   <div className="flex flex-wrap items-center gap-2.5">
                     <TicketStatusBadge status={ticket.status} locale={locale} />
                     <TicketUnreadIndicator unreadCount={ticket.unreadCount} locale={locale} />
@@ -419,7 +420,7 @@ export default function AccountantPortalTicketDetailPage() {
                         </div>
                         <div className="text-xs text-muted-foreground">{formatDateTime(message.createdAt, locale)}</div>
                       </div>
-                      {message.body ? <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-foreground">{message.body}</p> : null}
+                      {message.body ? <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-foreground">{formatInvoiceReferencesInText(locale, message.body)}</p> : null}
                       {message.attachments && message.attachments.length > 0 ? (
                         <div className="mt-4 flex flex-wrap gap-2">
                           {message.attachments.map((attachment) => (

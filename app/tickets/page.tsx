@@ -18,6 +18,7 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuthMe } from '@/hooks/useAuthMe';
 import { type TicketListItem, useTickets } from '@/hooks/useTickets';
+import { formatInvoiceReferencesInText } from '@/lib/i18n/messages';
 import {
   TICKET_LINKED_TYPES,
   TICKET_STATUSES,
@@ -433,7 +434,7 @@ export default function TicketsPage() {
                     <div className="min-w-0 flex-1 space-y-2">
                       <div className="flex flex-wrap items-center gap-2">
                         <Link href={`/tickets/${ticket._id}`} className="truncate text-sm font-semibold text-foreground hover:underline">
-                          {ticket.title}
+                          {formatInvoiceReferencesInText(locale, ticket.title)}
                         </Link>
                         <TicketStatusBadge status={ticket.status} locale={locale} />
                         <TicketUnreadIndicator unreadCount={ticket.unreadCount} locale={locale} />

@@ -18,6 +18,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAccountantTickets } from '@/hooks/useAccountantTickets';
+import { formatInvoiceReferencesInText } from '@/lib/i18n/messages';
 import { TICKET_STATUSES, type TicketStatus, type TicketType } from '@/lib/tickets/constants';
 
 const STATUS_ROW_BG: Record<TicketStatus, string> = {
@@ -213,7 +214,7 @@ export default function AccountantPortalTicketsPage() {
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                       <div className="space-y-2">
                         <div className="flex flex-wrap items-center gap-2">
-                          <h2 className="text-lg font-semibold text-slate-950">{ticket.title}</h2>
+                          <h2 className="text-lg font-semibold text-slate-950">{formatInvoiceReferencesInText(locale, ticket.title)}</h2>
                           <Badge variant="secondary" className="border-white/70 bg-white/80 text-slate-700 dark:border-slate-800/70 dark:bg-slate-950/60 dark:text-slate-200">
                             {resolveTypeLabel(ticket.type, locale)}
                           </Badge>
