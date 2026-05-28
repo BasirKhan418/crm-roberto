@@ -7,6 +7,7 @@ import { ArrowLeftIcon, ExternalLinkIcon, Loader2Icon, PaperclipIcon, RefreshCwI
 import { toast } from 'sonner';
 
 import CrmShell from '@/components/crm-shell';
+import { AttachmentPreviewDialog } from '@/components/expenses/attachment-preview-dialog';
 import { useLocale } from '@/components/providers/locale-provider';
 import { TicketStatusBadge } from '@/components/tickets/ticket-status-badge';
 import { TicketUnreadIndicator } from '@/components/tickets/ticket-unread-indicator';
@@ -144,6 +145,7 @@ export default function TicketDetailPage() {
 
   const [replyBody, setReplyBody] = useState('');
   const [replyFiles, setReplyFiles] = useState<File[]>([]);
+  const [previewAttachment, setPreviewAttachment] = useState<TicketAttachment | null>(null);
   const [sendingReply, setSendingReply] = useState(false);
   const [statusDraft, setStatusDraft] = useState<TicketStatus>('open');
   const [updatingStatus, setUpdatingStatus] = useState(false);
@@ -187,6 +189,7 @@ export default function TicketDetailPage() {
       updatedAt: 'Updated',
       unassigned: 'Unassigned',
       unreadLabel: 'Unread messages',
+      previewAttachment: 'Preview attachment',
     },
     fr: {
       shellTitle: 'Détail Ticket',
@@ -222,6 +225,7 @@ export default function TicketDetailPage() {
       updatedAt: 'Mis à jour le',
       unassigned: 'Non assigné',
       unreadLabel: 'Messages non lus',
+      previewAttachment: 'Aperçu de la pièce jointe',
     },
   }[locale];
 
@@ -528,11 +532,12 @@ export default function TicketDetailPage() {
                                 .join(' · ');
 
                               return (
-                                <a
+                                <button
+                                  type="button"
                                   key={`${attachment.url}-${index}`}
-                                  href={attachment.url}
-                                  target="_blank"
-                                  rel="noreferrer"
+                                  onClick={() => setPreviewAttachment(attachment)}
+                                  title={t.previewAttachment}
+                                  aria-label={`${t.previewAttachment}: ${fileName}`}
                                   className="group flex items-center justify-between gap-2 rounded-md border border-border/60 bg-card px-2.5 py-1.5 hover:border-primary/40"
                                 >
                                   <span className="flex min-w-0 items-center gap-1.5">
@@ -545,7 +550,7 @@ export default function TicketDetailPage() {
                                     {fileMeta ? <span>{fileMeta}</span> : null}
                                     <ExternalLinkIcon className="size-3" />
                                   </span>
-                                </a>
+                                </button>
                               );
                             })}
                           </div>
@@ -561,6 +566,25 @@ export default function TicketDetailPage() {
           </section>
         </div>
       )}
+
+      <AttachmentPreviewDialog
+        open={Boolean(previewAttachment)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPreviewAttachment(null);
+          }
+        }}
+        attachment={
+          previewAttachment
+            ? {
+                name: previewAttachment.displayName || previewAttachment.originalName,
+                url: previewAttachment.url,
+                mimeType: previewAttachment.mimeType,
+              }
+            : null
+        }
+        locale={locale}
+      />
     </CrmShell>
   );
 }

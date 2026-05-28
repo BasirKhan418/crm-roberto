@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeftIcon, Loader2Icon, PaperclipIcon, RefreshCwIcon, SendIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { AttachmentPreviewDialog } from '@/components/expenses/attachment-preview-dialog';
 import { useLocale } from '@/components/providers/locale-provider';
 import { TicketStatusBadge } from '@/components/tickets/ticket-status-badge';
 import { TicketUnreadIndicator } from '@/components/tickets/ticket-unread-indicator';
@@ -126,6 +127,7 @@ const copy = {
     conversation: 'Conversation',
     conversationDescription: 'Everything already shared on this ticket stays grouped in one place.',
     messageNumber: (value: number) => `Message ${value}`,
+    previewAttachment: 'Preview attachment',
   },
   fr: {
     title: 'Fil du ticket',
@@ -157,6 +159,7 @@ const copy = {
     conversation: 'Conversation',
     conversationDescription: 'Tout ce qui a déjà été partagé sur ce ticket reste groupé au même endroit.',
     messageNumber: (value: number) => `Message ${value}`,
+    previewAttachment: 'Aperçu de la pièce jointe',
   },
 } as const;
 
@@ -171,6 +174,7 @@ export default function AccountantPortalTicketDetailPage() {
 
   const [replyBody, setReplyBody] = useState('');
   const [replyFiles, setReplyFiles] = useState<File[]>([]);
+  const [previewAttachment, setPreviewAttachment] = useState<TicketAttachment | null>(null);
   const [sendingReply, setSendingReply] = useState(false);
   const [statusDraft, setStatusDraft] = useState<TicketStatus>('open');
   const [updatingStatus, setUpdatingStatus] = useState(false);
@@ -415,10 +419,17 @@ export default function AccountantPortalTicketDetailPage() {
                       {message.attachments && message.attachments.length > 0 ? (
                         <div className="mt-4 flex flex-wrap gap-2">
                           {message.attachments.map((attachment) => (
-                            <a key={attachment.url} href={attachment.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-100">
+                            <button
+                              key={attachment.url}
+                              type="button"
+                              onClick={() => setPreviewAttachment(attachment)}
+                              title={t.previewAttachment}
+                              aria-label={`${t.previewAttachment}: ${attachment.displayName || attachment.originalName}`}
+                              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-100"
+                            >
                               <PaperclipIcon className="size-3.5" />
-                              {attachment.displayName}
-                            </a>
+                              {attachment.displayName || attachment.originalName}
+                            </button>
                           ))}
                         </div>
                       ) : null}
@@ -430,6 +441,25 @@ export default function AccountantPortalTicketDetailPage() {
           </Card>
         </>
       )}
+
+      <AttachmentPreviewDialog
+        open={Boolean(previewAttachment)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPreviewAttachment(null);
+          }
+        }}
+        attachment={
+          previewAttachment
+            ? {
+                name: previewAttachment.displayName || previewAttachment.originalName,
+                url: previewAttachment.url,
+                mimeType: previewAttachment.mimeType,
+              }
+            : null
+        }
+        locale={locale}
+      />
     </div>
   );
 }

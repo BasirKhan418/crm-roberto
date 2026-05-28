@@ -16,6 +16,7 @@ type InteractiveReceiptImageProps = {
   doubleTapScale?: number;
   className?: string;
   imageClassName?: string;
+  onImageError?: () => void;
 };
 
 type Point = { x: number; y: number };
@@ -50,6 +51,7 @@ export function InteractiveReceiptImage({
   doubleTapScale = 2.5,
   className,
   imageClassName,
+  onImageError,
 }: InteractiveReceiptImageProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const pointersRef = useRef<Map<number, Point>>(new Map());
@@ -309,6 +311,7 @@ export function InteractiveReceiptImage({
           src={src}
           alt={alt}
           draggable={false}
+          onError={onImageError}
           className={cn('h-full w-full object-contain will-change-transform', imageClassName)}
           style={{
             transform: `translate3d(${offset.x}px, ${offset.y}px, 0) scale(${scale})`,
