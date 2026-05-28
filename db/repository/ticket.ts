@@ -8,6 +8,7 @@ import User from "@/db/models/User";
 import { listAuditLogsForEntity, recordAuditLog } from "@/db/repository/audit";
 import { createActivityLog } from "@/db/repository/activity";
 import { getCompanyInvitationBranding } from '@/db/repository/company';
+import { resolveLocaleFromValue } from '@/lib/i18n/locale';
 import { normalizeRole } from '@/lib/permissions';
 import { sendTicketEmailNotification } from "@/lib/tickets/email-notifications";
 import type { TicketLinkedType, TicketStatus, TicketType } from "@/lib/tickets/constants";
@@ -262,7 +263,7 @@ async function createTicketNotifications(params: {
         const ticketPath = normalizedRole === 'external_accountant'
           ? `/accountant-portal/tickets/${params.snapshot.id}`
           : `/tickets/${params.snapshot.id}`;
-        const locale = recipient.locale === 'fr' ? 'fr' : 'en';
+        const locale = resolveLocaleFromValue(recipient.locale ?? null, 'fr');
         const actorName = actorRecord?.name?.trim() || actorRecord?.email?.trim() || (locale === 'fr' ? 'Un collaborateur' : 'A teammate');
 
         const result = await sendTicketEmailNotification({
