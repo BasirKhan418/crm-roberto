@@ -10,6 +10,7 @@ export function parseAccountantExportRequest(request: NextRequest):
   const parsed = accountantExportQuerySchema.safeParse({
     format: request.nextUrl.searchParams.get("format") || undefined,
     type: request.nextUrl.searchParams.get("type") || undefined,
+    locale: request.nextUrl.searchParams.get("locale") || undefined,
     status: request.nextUrl.searchParams.get("status") || undefined,
     categoryId: request.nextUrl.searchParams.get("categoryId") || undefined,
   });

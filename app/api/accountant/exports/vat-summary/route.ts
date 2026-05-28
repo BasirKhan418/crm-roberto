@@ -24,10 +24,11 @@ export async function GET(request: NextRequest) {
 
     const format = parsed.data.format || "csv";
     const type = parsed.data.type || "all";
+    const locale = parsed.data.locale || (session.user.locale === "en" ? "en" : "fr");
 
     const result = await buildVatSummaryExport({
       companyId: session.user.companyId,
-      locale: session.user.locale === "en" ? "en" : "fr",
+      locale,
       type,
       format,
       status: parsed.data.status,
@@ -45,7 +46,7 @@ export async function GET(request: NextRequest) {
       action: "exported",
       entityId: "vat_summary",
       ipAddress: getClientIp(request),
-      details: { type, format, status: parsed.data.status || null, categoryId: parsed.data.categoryId || null },
+      details: { type, format, locale, status: parsed.data.status || null, categoryId: parsed.data.categoryId || null },
     });
 
     return new NextResponse(new Uint8Array(result.data.buffer), {

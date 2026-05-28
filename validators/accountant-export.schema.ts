@@ -4,10 +4,12 @@ const objectIdPattern = /^[0-9a-fA-F]{24}$/;
 
 export const accountantExportFormatSchema = z.enum(["csv", "xlsx"]);
 export const accountantExportTypeSchema = z.enum(["all", "purchase", "sale"]);
+export const accountantExportLocaleSchema = z.enum(["en", "fr"]);
 
 export const accountantExportQuerySchema = z.object({
   format: accountantExportFormatSchema.optional(),
   type: accountantExportTypeSchema.optional(),
+  locale: accountantExportLocaleSchema.optional(),
   status: z.string().trim().max(40).optional(),
   categoryId: z.string().trim().regex(objectIdPattern, "Invalid category id").optional(),
 });

@@ -195,6 +195,7 @@ export default function AccountantPortalExportsPage() {
       const params = buildFinancialPeriodSearchParams(period);
       params.set('format', format);
       params.set('type', scope);
+      params.set('locale', locale);
       if (status !== 'all') params.set('status', status);
       if (categoryId !== 'all' && scope !== 'sale') params.set('categoryId', categoryId);
 

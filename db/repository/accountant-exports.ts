@@ -29,6 +29,12 @@ type RepositoryResult<T> = RepositoryErrorResult | RepositorySuccessResult<T>;
 
 type ExportRow = Record<string, string | number>;
 
+type WorkbookSheet = {
+  name: string;
+  rows: ExportRow[];
+  headers?: string[];
+};
+
 type AccountingRow = {
   sourceId: string;
   type: "purchase" | "sale";
@@ -162,6 +168,30 @@ function localizeTypeLabel(type: "purchase" | "sale", locale: ExportLocale) {
   return type === "purchase" ? "Purchase" : "Sale";
 }
 
+function localizeExportTypeLabel(type: ExportType, locale: ExportLocale) {
+  if (locale === "fr") {
+    switch (type) {
+      case "purchase":
+        return "Achats uniquement";
+      case "sale":
+        return "Ventes uniquement";
+      case "all":
+      default:
+        return "Achats et ventes";
+    }
+  }
+
+  switch (type) {
+    case "purchase":
+      return "Purchase only";
+    case "sale":
+      return "Sales only";
+    case "all":
+    default:
+      return "Purchases and sales";
+  }
+}
+
 function localizeStatusLabel(status: string, locale: ExportLocale) {
   const normalized = status.trim().toLowerCase();
 
@@ -218,7 +248,106 @@ function buildBalanceConfirmation(totalDebitCents: number, totalCreditCents: num
   }
 
   const amount = formatMoney(Math.abs(delta));
+
   return locale === "fr" ? `Écart de ${amount}` : `Difference of ${amount}`;
+}
+
+function formatExportTimestamp(locale: ExportLocale, value: Date = new Date()) {
+  return new Intl.DateTimeFormat(locale === "fr" ? "fr-FR" : "en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(value);
+}
+
+function formatPeriodLabel(period: FinancialPeriodSelection | null | undefined, locale: ExportLocale) {
+  if (!period) {
+    return locale === "fr" ? "Toutes périodes" : "All periods";
+  }
+
+  const resolved = resolveFinancialPeriod(period);
+  if (period.kind === "month") {
+    return new Intl.DateTimeFormat(locale === "fr" ? "fr-FR" : "en-GB", {
+      month: "long",
+      year: "numeric",
+      timeZone: "UTC",
+    }).format(resolved.startDate);
+  }
+
+  if (period.kind === "custom") {
+    const endDate = new Date(resolved.endDateExclusive.getTime() - 24 * 60 * 60 * 1000);
+    return `${formatEntryDate(resolved.startDate, locale)} - ${formatEntryDate(endDate, locale)}`;
+  }
+
+  return resolved.label;
+}
+
+function localizeSheetName(key: "generalLedger" | "purchaseJournal" | "salesJournal" | "vatSummary" | "exportInfo", locale: ExportLocale) {
+  if (locale === "fr") {
+    switch (key) {
+      case "generalLedger":
+        return "Grand livre";
+      case "purchaseJournal":
+        return "Journal achats";
+      case "salesJournal":
+        return "Journal ventes";
+      case "vatSummary":
+        return "Résumé TVA";
+      case "exportInfo":
+      default:
+        return "Paramètres export";
+    }
+  }
+
+  switch (key) {
+    case "generalLedger":
+      return "General Ledger";
+    case "purchaseJournal":
+      return "Purchase Journal";
+    case "salesJournal":
+      return "Sales Journal";
+    case "vatSummary":
+      return "VAT Summary";
+    case "exportInfo":
+    default:
+      return "Export Info";
+  }
+}
+
+function sanitizeWorksheetName(name: string, usedNames: Set<string>) {
+  const stripped = name.replace(/[\\/?*\[\]:]/g, " ").trim() || "Sheet";
+  let candidate = stripped.slice(0, 31);
+  let suffix = 2;
+
+  while (usedNames.has(candidate)) {
+    const suffixLabel = ` ${suffix}`;
+    candidate = `${stripped.slice(0, Math.max(0, 31 - suffixLabel.length))}${suffixLabel}`;
+    suffix += 1;
+  }
+
+  usedNames.add(candidate);
+  return candidate;
+}
+
+function buildWorksheetHeaders(rows: ExportRow[], headers?: string[]) {
+  if (headers && headers.length > 0) {
+    return headers;
+  }
+
+  return rows.length > 0 ? Object.keys(rows[0]) : [];
+}
+
+function buildWorksheetColumnWidths(headers: string[], rows: ExportRow[]) {
+  return headers.map((header) => {
+    const widestCell = rows.reduce((maxWidth, row) => {
+      const valueWidth = String(row[header] ?? "").length;
+      return Math.max(maxWidth, valueWidth);
+    }, header.length);
+
+    return { wch: Math.min(48, Math.max(12, widestCell + 2)) };
+  });
 }
 
 function statusMatchesType(type: ExportType, status?: string | null) {
@@ -483,6 +612,56 @@ function buildAccountingExportRows(rows: AccountingRow[], locale: ExportLocale):
   });
 }
 
+function buildJournalExportRows(rows: RawAccountingRow[], locale: ExportLocale): ExportRow[] {
+  return rows.map((row) => {
+    const exportRow = {
+      date: toIsoDate(row.date),
+      reference: row.reference,
+      counterparty: row.counterparty,
+      category: row.category,
+      entryLabel: buildEntryLabel(row, locale),
+      status: localizeStatusLabel(row.status, locale),
+      excludingVat: formatMoney(row.excludingVatCents),
+      vat: formatMoney(row.vatCents),
+      includingVat: formatMoney(row.includingVatCents),
+    };
+
+    if (locale === "fr") {
+      return {
+        "Date": exportRow.date,
+        "Référence": exportRow.reference,
+        "Tiers": exportRow.counterparty,
+        "Catégorie": exportRow.category,
+        "Libellé écriture": exportRow.entryLabel,
+        "Statut": exportRow.status,
+        "HT": exportRow.excludingVat,
+        "TVA": exportRow.vat,
+        "TTC": exportRow.includingVat,
+      };
+    }
+
+    return {
+      "Date": exportRow.date,
+      "Reference": exportRow.reference,
+      "Counterparty": exportRow.counterparty,
+      "Category": exportRow.category,
+      "Entry label": exportRow.entryLabel,
+      "Status": exportRow.status,
+      "Net": exportRow.excludingVat,
+      "VAT": exportRow.vat,
+      "Gross": exportRow.includingVat,
+    };
+  });
+}
+
+function buildJournalHeaders(locale: ExportLocale) {
+  if (locale === "fr") {
+    return ["Date", "Référence", "Tiers", "Catégorie", "Libellé écriture", "Statut", "HT", "TVA", "TTC"];
+  }
+
+  return ["Date", "Reference", "Counterparty", "Category", "Entry label", "Status", "Net", "VAT", "Gross"];
+}
+
 function buildVatSummaryRows(rows: RawAccountingRow[], locale: ExportLocale): VatSummaryRow[] {
   const purchaseRows = rows.filter((row) => row.type === "purchase");
   const salesRows = rows.filter((row) => row.type === "sale");
@@ -741,6 +920,80 @@ function buildGeneralLedgerExportRows(rows: GeneralLedgerRow[], locale: ExportLo
   return exportRows;
 }
 
+function buildExportInfoRows(params: {
+  locale: ExportLocale;
+  type: ExportType;
+  status?: string;
+  categoryId?: string;
+  period?: FinancialPeriodSelection | null;
+  rawRows: RawAccountingRow[];
+  ledgerRows: GeneralLedgerRow[];
+}) {
+  const purchaseCount = params.rawRows.filter((row) => row.type === "purchase").length;
+  const salesCount = params.rawRows.filter((row) => row.type === "sale").length;
+  const totalDebitCents = params.ledgerRows.reduce((sum, row) => sum + row.debitCents, 0);
+  const totalCreditCents = params.ledgerRows.reduce((sum, row) => sum + row.creditCents, 0);
+  const categoryLabel = params.type === "sale"
+    ? (params.locale === "fr" ? "Non applicable" : "Not applicable")
+    : params.categoryId
+      ? (() => {
+        const matchingCategory = params.rawRows.find((row) => row.type === "purchase")?.category;
+        return matchingCategory ? `${matchingCategory} (${params.categoryId})` : params.categoryId;
+      })()
+      : (params.locale === "fr" ? "Toutes catégories" : "All categories");
+  const statusLabel = params.status
+    ? localizeStatusLabel(params.status, params.locale)
+    : params.locale === "fr"
+      ? "Tous statuts"
+      : "All statuses";
+
+  const infoEntries = params.locale === "fr"
+    ? [
+      ["Pack export", "Classeur comptable"],
+      ["Généré le", formatExportTimestamp(params.locale)],
+      ["Périmètre", localizeExportTypeLabel(params.type, params.locale)],
+      ["Période", formatPeriodLabel(params.period, params.locale)],
+      ["Filtre statut", statusLabel],
+      ["Filtre catégorie", categoryLabel],
+      ["Langue", "Français"],
+      ["Nb lignes grand livre", String(params.ledgerRows.length)],
+      ["Nb écritures achats", String(purchaseCount)],
+      ["Nb écritures ventes", String(salesCount)],
+      ["Total débit", formatMoney(totalDebitCents)],
+      ["Total crédit", formatMoney(totalCreditCents)],
+      ["Contrôle équilibre", buildBalanceConfirmation(totalDebitCents, totalCreditCents, params.locale)],
+    ]
+    : [
+      ["Export pack", "Accounting workbook"],
+      ["Generated at", formatExportTimestamp(params.locale)],
+      ["Scope", localizeExportTypeLabel(params.type, params.locale)],
+      ["Period", formatPeriodLabel(params.period, params.locale)],
+      ["Status filter", statusLabel],
+      ["Category filter", categoryLabel],
+      ["Locale", "English"],
+      ["Ledger lines", String(params.ledgerRows.length)],
+      ["Purchase entries", String(purchaseCount)],
+      ["Sales entries", String(salesCount)],
+      ["Total debit", formatMoney(totalDebitCents)],
+      ["Total credit", formatMoney(totalCreditCents)],
+      ["Balance check", buildBalanceConfirmation(totalDebitCents, totalCreditCents, params.locale)],
+    ];
+
+  return infoEntries.map(([label, value]) => {
+    if (params.locale === "fr") {
+      return {
+        "Paramètre": label,
+        "Valeur": value,
+      };
+    }
+
+    return {
+      "Parameter": label,
+      "Value": value,
+    };
+  });
+}
+
 function buildCsvBuffer<T extends Record<string, unknown>>(rows: T[]) {
   if (rows.length === 0) {
     return Buffer.from("", "utf-8");
@@ -757,9 +1010,27 @@ function buildCsvBuffer<T extends Record<string, unknown>>(rows: T[]) {
 }
 
 function buildXlsxBuffer<T extends Record<string, unknown>>(sheetName: string, rows: T[]) {
+  return buildWorkbookXlsxBuffer([{ name: sheetName, rows }]);
+}
+
+function buildWorkbookXlsxBuffer(sheets: WorkbookSheet[]) {
   const workbook = XLSX.utils.book_new();
-  const worksheet = XLSX.utils.json_to_sheet(rows);
-  XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+  const usedNames = new Set<string>();
+
+  for (const sheet of sheets) {
+    const headers = buildWorksheetHeaders(sheet.rows, sheet.headers);
+    const worksheet = XLSX.utils.json_to_sheet(sheet.rows, headers.length > 0 ? { header: headers } : undefined);
+
+    if (headers.length > 0) {
+      worksheet["!cols"] = buildWorksheetColumnWidths(headers, sheet.rows);
+      if (worksheet["!ref"]) {
+        worksheet["!autofilter"] = { ref: worksheet["!ref"] };
+      }
+    }
+
+    XLSX.utils.book_append_sheet(workbook, worksheet, sanitizeWorksheetName(sheet.name, usedNames));
+  }
+
   return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
 }
 
@@ -839,15 +1110,51 @@ export async function buildGeneralLedgerExport(params: {
     return rowsResult;
   }
 
-  const rows = buildGeneralLedgerExportRows(buildGeneralLedgerRows(rowsResult.data, params.locale), params.locale);
+  const rawRows = rowsResult.data;
+  const ledgerRows = buildGeneralLedgerRows(rawRows, params.locale);
+  const rows = buildGeneralLedgerExportRows(ledgerRows, params.locale);
   const fileName = `general-ledger-${params.type}.${params.format}`;
+
+  const workbookSheets: WorkbookSheet[] = [
+    {
+      name: localizeSheetName("generalLedger", params.locale),
+      rows,
+    },
+    {
+      name: localizeSheetName("purchaseJournal", params.locale),
+      rows: buildJournalExportRows(rawRows.filter((row) => row.type === "purchase"), params.locale),
+      headers: buildJournalHeaders(params.locale),
+    },
+    {
+      name: localizeSheetName("salesJournal", params.locale),
+      rows: buildJournalExportRows(rawRows.filter((row) => row.type === "sale"), params.locale),
+      headers: buildJournalHeaders(params.locale),
+    },
+    {
+      name: localizeSheetName("vatSummary", params.locale),
+      rows: buildVatSummaryExportRows(buildVatSummaryRows(rawRows, params.locale), params.locale),
+    },
+    {
+      name: localizeSheetName("exportInfo", params.locale),
+      rows: buildExportInfoRows({
+        locale: params.locale,
+        type: params.type,
+        status: params.status,
+        categoryId: params.categoryId,
+        period: params.period,
+        rawRows,
+        ledgerRows,
+      }),
+      headers: params.locale === "fr" ? ["Paramètre", "Valeur"] : ["Parameter", "Value"],
+    },
+  ];
 
   return {
     success: true,
     data: {
       buffer: params.format === "csv"
         ? buildCsvBuffer(rows)
-        : buildXlsxBuffer(params.locale === "fr" ? "Grand livre" : "General Ledger", rows),
+        : buildWorkbookXlsxBuffer(workbookSheets),
       fileName,
       contentType: params.format === "csv"
         ? "text/csv; charset=utf-8"
