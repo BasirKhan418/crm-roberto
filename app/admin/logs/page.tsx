@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Activity, ChevronLeft, ChevronRight, Clock3, FileClock, Filter, Laptop, RefreshCw, Search, ShieldCheck, UserRound } from 'lucide-react';
 
+import { getAuditActionLabel, getAuditDescription, getAuditSecondaryBadge, getAuditTargetLabel } from '@/lib/audit-log-presenter';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -45,9 +46,11 @@ type ConnectionLog = {
 type AuditLog = {
   _id?: string;
   entityType?: string;
+  entityId?: string;
   action?: string;
   fieldName?: string | null;
   source?: string | null;
+  newValue?: unknown;
   performedBy?: PopulatedUser | string | null;
   performedAt?: string;
   createdAt?: string;
@@ -67,28 +70,6 @@ const connectionEventLabels: Record<string, { title: string; description: string
   revoke_access: { title: 'Access revoked', description: 'A pending invitation or user access was revoked.', tone: 'amber' },
   impersonation_start: { title: 'Support session started', description: 'A support impersonation session was started.', tone: 'blue' },
   impersonation_stop: { title: 'Support session ended', description: 'A support impersonation session was ended.', tone: 'blue' },
-};
-
-const auditActionLabels: Record<string, string> = {
-  created: 'created',
-  updated: 'updated',
-  deleted: 'deleted',
-  archived: 'archived',
-  duplicated: 'duplicated',
-  status_changed: 'changed status for',
-  marked_paid: 'marked as paid',
-  payment_added: 'added payment to',
-  exported: 'exported',
-  downloaded: 'downloaded',
-};
-
-const entityLabels: Record<string, string> = {
-  expense: 'expense',
-  invoice: 'invoice',
-  supplier: 'supplier',
-  user: 'user or company setting',
-  ticket: 'ticket',
-  report: 'report',
 };
 
 const eventFilterOptions = [
@@ -234,6 +215,7 @@ export default function AdminLogsPage() {
         if (period !== 'all') connectionParams.set('period', period);
         if (eventType !== 'all') connectionParams.set('eventType', eventType);
         if (entityType !== 'all') auditParams.set('entityType', entityType);
+        if (period !== 'all') auditParams.set('period', period);
 
         const [companiesResponse, connectionResponse, auditResponse] = await Promise.all([
           fetch('/api/admin/companies?limit=100', { cache: 'no-store' }),
@@ -408,8 +390,9 @@ export default function AdminLogsPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             {loading ? <LoadingRows /> : auditLogs.length > 0 ? auditLogs.map((log, index) => {
-              const entity = entityLabels[log.entityType || ''] || 'record';
-              const action = auditActionLabels[log.action || ''] || 'changed';
+              const action = getAuditActionLabel(log.action, 'en');
+              const target = getAuditTargetLabel(log, 'en');
+              const secondaryBadge = getAuditSecondaryBadge(log);
               return (
                 <div key={String(log._id || index)} className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-4 transition-colors hover:bg-white dark:border-slate-800/70 dark:bg-slate-900/30 dark:hover:bg-slate-900/60">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -419,10 +402,11 @@ export default function AdminLogsPage() {
                       </div>
                       <div className="min-w-0 space-y-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <h2 className="font-semibold text-slate-950 dark:text-slate-50">{getPersonName(log.performedBy)} {action} {entity}</h2>
+                          <h2 className="font-semibold text-slate-950 dark:text-slate-50">{getPersonName(log.performedBy)} {action} {target}</h2>
                           <span className="inline-flex rounded-full border border-blue-200 bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700 dark:border-blue-900/60 dark:bg-blue-950/40 dark:text-blue-300">{log.entityType || 'activity'}</span>
+                          {secondaryBadge ? <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300">{secondaryBadge}</span> : null}
                         </div>
-                        <p className="text-sm text-muted-foreground">{log.fieldName ? `Changed area: ${log.fieldName}` : 'No extra detail was recorded for this activity.'}</p>
+                        <p className="text-sm text-muted-foreground">{getAuditDescription(log, 'en')}</p>
                         <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                           <span>{getCompanyName(log.companyId, companyLookup)}</span>
                           <span>Source: {log.source || 'system'}</span>

@@ -14,6 +14,7 @@ export async function GET(request: NextRequest) {
   const parsed = auditLogsQuerySchema.safeParse({
     companyId: request.nextUrl.searchParams.get("companyId") || undefined,
     entityType: request.nextUrl.searchParams.get("entityType") || undefined,
+    period: request.nextUrl.searchParams.get("period") || undefined,
     page: request.nextUrl.searchParams.get("page") || undefined,
     limit: request.nextUrl.searchParams.get("limit") || undefined,
   });

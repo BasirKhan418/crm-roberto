@@ -88,7 +88,13 @@ export async function POST(request: NextRequest) {
       action: "downloaded",
       entityId: "purchase_attachments_zip",
       ipAddress: getClientIp(request),
-      details: { expenseIds: parsed.data.expenseIds, fileCount: bundleResult.data.files.length },
+      details: {
+        reportKey: "purchase_attachments_zip",
+        fileType: "ZIP",
+        fileName: "purchase-invoice-attachments.zip",
+        fileCount: bundleResult.data.files.length,
+        expenseIds: parsed.data.expenseIds,
+      },
     });
 
     return new NextResponse(new Uint8Array(zipBuffer), {

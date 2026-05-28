@@ -67,6 +67,7 @@ export const connectionLogsQuerySchema = z.object({
 export const auditLogsQuerySchema = z.object({
   companyId: z.string().trim().regex(objectIdPattern, "Invalid company id").optional(),
   entityType: z.enum(["all", "expense", "invoice", "supplier", "user", "ticket", "report"]).optional(),
+  period: z.enum(["all", "24h", "7d", "30d"]).optional(),
   page: z.coerce.number().int().min(1).max(200).optional(),
   limit: z.coerce.number().int().min(1).max(100).optional(),
 });

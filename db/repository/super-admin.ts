@@ -320,7 +320,7 @@ export async function updateCompanyFeatureFlags(params: {
   return { success: true as const, data: company };
 }
 
-export async function listPlatformAuditLogs(params: { companyId?: string; entityType?: string; page?: number; limit?: number }) {
+export async function listPlatformAuditLogs(params: { companyId?: string; entityType?: string; period?: string; page?: number; limit?: number }) {
   await ConnectDb();
 
   const page = params.page || 1;
@@ -331,6 +331,17 @@ export async function listPlatformAuditLogs(params: { companyId?: string; entity
   }
   if (params.entityType && params.entityType !== "all") {
     query.entityType = params.entityType;
+  }
+  if (params.period && params.period !== "all") {
+    const since = new Date();
+    if (params.period === "24h") {
+      since.setHours(since.getHours() - 24);
+    } else if (params.period === "7d") {
+      since.setDate(since.getDate() - 7);
+    } else if (params.period === "30d") {
+      since.setDate(since.getDate() - 30);
+    }
+    query.performedAt = { $gte: since };
   }
 
   const skip = (page - 1) * limit;

@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { Activity, ChevronLeft, ChevronRight, Clock3, FileClock, Loader2, RefreshCw, Settings2, ShieldAlert, ShieldCheck, Users } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { getAuditActionLabel, getAuditDescription, getAuditSecondaryBadge, getAuditTargetLabel } from '@/lib/audit-log-presenter';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -32,7 +33,7 @@ type CompanyDetailPayload = {
     featureFlags: Record<string, boolean>;
   };
   users: Array<{ _id: string; name?: string; email: string; role?: string; account_status?: string }>;
-  auditLogs: Array<{ _id: string; action: string; entityType: string; fieldName?: string | null; source?: string | null; performedAt?: string; performedBy?: { name?: string; email?: string } | null }>;
+  auditLogs: Array<{ _id: string; action: string; entityType: string; entityId?: string; fieldName?: string | null; source?: string | null; newValue?: unknown; performedAt?: string; performedBy?: { name?: string; email?: string } | null }>;
   auditPagination: PaginationMeta;
   connectionLogs: Array<{ _id: string; eventType: string; ipAddress?: string | null; deviceLabel?: string | null; role?: string | null; createdAt?: string; userId?: { name?: string; email?: string; role?: string } | null }>;
   connectionPagination: PaginationMeta;
@@ -56,28 +57,6 @@ const connectionEventLabels: Record<string, { title: string; description: string
   portal_login_failed: { title: 'Accountant login failed', description: 'An accountant portal login attempt failed.', tone: 'red' },
   force_logout: { title: 'Forced logout', description: 'Access changed and an active session was forced out.', tone: 'amber' },
   revoke_access: { title: 'Access revoked', description: 'A pending invitation or user access was revoked.', tone: 'amber' },
-};
-
-const auditActionLabels: Record<string, string> = {
-  created: 'created',
-  updated: 'updated',
-  deleted: 'deleted',
-  archived: 'archived',
-  duplicated: 'duplicated',
-  status_changed: 'changed the status of',
-  marked_paid: 'marked as paid',
-  payment_added: 'added a payment to',
-  exported: 'exported',
-  downloaded: 'downloaded',
-};
-
-const entityLabels: Record<string, string> = {
-  expense: 'expense',
-  invoice: 'invoice',
-  supplier: 'supplier',
-  user: 'user or company setting',
-  ticket: 'ticket',
-  report: 'report',
 };
 
 const messages = {
@@ -469,14 +448,18 @@ export default function AdminCompanyDetailPage() {
                 <CardContent className="space-y-2">
                   {data.auditLogs.length > 0 ? data.auditLogs.map((log) => {
                     const actor = log.performedBy?.name || log.performedBy?.email || 'System';
-                    const action = auditActionLabels[log.action] || log.action;
-                    const entity = entityLabels[log.entityType] || log.entityType;
+                    const action = getAuditActionLabel(log.action, locale);
+                    const target = getAuditTargetLabel(log, locale);
+                    const secondaryBadge = getAuditSecondaryBadge(log);
                     return (
                       <div key={log._id} className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-3 text-sm dark:border-slate-800/70 dark:bg-slate-900/30">
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                           <div className="min-w-0">
-                            <div className="font-medium text-slate-950 dark:text-slate-50">{actor} {action} {entity}</div>
-                            <div className="text-muted-foreground">{log.fieldName ? `${t.changedArea}: ${log.fieldName}` : `${t.source}: ${log.source || t.notRecorded}`}</div>
+                            <div className="flex flex-wrap items-center gap-2 font-medium text-slate-950 dark:text-slate-50">
+                              <span>{actor} {action} {target}</span>
+                              {secondaryBadge ? <Badge variant="outline" className="rounded-full">{secondaryBadge}</Badge> : null}
+                            </div>
+                            <div className="text-muted-foreground">{getAuditDescription(log, locale)}</div>
                           </div>
                           <div className="inline-flex items-center gap-1 text-xs text-muted-foreground"><Clock3 className="size-3.5" />{formatDateTime(log.performedAt, locale)}</div>
                         </div>

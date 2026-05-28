@@ -43,10 +43,19 @@ export async function GET(request: NextRequest) {
     await recordReportAudit({
       companyId: session.user.companyId,
       userId: session.user.id,
-      action: "exported",
+      action: "downloaded",
       entityId: "accounting_rows",
       ipAddress: getClientIp(request),
-      details: { type, format, locale, status: parsed.data.status || null, categoryId: parsed.data.categoryId || null },
+      details: {
+        reportKey: "accounting_rows",
+        type,
+        format,
+        locale,
+        fileType: format.toUpperCase(),
+        fileName: result.data.fileName,
+        status: parsed.data.status || null,
+        categoryId: parsed.data.categoryId || null,
+      },
     });
 
     return new NextResponse(new Uint8Array(result.data.buffer), {
