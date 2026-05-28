@@ -9,10 +9,12 @@ import * as z from "zod"
 import { toast } from "sonner"
 import { 
   ArrowRight,
+  Building2,
   Calculator,
-  Loader2,
   Eye,
-  EyeOff
+  EyeOff,
+  Loader2,
+  MailCheck,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -32,34 +34,36 @@ type LoginValues = z.infer<typeof loginSchema>
 const loginMessages = {
   en: {
     heading: "Welcome Back",
-    subtitle: "Sign in to your editorial dashboard.",
+    subtitle: "Sign in to your workspace.",
     emailLabel: "Email Address",
     passwordLabel: "Password",
     forgotPassword: "Forgot password?",
     loginButton: "Login",
-    signupPrompt: "New to the executive platform?",
-    signupCta: "Accept invitation",
-    workspacePrompt: "Need to onboard a new company?",
-    workspaceCta: "Create workspace",
-    accountantPrompt: "External accountant?",
-    accountantCta: "Open accountant portal",
+    actionsHeading: "Choose how you want to continue",
+    signupDescription: "Join an existing company workspace.",
+    signupCta: "Accept Invitation",
+    workspaceDescription: "Set up a new company workspace.",
+    workspaceCta: "Create Company Space",
+    accountantDescription: "Use the dedicated external accountant access.",
+    accountantCta: "Accountant Portal",
     toastLoginSuccess: "Login successful! Redirecting to dashboard...",
     toastLoginFailed: "Login failed. Please check your credentials and try again.",
     toastLoginError: "An error occurred during login. Please try again.",
   },
   fr: {
     heading: "Bon retour",
-    subtitle: "Connectez-vous \u00e0 votre tableau de bord \u00e9ditorial.",
+    subtitle: "Connectez-vous \u00e0 votre espace.",
     emailLabel: "Adresse e-mail",
     passwordLabel: "Mot de passe",
     forgotPassword: "Mot de passe oubli\u00e9\u00a0?",
     loginButton: "Connexion",
-    signupPrompt: "Nouveau sur la plateforme executive\u00a0?",
+    actionsHeading: "Choisissez comment continuer",
+    signupDescription: "Rejoignez un espace entreprise existant.",
     signupCta: "Accepter l'invitation",
-    workspacePrompt: "Besoin d'onboarder une nouvelle entreprise ?",
-    workspaceCta: "Créer un espace",
-    accountantPrompt: "Comptable externe ?",
-    accountantCta: "Ouvrir le portail comptable",
+    workspaceDescription: "Créez un nouvel espace entreprise.",
+    workspaceCta: "Créer l'espace entreprise",
+    accountantDescription: "Utilisez l'accès dédié aux comptables externes.",
+    accountantCta: "Portail comptable",
     toastLoginSuccess: "Connexion r\u00e9ussie\u00a0! Redirection vers le tableau de bord...",
     toastLoginFailed: "\u00c9chec de la connexion. Veuillez v\u00e9rifier vos identifiants et r\u00e9essayer.",
     toastLoginError: "Une erreur s'est produite lors de la connexion. Veuillez r\u00e9essayer.",
@@ -119,9 +123,9 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="mx-auto w-full max-w-xl space-y-8">
       {/* Heading */}
-      <div className="space-y-1.5">
+      <div className="mx-auto max-w-sm space-y-1.5">
         <h1 className="font-heading text-3xl font-semibold tracking-tight text-zinc-900">
           {t.heading}
         </h1>
@@ -130,7 +134,7 @@ export default function LoginPage() {
         </p>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={handleSubmit(onSubmit)} className="mx-auto max-w-sm space-y-4">
         {/* Email */}
         <div className="space-y-1.5">
           <Label htmlFor="email" className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
@@ -207,34 +211,72 @@ export default function LoginPage() {
         </Button>
       </form>
 
-      <Link
-        href="/accountant-portal/login"
-        className="flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50/70 px-4 py-3 text-sm text-amber-950 transition-colors hover:bg-amber-100/80"
-      >
-        <span className="flex min-w-0 items-center gap-3">
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-white text-amber-800 ring-1 ring-amber-200">
-            <Calculator className="size-4" />
-          </span>
-          <span className="min-w-0">
-            <span className="block font-semibold">{t.accountantPrompt}</span>
-            <span className="block text-xs text-amber-800">{t.accountantCta}</span>
-          </span>
-        </span>
-        <ArrowRight className="size-4 shrink-0" />
-      </Link>
+      <div className="rounded-2xl border border-zinc-200 bg-zinc-50/80 p-3.5 shadow-sm">
+        <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
+          {t.actionsHeading}
+        </p>
+        <div className="grid gap-2.5 md:grid-cols-2">
+          <Button
+            asChild
+            variant="outline"
+            size="lg"
+            className="h-auto justify-between whitespace-normal border-zinc-200 bg-white px-4 py-3 text-left text-zinc-900 hover:bg-zinc-100"
+          >
+            <Link href="/signup">
+              <span className="flex min-w-0 items-center gap-3">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[#001e3c]/5 text-[#001e3c] ring-1 ring-[#001e3c]/10">
+                  <MailCheck className="size-4" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block font-semibold">{t.signupCta}</span>
+                  <span className="block text-xs text-zinc-500">{t.signupDescription}</span>
+                </span>
+              </span>
+              <ArrowRight className="size-4 shrink-0 text-zinc-400" />
+            </Link>
+          </Button>
 
-      <p className="text-center text-sm text-zinc-500">
-        {t.signupPrompt}{" "}
-        <Link href="/signup" className="font-semibold text-[#001e3c] hover:underline underline-offset-4">
-          {t.signupCta}
-        </Link>
-      </p>
-      <p className="text-center text-sm text-zinc-500">
-        {t.workspacePrompt}{" "}
-        <Link href="/workspace-setup" className="font-semibold text-[#001e3c] hover:underline underline-offset-4">
-          {t.workspaceCta}
-        </Link>
-      </p>
+          <Button
+            asChild
+            variant="outline"
+            size="lg"
+            className="h-auto justify-between whitespace-normal border-zinc-200 bg-white px-4 py-3 text-left text-zinc-900 hover:bg-zinc-100"
+          >
+            <Link href="/workspace-setup">
+              <span className="flex min-w-0 items-center gap-3">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[#001e3c]/5 text-[#001e3c] ring-1 ring-[#001e3c]/10">
+                  <Building2 className="size-4" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block font-semibold">{t.workspaceCta}</span>
+                  <span className="block text-xs text-zinc-500">{t.workspaceDescription}</span>
+                </span>
+              </span>
+              <ArrowRight className="size-4 shrink-0 text-zinc-400" />
+            </Link>
+          </Button>
+
+          <Button
+            asChild
+            variant="outline"
+            size="lg"
+            className="h-auto justify-between whitespace-normal border-amber-200 bg-amber-50/80 px-4 py-3 text-left text-amber-950 hover:bg-amber-100/80 sm:col-span-2"
+          >
+            <Link href="/accountant-portal/login">
+              <span className="flex min-w-0 items-center gap-3">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-white text-amber-800 ring-1 ring-amber-200">
+                  <Calculator className="size-4" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block font-semibold">{t.accountantCta}</span>
+                  <span className="block text-xs text-amber-800">{t.accountantDescription}</span>
+                </span>
+              </span>
+              <ArrowRight className="size-4 shrink-0 text-amber-700" />
+            </Link>
+          </Button>
+        </div>
+      </div>
     </div>
   )
 }
