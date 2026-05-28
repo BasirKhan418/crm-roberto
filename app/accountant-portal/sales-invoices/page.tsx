@@ -63,12 +63,14 @@ const salesCopy = {
     all: 'All',
     date: 'Date',
     dueDate: 'Due date',
+    schedule: 'Dates',
     invoice: 'Invoice',
     client: 'Client',
     amounts: 'Amounts',
     paid: 'Paid',
     remaining: 'Remaining',
     pdf: 'PDF',
+    actions: 'Actions',
     empty: 'No sales invoices match these filters.',
     total: 'Total incl. VAT',
     filterHint: 'Accounting-safe visibility into invoice status, collection progress, and document access.',
@@ -78,6 +80,8 @@ const salesCopy = {
     exVat: 'ex VAT',
     ticketAction: 'Create ticket',
     ticketActionHint: 'Open an invoice-linked thread in ROBY',
+    ticketActionCompact: 'Create ticket',
+    pdfAction: 'Open PDF',
     ticketDialogTitle: 'Create invoice ticket',
     ticketDialogDescription: 'Start a linked ticket from this invoice and open the conversation immediately.',
     ticketDialogReason: 'Issue type',
@@ -107,12 +111,14 @@ const salesCopy = {
     all: 'Tous',
     date: 'Date',
     dueDate: 'Echeance',
+    schedule: 'Dates',
     invoice: 'Facture',
     client: 'Client',
     amounts: 'Montants',
     paid: 'Paye',
     remaining: 'Reste',
     pdf: 'PDF',
+    actions: 'Actions',
     empty: 'Aucune facture de vente ne correspond a ces filtres.',
     total: 'Total TTC',
     filterHint: 'Visibilite comptable sur les statuts facture, l avancement des encaissements et les documents.',
@@ -122,6 +128,8 @@ const salesCopy = {
     exVat: 'HT',
     ticketAction: 'Creer un ticket',
     ticketActionHint: 'Ouvrir un fil lie a la facture dans ROBY',
+    ticketActionCompact: 'Creer un ticket',
+    pdfAction: 'Ouvrir PDF',
     ticketDialogTitle: 'Creer un ticket facture',
     ticketDialogDescription: 'Demarrez un ticket lie a cette facture et ouvrez la conversation immediatement.',
     ticketDialogReason: 'Type de demande',
@@ -161,6 +169,11 @@ const STATUS_ACCENT: Record<InvoiceStatus, string> = {
 
 function isAbortError(error: unknown) {
   return error instanceof DOMException && error.name === 'AbortError';
+}
+
+function formatInvoiceDate(value: string | null, locale: 'en' | 'fr') {
+  if (!value) return '-';
+  return new Date(value).toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-GB');
 }
 
 export default function AccountantPortalSalesInvoicesPage() {
@@ -318,19 +331,92 @@ export default function AccountantPortalSalesInvoicesPage() {
             </div>
           ) : data && data.items.length > 0 ? (
             <>
-              <div className="overflow-hidden rounded-[24px] border border-slate-200/80 bg-white/80 shadow-sm dark:border-slate-800/70 dark:bg-slate-950/30">
-              <Table>
+              <div className="space-y-4 lg:hidden">
+                {data.items.map((item) => (
+                  <div
+                    key={item.id}
+                    className="rounded-[24px] border border-slate-200/80 bg-white/85 p-4 shadow-sm"
+                    style={{ boxShadow: `inset 4px 0 0 ${STATUS_ACCENT[item.status]}` }}
+                  >
+                    <div className="flex flex-col gap-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 space-y-1">
+                          <p className="text-base font-semibold text-slate-950">{item.invoiceNumber}</p>
+                          <p className="text-sm font-medium text-slate-800">{item.clientName}</p>
+                          {item.clientCompanyName ? <p className="text-xs text-muted-foreground">{item.clientCompanyName}</p> : null}
+                        </div>
+                        <InvoiceStatusBadge status={item.status} locale={locale} />
+                      </div>
+
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="rounded-2xl border border-slate-200/70 bg-slate-50/70 p-3">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">{t.schedule}</p>
+                          <div className="mt-2 space-y-1 text-sm text-slate-700">
+                            <p><span className="font-medium text-slate-900">{t.date}:</span> {formatInvoiceDate(item.date, locale)}</p>
+                            <p><span className="font-medium text-slate-900">{t.dueDate}:</span> {formatInvoiceDate(item.dueDate, locale)}</p>
+                          </div>
+                        </div>
+
+                        <div className="rounded-2xl border border-slate-200/70 bg-slate-50/70 p-3">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">{t.amounts}</p>
+                          <div className="mt-2 space-y-1 text-sm text-slate-700">
+                            <p className="text-base font-semibold text-slate-950"><PriceDisplay cents={item.totalIncludingTaxCents} locale={priceLocale} /></p>
+                            <p>{t.exVat} <PriceDisplay cents={item.totalExcludingTaxCents} locale={priceLocale} /></p>
+                            <p>VAT <PriceDisplay cents={item.totalVatCents} locale={priceLocale} /></p>
+                          </div>
+                        </div>
+
+                        <div className="rounded-2xl border border-slate-200/70 bg-slate-50/70 p-3">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">{t.paid}</p>
+                          <p className="mt-2 text-base font-semibold text-slate-950"><PriceDisplay cents={item.amountPaidCents} locale={priceLocale} /></p>
+                        </div>
+
+                        <div className="rounded-2xl border border-slate-200/70 bg-slate-50/70 p-3">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">{t.remaining}</p>
+                          <p className={cn(
+                            'mt-2 text-base font-semibold',
+                            item.amountRemainingCents > 0 ? 'text-amber-700' : 'text-emerald-700'
+                          )}>
+                            <PriceDisplay cents={item.amountRemainingCents} locale={priceLocale} />
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <a
+                          href={item.pdfDownloadUrl}
+                          className="inline-flex items-center justify-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2.5 text-sm font-medium text-sky-700 transition-colors hover:bg-sky-100 dark:border-sky-900/60 dark:bg-sky-950/30 dark:text-sky-300 dark:hover:bg-sky-950/50"
+                        >
+                          <Download className="size-4" />
+                          {t.pdfAction}
+                        </a>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="h-auto justify-center whitespace-normal rounded-xl border-slate-200 bg-slate-50 px-3 py-2.5 text-center hover:bg-slate-100"
+                          onClick={() => openTicketDialog(item)}
+                        >
+                          <MessageSquarePlus className="size-4" />
+                          {t.ticketActionCompact}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="hidden overflow-hidden rounded-[24px] border border-slate-200/80 bg-white/80 shadow-sm dark:border-slate-800/70 dark:bg-slate-950/30 lg:block">
+              <Table className="min-w-235 xl:min-w-0">
                 <TableHeader className="bg-slate-50/90 dark:bg-slate-900/70">
                   <TableRow>
-                    <TableHead>{t.invoice}</TableHead>
-                    <TableHead>{t.client}</TableHead>
-                    <TableHead>{t.date}</TableHead>
-                    <TableHead>{t.dueDate}</TableHead>
+                    <TableHead className="w-35">{t.invoice}</TableHead>
+                    <TableHead className="w-55">{t.client}</TableHead>
+                    <TableHead className="w-45">{t.schedule}</TableHead>
                     <TableHead>{t.status}</TableHead>
-                    <TableHead>{t.amounts}</TableHead>
-                    <TableHead>{t.paid}</TableHead>
-                    <TableHead>{t.remaining}</TableHead>
-                    <TableHead>{t.pdf}</TableHead>
+                    <TableHead className="w-45">{t.amounts}</TableHead>
+                    <TableHead className="w-30">{t.paid}</TableHead>
+                    <TableHead className="w-32.5">{t.remaining}</TableHead>
+                    <TableHead className="w-52.5">{t.actions}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -341,34 +427,40 @@ export default function AccountantPortalSalesInvoicesPage() {
                       style={{ backgroundColor: STATUS_ROW_BG[item.status] }}
                     >
                       <TableCell
-                        className="border-l-4"
+                        className="border-l-4 align-top"
                         style={{ borderLeftColor: STATUS_ACCENT[item.status] }}
                       >
-                        <div className="space-y-1">
+                        <div className="space-y-1 whitespace-normal">
                           <p className="font-semibold text-slate-950 dark:text-slate-50">{item.invoiceNumber}</p>
                           <p className="text-[11px] text-muted-foreground">{item.status.replace('_', ' ')}</p>
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <div className="min-w-44 whitespace-normal">
+                      <TableCell className="align-top whitespace-normal">
+                        <div className="space-y-1">
                           <p className="font-medium text-slate-950">{item.clientName}</p>
                           {item.clientCompanyName ? <p className="text-xs text-muted-foreground">{item.clientCompanyName}</p> : null}
                         </div>
                       </TableCell>
-                      <TableCell>{item.date ? new Date(item.date).toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-GB') : '-'}</TableCell>
-                      <TableCell>{item.dueDate ? new Date(item.dueDate).toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-GB') : '-'}</TableCell>
-                      <TableCell><InvoiceStatusBadge status={item.status} locale={locale} /></TableCell>
-                      <TableCell>
+                      <TableCell className="align-top whitespace-normal">
+                        <div className="space-y-1 text-sm text-slate-700">
+                          <p><span className="font-medium text-slate-900">{t.date}:</span> {formatInvoiceDate(item.date, locale)}</p>
+                          <p><span className="font-medium text-slate-900">{t.dueDate}:</span> {formatInvoiceDate(item.dueDate, locale)}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell className="align-top">
+                        <InvoiceStatusBadge status={item.status} locale={locale} />
+                      </TableCell>
+                      <TableCell className="align-top whitespace-normal">
                         <div className="space-y-1.5 text-xs">
                           <div className="text-sm font-semibold text-slate-950 dark:text-slate-50"><PriceDisplay cents={item.totalIncludingTaxCents} locale={priceLocale} /></div>
                           <div className="text-muted-foreground">{t.exVat} <PriceDisplay cents={item.totalExcludingTaxCents} locale={priceLocale} /></div>
                           <div className="text-muted-foreground">VAT <PriceDisplay cents={item.totalVatCents} locale={priceLocale} /></div>
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="align-top">
                         <span className="font-medium text-slate-900 dark:text-slate-100"><PriceDisplay cents={item.amountPaidCents} locale={priceLocale} /></span>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="align-top">
                         <span className={cn(
                           'font-medium',
                           item.amountRemainingCents > 0 ? 'text-amber-700 dark:text-amber-300' : 'text-emerald-700 dark:text-emerald-300'
@@ -376,30 +468,25 @@ export default function AccountantPortalSalesInvoicesPage() {
                           <PriceDisplay cents={item.amountRemainingCents} locale={priceLocale} />
                         </span>
                       </TableCell>
-                      <TableCell>
-                        <div className="space-y-2.5">
+                      <TableCell className="align-top whitespace-normal">
+                        <div className="flex flex-col gap-2">
                           <a
                             href={item.pdfDownloadUrl}
-                            className="inline-flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-700 hover:bg-sky-100 dark:border-sky-900/60 dark:bg-sky-950/30 dark:text-sky-300 dark:hover:bg-sky-950/50"
+                            className="inline-flex items-center justify-center gap-1 rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1.5 text-xs font-medium text-sky-700 transition-colors hover:bg-sky-100 dark:border-sky-900/60 dark:bg-sky-950/30 dark:text-sky-300 dark:hover:bg-sky-950/50"
                           >
                             <Download className="size-3" />
-                            PDF
+                            {t.pdfAction}
                           </a>
                           <Button
                             type="button"
                             variant="outline"
                             size="sm"
-                            className="h-auto w-full justify-start whitespace-normal rounded-xl border-slate-200 bg-slate-50 px-3 py-2 text-left hover:bg-slate-100"
+                            className="h-auto justify-start whitespace-normal rounded-xl border-slate-200 bg-slate-50 px-3 py-2 text-left hover:bg-slate-100"
                             onClick={() => openTicketDialog(item)}
                           >
-                            <span className="flex min-w-0 items-center gap-2.5">
-                              <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-white text-slate-700 ring-1 ring-slate-200">
-                                <MessageSquarePlus className="size-4" />
-                              </span>
-                              <span className="min-w-0">
-                                <span className="block font-semibold text-slate-900">{t.ticketAction}</span>
-                                <span className="block text-xs font-normal text-muted-foreground">{t.ticketActionHint}</span>
-                              </span>
+                            <span className="flex min-w-0 items-center gap-2">
+                              <MessageSquarePlus className="size-4 shrink-0" />
+                              <span className="min-w-0 font-semibold">{t.ticketActionCompact}</span>
                             </span>
                           </Button>
                         </div>

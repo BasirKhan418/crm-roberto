@@ -100,7 +100,6 @@ const purchaseCopy = {
     prev: 'Prev',
     next: 'Next',
     ticketAction: 'Create ticket',
-    ticketActionHint: 'Contact client in ROBY',
     ticketDialogTitle: 'Create purchase ticket',
     ticketDialogDescription: 'Start a linked ticket from this purchase and open the conversation immediately.',
     ticketDialogReason: 'Issue type',
@@ -160,7 +159,6 @@ const purchaseCopy = {
     prev: 'Prec',
     next: 'Suiv',
     ticketAction: 'Creer un ticket',
-    ticketActionHint: 'Contacter le client dans ROBY',
     ticketDialogTitle: 'Creer un ticket pour la depense',
     ticketDialogDescription: 'Demarrez un ticket lie a cette depense et ouvrez la conversation immediatement.',
     ticketDialogReason: 'Type de demande',
@@ -616,10 +614,7 @@ export default function AccountantPortalPurchaseInvoicesPage() {
                               <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-white text-slate-700 ring-1 ring-slate-200">
                                 <MessageSquarePlus className="size-4" />
                               </span>
-                              <span className="min-w-0">
-                                <span className="block font-semibold text-slate-900">{t.ticketAction}</span>
-                                <span className="block text-xs font-normal text-muted-foreground">{t.ticketActionHint}</span>
-                              </span>
+                              <span className="min-w-0 font-semibold text-slate-900">{t.ticketAction}</span>
                             </span>
                           </Button>
                         </div>
