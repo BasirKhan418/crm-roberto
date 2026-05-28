@@ -7,8 +7,10 @@ import TicketMessage from "@/db/models/TicketMessage";
 import User from "@/db/models/User";
 import { listAuditLogsForEntity, recordAuditLog } from "@/db/repository/audit";
 import { createActivityLog } from "@/db/repository/activity";
+import { getCompanyInvitationBranding } from '@/db/repository/company';
+import { normalizeRole } from '@/lib/permissions';
 import { sendTicketEmailNotification } from "@/lib/tickets/email-notifications";
-import type { TicketLinkedType, TicketStatus } from "@/lib/tickets/constants";
+import type { TicketLinkedType, TicketStatus, TicketType } from "@/lib/tickets/constants";
 import type { ListQueryOptions, PaginationMeta } from "@/utils/api/query";
 import { buildPagination } from "@/utils/api/query";
 import type {
@@ -34,7 +36,7 @@ type TicketMessageAction = "ticket_created" | "ticket_replied" | "ticket_resolve
 type TicketNotificationSnapshot = {
   id: string;
   title: string;
-  type: string;
+  type: TicketType;
   status: TicketStatus;
   linkedType?: TicketLinkedType | null;
   linkedId?: string | null;
@@ -188,6 +190,7 @@ async function createTicketNotifications(params: {
   action: TicketMessageAction;
   snapshot: TicketNotificationSnapshot;
   messagePreview?: string | null;
+  attachmentCount?: number;
   includeActorEmail?: boolean;
 }) {
   const recipients = uniqueObjectIdStrings(params.recipientIds);
@@ -238,37 +241,14 @@ async function createTicketNotifications(params: {
     _id: { $in: uniqueObjectIdStrings([...emailRecipients, params.actorId]).map((id) => toObjectId(id)) },
     companyId: toObjectId(params.companyId),
   })
-    .select("_id name email")
-    .lean<{ _id: mongoose.Types.ObjectId; name?: string; email?: string }[]>();
+    .select("_id name email locale role")
+    .lean<Array<{ _id: mongoose.Types.ObjectId; name?: string; email?: string; locale?: 'en' | 'fr'; role?: string }>>();
 
   const userById = new Map(users.map((user) => [String(user._id), user]));
-  const actorName = userById.get(params.actorId)?.name?.trim() || "A teammate";
-
-  const subjectByAction: Record<TicketMessageAction, string> = {
-    ticket_created: `New ticket assigned: ${params.snapshot.title}`,
-    ticket_replied: `New reply on ticket: ${params.snapshot.title}`,
-    ticket_resolved: `Ticket resolved: ${params.snapshot.title}`,
-  };
-
-  const actorSubjectByAction: Record<TicketMessageAction, string> = {
-    ticket_created: `Ticket created: ${params.snapshot.title}`,
-    ticket_replied: `Reply posted: ${params.snapshot.title}`,
-    ticket_resolved: `Ticket resolved: ${params.snapshot.title}`,
-  };
-
-  const bodyByAction: Record<TicketMessageAction, string> = {
-    ticket_created: `${actorName} created a ticket and assigned you.\n\nTitle: ${params.snapshot.title}`,
-    ticket_replied: `${actorName} replied to the ticket.\n\nTitle: ${params.snapshot.title}${
-      params.messagePreview ? `\n\nPreview: ${params.messagePreview}` : ""
-    }`,
-    ticket_resolved: `${actorName} marked the ticket as resolved.\n\nTitle: ${params.snapshot.title}`,
-  };
-
-  const actorBodyByAction: Record<TicketMessageAction, string> = {
-    ticket_created: `You created a new ticket.\n\nTitle: ${params.snapshot.title}`,
-    ticket_replied: `You posted a ticket reply.\n\nTitle: ${params.snapshot.title}`,
-    ticket_resolved: `You marked the ticket as resolved.\n\nTitle: ${params.snapshot.title}`,
-  };
+  const actorRecord = userById.get(params.actorId);
+  const brandingResult = await getCompanyInvitationBranding(params.companyId);
+  const branding = brandingResult.success ? brandingResult.branding : null;
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || 'https://roberto.devsomeware.com').trim().replace(/\/+$/, '');
 
   await Promise.all(
     emailRecipients.map(async (recipientId) => {
@@ -278,14 +258,27 @@ async function createTicketNotifications(params: {
       }
 
       try {
-        const isActorRecipient = recipientId === params.actorId;
+        const normalizedRole = normalizeRole(recipient.role);
+        const ticketPath = normalizedRole === 'external_accountant'
+          ? `/accountant-portal/tickets/${params.snapshot.id}`
+          : `/tickets/${params.snapshot.id}`;
+        const locale = recipient.locale === 'fr' ? 'fr' : 'en';
+        const actorName = actorRecord?.name?.trim() || actorRecord?.email?.trim() || (locale === 'fr' ? 'Un collaborateur' : 'A teammate');
+
         const result = await sendTicketEmailNotification({
           to: recipient.email,
-          subject: isActorRecipient
-            ? actorSubjectByAction[params.action]
-            : subjectByAction[params.action],
-          body: isActorRecipient ? actorBodyByAction[params.action] : bodyByAction[params.action],
-          title: "Roby",
+          action: params.action,
+          locale,
+          companyName: branding?.companyName || null,
+          companyLogoUrl: branding?.logoUrl || null,
+          senderName: actorName,
+          recipientName: recipient.name?.trim() || recipient.email?.trim() || null,
+          ticketTitle: params.snapshot.title,
+          ticketType: params.snapshot.type,
+          status: params.snapshot.status,
+          messageBody: params.messagePreview ?? null,
+          attachmentCount: params.attachmentCount || 0,
+          ticketUrl: `${appUrl}${ticketPath}`,
         });
 
         if (!result.success) {
@@ -380,12 +373,13 @@ export async function createTicket(params: {
     snapshot: {
       id: String(created._id),
       title: created.title,
-      type: created.type,
+      type: created.type as TicketType,
       status: "open",
       linkedType: created.linkedType as TicketLinkedType | null,
       linkedId: created.linkedId ? String(created.linkedId) : null,
     },
     messagePreview: params.payload.body ?? null,
+    attachmentCount: createdAttachments.length,
     includeActorEmail: true,
   });
 
@@ -787,12 +781,13 @@ export async function addTicketMessage(params: {
     snapshot: {
       id: params.ticketId,
       title: ticket.title,
-      type: ticket.type,
+      type: ticket.type as TicketType,
       status: nextStatus,
       linkedType: ticket.linkedType || null,
       linkedId: ticket.linkedId ? String(ticket.linkedId) : null,
     },
     messagePreview: params.payload.body || null,
+    attachmentCount: createdAttachments.length,
   });
 
   const message = await TicketMessage.findById(createdMessage._id)
@@ -926,7 +921,7 @@ export async function changeTicketStatus(params: {
       snapshot: {
         id: params.ticketId,
         title: ticket.title,
-        type: ticket.type,
+        type: ticket.type as TicketType,
         status: nextStatus,
         linkedType: ticket.linkedType || null,
         linkedId: ticket.linkedId ? String(ticket.linkedId) : null,
