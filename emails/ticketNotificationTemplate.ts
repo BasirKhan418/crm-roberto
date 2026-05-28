@@ -170,7 +170,7 @@ export function renderTicketNotificationEmail(input: RenderTicketNotificationEma
   const messageHtml = safeMessageBody
     ? normalizeMultilineHtml(safeMessageBody)
     : escapeHtml(labels.fallbackMessage[input.action]);
-  const fontFamily = "Aptos, 'Segoe UI', Arial, 'Helvetica Neue', Helvetica, sans-serif";
+  const fontFamily = "Aptos, Calibri, 'Segoe UI', Arial, 'Helvetica Neue', Helvetica, sans-serif";
 
   const html = `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="${input.locale}">
@@ -178,17 +178,69 @@ export function renderTicketNotificationEmail(input: RenderTicketNotificationEma
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
   <title>${escapeHtml(subject)}</title>
   <style type="text/css">
     body { margin:0; padding:0; background:#f3f5f9; font-family:${fontFamily}; -webkit-font-smoothing:antialiased; }
     table { border-spacing:0; border-collapse:collapse; }
     td { padding:0; }
     img { border:0; display:block; }
+    .main-shell { background:#ffffff !important; }
+    .brand-card,
+    .company-card,
+    .hero-card,
+    .meta-card,
+    .message-card {
+      background:#ffffff !important;
+    }
     @media screen and (max-width: 600px) {
       .main { width:100% !important; }
       .shell { padding:18px 12px !important; }
       .content { padding:28px 20px !important; }
+      .header-cell,
+      .company-cell,
+      .meta-half,
+      .pill-half,
+      .cta-row,
+      .cta-row td {
+        display:block !important;
+        width:100% !important;
+      }
+      .company-cell {
+        padding-top:14px !important;
+      }
+      .company-cell table,
+      .brand-card,
+      .company-card,
+      .hero-card,
+      .meta-card,
+      .message-card,
+      .cta-table {
+        width:100% !important;
+      }
+      .meta-half {
+        padding-right:0 !important;
+        padding-bottom:12px !important;
+      }
+      .meta-spacer,
+      .pill-spacer {
+        display:none !important;
+        width:0 !important;
+      }
+      .hero-card-cell,
+      .meta-card-cell,
+      .message-card-cell {
+        padding:20px 18px !important;
+      }
+      .brand-copy {
+        display:block !important;
+        padding-left:10px !important;
+        padding-top:0 !important;
+      }
       .hero-title { font-size:24px !important; line-height:31px !important; }
+      .hero-summary { font-size:15px !important; line-height:24px !important; }
+      .ticket-title { font-size:20px !important; line-height:28px !important; }
       .cta-link { display:block !important; width:100% !important; }
     }
   </style>
@@ -198,28 +250,34 @@ export function renderTicketNotificationEmail(input: RenderTicketNotificationEma
     ${escapeHtml(labels.summary[input.action])}
   </div>
   <center class="shell" style="width:100%;background:#f3f5f9;padding:28px 16px;">
-    <table class="main" width="100%" cellpadding="0" cellspacing="0" style="max-width:680px;margin:0 auto;background:#ffffff;border-radius:28px;overflow:hidden;box-shadow:0 24px 56px rgba(15,23,42,0.12);border:1px solid #dce4ee;">
+    <table class="main main-shell" width="100%" cellpadding="0" cellspacing="0" bgcolor="#ffffff" style="max-width:680px;margin:0 auto;background:#ffffff;border-radius:28px;overflow:hidden;box-shadow:0 24px 56px rgba(15,23,42,0.12);border:1px solid #dce4ee;">
       <tr>
         <td style="height:4px;background:linear-gradient(90deg,#dbeafe 0%,#1d4ed8 46%,#0f172a 100%);font-size:0;line-height:0;">&nbsp;</td>
       </tr>
       <tr>
-        <td style="background:linear-gradient(180deg,#ffffff 0%,#f8fbff 72%,#eff5ff 100%);padding:28px 28px 16px;">
+        <td bgcolor="#f8fbff" style="background:linear-gradient(180deg,#ffffff 0%,#f8fbff 72%,#eff5ff 100%);padding:28px 28px 16px;">
           <table width="100%" cellpadding="0" cellspacing="0">
             <tr>
-              <td style="vertical-align:top;">
-                <table cellpadding="0" cellspacing="0">
+              <td class="header-cell" style="vertical-align:top;">
+                <table class="brand-card" cellpadding="0" cellspacing="0" bgcolor="#ffffff" style="background:#ffffff;border:1px solid #dce4ee;border-radius:18px;box-shadow:0 10px 22px rgba(148,163,184,0.12);">
                   <tr>
-                    <td style="vertical-align:middle;">
-                      <img src="${escapeHtml(brandLogoUrl)}" alt="ROBY" width="112" style="width:112px;max-width:112px;height:auto;">
-                    </td>
-                    <td style="padding-left:12px;font-family:${fontFamily};color:#475569;font-size:12px;letter-spacing:0.16em;text-transform:uppercase;">
-                      CRM platform
+                    <td style="padding:12px 14px;vertical-align:middle;">
+                      <table cellpadding="0" cellspacing="0">
+                        <tr>
+                          <td style="vertical-align:middle;">
+                            <img src="${escapeHtml(brandLogoUrl)}" alt="ROBY" width="112" style="width:112px;max-width:112px;height:auto;">
+                          </td>
+                          <td class="brand-copy" style="padding-left:12px;font-family:${fontFamily};color:#475569;font-size:12px;letter-spacing:0.16em;text-transform:uppercase;vertical-align:middle;white-space:nowrap;">
+                            CRM platform
+                          </td>
+                        </tr>
+                      </table>
                     </td>
                   </tr>
                 </table>
               </td>
-              <td style="width:1%;white-space:nowrap;vertical-align:top;">
-                <table cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid #dce4ee;border-radius:18px;box-shadow:0 10px 22px rgba(148,163,184,0.12);">
+              <td class="company-cell" style="width:1%;white-space:nowrap;vertical-align:top;">
+                <table class="company-card" cellpadding="0" cellspacing="0" bgcolor="#ffffff" style="background:#ffffff;border:1px solid #dce4ee;border-radius:18px;box-shadow:0 10px 22px rgba(148,163,184,0.12);">
                   <tr>
                     <td style="padding:10px 12px;">
                       <table cellpadding="0" cellspacing="0">
@@ -243,16 +301,16 @@ export function renderTicketNotificationEmail(input: RenderTicketNotificationEma
           <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:26px;">
             <tr>
               <td style="padding-bottom:18px;">
-                <table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(180deg,#ffffff 0%,#f9fbff 100%);border:1px solid #dce4ee;border-radius:24px;box-shadow:0 14px 30px rgba(148,163,184,0.10);">
+                <table class="hero-card" width="100%" cellpadding="0" cellspacing="0" bgcolor="#ffffff" style="background:linear-gradient(180deg,#ffffff 0%,#f9fbff 100%);border:1px solid #dce4ee;border-radius:24px;box-shadow:0 14px 30px rgba(148,163,184,0.10);">
                   <tr>
-                    <td style="padding:24px 24px 26px;">
+                    <td class="hero-card-cell" style="padding:24px 24px 26px;">
                       <div style="display:inline-block;padding:8px 14px;border-radius:999px;background:#eef2ff;border:1px solid #d7def5;font-family:${fontFamily};font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#3b82f6;">
                         ${escapeHtml(labels.eyebrow[input.action])}
                       </div>
                       <div class="hero-title" style="margin-top:16px;font-family:${fontFamily};font-size:32px;line-height:40px;font-weight:700;color:#0f172a;letter-spacing:-0.03em;">
                         ${escapeHtml(labels.heading[input.action])}
                       </div>
-                      <div style="margin-top:12px;max-width:520px;font-family:${fontFamily};font-size:16px;line-height:26px;color:#475569;">
+                      <div class="hero-summary" style="margin-top:12px;max-width:520px;font-family:${fontFamily};font-size:16px;line-height:26px;color:#475569;">
                         ${escapeHtml(labels.summary[input.action])}
                       </div>
                     </td>
@@ -273,36 +331,36 @@ export function renderTicketNotificationEmail(input: RenderTicketNotificationEma
                   ${escapeHtml(labels.greeting(safeRecipientName))}
                 </p>
 
-                <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;border:1px solid #dce4ee;border-radius:22px;overflow:hidden;background:#fafcff;">
+                <table class="meta-card" width="100%" cellpadding="0" cellspacing="0" bgcolor="#fafcff" style="margin-bottom:20px;border:1px solid #dce4ee;border-radius:22px;overflow:hidden;background:#fafcff;">
                   <tr>
-                    <td style="padding:22px 22px 8px;">
+                    <td class="meta-card-cell" style="padding:22px 22px 8px;">
                       <table width="100%" cellpadding="0" cellspacing="0">
                         <tr>
-                          <td style="padding:0 0 14px;font-family:${fontFamily};font-size:12px;line-height:16px;color:#64748b;text-transform:uppercase;letter-spacing:0.12em;">${escapeHtml(labels.companyLabel)}</td>
-                          <td style="padding:0 0 14px;font-family:${fontFamily};font-size:12px;line-height:16px;color:#64748b;text-transform:uppercase;letter-spacing:0.12em;">${escapeHtml(labels.senderPrefix)}</td>
+                          <td class="meta-half" style="padding:0 0 14px;font-family:${fontFamily};font-size:12px;line-height:16px;color:#64748b;text-transform:uppercase;letter-spacing:0.12em;">${escapeHtml(labels.companyLabel)}</td>
+                          <td class="meta-half" style="padding:0 0 14px;font-family:${fontFamily};font-size:12px;line-height:16px;color:#64748b;text-transform:uppercase;letter-spacing:0.12em;">${escapeHtml(labels.senderPrefix)}</td>
                         </tr>
                         <tr>
-                          <td style="padding:0 12px 18px 0;font-family:${fontFamily};font-size:16px;line-height:24px;color:#0f172a;font-weight:700;">${escapeHtml(safeCompanyName)}</td>
-                          <td style="padding:0 0 18px;font-family:${fontFamily};font-size:16px;line-height:24px;color:#0f172a;font-weight:700;">${escapeHtml(safeSenderName)}</td>
+                          <td class="meta-half" style="padding:0 12px 18px 0;font-family:${fontFamily};font-size:16px;line-height:24px;color:#0f172a;font-weight:700;">${escapeHtml(safeCompanyName)}</td>
+                          <td class="meta-half" style="padding:0 0 18px;font-family:${fontFamily};font-size:16px;line-height:24px;color:#0f172a;font-weight:700;">${escapeHtml(safeSenderName)}</td>
                         </tr>
                         <tr>
-                          <td style="padding:0 12px 14px 0;font-family:${fontFamily};font-size:12px;line-height:16px;color:#64748b;text-transform:uppercase;letter-spacing:0.12em;">${escapeHtml(labels.ticketLabel)}</td>
-                          <td style="padding:0 0 14px;font-family:${fontFamily};font-size:12px;line-height:16px;color:#64748b;text-transform:uppercase;letter-spacing:0.12em;">${escapeHtml(labels.attachmentsLabel)}</td>
+                          <td class="meta-half" style="padding:0 12px 14px 0;font-family:${fontFamily};font-size:12px;line-height:16px;color:#64748b;text-transform:uppercase;letter-spacing:0.12em;">${escapeHtml(labels.ticketLabel)}</td>
+                          <td class="meta-half" style="padding:0 0 14px;font-family:${fontFamily};font-size:12px;line-height:16px;color:#64748b;text-transform:uppercase;letter-spacing:0.12em;">${escapeHtml(labels.attachmentsLabel)}</td>
                         </tr>
                         <tr>
-                          <td style="padding:0 12px 0 0;font-family:${fontFamily};font-size:22px;line-height:30px;color:#0f172a;font-weight:700;letter-spacing:-0.02em;">${escapeHtml(safeTicketTitle)}</td>
-                          <td style="padding:0;font-family:${fontFamily};font-size:15px;line-height:24px;color:#334155;font-weight:600;">${escapeHtml(attachmentsText)}</td>
+                          <td class="meta-half ticket-title" style="padding:0 12px 0 0;font-family:${fontFamily};font-size:22px;line-height:30px;color:#0f172a;font-weight:700;letter-spacing:-0.02em;">${escapeHtml(safeTicketTitle)}</td>
+                          <td class="meta-half" style="padding:0;font-family:${fontFamily};font-size:15px;line-height:24px;color:#334155;font-weight:600;">${escapeHtml(attachmentsText)}</td>
                         </tr>
                       </table>
 
                       <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:18px;">
                         <tr>
-                          <td style="padding:12px 14px;border-radius:16px;background:#ffffff;border:1px solid #dce4ee;">
+                          <td class="pill-half" style="padding:12px 14px;border-radius:16px;background:#ffffff;border:1px solid #dce4ee;">
                             <div style="font-family:${fontFamily};font-size:11px;line-height:16px;color:#64748b;text-transform:uppercase;letter-spacing:0.12em;">${escapeHtml(labels.typeLabel)}</div>
                             <div style="margin-top:6px;font-family:${fontFamily};font-size:15px;line-height:22px;color:#0f172a;font-weight:700;">${escapeHtml(typeLabel)}</div>
                           </td>
-                          <td style="width:12px;">&nbsp;</td>
-                          <td style="padding:12px 14px;border-radius:16px;background:#ffffff;border:1px solid #dce4ee;">
+                          <td class="pill-spacer" style="width:12px;">&nbsp;</td>
+                          <td class="pill-half" style="padding:12px 14px;border-radius:16px;background:#ffffff;border:1px solid #dce4ee;">
                             <div style="font-family:${fontFamily};font-size:11px;line-height:16px;color:#64748b;text-transform:uppercase;letter-spacing:0.12em;">${escapeHtml(labels.statusLabel)}</div>
                             <div style="margin-top:6px;font-family:${fontFamily};font-size:15px;line-height:22px;color:#0f172a;font-weight:700;">${escapeHtml(statusLabel)}</div>
                           </td>
@@ -312,9 +370,9 @@ export function renderTicketNotificationEmail(input: RenderTicketNotificationEma
                   </tr>
                 </table>
 
-                <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;border-radius:22px;overflow:hidden;background:linear-gradient(180deg,#ffffff 0%,#f9fbff 100%);border:1px solid #dce4ee;">
+                <table class="message-card" width="100%" cellpadding="0" cellspacing="0" bgcolor="#ffffff" style="margin-bottom:24px;border-radius:22px;overflow:hidden;background:linear-gradient(180deg,#ffffff 0%,#f9fbff 100%);border:1px solid #dce4ee;">
                   <tr>
-                    <td style="padding:22px;">
+                    <td class="message-card-cell" style="padding:22px;">
                       <div style="font-family:${fontFamily};font-size:12px;line-height:16px;color:#64748b;text-transform:uppercase;letter-spacing:0.12em;margin-bottom:12px;">${escapeHtml(labels.messageLabel)}</div>
                       <div style="font-family:${fontFamily};font-size:15px;line-height:26px;color:#0f172a;white-space:normal;">
                         ${messageHtml}
@@ -323,8 +381,8 @@ export function renderTicketNotificationEmail(input: RenderTicketNotificationEma
                   </tr>
                 </table>
 
-                <table cellpadding="0" cellspacing="0" style="margin:0 0 20px;">
-                  <tr>
+                <table class="cta-table" cellpadding="0" cellspacing="0" style="margin:0 0 20px;">
+                  <tr class="cta-row">
                     <td style="border-radius:16px;background:linear-gradient(135deg,#1d4ed8,#1e3a8a);box-shadow:0 12px 24px rgba(30,64,175,0.20);">
                       <a class="cta-link" href="${escapeHtml(ticketUrl)}" target="_blank" style="display:inline-block;padding:16px 24px;font-family:${fontFamily};font-size:15px;line-height:20px;font-weight:700;color:#ffffff;text-decoration:none;">
                         ${escapeHtml(labels.openTicket)}
