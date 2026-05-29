@@ -25,6 +25,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
 import { Skeleton } from '@/components/ui/skeleton';
+import { getAuditActionLabel, getAuditEntityLabel, getAuditTargetLabel } from '@/lib/audit-log-presenter';
+import { getCompanyFeatureLabel } from '@/lib/admin-presenters';
 
 type PlatformStats = {
   companyCount: number;
@@ -345,28 +347,8 @@ export default function AdminPage() {
   const moduleUsageData = useMemo(() => {
     if (!stats) return [];
 
-    const labels: Record<ModuleUsageKey, string> = {
-      expenses: 'Expenses',
-      tickets: 'Tickets',
-      financialDashboard: 'Financial dashboard',
-      accountantPortal: 'Accountant portal',
-      exports: 'Exports',
-      advancedRoles: 'Advanced roles',
-    };
-
-    const labelsFr: Record<ModuleUsageKey, string> = {
-      expenses: 'Depenses',
-      tickets: 'Tickets',
-      financialDashboard: 'Tableau financier',
-      accountantPortal: 'Portail comptable',
-      exports: 'Exports',
-      advancedRoles: 'Roles avances',
-    };
-
-    const activeLabels = locale === 'fr' ? labelsFr : labels;
-
     return (Object.keys(MODULE_COLORS) as ModuleUsageKey[]).map((key) => ({
-      label: activeLabels[key],
+      label: getCompanyFeatureLabel(key, locale),
       count: stats.moduleUsage?.[key] || 0,
       fill: MODULE_COLORS[key],
     }));
@@ -487,10 +469,12 @@ export default function AdminPage() {
                   </div>
                   <div className="min-w-0 space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-medium text-slate-900 dark:text-slate-50">{event.entityType} / {event.action}</span>
-                      <Badge variant="outline" className="rounded-full">{event.entityType}</Badge>
+                      <span className="font-medium text-slate-900 dark:text-slate-50">
+                        {(event.performedBy?.name || event.performedBy?.email || (locale === 'fr' ? 'Systeme' : 'System'))} {getAuditActionLabel(event.action, locale)} {getAuditTargetLabel(event, locale)}
+                      </span>
+                      <Badge variant="outline" className="rounded-full">{getAuditEntityLabel(event.entityType, locale)}</Badge>
                     </div>
-                    <p className="truncate text-muted-foreground">{event.performedBy?.name || event.performedBy?.email || 'System'}</p>
+                    <p className="truncate text-muted-foreground">{locale === 'fr' ? 'Evenement recent de supervision plateforme.' : 'Recent platform supervision event.'}</p>
                   </div>
                 </div>
               ))

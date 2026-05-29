@@ -13,6 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
+import { getCompanyFeatureLabel, getCompanyStatusLabel } from '@/lib/admin-presenters';
 
 type CompanyListItem = {
   _id: string;
@@ -77,14 +78,14 @@ const messages = {
   },
   fr: {
     heading: 'Entreprises',
-    subtitle: 'Gerez les entreprises, les flags produit et l activite plateforme depuis un seul espace.',
+    subtitle: 'Gerez les entreprises, les fonctionnalites actives et l activite plateforme depuis un seul espace.',
     search: 'Rechercher une entreprise ou un slug',
     status: 'Statut',
     all: 'Tous',
     active: 'Active',
     suspended: 'Suspendue',
     refresh: 'Actualiser',
-    view: 'Voir',
+    view: 'Ouvrir',
     suspend: 'Suspendre',
     activate: 'Activer',
     owner: 'Utilisateur proprietaire',
@@ -98,8 +99,8 @@ const messages = {
     updateError: 'Echec de mise a jour du statut entreprise.',
     updateSuccess: 'Statut entreprise mis a jour.',
     noCompanies: 'Aucune entreprise ne correspond aux filtres.',
-    enabled: 'Active',
-    disabled: 'Desactive',
+    enabled: 'Activee',
+    disabled: 'Desactivee',
     previous: 'Precedent',
     next: 'Suivant',
     pagination: (start: number, end: number, total: number) => `Affichage ${start}-${end} sur ${total}`,
@@ -281,7 +282,7 @@ export default function AdminCompaniesPage() {
                   <div className="space-y-2">
                     <div className="flex flex-wrap items-center gap-2">
                       <h2 className="text-lg font-semibold text-slate-950 dark:text-slate-50">{company.name}</h2>
-                      <Badge variant={company.status === 'active' ? 'default' : 'destructive'} className="rounded-full">{company.status}</Badge>
+                      <Badge variant={company.status === 'active' ? 'default' : 'destructive'} className="rounded-full">{getCompanyStatusLabel(company.status, locale)}</Badge>
                       <Badge variant="outline" className="rounded-full">{company.slug}</Badge>
                     </div>
                     <div className="grid gap-1 text-sm text-muted-foreground md:grid-cols-3">
@@ -293,7 +294,7 @@ export default function AdminCompaniesPage() {
                       {Object.entries(company.featureFlags).map(([key, enabled]) => (
                         <span key={key} className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium ${featureBadgeClass(enabled)}`} title={enabled ? t.enabled : t.disabled}>
                           <span className={`size-1.5 rounded-full ${enabled ? 'bg-emerald-500' : 'bg-slate-300'}`} />
-                          {key}
+                          {getCompanyFeatureLabel(key, locale)}
                         </span>
                       ))}
                     </div>

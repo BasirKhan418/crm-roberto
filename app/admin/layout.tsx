@@ -15,6 +15,7 @@ const adminMessages = {
   en: {
     eyebrow: 'Super admin',
     badge: 'Platform access',
+    panelBadge: 'Admin panel',
     dashboard: {
       title: 'Platform dashboard',
       description: 'Operate companies, feature access, and platform activity from the same workspace framing used across the CRM.',
@@ -34,6 +35,7 @@ const adminMessages = {
   fr: {
     eyebrow: 'Super admin',
     badge: 'Acces plateforme',
+    panelBadge: 'Panneau admin',
     dashboard: {
       title: 'Tableau plateforme',
       description: 'Pilotez les entreprises, les modules et l activite plateforme dans un cadre aligne sur le CRM.',
@@ -97,7 +99,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             actions={
               <>
                 <div className="hidden rounded-full border border-slate-200/80 bg-white/80 px-3 py-1 text-xs font-medium text-slate-600 shadow-sm dark:border-slate-800 dark:bg-slate-950/80 dark:text-slate-300 lg:inline-flex">
-                  Admin Panel
+                  {t.panelBadge}
                 </div>
                 <LanguageThemeToggle className="shrink-0" />
               </>

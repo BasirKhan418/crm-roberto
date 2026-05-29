@@ -6,6 +6,7 @@ import { Activity, ChevronLeft, ChevronRight, Clock3, FileClock, Loader2, Refres
 import { toast } from 'sonner';
 
 import { getAuditActionLabel, getAuditDescription, getAuditSecondaryBadge, getAuditTargetLabel } from '@/lib/audit-log-presenter';
+import { getCompanyFeatureLabel, getCompanyStatusLabel, getConnectionEventLabel, getConnectionEventMeta, getUserAccountStatusLabel } from '@/lib/admin-presenters';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -49,21 +50,11 @@ type PaginationMeta = {
 const LOG_LIMIT = 8;
 const emptyPagination: PaginationMeta = { page: 1, limit: LOG_LIMIT, total: 0, totalPages: 0 };
 
-const connectionEventLabels: Record<string, { title: string; description: string; tone: 'green' | 'red' | 'amber' | 'blue' | 'slate' }> = {
-  login_success: { title: 'CRM login succeeded', description: 'A company user signed in successfully.', tone: 'green' },
-  login_failed: { title: 'CRM login failed', description: 'Someone tried to sign in with incorrect credentials.', tone: 'red' },
-  logout: { title: 'User logged out', description: 'A user ended their session.', tone: 'slate' },
-  portal_login_success: { title: 'Accountant login succeeded', description: 'An external accountant entered the portal.', tone: 'green' },
-  portal_login_failed: { title: 'Accountant login failed', description: 'An accountant portal login attempt failed.', tone: 'red' },
-  force_logout: { title: 'Forced logout', description: 'Access changed and an active session was forced out.', tone: 'amber' },
-  revoke_access: { title: 'Access revoked', description: 'A pending invitation or user access was revoked.', tone: 'amber' },
-};
-
 const messages = {
   en: {
     eyebrow: 'Company workspace',
     refresh: 'Refresh',
-    featureFlags: 'Feature flags',
+    featureFlags: 'Feature access',
     companyUsers: 'Users',
     auditLogs: 'Audit logs',
     connectionLogs: 'Connection logs',
@@ -92,21 +83,26 @@ const messages = {
     saveError: 'Failed to update feature flags.',
     statusSuccess: 'Company status updated.',
     statusError: 'Failed to update company status.',
+    loadError: 'Failed to load company.',
     suspend: 'Suspend company',
     activate: 'Activate company',
+    cancel: 'Cancel',
+    proceed: 'Proceed',
+    companyFallback: 'Company',
+    system: 'System',
   },
   fr: {
     eyebrow: 'Espace entreprise',
     refresh: 'Actualiser',
-    featureFlags: 'Feature flags',
+    featureFlags: 'Fonctionnalites',
     companyUsers: 'Utilisateurs',
-    auditLogs: 'Audit logs',
-    connectionLogs: 'Logs de connexion',
+    auditLogs: 'Journaux d activite',
+    connectionLogs: 'Journaux de connexion',
     companyOverview: 'Vue entreprise',
-    auditDescription: 'Actions metier recentes pour cette entreprise.',
-    connectionDescription: 'Activite recente de connexion et d acces pour cette entreprise.',
-    usersDescription: 'Utilisateurs assignes et etat du compte.',
-    featureDescription: 'Activez ou desactivez les modules plateforme pour cette entreprise.',
+    auditDescription: 'Dernieres actions metier enregistrees pour cette entreprise.',
+    connectionDescription: 'Historique recent des connexions et acces pour cette entreprise.',
+    usersDescription: 'Utilisateurs assignes et etat actuel du compte.',
+    featureDescription: 'Activez ou desactivez les modules disponibles pour cette entreprise.',
     activeUsers: 'Utilisateurs actifs',
     activeModules: 'Modules actifs',
     owner: 'Proprietaire',
@@ -116,19 +112,24 @@ const messages = {
     previous: 'Precedent',
     next: 'Suivant',
     page: 'Page',
-    noAuditLogs: 'Aucune activite audit pour cette entreprise.',
-    noConnectionLogs: 'Aucune activite de connexion pour cette entreprise.',
+    noAuditLogs: 'Aucune activite metier enregistree pour cette entreprise.',
+    noConnectionLogs: 'Aucune activite de connexion enregistree pour cette entreprise.',
     noUsers: 'Aucun utilisateur assigne a cette entreprise.',
     changedArea: 'Zone modifiee',
     source: 'Source',
     notRecorded: 'non renseigne',
-    saveFlags: 'Enregistrer les flags',
-    saveSuccess: 'Feature flags mis a jour.',
-    saveError: 'Echec de mise a jour des flags.',
-    statusSuccess: 'Statut entreprise mis a jour.',
-    statusError: 'Echec de mise a jour du statut.',
-    suspend: 'Suspendre entreprise',
-    activate: 'Activer entreprise',
+    saveFlags: 'Enregistrer les modifications',
+    saveSuccess: 'Fonctionnalites mises a jour.',
+    saveError: 'Echec de la mise a jour des fonctionnalites.',
+    statusSuccess: 'Statut de l entreprise mis a jour.',
+    statusError: 'Echec de la mise a jour du statut.',
+    loadError: 'Echec du chargement de l entreprise.',
+    suspend: 'Suspendre l entreprise',
+    activate: 'Reactiver l entreprise',
+    cancel: 'Annuler',
+    proceed: 'Confirmer',
+    companyFallback: 'Entreprise',
+    system: 'Systeme',
   },
 } as const;
 
@@ -242,17 +243,17 @@ export default function AdminCompanyDetailPage() {
       const response = await fetch(`/api/admin/companies/${companyId}?${query.toString()}`, { cache: 'no-store' });
       const payload = (await response.json().catch(() => null)) as { success?: boolean; data?: CompanyDetailPayload; message?: string } | null;
       if (!response.ok || !payload?.success || !payload.data) {
-        throw new Error(payload?.message || 'Failed to load company');
+        throw new Error(payload?.message || t.loadError);
       }
       setData(payload.data);
       setDraftFlags(payload.data.company.featureFlags);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to load company');
+      toast.error(error instanceof Error ? error.message : t.loadError);
       setData(null);
     } finally {
       setLoading(false);
     }
-  }, [auditPage, companyId, connectionPage]);
+  }, [auditPage, companyId, connectionPage, t.loadError]);
 
   useEffect(() => {
     void loadCompany();
@@ -327,8 +328,8 @@ export default function AdminCompanyDetailPage() {
             <AlertDialogDescription>{data?.company.name}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => void updateStatus()}>Proceed</AlertDialogAction>
+            <AlertDialogCancel>{t.cancel}</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void updateStatus()}>{t.proceed}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -340,11 +341,11 @@ export default function AdminCompanyDetailPage() {
             <AlertDialogDescription>{disabledFlagKeys.join(', ')}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t.cancel}</AlertDialogCancel>
             <AlertDialogAction onClick={() => {
               setConfirmDisableFlags(false);
               void saveFlags();
-            }}>Proceed</AlertDialogAction>
+            }}>{t.proceed}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -357,7 +358,7 @@ export default function AdminCompanyDetailPage() {
               {t.eyebrow}
             </div>
             <div>
-              <h1 className="font-heading text-2xl font-bold tracking-tight text-foreground">{data?.company.name || 'Company'}</h1>
+              <h1 className="font-heading text-2xl font-bold tracking-tight text-foreground">{data?.company.name || t.companyFallback}</h1>
               <p className="text-sm text-muted-foreground">{t.slug}: {data?.company.slug || '-'} • {t.owner}: {ownerLabel}</p>
             </div>
           </div>
@@ -381,7 +382,7 @@ export default function AdminCompanyDetailPage() {
           </div>
         ) : data ? (
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <MetricCard title={t.companyOverview} value={data.company.status} icon={ShieldAlert} />
+            <MetricCard title={t.companyOverview} value={getCompanyStatusLabel(data.company.status, locale)} icon={ShieldAlert} />
             <MetricCard title={t.companyUsers} value={data.users.length} icon={Users} />
             <MetricCard title={t.activeUsers} value={activeUsers} icon={Users} />
             <MetricCard title={t.activeModules} value={activeModules} icon={Settings2} />
@@ -401,7 +402,7 @@ export default function AdminCompanyDetailPage() {
                     <div key={key} className="flex items-center justify-between rounded-xl border border-slate-200/80 bg-slate-50/70 px-3 py-3 dark:border-slate-800/70 dark:bg-slate-900/30">
                       <div className="flex items-center gap-2">
                         <span className={`size-2 rounded-full ${enabled ? 'bg-emerald-500' : 'bg-slate-300'}`} />
-                        <span className="text-sm font-medium text-slate-900 dark:text-slate-50">{key}</span>
+                        <span className="text-sm font-medium text-slate-900 dark:text-slate-50">{getCompanyFeatureLabel(key, locale)}</span>
                       </div>
                       <Switch checked={enabled} onCheckedChange={(checked) => setDraftFlags((current) => ({ ...current, [key]: checked }))} />
                     </div>
@@ -429,7 +430,7 @@ export default function AdminCompanyDetailPage() {
                     <div key={user._id} className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-3 text-sm dark:border-slate-800/70 dark:bg-slate-900/30">
                       <div className="flex flex-wrap items-center gap-2">
                         <div className="font-medium text-slate-950 dark:text-slate-50">{user.name || user.email}</div>
-                        <Badge variant={user.account_status === 'active' ? 'default' : 'destructive'} className="rounded-full">{user.account_status || t.notRecorded}</Badge>
+                        <Badge variant={user.account_status === 'active' ? 'default' : 'destructive'} className="rounded-full">{getUserAccountStatusLabel(user.account_status, locale)}</Badge>
                         <Badge variant="outline" className="rounded-full">{user.role || t.notRecorded}</Badge>
                       </div>
                       <div className="mt-1 text-muted-foreground">{user.email}</div>
@@ -447,7 +448,7 @@ export default function AdminCompanyDetailPage() {
                 </CardHeader>
                 <CardContent className="space-y-2">
                   {data.auditLogs.length > 0 ? data.auditLogs.map((log) => {
-                    const actor = log.performedBy?.name || log.performedBy?.email || 'System';
+                    const actor = log.performedBy?.name || log.performedBy?.email || t.system;
                     const action = getAuditActionLabel(log.action, locale);
                     const target = getAuditTargetLabel(log, locale);
                     const secondaryBadge = getAuditSecondaryBadge(log);
@@ -487,14 +488,14 @@ export default function AdminCompanyDetailPage() {
                 </CardHeader>
                 <CardContent className="space-y-2">
                   {data.connectionLogs.length > 0 ? data.connectionLogs.map((log) => {
-                    const event = connectionEventLabels[log.eventType] || { title: log.eventType, description: t.notRecorded, tone: 'slate' as const };
+                    const event = getConnectionEventMeta(log.eventType, locale);
                     return (
                       <div key={log._id} className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-3 text-sm dark:border-slate-800/70 dark:bg-slate-900/30">
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                           <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
                               <div className="font-medium text-slate-950 dark:text-slate-50">{event.title}</div>
-                              <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-medium ${toneClass(event.tone)}`}>{log.eventType}</span>
+                              <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-medium ${toneClass(event.tone)}`}>{getConnectionEventLabel(log.eventType, locale)}</span>
                             </div>
                             <div className="text-muted-foreground">{event.description}</div>
                             <div className="text-muted-foreground">{log.userId?.name || log.userId?.email || '-'} • {log.deviceLabel || log.ipAddress || t.notRecorded}</div>

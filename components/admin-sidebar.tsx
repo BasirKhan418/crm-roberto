@@ -40,6 +40,7 @@ const sidebarMessages = {
     logs: 'Logs',
     session: 'Session',
     logout: 'Logout',
+    adminSession: 'Admin session',
   },
   fr: {
     brand: 'Roby',
@@ -47,15 +48,16 @@ const sidebarMessages = {
     management: 'Gestion',
     dashboard: 'Tableau plateforme',
     companies: 'Entreprises',
-    logs: 'Logs',
+    logs: 'Journaux',
     session: 'Session',
     logout: 'Déconnexion',
+    adminSession: 'Session administrateur',
   },
 } as const;
 
 const navLabels = {
   en: { dashboard: 'Platform Dashboard', companies: 'Companies', logs: 'Logs' },
-  fr: { dashboard: 'Tableau plateforme', companies: 'Entreprises', logs: 'Logs' },
+  fr: { dashboard: 'Tableau plateforme', companies: 'Entreprises', logs: 'Journaux' },
 } as const;
 
 export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
@@ -138,7 +140,7 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold text-foreground">Super Admin</p>
-                  <p className="truncate text-xs text-muted-foreground">admin session</p>
+                  <p className="truncate text-xs text-muted-foreground">{t.adminSession}</p>
                 </div>
               </div>
             </div>
