@@ -358,6 +358,9 @@ export default function AccountantPortalTicketDetailPage() {
       setReplyBody('');
       setReplyFiles([]);
       await refetch();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('accountant-sidebar-badges:refresh'));
+      }
     } catch (sendError) {
       console.error('[accountant-portal] reply failed', sendError);
       toast.error(t.replyFailed);
@@ -376,6 +379,9 @@ export default function AccountantPortalTicketDetailPage() {
       await changeAccountantTicketStatus({ ticketId: ticket._id, status: statusDraft });
       toast.success(t.statusUpdated);
       await refetch();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('accountant-sidebar-badges:refresh'));
+      }
     } catch (statusError) {
       console.error('[accountant-portal] status update failed', statusError);
       toast.error(t.statusFailed);

@@ -216,6 +216,9 @@ export default function AdminCompaniesPage() {
       }
       toast.success(t.updateSuccess);
       await loadData();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('admin-sidebar-badges:refresh'));
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t.updateError);
     } finally {

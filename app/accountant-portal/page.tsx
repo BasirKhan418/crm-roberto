@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { BadgeEuro, CircleDollarSign, FileClock, LineChart as LineChartIcon, PieChartIcon, ReceiptText, Ticket, TrendingUp, Truck } from 'lucide-react';
+import { BadgeEuro, FileClock, LineChart as LineChartIcon, PieChartIcon, ReceiptText, Ticket, TrendingUp, Truck, type LucideIcon } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, Pie, PieChart, XAxis, YAxis } from 'recharts';
 
 import { FinancialPeriodSelector } from '@/components/dashboard/financial-period-selector';
@@ -136,7 +136,7 @@ function DashboardMetricCard({
   cents?: number;
   priceLocale: string;
   footer?: string;
-  icon: typeof CircleDollarSign;
+  icon: LucideIcon;
   tone: keyof typeof metricToneClasses;
 }) {
   return (
@@ -514,10 +514,10 @@ export default function AccountantPortalDashboardPage() {
       ) : data ? (
         <>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            <DashboardMetricCard label={t.revenue} cents={data.metrics.totalRevenueExclVatCents} priceLocale={priceLocale} footer={data.period.label} icon={CircleDollarSign} tone="sky" />
+            <DashboardMetricCard label={t.revenue} cents={data.metrics.totalRevenueExclVatCents} priceLocale={priceLocale} footer={data.period.label} icon={LineChartIcon} tone="sky" />
             <DashboardMetricCard label={t.expenses} cents={data.metrics.totalExpensesExclVatCents} priceLocale={priceLocale} footer={data.period.label} icon={ReceiptText} tone="amber" />
             <DashboardMetricCard label={t.grossProfit} cents={data.metrics.grossProfitCents} priceLocale={priceLocale} footer={data.period.label} icon={BadgeEuro} tone="emerald" />
-            <DashboardMetricCard label={t.collectedVat} cents={data.metrics.collectedVatCents} priceLocale={priceLocale} icon={CircleDollarSign} tone="sky" />
+            <DashboardMetricCard label={t.collectedVat} cents={data.metrics.collectedVatCents} priceLocale={priceLocale} icon={ReceiptText} tone="sky" />
             <DashboardMetricCard label={t.deductibleVat} cents={data.metrics.deductibleVatCents} priceLocale={priceLocale} icon={BadgeEuro} tone="violet" />
             <DashboardMetricCard label={t.vatBalance} cents={data.metrics.vatBalanceCents} priceLocale={priceLocale} icon={FileClock} tone="rose" />
             <DashboardMetricCard

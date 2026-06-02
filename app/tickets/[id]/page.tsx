@@ -371,7 +371,12 @@ export default function TicketDetailPage() {
     markedReadRef.current = ticket._id;
 
     void markTicketRead(ticket._id)
-      .then(() => refetch())
+      .then(() => {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('sidebar-badges:refresh'));
+        }
+        return refetch();
+      })
       .catch(() => {
         // Keep detail usable even if mark-read fails.
       });
@@ -428,6 +433,9 @@ export default function TicketDetailPage() {
       setReplyBody('');
       setReplyFiles([]);
       await refetch();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('sidebar-badges:refresh'));
+      }
     } catch (sendError) {
       console.error('[tickets] reply failed', sendError);
       toast.error(t.replyFailed);
@@ -452,6 +460,9 @@ export default function TicketDetailPage() {
       await changeTicketStatus({ ticketId: ticket._id, status: statusDraft });
       toast.success(t.statusUpdated);
       await refetch();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('sidebar-badges:refresh'));
+      }
     } catch (statusError) {
       console.error('[tickets] status update failed', statusError);
       toast.error(t.statusUpdateFailed);
