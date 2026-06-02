@@ -61,6 +61,10 @@ const salesCopy = {
     search: 'Search invoice number or client',
     status: 'Status',
     all: 'All',
+    statusUnpaid: 'Unpaid',
+    statusPartialPaid: 'Partially paid',
+    statusPaid: 'Paid',
+    statusOverdue: 'Overdue',
     date: 'Date',
     dueDate: 'Due date',
     schedule: 'Dates',
@@ -109,6 +113,10 @@ const salesCopy = {
     search: 'Rechercher numero de facture ou client',
     status: 'Statut',
     all: 'Tous',
+    statusUnpaid: 'Impayée',
+    statusPartialPaid: 'Partiellement payée',
+    statusPaid: 'Réglée',
+    statusOverdue: 'En retard',
     date: 'Date',
     dueDate: 'Echeance',
     schedule: 'Dates',
@@ -303,10 +311,10 @@ export default function AccountantPortalSalesInvoicesPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">{t.all}</SelectItem>
-                <SelectItem value="unpaid">unpaid</SelectItem>
-                <SelectItem value="partial_paid">partial paid</SelectItem>
-                <SelectItem value="paid">paid</SelectItem>
-                <SelectItem value="overdue">overdue</SelectItem>
+                <SelectItem value="unpaid">{t.statusUnpaid}</SelectItem>
+                <SelectItem value="partial_paid">{t.statusPartialPaid}</SelectItem>
+                <SelectItem value="paid">{t.statusPaid}</SelectItem>
+                <SelectItem value="overdue">{t.statusOverdue}</SelectItem>
               </SelectContent>
             </Select>
           </div>
