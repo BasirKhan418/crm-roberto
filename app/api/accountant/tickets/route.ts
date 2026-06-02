@@ -20,7 +20,12 @@ function mapTicketAttachmentUrls<T extends { _id?: unknown; url?: unknown }>(att
   }
 
   return attachments.map((attachment) => {
-    const attachmentId = typeof attachment._id === "string" ? attachment._id : "";
+    const attachmentId =
+      typeof attachment._id === "string"
+        ? attachment._id
+        : attachment._id && typeof attachment._id === "object" && typeof (attachment._id as { toString?: unknown }).toString === "function"
+          ? String(attachment._id)
+          : "";
 
     return attachmentId
       ? {
