@@ -17,12 +17,22 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
+import { CountBadgeRow } from '@/components/ui/count-badge';
 import type { CompanyFeatureFlags } from '@/lib/company-features';
+import { useAccountantSidebarBadges } from '@/hooks/useAccountantSidebarBadges';
 
 const sidebarMessages = {
   en: {
     workspace: 'Accounting workspace',
     tagline: 'Shared shell, portal-safe access',
+    badgeTitles: {
+      unpaidPurchases: (n: number) => `${n} unpaid purchase invoices`,
+      overduePurchases: (n: number) => `${n} overdue purchase invoices`,
+      unpaidSales: (n: number) => `${n} unpaid sales invoices`,
+      overdueSales: (n: number) => `${n} overdue sales invoices`,
+      unreadTickets: (n: number) => `${n} unread tickets`,
+      assignedTickets: (n: number) => `${n} assigned open tickets`,
+    },
     readOnly: 'Read-only access',
     scope: 'Company scoped',
     session: 'Session',
@@ -39,6 +49,14 @@ const sidebarMessages = {
   fr: {
     workspace: 'Espace comptable',
     tagline: 'Meme shell, acces portail securise',
+    badgeTitles: {
+      unpaidPurchases: (n: number) => `${n} facture(s) achat impayee(s)`,
+      overduePurchases: (n: number) => `${n} facture(s) achat en retard`,
+      unpaidSales: (n: number) => `${n} facture(s) vente impayee(s)`,
+      overdueSales: (n: number) => `${n} facture(s) vente en retard`,
+      unreadTickets: (n: number) => `${n} ticket(s) non lu(s)`,
+      assignedTickets: (n: number) => `${n} ticket(s) ouvert(s) assignes`,
+    },
     readOnly: 'Lecture seule',
     scope: 'Perimetre entreprise',
     session: 'Session',
@@ -73,6 +91,7 @@ export function AccountantPortalSidebar({ featureFlags, userName, userEmail, ...
   const router = useRouter();
   const { locale } = useLocale();
   const t = sidebarMessages[locale];
+  const { badges } = useAccountantSidebarBadges();
 
   const visibleNavItems = navItems.filter((item) => item.href !== '/accountant-portal/exports' || featureFlags?.exports !== false);
 
@@ -120,6 +139,45 @@ export function AccountantPortalSidebar({ featureFlags, userName, userEmail, ...
               const isActive = item.href === '/accountant-portal'
                 ? pathname === item.href
                 : pathname === item.href || pathname.startsWith(`${item.href}/`);
+              let badgeNode: React.ReactNode = null;
+
+              if (item.key === 'purchaseInvoices') {
+                const { unpaid, overdue } = badges.purchaseInvoices;
+                if (unpaid + overdue > 0) {
+                  badgeNode = (
+                    <CountBadgeRow
+                      items={[
+                        { count: unpaid, tone: 'orange', title: t.badgeTitles.unpaidPurchases(unpaid) },
+                        { count: overdue, tone: 'red', title: t.badgeTitles.overduePurchases(overdue) },
+                      ]}
+                    />
+                  );
+                }
+              } else if (item.key === 'salesInvoices') {
+                const { unpaid, overdue } = badges.salesInvoices;
+                if (unpaid + overdue > 0) {
+                  badgeNode = (
+                    <CountBadgeRow
+                      items={[
+                        { count: unpaid, tone: 'orange', title: t.badgeTitles.unpaidSales(unpaid) },
+                        { count: overdue, tone: 'red', title: t.badgeTitles.overdueSales(overdue) },
+                      ]}
+                    />
+                  );
+                }
+              } else if (item.key === 'tickets') {
+                const { unread, assignedOpen } = badges.tickets;
+                if (unread + assignedOpen > 0) {
+                  badgeNode = (
+                    <CountBadgeRow
+                      items={[
+                        { count: unread, tone: 'red', title: t.badgeTitles.unreadTickets(unread) },
+                        { count: assignedOpen, tone: 'orange', title: t.badgeTitles.assignedTickets(assignedOpen) },
+                      ]}
+                    />
+                  );
+                }
+              }
 
               return (
                 <SidebarMenuItem key={item.key}>
@@ -131,6 +189,7 @@ export function AccountantPortalSidebar({ featureFlags, userName, userEmail, ...
                     <Link href={item.href}>
                       <Icon />
                       <span>{t.nav[item.key]}</span>
+                      {badgeNode}
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

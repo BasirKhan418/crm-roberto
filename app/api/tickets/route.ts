@@ -38,6 +38,7 @@ export async function GET(request: NextRequest) {
 
     const queryPayload = {
       status: request.nextUrl.searchParams.get("status") || undefined,
+      statusBucket: request.nextUrl.searchParams.get("statusBucket") || undefined,
       type: request.nextUrl.searchParams.get("type") || undefined,
       linkedType: request.nextUrl.searchParams.get("linkedType") || undefined,
       linkedId: request.nextUrl.searchParams.get("linkedId") || undefined,

@@ -23,6 +23,8 @@ import {
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { useLocale } from '@/components/providers/locale-provider';
+import { CountBadgeRow } from '@/components/ui/count-badge';
+import { useAdminSidebarBadges } from '@/hooks/useAdminSidebarBadges';
 
 const adminNavItems = [
   { key: 'dashboard', url: '/admin', icon: <LayoutGrid /> },
@@ -34,6 +36,10 @@ const sidebarMessages = {
   en: {
     brand: 'Roby',
     tagline: 'Platform operations cockpit',
+    badgeTitles: {
+      suspendedCompanies: (n: number) => `${n} suspended companies`,
+      failedAccess: (n: number) => `${n} failed sign-ins in the last 24h`,
+    },
     management: 'Management',
     dashboard: 'Platform Dashboard',
     companies: 'Companies',
@@ -45,6 +51,10 @@ const sidebarMessages = {
   fr: {
     brand: 'Roby',
     tagline: 'Cockpit operations plateforme',
+    badgeTitles: {
+      suspendedCompanies: (n: number) => `${n} entreprise(s) suspendue(s)`,
+      failedAccess: (n: number) => `${n} tentative(s) de connexion echouee(s) sur 24 h`,
+    },
     management: 'Gestion',
     dashboard: 'Tableau plateforme',
     companies: 'Entreprises',
@@ -65,6 +75,7 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
   const router = useRouter();
   const { locale } = useLocale();
   const t = sidebarMessages[locale];
+  const { badges } = useAdminSidebarBadges();
 
   function isItemActive(url: (typeof adminNavItems)[number]['url']) {
     if (url === '/admin') {
@@ -110,20 +121,45 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
         <SidebarGroup className="pt-1">
           <SidebarGroupLabel>{t.management}</SidebarGroupLabel>
           <SidebarMenu className="px-2">
-            {adminNavItems.map((item) => (
-              <SidebarMenuItem key={item.key}>
-                <SidebarMenuButton
-                  asChild
-                  isActive={isItemActive(item.url)}
-                  className="h-11 rounded-xl border border-transparent bg-transparent text-(--color-text-secondary) hover:border-sidebar-border/60 hover:bg-sidebar-accent/40 hover:text-sidebar-foreground data-[active=true]:border-sidebar-border/70 data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-foreground"
-                >
-                  <Link href={item.url}>
-                    {item.icon}
-                    <span>{navLabels[locale][item.key]}</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
+            {adminNavItems.map((item) => {
+              let badgeNode: React.ReactNode = null;
+
+              if (item.key === 'companies') {
+                const suspended = badges.companies.suspended;
+                if (suspended > 0) {
+                  badgeNode = (
+                    <CountBadgeRow
+                      items={[{ count: suspended, tone: 'red', title: t.badgeTitles.suspendedCompanies(suspended) }]}
+                    />
+                  );
+                }
+              } else if (item.key === 'logs') {
+                const failedAccess = badges.logs.failedAccess;
+                if (failedAccess > 0) {
+                  badgeNode = (
+                    <CountBadgeRow
+                      items={[{ count: failedAccess, tone: 'red', title: t.badgeTitles.failedAccess(failedAccess) }]}
+                    />
+                  );
+                }
+              }
+
+              return (
+                <SidebarMenuItem key={item.key}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isItemActive(item.url)}
+                    className="h-11 rounded-xl border border-transparent bg-transparent text-(--color-text-secondary) hover:border-sidebar-border/60 hover:bg-sidebar-accent/40 hover:text-sidebar-foreground data-[active=true]:border-sidebar-border/70 data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-foreground"
+                  >
+                    <Link href={item.url}>
+                      {item.icon}
+                      <span>{navLabels[locale][item.key]}</span>
+                      {badgeNode}
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              );
+            })}
           </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>

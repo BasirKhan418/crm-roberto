@@ -20,6 +20,7 @@ import { useLocale } from "@/components/providers/locale-provider"
 import { useAuthMe } from "@/hooks/useAuthMe"
 import { canAccessCrmPath, getSettingsLandingPath } from "@/lib/route-access"
 import { useSidebarBadges } from "@/hooks/useSidebarBadges"
+import { CountBadgeRow } from "@/components/ui/count-badge"
 
 type NavKey =
   | "dashboard"
@@ -109,27 +110,6 @@ const sidebarMessages = {
   },
 } as const
 
-type BadgeTone = "green" | "orange" | "red"
-
-const BADGE_TONE_CLASSES: Record<BadgeTone, string> = {
-  green: "bg-emerald-500",
-  orange: "bg-amber-500",
-  red: "bg-red-600",
-}
-
-function StatusBadge({ count, tone, title }: { count: number; tone: BadgeTone; title: string }) {
-  if (count <= 0) return null
-  return (
-    <span
-      className={`flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white ${BADGE_TONE_CLASSES[tone]}`}
-      title={title}
-      aria-label={title}
-    >
-      {count > 99 ? "99+" : count}
-    </span>
-  )
-}
-
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname()
   const { locale } = useLocale()
@@ -183,41 +163,45 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 const { accepted, pending, rejected } = badges.quotes
                 if (accepted + pending + rejected > 0) {
                   badgeNode = (
-                    <span className="ml-auto flex items-center gap-1">
-                      <StatusBadge count={accepted} tone="green" title={t.badgeTitles.accepted(accepted)} />
-                      <StatusBadge count={pending} tone="orange" title={t.badgeTitles.pending(pending)} />
-                      <StatusBadge count={rejected} tone="red" title={t.badgeTitles.rejected(rejected)} />
-                    </span>
+                    <CountBadgeRow
+                      items={[
+                        { count: accepted, tone: "green", title: t.badgeTitles.accepted(accepted) },
+                        { count: pending, tone: "orange", title: t.badgeTitles.pending(pending) },
+                        { count: rejected, tone: "red", title: t.badgeTitles.rejected(rejected) },
+                      ]}
+                    />
                   )
                 }
               } else if (item.key === "invoices") {
                 const { paid, pending, overdue } = badges.invoices
                 if (paid + pending + overdue > 0) {
                   badgeNode = (
-                    <span className="ml-auto flex items-center gap-1">
-                      <StatusBadge count={paid} tone="green" title={t.badgeTitles.paid(paid)} />
-                      <StatusBadge count={pending} tone="orange" title={t.badgeTitles.pending(pending)} />
-                      <StatusBadge count={overdue} tone="red" title={t.badgeTitles.overdue(overdue)} />
-                    </span>
+                    <CountBadgeRow
+                      items={[
+                        { count: paid, tone: "green", title: t.badgeTitles.paid(paid) },
+                        { count: pending, tone: "orange", title: t.badgeTitles.pending(pending) },
+                        { count: overdue, tone: "red", title: t.badgeTitles.overdue(overdue) },
+                      ]}
+                    />
                   )
                 }
               } else if (item.key === "tickets") {
                 const unread = badges.tickets.unread
                 if (unread > 0) {
                   badgeNode = (
-                    <span className="ml-auto flex items-center gap-1">
-                      <StatusBadge count={unread} tone="red" title={t.badgeTitles.unreadTickets(unread)} />
-                    </span>
+                    <CountBadgeRow items={[{ count: unread, tone: "red", title: t.badgeTitles.unreadTickets(unread) }]} />
                   )
                 }
               } else if (item.key === "expenses") {
                 const { unpaid, overdue } = badges.expenses
                 if (unpaid + overdue > 0) {
                   badgeNode = (
-                    <span className="ml-auto flex items-center gap-1">
-                      <StatusBadge count={unpaid} tone="orange" title={t.badgeTitles.unpaidExpenses(unpaid)} />
-                      <StatusBadge count={overdue} tone="red" title={t.badgeTitles.overdueExpenses(overdue)} />
-                    </span>
+                    <CountBadgeRow
+                      items={[
+                        { count: unpaid, tone: "orange", title: t.badgeTitles.unpaidExpenses(unpaid) },
+                        { count: overdue, tone: "red", title: t.badgeTitles.overdueExpenses(overdue) },
+                      ]}
+                    />
                   )
                 }
               }

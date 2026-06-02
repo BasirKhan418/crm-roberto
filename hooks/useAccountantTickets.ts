@@ -64,6 +64,7 @@ export function useAccountantTickets(filters?: TicketFilters) {
     params.set('page', String(filters?.page || 1));
     params.set('limit', String(filters?.limit || 20));
     if (filters?.status) params.set('status', filters.status);
+    if (filters?.statusBucket) params.set('statusBucket', filters.statusBucket);
     if (filters?.unreadOnly) params.set('unreadOnly', 'true');
     if (filters?.search) params.set('search', filters.search);
     if (filters?.sortBy) params.set('sortBy', filters.sortBy);

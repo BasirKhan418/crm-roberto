@@ -15,12 +15,30 @@ import EmptyState from '@/components/ui/EmptyState';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAccountantTickets } from '@/hooks/useAccountantTickets';
 import { formatInvoiceReferencesInText } from '@/lib/i18n/messages';
 import { getTicketStatusLabel, getTicketTypeLabel } from '@/lib/tickets/i18n';
-import { TICKET_STATUSES, type TicketStatus } from '@/lib/tickets/constants';
+import { type TicketStatus, type TicketStatusBucket } from '@/lib/tickets/constants';
+
+type TicketWorkspaceFilter = 'all' | 'open' | 'waiting' | 'replied' | 'resolved';
+
+const WORKSPACE_FILTERS: TicketWorkspaceFilter[] = ['all', 'open', 'waiting', 'replied', 'resolved'];
+
+function getWorkspaceStatusFilters(filter: TicketWorkspaceFilter): {
+  status?: TicketStatus;
+  statusBucket?: TicketStatusBucket;
+} {
+  if (filter === 'open' || filter === 'waiting' || filter === 'replied') {
+    return { status: filter };
+  }
+
+  if (filter === 'resolved') {
+    return { statusBucket: 'resolved' };
+  }
+
+  return { statusBucket: 'active' };
+}
 
 const STATUS_ROW_BG: Record<TicketStatus, string> = {
   open: 'rgba(14, 165, 233, 0.05)',
@@ -69,6 +87,7 @@ const copy = {
     unreadOnly: 'Unread only',
     refresh: 'Refresh',
     open: 'Open',
+    resolvedHistoryHint: 'All keeps the active workspace clean. Resolved includes archived ticket history.',
     createdBy: 'Created by',
     assignedTo: 'Assigned to',
     messages: 'Messages',
@@ -89,6 +108,7 @@ const copy = {
     unreadOnly: 'Non lus seulement',
     refresh: 'Actualiser',
     open: 'Ouvrir',
+    resolvedHistoryHint: 'Tous garde l\'espace actif propre. Resolu inclut aussi l\'historique archive.',
     createdBy: 'Créé par',
     assignedTo: 'Assigné à',
     messages: 'Messages',
@@ -107,9 +127,10 @@ export default function AccountantPortalTicketsPage() {
 
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<TicketStatus | ''>('');
+  const [workspaceFilter, setWorkspaceFilter] = useState<TicketWorkspaceFilter>('all');
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [page, setPage] = useState(1);
+  const { status: statusFilter, statusBucket } = getWorkspaceStatusFilters(workspaceFilter);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -123,7 +144,8 @@ export default function AccountantPortalTicketsPage() {
     page,
     limit: 12,
     search: debouncedSearch || undefined,
-    status: statusFilter || undefined,
+    status: statusFilter,
+    statusBucket,
     unreadOnly,
     sortBy: 'updatedAt',
     sortOrder: 'desc',
@@ -148,27 +170,35 @@ export default function AccountantPortalTicketsPage() {
             {t.filters}
           </div>
           <p className="text-sm text-muted-foreground">{t.filterHint}</p>
-          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px_auto]">
+          <div className="flex flex-wrap items-center gap-2">
+            {WORKSPACE_FILTERS.map((filter) => {
+              const isActive = workspaceFilter === filter;
+              const label = filter === 'all' ? t.all : getTicketStatusLabel(filter, locale);
+
+              return (
+                <Button
+                  key={filter}
+                  type="button"
+                  size="sm"
+                  variant={isActive ? 'default' : 'outline'}
+                  onClick={() => {
+                    setWorkspaceFilter(filter);
+                    setPage(1);
+                  }}
+                >
+                  {label}
+                </Button>
+              );
+            })}
+          </div>
+          <p className="text-xs text-muted-foreground">{t.resolvedHistoryHint}</p>
+          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
             <div className="space-y-1.5">
               <Label>{t.search}</Label>
               <div className="relative">
                 <SearchIcon className="pointer-events-none absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
                 <Input className="pl-8" value={searchInput} onChange={(event) => { setSearchInput(event.target.value); setPage(1); }} placeholder={t.search} />
               </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label>{t.status}</Label>
-              <Select value={statusFilter || 'all'} onValueChange={(value) => { setStatusFilter(value === 'all' ? '' : (value as TicketStatus)); setPage(1); }}>
-                <SelectTrigger>
-                  <SelectValue placeholder={t.status} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{t.all}</SelectItem>
-                  {TICKET_STATUSES.map((status) => (
-                    <SelectItem key={status} value={status}>{getTicketStatusLabel(status, locale)}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
             <label className="flex items-end gap-2 pb-2 text-sm text-muted-foreground">
               <Checkbox checked={unreadOnly} onCheckedChange={(value) => { setUnreadOnly(value === true); setPage(1); }} />

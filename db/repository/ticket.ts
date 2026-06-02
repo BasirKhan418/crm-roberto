@@ -454,6 +454,10 @@ export async function listTickets(params: {
 
   if (params.filters?.status) {
     query.status = params.filters.status;
+  } else if (params.filters?.statusBucket === "active") {
+    query.status = { $in: ["open", "waiting", "replied"] };
+  } else if (params.filters?.statusBucket === "resolved") {
+    query.status = { $in: ["resolved", "archived"] };
   }
 
   if (params.filters?.type) {

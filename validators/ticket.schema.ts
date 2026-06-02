@@ -4,6 +4,7 @@ import {
   TICKET_ALLOWED_MIME_TYPES,
   TICKET_LINKED_TYPES,
   TICKET_MAX_FILE_SIZE_BYTES,
+  TICKET_STATUS_BUCKETS,
   TICKET_STATUSES,
   TICKET_TYPES,
 } from "@/lib/tickets/constants";
@@ -115,6 +116,7 @@ export const ticketStatusChangeSchema = z.object({
 
 export const ticketListQuerySchema = z.object({
   status: z.enum(TICKET_STATUSES).optional(),
+  statusBucket: z.enum(TICKET_STATUS_BUCKETS).optional(),
   type: z.enum(TICKET_TYPES).optional(),
   linkedType: z.enum(TICKET_LINKED_TYPES).optional(),
   linkedId: z.string().trim().regex(objectIdPattern).optional(),

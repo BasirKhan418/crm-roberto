@@ -1,12 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { Bell, CheckCheck, FileText, Loader2Icon, RefreshCw } from 'lucide-react';
 
 import { useLocale } from '@/components/providers/locale-provider';
 import { Button } from '@/components/ui/button';
+import { CountBadge } from '@/components/ui/count-badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { formatActivityRelativeTime, formatInvoiceDisplayNumber, getActivityHeadline } from '@/lib/i18n/messages';
@@ -265,8 +266,6 @@ export function NotificationsBell() {
     };
   }, [fetchNotifications]);
 
-  const unreadBadge = useMemo(() => (unreadCount > 99 ? '99+' : String(unreadCount)), [unreadCount]);
-
   async function markAllAsRead() {
     if (updatingAll || unreadCount === 0) {
       return;
@@ -334,9 +333,12 @@ export function NotificationsBell() {
         >
           <Bell className="size-4" />
           {unreadCount > 0 ? (
-            <span className="absolute -right-1 -top-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold leading-none text-white shadow ring-2 ring-white">
-              {unreadBadge}
-            </span>
+            <CountBadge
+              count={unreadCount}
+              tone="red"
+              title={`${unreadCount} ${t.unread}`}
+              className="absolute -right-1 -top-1 px-1.5 shadow ring-2 ring-white"
+            />
           ) : null}
         </Button>
       </DropdownMenuTrigger>

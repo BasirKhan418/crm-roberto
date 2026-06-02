@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   TICKET_ALLOWED_MIME_TYPES,
   type TicketLinkedType,
+  type TicketStatusBucket,
   type TicketStatus,
   type TicketType,
 } from '@/lib/tickets/constants';
@@ -69,6 +70,7 @@ export type TicketThread = TicketListItem & {
 
 export type TicketFilters = {
   status?: TicketStatus;
+  statusBucket?: TicketStatusBucket;
   type?: TicketType;
   linkedType?: TicketLinkedType;
   linkedId?: string;
@@ -145,6 +147,7 @@ export function useTickets(filters?: TicketFilters, enabled = true) {
     params.set('limit', String(filters?.limit || 20));
 
     if (filters?.status) params.set('status', filters.status);
+    if (filters?.statusBucket) params.set('statusBucket', filters.statusBucket);
     if (filters?.type) params.set('type', filters.type);
     if (filters?.linkedType) params.set('linkedType', filters.linkedType);
     if (filters?.linkedId) params.set('linkedId', filters.linkedId);
