@@ -1,6 +1,6 @@
 'use client';
 
-import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { ChangeEvent, FocusEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 
 import Image from 'next/image';
 
@@ -489,10 +489,12 @@ export function ExpenseFormDialog({
   const isDraftEditMode = mode === 'edit' && initialExpense?.status === 'draft';
 
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
+  const amountInclVatFirstFocusRef = useRef(true);
 
   useEffect(() => {
     if (!open) {
       setPendingCameraCapture(null);
+      amountInclVatFirstFocusRef.current = true;
       return;
     }
 
@@ -514,6 +516,7 @@ export function ExpenseFormDialog({
     setDebouncedInvoiceSearch('');
     setPendingCameraCapture(null);
     setFinalizeAsPaid(Boolean(mode === 'edit' && initialExpense?.status === 'draft' && initialExpense?.paymentStatus === 'paid'));
+    amountInclVatFirstFocusRef.current = true;
 
     if (mode === 'create') {
       if (initialReceiptFile) {
@@ -981,6 +984,22 @@ export function ExpenseFormDialog({
 
   function updateField<K extends keyof FormValues>(field: K, next: FormValues[K]) {
     setValues((previous) => ({ ...previous, [field]: next }));
+  }
+
+  function handleAmountInclVatFocus(event: FocusEvent<HTMLInputElement>) {
+    if (!amountInclVatFirstFocusRef.current) {
+      return;
+    }
+
+    amountInclVatFirstFocusRef.current = false;
+
+    requestAnimationFrame(() => {
+      if (document.activeElement !== event.currentTarget) {
+        return;
+      }
+
+      event.currentTarget.select();
+    });
   }
 
   useEffect(() => {
@@ -1821,6 +1840,7 @@ export function ExpenseFormDialog({
                 step="0.01"
                 value={values.amountInclVat}
                 onChange={(event) => updateField('amountInclVat', event.target.value)}
+                onFocus={handleAmountInclVatFocus}
                 className="text-base font-semibold"
               />
               <p className="text-xs text-muted-foreground">{t.amountInclVatHint}</p>
