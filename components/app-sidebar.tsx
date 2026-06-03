@@ -15,7 +15,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { Building2Icon, FileTextIcon, LayoutDashboardIcon, MessageSquareIcon, NotebookPenIcon, PackageSearchIcon, ReceiptTextIcon, SettingsIcon, TruckIcon, UsersIcon, WalletCardsIcon } from "lucide-react"
+import { Building2Icon, FileDownIcon, FileTextIcon, LayoutDashboardIcon, MessageSquareIcon, NotebookPenIcon, PackageSearchIcon, ReceiptTextIcon, SettingsIcon, TruckIcon, UsersIcon, WalletCardsIcon } from "lucide-react"
 import { useLocale } from "@/components/providers/locale-provider"
 import { useAuthMe } from "@/hooks/useAuthMe"
 import { canAccessCrmPath, getSettingsLandingPath } from "@/lib/route-access"
@@ -31,6 +31,7 @@ type NavKey =
   | "invoices"
   | "tickets"
   | "expenses"
+  | "exports"
   | "notes"
   | "settings"
   | "companyProfile"
@@ -41,6 +42,7 @@ const navItems: ReadonlyArray<{
   icon: React.ReactNode
 }> = [
   { key: "dashboard", url: "/dashboard", icon: <LayoutDashboardIcon /> },
+  { key: "exports", url: "/exports", icon: <FileDownIcon /> },
   { key: "clients", url: "/clients", icon: <UsersIcon /> },
   { key: "suppliers", url: "/suppliers", icon: <TruckIcon /> },
   { key: "catalogue", url: "/catalogue", icon: <PackageSearchIcon /> },
@@ -75,6 +77,7 @@ const sidebarMessages = {
       quotes: "Quotes",
       notes: "Notes",
       expenses: "Expenses",
+      exports: "Exports",
       settings: "Settings",
       invoices: "Invoices",
       tickets: "Tickets",
@@ -102,6 +105,7 @@ const sidebarMessages = {
       quotes: "Devis",
       notes: "Notes",
       expenses: "Dépenses",
+      exports: "Exports",
       settings: "Paramètres",
       invoices: "Factures",
       tickets: "Tickets",

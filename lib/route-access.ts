@@ -21,6 +21,10 @@ export function canAccessCrmPath(
   modulePermissions?: ModulePermissionsMap | null,
   featureFlags?: Partial<CompanyFeatureFlags> | null
 ): boolean {
+  if (matchesRoutePrefix(pathname, "/exports")) {
+    return isFeatureEnabled(featureFlags, "exports") && hasModuleActionAccess({ role, modulePermissions, moduleKey: "financialDashboard", action: "export" });
+  }
+
   if (matchesRoutePrefix(pathname, "/dashboard")) {
     return isFeatureEnabled(featureFlags, "financialDashboard") && hasModuleActionAccess({ role, modulePermissions, moduleKey: "financialDashboard", action: "view" });
   }
