@@ -60,12 +60,14 @@ function syncViewportVariables(root: HTMLElement) {
 export function KeyboardViewportManager() {
   useEffect(() => {
     const root = document.documentElement;
-    let delayedViewportSyncTimeout: ReturnType<typeof window.setTimeout> | null = null;
+    let delayedViewportSyncTimeouts: Array<ReturnType<typeof window.setTimeout>> = [];
 
     function clearDelayedViewportSync() {
-      if (delayedViewportSyncTimeout !== null) {
-        window.clearTimeout(delayedViewportSyncTimeout);
-        delayedViewportSyncTimeout = null;
+      if (delayedViewportSyncTimeouts.length > 0) {
+        delayedViewportSyncTimeouts.forEach((timeoutId) => {
+          window.clearTimeout(timeoutId);
+        });
+        delayedViewportSyncTimeouts = [];
       }
     }
 
@@ -80,10 +82,11 @@ export function KeyboardViewportManager() {
         });
       });
 
-      delayedViewportSyncTimeout = window.setTimeout(() => {
-        syncViewportVariables(root);
-        delayedViewportSyncTimeout = null;
-      }, 220);
+      delayedViewportSyncTimeouts = [120, 260, 420].map((delay) =>
+        window.setTimeout(() => {
+          syncViewportVariables(root);
+        }, delay)
+      );
     }
 
     function handleFocusIn(event: FocusEvent) {

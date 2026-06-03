@@ -1,6 +1,6 @@
 'use client';
 
-import { PointerEvent, WheelEvent, useRef, useState } from 'react';
+import { PointerEvent, WheelEvent, useEffect, useRef, useState } from 'react';
 
 import { CircleHelpIcon, MinusIcon, PlusIcon, RotateCcwIcon } from 'lucide-react';
 
@@ -114,6 +114,45 @@ export function InteractiveReceiptImage({
     setScale(clampedScale);
     setOffset(clampedOffset);
   }
+
+  useEffect(() => {
+    let frameId = 0;
+
+    function handleResize() {
+      if (frameId) {
+        window.cancelAnimationFrame(frameId);
+      }
+
+      frameId = window.requestAnimationFrame(() => {
+        const current = transformRef.current;
+        const clampedScale = clamp(current.scale, 1, maxScale);
+        const clampedOffset = clampedScale <= 1 ? { x: 0, y: 0 } : clampOffset(current.offset, clampedScale);
+
+        transformRef.current = {
+          scale: clampedScale,
+          offset: clampedOffset,
+        };
+
+        setScale(clampedScale);
+        setOffset(clampedOffset);
+      });
+    }
+
+    handleResize();
+
+    const viewport = window.visualViewport;
+    viewport?.addEventListener('resize', handleResize);
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      if (frameId) {
+        window.cancelAnimationFrame(frameId);
+      }
+
+      viewport?.removeEventListener('resize', handleResize);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [maxScale]);
 
   function toContainerPoint(clientX: number, clientY: number): Point | null {
     const rect = containerRef.current?.getBoundingClientRect();

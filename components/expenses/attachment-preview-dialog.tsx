@@ -53,10 +53,10 @@ function AttachmentPreviewBody({
   const canRenderInline = canRenderImage || canRenderPdf;
 
   return (
-    <div className="space-y-3">
-      <div className="overflow-hidden rounded-lg border bg-muted/20 p-2">
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
+      <div className="min-h-0 flex-1 overflow-hidden rounded-lg border bg-muted/20 p-2">
         {canRenderImage ? (
-          <div className="h-[50vh] sm:h-[70vh]">
+          <div className="h-full min-h-[45vh] sm:min-h-[70vh]">
             <InteractiveReceiptImage
               src={attachment.url}
               alt={attachment.name}
@@ -72,7 +72,7 @@ function AttachmentPreviewBody({
           <iframe
             src={attachment.url}
             title={attachment.name}
-            className="h-[50vh] w-full rounded-md sm:h-[70vh]"
+            className="h-full min-h-[45vh] w-full rounded-md sm:min-h-[70vh]"
             onError={() => setPreviewUnavailable(true)}
           />
         ) : null}
@@ -112,7 +112,7 @@ export function AttachmentPreviewDialog({ open, onOpenChange, attachment, locale
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100%-1rem)] gap-3 p-4 pr-4 sm:max-w-4xl sm:gap-4 sm:p-5 sm:pr-5">
+      <DialogContent className="flex h-[calc(var(--app-viewport-height)-0.5rem-var(--app-safe-area-top)-var(--app-safe-area-bottom))] min-h-0 w-[calc(100%-0.5rem)] max-h-[calc(var(--app-viewport-height)-0.5rem-var(--app-safe-area-top)-var(--app-safe-area-bottom))] flex-col gap-3 p-3 pr-3 sm:h-auto sm:max-h-[calc(var(--app-viewport-height)-2rem-var(--app-safe-area-top)-var(--app-safe-area-bottom))] sm:w-[calc(100%-1rem)] sm:max-w-5xl sm:gap-4 sm:p-5 sm:pr-5">
         <DialogHeader className="pr-8">
           <DialogTitle>{attachment?.name || t.title}</DialogTitle>
           <DialogDescription>{t.description}</DialogDescription>
