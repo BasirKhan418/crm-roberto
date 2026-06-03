@@ -1027,6 +1027,7 @@ export async function createAccountantPurchaseTicket(params: {
   expenseId: string;
   reason: AccountantPurchaseTicketReason;
   note?: string | null;
+  attachments?: TicketAttachmentMetadataDTO[];
   locale: "en" | "fr";
   ipAddress?: string | null;
 }): Promise<RepositoryResult<AccountantPurchaseTicketData>> {
@@ -1162,21 +1163,24 @@ export async function createAccountantPurchaseTicket(params: {
       linkedType: "expense",
       linkedId: String(expense._id),
       body: bodyLines.filter((line): line is string => typeof line === "string").join("\n"),
-      attachments: attachments
-        .filter(
-          (attachment): attachment is typeof attachment & { mimeType: TicketAllowedMimeType; storageKey: string; url: string } =>
-            Boolean(attachment.url && attachment.storageKey && isPortalTicketMimeType(attachment.mimeType))
-        )
-        .map((attachment) => ({
-          originalName: String(attachment.originalName || attachment.displayName || "attachment"),
-          displayName: String(attachment.displayName || attachment.originalName || "Attachment"),
-          mimeType: attachment.mimeType,
-          extension: String(attachment.extension || "file"),
-          sizeBytes: Math.max(0, Number(attachment.sizeBytes || 0)),
-          storageKey: String(attachment.storageKey),
-          url: String(attachment.url),
-          checksum: typeof attachment.checksum === "string" ? attachment.checksum : null,
-        })),
+      attachments: [
+        ...attachments
+          .filter(
+            (attachment): attachment is typeof attachment & { mimeType: TicketAllowedMimeType; storageKey: string; url: string } =>
+              Boolean(attachment.url && attachment.storageKey && isPortalTicketMimeType(attachment.mimeType))
+          )
+          .map((attachment) => ({
+            originalName: String(attachment.originalName || attachment.displayName || "attachment"),
+            displayName: String(attachment.displayName || attachment.originalName || "Attachment"),
+            mimeType: attachment.mimeType,
+            extension: String(attachment.extension || "file"),
+            sizeBytes: Math.max(0, Number(attachment.sizeBytes || 0)),
+            storageKey: String(attachment.storageKey),
+            url: String(attachment.url),
+            checksum: typeof attachment.checksum === "string" ? attachment.checksum : null,
+          })),
+        ...(params.attachments || []),
+      ],
     },
   });
 

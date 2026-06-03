@@ -40,6 +40,7 @@ const purchaseTicketSchema = z.object({
   expenseId: z.string().trim().regex(/^[0-9a-fA-F]{24}$/, "Invalid expense id"),
   reason: z.enum(ACCOUNTANT_PURCHASE_TICKET_REASONS),
   note: z.string().trim().max(2500).optional().nullable(),
+  attachments: z.array(ticketAttachmentMetadataSchema).max(10).optional().default([]),
   locale: z.enum(["en", "fr"]).optional().default("en"),
 });
 
@@ -159,6 +160,7 @@ export async function POST(request: NextRequest) {
       expenseId: parsed.data.expenseId,
       reason: parsed.data.reason,
       note: parsed.data.note,
+        attachments: parsed.data.attachments || [],
       locale: parsed.data.locale,
       ipAddress: getClientIp(request),
     });
