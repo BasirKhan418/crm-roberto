@@ -11,7 +11,10 @@ export const TICKET_STATUS_BUCKETS = ["active", "resolved", "all"] as const;
 
 export const TICKET_LINKED_TYPES = ["expense", "invoice", "supplier", "client"] as const;
 
-export const TICKET_ALLOWED_MIME_TYPES = EXPENSE_ALLOWED_MIME_TYPES;
+export const TICKET_ALLOWED_MIME_TYPES = [
+  ...EXPENSE_ALLOWED_MIME_TYPES,
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+] as const;
 export const TICKET_MAX_FILE_SIZE_BYTES = EXPENSE_MAX_FILE_SIZE_BYTES;
 
 export type TicketType = (typeof TICKET_TYPES)[number];

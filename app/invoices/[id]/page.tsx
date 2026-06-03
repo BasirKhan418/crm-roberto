@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 
-import { CheckCircle2Icon, DownloadIcon, PencilIcon, ReceiptTextIcon, SendIcon, SquarePenIcon, Trash2Icon } from 'lucide-react';
+import { CheckCircle2Icon, DownloadIcon, MessageSquarePlusIcon, PencilIcon, ReceiptTextIcon, SendIcon, SquarePenIcon, Trash2Icon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import CrmShell from '@/components/crm-shell';
@@ -13,6 +13,7 @@ import EditPaymentEntryModal from '@/components/invoices/EditPaymentEntryModal';
 import ManualPaymentModal, { type ManualPaymentType } from '@/components/invoices/ManualPaymentModal';
 import RecurrenceCard from '@/components/invoices/RecurrenceCard';
 import SendInvoiceModal from '@/components/invoices/SendInvoiceModal';
+import { CreateTicketDialog } from '@/components/tickets/create-ticket-dialog';
 import { useLocale } from '@/components/providers/locale-provider';
 import {
   AlertDialog,
@@ -25,6 +26,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { formatInvoiceDisplayNumber, getInvoiceStatusLabel, translate } from '@/lib/i18n/messages';
+import { hasModuleActionAccess } from '@/lib/route-access';
 import { getPaymentMethodLabel, getPaymentTypeLabel } from '@/lib/payments';
 import { computeQuoteLine } from '@/lib/quote-calculations';
 import { InvoiceStatusBadge, type InvoiceStatus } from '@/components/ui/InvoiceStatusBadge';
@@ -33,6 +35,7 @@ import { Button } from '@/components/ui/button';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatStructuredAddress, hasStructuredAddress } from '@/lib/address';
+import { useAuthMe } from '@/hooks/useAuthMe';
 
 type Locale = 'en' | 'fr';
 
@@ -166,6 +169,7 @@ export default function InvoiceDetailPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const { locale } = useLocale();
+  const { user, loading: authLoading } = useAuthMe();
 
   const t = {
     en: {
@@ -249,6 +253,8 @@ export default function InvoiceDetailPage() {
       deletingInvoice: 'Deleting invoice...',
       invoiceDeleted: 'Invoice deleted',
       invoiceDeleteFailed: 'Failed to delete invoice',
+      createTicket: 'Create ticket',
+      ticketCreated: 'Ticket created successfully',
     },
     fr: {
       shellTitle: 'D\u00e9tail de la facture',
@@ -331,6 +337,8 @@ export default function InvoiceDetailPage() {
       deletingInvoice: 'Suppression de la facture...',
       invoiceDeleted: 'Facture supprimee',
       invoiceDeleteFailed: 'Impossible de supprimer la facture',
+      createTicket: 'Créer un ticket',
+      ticketCreated: 'Ticket créé avec succès',
     },
   }[locale as Locale];
 
@@ -341,6 +349,7 @@ export default function InvoiceDetailPage() {
   const [payments, setPayments] = useState<PaymentHistoryItem[]>([]);
   const [sendOpen, setSendOpen] = useState(false);
   const [manualPaymentOpen, setManualPaymentOpen] = useState(false);
+  const [ticketDialogOpen, setTicketDialogOpen] = useState(false);
   const [deletingInvoice, setDeletingInvoice] = useState(false);
   const [invoiceDeleteDialogOpen, setInvoiceDeleteDialogOpen] = useState(false);
   const [markingPaid, setMarkingPaid] = useState(false);
@@ -433,6 +442,12 @@ export default function InvoiceDetailPage() {
   const canEdit = Boolean(invoice && !invoice.quoteId && !invoice.sentAt);
   const canRecordPayment = Boolean(invoice && invoice.status !== 'paid' && remainingAmount > 0);
   const canSendToClient = Boolean(invoice && invoice.status !== 'paid');
+  const canManageTickets = hasModuleActionAccess({
+    role: user?.role,
+    modulePermissions: user?.modulePermissions,
+    moduleKey: 'tickets',
+    action: 'manage',
+  });
   const displayInvoiceNumber = invoice ? formatInvoiceDisplayNumber(locale as Locale, invoice.invoiceNumber) : '';
   const displayInvoiceStatus = invoice ? getInvoiceStatusLabel(locale as Locale, invoice.status) : '';
 
@@ -650,6 +665,12 @@ export default function InvoiceDetailPage() {
                 <SendIcon className="size-3.5" />
                 {t.sendToClient}
               </Button>
+              {authLoading || canManageTickets ? (
+                <Button type="button" variant="outline" size="sm" className="h-10 w-full justify-start sm:h-9 sm:w-auto sm:justify-center" onClick={() => setTicketDialogOpen(true)} disabled={authLoading || !invoice}>
+                  <MessageSquarePlusIcon className="size-3.5" />
+                  {t.createTicket}
+                </Button>
+              ) : null}
               <Button type="button" variant="outline" size="sm" className="h-10 w-full justify-start sm:h-9 sm:w-auto sm:justify-center" onClick={downloadPdf}>
                 <DownloadIcon className="size-3.5" />
                 {t.download}
@@ -1064,6 +1085,27 @@ export default function InvoiceDetailPage() {
             ) : null}
           </article>
         </section>
+      ) : null}
+
+      {invoice ? (
+        <CreateTicketDialog
+          open={ticketDialogOpen}
+          onOpenChange={setTicketDialogOpen}
+          locale={locale as Locale}
+          prefill={{
+            linkedType: 'invoice',
+            linkedId: invoice._id,
+            linkedLabel: `${displayInvoiceNumber}${invoice.clientSnapshot.fullName ? ` - ${invoice.clientSnapshot.fullName}` : ''}`,
+            title: invoice.subject?.trim() || `${displayInvoiceNumber}${invoice.clientSnapshot.fullName ? ` - ${invoice.clientSnapshot.fullName}` : ''}`,
+            type: 'accounting',
+          }}
+          onCreated={async (ticketId) => {
+            if (ticketId) {
+              router.push(`/tickets/${ticketId}`);
+            }
+            toast.success(t.ticketCreated);
+          }}
+        />
       ) : null}
 
       {invoice ? (

@@ -11,7 +11,6 @@ import {
 } from '@/lib/tickets/constants';
 import {
   getExpenseFileExtension,
-  isExpenseMimeTypeAllowed,
 } from '@/lib/expenses/upload';
 
 export type TicketUser = {
@@ -124,10 +123,11 @@ const extensionToMime: Record<string, (typeof TICKET_ALLOWED_MIME_TYPES)[number]
   jpeg: 'image/jpeg',
   png: 'image/png',
   heic: 'image/heic',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 };
 
 function inferTicketMimeType(file: File): (typeof TICKET_ALLOWED_MIME_TYPES)[number] | null {
-  if (isExpenseMimeTypeAllowed(file.type)) {
+  if (TICKET_ALLOWED_MIME_TYPES.includes(file.type as (typeof TICKET_ALLOWED_MIME_TYPES)[number])) {
     return file.type as (typeof TICKET_ALLOWED_MIME_TYPES)[number];
   }
 
