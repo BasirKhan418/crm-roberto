@@ -42,7 +42,6 @@ const navItems: ReadonlyArray<{
   icon: React.ReactNode
 }> = [
   { key: "dashboard", url: "/dashboard", icon: <LayoutDashboardIcon /> },
-  { key: "exports", url: "/exports", icon: <FileDownIcon /> },
   { key: "clients", url: "/clients", icon: <UsersIcon /> },
   { key: "suppliers", url: "/suppliers", icon: <TruckIcon /> },
   { key: "catalogue", url: "/catalogue", icon: <PackageSearchIcon /> },
@@ -50,6 +49,7 @@ const navItems: ReadonlyArray<{
   { key: "invoices", url: "/invoices", icon: <FileTextIcon /> },
   { key: "tickets", url: "/tickets", icon: <MessageSquareIcon /> },
   { key: "expenses", url: "/expenses", icon: <WalletCardsIcon /> },
+  { key: "exports", url: "/exports", icon: <FileDownIcon /> },
   { key: "notes", url: "/notes", icon: <NotebookPenIcon /> },
   { key: "settings", url: "/settings", icon: <SettingsIcon /> },
   { key: "companyProfile", url: "/profile", icon: <Building2Icon /> },
