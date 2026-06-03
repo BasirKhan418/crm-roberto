@@ -72,17 +72,8 @@ function toInputDateFromDate(value: Date) {
   return `${year}-${month}-${day}`;
 }
 
-function openDateInputPicker(input: HTMLInputElement) {
-  try {
-    if (typeof input.showPicker === 'function') {
-      input.showPicker();
-      return;
-    }
-  } catch {
-    // Ignore and fallback below.
-  }
-
-  input.focus({ preventScroll: true });
+function sanitizeDecimalInput(value: string) {
+  return value.replace(/[^\d.,]/g, '');
 }
 
 export function ExpensePaymentDialog({
@@ -392,8 +383,9 @@ export function ExpensePaymentDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        data-disable-keyboard-scroll="true"
         className={cn(
-          'max-h-[92dvh] w-[calc(100%-1rem)] gap-3 p-4 pr-4 sm:gap-4 sm:p-5 sm:pr-12',
+          '[--app-keyboard-inset-height:0px] max-h-[92dvh] w-[calc(100%-1rem)] gap-3 p-4 pr-4 sm:gap-4 sm:p-5 sm:pr-12',
           receiptAttachment
             ? 'flex h-[92dvh] flex-col overflow-hidden sm:max-w-5xl lg:max-w-6xl'
             : 'overflow-y-auto sm:max-w-xl'
@@ -507,11 +499,10 @@ export function ExpensePaymentDialog({
                     <div className="space-y-1.5">
                       <Label>{t.amountLabel}</Label>
                       <Input
-                        type="number"
-                        min="0"
-                        step="0.01"
+                        inputMode="decimal"
+                        autoComplete="off"
                         value={paymentAmount}
-                        onChange={(event) => setPaymentAmount(event.target.value)}
+                        onChange={(event) => setPaymentAmount(sanitizeDecimalInput(event.target.value))}
                         disabled={saving}
                       />
                       <p className="text-xs text-muted-foreground">{t.amountHint}</p>
@@ -524,7 +515,6 @@ export function ExpensePaymentDialog({
                       type="date"
                       value={paidAt}
                       onChange={(event) => setPaidAt(event.target.value)}
-                      onClick={(event) => openDateInputPicker(event.currentTarget)}
                       disabled={saving}
                     />
                   </div>

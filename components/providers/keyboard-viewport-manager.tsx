@@ -10,6 +10,8 @@ const EDITABLE_SELECTOR = [
   '[role="textbox"]',
 ].join(", ");
 
+const KEYBOARD_SCROLL_DISABLE_SELECTOR = '[data-disable-keyboard-scroll="true"]';
+
 function getEditableElement(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) {
     return null;
@@ -28,6 +30,10 @@ function scrollFocusedFieldIntoView(target: EventTarget | null) {
     return;
   }
 
+  if (field.closest(KEYBOARD_SCROLL_DISABLE_SELECTOR)) {
+    return;
+  }
+
   window.requestAnimationFrame(() => {
     window.requestAnimationFrame(() => {
       const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
@@ -37,9 +43,9 @@ function scrollFocusedFieldIntoView(target: EventTarget | null) {
 
       if (fieldRect.top < topThreshold || fieldRect.bottom > bottomThreshold) {
         field.scrollIntoView({
-          block: "center",
+          block: "nearest",
           inline: "nearest",
-          behavior: "smooth",
+          behavior: "auto",
         });
       }
     });

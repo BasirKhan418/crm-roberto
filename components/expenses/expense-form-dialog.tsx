@@ -201,17 +201,12 @@ function addDaysToInputDate(value: string, days: number) {
   return toInputDateFromDate(date);
 }
 
-function openDateInputPicker(input: HTMLInputElement) {
-  try {
-    if (typeof input.showPicker === 'function') {
-      input.showPicker();
-      return;
-    }
-  } catch {
-    // Ignore and fallback below.
+function isLikelyMobileViewport() {
+  if (typeof window === 'undefined') {
+    return false;
   }
 
-  input.focus({ preventScroll: true });
+  return window.matchMedia('(max-width: 767px)').matches;
 }
 
 function buildDefaultFormValues(): FormValues {
@@ -655,6 +650,7 @@ export function ExpenseFormDialog({
       amountExclVatHint: 'Calculated from total amount and VAT rate.',
       vatAmountPreview: 'VAT amount (preview)',
       vatRate: 'VAT rate',
+      vatRateHint: 'You can type any VAT value (example: 10).',
       expenseDate: 'Expense date',
       supplier: 'Supplier (optional)',
       category: 'Category',
@@ -789,6 +785,7 @@ export function ExpenseFormDialog({
       amountExclVatHint: 'Calculé à partir du montant TTC et du taux TVA.',
       vatAmountPreview: 'Montant TVA (aperçu)',
       vatRate: 'Taux TVA',
+      vatRateHint: 'Vous pouvez saisir n’importe quel taux TVA (exemple : 10).',
       expenseDate: 'Date de dépense',
       supplier: 'Fournisseur (optionnel)',
       category: 'Catégorie',
@@ -1003,6 +1000,10 @@ export function ExpenseFormDialog({
 
   function handleAmountInclVatFocus(event: FocusEvent<HTMLInputElement>) {
     if (!amountInclVatFirstFocusRef.current) {
+      return;
+    }
+
+    if (isLikelyMobileViewport()) {
       return;
     }
 
@@ -1661,8 +1662,9 @@ export function ExpenseFormDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        data-disable-keyboard-scroll="true"
         className={cn(
-          'w-[calc(100%-1rem)] max-h-[calc(var(--app-viewport-height)-1rem-var(--app-safe-area-top)-var(--app-safe-area-bottom))] gap-3 p-4 pr-4 scroll-pb-[calc(6rem+var(--app-keyboard-inset-height))] sm:max-h-[calc(var(--app-viewport-height)-2rem-var(--app-safe-area-top)-var(--app-safe-area-bottom))] sm:gap-4 sm:p-5 sm:pr-12',
+          '[--app-keyboard-inset-height:0px] w-[calc(100%-1rem)] max-h-[calc(var(--app-viewport-height)-1rem-var(--app-safe-area-top)-var(--app-safe-area-bottom))] gap-3 p-4 pr-4 scroll-pb-24 sm:max-h-[calc(var(--app-viewport-height)-2rem-var(--app-safe-area-top)-var(--app-safe-area-bottom))] sm:gap-4 sm:p-5 sm:pr-12',
           hasReceiptPreviewAttachment
             ? 'flex min-h-0 flex-col overflow-hidden sm:max-w-5xl lg:max-w-6xl'
             : 'overflow-x-hidden overflow-y-auto sm:max-w-2xl'
@@ -1706,6 +1708,28 @@ export function ExpenseFormDialog({
                     <p className="text-xs text-muted-foreground">{t.receiptPreviewMobileDescription}</p>
                     <p className="truncate text-xs text-muted-foreground">{receiptPreviewAttachment.displayName}</p>
                   </div>
+                </div>
+                <div className="mt-3 h-[30dvh] min-h-40 overflow-hidden rounded-lg border border-border/70 bg-background">
+                  {isInlineImageMimeType(receiptPreviewAttachment.mimeType) ? (
+                    <InteractiveReceiptImage
+                      src={receiptPreviewAttachment.url}
+                      alt={receiptPreviewAttachment.displayName}
+                      locale={locale}
+                      maxScale={8}
+                      className="h-full w-full rounded-none border-0"
+                    />
+                  ) : isInlinePdfMimeType(receiptPreviewAttachment.mimeType) ? (
+                    <iframe
+                      src={receiptPreviewAttachment.url}
+                      title={receiptPreviewAttachment.displayName}
+                      className="h-full w-full"
+                    />
+                  ) : (
+                    <div className="flex h-full flex-col items-start justify-center gap-2 p-4 text-sm">
+                      <p className="font-medium">{receiptPreviewAttachment.displayName}</p>
+                      <p className="text-xs text-muted-foreground">{t.receiptPreviewUnavailable}</p>
+                    </div>
+                  )}
                 </div>
                 <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                   <Button
@@ -1797,7 +1821,7 @@ export function ExpenseFormDialog({
 
         <form
           className={cn(
-            'space-y-4 pb-[calc(1rem+var(--app-keyboard-inset-height))] scroll-pb-[calc(6rem+var(--app-keyboard-inset-height))]',
+            'space-y-4 pb-4 scroll-pb-24',
             hasReceiptPreviewAttachment && 'min-h-0 flex-1 overflow-y-auto pr-1'
           )}
           onSubmit={(event) => requestSubmit('default', event)}
@@ -1969,6 +1993,7 @@ export function ExpenseFormDialog({
                   );
                 })}
               </div>
+              <p className="text-xs text-muted-foreground">{t.vatRateHint}</p>
             </div>
             <div className="space-y-1.5 sm:col-span-2">
               <Label>{t.amountExclVat}</Label>
@@ -1996,7 +2021,6 @@ export function ExpenseFormDialog({
                 type="date"
                 value={values.expenseDate}
                 onChange={(event) => handleExpenseDateChange(event.target.value)}
-                onClick={(event) => openDateInputPicker(event.currentTarget)}
               />
             </div>
             {!isManualFlow ? (
@@ -2006,7 +2030,6 @@ export function ExpenseFormDialog({
                   type="date"
                   value={values.dueDate}
                   onChange={(event) => updateField('dueDate', event.target.value)}
-                  onClick={(event) => openDateInputPicker(event.currentTarget)}
                 />
               </div>
             ) : null}
@@ -2161,7 +2184,6 @@ export function ExpenseFormDialog({
                           type="date"
                           value={values.paidAt}
                           onChange={(event) => updateField('paidAt', event.target.value)}
-                          onClick={(event) => openDateInputPicker(event.currentTarget)}
                         />
                       </div>
                     </div>
@@ -2405,7 +2427,6 @@ export function ExpenseFormDialog({
                               type="date"
                               value={values.paidAt}
                               onChange={(event) => updateField('paidAt', event.target.value)}
-                              onClick={(event) => openDateInputPicker(event.currentTarget)}
                             />
                           </div>
                         </div>
@@ -2628,7 +2649,6 @@ export function ExpenseFormDialog({
                               type="date"
                               value={values.paidAt}
                               onChange={(event) => updateField('paidAt', event.target.value)}
-                              onClick={(event) => openDateInputPicker(event.currentTarget)}
                             />
                           </div>
                         </div>
@@ -2741,7 +2761,6 @@ export function ExpenseFormDialog({
                       type="date"
                       value={values.paidAt}
                       onChange={(event) => updateField('paidAt', event.target.value)}
-                      onClick={(event) => openDateInputPicker(event.currentTarget)}
                     />
                   </div>
                 </div>
