@@ -1664,9 +1664,9 @@ export function ExpenseFormDialog({
       <DialogContent
         data-disable-keyboard-scroll="true"
         className={cn(
-          '[--app-keyboard-inset-height:0px] w-[calc(100%-1rem)] max-h-[calc(var(--app-viewport-height)-1rem-var(--app-safe-area-top)-var(--app-safe-area-bottom))] gap-3 p-4 pr-4 scroll-pb-24 sm:max-h-[calc(var(--app-viewport-height)-2rem-var(--app-safe-area-top)-var(--app-safe-area-bottom))] sm:gap-4 sm:p-5 sm:pr-12',
+          '[--app-keyboard-inset-height:0px] top-[calc(0.5rem+var(--app-safe-area-top))] h-[calc(var(--app-viewport-height)-1rem-var(--app-safe-area-top)-var(--app-safe-area-bottom))] w-[calc(100%-1rem)] translate-y-0 gap-3 overscroll-contain p-4 pr-4 scroll-pb-24 sm:top-[50%] sm:h-auto sm:max-h-[calc(var(--app-viewport-height)-2rem-var(--app-safe-area-top)-var(--app-safe-area-bottom))] sm:translate-y-[-50%] sm:gap-4 sm:p-5 sm:pr-12',
           hasReceiptPreviewAttachment
-            ? 'flex min-h-0 flex-col overflow-hidden sm:max-w-5xl lg:max-w-6xl'
+            ? 'flex min-h-0 flex-col overflow-x-hidden overflow-y-auto md:overflow-hidden sm:max-w-5xl lg:max-w-6xl'
             : 'overflow-x-hidden overflow-y-auto sm:max-w-2xl'
         )}
       >
@@ -1695,7 +1695,7 @@ export function ExpenseFormDialog({
         <div
           className={cn(
             hasReceiptPreviewAttachment
-              ? 'flex min-h-0 flex-1 flex-col gap-3 md:grid md:grid-cols-[minmax(260px,0.95fr)_minmax(0,1.1fr)] lg:grid-cols-[minmax(320px,0.95fr)_minmax(0,1.1fr)]'
+              ? 'space-y-3 md:grid md:min-h-0 md:flex-1 md:grid-cols-[minmax(260px,0.95fr)_minmax(0,1.1fr)] md:gap-3 md:space-y-0 lg:grid-cols-[minmax(320px,0.95fr)_minmax(0,1.1fr)]'
               : 'contents'
           )}
         >
@@ -1822,7 +1822,7 @@ export function ExpenseFormDialog({
         <form
           className={cn(
             'space-y-4 pb-4 scroll-pb-24',
-            hasReceiptPreviewAttachment && 'min-h-0 flex-1 overflow-y-auto pr-1'
+            hasReceiptPreviewAttachment && 'md:min-h-0 md:flex-1 md:overflow-y-auto md:pr-1'
           )}
           onSubmit={(event) => requestSubmit('default', event)}
         >
