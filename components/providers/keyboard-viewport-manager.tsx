@@ -60,16 +60,40 @@ function syncViewportVariables(root: HTMLElement) {
 export function KeyboardViewportManager() {
   useEffect(() => {
     const root = document.documentElement;
+    let delayedViewportSyncTimeout: ReturnType<typeof window.setTimeout> | null = null;
+
+    function clearDelayedViewportSync() {
+      if (delayedViewportSyncTimeout !== null) {
+        window.clearTimeout(delayedViewportSyncTimeout);
+        delayedViewportSyncTimeout = null;
+      }
+    }
+
+    function scheduleViewportSyncAfterBlur() {
+      clearDelayedViewportSync();
+
+      window.requestAnimationFrame(() => {
+        syncViewportVariables(root);
+
+        window.requestAnimationFrame(() => {
+          syncViewportVariables(root);
+        });
+      });
+
+      delayedViewportSyncTimeout = window.setTimeout(() => {
+        syncViewportVariables(root);
+        delayedViewportSyncTimeout = null;
+      }, 220);
+    }
 
     function handleFocusIn(event: FocusEvent) {
+      clearDelayedViewportSync();
       syncViewportVariables(root);
       scrollFocusedFieldIntoView(event.target);
     }
 
     function handleFocusOut() {
-      window.requestAnimationFrame(() => {
-        syncViewportVariables(root);
-      });
+      scheduleViewportSyncAfterBlur();
     }
 
     function handleViewportResize() {
@@ -92,6 +116,7 @@ export function KeyboardViewportManager() {
     window.addEventListener("resize", handleViewportResize);
 
     return () => {
+      clearDelayedViewportSync();
       document.removeEventListener("focusin", handleFocusIn);
       document.removeEventListener("focusout", handleFocusOut);
       viewport?.removeEventListener("resize", handleViewportResize);

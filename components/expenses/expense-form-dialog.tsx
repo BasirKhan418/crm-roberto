@@ -1644,9 +1644,9 @@ export function ExpenseFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className={cn(
-          'max-h-[92dvh] w-[calc(100%-1rem)] gap-3 p-4 pr-4 sm:gap-4 sm:p-5 sm:pr-12',
+          'w-[calc(100%-1rem)] max-h-[calc(var(--app-viewport-height)-1rem-var(--app-safe-area-top)-var(--app-safe-area-bottom))] gap-3 p-4 pr-4 sm:max-h-[calc(var(--app-viewport-height)-2rem-var(--app-safe-area-top)-var(--app-safe-area-bottom))] sm:gap-4 sm:p-5 sm:pr-12',
           hasReceiptPreviewAttachment
-            ? 'flex h-[92dvh] flex-col overflow-hidden sm:max-w-5xl lg:max-w-6xl'
+            ? 'flex min-h-0 flex-col overflow-hidden sm:max-w-5xl lg:max-w-6xl'
             : 'overflow-x-hidden overflow-y-auto sm:max-w-2xl'
         )}
       >
