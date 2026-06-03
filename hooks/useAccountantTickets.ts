@@ -6,7 +6,7 @@ import type { TicketAttachment, TicketFilters, TicketListItem, TicketThread } fr
 import { TICKET_ALLOWED_MIME_TYPES } from '@/lib/tickets/constants';
 import type { AccountantPurchaseTicketReason } from '@/lib/tickets/accountant-purchase-ticket';
 import type { AccountantSalesTicketReason } from '@/lib/tickets/accountant-sales-ticket';
-import { getExpenseFileExtension, isExpenseMimeTypeAllowed } from '@/lib/expenses/upload';
+import { getExpenseFileExtension } from '@/lib/expenses/upload';
 
 type TicketListResponse = {
   success: boolean;
@@ -42,10 +42,11 @@ const extensionToMime: Record<string, (typeof TICKET_ALLOWED_MIME_TYPES)[number]
   jpeg: 'image/jpeg',
   png: 'image/png',
   heic: 'image/heic',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 };
 
 function inferTicketMimeType(file: File): (typeof TICKET_ALLOWED_MIME_TYPES)[number] | null {
-  if (isExpenseMimeTypeAllowed(file.type)) {
+  if (TICKET_ALLOWED_MIME_TYPES.includes(file.type as (typeof TICKET_ALLOWED_MIME_TYPES)[number])) {
     return file.type as (typeof TICKET_ALLOWED_MIME_TYPES)[number];
   }
 
@@ -224,12 +225,19 @@ export async function createAccountantExpenseTicket(input: {
   expenseId: string;
   reason: AccountantPurchaseTicketReason;
   note?: string | null;
+  attachments?: TicketAttachment[];
   locale: 'en' | 'fr';
 }) {
   const response = await fetch('/api/accountant/tickets', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(input),
+    body: JSON.stringify({
+      expenseId: input.expenseId,
+      reason: input.reason,
+      note: input.note,
+      locale: input.locale,
+      attachments: input.attachments || [],
+    }),
   });
 
   const payload = (await response.json().catch(() => null)) as TicketMutationResponse | null;
@@ -244,12 +252,19 @@ export async function createAccountantInvoiceTicket(input: {
   invoiceId: string;
   reason: AccountantSalesTicketReason;
   note?: string | null;
+  attachments?: TicketAttachment[];
   locale: 'en' | 'fr';
 }) {
   const response = await fetch('/api/accountant/tickets', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(input),
+    body: JSON.stringify({
+      invoiceId: input.invoiceId,
+      reason: input.reason,
+      note: input.note,
+      locale: input.locale,
+      attachments: input.attachments || [],
+    }),
   });
 
   const payload = (await response.json().catch(() => null)) as TicketMutationResponse | null;

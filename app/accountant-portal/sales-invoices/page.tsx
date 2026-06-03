@@ -1,8 +1,9 @@
 'use client';
 
+import { ChangeEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
-import { Download, Loader2, MessageSquarePlus } from 'lucide-react';
+import { Download, Loader2, MessageSquarePlus, Paperclip, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { FinancialPeriodSelector } from '@/components/dashboard/financial-period-selector';
@@ -28,7 +29,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
-import { createAccountantInvoiceTicket } from '@/hooks/useAccountantTickets';
+import { createAccountantInvoiceTicket, uploadAccountantTicketFiles } from '@/hooks/useAccountantTickets';
 import { buildFinancialPeriodSearchParams, getDefaultFinancialPeriodSelection, type FinancialPeriodSelection } from '@/lib/financial-periods';
 import { ACCOUNTANT_SALES_TICKET_REASONS, type AccountantSalesTicketReason } from '@/lib/tickets/accountant-sales-ticket';
 import { cn } from '@/lib/utils';
@@ -101,6 +102,10 @@ const salesCopy = {
     ticketDialogCancel: 'Cancel',
     ticketDialogSubmit: 'Create ticket and open thread',
     ticketDialogSubmitting: 'Creating ticket...',
+    ticketDialogAttachments: 'Attachments',
+    ticketDialogAddFiles: 'Add files',
+    ticketDialogNoFiles: 'No files added.',
+    ticketDialogRemoveFile: 'Remove',
     ticketCreated: 'Ticket created. Opening thread...',
     ticketCreateFailed: 'Failed to create invoice ticket',
     processedUpdateFailed: 'Failed to update accounting process status',
@@ -157,6 +162,10 @@ const salesCopy = {
     ticketDialogCancel: 'Annuler',
     ticketDialogSubmit: 'Creer le ticket et ouvrir le fil',
     ticketDialogSubmitting: 'Creation du ticket...',
+    ticketDialogAttachments: 'Pieces jointes',
+    ticketDialogAddFiles: 'Ajouter des fichiers',
+    ticketDialogNoFiles: 'Aucun fichier ajoute.',
+    ticketDialogRemoveFile: 'Retirer',
     ticketCreated: 'Ticket cree. Ouverture du fil...',
     ticketCreateFailed: 'Impossible de creer le ticket facture',
     processedUpdateFailed: 'Impossible de mettre a jour le statut de comptabilisation',
@@ -185,6 +194,33 @@ const STATUS_ACCENT: Record<InvoiceStatus, string> = {
   overdue: '#b91c1c',
 };
 
+const FILE_ACCEPT = '.pdf,.jpg,.jpeg,.png,.docx';
+
+function getFileSignature(file: File) {
+  return `${file.name.toLowerCase()}::${file.size}::${file.lastModified}`;
+}
+
+function mergeUniqueFiles(current: File[], incoming: File[]) {
+  if (incoming.length === 0) {
+    return current;
+  }
+
+  const known = new Set(current.map((file) => getFileSignature(file)));
+  const merged = [...current];
+
+  for (const file of incoming) {
+    const signature = getFileSignature(file);
+    if (known.has(signature)) {
+      continue;
+    }
+
+    known.add(signature);
+    merged.push(file);
+  }
+
+  return merged;
+}
+
 function isAbortError(error: unknown) {
   return error instanceof DOMException && error.name === 'AbortError';
 }
@@ -211,6 +247,7 @@ export default function AccountantPortalSalesInvoicesPage() {
   const [ticketTarget, setTicketTarget] = useState<SalesInvoiceItem | null>(null);
   const [ticketReason, setTicketReason] = useState<AccountantSalesTicketReason>('payment_clarification');
   const [ticketNote, setTicketNote] = useState('');
+  const [ticketFiles, setTicketFiles] = useState<File[]>([]);
   const [creatingTicket, setCreatingTicket] = useState(false);
   const [processingInvoiceIds, setProcessingInvoiceIds] = useState<string[]>([]);
 
@@ -266,7 +303,20 @@ export default function AccountantPortalSalesInvoicesPage() {
     setTicketTarget(item);
     setTicketReason('payment_clarification');
     setTicketNote('');
+    setTicketFiles([]);
     setTicketDialogOpen(true);
+  }
+
+  function onTicketFilesSelected(event: ChangeEvent<HTMLInputElement>) {
+    const selected = event.target.files ? Array.from(event.target.files) : [];
+    if (selected.length > 0) {
+      setTicketFiles((current) => mergeUniqueFiles(current, selected));
+    }
+    event.target.value = '';
+  }
+
+  function removeTicketFile(index: number) {
+    setTicketFiles((current) => current.filter((_, fileIndex) => fileIndex !== index));
   }
 
   async function createTicketFromInvoice() {
@@ -276,10 +326,12 @@ export default function AccountantPortalSalesInvoicesPage() {
 
     setCreatingTicket(true);
     try {
+      const uploadedAttachments = ticketFiles.length > 0 ? await uploadAccountantTicketFiles(ticketFiles) : [];
       const payload = await createAccountantInvoiceTicket({
         invoiceId: ticketTarget.id,
         reason: ticketReason,
         note: ticketNote.trim() || null,
+        attachments: uploadedAttachments,
         locale,
       });
 
@@ -659,6 +711,33 @@ export default function AccountantPortalSalesInvoicesPage() {
                   placeholder={t.ticketDialogMessagePlaceholder}
                   maxLength={2500}
                 />
+              </div>
+
+              <div className="space-y-2 rounded-xl border border-border/60 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <Label>{t.ticketDialogAttachments}</Label>
+                  <label className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-input px-2 py-1 text-xs">
+                    <Paperclip className="size-3.5" />
+                    {t.ticketDialogAddFiles}
+                    <input type="file" className="hidden" multiple accept={FILE_ACCEPT} onChange={onTicketFilesSelected} />
+                  </label>
+                </div>
+
+                {ticketFiles.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">{t.ticketDialogNoFiles}</p>
+                ) : (
+                  <div className="space-y-1">
+                    {ticketFiles.map((file, index) => (
+                      <div key={`${file.name}-${file.size}-${index}`} className="flex items-center justify-between gap-2 rounded-md border border-border/60 px-2 py-1.5 text-xs">
+                        <span className="truncate">{file.name}</span>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => removeTicketFile(index)}>
+                          <X className="size-3.5" />
+                          {t.ticketDialogRemoveFile}
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           ) : null}

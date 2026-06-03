@@ -10,7 +10,7 @@ import { listTickets } from "@/db/repository/ticket";
 import { buildAccountantTicketAttachmentFileUrl } from "@/lib/storage/private-file-urls";
 import { getClientIp } from "@/utils/api/request";
 import { buildValidationError } from "@/utils/api/validation";
-import { ticketListQuerySchema } from "@/validators/ticket.schema";
+import { ticketAttachmentMetadataSchema, ticketListQuerySchema } from "@/validators/ticket.schema";
 import { ACCOUNTANT_PURCHASE_TICKET_REASONS } from "@/lib/tickets/accountant-purchase-ticket";
 import { ACCOUNTANT_SALES_TICKET_REASONS } from "@/lib/tickets/accountant-sales-ticket";
 
@@ -47,6 +47,7 @@ const salesTicketSchema = z.object({
   invoiceId: z.string().trim().regex(/^[0-9a-fA-F]{24}$/, "Invalid invoice id"),
   reason: z.enum(ACCOUNTANT_SALES_TICKET_REASONS),
   note: z.string().trim().max(2500).optional().nullable(),
+  attachments: z.array(ticketAttachmentMetadataSchema).max(10).optional().default([]),
   locale: z.enum(["en", "fr"]).optional().default("en"),
 });
 
@@ -118,6 +119,7 @@ export async function POST(request: NextRequest) {
         invoiceId: parsed.data.invoiceId,
         reason: parsed.data.reason,
         note: parsed.data.note,
+        attachments: parsed.data.attachments || [],
         locale: parsed.data.locale,
         ipAddress: getClientIp(request),
       });

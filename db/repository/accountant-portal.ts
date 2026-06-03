@@ -28,6 +28,7 @@ import {
 import { buildAccountantPurchaseAttachmentFileUrl } from "@/lib/storage/private-file-urls";
 import type { AccountantPurchaseTicketReason } from "@/lib/tickets/accountant-purchase-ticket";
 import type { AccountantSalesTicketReason } from "@/lib/tickets/accountant-sales-ticket";
+import type { TicketAttachmentMetadataDTO } from "@/validators/ticket.schema";
 
 type RepositoryErrorResult = {
   success: false;
@@ -1200,6 +1201,7 @@ export async function createAccountantSalesTicket(params: {
   invoiceId: string;
   reason: AccountantSalesTicketReason;
   note?: string | null;
+  attachments?: TicketAttachmentMetadataDTO[];
   locale: "en" | "fr";
   ipAddress?: string | null;
 }): Promise<RepositoryResult<AccountantSalesTicketData>> {
@@ -1337,7 +1339,7 @@ export async function createAccountantSalesTicket(params: {
       linkedType: "invoice",
       linkedId: String(invoice._id),
       body: bodyLines.filter((line): line is string => typeof line === "string").join("\n"),
-      attachments: [],
+      attachments: params.attachments || [],
     },
   });
 
