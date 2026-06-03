@@ -495,13 +495,26 @@ export function ExpenseFormDialog({
 
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const amountInclVatFirstFocusRef = useRef(true);
+  const initializedSessionKeyRef = useRef<string | null>(null);
+
+  const expenseIdentity = initialExpense?._id || 'new-expense';
+  const receiptIdentity = initialReceiptFile
+    ? `${initialReceiptFile.name}:${initialReceiptFile.size}:${initialReceiptFile.lastModified}`
+    : 'no-receipt';
 
   useEffect(() => {
     if (!open) {
       setPendingCameraCapture(null);
       amountInclVatFirstFocusRef.current = true;
+      initializedSessionKeyRef.current = null;
       return;
     }
+
+    const sessionKey = `${mode}:${expenseIdentity}:${receiptIdentity}`;
+    if (initializedSessionKeyRef.current === sessionKey) {
+      return;
+    }
+    initializedSessionKeyRef.current = sessionKey;
 
     const initialValues = buildInitialValues(initialExpense);
     setValues(initialValues);
@@ -555,7 +568,7 @@ export function ExpenseFormDialog({
       setUiFlow(flow);
       setShowAdvanced(hasAdvancedData(initialValues, flow));
     }
-  }, [initialExpense, initialReceiptFile, mode, open]);
+  }, [expenseIdentity, initialExpense, initialReceiptFile, mode, open, receiptIdentity]);
 
   useEffect(() => {
     const previewUrl = pendingCameraCapture?.previewUrl;

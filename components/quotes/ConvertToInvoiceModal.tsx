@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { Loader2Icon, ReceiptTextIcon } from 'lucide-react';
 import { toast } from 'sonner';
@@ -74,16 +74,24 @@ export default function ConvertToInvoiceModal({
   const [notes, setNotes] = useState(initialNotes?.trim() || '');
   const [dueDateError, setDueDateError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const initializedSessionKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!open) {
+      initializedSessionKeyRef.current = null;
       return;
     }
+
+    const sessionKey = `convert:${quoteId}`;
+    if (initializedSessionKeyRef.current === sessionKey) {
+      return;
+    }
+    initializedSessionKeyRef.current = sessionKey;
 
     setDueDate('');
     setNotes(initialNotes?.trim() || '');
     setDueDateError(null);
-  }, [open, initialNotes]);
+  }, [open, initialNotes, quoteId]);
 
   async function handleConvert() {
     if (!dueDate.trim()) {

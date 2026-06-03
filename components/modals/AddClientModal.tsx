@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, type ChangeEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from 'react';
 
 import { toast } from 'sonner';
 
@@ -299,13 +299,24 @@ export default function AddClientModal({
     mobilePhone: '',
     additionalDescription: '',
   });
+  const initializedClientIdRef = useRef<string | null>(null);
 
   useEffect(() => {
+    if (!isEditMode) {
+      initializedClientIdRef.current = null;
+    }
+
     if (!isEditMode || !initialData) {
       setTitleSelection('Mr');
       setCustomTitle('');
       return;
     }
+
+    const currentClientId = clientId || null;
+    if (initializedClientIdRef.current === currentClientId) {
+      return;
+    }
+    initializedClientIdRef.current = currentClientId;
 
     const initialTitle = initialData.title?.trim() || '';
     const initialTitleSelection: TitleSelectValue = initialTitle
@@ -339,7 +350,7 @@ export default function AddClientModal({
       mobilePhone: initialData.mobilePhone || '',
       additionalDescription: initialData.additionalDescription || '',
     });
-  }, [initialData, isEditMode]);
+  }, [clientId, initialData, isEditMode]);
 
   function handleTitleSelectionChange(value: TitleSelectValue) {
     setTitleSelection(value);

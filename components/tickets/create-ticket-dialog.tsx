@@ -112,6 +112,7 @@ export function CreateTicketDialog({
   const [linkedRecordsLoading, setLinkedRecordsLoading] = useState(false);
   const [linkedLabel, setLinkedLabel] = useState('');
   const submitInFlightRef = useRef(false);
+  const initializedSessionKeyRef = useRef<string | null>(null);
 
   const { users, loading: recipientsLoading, error: recipientsError, refetch: refetchRecipients } =
     useTicketRecipients(recipientSearch.trim() || undefined, 40);
@@ -269,8 +270,15 @@ export function CreateTicketDialog({
 
   useEffect(() => {
     if (!open) {
+      initializedSessionKeyRef.current = null;
       return;
     }
+
+    const sessionKey = `ticket:${prefill?.linkedType || ''}:${prefill?.linkedId || ''}`;
+    if (initializedSessionKeyRef.current === sessionKey) {
+      return;
+    }
+    initializedSessionKeyRef.current = sessionKey;
 
     setTitle(prefill?.title?.trim() || '');
     setType('document');
@@ -285,7 +293,7 @@ export function CreateTicketDialog({
     setSelectedRecipientIds([]);
     setFiles([]);
     setFeedback(null);
-  }, [open, prefill]);
+  }, [open, prefill?.body, prefill?.linkedId, prefill?.linkedLabel, prefill?.linkedType, prefill?.title]);
 
   function toggleRecipient(userId: string, checked: boolean) {
     setSelectedRecipientIds((previous) => {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { Loader2Icon } from 'lucide-react';
 import { toast } from 'sonner';
@@ -161,6 +161,7 @@ export default function SetupRecurrenceModal({
   const [templateDepositPercentage, setTemplateDepositPercentage] = useState<number>(100);
   const [templateNotes, setTemplateNotes] = useState<string>('');
   const [saving, setSaving] = useState(false);
+  const initializedSessionKeyRef = useRef<string | null>(null);
 
   const computedDefaultNext = useMemo(
     () => buildDefaultNextOccurrence(invoiceDueDate, frequency, customIntervalDays),
@@ -169,8 +170,15 @@ export default function SetupRecurrenceModal({
 
   useEffect(() => {
     if (!open) {
+      initializedSessionKeyRef.current = null;
       return;
     }
+
+    const sessionKey = `recurrence:${invoiceId}`;
+    if (initializedSessionKeyRef.current === sessionKey) {
+      return;
+    }
+    initializedSessionKeyRef.current = sessionKey;
 
     const initialFrequency = initialRecurrence?.frequency ?? 'monthly';
     const initialCustomInterval = Math.max(1, Math.round(initialRecurrence?.customIntervalDays ?? 30));
@@ -208,7 +216,7 @@ export default function SetupRecurrenceModal({
       );
       setTemplateNotes(sourceInvoice?.notes ?? '');
     }
-  }, [initialRecurrence, invoiceDueDate, open, sourceInvoice]);
+  }, [initialRecurrence, invoiceDueDate, invoiceId, open, sourceInvoice]);
 
   useEffect(() => {
     if (!open) {
