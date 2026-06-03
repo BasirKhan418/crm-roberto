@@ -4,12 +4,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 export interface AccountantSidebarBadges {
   purchaseInvoices: {
-    unpaid: number;
-    overdue: number;
+    toProcess: number;
   };
   salesInvoices: {
-    unpaid: number;
-    overdue: number;
+    toProcess: number;
   };
   tickets: {
     unread: number;
@@ -19,12 +17,10 @@ export interface AccountantSidebarBadges {
 
 interface AccountantSidebarBadgesPayload {
   purchaseInvoices?: {
-    unpaidCount?: number;
-    overdueCount?: number;
+    toProcessCount?: number;
   };
   salesInvoices?: {
-    unpaidCount?: number;
-    overdueCount?: number;
+    toProcessCount?: number;
   };
   tickets?: {
     unreadCount?: number;
@@ -33,20 +29,18 @@ interface AccountantSidebarBadgesPayload {
 }
 
 const EMPTY_BADGES: AccountantSidebarBadges = {
-  purchaseInvoices: { unpaid: 0, overdue: 0 },
-  salesInvoices: { unpaid: 0, overdue: 0 },
+  purchaseInvoices: { toProcess: 0 },
+  salesInvoices: { toProcess: 0 },
   tickets: { unread: 0, assignedOpen: 0 },
 };
 
 function normalizeBadges(payload?: AccountantSidebarBadgesPayload): AccountantSidebarBadges {
   return {
     purchaseInvoices: {
-      unpaid: Math.max(0, Number(payload?.purchaseInvoices?.unpaidCount || 0)),
-      overdue: Math.max(0, Number(payload?.purchaseInvoices?.overdueCount || 0)),
+      toProcess: Math.max(0, Number(payload?.purchaseInvoices?.toProcessCount || 0)),
     },
     salesInvoices: {
-      unpaid: Math.max(0, Number(payload?.salesInvoices?.unpaidCount || 0)),
-      overdue: Math.max(0, Number(payload?.salesInvoices?.overdueCount || 0)),
+      toProcess: Math.max(0, Number(payload?.salesInvoices?.toProcessCount || 0)),
     },
     tickets: {
       unread: Math.max(0, Number(payload?.tickets?.unreadCount || 0)),

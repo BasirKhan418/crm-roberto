@@ -41,6 +41,7 @@ type LookupData = {
 type PurchaseInvoiceItem = {
   id: string;
   paymentStatus: string;
+  accountantProcessed: boolean;
   expenseDate: string | null;
   dueDate: string | null;
   amountExclVatCents: number;
@@ -81,6 +82,9 @@ const purchaseCopy = {
     amounts: 'Amounts',
     payment: 'Payment',
     attachments: 'Attachments',
+    accounting: 'Accounting',
+    toProcess: 'To process',
+    accounted: 'Accounted',
     selectAll: 'Select all with attachments',
     selectedCount: 'selected',
     downloadZip: 'Download ZIP',
@@ -113,6 +117,7 @@ const purchaseCopy = {
     ticketDialogSubmitting: 'Creating ticket...',
     ticketCreated: 'Ticket created. Opening thread...',
     ticketCreateFailed: 'Failed to create purchase ticket',
+    processedUpdateFailed: 'Failed to update accounting process status',
     ticketReason_missing_invoice: 'Missing invoice',
     ticketReason_missing_invoice_hint: 'Ask the client to add the missing invoice file.',
     ticketReason_need_clarification: 'Need clarification',
@@ -140,6 +145,9 @@ const purchaseCopy = {
     amounts: 'Montants',
     payment: 'Paiement',
     attachments: 'Pieces jointes',
+    accounting: 'Comptabilisation',
+    toProcess: 'A traiter',
+    accounted: 'Comptabilisee',
     selectAll: 'Tout selectionner avec pieces jointes',
     selectedCount: 'selectionnes',
     downloadZip: 'Telecharger ZIP',
@@ -172,6 +180,7 @@ const purchaseCopy = {
     ticketDialogSubmitting: 'Creation du ticket...',
     ticketCreated: 'Ticket cree. Ouverture du fil...',
     ticketCreateFailed: 'Impossible de creer le ticket de depense',
+    processedUpdateFailed: 'Impossible de mettre a jour le statut de comptabilisation',
     ticketReason_missing_invoice: 'Facture manquante',
     ticketReason_missing_invoice_hint: 'Demandez au client d ajouter la facture manquante.',
     ticketReason_need_clarification: 'Besoin de clarification',
@@ -250,6 +259,7 @@ export default function AccountantPortalPurchaseInvoicesPage() {
   const [ticketReason, setTicketReason] = useState<AccountantPurchaseTicketReason>('missing_invoice');
   const [ticketNote, setTicketNote] = useState('');
   const [creatingTicket, setCreatingTicket] = useState(false);
+  const [processingInvoiceIds, setProcessingInvoiceIds] = useState<string[]>([]);
 
   function extractFileName(disposition: string | null, fallback: string) {
     if (!disposition) return fallback;
@@ -412,6 +422,50 @@ export default function AccountantPortalPurchaseInvoicesPage() {
     }
   }
 
+  async function toggleAccountantProcessed(invoiceId: string, processed: boolean) {
+    if (processingInvoiceIds.includes(invoiceId)) {
+      return;
+    }
+
+    setProcessingInvoiceIds((current) => [...current, invoiceId]);
+    setData((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        items: current.items.map((item) =>
+          item.id === invoiceId ? { ...item, accountantProcessed: processed } : item
+        ),
+      };
+    });
+
+    try {
+      const response = await fetch(`/api/accountant/purchase-invoices/${invoiceId}/processed`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ processed }),
+      });
+
+      if (!response.ok) {
+        throw new Error(t.processedUpdateFailed);
+      }
+
+      window.dispatchEvent(new Event('accountant-sidebar-badges:refresh'));
+    } catch (updateError) {
+      setData((current) => {
+        if (!current) return current;
+        return {
+          ...current,
+          items: current.items.map((item) =>
+            item.id === invoiceId ? { ...item, accountantProcessed: !processed } : item
+          ),
+        };
+      });
+      toast.error(updateError instanceof Error ? updateError.message : t.processedUpdateFailed);
+    } finally {
+      setProcessingInvoiceIds((current) => current.filter((id) => id !== invoiceId));
+    }
+  }
+
   const ticketReasonOptions = ACCOUNTANT_PURCHASE_TICKET_REASONS.map((reason) => ({
     value: reason,
     label: t[`ticketReason_${reason}`],
@@ -515,6 +569,7 @@ export default function AccountantPortalPurchaseInvoicesPage() {
                     <TableHead>{t.categoryColumn}</TableHead>
                     <TableHead>{t.amounts}</TableHead>
                     <TableHead>{t.payment}</TableHead>
+                    <TableHead>{t.accounting}</TableHead>
                     <TableHead>{t.attachments}</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -575,6 +630,18 @@ export default function AccountantPortalPurchaseInvoicesPage() {
                             </div>
                           </div>
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        <label className="inline-flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
+                          <Checkbox
+                            checked={item.accountantProcessed}
+                            disabled={processingInvoiceIds.includes(item.id)}
+                            onCheckedChange={(checked) => {
+                              void toggleAccountantProcessed(item.id, checked === true);
+                            }}
+                          />
+                          <span>{item.accountantProcessed ? t.accounted : t.toProcess}</span>
+                        </label>
                       </TableCell>
                       <TableCell>
                         <div className="space-y-2.5">

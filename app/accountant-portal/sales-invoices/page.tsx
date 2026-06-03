@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { FinancialPeriodSelector } from '@/components/dashboard/financial-period-selector';
 import { useLocale } from '@/components/providers/locale-provider';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -40,6 +41,7 @@ type SalesInvoiceItem = {
   date: string | null;
   dueDate: string | null;
   status: InvoiceStatus;
+  accountantProcessed: boolean;
   totalExcludingTaxCents: number;
   totalVatCents: number;
   totalIncludingTaxCents: number;
@@ -74,6 +76,9 @@ const salesCopy = {
     paid: 'Paid',
     remaining: 'Remaining',
     pdf: 'PDF',
+    accounting: 'Accounting',
+    toProcess: 'To process',
+    accounted: 'Accounted',
     actions: 'Actions',
     empty: 'No sales invoices match these filters.',
     total: 'Total incl. VAT',
@@ -98,6 +103,7 @@ const salesCopy = {
     ticketDialogSubmitting: 'Creating ticket...',
     ticketCreated: 'Ticket created. Opening thread...',
     ticketCreateFailed: 'Failed to create invoice ticket',
+    processedUpdateFailed: 'Failed to update accounting process status',
     ticketReason_payment_clarification: 'Payment clarification',
     ticketReason_payment_clarification_hint: 'Ask the team to clarify what was paid and what remains outstanding.',
     ticketReason_missing_payment_proof: 'Missing payment proof',
@@ -126,6 +132,9 @@ const salesCopy = {
     paid: 'Paye',
     remaining: 'Reste',
     pdf: 'PDF',
+    accounting: 'Comptabilisation',
+    toProcess: 'A traiter',
+    accounted: 'Comptabilisee',
     actions: 'Actions',
     empty: 'Aucune facture de vente ne correspond a ces filtres.',
     total: 'Total TTC',
@@ -150,6 +159,7 @@ const salesCopy = {
     ticketDialogSubmitting: 'Creation du ticket...',
     ticketCreated: 'Ticket cree. Ouverture du fil...',
     ticketCreateFailed: 'Impossible de creer le ticket facture',
+    processedUpdateFailed: 'Impossible de mettre a jour le statut de comptabilisation',
     ticketReason_payment_clarification: 'Clarification de paiement',
     ticketReason_payment_clarification_hint: 'Demandez a l equipe de clarifier ce qui a ete paye et ce qui reste ouvert.',
     ticketReason_missing_payment_proof: 'Preuve de paiement manquante',
@@ -202,6 +212,7 @@ export default function AccountantPortalSalesInvoicesPage() {
   const [ticketReason, setTicketReason] = useState<AccountantSalesTicketReason>('payment_clarification');
   const [ticketNote, setTicketNote] = useState('');
   const [creatingTicket, setCreatingTicket] = useState(false);
+  const [processingInvoiceIds, setProcessingInvoiceIds] = useState<string[]>([]);
 
   useEffect(() => {
     setPage(1);
@@ -284,6 +295,50 @@ export default function AccountantPortalSalesInvoicesPage() {
       toast.error(ticketError instanceof Error ? ticketError.message : t.ticketCreateFailed);
     } finally {
       setCreatingTicket(false);
+    }
+  }
+
+  async function toggleAccountantProcessed(invoiceId: string, processed: boolean) {
+    if (processingInvoiceIds.includes(invoiceId)) {
+      return;
+    }
+
+    setProcessingInvoiceIds((current) => [...current, invoiceId]);
+    setData((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        items: current.items.map((item) =>
+          item.id === invoiceId ? { ...item, accountantProcessed: processed } : item
+        ),
+      };
+    });
+
+    try {
+      const response = await fetch(`/api/accountant/sales-invoices/${invoiceId}/processed`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ processed }),
+      });
+
+      if (!response.ok) {
+        throw new Error(t.processedUpdateFailed);
+      }
+
+      window.dispatchEvent(new Event('accountant-sidebar-badges:refresh'));
+    } catch (updateError) {
+      setData((current) => {
+        if (!current) return current;
+        return {
+          ...current,
+          items: current.items.map((item) =>
+            item.id === invoiceId ? { ...item, accountantProcessed: !processed } : item
+          ),
+        };
+      });
+      toast.error(updateError instanceof Error ? updateError.message : t.processedUpdateFailed);
+    } finally {
+      setProcessingInvoiceIds((current) => current.filter((id) => id !== invoiceId));
     }
   }
 
@@ -391,6 +446,16 @@ export default function AccountantPortalSalesInvoicesPage() {
                       </div>
 
                       <div className="grid gap-2 sm:grid-cols-2">
+                        <label className="inline-flex items-center gap-2 rounded-xl border border-slate-200/70 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                          <Checkbox
+                            checked={item.accountantProcessed}
+                            disabled={processingInvoiceIds.includes(item.id)}
+                            onCheckedChange={(checked) => {
+                              void toggleAccountantProcessed(item.id, checked === true);
+                            }}
+                          />
+                          <span>{item.accountantProcessed ? t.accounted : t.toProcess}</span>
+                        </label>
                         <a
                           href={item.pdfDownloadUrl}
                           className="inline-flex items-center justify-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2.5 text-sm font-medium text-sky-700 transition-colors hover:bg-sky-100 dark:border-sky-900/60 dark:bg-sky-950/30 dark:text-sky-300 dark:hover:bg-sky-950/50"
@@ -424,6 +489,7 @@ export default function AccountantPortalSalesInvoicesPage() {
                     <TableHead className="w-45">{t.amounts}</TableHead>
                     <TableHead className="w-30">{t.paid}</TableHead>
                     <TableHead className="w-32.5">{t.remaining}</TableHead>
+                    <TableHead className="w-35">{t.accounting}</TableHead>
                     <TableHead className="w-52.5">{t.actions}</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -475,6 +541,18 @@ export default function AccountantPortalSalesInvoicesPage() {
                         )}>
                           <PriceDisplay cents={item.amountRemainingCents} locale={priceLocale} />
                         </span>
+                      </TableCell>
+                      <TableCell className="align-top">
+                        <label className="inline-flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
+                          <Checkbox
+                            checked={item.accountantProcessed}
+                            disabled={processingInvoiceIds.includes(item.id)}
+                            onCheckedChange={(checked) => {
+                              void toggleAccountantProcessed(item.id, checked === true);
+                            }}
+                          />
+                          <span>{item.accountantProcessed ? t.accounted : t.toProcess}</span>
+                        </label>
                       </TableCell>
                       <TableCell className="align-top whitespace-normal">
                         <div className="flex flex-col gap-2">

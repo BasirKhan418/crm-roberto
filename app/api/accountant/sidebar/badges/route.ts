@@ -8,8 +8,6 @@ import Ticket from '@/db/models/Ticket';
 import { getCompanyUserObjectIds } from '@/lib/company-scope';
 import getAccountantSession from '@/utils/middlewares/accountantSession';
 
-const UNPAID_EXPENSE_STATUSES = ['unpaid', 'partial'] as const;
-
 export async function GET() {
   try {
     const session = await getAccountantSession();
@@ -19,7 +17,6 @@ export async function GET() {
 
     await ConnectDb();
 
-    const now = new Date();
     const companyObjectId = new mongoose.Types.ObjectId(session.user.companyId);
     const userObjectId = new mongoose.Types.ObjectId(session.user.id);
     const scopedUserObjectIds = await getCompanyUserObjectIds({
@@ -27,28 +24,18 @@ export async function GET() {
       fallbackUserId: session.user.id,
     });
 
-    const [purchaseUnpaidCount, purchaseOverdueCount, salesDocs, unreadTicketCount, assignedOpenCount] = await Promise.all([
+    const [purchaseToProcessCount, salesToProcessCount, unreadTicketCount, assignedOpenCount] = await Promise.all([
       Expense.countDocuments({
         companyId: companyObjectId,
         deletedAt: null,
         archivedAt: null,
         status: 'active',
-        paymentStatus: { $in: UNPAID_EXPENSE_STATUSES },
+        accountantProcessed: { $ne: true },
       }),
-      Expense.countDocuments({
-        companyId: companyObjectId,
-        deletedAt: null,
-        archivedAt: null,
-        status: 'active',
-        paymentStatus: { $in: UNPAID_EXPENSE_STATUSES },
-        dueDate: { $ne: null, $lt: now },
-      }),
-      Invoice.find({
+      Invoice.countDocuments({
         userId: { $in: scopedUserObjectIds },
-        status: { $in: ['unpaid', 'partial_paid', 'overdue'] },
-      })
-        .select('status dueDate')
-        .lean<Array<{ status?: string; dueDate?: Date | null }>>(),
+        accountantProcessed: { $ne: true },
+      }),
       Ticket.countDocuments({
         companyId: companyObjectId,
         archivedAt: null,
@@ -62,27 +49,14 @@ export async function GET() {
       }),
     ]);
 
-    const salesUnpaidCount = salesDocs.length;
-    const salesOverdueCount = salesDocs.reduce((sum, invoice) => {
-      const dueDate = invoice.dueDate ? new Date(invoice.dueDate) : null;
-      const isOverdue =
-        invoice.status === 'overdue' ||
-        ((invoice.status === 'unpaid' || invoice.status === 'partial_paid') &&
-          Boolean(dueDate && Number.isFinite(dueDate.getTime()) && dueDate.getTime() < now.getTime()));
-
-      return sum + (isOverdue ? 1 : 0);
-    }, 0);
-
     return NextResponse.json({
       success: true,
       data: {
         purchaseInvoices: {
-          unpaidCount: purchaseUnpaidCount,
-          overdueCount: purchaseOverdueCount,
+          toProcessCount: purchaseToProcessCount,
         },
         salesInvoices: {
-          unpaidCount: salesUnpaidCount,
-          overdueCount: salesOverdueCount,
+          toProcessCount: salesToProcessCount,
         },
         tickets: {
           unreadCount: unreadTicketCount,

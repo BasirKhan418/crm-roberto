@@ -26,10 +26,8 @@ const sidebarMessages = {
     workspace: 'Accounting workspace',
     tagline: 'Shared shell, portal-safe access',
     badgeTitles: {
-      unpaidPurchases: (n: number) => `${n} unpaid purchase invoices`,
-      overduePurchases: (n: number) => `${n} overdue purchase invoices`,
-      unpaidSales: (n: number) => `${n} unpaid sales invoices`,
-      overdueSales: (n: number) => `${n} overdue sales invoices`,
+      toProcessPurchases: (n: number) => `${n} purchase invoices to process`,
+      toProcessSales: (n: number) => `${n} sales invoices to process`,
       unreadTickets: (n: number) => `${n} unread tickets`,
       assignedTickets: (n: number) => `${n} assigned open tickets`,
     },
@@ -50,10 +48,8 @@ const sidebarMessages = {
     workspace: 'Espace comptable',
     tagline: 'Meme shell, acces portail securise',
     badgeTitles: {
-      unpaidPurchases: (n: number) => `${n} facture(s) achat impayee(s)`,
-      overduePurchases: (n: number) => `${n} facture(s) achat en retard`,
-      unpaidSales: (n: number) => `${n} facture(s) vente impayee(s)`,
-      overdueSales: (n: number) => `${n} facture(s) vente en retard`,
+      toProcessPurchases: (n: number) => `${n} facture(s) achat a traiter`,
+      toProcessSales: (n: number) => `${n} facture(s) vente a traiter`,
       unreadTickets: (n: number) => `${n} ticket(s) non lu(s)`,
       assignedTickets: (n: number) => `${n} ticket(s) ouvert(s) assignes`,
     },
@@ -142,25 +138,23 @@ export function AccountantPortalSidebar({ featureFlags, userName, userEmail, ...
               let badgeNode: React.ReactNode = null;
 
               if (item.key === 'purchaseInvoices') {
-                const { unpaid, overdue } = badges.purchaseInvoices;
-                if (unpaid + overdue > 0) {
+                const { toProcess } = badges.purchaseInvoices;
+                if (toProcess > 0) {
                   badgeNode = (
                     <CountBadgeRow
                       items={[
-                        { count: unpaid, tone: 'orange', title: t.badgeTitles.unpaidPurchases(unpaid) },
-                        { count: overdue, tone: 'red', title: t.badgeTitles.overduePurchases(overdue) },
+                        { count: toProcess, tone: 'orange', title: t.badgeTitles.toProcessPurchases(toProcess) },
                       ]}
                     />
                   );
                 }
               } else if (item.key === 'salesInvoices') {
-                const { unpaid, overdue } = badges.salesInvoices;
-                if (unpaid + overdue > 0) {
+                const { toProcess } = badges.salesInvoices;
+                if (toProcess > 0) {
                   badgeNode = (
                     <CountBadgeRow
                       items={[
-                        { count: unpaid, tone: 'orange', title: t.badgeTitles.unpaidSales(unpaid) },
-                        { count: overdue, tone: 'red', title: t.badgeTitles.overdueSales(overdue) },
+                        { count: toProcess, tone: 'orange', title: t.badgeTitles.toProcessSales(toProcess) },
                       ]}
                     />
                   );

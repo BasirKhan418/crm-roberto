@@ -29,6 +29,11 @@ const ExpenseSchema = new mongoose.Schema(
       default: "unpaid",
       index: true,
     },
+    accountantProcessed: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
     amountExclVatCents: {
       type: Number,
       required: true,

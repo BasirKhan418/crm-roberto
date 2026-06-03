@@ -60,6 +60,7 @@ type AccountantPurchaseInvoiceItem = {
   id: string;
   status: string;
   paymentStatus: string;
+  accountantProcessed: boolean;
   expenseDate: string | null;
   dueDate: string | null;
   amountExclVatCents: number;
@@ -120,6 +121,7 @@ type AccountantSalesInvoiceItem = {
   date: string | null;
   dueDate: string | null;
   status: "unpaid" | "partial_paid" | "paid" | "overdue";
+  accountantProcessed: boolean;
   totalExcludingTaxCents: number;
   totalVatCents: number;
   totalIncludingTaxCents: number;
@@ -414,6 +416,7 @@ export async function listAccountantPurchaseInvoices(params: {
       _id: mongoose.Types.ObjectId;
       status?: string;
       paymentStatus?: string;
+      accountantProcessed?: boolean;
       expenseDate?: Date | null;
       dueDate?: Date | null;
       amountExclVatCents?: number;
@@ -440,6 +443,7 @@ export async function listAccountantPurchaseInvoices(params: {
       id: String(expense._id),
       status: String(expense.status || "active"),
       paymentStatus: String(expense.paymentStatus || "unpaid"),
+      accountantProcessed: Boolean(expense.accountantProcessed),
       expenseDate: toIsoStringOrNull(expense.expenseDate),
       dueDate: toIsoStringOrNull(expense.dueDate),
       amountExclVatCents: toCents(expense.amountExclVatCents),
@@ -545,7 +549,7 @@ export async function listAccountantSalesInvoices(params: {
 
   const [items, total] = await Promise.all([
     Invoice.find(query)
-      .select("_id invoiceNumber date dueDate status totalExcludingTax totalVat totalIncludingTax clientSnapshot")
+      .select("_id invoiceNumber date dueDate status accountantProcessed totalExcludingTax totalVat totalIncludingTax clientSnapshot")
       .sort({ [sortBy]: direction })
       .skip(skip)
       .limit(limit)
@@ -555,6 +559,7 @@ export async function listAccountantSalesInvoices(params: {
         date?: Date | null;
         dueDate?: Date | null;
         status?: string;
+        accountantProcessed?: boolean;
         totalExcludingTax?: number;
         totalVat?: number;
         totalIncludingTax?: number;
@@ -595,6 +600,7 @@ export async function listAccountantSalesInvoices(params: {
       date: toIsoStringOrNull(invoice.date),
       dueDate: toIsoStringOrNull(invoice.dueDate),
       status: normalizeInvoiceStatus(invoice.status, invoice.dueDate),
+      accountantProcessed: Boolean(invoice.accountantProcessed),
       totalExcludingTaxCents: toCents(invoice.totalExcludingTax),
       totalVatCents: toCents(invoice.totalVat),
       totalIncludingTaxCents,
@@ -628,6 +634,91 @@ export async function listAccountantSalesInvoices(params: {
         totalPages: Math.max(1, Math.ceil(total / limit)),
       },
       totals,
+    },
+  };
+}
+
+export async function updateAccountantPurchaseInvoiceProcessed(params: {
+  companyId: string;
+  expenseId: string;
+  processed: boolean;
+}): Promise<RepositoryResult<{ id: string; accountantProcessed: boolean }>> {
+  await ConnectDb();
+
+  if (!isValidObjectId(params.companyId) || !isValidObjectId(params.expenseId)) {
+    return { success: false, status: 400, message: "Invalid purchase invoice context" };
+  }
+
+  const updated = await Expense.findOneAndUpdate(
+    {
+      _id: toObjectId(params.expenseId),
+      companyId: toObjectId(params.companyId),
+      deletedAt: null,
+      archivedAt: null,
+      status: "active",
+    },
+    {
+      $set: {
+        accountantProcessed: params.processed,
+      },
+    },
+    {
+      new: true,
+      projection: { _id: 1, accountantProcessed: 1 },
+    }
+  ).lean<{ _id: mongoose.Types.ObjectId; accountantProcessed?: boolean } | null>();
+
+  if (!updated) {
+    return { success: false, status: 404, message: "Purchase invoice not found" };
+  }
+
+  return {
+    success: true,
+    data: {
+      id: String(updated._id),
+      accountantProcessed: Boolean(updated.accountantProcessed),
+    },
+  };
+}
+
+export async function updateAccountantSalesInvoiceProcessed(params: {
+  companyId: string;
+  invoiceId: string;
+  processed: boolean;
+}): Promise<RepositoryResult<{ id: string; accountantProcessed: boolean }>> {
+  await ConnectDb();
+
+  if (!isValidObjectId(params.companyId) || !isValidObjectId(params.invoiceId)) {
+    return { success: false, status: 400, message: "Invalid sales invoice context" };
+  }
+
+  const companyUserIds = await getCompanyUserObjectIds(params.companyId);
+
+  const updated = await Invoice.findOneAndUpdate(
+    {
+      _id: toObjectId(params.invoiceId),
+      userId: { $in: companyUserIds },
+    },
+    {
+      $set: {
+        accountantProcessed: params.processed,
+      },
+    },
+    {
+      new: true,
+      projection: { _id: 1, accountantProcessed: 1 },
+    }
+  ).lean<{ _id: mongoose.Types.ObjectId; accountantProcessed?: boolean } | null>();
+
+  if (!updated) {
+    return { success: false, status: 404, message: "Sales invoice not found" };
+  }
+
+  return {
+    success: true,
+    data: {
+      id: String(updated._id),
+      accountantProcessed: Boolean(updated.accountantProcessed),
     },
   };
 }
