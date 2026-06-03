@@ -15,6 +15,7 @@ import {
   FilePlus2Icon,
   Loader2Icon,
   MailIcon,
+  MessageSquarePlusIcon,
   MoreHorizontalIcon,
   PaperclipIcon,
   PencilIcon,
@@ -58,6 +59,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { CreateTicketDialog } from '@/components/tickets/create-ticket-dialog';
 import {
   Table,
   TableBody,
@@ -377,6 +379,7 @@ export default function ExpensesPage() {
   const [archiveTarget, setArchiveTarget] = useState<ExpenseListItem | null>(null);
   const [draftDeleteTarget, setDraftDeleteTarget] = useState<ExpenseListItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ExpenseListItem | null>(null);
+  const [ticketTarget, setTicketTarget] = useState<ExpenseListItem | null>(null);
   const [queueEditingExpenseId, setQueueEditingExpenseId] = useState<string | null>(null);
   const [deletePassword, setDeletePassword] = useState('');
   const [deleteReason, setDeleteReason] = useState('');
@@ -515,6 +518,7 @@ export default function ExpensesPage() {
 
   const canViewExpenses = hasModuleActionAccess({ role: user?.role, modulePermissions: user?.modulePermissions, moduleKey: 'expenses', action: 'view' });
   const canManageExpenses = hasModuleActionAccess({ role: user?.role, modulePermissions: user?.modulePermissions, moduleKey: 'expenses', action: 'manage' });
+  const canManageTickets = hasModuleActionAccess({ role: user?.role, modulePermissions: user?.modulePermissions, moduleKey: 'tickets', action: 'manage' });
   const canDeleteExpenses = hasModuleActionAccess({ role: user?.role, modulePermissions: user?.modulePermissions, moduleKey: 'expenses', action: 'delete' });
   const canPermanentlyDelete = canDeleteExpenses && canPermanentlyDeleteExpense(user?.role);
   const canRestoreArchived = canManageExpenses && canRestoreArchivedExpense(user?.role);
@@ -554,6 +558,10 @@ export default function ExpensesPage() {
 
     return formatDuplicatedSupplierLabel(baseLabel, expense.status, locale);
   };
+
+  function openTicketDialogForExpense(expense: ExpenseListItem) {
+    setTicketTarget(expense);
+  }
 
   const { expenses, pagination, totals, loading, error, refetch } = useExpenses({
     page,
@@ -735,6 +743,7 @@ export default function ExpensesPage() {
       archive: 'Archive',
       settleExpense: 'Settle expense',
       addPayment: 'Add payment',
+      createTicket: 'Create ticket',
       delete: 'Delete',
       deleteDraft: 'Delete draft',
       noReference: '-',
@@ -775,6 +784,7 @@ export default function ExpensesPage() {
       actionRestoreSuccess: 'Expense restored',
       actionDeleteSuccess: 'Expense deleted',
       actionDeleteDraftSuccess: 'Draft deleted',
+      ticketCreated: 'Ticket created',
       settleExpenseSuccess: 'Expense settled',
       addPaymentSuccess: 'Payment added',
       actionFailed: 'Action failed',
@@ -906,6 +916,7 @@ export default function ExpensesPage() {
       archive: 'Archiver',
       settleExpense: 'Solder la dépense',
       addPayment: 'Ajouter un paiement',
+      createTicket: 'Creer un ticket',
       delete: 'Supprimer',
       deleteDraft: 'Supprimer brouillon',
       noReference: '-',
@@ -946,6 +957,7 @@ export default function ExpensesPage() {
       actionRestoreSuccess: 'Dépense restaurée',
       actionDeleteSuccess: 'Dépense supprimée',
       actionDeleteDraftSuccess: 'Brouillon supprimé',
+      ticketCreated: 'Ticket cree',
       settleExpenseSuccess: 'Dépense soldée',
       addPaymentSuccess: 'Paiement ajouté',
       actionFailed: 'Échec action',
@@ -2741,6 +2753,21 @@ export default function ExpensesPage() {
                           </Button>
                         )}
 
+                        {canManageTickets ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className="size-9"
+                            disabled={rowLoading}
+                            title={t.createTicket}
+                            aria-label={t.createTicket}
+                            onClick={() => openTicketDialogForExpense(expense)}
+                          >
+                            <MessageSquarePlusIcon className="size-4" />
+                          </Button>
+                        ) : null}
+
                         {canManageExpenses ? (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -2783,6 +2810,12 @@ export default function ExpensesPage() {
                                 <DropdownMenuItem onSelect={() => void openPaymentExpense(expense, 'add')}>
                                   <FilePlus2Icon className="size-4" />
                                   {t.addPayment}
+                                </DropdownMenuItem>
+                              ) : null}
+                              {canManageTickets ? (
+                                <DropdownMenuItem onSelect={() => openTicketDialogForExpense(expense)}>
+                                  <MessageSquarePlusIcon className="size-4" />
+                                  {t.createTicket}
                                 </DropdownMenuItem>
                               ) : null}
                               <DropdownMenuItem
@@ -2934,6 +2967,21 @@ export default function ExpensesPage() {
                               <Link href={`/expenses/${expense._id}`}>{t.open}</Link>
                             </Button>
 
+                            {canManageTickets ? (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className="size-8"
+                                title={t.createTicket}
+                                aria-label={t.createTicket}
+                                onClick={() => openTicketDialogForExpense(expense)}
+                                disabled={rowLoading}
+                              >
+                                <MessageSquarePlusIcon className="size-4" />
+                              </Button>
+                            ) : null}
+
                             {canManageExpenses ? (
                               <>
                                 <Button
@@ -3010,6 +3058,12 @@ export default function ExpensesPage() {
                                     </Button>
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent align="end" className="w-44">
+                                    {canManageTickets ? (
+                                      <DropdownMenuItem onSelect={() => openTicketDialogForExpense(expense)}>
+                                        <MessageSquarePlusIcon className="size-4" />
+                                        {t.createTicket}
+                                      </DropdownMenuItem>
+                                    ) : null}
                                     {!isArchived ? (
                                       <DropdownMenuItem onSelect={() => setArchiveTarget(expense)}>
                                         <ArchiveIcon className="size-4" />
@@ -3259,6 +3313,32 @@ export default function ExpensesPage() {
           setFeedback('success', t.addPaymentSuccess);
         }}
       />
+
+      {ticketTarget ? (
+        <CreateTicketDialog
+          open={Boolean(ticketTarget)}
+          onOpenChange={(open) => {
+            if (!open) {
+              setTicketTarget(null);
+            }
+          }}
+          locale={locale as 'en' | 'fr'}
+          prefill={{
+            linkedType: 'expense',
+            linkedId: ticketTarget._id,
+            linkedLabel: `${getExpenseSupplierLabel(ticketTarget)}${ticketTarget.supplierRef ? ` - ${ticketTarget.supplierRef}` : ''}`,
+            title: `${getExpenseSupplierLabel(ticketTarget)}${ticketTarget.supplierRef ? ` - ${ticketTarget.supplierRef}` : ''}`,
+            type: 'accounting',
+          }}
+          onCreated={async (ticketId) => {
+            setTicketTarget(null);
+            if (ticketId) {
+              router.push(`/tickets/${ticketId}`);
+            }
+            toast.success(t.ticketCreated);
+          }}
+        />
+      ) : null}
 
       <AlertDialog
         open={Boolean(archiveTarget)}

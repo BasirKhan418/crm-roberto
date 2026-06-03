@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-import { ArrowDownIcon, ArrowUpIcon, BellIcon, DownloadIcon, EllipsisVerticalIcon, EyeIcon, PencilIcon, PlusIcon, SendIcon, Trash2Icon } from 'lucide-react';
+import { ArrowDownIcon, ArrowUpIcon, BellIcon, DownloadIcon, EllipsisVerticalIcon, EyeIcon, MessageSquarePlusIcon, PencilIcon, PlusIcon, SendIcon, Trash2Icon } from 'lucide-react';
 
 import type { InvoiceListItem } from '@/hooks/useInvoices';
 import { InvoiceStatusBadge } from '@/components/ui/InvoiceStatusBadge';
@@ -142,6 +142,7 @@ interface InvoiceTableProps {
     send: string;
     sendInvoice: string;
     sendReminder: string;
+    createTicket?: string;
     recordPayment?: string;
     downloadPdf: string;
     delete: string;
@@ -152,6 +153,7 @@ interface InvoiceTableProps {
   onDownload: (invoice: InvoiceListItem) => Promise<void>;
   onSend: (invoice: InvoiceListItem) => void;
   onSendReminder?: (invoice: InvoiceListItem) => void;
+  onCreateTicket?: (invoice: InvoiceListItem) => void;
   onRecordPayment?: (invoice: InvoiceListItem) => void;
   numberSortOrder?: 'asc' | 'desc';
   onToggleNumberSort?: () => void;
@@ -185,6 +187,7 @@ export default function InvoiceTable({
   onDownload,
   onSend,
   onSendReminder,
+  onCreateTicket,
   onRecordPayment,
   numberSortOrder = 'desc',
   onToggleNumberSort,
@@ -364,6 +367,12 @@ export default function InvoiceTable({
               {getReminderActionLabel(invoice, locale)}
             </DropdownMenuItem>
           ) : null}
+          {canManageActions && onCreateTicket ? (
+            <DropdownMenuItem onSelect={() => onCreateTicket(invoice)}>
+              <MessageSquarePlusIcon className="size-4" />
+              {labels.createTicket ?? (locale === 'fr' ? 'Creer un ticket' : 'Create ticket')}
+            </DropdownMenuItem>
+          ) : null}
           {canManageActions && onRecordPayment && invoice.status !== 'paid' ? (
             <DropdownMenuItem onSelect={() => onRecordPayment(invoice)}>
               <PlusIcon className="size-4" />
@@ -535,6 +544,18 @@ export default function InvoiceTable({
                     ) : <span className="text-sm text-muted-foreground">{displayInvoiceNumber}</span>}
                     <div className="flex items-center gap-1.5" onClick={(event) => event.stopPropagation()}>
                       {renderPrimaryAction(invoice)}
+                      {canManageActions && onCreateTicket ? (
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="outline"
+                          className="size-8 shrink-0"
+                          aria-label={labels.createTicket ?? (locale === 'fr' ? 'Creer un ticket' : 'Create ticket')}
+                          onClick={() => onCreateTicket(invoice)}
+                        >
+                          <MessageSquarePlusIcon className="size-4" />
+                        </Button>
+                      ) : null}
                       {renderSecondaryActions(invoice)}
                     </div>
                   </div>
@@ -719,6 +740,18 @@ export default function InvoiceTable({
                       <TableCell className="py-4 pr-4 align-middle">
                         <div className="flex items-center justify-end gap-1.5" onClick={(event) => event.stopPropagation()}>
                           {renderPrimaryAction(invoice)}
+                          {canManageActions && onCreateTicket ? (
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="outline"
+                              className="size-8"
+                              aria-label={labels.createTicket ?? (locale === 'fr' ? 'Creer un ticket' : 'Create ticket')}
+                              onClick={() => onCreateTicket(invoice)}
+                            >
+                              <MessageSquarePlusIcon className="size-4" />
+                            </Button>
+                          ) : null}
                           {renderSecondaryActions(invoice, 'end')}
                         </div>
                       </TableCell>
