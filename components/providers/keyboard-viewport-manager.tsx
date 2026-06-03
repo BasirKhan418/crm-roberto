@@ -60,7 +60,7 @@ function syncViewportVariables(root: HTMLElement) {
 export function KeyboardViewportManager() {
   useEffect(() => {
     const root = document.documentElement;
-    let delayedViewportSyncTimeouts: Array<ReturnType<typeof window.setTimeout>> = [];
+    let delayedViewportSyncTimeouts: number[] = [];
 
     function clearDelayedViewportSync() {
       if (delayedViewportSyncTimeouts.length > 0) {
