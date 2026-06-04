@@ -57,7 +57,7 @@ export interface KpiCardGroupProps {
   loading?: boolean;
   cols?: 3 | 4;
   skeletonCount?: number;
-  /** Tighter layout with less padding and smaller typography. */
+  /** Tighter layout with less padding and smaller typography (default). Pass `compact={false}` for the legacy large cards. */
   compact?: boolean;
 }
 
@@ -184,7 +184,7 @@ export default function KpiCards({
   loading = false,
   cols = 4,
   skeletonCount = cols,
-  compact = false,
+  compact = true,
 }: KpiCardGroupProps) {
   const priceLocale = locale === 'fr' ? 'fr-FR' : 'en-GB';
   const gridGap = compact ? 'gap-2' : 'gap-4';

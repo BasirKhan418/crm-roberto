@@ -12,7 +12,7 @@ import EmptyState from '@/components/ui/EmptyState';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { buildFinancialPeriodSearchParams, getDefaultFinancialPeriodSelection, type FinancialPeriodSelection } from '@/lib/financial-periods';
+import { buildFinancialPeriodSearchParams, getDefaultExportFinancialPeriodSelection, type FinancialPeriodSelection } from '@/lib/financial-periods';
 import { cn } from '@/lib/utils';
 
 const STATUS_OPTIONS = {
@@ -135,7 +135,7 @@ export function AccountingExportsPage({ sessionEndpoint, lookupsEndpoint, downlo
   const { locale } = useLocale();
   const t = copy[locale];
 
-  const [period, setPeriod] = useState<FinancialPeriodSelection>(getDefaultFinancialPeriodSelection());
+  const [period, setPeriod] = useState<FinancialPeriodSelection>(getDefaultExportFinancialPeriodSelection());
   const [scope, setScope] = useState<'all' | 'purchase' | 'sale'>('all');
   const [status, setStatus] = useState('all');
   const [categoryId, setCategoryId] = useState('all');

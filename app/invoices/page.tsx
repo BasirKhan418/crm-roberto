@@ -810,7 +810,7 @@ function InvoicesPageContent() {
         </div>
 
         {/* ── KPI cards row 1: per-status ───────────────────────────────────── */}
-        <div className="space-y-3">
+        <div className="space-y-2">
           <KpiCards cards={invoiceKpiCards} locale={locale as 'en' | 'fr'} loading={kpiLoading} />
           {!kpiLoading && invoiceKpiTotalsCards.length > 0 ? <KpiCards cards={invoiceKpiTotalsCards} locale={locale as 'en' | 'fr'} cols={3} /> : null}
         </div>

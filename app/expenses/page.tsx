@@ -691,9 +691,8 @@ export default function ExpensesPage() {
       draftsSectionSubtitle: 'Quick access to draft expenses that still need review and completion.',
       newBadge: 'NEW',
       draftsCountLabel: (count: number) => `${count} Draft${count > 1 ? 's' : ''}`,
-      filtersTitle: 'Filters and sorting',
-      quickFiltersLabel: 'Quick filters',
-      searchLabel: 'Search',
+      totalResults: 'total results',
+      currentFilter: 'Current filter',
       searchPlaceholder: 'Supplier, reference, notes...',
       statusLabel: 'Status',
       paymentStatusLabel: 'Payment status',
@@ -859,9 +858,8 @@ export default function ExpensesPage() {
       draftsSectionSubtitle: 'Accès rapide aux brouillons qui doivent encore être vérifiés et complétés.',
       newBadge: 'NOUVEAU',
       draftsCountLabel: (count: number) => `${count} brouillon${count > 1 ? 's' : ''}`,
-      filtersTitle: 'Filtres et tri',
-      quickFiltersLabel: 'Filtres rapides',
-      searchLabel: 'Recherche',
+      totalResults: 'résultats au total',
+      currentFilter: 'Filtre actuel',
       searchPlaceholder: 'Fournisseur, référence, notes...',
       statusLabel: 'Statut',
       paymentStatusLabel: 'Paiement',
@@ -1019,6 +1017,19 @@ export default function ExpensesPage() {
   }, [paymentStatusFilter, statusFilter]);
 
   const listDraftCount = activeQuickFilter === 'drafts' ? (pagination.total || expenses.length) : draftsCount;
+
+  const currentFilterLabel =
+    activeQuickFilter === 'all'
+      ? t.all
+      : activeQuickFilter === 'drafts'
+        ? t.kpiDrafts
+        : activeQuickFilter === 'unpaid'
+          ? t.kpiUnpaid
+          : activeQuickFilter === 'partial'
+            ? t.kpiPartial
+            : activeQuickFilter === 'paid'
+              ? t.kpiPaid
+              : t.statusLabels.archived;
 
   useEffect(() => {
     if (!isMobile) {
@@ -1801,9 +1812,8 @@ export default function ExpensesPage() {
                 cards={expensesKpiCards}
                 locale={locale as 'en' | 'fr'}
                 loading={loading && expenses.length === 0}
-                compact
               />
-              <KpiCards cards={expensesTotalsCards} locale={locale as 'en' | 'fr'} cols={3} compact />
+              <KpiCards cards={expensesTotalsCards} locale={locale as 'en' | 'fr'} cols={3} />
             </section>
 
             <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5" data-tour-expenses-capture>
@@ -2205,106 +2215,105 @@ export default function ExpensesPage() {
           </Card>
         ) : null}
 
-        <Card className="border-slate-200/80 bg-slate-50/45 dark:border-slate-800/70 dark:bg-slate-950/16" data-tour-expenses-filters>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">{t.filtersTitle}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <Tabs value={activeQuickFilter} onValueChange={(value) => applyQuickFilter(value as ExpenseQuickFilterKey)}>
-              <div className="space-y-1.5">
-                <Label>{t.quickFiltersLabel}</Label>
-                <div
-                  className="overflow-x-auto overflow-y-hidden touch-none overscroll-y-none overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-                  onMouseDown={handleQuickFiltersMouseDown}
-                  onWheel={handleQuickFiltersWheel}
-                  onTouchStart={handleQuickFiltersTouchStart}
-                  onTouchMove={handleQuickFiltersTouchMove}
-                  onTouchEnd={handleQuickFiltersTouchEnd}
-                  onTouchCancel={handleQuickFiltersTouchEnd}
-                >
-                  <TabsList className="inline-flex h-auto min-w-max items-center gap-1 rounded-lg border border-border/80 bg-muted/10 p-1 shadow-xs">
-                    <TabsTrigger value="all" className="min-h-9 rounded-md border border-transparent px-3 py-2.5 sm:py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
-                      <span>{t.all}</span>
-                      <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-slate-600 px-1.5 text-[10px] font-semibold leading-none text-white shadow-sm">
-                        {allCount > 99 ? '99+' : allCount}
-                      </span>
-                    </TabsTrigger>
-                    <TabsTrigger value="drafts" className="min-h-9 rounded-md border border-border/80 px-3 py-2.5 sm:py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
-                      <span>{t.kpiDrafts}</span>
-                      <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-600 px-1.5 text-[10px] font-semibold leading-none text-white shadow-sm">
-                        {draftsCount > 99 ? '99+' : draftsCount}
-                      </span>
-                    </TabsTrigger>
-                    <TabsTrigger value="unpaid" className="min-h-9 rounded-md border border-border/80 px-3 py-2.5 sm:py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
-                      <span>{t.kpiUnpaid}</span>
-                      <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-600 px-1.5 text-[10px] font-semibold leading-none text-white shadow-sm">
-                        {unpaidCount > 99 ? '99+' : unpaidCount}
-                      </span>
-                    </TabsTrigger>
-                    <TabsTrigger value="partial" className="min-h-9 rounded-md border border-border/80 px-3 py-2.5 sm:py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
-                      <span>{t.kpiPartial}</span>
-                      <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-600 px-1.5 text-[10px] font-semibold leading-none text-white shadow-sm">
-                        {partialCount > 99 ? '99+' : partialCount}
-                      </span>
-                    </TabsTrigger>
-                    <TabsTrigger value="paid" className="min-h-9 rounded-md border border-border/80 px-3 py-2.5 sm:py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
-                      <span>{t.kpiPaid}</span>
-                      <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-600 px-1.5 text-[10px] font-semibold leading-none text-white shadow-sm">
-                        {paidCount > 99 ? '99+' : paidCount}
-                      </span>
-                    </TabsTrigger>
-                    <TabsTrigger value="archived" className="min-h-9 rounded-md border border-border/80 px-3 py-2.5 sm:py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
-                      <span>{t.statusLabels.archived}</span>
-                      <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-slate-600 px-1.5 text-[10px] font-semibold leading-none text-white shadow-sm">
-                        {archivedCount > 99 ? '99+' : archivedCount}
-                      </span>
-                    </TabsTrigger>
-                  </TabsList>
-                </div>
-              </div>
-            </Tabs>
+        <div className="space-y-3 rounded-xl border border-border/70 bg-card/40 p-3 sm:p-4" data-tour-expenses-filters>
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="rounded-full border border-border/70 bg-background px-2.5 py-1 text-muted-foreground">
+              {pagination.total || expenses.length} {t.totalResults}
+            </span>
+            <span className="rounded-full border border-border/70 bg-background px-2.5 py-1 text-muted-foreground">
+              {t.currentFilter}: {currentFilterLabel}
+            </span>
+          </div>
 
-            <div className="space-y-1.5">
-              <Label>{t.searchLabel}</Label>
-              <div className="relative">
-                <SearchIcon className="pointer-events-none absolute top-2 left-2.5 size-4 text-muted-foreground" />
-                <Input
-                  value={searchInput}
-                  onChange={(event) => setSearchInput(event.target.value)}
-                  placeholder={t.searchPlaceholder}
-                  className="pl-8"
-                />
-              </div>
+          <div className="relative">
+            <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              className="h-10 pl-9"
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
+              placeholder={t.searchPlaceholder}
+            />
+          </div>
+
+          <Tabs value={activeQuickFilter} onValueChange={(value) => applyQuickFilter(value as ExpenseQuickFilterKey)}>
+            <div
+              className="overflow-x-auto overflow-y-hidden touch-none overscroll-y-none overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              onMouseDown={handleQuickFiltersMouseDown}
+              onWheel={handleQuickFiltersWheel}
+              onTouchStart={handleQuickFiltersTouchStart}
+              onTouchMove={handleQuickFiltersTouchMove}
+              onTouchEnd={handleQuickFiltersTouchEnd}
+              onTouchCancel={handleQuickFiltersTouchEnd}
+            >
+              <TabsList className="inline-flex h-auto min-w-max items-center gap-1 rounded-lg border border-border/80 bg-muted/10 p-1 shadow-xs">
+                <TabsTrigger value="all" className="min-h-6 rounded-md border border-transparent px-3 py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
+                  <span>{t.all}</span>
+                  <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-slate-600 px-1.5 text-[10px] font-semibold leading-none text-white shadow-sm">
+                    {allCount > 99 ? '99+' : allCount}
+                  </span>
+                </TabsTrigger>
+                <TabsTrigger value="drafts" className="min-h-6 rounded-md border border-border/80 px-3 py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
+                  <span>{t.kpiDrafts}</span>
+                  <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-600 px-1.5 text-[10px] font-semibold leading-none text-white shadow-sm">
+                    {draftsCount > 99 ? '99+' : draftsCount}
+                  </span>
+                </TabsTrigger>
+                <TabsTrigger value="unpaid" className="min-h-6 rounded-md border border-border/80 px-3 py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
+                  <span>{t.kpiUnpaid}</span>
+                  <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-600 px-1.5 text-[10px] font-semibold leading-none text-white shadow-sm">
+                    {unpaidCount > 99 ? '99+' : unpaidCount}
+                  </span>
+                </TabsTrigger>
+                <TabsTrigger value="partial" className="min-h-6 rounded-md border border-border/80 px-3 py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
+                  <span>{t.kpiPartial}</span>
+                  <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-600 px-1.5 text-[10px] font-semibold leading-none text-white shadow-sm">
+                    {partialCount > 99 ? '99+' : partialCount}
+                  </span>
+                </TabsTrigger>
+                <TabsTrigger value="paid" className="min-h-6 rounded-md border border-border/80 px-3 py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
+                  <span>{t.kpiPaid}</span>
+                  <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-600 px-1.5 text-[10px] font-semibold leading-none text-white shadow-sm">
+                    {paidCount > 99 ? '99+' : paidCount}
+                  </span>
+                </TabsTrigger>
+                <TabsTrigger value="archived" className="min-h-6 rounded-md border border-border/80 px-3 py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
+                  <span>{t.statusLabels.archived}</span>
+                  <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-slate-600 px-1.5 text-[10px] font-semibold leading-none text-white shadow-sm">
+                    {archivedCount > 99 ? '99+' : archivedCount}
+                  </span>
+                </TabsTrigger>
+              </TabsList>
             </div>
+          </Tabs>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                type="button"
-                variant={advancedFiltersOpen ? 'secondary' : 'outline'}
-                size="sm"
-                className="h-8 gap-1.5 px-2.5 text-xs"
-                onClick={() => setAdvancedFiltersOpen((previous) => !previous)}
-                aria-expanded={advancedFiltersOpen}
-              >
-                {advancedFiltersOpen ? t.mobileHideFilters : t.mobileShowFilters}
-                <ChevronDownIcon
-                  className={`size-3.5 shrink-0 transition-transform ${advancedFiltersOpen ? 'rotate-180' : ''}`}
-                  aria-hidden="true"
-                />
-              </Button>
-              {!advancedFiltersOpen && activeFiltersCount > 0 ? (
-                <>
-                  <p className="text-xs text-muted-foreground">{t.mobileFiltersActive(activeFiltersCount)}</p>
-                  <Button type="button" variant="ghost" size="sm" className="ml-auto h-8 px-2 text-xs" onClick={resetFilters}>
-                    {t.clearFilters}
-                  </Button>
-                </>
-              ) : null}
-            </div>
-
-            {advancedFiltersOpen ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant={advancedFiltersOpen ? 'secondary' : 'outline'}
+              size="sm"
+              className="h-8 gap-1.5 px-2.5 text-xs"
+              onClick={() => setAdvancedFiltersOpen((previous) => !previous)}
+              aria-expanded={advancedFiltersOpen}
+            >
+              {advancedFiltersOpen ? t.mobileHideFilters : t.mobileShowFilters}
+              <ChevronDownIcon
+                className={`size-3.5 shrink-0 transition-transform ${advancedFiltersOpen ? 'rotate-180' : ''}`}
+                aria-hidden="true"
+              />
+            </Button>
+            {!advancedFiltersOpen && activeFiltersCount > 0 ? (
               <>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
+                <p className="text-xs text-muted-foreground">{t.mobileFiltersActive(activeFiltersCount)}</p>
+                <Button type="button" variant="ghost" size="sm" className="ml-auto h-8 px-2 text-xs" onClick={resetFilters}>
+                  {t.clearFilters}
+                </Button>
+              </>
+            ) : null}
+          </div>
+
+          {advancedFiltersOpen ? (
+            <div className="space-y-3 border-t border-border/60 pt-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
                   <div className="space-y-1.5">
                     <Label>{t.statusLabel}</Label>
                     <select
@@ -2407,42 +2416,42 @@ export default function ExpensesPage() {
                   </div>
                 </div>
 
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <Label>{t.rowsPerPage}</Label>
-                    <select
-                      className="h-10 rounded-lg border border-input bg-transparent px-2.5 text-sm"
-                      value={String(limit)}
-                      onChange={(event) => setLimit(Number(event.target.value))}
-                    >
-                      <option value="10">10</option>
-                      <option value="20">20</option>
-                      <option value="50">50</option>
-                    </select>
-                  </div>
-
-                  <Button type="button" variant="outline" size="sm" onClick={resetFilters}>
-                    {activeFiltersCount > 0 ? (
-                      <span className="inline-flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
-                        {activeFiltersCount}
-                      </span>
-                    ) : null}
-                    {t.clearFilters}
-                  </Button>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Label>{t.rowsPerPage}</Label>
+                  <select
+                    className="h-10 rounded-lg border border-input bg-transparent px-2.5 text-sm"
+                    value={String(limit)}
+                    onChange={(event) => setLimit(Number(event.target.value))}
+                  >
+                    <option value="10">10</option>
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                  </select>
                 </div>
-              </>
-            ) : null}
 
-            {lookupsLoading ? <p className="text-xs text-muted-foreground">{t.lookupsLoading}</p> : null}
-            {lookupsError ? (
-              <p className="text-xs text-destructive">
-                {t.lookupsErrorTitle}: {lookupsError}
-              </p>
-            ) : null}
-            {advancedFiltersOpen ? <p className="text-xs text-muted-foreground">{t.archivedHiddenHint}</p> : null}
-            {statusFilter === 'archived' ? <p className="text-xs text-muted-foreground">{t.archivedReadOnlyHint}</p> : null}
-          </CardContent>
-        </Card>
+                <Button type="button" variant="outline" size="sm" onClick={resetFilters}>
+                  {activeFiltersCount > 0 ? (
+                    <span className="inline-flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                      {activeFiltersCount}
+                    </span>
+                  ) : null}
+                  {t.clearFilters}
+                </Button>
+              </div>
+
+              {lookupsLoading ? <p className="text-xs text-muted-foreground">{t.lookupsLoading}</p> : null}
+              {lookupsError ? (
+                <p className="text-xs text-destructive">
+                  {t.lookupsErrorTitle}: {lookupsError}
+                </p>
+              ) : null}
+              <p className="text-xs text-muted-foreground">{t.archivedHiddenHint}</p>
+            </div>
+          ) : null}
+
+          {statusFilter === 'archived' ? <p className="text-xs text-muted-foreground">{t.archivedReadOnlyHint}</p> : null}
+        </div>
 
         <Card className="border-slate-200/80 bg-white/80 dark:border-slate-800/70 dark:bg-slate-950/12" data-tour-expenses-list>
           <CardHeader className="pb-2">

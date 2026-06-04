@@ -78,6 +78,13 @@ export function getDefaultFinancialPeriodSelection(now: Date = new Date()): Fina
   };
 }
 
+export function getDefaultExportFinancialPeriodSelection(now: Date = new Date()): FinancialPeriodSelection {
+  return {
+    kind: "year",
+    year: now.getUTCFullYear(),
+  };
+}
+
 export function parseFinancialPeriodSearchParams(searchParams: SearchParamsReader): FinancialPeriodSelection {
   const kind = searchParams.get("period");
 

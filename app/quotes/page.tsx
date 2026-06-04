@@ -630,7 +630,7 @@ function QuotesPageContent() {
           ) : null}
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-2">
           <KpiCards cards={quoteKpiCards} locale={locale as 'en' | 'fr'} loading={kpiLoading} />
           {!kpiLoading && quoteKpiTotalsCards.length > 0 ? <KpiCards cards={quoteKpiTotalsCards} locale={locale as 'en' | 'fr'} cols={3} /> : null}
         </div>
