@@ -386,7 +386,7 @@ export default function ExpensesPage() {
   const [deleteValidationError, setDeleteValidationError] = useState<string | null>(null);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [actionFeedback, setActionFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-  const [mobileAdvancedFiltersOpen, setMobileAdvancedFiltersOpen] = useState(false);
+  const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false);
   const [mobileDraftsExpanded, setMobileDraftsExpanded] = useState(false);
   const [countsRefreshNonce, setCountsRefreshNonce] = useState(0);
   const [badgeNowMs, setBadgeNowMs] = useState(() => Date.now());
@@ -647,8 +647,6 @@ export default function ExpensesPage() {
   const t = {
     en: {
       shellTitle: 'Expenses',
-      heading: 'Expenses Workspace',
-      subtitle: 'Capture files, create manual entries, and manage the full expense lifecycle.',
       forbiddenTitle: 'You do not have access to expenses',
       forbiddenHelp: 'Ask an administrator to grant expenses permissions.',
       takePhoto: 'Take photo',
@@ -693,7 +691,6 @@ export default function ExpensesPage() {
       draftsSectionSubtitle: 'Quick access to draft expenses that still need review and completion.',
       newBadge: 'NEW',
       draftsCountLabel: (count: number) => `${count} Draft${count > 1 ? 's' : ''}`,
-      noDraftsInView: 'No draft expenses available.',
       filtersTitle: 'Filters and sorting',
       quickFiltersLabel: 'Quick filters',
       searchLabel: 'Search',
@@ -762,7 +759,6 @@ export default function ExpensesPage() {
       failedUpload: 'File upload failed',
       failedDraft: 'Unable to create draft expense',
       copiedEmail: 'Forward address copied',
-      mobileCaptureNote: 'If camera capture is not supported on your browser, select an image file manually.',
       mobileQuickActionsTitle: 'Quick capture',
       mobileQuickActionsSubtitle: 'Use the fastest entry points while you are outside.',
       quickPhoto: 'Photo',
@@ -775,7 +771,6 @@ export default function ExpensesPage() {
       viewDraftsOnly: 'View drafts list',
       mobileShowFilters: 'Advanced filters',
       mobileHideFilters: 'Hide filters',
-      mobileFiltersCollapsedHint: 'Keep the list compact. Open only the filters you need.',
       mobileFiltersActive: (count: number) => `${count} advanced filter${count === 1 ? '' : 's'} active`,
       actionDuplicateSuccess: 'Expense duplicated',
       actionCreateSuccess: 'Expense created',
@@ -820,8 +815,6 @@ export default function ExpensesPage() {
     },
     fr: {
       shellTitle: 'Dépenses',
-      heading: 'Espace Dépenses',
-      subtitle: 'Capturez des fichiers, créez des dépenses manuelles et gérez tout le cycle de vie.',
       forbiddenTitle: "Vous n'avez pas accès aux dépenses",
       forbiddenHelp: "Demandez à un administrateur d'activer les permissions dépenses.",
       takePhoto: 'Prendre une photo',
@@ -866,7 +859,6 @@ export default function ExpensesPage() {
       draftsSectionSubtitle: 'Accès rapide aux brouillons qui doivent encore être vérifiés et complétés.',
       newBadge: 'NOUVEAU',
       draftsCountLabel: (count: number) => `${count} brouillon${count > 1 ? 's' : ''}`,
-      noDraftsInView: 'Aucun brouillon disponible.',
       filtersTitle: 'Filtres et tri',
       quickFiltersLabel: 'Filtres rapides',
       searchLabel: 'Recherche',
@@ -935,7 +927,6 @@ export default function ExpensesPage() {
       failedUpload: "Échec de l'upload",
       failedDraft: 'Impossible de créer le brouillon',
       copiedEmail: 'Adresse de transfert copiée',
-      mobileCaptureNote: 'Si la capture caméra est non supportée, choisissez une image manuellement.',
       mobileQuickActionsTitle: 'Capture rapide',
       mobileQuickActionsSubtitle: 'Utilisez les entrées les plus rapides quand vous êtes dehors.',
       quickPhoto: 'Photo',
@@ -948,7 +939,6 @@ export default function ExpensesPage() {
       viewDraftsOnly: 'Voir les brouillons',
       mobileShowFilters: 'Filtres avancés',
       mobileHideFilters: 'Masquer filtres',
-      mobileFiltersCollapsedHint: 'Gardez la liste compacte. Ouvrez seulement les filtres nécessaires.',
       mobileFiltersActive: (count: number) => `${count} filtre${count > 1 ? 's' : ''} avancé${count > 1 ? 's' : ''} actif${count > 1 ? 's' : ''}`,
       actionDuplicateSuccess: 'Dépense dupliquée',
       actionCreateSuccess: 'Dépense créée',
@@ -1032,7 +1022,6 @@ export default function ExpensesPage() {
 
   useEffect(() => {
     if (!isMobile) {
-      setMobileAdvancedFiltersOpen(false);
       setMobileDraftsExpanded(false);
     }
   }, [isMobile]);
@@ -1785,32 +1774,36 @@ export default function ExpensesPage() {
   return (
     <CrmShell title={t.shellTitle}>
       <div className="space-y-4 sm:space-y-5 [overflow-anchor:none]">
-        <section
-          className="space-y-2.5 rounded-2xl border border-slate-200/80 bg-linear-to-r from-slate-50 via-white to-amber-50/40 p-3.5 shadow-sm dark:border-slate-800/70 dark:from-slate-950/45 dark:via-slate-950/25 dark:to-amber-950/15 sm:space-y-3 sm:p-4"
-          data-tour-expenses-header
-        >
-          <h1 className="font-heading text-xl font-semibold tracking-tight sm:text-2xl">{t.heading}</h1>
-          {!isMobile ? <p className="text-sm text-muted-foreground">{t.subtitle}</p> : null}
-          <p className="text-xs text-muted-foreground">{t.mobileCaptureNote}</p>
-
-          <div className="flex flex-wrap items-center gap-2 text-xs">
-            <span className="rounded-full border border-amber-200 bg-amber-100/70 px-2.5 py-1 font-medium text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/35 dark:text-amber-200">
-              {t.draftsCountLabel(draftsCount)}
-            </span>
-            <span className="rounded-full border border-rose-200 bg-rose-100/70 px-2.5 py-1 font-medium text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/35 dark:text-rose-200">
-              {t.paymentStatusLabels.unpaid}: {unpaidExpenses.length}
-            </span>
-            <span className="rounded-full border border-emerald-200 bg-emerald-100/70 px-2.5 py-1 font-medium text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/35 dark:text-emerald-200">
-              {t.paymentStatusLabels.paid}: {paidExpenses.length}
-            </span>
-          </div>
-        </section>
+        {isMobile ? (
+          <section
+            className="mx-auto grid w-full max-w-md grid-cols-3 gap-2.5 justify-items-center"
+            data-tour-expenses-header
+          >
+            <div className="flex w-full min-h-13 flex-col items-center justify-center rounded-lg border border-amber-200/90 bg-amber-100/80 px-2 py-2.5 text-center text-sm font-semibold leading-tight text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-100">
+              <span className="text-xs font-medium opacity-90">{t.kpiDrafts}</span>
+              <span>{draftsCount}</span>
+            </div>
+            <div className="flex w-full min-h-13 flex-col items-center justify-center rounded-lg border border-rose-200/90 bg-rose-100/80 px-2 py-2.5 text-center text-sm font-semibold leading-tight text-rose-900 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-100">
+              <span className="text-xs font-medium opacity-90">{t.paymentStatusLabels.unpaid}</span>
+              <span>{unpaidExpenses.length}</span>
+            </div>
+            <div className="flex w-full min-h-13 flex-col items-center justify-center rounded-lg border border-emerald-200/90 bg-emerald-100/80 px-2 py-2.5 text-center text-sm font-semibold leading-tight text-emerald-900 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-100">
+              <span className="text-xs font-medium opacity-90">{t.paymentStatusLabels.paid}</span>
+              <span>{paidExpenses.length}</span>
+            </div>
+          </section>
+        ) : null}
 
         {!isMobile ? (
           <>
-            <section className="space-y-3" data-tour-expenses-kpis>
-              <KpiCards cards={expensesKpiCards} locale={locale as 'en' | 'fr'} loading={loading && expenses.length === 0} />
-              <KpiCards cards={expensesTotalsCards} locale={locale as 'en' | 'fr'} cols={3} />
+            <section className="space-y-2" data-tour-expenses-kpis data-tour-expenses-header>
+              <KpiCards
+                cards={expensesKpiCards}
+                locale={locale as 'en' | 'fr'}
+                loading={loading && expenses.length === 0}
+                compact
+              />
+              <KpiCards cards={expensesTotalsCards} locale={locale as 'en' | 'fr'} cols={3} compact />
             </section>
 
             <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5" data-tour-expenses-capture>
@@ -2094,7 +2087,7 @@ export default function ExpensesPage() {
           </Card>
         ) : null}
 
-        {!isMobile || (draftPanelExpenses.length > 0 && activeQuickFilter !== 'drafts') ? (
+        {draftPanelExpenses.length > 0 && (!isMobile || activeQuickFilter !== 'drafts') ? (
           <Card className="border-amber-200/80 bg-amber-50/45 dark:border-amber-900/35 dark:bg-amber-950/14" data-tour-expenses-drafts>
             <CardHeader className="pb-2">
               {isMobile ? (
@@ -2121,10 +2114,7 @@ export default function ExpensesPage() {
             </CardHeader>
             {!isMobile || mobileDraftsExpanded ? (
               <CardContent className="space-y-2.5">
-                {draftPanelExpenses.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">{t.noDraftsInView}</p>
-                ) : (
-                  (isMobile ? draftPanelExpenses.slice(0, 2) : draftPanelExpenses).map((expense) => {
+                {(isMobile ? draftPanelExpenses.slice(0, 2) : draftPanelExpenses).map((expense) => {
                     const rowLoading = actionLoadingId === expense._id;
                     const isNewExpense = isRecentlyCreated(expense.createdAt, badgeNowMs);
 
@@ -2191,8 +2181,7 @@ export default function ExpensesPage() {
                         </div>
                       </div>
                     );
-                  })
-                )}
+                  })}
 
                 {isMobile && draftPanelExpenses.length > 2 ? (
                   <div className="flex items-center justify-between gap-2 rounded-lg border border-border/60 bg-background/70 px-3 py-2">
@@ -2204,7 +2193,7 @@ export default function ExpensesPage() {
                       className="h-8 px-2 text-xs"
                       onClick={() => {
                         applyQuickFilter('drafts');
-                        setMobileAdvancedFiltersOpen(false);
+                        setAdvancedFiltersOpen(false);
                       }}
                     >
                       {t.viewDraftsOnly}
@@ -2218,20 +2207,7 @@ export default function ExpensesPage() {
 
         <Card className="border-slate-200/80 bg-slate-50/45 dark:border-slate-800/70 dark:bg-slate-950/16" data-tour-expenses-filters>
           <CardHeader className="pb-2">
-            <div className="flex items-center justify-between gap-2">
-              <CardTitle className="text-base">{t.filtersTitle}</CardTitle>
-              {isMobile ? (
-                <Button
-                  type="button"
-                  variant={mobileAdvancedFiltersOpen ? 'secondary' : 'outline'}
-                  size="sm"
-                  className="h-8 px-2 text-xs"
-                  onClick={() => setMobileAdvancedFiltersOpen((previous) => !previous)}
-                >
-                  {mobileAdvancedFiltersOpen ? t.mobileHideFilters : t.mobileShowFilters}
-                </Button>
-              ) : null}
-            </div>
+            <CardTitle className="text-base">{t.filtersTitle}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <Tabs value={activeQuickFilter} onValueChange={(value) => applyQuickFilter(value as ExpenseQuickFilterKey)}>
@@ -2265,206 +2241,68 @@ export default function ExpensesPage() {
                         {unpaidCount > 99 ? '99+' : unpaidCount}
                       </span>
                     </TabsTrigger>
-                    {!isMobile ? (
-                      <TabsTrigger value="partial" className="min-h-9 rounded-md border border-border/80 px-3 py-2.5 sm:py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
-                        <span>{t.kpiPartial}</span>
-                        <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-600 px-1.5 text-[10px] font-semibold leading-none text-white shadow-sm">
-                          {partialCount > 99 ? '99+' : partialCount}
-                        </span>
-                      </TabsTrigger>
-                    ) : null}
+                    <TabsTrigger value="partial" className="min-h-9 rounded-md border border-border/80 px-3 py-2.5 sm:py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
+                      <span>{t.kpiPartial}</span>
+                      <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-600 px-1.5 text-[10px] font-semibold leading-none text-white shadow-sm">
+                        {partialCount > 99 ? '99+' : partialCount}
+                      </span>
+                    </TabsTrigger>
                     <TabsTrigger value="paid" className="min-h-9 rounded-md border border-border/80 px-3 py-2.5 sm:py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
                       <span>{t.kpiPaid}</span>
                       <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-600 px-1.5 text-[10px] font-semibold leading-none text-white shadow-sm">
                         {paidCount > 99 ? '99+' : paidCount}
                       </span>
                     </TabsTrigger>
-                    {!isMobile ? (
-                      <TabsTrigger value="archived" className="min-h-9 rounded-md border border-border/80 px-3 py-2.5 sm:py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
-                        <span>{t.statusLabels.archived}</span>
-                        <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-slate-600 px-1.5 text-[10px] font-semibold leading-none text-white shadow-sm">
-                          {archivedCount > 99 ? '99+' : archivedCount}
-                        </span>
-                      </TabsTrigger>
-                    ) : null}
+                    <TabsTrigger value="archived" className="min-h-9 rounded-md border border-border/80 px-3 py-2.5 sm:py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm">
+                      <span>{t.statusLabels.archived}</span>
+                      <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-slate-600 px-1.5 text-[10px] font-semibold leading-none text-white shadow-sm">
+                        {archivedCount > 99 ? '99+' : archivedCount}
+                      </span>
+                    </TabsTrigger>
                   </TabsList>
                 </div>
               </div>
             </Tabs>
 
-            {!isMobile ? (
-              <div className="space-y-1.5">
-                <Label>{t.searchLabel}</Label>
-                <div className="relative">
-                  <SearchIcon className="pointer-events-none absolute top-2 left-2.5 size-4 text-muted-foreground" />
-                  <Input
-                    value={searchInput}
-                    onChange={(event) => setSearchInput(event.target.value)}
-                    placeholder={t.searchPlaceholder}
-                    className="pl-8"
-                  />
-                </div>
+            <div className="space-y-1.5">
+              <Label>{t.searchLabel}</Label>
+              <div className="relative">
+                <SearchIcon className="pointer-events-none absolute top-2 left-2.5 size-4 text-muted-foreground" />
+                <Input
+                  value={searchInput}
+                  onChange={(event) => setSearchInput(event.target.value)}
+                  placeholder={t.searchPlaceholder}
+                  className="pl-8"
+                />
               </div>
-            ) : null}
+            </div>
 
-            {isMobile ? (
-              <>
-                {!mobileAdvancedFiltersOpen ? (
-                  <div className="flex items-center justify-between gap-2 rounded-lg border border-border/60 bg-background/70 px-3 py-2">
-                    <p className="text-xs text-muted-foreground">
-                      {activeFiltersCount > 0 ? t.mobileFiltersActive(activeFiltersCount) : t.mobileFiltersCollapsedHint}
-                    </p>
-                    {activeFiltersCount > 0 ? (
-                      <Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={resetFilters}>
-                        {t.clearFilters}
-                      </Button>
-                    ) : null}
-                  </div>
-                ) : (
-                  <>
-                    <div className="space-y-1.5">
-                      <Label>{t.searchLabel}</Label>
-                      <div className="relative">
-                        <SearchIcon className="pointer-events-none absolute top-2 left-2.5 size-4 text-muted-foreground" />
-                        <Input
-                          value={searchInput}
-                          onChange={(event) => setSearchInput(event.target.value)}
-                          placeholder={t.searchPlaceholder}
-                          className="pl-8"
-                        />
-                      </div>
-                    </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                variant={advancedFiltersOpen ? 'secondary' : 'outline'}
+                size="sm"
+                className="h-8 gap-1.5 px-2.5 text-xs"
+                onClick={() => setAdvancedFiltersOpen((previous) => !previous)}
+                aria-expanded={advancedFiltersOpen}
+              >
+                {advancedFiltersOpen ? t.mobileHideFilters : t.mobileShowFilters}
+                <ChevronDownIcon
+                  className={`size-3.5 shrink-0 transition-transform ${advancedFiltersOpen ? 'rotate-180' : ''}`}
+                  aria-hidden="true"
+                />
+              </Button>
+              {!advancedFiltersOpen && activeFiltersCount > 0 ? (
+                <>
+                  <p className="text-xs text-muted-foreground">{t.mobileFiltersActive(activeFiltersCount)}</p>
+                  <Button type="button" variant="ghost" size="sm" className="ml-auto h-8 px-2 text-xs" onClick={resetFilters}>
+                    {t.clearFilters}
+                  </Button>
+                </>
+              ) : null}
+            </div>
 
-                    <div className="grid grid-cols-1 gap-3">
-                      <div className="space-y-1.5">
-                        <Label>{t.statusLabel}</Label>
-                        <select
-                          className="h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
-                          value={statusFilter}
-                          onChange={(event) => setStatusFilter(event.target.value)}
-                        >
-                          <option value="">{t.all}</option>
-                          {EXPENSE_STATUS.map((status) => (
-                            <option key={status} value={status}>
-                              {t.statusLabels[status as keyof typeof t.statusLabels] ?? status}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <Label>{t.paymentStatusLabel}</Label>
-                        <select
-                          className="h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
-                          value={paymentStatusFilter}
-                          onChange={(event) => setPaymentStatusFilter(event.target.value)}
-                        >
-                          <option value="">{t.all}</option>
-                          {EXPENSE_PAYMENT_STATUS.map((status) => (
-                            <option key={status} value={status}>
-                              {t.paymentStatusLabels[status as keyof typeof t.paymentStatusLabels] ?? status}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <Label>{t.categoryLabel}</Label>
-                        <select
-                          className="h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
-                          value={categoryFilter}
-                          onChange={(event) => setCategoryFilter(event.target.value)}
-                        >
-                          <option value="">{t.all}</option>
-                          {categories.map((category) => (
-                            <option key={category._id} value={category._id}>
-                              {resolveExpenseCategoryNameByLocale(category, locale)}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <Label>{t.supplierLabel}</Label>
-                        <select
-                          className="h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
-                          value={supplierFilter}
-                          onChange={(event) => setSupplierFilter(event.target.value)}
-                        >
-                          <option value="">{t.all}</option>
-                          {suppliers.map((supplier) => (
-                            <option key={supplier._id} value={supplier._id}>
-                              {supplier.fullName}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <Label>{t.periodStartLabel}</Label>
-                        <Input type="date" value={periodStart} onChange={(event) => setPeriodStart(event.target.value)} className="h-10 text-sm" />
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <Label>{t.periodEndLabel}</Label>
-                        <Input type="date" value={periodEnd} onChange={(event) => setPeriodEnd(event.target.value)} className="h-10 text-sm" />
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <Label>{t.sortByLabel}</Label>
-                        <select
-                          className="h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
-                          value={sortBy}
-                          onChange={(event) => setSortBy(event.target.value)}
-                        >
-                          {sortByOptions.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <Label>{t.sortOrderLabel}</Label>
-                        <select
-                          className="h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
-                          value={sortOrder}
-                          onChange={(event) => setSortOrder(event.target.value as 'asc' | 'desc')}
-                        >
-                          <option value="asc">{t.asc}</option>
-                          <option value="desc">{t.desc}</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <Label>{t.rowsPerPage}</Label>
-                        <select
-                          className="h-10 rounded-lg border border-input bg-transparent px-2.5 text-sm"
-                          value={String(limit)}
-                          onChange={(event) => setLimit(Number(event.target.value))}
-                        >
-                          <option value="10">10</option>
-                          <option value="20">20</option>
-                          <option value="50">50</option>
-                        </select>
-                      </div>
-
-                      <Button type="button" variant="outline" size="sm" onClick={resetFilters}>
-                        {activeFiltersCount > 0 ? (
-                          <span className="inline-flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
-                            {activeFiltersCount}
-                          </span>
-                        ) : null}
-                        {t.clearFilters}
-                      </Button>
-                    </div>
-                  </>
-                )}
-              </>
-            ) : (
+            {advancedFiltersOpen ? (
               <>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
                   <div className="space-y-1.5">
@@ -2593,7 +2431,7 @@ export default function ExpensesPage() {
                   </Button>
                 </div>
               </>
-            )}
+            ) : null}
 
             {lookupsLoading ? <p className="text-xs text-muted-foreground">{t.lookupsLoading}</p> : null}
             {lookupsError ? (
@@ -2601,7 +2439,7 @@ export default function ExpensesPage() {
                 {t.lookupsErrorTitle}: {lookupsError}
               </p>
             ) : null}
-            {(!isMobile || mobileAdvancedFiltersOpen) ? <p className="text-xs text-muted-foreground">{t.archivedHiddenHint}</p> : null}
+            {advancedFiltersOpen ? <p className="text-xs text-muted-foreground">{t.archivedHiddenHint}</p> : null}
             {statusFilter === 'archived' ? <p className="text-xs text-muted-foreground">{t.archivedReadOnlyHint}</p> : null}
           </CardContent>
         </Card>

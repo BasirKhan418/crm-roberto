@@ -408,11 +408,11 @@ const TOUR_BY_ROUTE: Record<string, (locale: Locale) => TourStep[]> = {
   '/expenses': (locale) => [
     {
       element: '[data-tour-expenses-header]',
-      title: locale === 'fr' ? 'Étape 1 - Espace dépenses' : 'Step 1 - Expenses workspace',
+      title: locale === 'fr' ? 'Étape 1 - Indicateurs dépenses' : 'Step 1 - Expense indicators',
       description:
         locale === 'fr'
-          ? 'Cette page centralise la capture, la création manuelle et la gestion complète de vos dépenses.'
-          : 'This page centralizes capture, manual entry, and full lifecycle management of your expenses.',
+          ? 'Sur mobile, les compteurs rapides restent visibles en haut. Sur desktop, les cartes KPI détaillent brouillons, paiements et totaux.'
+          : 'On mobile, quick counters stay at the top. On desktop, KPI cards show drafts, payment status, and totals.',
     },
     {
       element: '[data-tour-expenses-capture]',

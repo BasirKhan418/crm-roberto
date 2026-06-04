@@ -57,6 +57,8 @@ export interface KpiCardGroupProps {
   loading?: boolean;
   cols?: 3 | 4;
   skeletonCount?: number;
+  /** Tighter layout with less padding and smaller typography. */
+  compact?: boolean;
 }
 
 const ICONS: Record<KpiCardIcon, LucideIcon> = {
@@ -156,25 +158,47 @@ const variantStyles: Record<
   },
 };
 
-interface SkeletonCardProps { hasCount?: boolean; }
-function SkeletonCard({ hasCount = true }: SkeletonCardProps) {
+interface SkeletonCardProps {
+  compact?: boolean;
+  hasCount?: boolean;
+}
+
+function SkeletonCard({ compact = false, hasCount = true }: SkeletonCardProps) {
   return (
-    <div className="flex min-h-27.5 animate-pulse flex-col gap-2 rounded-xl border border-border/70 bg-card/95 p-4 shadow-md shadow-black/5 dark:shadow-black/20">
-      <div className="h-3 w-24 rounded bg-muted/50" />
-      {hasCount && <div className="h-10 w-16 rounded bg-muted/40 mt-1" />}
-      <div className={cn('h-4 w-28 rounded bg-muted/30', hasCount ? '' : 'mt-auto h-8 w-24')} />
+    <div
+      className={cn(
+        'flex animate-pulse flex-col rounded-lg border border-border/70 bg-card/95 shadow-sm dark:shadow-black/20',
+        compact ? 'min-h-14 gap-1 p-2.5' : 'min-h-27.5 gap-2 rounded-xl p-4 shadow-md shadow-black/5',
+      )}
+    >
+      <div className={cn('rounded bg-muted/50', compact ? 'h-2.5 w-20' : 'h-3 w-24')} />
+      {hasCount && <div className={cn('rounded bg-muted/40', compact ? 'mt-0.5 h-6 w-12' : 'mt-1 h-10 w-16')} />}
+      <div className={cn('rounded bg-muted/30', compact ? 'h-3 w-20' : hasCount ? 'h-4 w-28' : 'mt-auto h-8 w-24')} />
     </div>
   );
 }
 
-export default function KpiCards({ cards, locale, loading = false, cols = 4, skeletonCount = cols }: KpiCardGroupProps) {
+export default function KpiCards({
+  cards,
+  locale,
+  loading = false,
+  cols = 4,
+  skeletonCount = cols,
+  compact = false,
+}: KpiCardGroupProps) {
   const priceLocale = locale === 'fr' ? 'fr-FR' : 'en-GB';
-  const gridClass = cols === 3 ? 'grid grid-cols-2 gap-4 sm:grid-cols-3' : 'grid grid-cols-2 gap-4 sm:grid-cols-4';
+  const gridGap = compact ? 'gap-2' : 'gap-4';
+  const gridClass =
+    cols === 3
+      ? cn('grid grid-cols-2 sm:grid-cols-3', gridGap)
+      : cn('grid grid-cols-2 sm:grid-cols-4', gridGap);
 
   if (loading) {
     return (
       <div className={gridClass}>
-        {[...Array(skeletonCount)].map((_, i) => <SkeletonCard key={i} />)}
+        {[...Array(skeletonCount)].map((_, i) => (
+          <SkeletonCard key={i} compact={compact} />
+        ))}
       </div>
     );
   }
@@ -197,27 +221,54 @@ export default function KpiCards({ cards, locale, loading = false, cols = 4, ske
             disabled={!isClickable}
             aria-pressed={isClickable ? card.active : undefined}
             className={cn(
-              'flex min-h-27.5 flex-col rounded-xl border p-4 text-left shadow-sm transition-all duration-150',
+              'flex flex-col rounded-lg border text-left shadow-sm transition-all duration-150',
+              compact ? 'min-h-14 px-2.5 py-2' : 'min-h-27.5 rounded-xl p-4',
               s.base,
-              isClickable && [s.hover, 'cursor-pointer hover:-translate-y-1 hover:shadow-lg'],
+              isClickable && [
+                s.hover,
+                'cursor-pointer hover:shadow-md',
+                compact ? 'hover:-translate-y-px' : 'hover:-translate-y-1 hover:shadow-lg',
+              ],
               !isClickable && 'cursor-default',
               card.active && `ring-2 ${s.ring}`,
             )}
           >
             {/* Top row: label + icon */}
-            <div className="flex items-center justify-between">
-              <p className={cn('text-[11px] font-semibold uppercase tracking-wide', s.label)}>
+            <div className="flex items-center justify-between gap-1">
+              <p
+                className={cn(
+                  'font-semibold uppercase tracking-wide',
+                  compact ? 'text-[10px] leading-tight' : 'text-[11px]',
+                  s.label,
+                )}
+              >
                 {card.label}
               </p>
               {IconComponent && (
-                <IconComponent className={cn('size-4 shrink-0', s.icon)} aria-hidden="true" />
+                <IconComponent
+                  className={cn('shrink-0', compact ? 'size-3' : 'size-4', s.icon)}
+                  aria-hidden="true"
+                />
               )}
             </div>
 
             {/* Count cards stay bottom-weighted; amount-only totals are centered. */}
-            <div className={cn('mt-2 flex flex-1 flex-col gap-1', hasCount ? 'justify-end' : 'justify-center')}>
+            <div
+              className={cn(
+                'flex flex-1',
+                compact && hasCount
+                  ? 'mt-0.5 items-end justify-between gap-2'
+                  : cn('flex-col', compact ? 'mt-0.5 gap-0' : 'mt-2 gap-1', hasCount ? 'justify-end' : 'justify-center'),
+              )}
+            >
               {count !== undefined && (
-                <p className={cn('text-4xl font-bold tabular-nums leading-none', s.value)}>
+                <p
+                  className={cn(
+                    'shrink-0 font-bold tabular-nums leading-none',
+                    compact ? 'text-xl' : 'text-4xl',
+                    s.value,
+                  )}
+                >
                   {new Intl.NumberFormat(priceLocale).format(count)}
                 </p>
               )}
@@ -226,22 +277,35 @@ export default function KpiCards({ cards, locale, loading = false, cols = 4, ske
                 <PriceDisplay
                   cents={card.amount}
                   locale={priceLocale}
-                  compactAfterDigits={hasCount ? undefined : 8}
+                  compactAfterDigits={hasCount ? undefined : compact ? 10 : 8}
                   className={cn(
+                    'tabular-nums',
                     hasCount
-                      ? 'text-sm font-medium tabular-nums opacity-90'
-                      : 'mx-auto block w-full text-center text-base font-bold leading-tight tracking-tight whitespace-nowrap tabular-nums sm:text-2xl',
+                      ? cn(
+                          'min-w-0 font-medium opacity-90',
+                          compact ? 'text-right text-xs leading-tight' : 'text-sm',
+                        )
+                      : cn(
+                          'mx-auto block w-full text-center font-bold leading-tight tracking-tight whitespace-nowrap',
+                          compact ? 'text-sm sm:text-base' : 'text-base sm:text-2xl',
+                        ),
                     s.value,
                   )}
                 />
               )}
-
-              {card.footnote && (
-                <p className={cn('text-[10px] font-semibold tabular-nums tracking-wide opacity-80', s.label)}>
-                  {card.footnote}
-                </p>
-              )}
             </div>
+
+            {card.footnote ? (
+              <p
+                className={cn(
+                  'font-semibold tabular-nums tracking-wide opacity-80',
+                  compact ? 'mt-0.5 text-[9px] leading-tight' : 'mt-0 text-[10px]',
+                  s.label,
+                )}
+              >
+                {card.footnote}
+              </p>
+            ) : null}
           </button>
         );
       })}
