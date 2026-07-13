@@ -1658,6 +1658,10 @@ export function formatInvoiceDisplayNumber(locale: TranslationLocale, invoiceNum
   return `${LOCALE_INVOICE_DISPLAY_PREFIX[locale] ?? 'FAC'}${parts.suffix}`;
 }
 
+export function formatInvoiceReferencesInText(locale: TranslationLocale, value: string): string {
+  return value.replace(/\b(?:FAC|INV)-\d{4}-\d+\b/gi, (match) => formatInvoiceDisplayNumber(locale, match));
+}
+
 export function normalizeInvoiceNumberSearchTerm(searchTerm: string): string {
   const trimmed = searchTerm.trim();
   if (!trimmed) {

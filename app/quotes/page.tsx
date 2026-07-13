@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import QuoteTable, { type QuoteListItem, type QuoteTableColumnKey } from '@/components/quotes/QuoteTable';
 import SendQuoteModal from '@/components/quotes/SendQuoteModal';
 import CrmShell from '@/components/crm-shell';
+import { useAuthMe } from '@/hooks/useAuthMe';
 import { useQuotes, type QuoteStatusFilter } from '@/hooks/useQuotes';
 import { useQuotesActionCount } from '@/hooks/useQuotesActionCount';
 import { useLocale } from '@/components/providers/locale-provider';
@@ -31,6 +32,7 @@ import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMe
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import FinancialTotalsBar from '@/components/ui/FinancialTotalsBar';
 import KpiCards, { type KpiCard } from '@/components/ui/KpiCards';
+import { getDefaultCrmLandingPath, hasModuleActionAccess } from '@/lib/route-access';
 
 const COLUMN_STORAGE_KEY = 'crm.quote.visibleColumns.v1';
 const VIEW_STORAGE_KEY = 'crm.quote.viewConfig.v1';
@@ -48,6 +50,7 @@ function QuotesPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { locale } = useLocale();
+  const { user, loading: authLoading } = useAuthMe();
   const t = {
     en: {
       shellTitle: 'Quotes',
@@ -233,6 +236,16 @@ function QuotesPageContent() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [sendTarget, setSendTarget] = useState<QuoteListItem | null>(null);
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
+  const canViewQuotes = hasModuleActionAccess({ role: user?.role, modulePermissions: user?.modulePermissions, moduleKey: 'quotes', action: 'view' });
+  const canManageQuotes = hasModuleActionAccess({ role: user?.role, modulePermissions: user?.modulePermissions, moduleKey: 'quotes', action: 'manage' });
+
+  useEffect(() => {
+    if (authLoading || canViewQuotes) {
+      return;
+    }
+
+    router.replace(getDefaultCrmLandingPath(user?.role, user?.modulePermissions, user?.featureFlags));
+  }, [authLoading, canViewQuotes, router, user?.featureFlags, user?.modulePermissions, user?.role]);
 
   const { quotes, pagination, loading, error, refetch } = useQuotes(status, searchDebounced, sort, page, limit);
 
@@ -607,15 +620,17 @@ function QuotesPageContent() {
             <h1 className="font-heading text-2xl font-semibold tracking-tight">{t.heading}</h1>
             <p className="text-sm text-muted-foreground">{t.subtitle}</p>
           </div>
-          <Button type="button" className="w-full sm:w-auto h-10" data-tour-new-quote asChild>
-            <Link href="/quotes/new">
-              <PlusIcon className="size-4" />
-              {t.newQuote}
-            </Link>
-          </Button>
+          {canManageQuotes ? (
+            <Button type="button" className="w-full sm:w-auto h-10" data-tour-new-quote asChild>
+              <Link href="/quotes/new">
+                <PlusIcon className="size-4" />
+                {t.newQuote}
+              </Link>
+            </Button>
+          ) : null}
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-2">
           <KpiCards cards={quoteKpiCards} locale={locale as 'en' | 'fr'} loading={kpiLoading} />
           {!kpiLoading && quoteKpiTotalsCards.length > 0 ? <KpiCards cards={quoteKpiTotalsCards} locale={locale as 'en' | 'fr'} cols={3} /> : null}
         </div>
@@ -762,7 +777,11 @@ function QuotesPageContent() {
         ) : null}
 
         {!loading && quotes.length === 0 ? (
-          <EmptyState message={t.empty} actionLabel={t.newQuote} onAction={() => router.push('/quotes/new')} />
+          <EmptyState
+            message={t.empty}
+            actionLabel={canManageQuotes ? t.newQuote : undefined}
+            onAction={canManageQuotes ? () => router.push('/quotes/new') : undefined}
+          />
         ) : (
           <>
             <div data-tour-quotes-table>

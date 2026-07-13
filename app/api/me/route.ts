@@ -4,6 +4,8 @@ import { cookies } from "next/headers";
 import ConnectDb from "@/db/connectDb";
 import User from "@/db/models/User";
 import { createI18nKey as i18nKey } from "@/lib/i18n/messages";
+import { getEffectiveModulePermissions } from "@/lib/role-matrix";
+import type { ModulePermissionsMap, PermissionModuleKey } from "@/lib/permissions";
 import checkMe from "@/utils/middlewares/checkMe";
 
 const CLEAR_SESSION_MESSAGES = new Set([
@@ -62,10 +64,41 @@ export async function GET(request: NextRequest) {
             );
         }
 
+        const moduleKeys: PermissionModuleKey[] = [
+            "users",
+            "expenses",
+            "tickets",
+            "invoices",
+            "clients",
+            "suppliers",
+            "catalogue",
+            "quotes",
+            "notes",
+            "financialDashboard",
+            "settings",
+            "auditTrail",
+        ];
+
+        const modulePermissions = Object.fromEntries(
+            await Promise.all(
+                moduleKeys.map(async (moduleKey) => [
+                    moduleKey,
+                    await getEffectiveModulePermissions({
+                        companyId: me.user?.companyId,
+                        role: me.user?.role,
+                        moduleKey,
+                    }),
+                ])
+            )
+        ) as ModulePermissionsMap;
+
         return NextResponse.json({
             message: me.message || "User data fetched successfully",
             success: true,
-            user: me.user,
+            user: {
+                ...me.user,
+                modulePermissions,
+            },
         });
     } catch (error) {
         console.error("GET /api/me failed", error);

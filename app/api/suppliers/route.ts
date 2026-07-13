@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { createActivityLog } from '@/db/repository/activity';
 import { createSupplier, listSuppliers } from '@/db/repository/supplier';
+import { getCompanyUserIdStrings } from '@/lib/company-scope';
+import { requireModulePermission } from '@/lib/role-matrix';
 import { parseListQuery } from '@/utils/api/query';
 import { buildValidationError } from '@/utils/api/validation';
 import getMe from '@/utils/middlewares/useMe';
@@ -12,6 +14,11 @@ export async function GET(request: NextRequest) {
     const me = await getMe(true);
     if (!me.success || !me.user) {
       return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
+    }
+
+    const permission = await requireModulePermission({ companyId: me.user.companyId, role: me.user.role, moduleKey: 'suppliers', action: 'view' });
+    if (!permission.success) {
+      return NextResponse.json({ success: false, message: permission.message }, { status: permission.status });
     }
 
     const options = parseListQuery(request.nextUrl.searchParams, {
@@ -31,7 +38,8 @@ export async function GET(request: NextRequest) {
         ? rawCategory
         : undefined;
 
-    const result = await listSuppliers(me.user.id, options, { category });
+    const scopedUserIds = await getCompanyUserIdStrings({ companyId: me.user.companyId, fallbackUserId: me.user.id });
+    const result = await listSuppliers(scopedUserIds, options, { category });
 
     return NextResponse.json({
       success: true,
@@ -48,6 +56,11 @@ export async function POST(request: NextRequest) {
     const me = await getMe(true);
     if (!me.success || !me.user) {
       return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
+    }
+
+    const permission = await requireModulePermission({ companyId: me.user.companyId, role: me.user.role, moduleKey: 'suppliers', action: 'create' });
+    if (!permission.success) {
+      return NextResponse.json({ success: false, message: permission.message }, { status: permission.status });
     }
 
     const body = await request.json();

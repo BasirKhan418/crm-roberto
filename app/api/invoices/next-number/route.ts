@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import ConnectDb from '@/db/connectDb';
 import { ensureInvoiceIndexes } from '@/db/repository/ensureInvoiceIndexes';
 import { getNextInvoiceNumberForYear } from '@/lib/invoice-number';
+import { requireModulePermission } from '@/lib/role-matrix';
 import getMe from '@/utils/middlewares/useMe';
 
 export async function GET() {
@@ -10,6 +11,11 @@ export async function GET() {
     const me = await getMe(true);
     if (!me.success || !me.user) {
       return NextResponse.json({ message: me.message || 'Unauthorized' }, { status: 401 });
+    }
+
+    const permission = await requireModulePermission({ companyId: me.user.companyId, role: me.user.role, moduleKey: 'invoices', action: 'create' });
+    if (!permission.success) {
+      return NextResponse.json({ message: permission.message }, { status: permission.status });
     }
 
     await ConnectDb();

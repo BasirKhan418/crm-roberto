@@ -48,6 +48,12 @@ export interface SupplierTimelineResult {
   pagination: PaginationMeta;
 }
 
+type UserScope = string | string[];
+
+function userScopeQuery(userScope: UserScope) {
+  return Array.isArray(userScope) ? { user: { $in: userScope } } : { user: userScope };
+}
+
 function isValidObjectId(value: string): boolean {
   return mongoose.Types.ObjectId.isValid(value);
 }
@@ -64,13 +70,13 @@ export const createSupplier = async (userId: string, payload: CreateSupplierDTO)
 };
 
 export const listSuppliers = async (
-  userId: string,
+  userId: UserScope,
   options: ListQueryOptions,
   filters?: { category?: 'materials' | 'logistics' | 'services' | 'technology' | 'other' }
 ): Promise<SupplierListResult> => {
   await ConnectDb();
 
-  const query: Record<string, unknown> = { user: userId };
+  const query: Record<string, unknown> = userScopeQuery(userId);
 
   if (filters?.category) {
     query.category = filters.category;
@@ -111,19 +117,19 @@ export const listSuppliers = async (
   };
 };
 
-export const getSupplierById = async (userId: string, supplierId: string): Promise<SupplierRecord | null> => {
+export const getSupplierById = async (userId: UserScope, supplierId: string): Promise<SupplierRecord | null> => {
   await ConnectDb();
 
   if (!isValidObjectId(supplierId)) {
     return null;
   }
 
-  const supplier = await Supplier.findOne({ _id: supplierId, user: userId }).lean();
+  const supplier = await Supplier.findOne({ _id: supplierId, ...userScopeQuery(userId) }).lean();
   return (supplier as SupplierRecord | null) || null;
 };
 
 export const updateSupplierById = async (
-  userId: string,
+  userId: UserScope,
   supplierId: string,
   payload: UpdateSupplierDTO
 ): Promise<SupplierRecord | null> => {
@@ -133,7 +139,7 @@ export const updateSupplierById = async (
     return null;
   }
 
-  const updated = await Supplier.findOneAndUpdate({ _id: supplierId, user: userId }, payload, {
+  const updated = await Supplier.findOneAndUpdate({ _id: supplierId, ...userScopeQuery(userId) }, payload, {
     returnDocument: 'after',
     runValidators: true,
   }).lean();
@@ -141,20 +147,20 @@ export const updateSupplierById = async (
   return (updated as SupplierRecord | null) || null;
 };
 
-export const deleteSupplierById = async (userId: string, supplierId: string): Promise<boolean> => {
+export const deleteSupplierById = async (userId: UserScope, supplierId: string): Promise<boolean> => {
   await ConnectDb();
 
   if (!isValidObjectId(supplierId)) {
     return false;
   }
 
-  await Note.deleteMany({ user: userId, linkedType: 'supplier', linkedId: supplierId });
-  const result = await Supplier.deleteOne({ _id: supplierId, user: userId });
+  await Note.deleteMany({ ...userScopeQuery(userId), linkedType: 'supplier', linkedId: supplierId });
+  const result = await Supplier.deleteOne({ _id: supplierId, ...userScopeQuery(userId) });
   return result.deletedCount === 1;
 };
 
 export const listSupplierTimelineNotes = async (
-  userId: string,
+  userId: UserScope,
   supplierId: string,
   options: Pick<ListQueryOptions, 'page' | 'limit' | 'search'>
 ): Promise<SupplierTimelineResult> => {
@@ -168,7 +174,7 @@ export const listSupplierTimelineNotes = async (
   }
 
   const query: Record<string, unknown> = {
-    user: userId,
+    ...userScopeQuery(userId),
     linkedType: 'supplier',
     linkedId: supplierId,
   };

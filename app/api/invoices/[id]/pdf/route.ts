@@ -8,9 +8,11 @@ import Invoice from '@/db/models/Invoice';
 import Payment from '@/db/models/Payment';
 import { getCompanyProfileByUserId } from '@/db/repository/cprofile';
 import { extractClientSnapshot } from '@/lib/address';
+import { buildUserScopeQuery, getCompanyUserObjectIds } from '@/lib/company-scope';
 import { formatInvoiceDisplayNumber } from '@/lib/i18n/messages';
 import { resolveLocaleFromValue } from '@/lib/i18n/locale';
 import { InvoicePdfTemplate } from '@/lib/pdf/InvoicePdfTemplate';
+import { requireModulePermission } from '@/lib/role-matrix';
 import { buildInvoicePayUrl, isTokenExpired } from '@/lib/tokens';
 import getMe from '@/utils/middlewares/useMe';
 
@@ -27,6 +29,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
     }
 
+    const permission = await requireModulePermission({ companyId: me.user.companyId, role: me.user.role, moduleKey: 'invoices', action: 'view' });
+    if (!permission.success) {
+      return NextResponse.json({ success: false, message: permission.message }, { status: permission.status });
+    }
+
     const rawLocale = request.nextUrl.searchParams.get('locale');
     const locale = resolveLocaleFromValue(rawLocale, resolveLocaleFromValue(me.user.locale, 'fr'));
 
@@ -34,9 +41,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     await ConnectDb();
 
-    const invoice = await Invoice.findOne({ _id: id, userId: me.user.id })
+    const scopedUserObjectIds = await getCompanyUserObjectIds({ companyId: me.user.companyId, fallbackUserId: me.user.id });
+    const invoice = await Invoice.findOne({ _id: id, ...buildUserScopeQuery('userId', scopedUserObjectIds) })
       .select(
-        '_id invoiceNumber quoteNumber date dueDate status lineItems totalExcludingTax totalVat totalIncludingTax depositPercentage notes paymentToken paymentTokenExpiry clientSnapshot'
+        '_id userId invoiceNumber quoteNumber date dueDate status lineItems totalExcludingTax totalVat totalIncludingTax depositPercentage notes paymentToken paymentTokenExpiry clientSnapshot'
       )
       .lean();
 
@@ -44,7 +52,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, message: 'Invoice not found' }, { status: 404 });
     }
 
-    const companyResult = await getCompanyProfileByUserId(me.user.id);
+    const invoiceOwnerId = String(invoice.userId);
+    const companyResult = await getCompanyProfileByUserId(invoiceOwnerId);
     const profile = companyResult.success
       ? (companyResult.profile as {
           companyName?: string | null;
@@ -97,7 +106,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     const payments = await Payment.find({
       invoiceId: invoice._id,
-      userId: me.user.id,
+      userId: invoiceOwnerId,
       status: 'succeeded',
     })
       .sort({ paidAt: -1, createdAt: -1 })

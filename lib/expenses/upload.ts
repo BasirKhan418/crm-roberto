@@ -21,6 +21,7 @@ export function getExpenseFileExtension(fileName: string, mimeType: string): str
   if (mimeType === "image/jpeg") return "jpg";
   if (mimeType === "image/png") return "png";
   if (mimeType === "image/heic") return "heic";
+  if (mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") return "docx";
 
   return "bin";
 }

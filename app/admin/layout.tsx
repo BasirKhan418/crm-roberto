@@ -1,18 +1,78 @@
 'use client';
 
 import type { CSSProperties } from 'react';
+import { useMemo } from 'react';
 import { usePathname } from 'next/navigation';
 
 import { AdminSidebar } from '@/components/admin-sidebar';
 import { LanguageThemeToggle } from '@/components/language-theme-toggle';
-import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
-import { Separator } from '@/components/ui/separator';
+import { useLocale } from '@/components/providers/locale-provider';
+import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
+import { WorkspaceHeader } from '@/components/workspace-header';
+import { cn } from '@/lib/utils';
+
+const adminMessages = {
+  en: {
+    eyebrow: 'Super admin',
+    badge: 'Platform access',
+    panelBadge: 'Admin panel',
+    dashboard: {
+      title: 'Platform dashboard',
+      description: 'Operate companies, feature access, and platform activity from the same workspace framing used across the CRM.',
+      tone: 'bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.12),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.4),rgba(241,245,249,0.96))]',
+    },
+    companies: {
+      title: 'Companies',
+      description: 'Review company health, feature exposure, and ownership at a glance before drilling into activity details.',
+      tone: 'bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.12),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.4),rgba(236,253,245,0.92))]',
+    },
+    logs: {
+      title: 'Platform logs',
+      description: 'Review admin activity, access attempts, and platform signals in a more structured operations workspace.',
+      tone: 'bg-[radial-gradient(circle_at_top,rgba(244,63,94,0.12),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.4),rgba(255,241,242,0.92))]',
+    },
+  },
+  fr: {
+    eyebrow: 'Super admin',
+    badge: 'Acces plateforme',
+    panelBadge: 'Panneau admin',
+    dashboard: {
+      title: 'Tableau plateforme',
+      description: 'Pilotez les entreprises, les modules et l activite plateforme dans un cadre aligne sur le CRM.',
+      tone: 'bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.12),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.4),rgba(241,245,249,0.96))]',
+    },
+    companies: {
+      title: 'Entreprises',
+      description: 'Suivez la sante des entreprises, leurs modules actifs et leur proprietaire avant de plonger dans les logs.',
+      tone: 'bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.12),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.4),rgba(236,253,245,0.92))]',
+    },
+    logs: {
+      title: 'Journaux plateforme',
+      description: 'Analysez les actions admin et les tentatives d acces dans un espace operations plus clair.',
+      tone: 'bg-[radial-gradient(circle_at_top,rgba(244,63,94,0.12),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.4),rgba(255,241,242,0.92))]',
+    },
+  },
+} as const;
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isLoginPage = pathname === '/admin/login';
+  const { locale } = useLocale();
+  const isAuthPage = pathname === '/admin/login' || pathname === '/admin/forgot-password';
+  const t = adminMessages[locale];
 
-  if (isLoginPage) {
+  const routeMeta = useMemo(() => {
+    if (pathname.startsWith('/admin/companies')) {
+      return t.companies;
+    }
+
+    if (pathname.startsWith('/admin/logs')) {
+      return t.logs;
+    }
+
+    return t.dashboard;
+  }, [pathname, t]);
+
+  if (isAuthPage) {
     return (
       <div className="flex min-h-dvh flex-col bg-background">
         {children}
@@ -24,27 +84,44 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     <SidebarProvider
       style={
         {
-          '--sidebar-width': 'calc(var(--spacing) * 68)',
-          '--header-height': 'calc(var(--spacing) * 12)',
+          '--sidebar-width': 'calc(var(--spacing) * 70)',
+          '--header-height': 'calc(var(--spacing) * 14)',
         } as CSSProperties
       }
     >
       <AdminSidebar variant="inset" />
-      <SidebarInset>
-       
-        <header className="sticky top-0 z-20 flex h-12 shrink-0 items-center gap-2 border-b border-border/60 bg-background/95 px-4 backdrop-blur-sm">
-          <SidebarTrigger className="-ml-1" />
-          <Separator orientation="vertical" className="mx-1 h-4" />
-          <span className="text-sm font-semibold text-foreground">Admin Panel</span>
-          <div className="ml-auto">
-            <LanguageThemeToggle />
-          </div>
-        </header>
-        <main className="flex min-h-0 flex-1 flex-col">
-          <div className="flex min-h-0 flex-1 flex-col gap-4 px-4 py-4 lg:px-6 lg:py-6">
-            {children}
-          </div>
-        </main>
+      <SidebarInset className="overflow-hidden bg-transparent">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.10),transparent_24%),radial-gradient(circle_at_bottom_right,rgba(14,165,233,0.08),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.94),rgba(248,250,252,1))] dark:bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.12),transparent_24%),radial-gradient(circle_at_bottom_right,rgba(14,165,233,0.10),transparent_28%),linear-gradient(180deg,rgba(2,6,23,0.94),rgba(15,23,42,1))]" />
+        <div className="relative flex min-h-svh flex-1 flex-col">
+          <WorkspaceHeader
+            title={routeMeta.title}
+            description={routeMeta.description}
+            actions={
+              <>
+                <div className="hidden rounded-full border border-slate-200/80 bg-white/80 px-3 py-1 text-xs font-medium text-slate-600 shadow-sm dark:border-slate-800 dark:bg-slate-950/80 dark:text-slate-300 lg:inline-flex">
+                  {t.panelBadge}
+                </div>
+                <LanguageThemeToggle className="shrink-0" />
+              </>
+            }
+          />
+
+          <main className="flex min-h-0 flex-1 flex-col">
+            <div
+              className={cn(
+                '@container/main flex min-h-0 min-w-0 flex-1 flex-col gap-4 px-4 py-4 pb-[calc(1rem+var(--app-safe-area-bottom)+var(--app-keyboard-inset-height))] scroll-pb-[calc(5rem+var(--app-keyboard-inset-height))] lg:px-6 lg:py-6',
+                routeMeta.tone,
+              )}
+            >
+              <div className="relative min-w-0 overflow-x-clip rounded-[28px] border border-white/70 bg-white/90 p-3 shadow-[0_24px_80px_rgba(15,23,42,0.08)] backdrop-blur-sm dark:border-slate-800/70 dark:bg-slate-950/55 dark:shadow-[0_24px_80px_rgba(2,6,23,0.45)] sm:p-4">
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-slate-200/80 to-transparent dark:via-slate-700/70" />
+                <div className="relative flex min-w-0 flex-col gap-4 *:min-w-0">
+                  {children}
+                </div>
+              </div>
+            </div>
+          </main>
+        </div>
       </SidebarInset>
     </SidebarProvider>
   );

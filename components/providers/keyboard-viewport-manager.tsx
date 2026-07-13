@@ -10,6 +10,8 @@ const EDITABLE_SELECTOR = [
   '[role="textbox"]',
 ].join(", ");
 
+const KEYBOARD_SCROLL_DISABLE_SELECTOR = '[data-disable-keyboard-scroll="true"]';
+
 function getEditableElement(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) {
     return null;
@@ -28,6 +30,10 @@ function scrollFocusedFieldIntoView(target: EventTarget | null) {
     return;
   }
 
+  if (field.closest(KEYBOARD_SCROLL_DISABLE_SELECTOR)) {
+    return;
+  }
+
   window.requestAnimationFrame(() => {
     window.requestAnimationFrame(() => {
       const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
@@ -37,9 +43,9 @@ function scrollFocusedFieldIntoView(target: EventTarget | null) {
 
       if (fieldRect.top < topThreshold || fieldRect.bottom > bottomThreshold) {
         field.scrollIntoView({
-          block: "center",
+          block: "nearest",
           inline: "nearest",
-          behavior: "smooth",
+          behavior: "auto",
         });
       }
     });
@@ -60,16 +66,43 @@ function syncViewportVariables(root: HTMLElement) {
 export function KeyboardViewportManager() {
   useEffect(() => {
     const root = document.documentElement;
+    let delayedViewportSyncTimeouts: number[] = [];
+
+    function clearDelayedViewportSync() {
+      if (delayedViewportSyncTimeouts.length > 0) {
+        delayedViewportSyncTimeouts.forEach((timeoutId) => {
+          window.clearTimeout(timeoutId);
+        });
+        delayedViewportSyncTimeouts = [];
+      }
+    }
+
+    function scheduleViewportSyncAfterBlur() {
+      clearDelayedViewportSync();
+
+      window.requestAnimationFrame(() => {
+        syncViewportVariables(root);
+
+        window.requestAnimationFrame(() => {
+          syncViewportVariables(root);
+        });
+      });
+
+      delayedViewportSyncTimeouts = [120, 260, 420].map((delay) =>
+        window.setTimeout(() => {
+          syncViewportVariables(root);
+        }, delay)
+      );
+    }
 
     function handleFocusIn(event: FocusEvent) {
+      clearDelayedViewportSync();
       syncViewportVariables(root);
       scrollFocusedFieldIntoView(event.target);
     }
 
     function handleFocusOut() {
-      window.requestAnimationFrame(() => {
-        syncViewportVariables(root);
-      });
+      scheduleViewportSyncAfterBlur();
     }
 
     function handleViewportResize() {
@@ -92,6 +125,7 @@ export function KeyboardViewportManager() {
     window.addEventListener("resize", handleViewportResize);
 
     return () => {
+      clearDelayedViewportSync();
       document.removeEventListener("focusin", handleFocusIn);
       document.removeEventListener("focusout", handleFocusOut);
       viewport?.removeEventListener("resize", handleViewportResize);

@@ -408,11 +408,11 @@ const TOUR_BY_ROUTE: Record<string, (locale: Locale) => TourStep[]> = {
   '/expenses': (locale) => [
     {
       element: '[data-tour-expenses-header]',
-      title: locale === 'fr' ? 'Étape 1 - Espace dépenses' : 'Step 1 - Expenses workspace',
+      title: locale === 'fr' ? 'Étape 1 - Indicateurs dépenses' : 'Step 1 - Expense indicators',
       description:
         locale === 'fr'
-          ? 'Cette page centralise la capture, la création manuelle et la gestion complète de vos dépenses.'
-          : 'This page centralizes capture, manual entry, and full lifecycle management of your expenses.',
+          ? 'Sur mobile, les compteurs rapides restent visibles en haut. Sur desktop, les cartes KPI détaillent brouillons, paiements et totaux.'
+          : 'On mobile, quick counters stay at the top. On desktop, KPI cards show drafts, payment status, and totals.',
     },
     {
       element: '[data-tour-expenses-capture]',
@@ -427,8 +427,8 @@ const TOUR_BY_ROUTE: Record<string, (locale: Locale) => TourStep[]> = {
       title: locale === 'fr' ? 'Étape 3 - Filtres et tri' : 'Step 3 - Filters and sorting',
       description:
         locale === 'fr'
-          ? 'Filtrez par statut, paiement, catégorie, fournisseur ou période pour retrouver rapidement une dépense.'
-          : 'Filter by status, payment, category, supplier, or date range to find any expense quickly.',
+          ? 'Utilisez la recherche et les filtres rapides en haut. Ouvrez Filtres avancés pour le statut, la catégorie, le fournisseur ou la période.'
+          : 'Use search and quick filters at the top. Open Advanced filters for status, category, supplier, or date range.',
     },
     {
       element: '[data-tour-expenses-list]',
@@ -461,8 +461,8 @@ const TOUR_BY_ROUTE: Record<string, (locale: Locale) => TourStep[]> = {
       title: locale === 'fr' ? 'Étape 3 - Filtres' : 'Step 3 - Filters',
       description:
         locale === 'fr'
-          ? 'Filtrez par statut, type, lien, ou cochez les cases pour voir les tickets qui vous sont assignés ou que vous avez créés.'
-          : 'Filter by status, type, linked record, or use checkboxes to see tickets assigned to or created by you.',
+          ? 'Utilisez la recherche et les filtres rapides (Tous, Ouvert, etc.). Ouvrez Filtres avancés pour le type, la ressource liée et les options personnelles.'
+          : 'Use search and quick status filters (All, Open, etc.). Open Advanced filters for type, linked record, and personal options.',
     },
     {
       element: '[data-tour-tickets-list]',

@@ -1,6 +1,6 @@
 # CRM Roberto Database Schema
 
-Last updated: 2026-05-25
+Last updated: 2026-07-13
 
 The database layer uses MongoDB with Mongoose models in `db/models`. Most financial amounts are stored as integer cents where the model name includes `Cents`; quote/invoice line-item totals are stored as numeric values used by existing calculation helpers.
 
@@ -9,6 +9,8 @@ The database layer uses MongoDB with Mongoose models in `db/models`. Most financ
 ```mermaid
 erDiagram
   Company ||--o{ User : has
+  Company ||--o{ RoleMatrix : configures
+  Company ||--o{ ConnectionLog : records
   User ||--o{ Client : owns
   User ||--o{ Supplier : owns
   User ||--o{ Catalogue : owns
@@ -68,6 +70,8 @@ Important fields:
 - `name`, `slug`
 - `status`: `active`, `suspended`
 - `ownerUserId`
+- `featureFlags`: `expenses`, `tickets`, `financialDashboard`, `accountantPortal`, `exports`, `advancedRoles`
+- `suspendedAt`, `deletedAt`
 
 Indexes:
 
@@ -76,6 +80,47 @@ Indexes:
 - `ownerUserId`
 - `{ ownerUserId, status }`
 - `{ createdAt: -1 }`
+
+`featureFlags` is the per-company license/module configuration managed from the Super Admin portal. It gates the corresponding Company CRM and Accountant Portal features.
+
+### Admin
+
+Purpose: Separate Super Admin portal identity. Admin users do not share the standard CRM `User` session model.
+
+Important fields:
+
+- `name`, unique normalized `email`
+- `password`: hidden from normal query selection
+
+### RoleMatrix
+
+Purpose: Per-company overrides for assignable Company CRM role permissions when the `advancedRoles` feature is enabled.
+
+Important fields:
+
+- `companyId`, `role`, `moduleKey`, `updatedBy`
+- `permissions`: `canView`, `canCreate`, `canEdit`, `canDelete`, `canExport`, `canManage`
+
+Indexes:
+
+- Unique `{ companyId, role, moduleKey }`
+
+### ConnectionLog
+
+Purpose: Platform-facing sign-in and access-event audit log, including Accountant Portal sign-in attempts.
+
+Important fields:
+
+- Optional `userId`, optional `companyId`, `role`
+- `eventType`: `login_success`, `login_failed`, `logout`, `portal_login_success`, `portal_login_failed`, `force_logout`, `revoke_access`, `impersonation_start`, `impersonation_stop`
+- `ipAddress`, `userAgent`, `deviceLabel`
+
+Indexes:
+
+- `{ companyId, createdAt: -1 }`
+- `{ userId, createdAt: -1 }`
+- `{ eventType, createdAt: -1 }`
+- `{ companyId, userId, eventType, createdAt: -1 }`
 
 ### CompanyProfile
 
@@ -320,6 +365,8 @@ Important fields:
 - Payment: `paymentMethod`, `paidBy`, `amountPaidCents`
 - `supplierRef`, `expenseType`, `notes`, `projectId`
 - User audit: `createdBy`, `updatedBy`
+- OCR state: `ocrStatus`, `ocrError`, `ocrQueuedAt`, `ocrStartedAt`, `ocrCompletedAt`, `ocrFailedAt`
+- OCR payload: `ocrText`, `ocrConfidence`, `ocrExtraction`
 - Duplicate tracking: `isDuplicate`, `duplicatedFromExpenseId`, `duplicatedAt`
 
 Indexes:
@@ -329,6 +376,13 @@ Indexes:
 - `{ companyId, supplierId, expenseDate: -1 }`
 - `{ companyId, categoryId, expenseDate: -1 }`
 - `{ companyId, paymentStatus, expenseDate: -1 }`
+- `ocrStatus`
+
+Draft OCR behavior:
+
+- Upload-created drafts start with `ocrStatus: pending`, then move through `queued`, `processing`, `completed`, or `failed`.
+- The worker only patches expenses that are still in `draft` status.
+- OCR patching is conservative: it fills empty or default draft fields and avoids overwriting values already entered manually.
 
 ### ExpenseCategory
 

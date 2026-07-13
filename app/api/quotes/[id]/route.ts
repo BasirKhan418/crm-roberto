@@ -5,7 +5,9 @@ import Invoice from '@/db/models/Invoice';
 import Quote from '@/db/models/Quote';
 import { createActivityLog } from '@/db/repository/activity';
 import { deleteQuoteById, getQuoteById, updateQuoteById } from '@/db/repository/quote';
+import { getCompanyUserIdStrings } from '@/lib/company-scope';
 import { buildQuoteConversation } from '@/lib/quote-conversation';
+import { requireModulePermission } from '@/lib/role-matrix';
 import { buildValidationError } from '@/utils/api/validation';
 import getMe from '@/utils/middlewares/useMe';
 import { updateQuoteSchema } from '@/validators/quote.schema';
@@ -22,7 +24,13 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     }
 
     const { id } = await params;
-    const quote = await getQuoteById(me.user.id, id);
+    const permission = await requireModulePermission({ companyId: me.user.companyId, role: me.user.role, moduleKey: 'quotes', action: 'view' });
+    if (!permission.success) {
+      return NextResponse.json({ success: false, message: permission.message }, { status: permission.status });
+    }
+
+    const scopedUserIds = await getCompanyUserIdStrings({ companyId: me.user.companyId, fallbackUserId: me.user.id });
+    const quote = await getQuoteById(scopedUserIds, id);
 
     if (!quote) {
       return NextResponse.json({ success: false, message: 'Quote not found' }, { status: 404 });
@@ -32,7 +40,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     // to block the detail page on this. Explicitly setting `ownerHasUnread`
     // tells the schema hook not to auto-flip it back to `true`.
     Quote.updateOne(
-      { _id: quote._id, user: me.user.id },
+      { _id: quote._id, user: { $in: scopedUserIds } },
       { $set: { ownerHasUnread: false } },
       { timestamps: false, strict: false }
     ).catch(() => {
@@ -44,7 +52,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 
     if (quote.convertedToInvoice && quote.invoiceId) {
       await ConnectDb();
-      const linkedInvoice = await Invoice.findOne({ _id: quote.invoiceId, userId: me.user.id })
+      const linkedInvoice = await Invoice.findOne({ _id: quote.invoiceId, userId: { $in: scopedUserIds } })
         .select('invoiceNumber date createdAt')
         .lean<{ invoiceNumber?: string; date?: Date | null; createdAt?: Date | null } | null>();
 
@@ -88,7 +96,14 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     const { id } = await params;
-    const result = await updateQuoteById(me.user.id, id, parsed.data);
+
+    const permission = await requireModulePermission({ companyId: me.user.companyId, role: me.user.role, moduleKey: 'quotes', action: 'edit' });
+    if (!permission.success) {
+      return NextResponse.json({ success: false, message: permission.message }, { status: permission.status });
+    }
+
+    const scopedUserIds = await getCompanyUserIdStrings({ companyId: me.user.companyId, fallbackUserId: me.user.id });
+    const result = await updateQuoteById(scopedUserIds, id, parsed.data);
 
     if (result.kind === 'not-found') {
       return NextResponse.json({ success: false, message: 'Quote not found' }, { status: 404 });
@@ -129,7 +144,14 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
     }
 
     const { id } = await params;
-    const deleted = await deleteQuoteById(me.user.id, id);
+
+    const permission = await requireModulePermission({ companyId: me.user.companyId, role: me.user.role, moduleKey: 'quotes', action: 'delete' });
+    if (!permission.success) {
+      return NextResponse.json({ success: false, message: permission.message }, { status: permission.status });
+    }
+
+    const scopedUserIds = await getCompanyUserIdStrings({ companyId: me.user.companyId, fallbackUserId: me.user.id });
+    const deleted = await deleteQuoteById(scopedUserIds, id);
     if (!deleted) {
       return NextResponse.json({ success: false, message: 'Quote not found' }, { status: 404 });
     }

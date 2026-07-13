@@ -6,11 +6,13 @@ import Quote from '@/db/models/Quote';
 import { getCompanyProfileByUserId } from '@/db/repository/cprofile';
 import { getQuoteById, updateQuoteStatusById } from '@/db/repository/quote';
 import { createActivityLog } from '@/db/repository/activity';
+import { getCompanyUserIdStrings } from '@/lib/company-scope';
 import { sendQuoteEmail } from '@/lib/email';
 import { extractClientSnapshot } from '@/lib/address';
 import { computeQuoteLine } from '@/lib/quote-calculations';
 import { QuotePdfTemplate } from '@/lib/pdf/QuotePdfTemplate';
 import { buildSignUrl, generateSignToken, generateTokenExpiry } from '@/lib/tokens';
+import { requireModulePermission } from '@/lib/role-matrix';
 import getMe from '@/utils/middlewares/useMe';
 
 export const runtime = 'nodejs';
@@ -26,6 +28,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
     }
 
+    const permission = await requireModulePermission({ companyId: me.user.companyId, role: me.user.role, moduleKey: 'quotes', action: 'manage' });
+    if (!permission.success) {
+      return NextResponse.json({ success: false, message: permission.message }, { status: permission.status });
+    }
+
     const body = await request.json();
     const { email, subject, message, locale: rawLocale } = body as {
       email?: string;
@@ -36,8 +43,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     const locale: 'en' | 'fr' = rawLocale === 'fr' ? 'fr' : 'en';
     const { id } = await params;
+    const scopedUserIds = await getCompanyUserIdStrings({ companyId: me.user.companyId, fallbackUserId: me.user.id });
 
-    const quote = await getQuoteById(me.user.id, id);
+    const quote = await getQuoteById(scopedUserIds, id);
     if (!quote) {
       return NextResponse.json({ success: false, message: 'Quote not found' }, { status: 404 });
     }
@@ -220,7 +228,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
 
     if (quote.status === 'draft' || quote.status === 'rejected') {
-      await updateQuoteStatusById(me.user.id, id, { to: 'sent' });
+      await updateQuoteStatusById(scopedUserIds, id, { to: 'sent' });
     }
 
 

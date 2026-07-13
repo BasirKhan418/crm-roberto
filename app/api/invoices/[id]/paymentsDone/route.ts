@@ -4,6 +4,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import ConnectDb from '@/db/connectDb';
 import Invoice from '@/db/models/Invoice';
 import Payment from '@/db/models/Payment';
+import { buildUserScopeQuery, getCompanyUserObjectIds } from '@/lib/company-scope';
+import { requireModulePermission } from '@/lib/role-matrix';
 import getMe from '@/utils/middlewares/useMe';
 
 interface RouteParams {
@@ -18,6 +20,11 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ message: me.message || 'Unauthorized' }, { status: 401 });
     }
 
+    const permission = await requireModulePermission({ companyId: me.user.companyId, role: me.user.role, moduleKey: 'invoices', action: 'view' });
+    if (!permission.success) {
+      return NextResponse.json({ message: permission.message }, { status: permission.status });
+    }
+
     const { id } = await params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json({ message: 'Not found' }, { status: 404 });
@@ -25,12 +32,16 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
 
     await ConnectDb();
 
-    const invoice = await Invoice.findOne({ _id: id, userId: me.user.id }).select('_id').lean();
+    const scopedUserObjectIds = await getCompanyUserObjectIds({ companyId: me.user.companyId, fallbackUserId: me.user.id });
+    const invoice = await Invoice.findOne({ _id: id, ...buildUserScopeQuery('userId', scopedUserObjectIds) }).select('_id userId').lean<{
+      _id: mongoose.Types.ObjectId;
+      userId: mongoose.Types.ObjectId;
+    }>();
     if (!invoice) {
       return NextResponse.json({ message: 'Not found' }, { status: 404 });
     }
 
-    const payments = await Payment.find({ invoiceId: id, userId: me.user.id })
+    const payments = await Payment.find({ invoiceId: invoice._id, userId: invoice.userId })
       .sort({ paidAt: -1, createdAt: -1 })
       .lean();
 

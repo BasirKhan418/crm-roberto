@@ -1,12 +1,14 @@
 'use client';
 
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowDownIcon, ArrowUpIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import ActivityFeed from '@/components/dashboard/ActivityFeed';
 import CollectionWidget from '@/components/dashboard/CollectionWidget';
+import { FinancialOverviewFoundation } from '@/components/dashboard/financial-overview';
+import MyExpensesTodayWidget from '@/components/dashboard/MyExpensesTodayWidget';
 import MyTicketsWidget from '@/components/dashboard/MyTicketsWidget';
 import PriorityActionsPanel from '@/components/dashboard/PriorityActionsPanel';
 import QuickAddButtons from '@/components/dashboard/QuickAddButtons';
@@ -19,20 +21,25 @@ import { useLocale } from '@/components/providers/locale-provider';
 import { Button } from '@/components/ui/button';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import { useDashboard } from '@/hooks/useDashboard';
+import { useAuthMe } from '@/hooks/useAuthMe';
+import { canAccessCrmPath, getDefaultCrmLandingPath, hasModuleActionAccess } from '@/lib/route-access';
 
-type DashboardBlockKey = 'smartActions' | 'stats' | 'myTickets' | 'collection' | 'activity' | 'recentQuotes' | 'recurrences';
+type DashboardBlockKey = 'smartActions' | 'financialOverview' | 'stats' | 'expensesToday' | 'myTickets' | 'collection' | 'activity' | 'recentQuotes' | 'recurrences';
 type DashboardPrefs = {
   order: DashboardBlockKey[];
   visible: Record<DashboardBlockKey, boolean>;
 };
 
-const DASHBOARD_PREFS_KEY = 'crm.dashboard.blocks.v3';
+const DASHBOARD_PREFS_KEY = 'crm.dashboard.blocks.v4';
+const LEGACY_DASHBOARD_PREFS_KEY_V3 = 'crm.dashboard.blocks.v3';
 const LEGACY_DASHBOARD_PREFS_KEY = 'crm.dashboard.blocks.v1';
 const LEGACY_DASHBOARD_PREFS_KEY_V2 = 'crm.dashboard.blocks.v2';
-const DEFAULT_BLOCK_ORDER: DashboardBlockKey[] = ['smartActions', 'stats', 'myTickets', 'collection', 'activity', 'recentQuotes', 'recurrences'];
+const DEFAULT_BLOCK_ORDER: DashboardBlockKey[] = ['smartActions', 'financialOverview', 'stats', 'expensesToday', 'myTickets', 'collection', 'activity', 'recentQuotes', 'recurrences'];
 const DEFAULT_BLOCK_VISIBILITY: Record<DashboardBlockKey, boolean> = {
   smartActions: true,
+  financialOverview: true,
   stats: true,
+  expensesToday: true,
   myTickets: true,
   collection: true,
   activity: true,
@@ -61,7 +68,9 @@ function normalizeDashboardPrefs(raw: unknown): DashboardPrefs {
 
   const visible: Record<DashboardBlockKey, boolean> = {
     smartActions: typeof visibleCandidate.smartActions === 'boolean' ? visibleCandidate.smartActions : DEFAULT_BLOCK_VISIBILITY.smartActions,
+    financialOverview: typeof visibleCandidate.financialOverview === 'boolean' ? visibleCandidate.financialOverview : DEFAULT_BLOCK_VISIBILITY.financialOverview,
     stats: typeof visibleCandidate.stats === 'boolean' ? visibleCandidate.stats : DEFAULT_BLOCK_VISIBILITY.stats,
+    expensesToday: typeof visibleCandidate.expensesToday === 'boolean' ? visibleCandidate.expensesToday : DEFAULT_BLOCK_VISIBILITY.expensesToday,
     myTickets: typeof visibleCandidate.myTickets === 'boolean' ? visibleCandidate.myTickets : DEFAULT_BLOCK_VISIBILITY.myTickets,
     collection: typeof visibleCandidate.collection === 'boolean' ? visibleCandidate.collection : DEFAULT_BLOCK_VISIBILITY.collection,
     activity: typeof visibleCandidate.activity === 'boolean' ? visibleCandidate.activity : DEFAULT_BLOCK_VISIBILITY.activity,
@@ -75,12 +84,15 @@ function normalizeDashboardPrefs(raw: unknown): DashboardPrefs {
 function persistDashboardPrefs(prefs: DashboardPrefs) {
   const payload = JSON.stringify(prefs);
   window.localStorage.setItem(DASHBOARD_PREFS_KEY, payload);
+  window.localStorage.setItem(LEGACY_DASHBOARD_PREFS_KEY_V3, payload);
   window.localStorage.setItem(LEGACY_DASHBOARD_PREFS_KEY, payload);
 }
 
 function DashboardPageContent() {
+  const router = useRouter();
   const { locale } = useLocale();
   const searchParams = useSearchParams();
+  const { user, loading: authLoading } = useAuthMe();
   const handledStripeReturnRef = useRef(false);
   const t = {
     en: {
@@ -95,7 +107,9 @@ function DashboardPageContent() {
       moveUp: 'Move up',
       moveDown: 'Move down',
       blockSmartActions: 'Smart Actions',
+      blockFinancialOverview: 'Financial overview',
       blockStats: 'Top insights',
+      blockExpensesToday: 'My expenses today',
       blockMyTickets: 'My tickets',
       blockCollection: 'Collection',
       blockActivity: 'Recent Activity',
@@ -116,7 +130,9 @@ function DashboardPageContent() {
       moveUp: 'Monter',
       moveDown: 'Descendre',
       blockSmartActions: 'Actions intelligentes',
+      blockFinancialOverview: 'Vue financiere',
       blockStats: 'Indicateurs clés',
+      blockExpensesToday: 'Mes depenses aujourd hui',
       blockMyTickets: 'Mes tickets',
       blockCollection: 'Recouvrement',
       blockActivity: 'Activité récente',
@@ -135,26 +151,41 @@ function DashboardPageContent() {
   const [draftVisibleBlocks, setDraftVisibleBlocks] = useState<Record<DashboardBlockKey, boolean>>(DEFAULT_BLOCK_VISIBILITY);
   const [draftBlockOrder, setDraftBlockOrder] = useState<DashboardBlockKey[]>(DEFAULT_BLOCK_ORDER);
   const [hasLoadedPrefs, setHasLoadedPrefs] = useState(false);
+  const canViewDashboard = canAccessCrmPath('/dashboard', user?.role, user?.modulePermissions, user?.featureFlags);
+  const canViewExpenses = hasModuleActionAccess({ role: user?.role, modulePermissions: user?.modulePermissions, moduleKey: 'expenses', action: 'view' }) && user?.featureFlags?.expenses !== false;
+  const canViewTickets = hasModuleActionAccess({ role: user?.role, modulePermissions: user?.modulePermissions, moduleKey: 'tickets', action: 'view' }) && user?.featureFlags?.tickets !== false;
+  const canViewQuotes = hasModuleActionAccess({ role: user?.role, modulePermissions: user?.modulePermissions, moduleKey: 'quotes', action: 'view' });
+
+  useEffect(() => {
+    if (authLoading || canViewDashboard) {
+      return;
+    }
+
+    router.replace(getDefaultCrmLandingPath(user?.role, user?.modulePermissions, user?.featureFlags));
+  }, [authLoading, canViewDashboard, router, user?.featureFlags, user?.modulePermissions, user?.role]);
 
   const blockLabels: Record<DashboardBlockKey, string> = useMemo(
     () => ({
       smartActions: t.blockSmartActions,
+      financialOverview: t.blockFinancialOverview,
       stats: t.blockStats,
+      expensesToday: t.blockExpensesToday,
       myTickets: t.blockMyTickets,
       collection: t.blockCollection,
       activity: t.blockActivity,
       recentQuotes: t.blockRecentQuotes,
       recurrences: t.blockRecurrences,
     }),
-    [t.blockActivity, t.blockCollection, t.blockMyTickets, t.blockRecurrences, t.blockRecentQuotes, t.blockSmartActions, t.blockStats],
+    [t.blockActivity, t.blockCollection, t.blockExpensesToday, t.blockFinancialOverview, t.blockMyTickets, t.blockRecurrences, t.blockRecentQuotes, t.blockSmartActions, t.blockStats],
   );
 
   useEffect(() => {
     try {
       const rawV3 = window.localStorage.getItem(DASHBOARD_PREFS_KEY);
+      const rawV3Legacy = window.localStorage.getItem(LEGACY_DASHBOARD_PREFS_KEY_V3);
       const rawV2 = window.localStorage.getItem(LEGACY_DASHBOARD_PREFS_KEY_V2);
       const rawV1 = window.localStorage.getItem(LEGACY_DASHBOARD_PREFS_KEY);
-      const raw = rawV3 ?? rawV2 ?? rawV1;
+      const raw = rawV3 ?? rawV3Legacy ?? rawV2 ?? rawV1;
       if (!raw) return;
       const normalized = normalizeDashboardPrefs(JSON.parse(raw));
 
@@ -235,7 +266,25 @@ function DashboardPageContent() {
     setIsCustomizeOpen(false);
   }
 
-  const renderedBlocks = blockOrder.filter((key) => visibleBlocks[key]);
+  const renderedBlocks = blockOrder.filter((key) => {
+    if (!visibleBlocks[key]) {
+      return false;
+    }
+
+    if (key === 'expensesToday') {
+      return canViewExpenses;
+    }
+
+    if (key === 'myTickets') {
+      return canViewTickets;
+    }
+
+    if (key === 'recentQuotes') {
+      return canViewQuotes;
+    }
+
+    return true;
+  });
 
   return (
     <CrmShell title={t.title} contentClassName="gap-4 px-4 py-3 lg:px-6 lg:py-4">
@@ -269,6 +318,22 @@ function DashboardPageContent() {
             return (
               <div key={blockKey} data-tour-dashboard-stats>
                 <StatCards key={statsRefreshKey} />
+              </div>
+            );
+          }
+
+          if (blockKey === 'financialOverview') {
+            return (
+              <div key={blockKey} data-tour-dashboard-financial>
+                <FinancialOverviewFoundation showTodaySnapshot={false} />
+              </div>
+            );
+          }
+
+          if (blockKey === 'expensesToday') {
+            return (
+              <div key={blockKey} data-tour-dashboard-expenses-today>
+                <MyExpensesTodayWidget />
               </div>
             );
           }

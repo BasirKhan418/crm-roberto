@@ -1,6 +1,6 @@
 'use client';
 
-import { PointerEvent, WheelEvent, useRef, useState } from 'react';
+import { PointerEvent, WheelEvent, useEffect, useRef, useState } from 'react';
 
 import { CircleHelpIcon, MinusIcon, PlusIcon, RotateCcwIcon } from 'lucide-react';
 
@@ -16,6 +16,7 @@ type InteractiveReceiptImageProps = {
   doubleTapScale?: number;
   className?: string;
   imageClassName?: string;
+  onImageError?: () => void;
 };
 
 type Point = { x: number; y: number };
@@ -24,7 +25,7 @@ type PinchState = {
   distance: number;
   midpoint: Point;
   scale: number;
-  offset: Point;
+  imagePoint: Point;
 };
 
 function clamp(value: number, min: number, max: number) {
@@ -50,6 +51,7 @@ export function InteractiveReceiptImage({
   doubleTapScale = 2.5,
   className,
   imageClassName,
+  onImageError,
 }: InteractiveReceiptImageProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const pointersRef = useRef<Map<number, Point>>(new Map());
@@ -57,6 +59,7 @@ export function InteractiveReceiptImage({
   const panStartPointRef = useRef<Point | null>(null);
   const panStartOffsetRef = useRef<Point>({ x: 0, y: 0 });
   const lastTapAtRef = useRef(0);
+  const suppressTapRef = useRef(false);
 
   const [scale, setScale] = useState(1);
   const [offset, setOffset] = useState<Point>({ x: 0, y: 0 });
@@ -112,6 +115,57 @@ export function InteractiveReceiptImage({
     setOffset(clampedOffset);
   }
 
+  useEffect(() => {
+    let frameId = 0;
+
+    function handleResize() {
+      if (frameId) {
+        window.cancelAnimationFrame(frameId);
+      }
+
+      frameId = window.requestAnimationFrame(() => {
+        const current = transformRef.current;
+        const clampedScale = clamp(current.scale, 1, maxScale);
+        const clampedOffset = clampedScale <= 1 ? { x: 0, y: 0 } : clampOffset(current.offset, clampedScale);
+
+        transformRef.current = {
+          scale: clampedScale,
+          offset: clampedOffset,
+        };
+
+        setScale(clampedScale);
+        setOffset(clampedOffset);
+      });
+    }
+
+    handleResize();
+
+    const viewport = window.visualViewport;
+    viewport?.addEventListener('resize', handleResize);
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      if (frameId) {
+        window.cancelAnimationFrame(frameId);
+      }
+
+      viewport?.removeEventListener('resize', handleResize);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [maxScale]);
+
+  function toContainerPoint(clientX: number, clientY: number): Point | null {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) {
+      return null;
+    }
+
+    return {
+      x: clientX - rect.left - rect.width / 2,
+      y: clientY - rect.top - rect.height / 2,
+    };
+  }
+
   function zoomTo(nextScale: number, clientX?: number, clientY?: number) {
     const current = transformRef.current;
     const targetScale = clamp(nextScale, 1, maxScale);
@@ -121,22 +175,24 @@ export function InteractiveReceiptImage({
       return;
     }
 
-    const rect = containerRef.current?.getBoundingClientRect();
-    if (!rect || clientX === undefined || clientY === undefined) {
+    if (clientX === undefined || clientY === undefined) {
       commitTransform(targetScale, current.offset);
       return;
     }
 
-    const pointX = clientX - rect.left - rect.width / 2;
-    const pointY = clientY - rect.top - rect.height / 2;
+    const containerPoint = toContainerPoint(clientX, clientY);
+    if (!containerPoint) {
+      commitTransform(targetScale, current.offset);
+      return;
+    }
 
     const sourceScale = current.scale <= 0 ? 1 : current.scale;
-    const imageX = (pointX - current.offset.x) / sourceScale;
-    const imageY = (pointY - current.offset.y) / sourceScale;
+    const imageX = (containerPoint.x - current.offset.x) / sourceScale;
+    const imageY = (containerPoint.y - current.offset.y) / sourceScale;
 
     const rawOffset = {
-      x: pointX - imageX * targetScale,
-      y: pointY - imageY * targetScale,
+      x: containerPoint.x - imageX * targetScale,
+      y: containerPoint.y - imageY * targetScale,
     };
 
     commitTransform(targetScale, rawOffset);
@@ -161,16 +217,28 @@ export function InteractiveReceiptImage({
     if (points.length === 1) {
       panStartPointRef.current = points[0];
       panStartOffsetRef.current = current.offset;
+      suppressTapRef.current = false;
       return;
     }
 
     if (points.length === 2) {
+      const pinchMidpoint = midpoint(points[0], points[1]);
+      const containerPoint = toContainerPoint(pinchMidpoint.x, pinchMidpoint.y);
+      const sourceScale = current.scale <= 0 ? 1 : current.scale;
+
       pinchStateRef.current = {
         distance: distance(points[0], points[1]),
-        midpoint: midpoint(points[0], points[1]),
+        midpoint: pinchMidpoint,
         scale: current.scale,
-        offset: current.offset,
+        imagePoint: containerPoint
+          ? {
+              x: (containerPoint.x - current.offset.x) / sourceScale,
+              y: (containerPoint.y - current.offset.y) / sourceScale,
+            }
+          : { x: 0, y: 0 },
       };
+
+      suppressTapRef.current = true;
     }
   }
 
@@ -192,11 +260,20 @@ export function InteractiveReceiptImage({
       const ratio = pinch.distance > 0 ? nextDistance / pinch.distance : 1;
       const nextScale = clamp(pinch.scale * ratio, 1, maxScale);
       const nextMidpoint = midpoint(points[0], points[1]);
+      const containerPoint = toContainerPoint(nextMidpoint.x, nextMidpoint.y);
+
+      if (!containerPoint) {
+        return;
+      }
 
       const rawOffset = {
-        x: pinch.offset.x + (nextMidpoint.x - pinch.midpoint.x),
-        y: pinch.offset.y + (nextMidpoint.y - pinch.midpoint.y),
+        x: containerPoint.x - pinch.imagePoint.x * nextScale,
+        y: containerPoint.y - pinch.imagePoint.y * nextScale,
       };
+
+      if (Math.abs(nextMidpoint.x - pinch.midpoint.x) > 2 || Math.abs(nextMidpoint.y - pinch.midpoint.y) > 2 || Math.abs(nextScale - pinch.scale) > 0.02) {
+        suppressTapRef.current = true;
+      }
 
       commitTransform(nextScale, rawOffset);
       return;
@@ -220,6 +297,13 @@ export function InteractiveReceiptImage({
       x: panStartOffsetRef.current.x + (event.clientX - panStartPoint.x),
       y: panStartOffsetRef.current.y + (event.clientY - panStartPoint.y),
     };
+
+    if (
+      Math.abs(event.clientX - panStartPoint.x) > 4 ||
+      Math.abs(event.clientY - panStartPoint.y) > 4
+    ) {
+      suppressTapRef.current = true;
+    }
 
     commitTransform(current.scale, rawOffset);
   }
@@ -252,7 +336,7 @@ export function InteractiveReceiptImage({
       setIsInteracting(false);
     }
 
-    if (pointerType === 'touch') {
+    if (pointerType === 'touch' && !suppressTapRef.current) {
       const now = Date.now();
       if (now - lastTapAtRef.current < 280) {
         const target = transformRef.current.scale > 1.4 ? 1 : doubleTapScale;
@@ -261,6 +345,10 @@ export function InteractiveReceiptImage({
       } else {
         lastTapAtRef.current = now;
       }
+    }
+
+    if (points.length === 0) {
+      suppressTapRef.current = false;
     }
   }
 
@@ -309,6 +397,7 @@ export function InteractiveReceiptImage({
           src={src}
           alt={alt}
           draggable={false}
+          onError={onImageError}
           className={cn('h-full w-full object-contain will-change-transform', imageClassName)}
           style={{
             transform: `translate3d(${offset.x}px, ${offset.y}px, 0) scale(${scale})`,

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { createActivityLog } from '@/db/repository/activity';
 import { deleteCatalogueItemById, getCatalogueItemById, updateCatalogueItemById } from '@/db/repository/catalogue';
+import { getCompanyUserIdStrings } from '@/lib/company-scope';
+import { requireModulePermission } from '@/lib/role-matrix';
 import { buildValidationError } from '@/utils/api/validation';
 import getMe from '@/utils/middlewares/useMe';
 import { updateCatalogueItemSchema } from '@/validators/catalogue.schema';
@@ -17,8 +19,14 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
     }
 
+    const permission = await requireModulePermission({ companyId: me.user.companyId, role: me.user.role, moduleKey: 'catalogue', action: 'view' });
+    if (!permission.success) {
+      return NextResponse.json({ success: false, message: permission.message }, { status: permission.status });
+    }
+
     const { id } = await params;
-    const item = await getCatalogueItemById(me.user.id, id);
+    const scopedUserIds = await getCompanyUserIdStrings({ companyId: me.user.companyId, fallbackUserId: me.user.id });
+    const item = await getCatalogueItemById(scopedUserIds, id);
     if (!item) {
       return NextResponse.json({ success: false, message: 'Catalogue item not found' }, { status: 404 });
     }
@@ -39,6 +47,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
     }
 
+    const permission = await requireModulePermission({ companyId: me.user.companyId, role: me.user.role, moduleKey: 'catalogue', action: 'edit' });
+    if (!permission.success) {
+      return NextResponse.json({ success: false, message: permission.message }, { status: permission.status });
+    }
+
     const body = await request.json();
     const parsed = updateCatalogueItemSchema.safeParse(body);
     if (!parsed.success) {
@@ -46,7 +59,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     const { id } = await params;
-    const updated = await updateCatalogueItemById(me.user.id, id, parsed.data);
+    const scopedUserIds = await getCompanyUserIdStrings({ companyId: me.user.companyId, fallbackUserId: me.user.id });
+    const updated = await updateCatalogueItemById(scopedUserIds, id, parsed.data);
     if (!updated) {
       return NextResponse.json({ success: false, message: 'Catalogue item not found' }, { status: 404 });
     }
@@ -74,8 +88,14 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
     }
 
+    const permission = await requireModulePermission({ companyId: me.user.companyId, role: me.user.role, moduleKey: 'catalogue', action: 'delete' });
+    if (!permission.success) {
+      return NextResponse.json({ success: false, message: permission.message }, { status: permission.status });
+    }
+
     const { id } = await params;
-    const deleted = await deleteCatalogueItemById(me.user.id, id);
+    const scopedUserIds = await getCompanyUserIdStrings({ companyId: me.user.companyId, fallbackUserId: me.user.id });
+    const deleted = await deleteCatalogueItemById(scopedUserIds, id);
     if (!deleted) {
       return NextResponse.json({ success: false, message: 'Catalogue item not found' }, { status: 404 });
     }

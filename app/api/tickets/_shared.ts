@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 
 import {
-  checkTicketPermission,
   getTicketPermissionState,
   type TicketPermission,
 } from "@/lib/tickets/access";
+import { requireCompanyFeature } from "@/lib/company-features";
+import { requireModulePermission } from "@/lib/role-matrix";
 import getMe from "@/utils/middlewares/useMe";
 
 export type TicketRouteContext = {
@@ -42,18 +43,33 @@ export async function authorizeTicketRoute(permission: TicketPermission): Promis
     };
   }
 
-  const permissionCheck = checkTicketPermission(me.user.role, permission);
-  if (!permissionCheck.success) {
+  const featureCheck = await requireCompanyFeature(me.user.companyId, "tickets");
+  if (!featureCheck.success) {
     return {
       success: false,
-      response: NextResponse.json(
-        { success: false, message: permissionCheck.message },
-        { status: permissionCheck.status }
-      ),
+      response: NextResponse.json({ success: false, message: featureCheck.message }, { status: featureCheck.status }),
     };
   }
 
-  const permissionState = getTicketPermissionState(me.user.role);
+  const matrixCheck = await requireModulePermission({
+    companyId: me.user.companyId,
+    role: me.user.role,
+    moduleKey: "tickets",
+    action: permission === "view" ? "view" : "manage",
+  });
+  if (!matrixCheck.success) {
+    return {
+      success: false,
+      response: NextResponse.json({ success: false, message: matrixCheck.message }, { status: matrixCheck.status }),
+    };
+  }
+
+  const defaultPermissionState = getTicketPermissionState(me.user.role);
+  const permissionState = {
+    ...defaultPermissionState,
+    canView: matrixCheck.permissions.canView,
+    canManage: matrixCheck.permissions.canManage,
+  };
 
   return {
     success: true,

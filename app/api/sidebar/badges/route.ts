@@ -5,6 +5,8 @@ import ConnectDb from '@/db/connectDb';
 import Invoice from '@/db/models/Invoice';
 import Quote from '@/db/models/Quote';
 import Ticket from '@/db/models/Ticket';
+import { getFinancialSmartAlertsData } from '@/db/repository/financial-dashboard';
+import { getCompanyUserObjectIds } from '@/lib/company-scope';
 import getMe from '@/utils/middlewares/useMe';
 
 interface QuoteSidebarItem {
@@ -23,6 +25,11 @@ interface TicketSidebarMeta {
   unreadCount: number;
 }
 
+interface ExpenseSidebarMeta {
+  unpaidCount: number;
+  overdueCount: number;
+}
+
 export async function GET() {
   try {
     const me = await getMe(true);
@@ -33,13 +40,14 @@ export async function GET() {
     await ConnectDb();
 
     const userObjectId = new mongoose.Types.ObjectId(me.user.id);
+    const scopedUserObjectIds = await getCompanyUserObjectIds({ companyId: me.user.companyId, fallbackUserId: me.user.id });
     const now = new Date();
 
-    const [quoteDocs, invoiceDocs, unreadTicketCount] = await Promise.all([
-      Quote.find({ user: userObjectId })
+    const [quoteDocs, invoiceDocs, unreadTicketCount, smartAlertsResult] = await Promise.all([
+      Quote.find({ user: { $in: scopedUserObjectIds } })
         .select('_id status createdAt updatedAt')
         .lean<Array<{ _id: mongoose.Types.ObjectId; status?: string; createdAt?: Date | null; updatedAt?: Date | null }>>(),
-      Invoice.find({ userId: userObjectId })
+      Invoice.find({ userId: { $in: scopedUserObjectIds } })
         .select('_id status dueDate createdAt updatedAt')
         .lean<Array<{ _id: mongoose.Types.ObjectId; status?: string; dueDate?: Date | null; createdAt?: Date | null; updatedAt?: Date | null }>>(),
       me.user.companyId && mongoose.Types.ObjectId.isValid(me.user.companyId)
@@ -49,6 +57,11 @@ export async function GET() {
             unreadBy: userObjectId,
           })
         : Promise.resolve(0),
+      getFinancialSmartAlertsData({
+        companyId: me.user.companyId,
+        userId: me.user.id,
+        role: me.user.role,
+      }),
     ]);
 
     const quotes: QuoteSidebarItem[] = quoteDocs.flatMap((quote) => {
@@ -81,7 +94,17 @@ export async function GET() {
       unreadCount: unreadTicketCount,
     };
 
-    return NextResponse.json({ success: true, data: { quotes, invoices, tickets } });
+    const expenses: ExpenseSidebarMeta = smartAlertsResult.success
+      ? {
+          unpaidCount: smartAlertsResult.data.alerts.unpaidSupplierInvoices.count,
+          overdueCount: smartAlertsResult.data.alerts.overdueSupplierInvoices.count,
+        }
+      : {
+          unpaidCount: 0,
+          overdueCount: 0,
+        };
+
+    return NextResponse.json({ success: true, data: { quotes, invoices, tickets, expenses } });
   } catch (error) {
     return NextResponse.json(
       { success: false, message: `Error fetching sidebar badges: ${String(error)}` },

@@ -2,7 +2,7 @@ import { DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { NextRequest, NextResponse } from 'next/server';
 
 import { getCompanyProfileByUserId, updateCompanyLogoByUserId } from '@/db/repository/cprofile';
-import s3 from '@/utils/s3/s3Client';
+import { getS3Client } from '@/utils/s3/s3Client';
 import getMe from '@/utils/middlewares/useMe';
 
 const BUCKET = process.env.AWS_S3_BUCKET || '';
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
       existing.profile.logoKey &&
       existing.profile.logoKey !== logoKey
     ) {
-      await s3.send(
+      await getS3Client().send(
         new DeleteObjectCommand({
           Bucket: BUCKET,
           Key: existing.profile.logoKey as string,
@@ -73,7 +73,7 @@ export async function DELETE() {
       return NextResponse.json({ success: false, message: 'No logo to delete' }, { status: 400 });
     }
 
-    await s3.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: logoKey }));
+    await getS3Client().send(new DeleteObjectCommand({ Bucket: BUCKET, Key: logoKey }));
 
     const result = await updateCompanyLogoByUserId(me.user.id, null, null);
     if (!result.success) {

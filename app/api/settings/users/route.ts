@@ -12,10 +12,12 @@ import {
   updateCompanyUserSchema,
 } from "@/validators/invitation.schema";
 import { buildValidationError } from "@/utils/api/validation";
-import { canManageTargetRole, requirePermission } from "@/lib/permissions";
+import { requireModulePermission } from "@/lib/role-matrix";
 import { sendInvitationEmail } from "@/emails/auth/sendInvitationEmail";
 import { createI18nKey as i18nKey } from "@/lib/i18n/messages";
 import { resolveLocaleFromRequest } from "@/lib/i18n/locale";
+import { createConnectionLog } from "@/db/repository/connection-log";
+import { getClientIp } from "@/utils/api/request";
 
 function getAppBaseUrl(request: NextRequest) {
   const configured = process.env.NEXT_PUBLIC_APP_URL;
@@ -37,7 +39,7 @@ export async function GET() {
       );
     }
 
-    const permission = requirePermission(me.user.role, "users.view");
+    const permission = await requireModulePermission({ companyId: me.user.companyId, role: me.user.role, moduleKey: "users", action: "view" });
     if (!permission.success) {
       const message =
         permission.message === "Forbidden" ? i18nKey("users.forbidden") : permission.message;
@@ -82,7 +84,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const permission = requirePermission(me.user.role, "users.invite");
+    const permission = await requireModulePermission({ companyId: me.user.companyId, role: me.user.role, moduleKey: "users", action: "create" });
     if (!permission.success) {
       const message =
         permission.message === "Forbidden" ? i18nKey("users.forbidden") : permission.message;
@@ -180,9 +182,12 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json(buildValidationError(validation.error), { status: 400 });
     }
 
-    const actionPermission = validation.data.role
-      ? requirePermission(me.user.role, "users.update_role")
-      : requirePermission(me.user.role, "users.revoke");
+    const actionPermission = await requireModulePermission({
+      companyId: me.user.companyId,
+      role: me.user.role,
+      moduleKey: "users",
+      action: validation.data.role ? "edit" : "delete",
+    });
 
     if (!actionPermission.success) {
       const message =
@@ -213,14 +218,6 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const targetRole = validation.data.role ?? target.role;
-    if (!canManageTargetRole(me.user.role, targetRole)) {
-      return NextResponse.json(
-        { success: false, message: i18nKey("users.forbidden") },
-        { status: 403 }
-      );
-    }
-
     const result = await updateCompanyUser({
       companyId: me.user.companyId,
       userId: validation.data.userId,
@@ -228,6 +225,28 @@ export async function PATCH(request: NextRequest) {
       account_status: validation.data.account_status,
       revokeAccess: validation.data.revokeAccess,
     });
+
+    if (result.success && validation.data.revokeAccess) {
+      void createConnectionLog({
+        userId: validation.data.userId,
+        companyId: me.user.companyId,
+        role: target.role,
+        eventType: 'revoke_access',
+        ipAddress: getClientIp(request),
+        userAgent: request.headers.get('user-agent'),
+      });
+    }
+
+    if (result.success && validation.data.account_status === 'suspended') {
+      void createConnectionLog({
+        userId: validation.data.userId,
+        companyId: me.user.companyId,
+        role: target.role,
+        eventType: 'force_logout',
+        ipAddress: getClientIp(request),
+        userAgent: request.headers.get('user-agent'),
+      });
+    }
 
     return NextResponse.json(result, { status: result.success ? 200 : 400 });
   } catch (error) {

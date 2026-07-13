@@ -9,7 +9,18 @@ export const APP_ROLES = [
   "external_accountant",
 ] as const;
 
+export const COMPANY_ASSIGNABLE_ROLES = [
+  "administrator",
+  "manager",
+  "standard_user",
+  "secretary",
+  "technician",
+  "read_only",
+  "external_accountant",
+] as const;
+
 export type AppRole = (typeof APP_ROLES)[number];
+export type CompanyAssignableRole = (typeof COMPANY_ASSIGNABLE_ROLES)[number];
 
 export const APP_PERMISSIONS = [
   "users.view",
@@ -24,6 +35,48 @@ export const APP_PERMISSIONS = [
 ] as const;
 
 export type AppPermission = (typeof APP_PERMISSIONS)[number];
+export type PermissionModuleAction = "view" | "create" | "edit" | "delete" | "export" | "manage";
+export type PermissionModuleKey =
+  | "users"
+  | "expenses"
+  | "tickets"
+  | "invoices"
+  | "clients"
+  | "suppliers"
+  | "catalogue"
+  | "quotes"
+  | "notes"
+  | "financialDashboard"
+  | "settings"
+  | "auditTrail";
+
+export type ModulePermissionSet = {
+  canView: boolean;
+  canCreate: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
+  canExport: boolean;
+  canManage: boolean;
+};
+
+export type ModulePermissionsMap = Partial<Record<PermissionModuleKey, ModulePermissionSet>>;
+
+export function normalizeModulePermissionSet(
+  permissions: ModulePermissionSet
+): ModulePermissionSet {
+  const canView =
+    permissions.canView ||
+    permissions.canCreate ||
+    permissions.canEdit ||
+    permissions.canDelete ||
+    permissions.canExport ||
+    permissions.canManage;
+
+  return {
+    ...permissions,
+    canView,
+  };
+}
 
 type RolePermissionsMap = Record<AppRole, readonly AppPermission[]>;
 
@@ -94,4 +147,98 @@ export function canManageTargetRole(actorRole: string | null | undefined, target
   }
 
   return false;
+}
+
+export function getDefaultModulePermissions(
+  role: string | null | undefined,
+  moduleKey: PermissionModuleKey
+): ModulePermissionSet {
+  const normalizedRole = normalizeRole(role);
+  const canAdministerCompany = normalizedRole === "super_admin" || normalizedRole === "administrator";
+  const canManageOperations = canAdministerCompany || normalizedRole === "manager";
+  const canReadCompanyOperations = canManageOperations || normalizedRole === "read_only";
+  const canManageSales = canManageOperations;
+  const canReadSales = canReadCompanyOperations || normalizedRole === "secretary";
+  const canManageContacts = canManageOperations || normalizedRole === "secretary";
+  const canReadContacts = canReadSales;
+
+  if (moduleKey === "users") {
+    return normalizeModulePermissionSet({
+      canView: hasPermission(normalizedRole, "users.view"),
+      canCreate: hasPermission(normalizedRole, "users.invite"),
+      canEdit: hasPermission(normalizedRole, "users.update_role"),
+      canDelete: hasPermission(normalizedRole, "users.revoke"),
+      canExport: false,
+      canManage: hasPermission(normalizedRole, "users.update_role"),
+    });
+  }
+
+  if (moduleKey === "expenses") {
+    return normalizeModulePermissionSet({
+      canView: hasPermission(normalizedRole, "expenses.view"),
+      canCreate: hasPermission(normalizedRole, "expenses.manage"),
+      canEdit: hasPermission(normalizedRole, "expenses.manage"),
+      canDelete: hasPermission(normalizedRole, "expenses.delete"),
+      canExport: normalizedRole === "super_admin" || normalizedRole === "administrator" || normalizedRole === "manager",
+      canManage: hasPermission(normalizedRole, "expenses.manage"),
+    });
+  }
+
+  if (
+    moduleKey === "invoices" ||
+    moduleKey === "catalogue" ||
+    moduleKey === "quotes" ||
+    moduleKey === "notes"
+  ) {
+    return normalizeModulePermissionSet({
+      canView: canReadSales,
+      canCreate: canManageSales,
+      canEdit: canManageSales,
+      canDelete: canManageSales,
+      canExport: canReadSales,
+      canManage: canManageSales,
+    });
+  }
+
+  if (moduleKey === "clients" || moduleKey === "suppliers") {
+    return normalizeModulePermissionSet({
+      canView: canReadContacts,
+      canCreate: canManageContacts,
+      canEdit: canManageContacts,
+      canDelete: canManageOperations,
+      canExport: canReadContacts,
+      canManage: canManageContacts,
+    });
+  }
+
+  if (moduleKey === "financialDashboard") {
+    return normalizeModulePermissionSet({
+      canView: canManageOperations || normalizedRole === "read_only",
+      canCreate: false,
+      canEdit: false,
+      canDelete: false,
+      canExport: canManageOperations,
+      canManage: canAdministerCompany,
+    });
+  }
+
+  if (moduleKey === "settings" || moduleKey === "auditTrail") {
+    return normalizeModulePermissionSet({
+      canView: canAdministerCompany,
+      canCreate: false,
+      canEdit: canAdministerCompany,
+      canDelete: false,
+      canExport: canAdministerCompany,
+      canManage: canAdministerCompany,
+    });
+  }
+
+  return normalizeModulePermissionSet({
+    canView: hasPermission(normalizedRole, "tickets.view"),
+    canCreate: hasPermission(normalizedRole, "tickets.manage"),
+    canEdit: hasPermission(normalizedRole, "tickets.manage"),
+    canDelete: false,
+    canExport: false,
+    canManage: hasPermission(normalizedRole, "tickets.manage"),
+  });
 }

@@ -74,10 +74,14 @@ type ExpensesApiResponse = {
 type ExpensesFilters = {
   status?: ExpenseStatus;
   paymentStatus?: ExpensePaymentStatus;
+  paymentStatusGroup?: 'open';
   categoryId?: string;
   supplierId?: string;
   periodStart?: string;
   periodEnd?: string;
+  dueStart?: string;
+  dueEnd?: string;
+  dueBefore?: string;
   search?: string;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
@@ -115,10 +119,14 @@ export function useExpenses(filters?: ExpensesFilters) {
 
     if (filters?.status) params.set('status', filters.status);
     if (filters?.paymentStatus) params.set('paymentStatus', filters.paymentStatus);
+    if (filters?.paymentStatusGroup) params.set('paymentStatusGroup', filters.paymentStatusGroup);
     if (filters?.categoryId) params.set('categoryId', filters.categoryId);
     if (filters?.supplierId) params.set('supplierId', filters.supplierId);
     if (filters?.periodStart) params.set('periodStart', filters.periodStart);
     if (filters?.periodEnd) params.set('periodEnd', filters.periodEnd);
+    if (filters?.dueStart) params.set('dueStart', filters.dueStart);
+    if (filters?.dueEnd) params.set('dueEnd', filters.dueEnd);
+    if (filters?.dueBefore) params.set('dueBefore', filters.dueBefore);
     if (filters?.search) params.set('search', filters.search);
     if (filters?.sortBy) params.set('sortBy', filters.sortBy);
     if (filters?.sortOrder) params.set('sortOrder', filters.sortOrder);

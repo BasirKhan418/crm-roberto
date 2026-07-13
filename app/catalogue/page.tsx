@@ -15,8 +15,10 @@ import CatalogueTable, {
 import DeleteCatalogueDialog from '@/components/catalogue/DeleteCatalogueDialog';
 import CrmShell from '@/components/crm-shell';
 import { useLocale } from '@/components/providers/locale-provider';
+import { useAuthMe } from '@/hooks/useAuthMe';
 import { resolveTranslatedError } from '@/lib/i18n/messages';
 import { eurosToCents } from '@/lib/price';
+import { getDefaultCrmLandingPath, hasModuleActionAccess } from '@/lib/route-access';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -109,6 +111,7 @@ function SortButton({ label, column, sortBy, sortOrder, onSort }: SortButtonProp
 }
 
 export default function CataloguePage() {
+  const { user, loading: authLoading } = useAuthMe();
   const { locale } = useLocale();
   const t = {
     en: {
@@ -276,6 +279,16 @@ export default function CataloguePage() {
   const [quickPrice, setQuickPrice] = useState('');
   const [quickType, setQuickType] = useState<'product' | 'service'>('product');
   const [quickSaving, setQuickSaving] = useState(false);
+  const canViewCatalogue = hasModuleActionAccess({ role: user?.role, modulePermissions: user?.modulePermissions, moduleKey: 'catalogue', action: 'view' });
+  const canManageCatalogue = hasModuleActionAccess({ role: user?.role, modulePermissions: user?.modulePermissions, moduleKey: 'catalogue', action: 'manage' });
+
+  useEffect(() => {
+    if (authLoading || canViewCatalogue) {
+      return;
+    }
+
+    window.location.replace(getDefaultCrmLandingPath(user?.role, user?.modulePermissions, user?.featureFlags));
+  }, [authLoading, canViewCatalogue, user?.featureFlags, user?.modulePermissions, user?.role]);
 
   useEffect(() => {
     try {
@@ -666,10 +679,12 @@ export default function CataloguePage() {
             <h1 className="font-heading text-2xl font-semibold tracking-tight">{t.heading}</h1>
             <p className="text-sm text-muted-foreground">{t.subtitle}</p>
           </div>
-          <Button type="button" data-tour-catalogue-new-item className="w-full sm:w-auto h-10" onClick={() => setCreateOpen(true)}>
-            <PlusIcon className="size-4" />
-            {t.newItem}
-          </Button>
+          {canManageCatalogue ? (
+            <Button type="button" data-tour-catalogue-new-item className="w-full sm:w-auto h-10" onClick={() => setCreateOpen(true)}>
+              <PlusIcon className="size-4" />
+              {t.newItem}
+            </Button>
+          ) : null}
         </div>
 
         <div className="grid gap-2.5 sm:grid-cols-3">
@@ -689,43 +704,45 @@ export default function CataloguePage() {
         </div>
 
         <div className="space-y-3 rounded-xl border border-border/70 bg-card/50 p-3 shadow-sm sm:p-4">
-          <div data-tour-catalogue-quick-add className="rounded-lg border border-border/80 bg-background/70 p-3">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t.quickCreateTitle}</p>
-            <div className="grid gap-2 sm:grid-cols-[1.2fr_0.7fr_auto_auto]">
-              <Input
-                value={quickName}
-                onChange={(event) => setQuickName(event.target.value)}
-                placeholder={t.quickNamePlaceholder}
-                className="h-9"
-              />
-              <Input
-                value={quickPrice}
-                onChange={(event) => setQuickPrice(event.target.value)}
-                placeholder={t.quickPricePlaceholder}
-                className="h-9"
-                inputMode="decimal"
-              />
-              <Tabs value={quickType} onValueChange={(value) => setQuickType(value as 'product' | 'service')}>
-                <TabsList className="h-9 border border-border/80 bg-transparent p-1">
-                  <TabsTrigger
-                    value="product"
-                    className="px-3 text-xs hover:bg-transparent hover:text-foreground data-active:bg-primary data-active:text-primary-foreground"
-                  >
-                    {t.product}
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="service"
-                    className="px-3 text-xs hover:bg-transparent hover:text-foreground data-active:bg-primary data-active:text-primary-foreground"
-                  >
-                    {t.service}
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
-              <Button type="button" className="h-9" onClick={() => void handleQuickCreate()} disabled={quickSaving}>
-                {quickSaving ? t.quickAdding : t.quickAdd}
-              </Button>
+          {canManageCatalogue ? (
+            <div data-tour-catalogue-quick-add className="rounded-lg border border-border/80 bg-background/70 p-3">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t.quickCreateTitle}</p>
+              <div className="grid gap-2 sm:grid-cols-[1.2fr_0.7fr_auto_auto]">
+                <Input
+                  value={quickName}
+                  onChange={(event) => setQuickName(event.target.value)}
+                  placeholder={t.quickNamePlaceholder}
+                  className="h-9"
+                />
+                <Input
+                  value={quickPrice}
+                  onChange={(event) => setQuickPrice(event.target.value)}
+                  placeholder={t.quickPricePlaceholder}
+                  className="h-9"
+                  inputMode="decimal"
+                />
+                <Tabs value={quickType} onValueChange={(value) => setQuickType(value as 'product' | 'service')}>
+                  <TabsList className="h-9 border border-border/80 bg-transparent p-1">
+                    <TabsTrigger
+                      value="product"
+                      className="px-3 text-xs hover:bg-transparent hover:text-foreground data-active:bg-primary data-active:text-primary-foreground"
+                    >
+                      {t.product}
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="service"
+                      className="px-3 text-xs hover:bg-transparent hover:text-foreground data-active:bg-primary data-active:text-primary-foreground"
+                    >
+                      {t.service}
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+                <Button type="button" className="h-9" onClick={() => void handleQuickCreate()} disabled={quickSaving}>
+                  {quickSaving ? t.quickAdding : t.quickAdd}
+                </Button>
+              </div>
             </div>
-          </div>
+          ) : null}
 
           <div className="grid gap-3 lg:grid-cols-[1fr_auto_auto_auto_auto_auto] lg:items-center">
             <div className="relative">
@@ -838,7 +855,11 @@ export default function CataloguePage() {
         {error ? <ErrorMessage message={error} /> : null}
 
         {!loading && items.length === 0 ? (
-          <EmptyState message={t.emptyMessage} actionLabel={t.newItem} onAction={() => setCreateOpen(true)} />
+          <EmptyState
+            message={t.emptyMessage}
+            actionLabel={canManageCatalogue ? t.newItem : undefined}
+            onAction={canManageCatalogue ? () => setCreateOpen(true) : undefined}
+          />
         ) : (
           <>
             <div data-tour-catalogue-table>

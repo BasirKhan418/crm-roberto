@@ -7,8 +7,14 @@ import TicketMessage from "@/db/models/TicketMessage";
 import User from "@/db/models/User";
 import { listAuditLogsForEntity, recordAuditLog } from "@/db/repository/audit";
 import { createActivityLog } from "@/db/repository/activity";
-import { sendTicketEmailNotification } from "@/lib/tickets/email-notifications";
-import type { TicketLinkedType, TicketStatus } from "@/lib/tickets/constants";
+import { getCompanyInvitationBranding } from '@/db/repository/company';
+import { resolveLocaleFromValue } from '@/lib/i18n/locale';
+import { normalizeRole } from '@/lib/permissions';
+import {
+  sendTicketEmailNotification,
+  type TicketEmailNotificationAttachment,
+} from "@/lib/tickets/email-notifications";
+import type { TicketLinkedType, TicketStatus, TicketType } from "@/lib/tickets/constants";
 import type { ListQueryOptions, PaginationMeta } from "@/utils/api/query";
 import { buildPagination } from "@/utils/api/query";
 import type {
@@ -34,7 +40,7 @@ type TicketMessageAction = "ticket_created" | "ticket_replied" | "ticket_resolve
 type TicketNotificationSnapshot = {
   id: string;
   title: string;
-  type: string;
+  type: TicketType;
   status: TicketStatus;
   linkedType?: TicketLinkedType | null;
   linkedId?: string | null;
@@ -181,6 +187,29 @@ async function listTicketParticipantIds(params: { companyId: string; ticketId: s
   );
 }
 
+function buildTicketNotificationEmailAttachments(
+  attachments: Array<Record<string, unknown>>
+): TicketEmailNotificationAttachment[] {
+  return attachments.map((attachment) => ({
+    displayName: typeof attachment.displayName === 'string' ? attachment.displayName : null,
+    originalName: typeof attachment.originalName === 'string' ? attachment.originalName : null,
+    mimeType: typeof attachment.mimeType === 'string' ? attachment.mimeType : null,
+    sizeBytes:
+      typeof attachment.sizeBytes === 'number' && Number.isFinite(attachment.sizeBytes)
+        ? attachment.sizeBytes
+        : null,
+    storageKey: typeof attachment.storageKey === 'string' ? attachment.storageKey : null,
+  }));
+}
+
+function shouldUseAccountantPortalTicketPath(role: string | null | undefined) {
+  if (normalizeRole(role) === 'external_accountant') {
+    return true;
+  }
+
+  return typeof role === 'string' && role.toLowerCase().includes('accountant');
+}
+
 async function createTicketNotifications(params: {
   companyId: string;
   recipientIds: string[];
@@ -188,6 +217,8 @@ async function createTicketNotifications(params: {
   action: TicketMessageAction;
   snapshot: TicketNotificationSnapshot;
   messagePreview?: string | null;
+  attachmentCount?: number;
+  attachments?: TicketEmailNotificationAttachment[];
   includeActorEmail?: boolean;
 }) {
   const recipients = uniqueObjectIdStrings(params.recipientIds);
@@ -238,37 +269,14 @@ async function createTicketNotifications(params: {
     _id: { $in: uniqueObjectIdStrings([...emailRecipients, params.actorId]).map((id) => toObjectId(id)) },
     companyId: toObjectId(params.companyId),
   })
-    .select("_id name email")
-    .lean<{ _id: mongoose.Types.ObjectId; name?: string; email?: string }[]>();
+    .select("_id name email locale role")
+    .lean<Array<{ _id: mongoose.Types.ObjectId; name?: string; email?: string; locale?: 'en' | 'fr'; role?: string }>>();
 
   const userById = new Map(users.map((user) => [String(user._id), user]));
-  const actorName = userById.get(params.actorId)?.name?.trim() || "A teammate";
-
-  const subjectByAction: Record<TicketMessageAction, string> = {
-    ticket_created: `New ticket assigned: ${params.snapshot.title}`,
-    ticket_replied: `New reply on ticket: ${params.snapshot.title}`,
-    ticket_resolved: `Ticket resolved: ${params.snapshot.title}`,
-  };
-
-  const actorSubjectByAction: Record<TicketMessageAction, string> = {
-    ticket_created: `Ticket created: ${params.snapshot.title}`,
-    ticket_replied: `Reply posted: ${params.snapshot.title}`,
-    ticket_resolved: `Ticket resolved: ${params.snapshot.title}`,
-  };
-
-  const bodyByAction: Record<TicketMessageAction, string> = {
-    ticket_created: `${actorName} created a ticket and assigned you.\n\nTitle: ${params.snapshot.title}`,
-    ticket_replied: `${actorName} replied to the ticket.\n\nTitle: ${params.snapshot.title}${
-      params.messagePreview ? `\n\nPreview: ${params.messagePreview}` : ""
-    }`,
-    ticket_resolved: `${actorName} marked the ticket as resolved.\n\nTitle: ${params.snapshot.title}`,
-  };
-
-  const actorBodyByAction: Record<TicketMessageAction, string> = {
-    ticket_created: `You created a new ticket.\n\nTitle: ${params.snapshot.title}`,
-    ticket_replied: `You posted a ticket reply.\n\nTitle: ${params.snapshot.title}`,
-    ticket_resolved: `You marked the ticket as resolved.\n\nTitle: ${params.snapshot.title}`,
-  };
+  const actorRecord = userById.get(params.actorId);
+  const brandingResult = await getCompanyInvitationBranding(params.companyId);
+  const branding = brandingResult.success ? brandingResult.branding : null;
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || 'https://roberto.devsomeware.com').trim().replace(/\/+$/, '');
 
   await Promise.all(
     emailRecipients.map(async (recipientId) => {
@@ -278,14 +286,27 @@ async function createTicketNotifications(params: {
       }
 
       try {
-        const isActorRecipient = recipientId === params.actorId;
+        const ticketPath = shouldUseAccountantPortalTicketPath(recipient.role)
+          ? `/accountant-portal/tickets/${params.snapshot.id}`
+          : `/tickets/${params.snapshot.id}`;
+        const locale = resolveLocaleFromValue(recipient.locale ?? null, 'fr');
+        const actorName = actorRecord?.name?.trim() || actorRecord?.email?.trim() || (locale === 'fr' ? 'Un collaborateur' : 'A teammate');
+
         const result = await sendTicketEmailNotification({
           to: recipient.email,
-          subject: isActorRecipient
-            ? actorSubjectByAction[params.action]
-            : subjectByAction[params.action],
-          body: isActorRecipient ? actorBodyByAction[params.action] : bodyByAction[params.action],
-          title: "Roby",
+          action: params.action,
+          locale,
+          companyName: branding?.companyName || null,
+          companyLogoUrl: branding?.logoUrl || null,
+          senderName: actorName,
+          recipientName: recipient.name?.trim() || recipient.email?.trim() || null,
+          ticketTitle: params.snapshot.title,
+          ticketType: params.snapshot.type,
+          status: params.snapshot.status,
+          messageBody: params.messagePreview ?? null,
+          attachmentCount: params.attachmentCount || 0,
+          attachments: params.attachments,
+          ticketUrl: `${appUrl}${ticketPath}`,
         });
 
         if (!result.success) {
@@ -380,22 +401,24 @@ export async function createTicket(params: {
     snapshot: {
       id: String(created._id),
       title: created.title,
-      type: created.type,
+      type: created.type as TicketType,
       status: "open",
       linkedType: created.linkedType as TicketLinkedType | null,
       linkedId: created.linkedId ? String(created.linkedId) : null,
     },
     messagePreview: params.payload.body ?? null,
+    attachmentCount: createdAttachments.length,
+    attachments: buildTicketNotificationEmailAttachments(createdAttachments),
     includeActorEmail: true,
   });
 
   const ticket = await Ticket.findById(created._id)
-    .populate("createdBy", "name email")
-    .populate("assignedTo", "name email")
+    .populate("createdBy", "name email role")
+    .populate("assignedTo", "name email role")
     .lean();
 
   const persistedMessage = await TicketMessage.findById(message._id)
-    .populate("authorId", "name email")
+    .populate("authorId", "name email role")
     .lean();
 
   return {
@@ -431,6 +454,10 @@ export async function listTickets(params: {
 
   if (params.filters?.status) {
     query.status = params.filters.status;
+  } else if (params.filters?.statusBucket === "active") {
+    query.status = { $in: ["open", "waiting", "replied"] };
+  } else if (params.filters?.statusBucket === "resolved") {
+    query.status = { $in: ["resolved", "archived"] };
   }
 
   if (params.filters?.type) {
@@ -487,8 +514,8 @@ export async function listTickets(params: {
       .sort(parseSort(params.options))
       .skip(skip)
       .limit(params.options.limit)
-      .populate("createdBy", "name email")
-      .populate("assignedTo", "name email")
+      .populate("createdBy", "name email role")
+      .populate("assignedTo", "name email role")
       .lean(),
     Ticket.countDocuments(scopedQuery),
   ]);
@@ -563,9 +590,9 @@ export async function getTicketThread(params: {
   const scopedQuery = withAccessScope(baseQuery, params.access);
 
   const ticket = await Ticket.findOne(scopedQuery)
-    .populate("createdBy", "name email")
-    .populate("assignedTo", "name email")
-    .populate("unreadBy", "name email")
+    .populate("createdBy", "name email role")
+    .populate("assignedTo", "name email role")
+    .populate("unreadBy", "name email role")
     .lean<Record<string, unknown> | null>();
 
   if (!ticket) {
@@ -577,8 +604,8 @@ export async function getTicketThread(params: {
       companyId: toObjectId(params.companyId),
       ticketId: toObjectId(params.ticketId),
     })
-      .sort({ createdAt: 1 })
-      .populate("authorId", "name email")
+      .sort({ createdAt: -1 })
+      .populate("authorId", "name email role")
       .lean<Record<string, unknown>[]>(),
     TicketAttachment.find({
       companyId: toObjectId(params.companyId),
@@ -787,16 +814,18 @@ export async function addTicketMessage(params: {
     snapshot: {
       id: params.ticketId,
       title: ticket.title,
-      type: ticket.type,
+      type: ticket.type as TicketType,
       status: nextStatus,
       linkedType: ticket.linkedType || null,
       linkedId: ticket.linkedId ? String(ticket.linkedId) : null,
     },
     messagePreview: params.payload.body || null,
+    attachmentCount: createdAttachments.length,
+    attachments: buildTicketNotificationEmailAttachments(createdAttachments),
   });
 
   const message = await TicketMessage.findById(createdMessage._id)
-    .populate("authorId", "name email")
+    .populate("authorId", "name email role")
     .lean();
 
   return {
@@ -894,8 +923,8 @@ export async function changeTicketStatus(params: {
   const updated = await Ticket.findByIdAndUpdate(ticket._id, { $set: updatePayload }, {
     returnDocument: "after",
   })
-    .populate("createdBy", "name email")
-    .populate("assignedTo", "name email")
+    .populate("createdBy", "name email role")
+    .populate("assignedTo", "name email role")
     .lean();
 
   await recordAuditLog({
@@ -926,7 +955,7 @@ export async function changeTicketStatus(params: {
       snapshot: {
         id: params.ticketId,
         title: ticket.title,
-        type: ticket.type,
+        type: ticket.type as TicketType,
         status: nextStatus,
         linkedType: ticket.linkedType || null,
         linkedId: ticket.linkedId ? String(ticket.linkedId) : null,
@@ -970,8 +999,8 @@ export async function markTicketRead(params: {
     },
     { returnDocument: "after" }
   )
-    .populate("createdBy", "name email")
-    .populate("assignedTo", "name email")
+    .populate("createdBy", "name email role")
+    .populate("assignedTo", "name email role")
     .lean();
 
   if (!updated) {
@@ -1042,8 +1071,8 @@ export async function listLinkedTickets(params: {
   const tickets = await Ticket.find(scopedQuery)
     .sort({ updatedAt: -1 })
     .limit(Math.max(1, Math.min(params.limit || 20, 100)))
-    .populate("createdBy", "name email")
-    .populate("assignedTo", "name email")
+    .populate("createdBy", "name email role")
+    .populate("assignedTo", "name email role")
     .lean();
 
   const requesterId = isValidObjectId(params.access.userId) ? params.access.userId : null;
@@ -1115,21 +1144,27 @@ export async function listTicketsWithoutReplyForReminder(params: {
   const olderThanHours = Math.max(1, params.olderThanHours || 48);
   const cutoffDate = new Date(Date.now() - olderThanHours * 60 * 60 * 1000);
 
-  const items = await Ticket.find({
+  const query = {
     companyId: toObjectId(params.companyId),
     status: "waiting",
     updatedAt: { $lte: cutoffDate },
     archivedAt: null,
-  })
-    .sort({ updatedAt: 1 })
-    .limit(Math.max(1, Math.min(params.limit || 100, 500)))
-    .populate("createdBy", "name email")
-    .populate("assignedTo", "name email")
-    .lean();
+  };
+
+  const [items, totalCount] = await Promise.all([
+    Ticket.find(query)
+      .sort({ updatedAt: 1 })
+      .limit(Math.max(1, Math.min(params.limit || 100, 500)))
+      .populate("createdBy", "name email role")
+      .populate("assignedTo", "name email role")
+      .lean(),
+    Ticket.countDocuments(query),
+  ]);
 
   return {
     success: true as const,
     items,
+    totalCount,
   };
 }
 

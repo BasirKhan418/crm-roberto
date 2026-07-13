@@ -186,6 +186,7 @@ export default function CatalogueItemModal({ open, mode, item, onClose, onSaved 
   const [apiError, setApiError] = useState<string | null>(null);
   const [errors, setErrors] = useState<FieldErrors>({});
   const modalBodyRef = useRef<HTMLDivElement | null>(null);
+  const initializedSessionKeyRef = useRef<string | null>(null);
 
   const unitPriceExcludingTax = useMemo(() => {
     const parsed = Number(priceInput);
@@ -199,8 +200,15 @@ export default function CatalogueItemModal({ open, mode, item, onClose, onSaved 
 
   useEffect(() => {
     if (!open) {
+      initializedSessionKeyRef.current = null;
       return;
     }
+
+    const sessionKey = `${mode}:${item?._id || 'new-item'}`;
+    if (initializedSessionKeyRef.current === sessionKey) {
+      return;
+    }
+    initializedSessionKeyRef.current = sessionKey;
 
     if (mode === 'edit' && item) {
       setName(item.name);

@@ -1,0 +1,8 @@
+[
+{"_id":{"$oid":"69d34c851a45133c43b4d502"},"user":{"$oid":"69d33e501a45133c43b4bb49"},"year":2026,"lastCounter":5,"createdAt":{"$date":"2026-04-06T06:02:45.056Z"},"updatedAt":{"$date":"2026-04-06T16:42:00.188Z"},"__v":0},
+{"_id":{"$oid":"69d3f86b4a9ab731beae7381"},"user":{"$oid":"69d3f5ce4a9ab731beae6af4"},"year":2026,"lastCounter":1,"createdAt":{"$date":"2026-04-06T18:16:11.590Z"},"updatedAt":{"$date":"2026-04-06T18:16:11.598Z"},"__v":0},
+{"_id":{"$oid":"69d4fb19f1380a5748337f06"},"user":{"$oid":"69d4f259f1380a5748336bb1"},"year":2026,"lastCounter":20,"createdAt":{"$date":"2026-04-07T12:39:53.429Z"},"updatedAt":{"$date":"2026-06-19T11:32:42.621Z"},"__v":0},
+{"_id":{"$oid":"69d6a4cfe46b3266b264cf4b"},"user":{"$oid":"69d6a3a2e46b3266b264cd3d"},"year":2026,"lastCounter":1,"createdAt":{"$date":"2026-04-08T18:56:15.118Z"},"updatedAt":{"$date":"2026-04-08T18:56:15.124Z"},"__v":0},
+{"_id":{"$oid":"69d8095be46b3266b264d74e"},"user":{"$oid":"69d7f9bee46b3266b264d251"},"year":2026,"lastCounter":1,"createdAt":{"$date":"2026-04-09T20:17:31.424Z"},"updatedAt":{"$date":"2026-04-09T20:17:31.444Z"},"__v":0},
+{"_id":{"$oid":"69dd2c66216bd1c1870c85a1"},"user":{"$oid":"69d2a04040790355adfb1c64"},"year":2026,"lastCounter":2,"createdAt":{"$date":"2026-04-13T17:48:22.717Z"},"updatedAt":{"$date":"2026-04-13T18:17:46.032Z"},"__v":0}
+]

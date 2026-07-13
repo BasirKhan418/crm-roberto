@@ -1,9 +1,10 @@
-import mongoose from 'mongoose';
 import { NextResponse } from 'next/server';
 
 import ConnectDb from '@/db/connectDb';
 import Invoice from '@/db/models/Invoice';
+import { getCompanyUserObjectIds } from '@/lib/company-scope';
 import { getStartOfTomorrow } from '@/lib/invoices/overdue';
+import { requireModulePermission } from '@/lib/role-matrix';
 import getMe from '@/utils/middlewares/useMe';
 
 
@@ -14,9 +15,19 @@ export async function GET() {
       return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
     }
 
+    const permission = await requireModulePermission({
+      companyId: me.user.companyId,
+      role: me.user.role,
+      moduleKey: 'invoices',
+      action: 'view',
+    });
+    if (!permission.success) {
+      return NextResponse.json({ success: false, message: permission.message }, { status: permission.status });
+    }
+
     await ConnectDb();
 
-    const userObjectId = new mongoose.Types.ObjectId(me.user.id);
+    const userObjectIds = await getCompanyUserObjectIds({ companyId: me.user.companyId, fallbackUserId: me.user.id });
     const tomorrowStart = getStartOfTomorrow();
 
     const [result] = await Invoice.aggregate<{
@@ -26,7 +37,7 @@ export async function GET() {
       overdue: Array<{ count: number; totalTTC: number }>;
       totals: Array<{ totalHT: number; totalVat: number; totalTTC: number }>;
     }>([
-      { $match: { userId: userObjectId } },
+      { $match: { userId: { $in: userObjectIds } } },
       {
         $facet: {
           all: [

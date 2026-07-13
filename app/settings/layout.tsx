@@ -1,19 +1,20 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import { useEffect } from 'react';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { BellIcon, CreditCardIcon, LayoutGridIcon, ReceiptTextIcon, UsersIcon } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { BellIcon, CreditCardIcon, LayoutGridIcon, ReceiptTextIcon, ShieldCheckIcon, UsersIcon } from 'lucide-react';
 
 import CrmShell from '@/components/crm-shell';
 import { useLocale } from '@/components/providers/locale-provider';
 import { useAuthMe } from '@/hooks/useAuthMe';
-import { hasPermission } from '@/lib/permissions';
+import { canManageRoleMatrix, getDefaultCrmLandingPath, getSettingsLandingPath, hasModuleActionAccess } from '@/lib/route-access';
 import { cn } from '@/lib/utils';
 
 type SettingsNavItem = {
-  key: 'overview' | 'reminders' | 'stripe' | 'users' | 'expenses';
+  key: 'overview' | 'reminders' | 'stripe' | 'users' | 'expenses' | 'roles';
   href: string;
   icon: ReactNode;
 };
@@ -44,6 +45,11 @@ const settingsNavItems: SettingsNavItem[] = [
     href: '/settings/users',
     icon: <UsersIcon className="size-4" />,
   },
+  {
+    key: 'roles',
+    href: '/settings/roles',
+    icon: <ShieldCheckIcon className="size-4" />,
+  },
 ];
 
 const settingsMessages = {
@@ -57,6 +63,7 @@ const settingsMessages = {
       stripe: 'Payments',
       expenses: 'Expenses',
       users: 'Users',
+      roles: 'Role Matrix',
     },
   },
   fr: {
@@ -69,22 +76,58 @@ const settingsMessages = {
       stripe: 'Paiements',
       expenses: 'Dépenses',
       users: 'Utilisateurs',
+      roles: 'Matrice des roles',
     },
   },
 } as const;
 
 export default function SettingsLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { locale } = useLocale();
-  const { user } = useAuthMe();
+  const { user, loading } = useAuthMe();
   const t = settingsMessages[locale];
-  const canViewUsers = hasPermission(user?.role, 'users.view');
-  const canViewExpenses = hasPermission(user?.role, 'expenses.view');
+  const canViewSettings = hasModuleActionAccess({ role: user?.role, modulePermissions: user?.modulePermissions, moduleKey: 'settings', action: 'view' });
+  const canViewUsers = hasModuleActionAccess({ role: user?.role, modulePermissions: user?.modulePermissions, moduleKey: 'users', action: 'view' });
+  const canViewExpenses =
+    user?.featureFlags?.expenses !== false &&
+    hasModuleActionAccess({ role: user?.role, modulePermissions: user?.modulePermissions, moduleKey: 'expenses', action: 'view' });
+  const canManageRoles = canManageRoleMatrix(user?.role, user?.featureFlags);
+  const settingsLandingPath = getSettingsLandingPath(user?.role, user?.modulePermissions, user?.featureFlags);
+
+  useEffect(() => {
+    if (loading) {
+      return;
+    }
+
+    const fallbackPath = settingsLandingPath || getDefaultCrmLandingPath(user?.role, user?.modulePermissions, user?.featureFlags);
+    const cannotAccessCurrentPath =
+      (pathname === '/settings' || pathname.startsWith('/settings/reminders') || pathname.startsWith('/settings/stripe'))
+        ? !canViewSettings
+        : pathname.startsWith('/settings/users')
+          ? !canViewUsers
+          : pathname.startsWith('/settings/expenses')
+            ? !canViewExpenses
+            : pathname.startsWith('/settings/roles')
+              ? !canManageRoles
+              : false;
+
+    if (cannotAccessCurrentPath && fallbackPath && fallbackPath !== pathname) {
+      router.replace(fallbackPath);
+      return;
+    }
+
+    if (pathname === '/settings' && settingsLandingPath && settingsLandingPath !== pathname && !canViewSettings) {
+      router.replace(settingsLandingPath);
+    }
+  }, [canManageRoles, canViewExpenses, canViewSettings, canViewUsers, loading, pathname, router, settingsLandingPath, user?.featureFlags, user?.modulePermissions, user?.role]);
 
   const visibleNavItems = settingsNavItems.filter((item) => {
+    if (item.key === 'overview' || item.key === 'reminders' || item.key === 'stripe') return canViewSettings;
     if (item.key === 'users') return canViewUsers;
     if (item.key === 'expenses') return canViewExpenses;
-    return true;
+    if (item.key === 'roles') return canManageRoles;
+    return false;
   });
 
   return (

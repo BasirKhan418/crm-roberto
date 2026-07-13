@@ -1,9 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { FilterIcon, Loader2Icon, MessageSquarePlusIcon, RefreshCwIcon, SearchIcon } from 'lucide-react';
+import { ChevronDownIcon, Loader2Icon, MessageSquarePlusIcon, RefreshCwIcon, SearchIcon } from 'lucide-react';
 
 import CrmShell from '@/components/crm-shell';
 import { CreateTicketDialog } from '@/components/tickets/create-ticket-dialog';
@@ -16,17 +16,51 @@ import ErrorMessage from '@/components/ui/ErrorMessage';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuthMe } from '@/hooks/useAuthMe';
 import { type TicketListItem, useTickets } from '@/hooks/useTickets';
+import { formatInvoiceReferencesInText } from '@/lib/i18n/messages';
+import { getTicketLinkedTypeLabel, getTicketStatusLabel, getTicketTypeLabel } from '@/lib/tickets/i18n';
 import {
   TICKET_LINKED_TYPES,
-  TICKET_STATUSES,
   TICKET_TYPES,
   type TicketLinkedType,
   type TicketStatus,
+  type TicketStatusBucket,
   type TicketType,
 } from '@/lib/tickets/constants';
-import { hasPermission } from '@/lib/permissions';
+import { getDefaultCrmLandingPath, hasModuleActionAccess } from '@/lib/route-access';
+
+type TicketWorkspaceFilter = 'all' | 'open' | 'waiting' | 'replied' | 'resolved';
+
+const WORKSPACE_FILTERS: TicketWorkspaceFilter[] = ['all', 'open', 'waiting', 'replied', 'resolved'];
+
+function getInitialWorkspaceFilter(statusParam: string | null, statusBucketParam: string | null): TicketWorkspaceFilter {
+  if (statusParam === 'open' || statusParam === 'waiting' || statusParam === 'replied') {
+    return statusParam;
+  }
+
+  if (statusParam === 'resolved' || statusParam === 'archived' || statusBucketParam === 'resolved') {
+    return 'resolved';
+  }
+
+  return 'all';
+}
+
+function getWorkspaceStatusFilters(filter: TicketWorkspaceFilter): {
+  status?: TicketStatus;
+  statusBucket?: TicketStatusBucket;
+} {
+  if (filter === 'open' || filter === 'waiting' || filter === 'replied') {
+    return { status: filter };
+  }
+
+  if (filter === 'resolved') {
+    return { statusBucket: 'resolved' };
+  }
+
+  return { statusBucket: 'active' };
+}
 
 function parseBoolean(value: string | null): boolean {
   if (!value) return false;
@@ -85,57 +119,21 @@ function buildLinkedRecordPath(ticket: TicketListItem): string | null {
   return null;
 }
 
-function buildTypeLabel(type: TicketType, locale: 'en' | 'fr') {
-  const labels = {
-    en: {
-      accounting: 'Accounting',
-      validation: 'Validation',
-      document: 'Document',
-      dispute: 'Dispute',
-    },
-    fr: {
-      accounting: 'Comptabilité',
-      validation: 'Validation',
-      document: 'Document',
-      dispute: 'Litige',
-    },
-  } as const;
-
-  return labels[locale][type] || type;
-}
-
-function buildLinkedTypeLabel(type: TicketLinkedType, locale: 'en' | 'fr') {
-  const labels = {
-    en: {
-      expense: 'Expense',
-      invoice: 'Invoice',
-      supplier: 'Supplier',
-      client: 'Client',
-    },
-    fr: {
-      expense: 'Dépense',
-      invoice: 'Facture',
-      supplier: 'Fournisseur',
-      client: 'Client',
-    },
-  } as const;
-
-  return labels[locale][type] || type;
-}
-
 export default function TicketsPage() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const { locale } = useLocale();
   const { user, loading: authLoading } = useAuthMe();
 
   const initialStatusParam = searchParams.get('status');
+  const initialStatusBucketParam = searchParams.get('statusBucket');
   const initialTypeParam = searchParams.get('type');
   const initialLinkedTypeParam = searchParams.get('linkedType');
 
   const [searchInput, setSearchInput] = useState(searchParams.get('search') || '');
   const [debouncedSearch, setDebouncedSearch] = useState(searchParams.get('search') || '');
-  const [statusFilter, setStatusFilter] = useState<TicketStatus | ''>(
-    TICKET_STATUSES.includes(initialStatusParam as TicketStatus) ? (initialStatusParam as TicketStatus) : ''
+  const [workspaceFilter, setWorkspaceFilter] = useState<TicketWorkspaceFilter>(() =>
+    getInitialWorkspaceFilter(initialStatusParam, initialStatusBucketParam)
   );
   const [typeFilter, setTypeFilter] = useState<TicketType | ''>(
     TICKET_TYPES.includes(initialTypeParam as TicketType) ? (initialTypeParam as TicketType) : ''
@@ -152,6 +150,7 @@ export default function TicketsPage() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
   const [createOpen, setCreateOpen] = useState(false);
+  const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -161,14 +160,25 @@ export default function TicketsPage() {
     return () => window.clearTimeout(timer);
   }, [searchInput]);
 
-  const canViewTickets = hasPermission(user?.role, 'tickets.view');
+  const canViewTickets = hasModuleActionAccess({ role: user?.role, modulePermissions: user?.modulePermissions, moduleKey: 'tickets', action: 'view' });
+  const canManageTickets = hasModuleActionAccess({ role: user?.role, modulePermissions: user?.modulePermissions, moduleKey: 'tickets', action: 'manage' });
+  const { status: statusFilter, statusBucket } = getWorkspaceStatusFilters(workspaceFilter);
+
+  useEffect(() => {
+    if (authLoading || canViewTickets) {
+      return;
+    }
+
+    router.replace(getDefaultCrmLandingPath(user?.role, user?.modulePermissions, user?.featureFlags));
+  }, [authLoading, canViewTickets, router, user?.featureFlags, user?.modulePermissions, user?.role]);
 
   const { tickets, pagination, loading, error, refetch } = useTickets(
     {
       page,
       limit,
       search: debouncedSearch || undefined,
-      status: statusFilter || undefined,
+      status: statusFilter,
+      statusBucket,
       type: typeFilter || undefined,
       linkedType: linkedTypeFilter || undefined,
       linkedId: linkedIdFilter.trim() || undefined,
@@ -188,8 +198,12 @@ export default function TicketsPage() {
       subtitle: 'Track support threads, unblock waiting items, and keep internal communication moving.',
       forbiddenTitle: 'You do not have access to tickets',
       forbiddenHelp: 'Ask an administrator to grant tickets permissions.',
-      search: 'Search',
+      totalResults: 'total results',
+      currentFilter: 'Current filter',
       searchPlaceholder: 'Search title or message...',
+      showAdvancedFilters: 'Advanced filters',
+      hideAdvancedFilters: 'Hide advanced filters',
+      advancedFiltersActive: (count: number) => `${count} advanced filter${count === 1 ? '' : 's'} active`,
       status: 'Status',
       type: 'Type',
       linkedType: 'Linked type',
@@ -204,6 +218,7 @@ export default function TicketsPage() {
       refresh: 'Refresh',
       newTicket: 'New ticket',
       noTickets: 'No tickets found for these filters.',
+      resolvedHistoryHint: 'All keeps the active workspace clean. Resolved includes archived ticket history.',
       ticketTitle: 'Ticket',
       participants: 'Participants',
       linked: 'Linked',
@@ -217,7 +232,6 @@ export default function TicketsPage() {
       next: 'Next',
       linkedRecord: 'Linked record',
       loadError: 'Could not load tickets.',
-      statusLabels: { open: 'Open', waiting: 'Waiting', replied: 'Replied', resolved: 'Resolved', archived: 'Archived' },
     },
     fr: {
       shellTitle: 'Tickets',
@@ -225,8 +239,12 @@ export default function TicketsPage() {
       subtitle: 'Suivez les discussions, débloquez les attentes, et fluidifiez la communication interne.',
       forbiddenTitle: "Vous n'avez pas accès aux tickets",
       forbiddenHelp: "Demandez à un administrateur d'activer les permissions tickets.",
-      search: 'Recherche',
+      totalResults: 'résultats au total',
+      currentFilter: 'Filtre actuel',
       searchPlaceholder: 'Rechercher titre ou message...',
+      showAdvancedFilters: 'Filtres avancés',
+      hideAdvancedFilters: 'Masquer les filtres avancés',
+      advancedFiltersActive: (count: number) => `${count} filtre${count > 1 ? 's' : ''} avancé${count > 1 ? 's' : ''} actif${count > 1 ? 's' : ''}`,
       status: 'Statut',
       type: 'Type',
       linkedType: 'Type lié',
@@ -241,6 +259,7 @@ export default function TicketsPage() {
       refresh: 'Actualiser',
       newTicket: 'Nouveau ticket',
       noTickets: 'Aucun ticket pour ces filtres.',
+      resolvedHistoryHint: 'Tous garde l\'espace actif propre. Resolu inclut aussi l\'historique archive.',
       ticketTitle: 'Ticket',
       participants: 'Participants',
       linked: 'Lié',
@@ -254,14 +273,13 @@ export default function TicketsPage() {
       next: 'Suivant',
       linkedRecord: 'Ressource liée',
       loadError: 'Impossible de charger les tickets.',
-      statusLabels: { open: 'Ouvert', waiting: 'En attente', replied: 'Répondu', resolved: 'Résolu', archived: 'Archivé' },
     },
   }[locale];
 
   function resetFilters() {
     setSearchInput('');
     setDebouncedSearch('');
-    setStatusFilter('');
+    setWorkspaceFilter('all');
     setTypeFilter('');
     setLinkedTypeFilter('');
     setLinkedIdFilter('');
@@ -272,9 +290,20 @@ export default function TicketsPage() {
     setPage(1);
   }
 
-  const hasFiltersApplied = Boolean(
-    searchInput || statusFilter || typeFilter || linkedTypeFilter || linkedIdFilter.trim() || assignedToMe || createdByMe || unreadOnly
-  );
+  const currentFilterLabel =
+    workspaceFilter === 'all' ? t.all : getTicketStatusLabel(workspaceFilter, locale);
+
+  const advancedFiltersCount = [
+    typeFilter,
+    linkedTypeFilter,
+    linkedIdFilter.trim(),
+    assignedToMe,
+    createdByMe,
+    unreadOnly,
+    limit !== 20,
+  ].filter(Boolean).length;
+
+  const hasAdvancedFiltersApplied = advancedFiltersCount > 0;
 
   const renderedError = !canViewTickets && !authLoading
     ? t.forbiddenHelp
@@ -294,7 +323,7 @@ export default function TicketsPage() {
             {loading ? <Loader2Icon className="size-4 animate-spin" /> : <RefreshCwIcon className="size-4" />}
             {t.refresh}
           </Button>
-          <Button type="button" onClick={() => setCreateOpen(true)} disabled={!canViewTickets} data-tour-new-ticket>
+          <Button type="button" onClick={() => setCreateOpen(true)} disabled={!canManageTickets} data-tour-new-ticket>
             <MessageSquarePlusIcon className="size-4" />
             {t.newTicket}
           </Button>
@@ -305,89 +334,177 @@ export default function TicketsPage() {
         <ErrorMessage message={`${t.forbiddenTitle}. ${t.forbiddenHelp}`} />
       ) : null}
 
-      <section className="space-y-3 rounded-2xl border border-border/70 bg-card p-3 sm:p-4" aria-label={t.filters} data-tour-tickets-filters>
-        <div className="flex items-center gap-2">
-          <FilterIcon className="size-4 text-muted-foreground" />
-          <p className="text-sm font-semibold text-foreground">{t.filters}</p>
+      <div className="space-y-3 rounded-xl border border-border/70 bg-card/40 p-3 sm:p-4" aria-label={t.filters} data-tour-tickets-filters>
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <span className="rounded-full border border-border/70 bg-background px-2.5 py-1 text-muted-foreground">
+            {pagination.total} {t.totalResults}
+          </span>
+          <span className="rounded-full border border-border/70 bg-background px-2.5 py-1 text-muted-foreground">
+            {t.currentFilter}: {currentFilterLabel}
+          </span>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <div className="space-y-1.5 xl:col-span-2">
-            <Label>{t.search}</Label>
-            <div className="relative">
-              <SearchIcon className="pointer-events-none absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
-              <Input className="pl-8" value={searchInput} onChange={(event) => { setSearchInput(event.target.value); setPage(1); }} placeholder={t.searchPlaceholder} />
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>{t.status}</Label>
-            <select className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm" value={statusFilter} onChange={(event) => { setStatusFilter((event.target.value || '') as TicketStatus | ''); setPage(1); }}>
-              <option value="">{t.all}</option>
-              {TICKET_STATUSES.map((status) => (
-                <option key={status} value={status}>{t.statusLabels[status as keyof typeof t.statusLabels] ?? status}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>{t.type}</Label>
-            <select className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm" value={typeFilter} onChange={(event) => { setTypeFilter((event.target.value || '') as TicketType | ''); setPage(1); }}>
-              <option value="">{t.all}</option>
-              {TICKET_TYPES.map((type) => (
-                <option key={type} value={type}>{buildTypeLabel(type, locale)}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>{t.linkedType}</Label>
-            <select className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm" value={linkedTypeFilter} onChange={(event) => { setLinkedTypeFilter((event.target.value || '') as TicketLinkedType | ''); setPage(1); }}>
-              <option value="">{t.all}</option>
-              {TICKET_LINKED_TYPES.map((linkedType) => (
-                <option key={linkedType} value={linkedType}>{buildLinkedTypeLabel(linkedType, locale)}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="space-y-1.5 xl:col-span-2">
-            <Label>{t.linkedId}</Label>
-            <Input value={linkedIdFilter} onChange={(event) => { setLinkedIdFilter(event.target.value); setPage(1); }} />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>{t.rows}</Label>
-            <select className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm" value={String(limit)} onChange={(event) => { setLimit(Number(event.target.value) || 20); setPage(1); }}>
-              <option value="10">10</option>
-              <option value="20">20</option>
-              <option value="50">50</option>
-            </select>
-          </div>
+        <div className="relative">
+          <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            className="h-10 pl-9"
+            value={searchInput}
+            onChange={(event) => {
+              setSearchInput(event.target.value);
+              setPage(1);
+            }}
+            placeholder={t.searchPlaceholder}
+          />
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <label className="flex items-center gap-2 text-sm text-foreground">
-            <input type="checkbox" checked={assignedToMe} onChange={(event) => { setAssignedToMe(event.target.checked); setPage(1); }} />
-            {t.assignedToMe}
-          </label>
+        <Tabs
+          value={workspaceFilter}
+          onValueChange={(value) => {
+            setWorkspaceFilter(value as TicketWorkspaceFilter);
+            setPage(1);
+          }}
+        >
+          <div className="overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <TabsList className="inline-flex h-auto min-w-max items-center gap-1 rounded-lg border border-border/80 bg-muted/10 p-1 shadow-xs">
+              {WORKSPACE_FILTERS.map((filter) => {
+                const label = filter === 'all' ? t.all : getTicketStatusLabel(filter, locale);
 
-          <label className="flex items-center gap-2 text-sm text-foreground">
-            <input type="checkbox" checked={createdByMe} onChange={(event) => { setCreatedByMe(event.target.checked); setPage(1); }} />
-            {t.createdByMe}
-          </label>
+                return (
+                  <TabsTrigger
+                    key={filter}
+                    value={filter}
+                    className="min-h-6 rounded-md border border-transparent px-3 py-1.5 text-sm font-medium text-foreground/85 hover:bg-muted/60 hover:text-foreground data-active:border-primary/10 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm"
+                  >
+                    {label}
+                  </TabsTrigger>
+                );
+              })}
+            </TabsList>
+          </div>
+        </Tabs>
 
-          <label className="flex items-center gap-2 text-sm text-foreground">
-            <input type="checkbox" checked={unreadOnly} onChange={(event) => { setUnreadOnly(event.target.checked); setPage(1); }} />
-            {t.unreadOnly}
-          </label>
-
-          {hasFiltersApplied ? (
-            <Button type="button" variant="ghost" className="h-8 px-2 text-xs" onClick={resetFilters}>
-              {t.resetFilters}
-            </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant={advancedFiltersOpen ? 'secondary' : 'outline'}
+            size="sm"
+            className="h-8 gap-1.5 px-2.5 text-xs"
+            onClick={() => setAdvancedFiltersOpen((previous) => !previous)}
+            aria-expanded={advancedFiltersOpen}
+          >
+            {advancedFiltersOpen ? t.hideAdvancedFilters : t.showAdvancedFilters}
+            <ChevronDownIcon
+              className={`size-3.5 shrink-0 transition-transform ${advancedFiltersOpen ? 'rotate-180' : ''}`}
+              aria-hidden="true"
+            />
+          </Button>
+          {!advancedFiltersOpen && hasAdvancedFiltersApplied ? (
+            <>
+              <p className="text-xs text-muted-foreground">{t.advancedFiltersActive(advancedFiltersCount)}</p>
+              <Button type="button" variant="ghost" size="sm" className="ml-auto h-8 px-2 text-xs" onClick={resetFilters}>
+                {t.resetFilters}
+              </Button>
+            </>
           ) : null}
         </div>
-      </section>
+
+        {advancedFiltersOpen ? (
+          <div className="space-y-3 border-t border-border/60 pt-3">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="space-y-1.5">
+                <Label>{t.type}</Label>
+                <select
+                  className="h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
+                  value={typeFilter}
+                  onChange={(event) => {
+                    setTypeFilter((event.target.value || '') as TicketType | '');
+                    setPage(1);
+                  }}
+                >
+                  <option value="">{t.all}</option>
+                  {TICKET_TYPES.map((type) => (
+                    <option key={type} value={type}>
+                      {getTicketTypeLabel(type, locale)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>{t.linkedType}</Label>
+                <select
+                  className="h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
+                  value={linkedTypeFilter}
+                  onChange={(event) => {
+                    setLinkedTypeFilter((event.target.value || '') as TicketLinkedType | '');
+                    setPage(1);
+                  }}
+                >
+                  <option value="">{t.all}</option>
+                  {TICKET_LINKED_TYPES.map((linkedType) => (
+                    <option key={linkedType} value={linkedType}>
+                      {getTicketLinkedTypeLabel(linkedType, locale)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label>{t.linkedId}</Label>
+                <Input
+                  className="h-10"
+                  value={linkedIdFilter}
+                  onChange={(event) => {
+                    setLinkedIdFilter(event.target.value);
+                    setPage(1);
+                  }}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>{t.rows}</Label>
+                <select
+                  className="h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
+                  value={String(limit)}
+                  onChange={(event) => {
+                    setLimit(Number(event.target.value) || 20);
+                    setPage(1);
+                  }}
+                >
+                  <option value="10">10</option>
+                  <option value="20">20</option>
+                  <option value="50">50</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="flex items-center gap-2 text-sm text-foreground">
+                <input type="checkbox" checked={assignedToMe} onChange={(event) => { setAssignedToMe(event.target.checked); setPage(1); }} />
+                {t.assignedToMe}
+              </label>
+
+              <label className="flex items-center gap-2 text-sm text-foreground">
+                <input type="checkbox" checked={createdByMe} onChange={(event) => { setCreatedByMe(event.target.checked); setPage(1); }} />
+                {t.createdByMe}
+              </label>
+
+              <label className="flex items-center gap-2 text-sm text-foreground">
+                <input type="checkbox" checked={unreadOnly} onChange={(event) => { setUnreadOnly(event.target.checked); setPage(1); }} />
+                {t.unreadOnly}
+              </label>
+
+              {hasAdvancedFiltersApplied || searchInput ? (
+                <Button type="button" variant="outline" size="sm" className="h-8" onClick={resetFilters}>
+                  {t.resetFilters}
+                </Button>
+              ) : null}
+            </div>
+
+            <p className="text-xs text-muted-foreground">{t.resolvedHistoryHint}</p>
+          </div>
+        ) : null}
+      </div>
 
       {renderedError && canViewTickets ? <ErrorMessage message={renderedError || t.loadError} /> : null}
 
@@ -414,7 +531,7 @@ export default function TicketsPage() {
               const createdByLabel = getUserDisplayName(ticket.createdBy, '-');
               const linkedPath = buildLinkedRecordPath(ticket);
               const linkedLabel = ticket.linkedType
-                ? `${buildLinkedTypeLabel(ticket.linkedType, locale)} ${getLinkedEntityId(ticket.linkedId) || ''}`.trim()
+                ? `${getTicketLinkedTypeLabel(ticket.linkedType, locale)} ${getLinkedEntityId(ticket.linkedId) || ''}`.trim()
                 : '-';
 
               return (
@@ -423,7 +540,7 @@ export default function TicketsPage() {
                     <div className="min-w-0 flex-1 space-y-2">
                       <div className="flex flex-wrap items-center gap-2">
                         <Link href={`/tickets/${ticket._id}`} className="truncate text-sm font-semibold text-foreground hover:underline">
-                          {ticket.title}
+                          {formatInvoiceReferencesInText(locale, ticket.title)}
                         </Link>
                         <TicketStatusBadge status={ticket.status} locale={locale} />
                         <TicketUnreadIndicator unreadCount={ticket.unreadCount} locale={locale} />
@@ -431,7 +548,7 @@ export default function TicketsPage() {
 
                       <div className="grid gap-1 text-xs text-muted-foreground sm:grid-cols-2">
                         <p>
-                          {t.type}: <span className="font-medium text-foreground">{buildTypeLabel(ticket.type, locale)}</span>
+                          {t.type}: <span className="font-medium text-foreground">{getTicketTypeLabel(ticket.type, locale)}</span>
                         </p>
                         <p>
                           {t.lastUpdate}: <span className="font-medium text-foreground">{formatDateTime(ticket.lastMessageAt || ticket.updatedAt, locale)}</span>

@@ -11,6 +11,7 @@ import InvoiceTable, { type InvoiceTableColumnKey } from '@/components/invoices/
 import ManualPaymentModal, { type ManualPaymentType } from '@/components/invoices/ManualPaymentModal';
 import SendInvoiceModal from '@/components/invoices/SendInvoiceModal';
 import SendReminderModal from '@/components/invoices/SendReminderModal';
+import { CreateTicketDialog } from '@/components/tickets/create-ticket-dialog';
 import CrmShell from '@/components/crm-shell';
 import KpiCards, { type KpiCard } from '@/components/ui/KpiCards';
 import { useLocale } from '@/components/providers/locale-provider';
@@ -37,6 +38,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { useInvoices, type InvoiceListItem, type InvoiceStatusFilter } from '@/hooks/useInvoices';
 import { useInvoicesActionCount } from '@/hooks/useInvoicesActionCount';
 import FinancialTotalsBar from '@/components/ui/FinancialTotalsBar';
+import { useAuthMe } from '@/hooks/useAuthMe';
+import { getDefaultCrmLandingPath, hasModuleActionAccess } from '@/lib/route-access';
 
 const COLUMN_STORAGE_KEY = 'crm.invoice.visibleColumns.v1';
 const VIEW_STORAGE_KEY = 'crm.invoice.viewConfig.v1';
@@ -57,6 +60,7 @@ const DEFAULT_VISIBLE_COLUMNS: Record<InvoiceTableColumnKey, boolean> = {
 function InvoicesPageContent() {
   const router = useRouter();
   const { locale } = useLocale();
+  const { user, loading: authLoading } = useAuthMe();
   const t = {
     en: {
       shellTitle: 'Invoices',
@@ -65,6 +69,7 @@ function InvoicesPageContent() {
       totalResults: 'total results',
       currentFilter: 'Current filter',
       deleteFailed: 'Failed to delete invoice',
+      ticketCreated: 'Ticket created successfully',
       deleted: 'Invoice deleted',
       downloadFailed: 'Failed to download PDF',
       newInvoice: 'New invoice',
@@ -106,6 +111,7 @@ function InvoicesPageContent() {
       view: 'View',
       edit: 'Edit',
       send: 'Send',
+      createTicket: 'Create ticket',
       sendInvoice: 'Send invoice',
       sendReminder: 'Send reminder',
       downloadPdf: 'Download PDF',
@@ -167,6 +173,7 @@ function InvoicesPageContent() {
       totalResults: 'résultats au total',
       currentFilter: 'Filtre actuel',
       deleteFailed: 'Impossible de supprimer la facture',
+      ticketCreated: 'Ticket cree avec succes',
       deleted: 'Facture supprimée',
       downloadFailed: 'Impossible de télécharger le PDF',
       newInvoice: 'Nouvelle facture',
@@ -208,6 +215,7 @@ function InvoicesPageContent() {
       view: 'Voir',
       edit: 'Modifier',
       send: 'Envoyer',
+      createTicket: 'Creer un ticket',
       sendInvoice: 'Envoyer facture',
       sendReminder: 'Envoyer rappel',
       downloadPdf: 'Télécharger PDF',
@@ -278,6 +286,7 @@ function InvoicesPageContent() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [sendTarget, setSendTarget] = useState<InvoiceListItem | null>(null);
   const [reminderTarget, setReminderTarget] = useState<InvoiceListItem | null>(null);
+  const [ticketTarget, setTicketTarget] = useState<InvoiceListItem | null>(null);
   const [recordPaymentTarget, setRecordPaymentTarget] = useState<InvoiceListItem | null>(null);
   const [recordPaymentLoading, setRecordPaymentLoading] = useState(false);
   const [formalNoticeConfirmTarget, setFormalNoticeConfirmTarget] = useState<InvoiceListItem | null>(null);
@@ -295,6 +304,18 @@ function InvoicesPageContent() {
   const { allCount, unpaidCount, partialPaidCount, paidCount, overdueCount } = useInvoicesActionCount(
     pagination.total + invoices.length + Number(loading)
   );
+  const canViewInvoices = hasModuleActionAccess({ role: user?.role, modulePermissions: user?.modulePermissions, moduleKey: 'invoices', action: 'view' });
+  const canCreateInvoices = hasModuleActionAccess({ role: user?.role, modulePermissions: user?.modulePermissions, moduleKey: 'invoices', action: 'create' });
+  const canManageInvoices = hasModuleActionAccess({ role: user?.role, modulePermissions: user?.modulePermissions, moduleKey: 'invoices', action: 'manage' });
+  const canManageTickets = hasModuleActionAccess({ role: user?.role, modulePermissions: user?.modulePermissions, moduleKey: 'tickets', action: 'manage' });
+
+  useEffect(() => {
+    if (authLoading || canViewInvoices) {
+      return;
+    }
+
+    router.replace(getDefaultCrmLandingPath(user?.role, user?.modulePermissions, user?.featureFlags));
+  }, [authLoading, canViewInvoices, router, user?.featureFlags, user?.modulePermissions, user?.role]);
 
   // ── KPI data ──────────────────────────────────────────────────────────────
   const [kpiData, setKpiData] = useState<{
@@ -778,16 +799,18 @@ function InvoicesPageContent() {
             <h1 className="font-heading text-2xl font-semibold tracking-tight">{t.heading}</h1>
             <p className="text-sm text-muted-foreground">{t.subtitle}</p>
           </div>
-          <Button type="button" className="h-10 w-full sm:w-auto" data-tour-new-invoice asChild>
-            <Link href="/invoices/new">
-              <PlusIcon className="size-4" />
-              {t.newInvoice}
-            </Link>
-          </Button>
+          {canCreateInvoices ? (
+            <Button type="button" className="h-10 w-full sm:w-auto" data-tour-new-invoice asChild>
+              <Link href="/invoices/new">
+                <PlusIcon className="size-4" />
+                {t.newInvoice}
+              </Link>
+            </Button>
+          ) : null}
         </div>
 
         {/* ── KPI cards row 1: per-status ───────────────────────────────────── */}
-        <div className="space-y-3">
+        <div className="space-y-2">
           <KpiCards cards={invoiceKpiCards} locale={locale as 'en' | 'fr'} loading={kpiLoading} />
           {!kpiLoading && invoiceKpiTotalsCards.length > 0 ? <KpiCards cards={invoiceKpiTotalsCards} locale={locale as 'en' | 'fr'} cols={3} /> : null}
         </div>
@@ -929,7 +952,11 @@ function InvoicesPageContent() {
         ) : null}
 
         {!loading && invoices.length === 0 ? (
-          <EmptyState message={t.empty} actionLabel={t.newInvoice} onAction={() => router.push('/invoices/new')} />
+          <EmptyState
+            message={t.empty}
+            actionLabel={canCreateInvoices ? t.newInvoice : undefined}
+            onAction={canCreateInvoices ? () => router.push('/invoices/new') : undefined}
+          />
         ) : (
           <>
             <div data-tour-invoices-table>
@@ -950,7 +977,9 @@ function InvoicesPageContent() {
                 }
                 setReminderTarget(invoice);
               }}
+              onCreateTicket={canManageTickets ? setTicketTarget : undefined}
               onRecordPayment={setRecordPaymentTarget}
+              canManageActions={canManageInvoices}
               numberSortOrder={sort === 'number_asc' ? 'asc' : 'desc'}
               onToggleNumberSort={() => setSort((prev) => (prev === 'number_desc' ? 'number_asc' : 'number_desc'))}
               selectedInvoiceIds={selectedInvoiceIds}
@@ -995,6 +1024,7 @@ function InvoicesPageContent() {
                 view: t.view,
                 edit: t.edit,
                 send: t.send,
+                createTicket: t.createTicket,
                 sendInvoice: t.sendInvoice,
                 sendReminder: t.sendReminder,
                 recordPayment: t.markAsPaid,
@@ -1032,7 +1062,7 @@ function InvoicesPageContent() {
         )}
       </section>
 
-      {selectedInvoiceIds.length > 0 ? (
+      {canManageInvoices && selectedInvoiceIds.length > 0 ? (
         <div className="fixed right-4 bottom-4 left-4 z-40 rounded-xl border border-border/70 bg-card/95 p-3 shadow-lg backdrop-blur sm:max-w-[calc(100vw-2rem)] md:left-auto md:min-w-105">
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
             <p className="min-w-0 text-sm font-medium text-foreground sm:max-w-64">
@@ -1162,6 +1192,28 @@ function InvoicesPageContent() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {ticketTarget ? (
+        <CreateTicketDialog
+          open={Boolean(ticketTarget)}
+          onOpenChange={(next) => (!next ? setTicketTarget(null) : undefined)}
+          locale={locale as 'en' | 'fr'}
+          prefill={{
+            linkedType: 'invoice',
+            linkedId: ticketTarget._id,
+            linkedLabel: `${formatInvoiceDisplayNumber(locale as 'en' | 'fr', ticketTarget.invoiceNumber)}${ticketTarget.clientSnapshot.fullName ? ` - ${ticketTarget.clientSnapshot.fullName}` : ''}`,
+            title: `${formatInvoiceDisplayNumber(locale as 'en' | 'fr', ticketTarget.invoiceNumber)}${ticketTarget.clientSnapshot.fullName ? ` - ${ticketTarget.clientSnapshot.fullName}` : ''}`,
+            type: 'accounting',
+          }}
+          onCreated={async (ticketId) => {
+            setTicketTarget(null);
+            if (ticketId) {
+              router.push(`/tickets/${ticketId}`);
+            }
+            toast.success(t.ticketCreated);
+          }}
+        />
+      ) : null}
 
       {sendTarget ? (
         <SendInvoiceModal

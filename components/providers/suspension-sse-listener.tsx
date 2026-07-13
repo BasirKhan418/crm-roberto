@@ -4,6 +4,8 @@ import { useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { toast } from "sonner";
 
+import { broadcastAuthRefresh } from "@/lib/auth-refresh";
+
 type MeResponse = {
   success?: boolean;
 };
@@ -44,6 +46,11 @@ export function SuspensionSseListener() {
 
       eventSource.addEventListener("suspended", () => {
         void forceLogout();
+      });
+
+      eventSource.addEventListener("refresh", () => {
+        broadcastAuthRefresh();
+        router.refresh();
       });
 
       eventSource.onerror = () => {

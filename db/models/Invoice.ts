@@ -320,6 +320,11 @@ const InvoiceSchema = new mongoose.Schema(
       },
       default: "unpaid",
     },
+    accountantProcessed: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
     clientId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Client",

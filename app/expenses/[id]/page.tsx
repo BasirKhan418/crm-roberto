@@ -60,6 +60,7 @@ import { useExpenseDetail } from '@/hooks/useExpenseDetail';
 import { createInlineExpenseCategory, createInlineExpenseSupplier, useExpenseLookups } from '@/hooks/useExpenseLookups';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useTickets } from '@/hooks/useTickets';
+import { getDefaultCrmLandingPath, hasModuleActionAccess } from '@/lib/route-access';
 import { canPermanentlyDeleteExpense, canRestoreArchivedExpense } from '@/lib/expenses/access';
 import { resolveExpenseCategoryNameByLocale } from '@/lib/expenses/category-i18n';
 import { isExpenseReadyForPayment } from '@/lib/expenses/payment-readiness';
@@ -78,7 +79,6 @@ import {
   getExpenseTypeLabel,
 } from '@/lib/expenses/labels';
 import { formatInvoiceDisplayNumber, getInvoiceStatusLabel } from '@/lib/i18n/messages';
-import { hasPermission } from '@/lib/permissions';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 
@@ -990,11 +990,20 @@ export default function ExpenseDetailPage() {
     [locale]
   );
 
-  const canManageExpenses = hasPermission(user?.role, 'expenses.manage');
-  const canPermanentlyDelete = canPermanentlyDeleteExpense(user?.role);
-  const canRestoreArchived = canRestoreArchivedExpense(user?.role);
-  const canViewTickets = hasPermission(user?.role, 'tickets.view');
-  const canManageTickets = hasPermission(user?.role, 'tickets.manage');
+  const canManageExpenses = hasModuleActionAccess({ role: user?.role, modulePermissions: user?.modulePermissions, moduleKey: 'expenses', action: 'manage' });
+  const canDeleteExpenses = hasModuleActionAccess({ role: user?.role, modulePermissions: user?.modulePermissions, moduleKey: 'expenses', action: 'delete' });
+  const canPermanentlyDelete = canDeleteExpenses && canPermanentlyDeleteExpense(user?.role);
+  const canRestoreArchived = canManageExpenses && canRestoreArchivedExpense(user?.role);
+  const canViewTickets = hasModuleActionAccess({ role: user?.role, modulePermissions: user?.modulePermissions, moduleKey: 'tickets', action: 'view' });
+  const canManageTickets = hasModuleActionAccess({ role: user?.role, modulePermissions: user?.modulePermissions, moduleKey: 'tickets', action: 'manage' });
+
+  useEffect(() => {
+    if (authLoading || hasModuleActionAccess({ role: user?.role, modulePermissions: user?.modulePermissions, moduleKey: 'expenses', action: 'view' })) {
+      return;
+    }
+
+    router.replace(getDefaultCrmLandingPath(user?.role, user?.modulePermissions, user?.featureFlags));
+  }, [authLoading, router, user?.featureFlags, user?.modulePermissions, user?.role]);
 
   const {
     tickets: linkedTickets,
@@ -1624,7 +1633,7 @@ export default function ExpenseDetailPage() {
     );
   }
 
-  if (!hasPermission(user?.role, 'expenses.view')) {
+  if (!hasModuleActionAccess({ role: user?.role, modulePermissions: user?.modulePermissions, moduleKey: 'expenses', action: 'view' })) {
     return (
       <CrmShell title={t.shellTitle}>
         <Card className="border-border/70">

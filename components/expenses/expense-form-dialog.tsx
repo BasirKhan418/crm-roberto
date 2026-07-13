@@ -1,6 +1,6 @@
 'use client';
 
-import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { ChangeEvent, FocusEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 
 import Image from 'next/image';
 
@@ -27,6 +27,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { AttachmentPreviewDialog, type AttachmentPreview } from '@/components/expenses/attachment-preview-dialog';
 import { InteractiveReceiptImage } from '@/components/expenses/interactive-receipt-image';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -200,17 +201,12 @@ function addDaysToInputDate(value: string, days: number) {
   return toInputDateFromDate(date);
 }
 
-function openDateInputPicker(input: HTMLInputElement) {
-  try {
-    if (typeof input.showPicker === 'function') {
-      input.showPicker();
-      return;
-    }
-  } catch {
-    // Ignore and fallback below.
+function isLikelyMobileViewport() {
+  if (typeof window === 'undefined') {
+    return false;
   }
 
-  input.focus({ preventScroll: true });
+  return window.matchMedia('(max-width: 767px)').matches;
 }
 
 function buildDefaultFormValues(): FormValues {
@@ -256,8 +252,16 @@ function toTwoDecimals(value: number) {
   return Math.round(value * 100) / 100;
 }
 
+function normalizeDecimalValue(value: string) {
+  return value.trim().replace(',', '.');
+}
+
+function sanitizeDecimalInput(value: string) {
+  return value.replace(/[^\d.,]/g, '');
+}
+
 function toNonNegativeNumber(value: string) {
-  const parsed = Number(value);
+  const parsed = Number(normalizeDecimalValue(value));
   if (!Number.isFinite(parsed)) {
     return 0;
   }
@@ -485,16 +489,32 @@ export function ExpenseFormDialog({
   const [cameraDraftLoading, setCameraDraftLoading] = useState(false);
   const [pendingCameraCapture, setPendingCameraCapture] = useState<PendingCameraCapture | null>(null);
   const [finalizeAsPaid, setFinalizeAsPaid] = useState(false);
+  const [receiptViewerAttachment, setReceiptViewerAttachment] = useState<AttachmentPreview | null>(null);
 
   const isDraftEditMode = mode === 'edit' && initialExpense?.status === 'draft';
 
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
+  const amountInclVatFirstFocusRef = useRef(true);
+  const initializedSessionKeyRef = useRef<string | null>(null);
+
+  const expenseIdentity = initialExpense?._id || 'new-expense';
+  const receiptIdentity = initialReceiptFile
+    ? `${initialReceiptFile.name}:${initialReceiptFile.size}:${initialReceiptFile.lastModified}`
+    : 'no-receipt';
 
   useEffect(() => {
     if (!open) {
       setPendingCameraCapture(null);
+      amountInclVatFirstFocusRef.current = true;
+      initializedSessionKeyRef.current = null;
       return;
     }
+
+    const sessionKey = `${mode}:${expenseIdentity}:${receiptIdentity}`;
+    if (initializedSessionKeyRef.current === sessionKey) {
+      return;
+    }
+    initializedSessionKeyRef.current = sessionKey;
 
     const initialValues = buildInitialValues(initialExpense);
     setValues(initialValues);
@@ -514,6 +534,8 @@ export function ExpenseFormDialog({
     setDebouncedInvoiceSearch('');
     setPendingCameraCapture(null);
     setFinalizeAsPaid(Boolean(mode === 'edit' && initialExpense?.status === 'draft' && initialExpense?.paymentStatus === 'paid'));
+    setReceiptViewerAttachment(null);
+    amountInclVatFirstFocusRef.current = true;
 
     if (mode === 'create') {
       if (initialReceiptFile) {
@@ -546,7 +568,7 @@ export function ExpenseFormDialog({
       setUiFlow(flow);
       setShowAdvanced(hasAdvancedData(initialValues, flow));
     }
-  }, [initialExpense, initialReceiptFile, mode, open]);
+  }, [expenseIdentity, initialExpense, initialReceiptFile, mode, open, receiptIdentity]);
 
   useEffect(() => {
     const previewUrl = pendingCameraCapture?.previewUrl;
@@ -641,6 +663,7 @@ export function ExpenseFormDialog({
       amountExclVatHint: 'Calculated from total amount and VAT rate.',
       vatAmountPreview: 'VAT amount (preview)',
       vatRate: 'VAT rate',
+      vatRateHint: 'You can type any VAT value (example: 10).',
       expenseDate: 'Expense date',
       supplier: 'Supplier (optional)',
       category: 'Category',
@@ -670,8 +693,10 @@ export function ExpenseFormDialog({
       paymentEditHint: 'Payments are tracked as immutable lines. Use Add payment or Settle expense actions from the expense list/detail to register new payments.',
       receiptPreviewTitle: 'Receipt preview',
       receiptPreviewDescription: 'Keep the receipt visible while completing the expense fields.',
+      receiptPreviewMobileDescription: 'Open the receipt in full screen when you need to inspect details, then return to the form.',
       receiptPreviewUnavailable: 'This receipt type cannot be previewed inline.',
       openReceipt: 'Open receipt',
+      viewReceiptFullScreen: 'View receipt full screen',
       extraSection: 'Classification and notes',
       create: 'Create expense',
       createAndValidate: 'Create expense',
@@ -773,6 +798,7 @@ export function ExpenseFormDialog({
       amountExclVatHint: 'Calculé à partir du montant TTC et du taux TVA.',
       vatAmountPreview: 'Montant TVA (aperçu)',
       vatRate: 'Taux TVA',
+      vatRateHint: 'Vous pouvez saisir n’importe quel taux TVA (exemple : 10).',
       expenseDate: 'Date de dépense',
       supplier: 'Fournisseur (optionnel)',
       category: 'Catégorie',
@@ -802,8 +828,10 @@ export function ExpenseFormDialog({
       paymentEditHint: 'Les paiements sont enregistrés en lignes immuables. Utilisez Ajouter un paiement ou Solder la dépense depuis la liste/détail pour enregistrer un nouveau paiement.',
       receiptPreviewTitle: 'Aperçu du reçu',
       receiptPreviewDescription: 'Gardez le reçu visible pendant que vous complétez les champs de dépense.',
+      receiptPreviewMobileDescription: 'Ouvrez le reçu en plein écran quand vous devez lire les détails, puis revenez au formulaire.',
       receiptPreviewUnavailable: 'Ce type de reçu ne peut pas être prévisualisé ici.',
       openReceipt: 'Ouvrir le reçu',
+      viewReceiptFullScreen: 'Voir le reçu en plein écran',
       extraSection: 'Classification et notes',
       create: 'Créer la dépense',
       createAndValidate: 'Créer la dépense',
@@ -981,6 +1009,26 @@ export function ExpenseFormDialog({
 
   function updateField<K extends keyof FormValues>(field: K, next: FormValues[K]) {
     setValues((previous) => ({ ...previous, [field]: next }));
+  }
+
+  function handleAmountInclVatFocus(event: FocusEvent<HTMLInputElement>) {
+    if (!amountInclVatFirstFocusRef.current) {
+      return;
+    }
+
+    if (isLikelyMobileViewport()) {
+      return;
+    }
+
+    amountInclVatFirstFocusRef.current = false;
+
+    requestAnimationFrame(() => {
+      if (document.activeElement !== event.currentTarget) {
+        return;
+      }
+
+      event.currentTarget.select();
+    });
   }
 
   useEffect(() => {
@@ -1536,6 +1584,9 @@ export function ExpenseFormDialog({
   const canPreviewCapturedImage = Boolean(
     pendingCameraCapture && pendingCameraCapture.mimeType.startsWith('image/')
   );
+  const canPreviewCapturedReceiptFullscreen = Boolean(
+    pendingCameraCapture && (pendingCameraCapture.mimeType.startsWith('image/') || pendingCameraCapture.mimeType === 'application/pdf')
+  );
   const isSavingDefault = saving && savingTarget === 'default';
   const isSavingDraft = saving && savingTarget === 'draft';
   const isSavingActivate = saving && savingTarget === 'activate';
@@ -1624,10 +1675,11 @@ export function ExpenseFormDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        data-disable-keyboard-scroll="true"
         className={cn(
-          'max-h-[92dvh] w-[calc(100%-1rem)] gap-3 p-4 pr-4 sm:gap-4 sm:p-5 sm:pr-12',
+          '[--app-keyboard-inset-height:0px] top-[calc(0.5rem+var(--app-safe-area-top))] h-[calc(var(--app-viewport-height)-1rem-var(--app-safe-area-top)-var(--app-safe-area-bottom))] w-[calc(100%-1rem)] translate-y-0 gap-3 overscroll-contain p-4 pr-4 scroll-pb-24 sm:top-[50%] sm:h-auto sm:max-h-[calc(var(--app-viewport-height)-2rem-var(--app-safe-area-top)-var(--app-safe-area-bottom))] sm:translate-y-[-50%] sm:gap-4 sm:p-5 sm:pr-12',
           hasReceiptPreviewAttachment
-            ? 'flex h-[92dvh] flex-col overflow-hidden sm:max-w-5xl lg:max-w-6xl'
+            ? 'flex min-h-0 flex-col overflow-x-hidden overflow-y-auto md:overflow-hidden sm:max-w-5xl lg:max-w-6xl'
             : 'overflow-x-hidden overflow-y-auto sm:max-w-2xl'
         )}
       >
@@ -1656,24 +1708,96 @@ export function ExpenseFormDialog({
         <div
           className={cn(
             hasReceiptPreviewAttachment
-              ? 'flex min-h-0 flex-1 flex-col gap-3 md:grid md:grid-cols-[minmax(260px,0.95fr)_minmax(0,1.1fr)] lg:grid-cols-[minmax(320px,0.95fr)_minmax(0,1.1fr)]'
+              ? 'space-y-3 md:grid md:min-h-0 md:flex-1 md:grid-cols-[minmax(260px,0.95fr)_minmax(0,1.1fr)] md:gap-3 md:space-y-0 lg:grid-cols-[minmax(320px,0.95fr)_minmax(0,1.1fr)]'
               : 'contents'
           )}
         >
           {receiptPreviewAttachment ? (
-            <aside className="flex h-[34dvh] min-h-40 shrink-0 flex-col rounded-xl border border-sky-200/75 bg-sky-50/55 p-3 dark:border-sky-900/40 dark:bg-sky-950/18 md:h-full md:min-h-0">
+            <>
+              <div className="rounded-xl border border-sky-200/75 bg-sky-50/55 p-3 dark:border-sky-900/40 dark:bg-sky-950/18 md:hidden">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 space-y-1">
+                    <p className="text-sm font-semibold">{t.receiptPreviewTitle}</p>
+                    <p className="text-xs text-muted-foreground">{t.receiptPreviewMobileDescription}</p>
+                    <p className="truncate text-xs text-muted-foreground">{receiptPreviewAttachment.displayName}</p>
+                  </div>
+                </div>
+                <div className="mt-3 h-[30dvh] min-h-40 overflow-hidden rounded-lg border border-border/70 bg-background">
+                  {isInlineImageMimeType(receiptPreviewAttachment.mimeType) ? (
+                    <InteractiveReceiptImage
+                      src={receiptPreviewAttachment.url}
+                      alt={receiptPreviewAttachment.displayName}
+                      locale={locale}
+                      maxScale={8}
+                      className="h-full w-full rounded-none border-0"
+                    />
+                  ) : isInlinePdfMimeType(receiptPreviewAttachment.mimeType) ? (
+                    <iframe
+                      src={receiptPreviewAttachment.url}
+                      title={receiptPreviewAttachment.displayName}
+                      className="h-full w-full"
+                    />
+                  ) : (
+                    <div className="flex h-full flex-col items-start justify-center gap-2 p-4 text-sm">
+                      <p className="font-medium">{receiptPreviewAttachment.displayName}</p>
+                      <p className="text-xs text-muted-foreground">{t.receiptPreviewUnavailable}</p>
+                    </div>
+                  )}
+                </div>
+                <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-8 sm:w-auto sm:whitespace-nowrap"
+                    onClick={() =>
+                      setReceiptViewerAttachment({
+                        name: receiptPreviewAttachment.displayName,
+                        url: receiptPreviewAttachment.url,
+                        mimeType: receiptPreviewAttachment.mimeType,
+                      })
+                    }
+                  >
+                    {t.viewReceiptFullScreen}
+                  </Button>
+                  <Button asChild type="button" variant="outline" className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-8 sm:w-auto sm:whitespace-nowrap">
+                    <a href={receiptPreviewAttachment.url} target="_blank" rel="noopener noreferrer">
+                      <ExternalLinkIcon className="size-3.5" />
+                      {t.openReceipt}
+                    </a>
+                  </Button>
+                </div>
+              </div>
+
+              <aside className="hidden h-[34dvh] min-h-40 shrink-0 flex-col rounded-xl border border-sky-200/75 bg-sky-50/55 p-3 dark:border-sky-900/40 dark:bg-sky-950/18 md:flex md:h-full md:min-h-0">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 space-y-1">
                   <p className="text-sm font-semibold">{t.receiptPreviewTitle}</p>
                   <p className="text-xs text-muted-foreground">{t.receiptPreviewDescription}</p>
                   <p className="truncate text-xs text-muted-foreground">{receiptPreviewAttachment.displayName}</p>
                 </div>
-                <Button asChild type="button" variant="outline" size="sm" className="h-8 shrink-0 px-2 text-xs">
-                  <a href={receiptPreviewAttachment.url} target="_blank" rel="noopener noreferrer">
-                    <ExternalLinkIcon className="size-3.5" />
-                    <span className="hidden sm:inline">{t.openReceipt}</span>
-                  </a>
-                </Button>
+                <div className="flex shrink-0 items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 px-2 text-xs"
+                    onClick={() =>
+                      setReceiptViewerAttachment({
+                        name: receiptPreviewAttachment.displayName,
+                        url: receiptPreviewAttachment.url,
+                        mimeType: receiptPreviewAttachment.mimeType,
+                      })
+                    }
+                  >
+                    {t.viewReceiptFullScreen}
+                  </Button>
+                  <Button asChild type="button" variant="outline" size="sm" className="h-8 px-2 text-xs">
+                    <a href={receiptPreviewAttachment.url} target="_blank" rel="noopener noreferrer">
+                      <ExternalLinkIcon className="size-3.5" />
+                      <span className="hidden sm:inline">{t.openReceipt}</span>
+                    </a>
+                  </Button>
+                </div>
               </div>
 
               <div className="mt-3 min-h-0 flex-1 overflow-hidden rounded-lg border border-border/70 bg-background">
@@ -1704,11 +1828,15 @@ export function ExpenseFormDialog({
                   </div>
                 )}
               </div>
-            </aside>
+              </aside>
+            </>
           ) : null}
 
         <form
-          className={cn('space-y-4', hasReceiptPreviewAttachment && 'min-h-0 flex-1 overflow-y-auto pr-1')}
+          className={cn(
+            'space-y-4 pb-4 scroll-pb-24',
+            hasReceiptPreviewAttachment && 'md:min-h-0 md:flex-1 md:overflow-y-auto md:pr-1'
+          )}
           onSubmit={(event) => requestSubmit('default', event)}
         >
           {mode === 'create' && isManualFlow ? (
@@ -1751,6 +1879,24 @@ export function ExpenseFormDialog({
                   )}
 
                   <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                    {canPreviewCapturedReceiptFullscreen ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-auto w-full whitespace-normal px-3 py-2 text-center sm:h-8 sm:w-auto sm:whitespace-nowrap"
+                        onClick={() =>
+                          setReceiptViewerAttachment({
+                            name: pendingCameraCapture.file.name,
+                            url: pendingCameraCapture.previewUrl,
+                            mimeType: pendingCameraCapture.mimeType,
+                          })
+                        }
+                        disabled={saving || cameraDraftLoading}
+                      >
+                        {t.viewReceiptFullScreen}
+                      </Button>
+                    ) : null}
+
                     {captureDecisionPending ? (
                       <>
                         <Button
@@ -1816,11 +1962,11 @@ export function ExpenseFormDialog({
             <div className="space-y-1.5 sm:col-span-2">
               <Label>{t.amountInclVat}</Label>
               <Input
-                type="number"
-                min="0"
-                step="0.01"
+                inputMode="decimal"
+                autoComplete="off"
                 value={values.amountInclVat}
-                onChange={(event) => updateField('amountInclVat', event.target.value)}
+                onChange={(event) => updateField('amountInclVat', sanitizeDecimalInput(event.target.value))}
+                onFocus={handleAmountInclVatFocus}
                 className="text-base font-semibold"
               />
               <p className="text-xs text-muted-foreground">{t.amountInclVatHint}</p>
@@ -1860,6 +2006,7 @@ export function ExpenseFormDialog({
                   );
                 })}
               </div>
+              <p className="text-xs text-muted-foreground">{t.vatRateHint}</p>
             </div>
             <div className="space-y-1.5 sm:col-span-2">
               <Label>{t.amountExclVat}</Label>
@@ -1887,7 +2034,6 @@ export function ExpenseFormDialog({
                 type="date"
                 value={values.expenseDate}
                 onChange={(event) => handleExpenseDateChange(event.target.value)}
-                onClick={(event) => openDateInputPicker(event.currentTarget)}
               />
             </div>
             {!isManualFlow ? (
@@ -1897,7 +2043,6 @@ export function ExpenseFormDialog({
                   type="date"
                   value={values.dueDate}
                   onChange={(event) => updateField('dueDate', event.target.value)}
-                  onClick={(event) => openDateInputPicker(event.currentTarget)}
                 />
               </div>
             ) : null}
@@ -2039,11 +2184,10 @@ export function ExpenseFormDialog({
                         <div className="space-y-1.5">
                           <Label>{t.amountPaid}</Label>
                           <Input
-                            type="number"
-                            min="0"
-                            step="0.01"
+                            inputMode="decimal"
+                            autoComplete="off"
                             value={values.amountPaid}
-                            onChange={(event) => updateField('amountPaid', event.target.value)}
+                            onChange={(event) => updateField('amountPaid', sanitizeDecimalInput(event.target.value))}
                           />
                         </div>
                       ) : null}
@@ -2053,7 +2197,6 @@ export function ExpenseFormDialog({
                           type="date"
                           value={values.paidAt}
                           onChange={(event) => updateField('paidAt', event.target.value)}
-                          onClick={(event) => openDateInputPicker(event.currentTarget)}
                         />
                       </div>
                     </div>
@@ -2284,11 +2427,10 @@ export function ExpenseFormDialog({
                             <div className="space-y-1.5">
                               <Label>{t.amountPaid}</Label>
                               <Input
-                                type="number"
-                                min="0"
-                                step="0.01"
+                                inputMode="decimal"
+                                autoComplete="off"
                                 value={values.amountPaid}
-                                onChange={(event) => updateField('amountPaid', event.target.value)}
+                                onChange={(event) => updateField('amountPaid', sanitizeDecimalInput(event.target.value))}
                               />
                             </div>
                           ) : null}
@@ -2298,7 +2440,6 @@ export function ExpenseFormDialog({
                               type="date"
                               value={values.paidAt}
                               onChange={(event) => updateField('paidAt', event.target.value)}
-                              onClick={(event) => openDateInputPicker(event.currentTarget)}
                             />
                           </div>
                         </div>
@@ -2508,11 +2649,10 @@ export function ExpenseFormDialog({
                             <div className="space-y-1.5">
                               <Label>{t.amountPaid}</Label>
                               <Input
-                                type="number"
-                                min="0"
-                                step="0.01"
+                                inputMode="decimal"
+                                autoComplete="off"
                                 value={values.amountPaid}
-                                onChange={(event) => updateField('amountPaid', event.target.value)}
+                                onChange={(event) => updateField('amountPaid', sanitizeDecimalInput(event.target.value))}
                               />
                             </div>
                           ) : null}
@@ -2522,7 +2662,6 @@ export function ExpenseFormDialog({
                               type="date"
                               value={values.paidAt}
                               onChange={(event) => updateField('paidAt', event.target.value)}
-                              onClick={(event) => openDateInputPicker(event.currentTarget)}
                             />
                           </div>
                         </div>
@@ -2635,7 +2774,6 @@ export function ExpenseFormDialog({
                       type="date"
                       value={values.paidAt}
                       onChange={(event) => updateField('paidAt', event.target.value)}
-                      onClick={(event) => openDateInputPicker(event.currentTarget)}
                     />
                   </div>
                 </div>
@@ -2928,6 +3066,17 @@ export function ExpenseFormDialog({
             </AlertDialogContent>
           </AlertDialog>
         ) : null}
+
+        <AttachmentPreviewDialog
+          open={Boolean(receiptViewerAttachment)}
+          onOpenChange={(nextOpen) => {
+            if (!nextOpen) {
+              setReceiptViewerAttachment(null);
+            }
+          }}
+          attachment={receiptViewerAttachment}
+          locale={locale}
+        />
       </DialogContent>
     </Dialog>
   );

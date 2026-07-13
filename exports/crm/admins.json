@@ -1,0 +1,5 @@
+[
+{"_id":{"$oid":"69d091471f7304f8b46f657f"},"name":"Super Admin","email":"appluxteam@gmail.com","password":"$argon2id$v=19$m=65536,t=3,p=4$QBBuaqupbTToQCxnfBmzGw$b6pUHvZBlZDNHUSIQQkjOCJUptOSKSOt//kWChnuxNU","createdAt":{"$date":"2026-04-04T04:19:19.164Z"},"updatedAt":{"$date":"2026-04-04T04:19:19.164Z"},"__v":0},
+{"_id":{"$oid":"69fe1baa50f01ad8ea8f376e"},"name":"Super Admin","email":"roberto@devsomeware.com","password":"$argon2id$v=19$m=65536,t=3,p=4$BrI0BfTfcz4uIDSUYHH5fQ$Cja0AxtHF5CUoV/2VPau0Nv9c7QwYg72nWdFh1qJ4jA","createdAt":{"$date":"2026-05-08T17:21:46.840Z"},"updatedAt":{"$date":"2026-05-08T17:21:46.840Z"},"__v":0},
+{"_id":{"$oid":"6a15e3b132b23e3799e852f8"},"name":"Super Admin","email":"khanbasir5555@gmail.com","password":"$argon2id$v=19$m=65536,t=3,p=4$sOIufZ2v53P+2DLsU9mHsw$lAKKxoLk9wNk+s3JB6A3JIyOvkO+ozAxYlySc7/lfGE","createdAt":{"$date":"2026-05-26T18:17:21.030Z"},"updatedAt":{"$date":"2026-05-26T20:23:39.706Z"},"__v":0}
+]

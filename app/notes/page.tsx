@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { AlertTriangleIcon, CheckCircle2, ClockIcon, Loader2, PencilIcon, PlusIcon, SearchIcon, Trash2Icon } from 'lucide-react';
@@ -8,7 +9,9 @@ import { toast } from 'sonner';
 
 import CrmShell from '@/components/crm-shell';
 import { useLocale } from '@/components/providers/locale-provider';
+import { useAuthMe } from '@/hooks/useAuthMe';
 import { resolveTranslatedError, translate } from '@/lib/i18n/messages';
+import { getDefaultCrmLandingPath, hasModuleActionAccess } from '@/lib/route-access';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -78,6 +81,8 @@ function getNoteStatus(followUpDate: string | null | undefined, todayKey: string
 }
 
 export default function NotesPage() {
+  const router = useRouter();
+  const { user, loading: authLoading } = useAuthMe();
   const { locale } = useLocale();
   const t = {
     en: {
@@ -276,6 +281,16 @@ export default function NotesPage() {
     linkedId: '',
     followUpDate: '',
   });
+  const canViewNotes = hasModuleActionAccess({ role: user?.role, modulePermissions: user?.modulePermissions, moduleKey: 'notes', action: 'view' });
+  const canManageNotes = hasModuleActionAccess({ role: user?.role, modulePermissions: user?.modulePermissions, moduleKey: 'notes', action: 'manage' });
+
+  useEffect(() => {
+    if (authLoading || canViewNotes) {
+      return;
+    }
+
+    router.replace(getDefaultCrmLandingPath(user?.role, user?.modulePermissions, user?.featureFlags));
+  }, [authLoading, canViewNotes, router, user?.featureFlags, user?.modulePermissions, user?.role]);
 
   const query = useMemo(() => {
     const params = new URLSearchParams();
@@ -339,8 +354,14 @@ export default function NotesPage() {
   }, [loadNotes]);
 
   useEffect(() => {
+    if (!canManageNotes) {
+      setClients([]);
+      setSuppliers([]);
+      return;
+    }
+
     loadLinkedOptions();
-  }, [loadLinkedOptions]);
+  }, [canManageNotes, loadLinkedOptions]);
 
   useEffect(() => {
     setTabPageByStatus({ overdue: 1, today: 1, upcoming: 1 });
@@ -522,6 +543,7 @@ export default function NotesPage() {
           <p className="text-sm text-muted-foreground">{t.subtitle}</p>
         </div>
 
+        {canManageNotes ? (
         <Sheet open={isAddOpen} onOpenChange={setIsAddOpen}>
           <SheetTrigger asChild>
             <Button data-tour-notes-add className='h-10 w-full sm:w-auto'>
@@ -592,6 +614,7 @@ export default function NotesPage() {
             </SheetFooter>
           </SheetContent>
         </Sheet>
+        ) : null}
 
         <Sheet
           open={isEditOpen}
@@ -868,23 +891,27 @@ export default function NotesPage() {
                             </button>
 
                             <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                className="w-full"
-                                disabled={markingFollowUpId === note._id}
-                                onClick={() => markFollowUpDone(note._id)}
-                              >
-                                {markingFollowUpId === note._id ? <Loader2 className="size-3 animate-spin" /> : <CheckCircle2 className="size-3" />}
-                                {markingFollowUpId === note._id
-                                  ? (locale === 'fr' ? 'Enregistrement...' : 'Saving...')
-                                  : (locale === 'fr' ? 'Suivi termine' : 'Mark done')}
-                              </Button>
-                              <Button type="button" size="sm" variant="secondary" className="w-full" onClick={() => openEditNote(note)}>
-                                <PencilIcon className="size-3.5" />
-                                {t.editNote}
-                              </Button>
+                              {canManageNotes ? (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="w-full"
+                                  disabled={markingFollowUpId === note._id}
+                                  onClick={() => markFollowUpDone(note._id)}
+                                >
+                                  {markingFollowUpId === note._id ? <Loader2 className="size-3 animate-spin" /> : <CheckCircle2 className="size-3" />}
+                                  {markingFollowUpId === note._id
+                                    ? (locale === 'fr' ? 'Enregistrement...' : 'Saving...')
+                                    : (locale === 'fr' ? 'Suivi termine' : 'Mark done')}
+                                </Button>
+                              ) : null}
+                              {canManageNotes ? (
+                                <Button type="button" size="sm" variant="secondary" className="w-full" onClick={() => openEditNote(note)}>
+                                  <PencilIcon className="size-3.5" />
+                                  {t.editNote}
+                                </Button>
+                              ) : null}
                               <Button type="button" size="sm" variant="ghost" className="w-full" onClick={() => setDetailsNote(note)}>
                                 <ClockIcon className="size-3.5" />
                                 {t.viewDetails}
@@ -962,43 +989,45 @@ export default function NotesPage() {
                 <p className="mt-1 whitespace-pre-wrap text-sm text-foreground/90">{detailsNote.description}</p>
               </div>
 
-              <div className="flex flex-wrap gap-2 pt-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={markingFollowUpId === detailsNote._id}
-                  onClick={() => markFollowUpDone(detailsNote._id)}
-                >
-                  {markingFollowUpId === detailsNote._id ? <Loader2 className="size-3 animate-spin" /> : <CheckCircle2 className="size-3" />}
-                  {markingFollowUpId === detailsNote._id
-                    ? (locale === 'fr' ? 'Enregistrement...' : 'Saving...')
-                    : (locale === 'fr' ? 'Suivi termine' : 'Mark done')}
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => {
-                    openEditNote(detailsNote);
-                    setDetailsNote(null);
-                  }}
-                >
-                  <PencilIcon className="size-4" />
-                  {t.editNote}
-                </Button>
-                <Button
-                  type="button"
-                  variant="destructive"
-                  disabled={deletingNoteId === detailsNote._id}
-                  onClick={() => {
-                    setDeleteTargetId(detailsNote._id);
-                    setIsDeleteConfirmOpen(true);
-                    setDetailsNote(null);
-                  }}
-                >
-                  <Trash2Icon className="size-4" />
-                  {t.deleteNote}
-                </Button>
-              </div>
+              {canManageNotes ? (
+                <div className="flex flex-wrap gap-2 pt-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={markingFollowUpId === detailsNote._id}
+                    onClick={() => markFollowUpDone(detailsNote._id)}
+                  >
+                    {markingFollowUpId === detailsNote._id ? <Loader2 className="size-3 animate-spin" /> : <CheckCircle2 className="size-3" />}
+                    {markingFollowUpId === detailsNote._id
+                      ? (locale === 'fr' ? 'Enregistrement...' : 'Saving...')
+                      : (locale === 'fr' ? 'Suivi termine' : 'Mark done')}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => {
+                      openEditNote(detailsNote);
+                      setDetailsNote(null);
+                    }}
+                  >
+                    <PencilIcon className="size-4" />
+                    {t.editNote}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    disabled={deletingNoteId === detailsNote._id}
+                    onClick={() => {
+                      setDeleteTargetId(detailsNote._id);
+                      setIsDeleteConfirmOpen(true);
+                      setDetailsNote(null);
+                    }}
+                  >
+                    <Trash2Icon className="size-4" />
+                    {t.deleteNote}
+                  </Button>
+                </div>
+              ) : null}
             </div>
           ) : null}
 

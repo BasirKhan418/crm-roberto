@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { createActivityLog } from '@/db/repository/activity';
 import { createClient, listClients } from '@/db/repository/client';
+import { getCompanyUserIdStrings } from '@/lib/company-scope';
+import { requireModulePermission } from '@/lib/role-matrix';
 import { buildValidationError } from '@/utils/api/validation';
 import getMe from '@/utils/middlewares/useMe';
 import { createClientSchema } from '@/validators/client.schema';
@@ -14,6 +16,16 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
     }
 
+    const permission = await requireModulePermission({
+      companyId: me.user.companyId,
+      role: me.user.role,
+      moduleKey: 'clients',
+      action: 'view',
+    });
+    if (!permission.success) {
+      return NextResponse.json({ success: false, message: permission.message }, { status: permission.status });
+    }
+
     const options = parseListQuery(request.nextUrl.searchParams, {
       defaultSortBy: 'createdAt',
       allowedSortBy: ['createdAt', 'updatedAt', 'fullName', 'email', 'companyName'],
@@ -24,7 +36,8 @@ export async function GET(request: NextRequest) {
     const clientTypeRaw = request.nextUrl.searchParams.get('clientType');
     const clientType = (clientTypeRaw === 'company' || clientTypeRaw === 'individual') ? clientTypeRaw : undefined;
 
-    const result = await listClients(me.user.id, options, clientType);
+    const scopedUserIds = await getCompanyUserIdStrings({ companyId: me.user.companyId, fallbackUserId: me.user.id });
+    const result = await listClients(scopedUserIds, options, clientType);
 
     return NextResponse.json({
       success: true,
@@ -41,6 +54,16 @@ export async function POST(request: NextRequest) {
     const me = await getMe(true);
     if (!me.success || !me.user) {
       return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
+    }
+
+    const permission = await requireModulePermission({
+      companyId: me.user.companyId,
+      role: me.user.role,
+      moduleKey: 'clients',
+      action: 'create',
+    });
+    if (!permission.success) {
+      return NextResponse.json({ success: false, message: permission.message }, { status: permission.status });
     }
 
     const body = await request.json();

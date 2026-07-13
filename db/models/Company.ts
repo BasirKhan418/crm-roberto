@@ -1,5 +1,17 @@
 import mongoose from "mongoose";
 
+const CompanyFeatureFlagsSchema = new mongoose.Schema(
+  {
+    expenses: { type: Boolean, default: true },
+    tickets: { type: Boolean, default: true },
+    financialDashboard: { type: Boolean, default: true },
+    accountantPortal: { type: Boolean, default: true },
+    exports: { type: Boolean, default: true },
+    advancedRoles: { type: Boolean, default: false },
+  },
+  { _id: false }
+);
+
 const CompanySchema = new mongoose.Schema(
   {
     name: {
@@ -26,6 +38,26 @@ const CompanySchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
+      index: true,
+    },
+    featureFlags: {
+      type: CompanyFeatureFlagsSchema,
+      default: () => ({
+        expenses: true,
+        tickets: true,
+        financialDashboard: true,
+        accountantPortal: true,
+        exports: true,
+        advancedRoles: false,
+      }),
+    },
+    suspendedAt: {
+      type: Date,
+      default: null,
+    },
+    deletedAt: {
+      type: Date,
+      default: null,
       index: true,
     },
   },

@@ -29,13 +29,14 @@ import {
   type TicketLinkedType,
   type TicketType,
 } from '@/lib/tickets/constants';
+import { getTicketLinkedTypeLabel, getTicketTypeLabel } from '@/lib/tickets/i18n';
 import {
   createTicket,
   uploadTicketFiles,
   useTicketRecipients,
 } from '@/hooks/useTickets';
 
-const FILE_ACCEPT = '.pdf,.jpg,.jpeg,.png,.heic';
+const FILE_ACCEPT = '.pdf,.jpg,.jpeg,.png,.heic,.docx';
 
 function getFileSignature(file: File) {
   return `${file.name.toLowerCase()}::${file.size}::${file.lastModified}`;
@@ -79,6 +80,7 @@ type LinkedPrefill = {
   linkedLabel?: string | null;
   title?: string | null;
   body?: string | null;
+  type?: TicketType | null;
 };
 
 type CreateTicketDialogProps = {
@@ -86,7 +88,7 @@ type CreateTicketDialogProps = {
   onOpenChange: (open: boolean) => void;
   locale: 'en' | 'fr';
   prefill?: LinkedPrefill;
-  onCreated?: () => void | Promise<void>;
+  onCreated?: (ticketId: string) => void | Promise<void>;
 };
 
 export function CreateTicketDialog({
@@ -111,6 +113,7 @@ export function CreateTicketDialog({
   const [linkedRecordsLoading, setLinkedRecordsLoading] = useState(false);
   const [linkedLabel, setLinkedLabel] = useState('');
   const submitInFlightRef = useRef(false);
+  const initializedSessionKeyRef = useRef<string | null>(null);
 
   const { users, loading: recipientsLoading, error: recipientsError, refetch: refetchRecipients } =
     useTicketRecipients(recipientSearch.trim() || undefined, 40);
@@ -228,18 +231,6 @@ export function CreateTicketDialog({
             created: 'Ticket créé avec succès.',
             failed: 'Impossible de créer le ticket.',
             refreshRecipients: 'Actualiser',
-            types: {
-              accounting: 'Comptabilité',
-              validation: 'Validation',
-              document: 'Document',
-              dispute: 'Litige',
-            },
-            linkedTypes: {
-              expense: 'Dépense',
-              invoice: 'Facture',
-              supplier: 'Fournisseur',
-              client: 'Client',
-            },
           }
         : {
             title: 'Create Ticket',
@@ -274,29 +265,24 @@ export function CreateTicketDialog({
             created: 'Ticket created successfully.',
             failed: 'Failed to create ticket.',
             refreshRecipients: 'Refresh',
-            types: {
-              accounting: 'Accounting',
-              validation: 'Validation',
-              document: 'Document',
-              dispute: 'Dispute',
-            },
-            linkedTypes: {
-              expense: 'Expense',
-              invoice: 'Invoice',
-              supplier: 'Supplier',
-              client: 'Client',
-            },
           },
     [locale]
   );
 
   useEffect(() => {
     if (!open) {
+      initializedSessionKeyRef.current = null;
       return;
     }
 
+    const sessionKey = `ticket:${prefill?.linkedType || ''}:${prefill?.linkedId || ''}`;
+    if (initializedSessionKeyRef.current === sessionKey) {
+      return;
+    }
+    initializedSessionKeyRef.current = sessionKey;
+
     setTitle(prefill?.title?.trim() || '');
-    setType('document');
+    setType(prefill?.type || 'document');
     setBody(prefill?.body?.trim() || '');
     setLinkedType(prefill?.linkedType || '');
     setLinkedId(prefill?.linkedId?.trim() || '');
@@ -308,7 +294,7 @@ export function CreateTicketDialog({
     setSelectedRecipientIds([]);
     setFiles([]);
     setFeedback(null);
-  }, [open, prefill]);
+  }, [open, prefill?.body, prefill?.linkedId, prefill?.linkedLabel, prefill?.linkedType, prefill?.title, prefill?.type]);
 
   function toggleRecipient(userId: string, checked: boolean) {
     setSelectedRecipientIds((previous) => {
@@ -363,7 +349,7 @@ export function CreateTicketDialog({
     try {
       const uploadedAttachments = files.length > 0 ? await uploadTicketFiles(files) : [];
 
-      await createTicket({
+      const created = await createTicket({
         title: trimmedTitle,
         type,
         body: trimmedBody || null,
@@ -373,10 +359,14 @@ export function CreateTicketDialog({
         attachments: uploadedAttachments,
       });
 
+      const createdTicketId = typeof created.ticket === 'object' && created.ticket && '_id' in created.ticket
+        ? String((created.ticket as { _id?: unknown })._id || '')
+        : '';
+
       setFeedback({ type: 'success', message: t.created });
 
       if (onCreated) {
-        await onCreated();
+        await onCreated(createdTicketId);
       }
 
       onOpenChange(false);
@@ -429,7 +419,7 @@ export function CreateTicketDialog({
               >
                 {TICKET_TYPES.map((option) => (
                   <option key={option} value={option}>
-                    {t.types[option]}
+                    {getTicketTypeLabel(option, locale)}
                   </option>
                 ))}
               </select>
@@ -519,7 +509,7 @@ export function CreateTicketDialog({
                 <option value="">-</option>
                 {TICKET_LINKED_TYPES.map((option) => (
                   <option key={option} value={option}>
-                    {t.linkedTypes[option]}
+                    {getTicketLinkedTypeLabel(option, locale)}
                   </option>
                 ))}
               </select>

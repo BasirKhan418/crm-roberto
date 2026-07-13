@@ -1,0 +1,5 @@
+[
+{"_id":{"$oid":"6a060bab2a7639261f3ea1ca"},"name":"Basir Khan","slug":"basir-khan","status":"active","ownerUserId":{"$oid":"69d2a04040790355adfb1c64"},"createdAt":{"$date":"2026-05-14T17:51:39.473Z"},"updatedAt":{"$date":"2026-05-26T20:41:58.109Z"},"__v":0,"featureFlags":{"expenses":true,"tickets":true,"financialDashboard":true,"accountantPortal":true,"exports":true,"advancedRoles":true}},
+{"_id":{"$oid":"6a06e5c25891a57c3360f91a"},"name":"ROBERTO BORGES","slug":"roberto-borges","status":"suspended","ownerUserId":{"$oid":"69d4f259f1380a5748336bb1"},"createdAt":{"$date":"2026-05-15T09:22:10.425Z"},"updatedAt":{"$date":"2026-05-29T07:57:15.700Z"},"__v":0,"suspendedAt":{"$date":"2026-05-29T07:57:15.700Z"}},
+{"_id":{"$oid":"6a06e5c3ff0deb5ad4dee58a"},"name":"ROBERTO BORGES","slug":"roberto-borges-1","status":"active","ownerUserId":{"$oid":"69d4f259f1380a5748336bb1"},"createdAt":{"$date":"2026-05-15T09:22:11.382Z"},"updatedAt":{"$date":"2026-05-29T07:48:38.897Z"},"__v":0,"featureFlags":{"expenses":true,"tickets":true,"financialDashboard":true,"accountantPortal":true,"exports":true,"advancedRoles":true}}
+]

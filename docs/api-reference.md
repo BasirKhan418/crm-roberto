@@ -1,6 +1,6 @@
 # CRM Roberto API Reference
 
-Last updated: 2026-05-25
+Last updated: 2026-07-13
 
 All backend endpoints are implemented as Next.js App Router route handlers under `app/api`. Most endpoints return JSON and expect an authenticated user through the `token` HTTP-only cookie, unless explicitly public or admin-only.
 
@@ -27,6 +27,16 @@ All backend endpoints are implemented as Next.js App Router route handlers under
 | `/api/admin/logout` | POST | Admin | Clear admin cookie. |
 | `/api/admin/me` | GET | Admin | Read current admin session. |
 | `/api/admin/users` | GET, PATCH | Admin | List and manage platform users. |
+| `/api/admin/forgot` | POST | Public admin flow | Send a Super Admin password reset email. |
+| `/api/admin/reset` | POST | Public admin token flow | Reset a Super Admin password. |
+| `/api/admin/stats` | GET | Admin | Read platform company, user, accountant, and feature-usage metrics. |
+| `/api/admin/companies` | GET, POST | Admin | List/create platform companies and their feature configuration. |
+| `/api/admin/companies/[id]` | GET, PATCH, DELETE | Admin | Read/update/archive a company, including status and feature/license flags. |
+| `/api/admin/audit-logs` | GET | Admin | Read platform audit events. |
+| `/api/admin/connection-logs` | GET | Admin | Read portal sign-in and connection events. |
+| `/api/admin/sidebar/badges` | GET | Admin | Read Super Admin navigation counters. |
+
+Super Admin is a distinct portal at `/admin/login`; it does not use the standard CRM `token` cookie.
 
 ## 3. CRM Entity APIs
 
@@ -131,15 +141,22 @@ Webhook events currently handled:
 
 | Route | Methods | Purpose |
 |---|---|---|
-| `/api/expenses` | GET, POST | List/create expenses with filters. |
+| `/api/expenses` | GET, POST | List expenses and create manual expenses or manual drafts. This path does not enqueue OCR jobs. |
 | `/api/expenses/[id]` | GET, PATCH, DELETE | Read/update/delete expense. |
 | `/api/expenses/[id]/actions` | POST | Expense state transitions such as archive, duplicate, mark paid. |
 | `/api/expenses/[id]/attachments` | GET, POST, DELETE | Manage expense attachments. |
 | `/api/expenses/upload-presign` | POST | Generate S3 upload URL for expenses. |
 | `/api/expenses/categories` | GET, POST, PATCH, DELETE | Manage expense categories. |
 | `/api/expenses/lookups` | GET, POST | Lookup suppliers/categories/clients for expense forms. |
-| `/api/expenses/drafts` | POST | Create or process draft expenses. |
+| `/api/expenses/drafts` | POST | Create attachment-backed draft expenses from uploaded files, then best-effort enqueue OCR extraction on BullMQ. |
 | `/api/expenses/email-ingest` | POST | Placeholder/early endpoint for email-imported expenses. |
+
+Expense queue behavior:
+
+- `POST /api/expenses` is the manual create path and never enqueues OCR.
+- `POST /api/expenses/drafts` is the upload-draft path and is the only route that enqueues the `expense-draft-ocr` BullMQ job.
+- Queue enqueue failure does not block draft creation; the draft is still created and its OCR state is marked as failed for later review.
+- The OCR worker source is present, but its npm script and runtime dependencies are not yet declared. Do not treat the queue as operational until those packaging gaps are resolved.
 
 ## 10. Ticket APIs
 
@@ -172,6 +189,8 @@ Webhook events currently handled:
 | `/api/notifications/read-all` | POST | Mark all notifications read. |
 | `/api/sidebar/badges` | GET | Sidebar badge counts. |
 | `/api/sidebar/mark-read` | POST | Mark sidebar item/activity read. |
+| `/api/dashboard/financial` | GET | Feature-gated company financial dashboard metrics and charts for a selected reporting period. |
+| `/api/dashboard/smart-alerts` | GET | Feature-gated company alert feed. |
 
 ## 12. Upload And Company Profile APIs
 
@@ -181,7 +200,50 @@ Webhook events currently handled:
 | `/api/cprofile` | GET, PATCH | Company legal, contact, banking, and profile data. |
 | `/api/cprofile/logo` | POST, DELETE | Upload/delete company logo. |
 
-## 13. Cron APIs
+## 13. Company Settings, Exports, And Role Matrix APIs
+
+| Route | Methods | Access | Purpose |
+|---|---|---|---|
+| `/api/settings/role-matrix` | GET, PUT | Company user with Advanced Roles enabled | Read/update per-role, per-module permission overrides. |
+| `/api/exports/lookups` | GET | Feature-gated company user | Read export filter/look-up values. |
+| `/api/exports/accounting-rows` | GET | Feature-gated company user | Export structured accounting rows. |
+| `/api/exports/general-ledger` | GET | Feature-gated company user | Export the general ledger. |
+| `/api/exports/vat-summary` | GET | Feature-gated company user | Export VAT summary data. |
+
+Feature access is controlled per company by Super Admin. The current flags are `expenses`, `tickets`, `financialDashboard`, `accountantPortal`, `exports`, and `advancedRoles`.
+
+## 14. Accountant Portal APIs
+
+All Accountant Portal routes use the separate `accountant-token` session and require an `external_accountant` user whose company has `accountantPortal` enabled.
+
+| Route | Methods | Purpose |
+|---|---|---|
+| `/api/accountant/auth/login` | POST | Authenticate an accountant and issue the accountant portal cookie. |
+| `/api/accountant/auth/logout` | POST | Clear the accountant portal cookie. |
+| `/api/accountant/auth/me` | GET | Read the accountant session and enabled features. |
+| `/api/accountant/auth/forgot` | POST | Start the accountant password-reset flow. |
+| `/api/accountant/auth/reset` | POST | Complete the accountant password reset. |
+| `/api/accountant/dashboard` | GET | Read the accountant financial dashboard. |
+| `/api/accountant/sales-invoices` | GET | List sales invoices. |
+| `/api/accountant/sales-invoices/[id]/pdf` | GET | Download an allowed sales invoice PDF. |
+| `/api/accountant/sales-invoices/[id]/processed` | PATCH | Mark an allowed sales invoice as processed. |
+| `/api/accountant/purchase-invoices` | GET | List purchase invoices/expenses. |
+| `/api/accountant/purchase-invoices/[id]/processed` | PATCH | Mark an allowed purchase invoice as processed. |
+| `/api/accountant/purchase-invoices/attachments-zip` | GET | Download selected allowed purchase attachments as ZIP. |
+| `/api/accountant/purchase-invoices/attachments/[attachmentId]/file` | GET | Download an allowed purchase attachment. |
+| `/api/accountant/tickets` | GET, POST | List/create accountant-scoped tickets. |
+| `/api/accountant/tickets/[id]` | GET | Read ticket detail. |
+| `/api/accountant/tickets/[id]/status` | PATCH | Update ticket status. |
+| `/api/accountant/tickets/[id]/messages` | POST | Add a ticket message. |
+| `/api/accountant/tickets/upload-presign` | POST | Generate an attachment upload URL. |
+| `/api/accountant/tickets/attachments/[attachmentId]/file` | GET | Download an allowed ticket attachment. |
+| `/api/accountant/exports/accounting-rows` | GET | Export accountant-scoped accounting rows. |
+| `/api/accountant/exports/general-ledger` | GET | Export accountant-scoped general ledger. |
+| `/api/accountant/exports/vat-summary` | GET | Export accountant-scoped VAT summary. |
+| `/api/accountant/lookups` | GET | Read accountant form/filter lookups. |
+| `/api/accountant/sidebar/badges` | GET | Read Accountant Portal navigation counters. |
+
+## 15. Cron APIs
 
 | Route | Methods | Access | Purpose |
 |---|---|---|---|
@@ -192,7 +254,7 @@ Configured schedules in `vercel.json`:
 - `0 7 * * *`
 - `0 19 * * *`
 
-## 14. API Development Rules
+## 16. API Development Rules
 
 - Validate request payloads with existing validators or domain parsing helpers.
 - Always call `ConnectDb()` before Mongoose operations.

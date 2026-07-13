@@ -27,6 +27,12 @@ export interface NoteListResult {
   pagination: PaginationMeta;
 }
 
+type UserScope = string | string[];
+
+function userScopeQuery(userScope: UserScope) {
+  return Array.isArray(userScope) ? { user: { $in: userScope } } : { user: userScope };
+}
+
 interface LinkedEntityRecord {
   _id: string;
   fullName?: string;
@@ -40,21 +46,21 @@ function isValidObjectId(value: string): boolean {
   return mongoose.Types.ObjectId.isValid(value);
 }
 
-async function ensureLinkedEntityExists(userId: string, linkedType: 'client' | 'supplier', linkedId: string): Promise<boolean> {
+async function ensureLinkedEntityExists(userId: UserScope, linkedType: 'client' | 'supplier', linkedId: string): Promise<boolean> {
   if (!isValidObjectId(linkedId)) {
     return false;
   }
 
   if (linkedType === 'client') {
-    const exists = await Client.exists({ _id: linkedId, user: userId });
+    const exists = await Client.exists({ _id: linkedId, ...userScopeQuery(userId) });
     return Boolean(exists);
   }
 
-  const exists = await Supplier.exists({ _id: linkedId, user: userId });
+  const exists = await Supplier.exists({ _id: linkedId, ...userScopeQuery(userId) });
   return Boolean(exists);
 }
 
-async function hydrateNotesWithLinkedEntities(userId: string, rawNotes: RawNoteRecord[]): Promise<NoteRecord[]> {
+async function hydrateNotesWithLinkedEntities(userId: UserScope, rawNotes: RawNoteRecord[]): Promise<NoteRecord[]> {
   const clientIds = new Set<string>();
   const supplierIds = new Set<string>();
 
@@ -77,10 +83,10 @@ async function hydrateNotesWithLinkedEntities(userId: string, rawNotes: RawNoteR
 
   const [clients, suppliers] = await Promise.all([
     clientIds.size > 0
-      ? Client.find({ user: userId, _id: { $in: Array.from(clientIds) } }).select('_id fullName').lean()
+      ? Client.find({ ...userScopeQuery(userId), _id: { $in: Array.from(clientIds) } }).select('_id fullName').lean()
       : Promise.resolve([]),
     supplierIds.size > 0
-      ? Supplier.find({ user: userId, _id: { $in: Array.from(supplierIds) } }).select('_id fullName').lean()
+      ? Supplier.find({ ...userScopeQuery(userId), _id: { $in: Array.from(supplierIds) } }).select('_id fullName').lean()
       : Promise.resolve([]),
   ]);
 
@@ -129,12 +135,12 @@ export const createNote = async (userId: string, payload: CreateNoteDTO): Promis
 };
 
 export const listNotes = async (
-  userId: string,
+  userId: UserScope,
   options: ListQueryOptions & { linkedType?: 'client' | 'supplier'; linkedId?: string }
 ): Promise<NoteListResult> => {
   await ConnectDb();
 
-  const query: Record<string, unknown> = { user: userId };
+  const query: Record<string, unknown> = userScopeQuery(userId);
 
   if (options.search) {
     query.$or = [
@@ -171,14 +177,14 @@ export const listNotes = async (
   };
 };
 
-export const getNoteById = async (userId: string, noteId: string): Promise<NoteRecord | null> => {
+export const getNoteById = async (userId: UserScope, noteId: string): Promise<NoteRecord | null> => {
   await ConnectDb();
 
   if (!isValidObjectId(noteId)) {
     return null;
   }
 
-  const note = (await Note.findOne({ _id: noteId, user: userId }).lean()) as RawNoteRecord | null;
+  const note = (await Note.findOne({ _id: noteId, ...userScopeQuery(userId) }).lean()) as RawNoteRecord | null;
   if (!note) {
     return null;
   }
@@ -188,7 +194,7 @@ export const getNoteById = async (userId: string, noteId: string): Promise<NoteR
 };
 
 export const updateNoteById = async (
-  userId: string,
+  userId: UserScope,
   noteId: string,
   payload: UpdateNoteDTO
 ): Promise<NoteRecord | null> => {
@@ -205,7 +211,7 @@ export const updateNoteById = async (
     }
   }
 
-  const updated = (await Note.findOneAndUpdate({ _id: noteId, user: userId }, payload, {
+  const updated = (await Note.findOneAndUpdate({ _id: noteId, ...userScopeQuery(userId) }, payload, {
     returnDocument: 'after',
     runValidators: true,
   })
@@ -219,13 +225,13 @@ export const updateNoteById = async (
   return hydrated[0] ?? null;
 };
 
-export const deleteNoteById = async (userId: string, noteId: string): Promise<boolean> => {
+export const deleteNoteById = async (userId: UserScope, noteId: string): Promise<boolean> => {
   await ConnectDb();
 
   if (!isValidObjectId(noteId)) {
     return false;
   }
 
-  const result = await Note.deleteOne({ _id: noteId, user: userId });
+  const result = await Note.deleteOne({ _id: noteId, ...userScopeQuery(userId) });
   return result.deletedCount === 1;
 };

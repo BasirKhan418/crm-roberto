@@ -10,6 +10,7 @@ type SignableAuthUser = {
   isEmailVerified?: boolean;
   role?: string;
   companyId?: string | null;
+  kind?: string;
 };
 
 export type AuthTokenPayload = {
@@ -21,6 +22,7 @@ export type AuthTokenPayload = {
   isEmailVerified?: boolean;
   role?: string;
   companyId?: string | null;
+  kind?: string;
   iat?: number;
   exp?: number;
 };
@@ -42,6 +44,7 @@ export function signAuthToken(user: SignableAuthUser) {
       isEmailVerified: user.isEmailVerified,
       role: user.role,
       companyId: user.companyId ?? null,
+      kind: user.kind,
     },
     process.env.JWT_SECRET || "",
     { expiresIn: "7d" }

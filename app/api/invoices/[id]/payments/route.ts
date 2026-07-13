@@ -5,9 +5,11 @@ import ConnectDb from '@/db/connectDb';
 import Invoice from '@/db/models/Invoice';
 import Payment from '@/db/models/Payment';
 import { createActivityLog } from '@/db/repository/activity';
+import { buildUserScopeQuery, getCompanyUserObjectIds } from '@/lib/company-scope';
 import { isInvoiceDueOnOrBeforeToday } from '@/lib/invoices/overdue';
 import { sendPaymentReceiptForSucceededPayment } from '@/lib/payments/sendPaymentReceiptForSucceededPayment';
 import { resolveStoredPaymentMethod } from '@/lib/payments';
+import { requireModulePermission } from '@/lib/role-matrix';
 import getMe from '@/utils/middlewares/useMe';
 
 interface RouteParams {
@@ -120,6 +122,11 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
     }
 
+    const permission = await requireModulePermission({ companyId: me.user.companyId, role: me.user.role, moduleKey: 'invoices', action: 'view' });
+    if (!permission.success) {
+      return NextResponse.json({ success: false, message: permission.message }, { status: permission.status });
+    }
+
     const { id } = await params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json({ success: false, message: 'Invoice not found' }, { status: 404 });
@@ -127,14 +134,18 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 
     await ConnectDb();
 
-    const invoiceExists = await Invoice.exists({ _id: id, userId: me.user.id });
-    if (!invoiceExists) {
+    const scopedUserObjectIds = await getCompanyUserObjectIds({ companyId: me.user.companyId, fallbackUserId: me.user.id });
+    const invoice = await Invoice.findOne({ _id: id, ...buildUserScopeQuery('userId', scopedUserObjectIds) }).select('_id userId').lean<{
+      _id: mongoose.Types.ObjectId;
+      userId: mongoose.Types.ObjectId;
+    }>();
+    if (!invoice) {
       return NextResponse.json({ success: false, message: 'Invoice not found' }, { status: 404 });
     }
 
     const payments = await Payment.find({
-      invoiceId: id,
-      userId: me.user.id,
+      invoiceId: invoice._id,
+      userId: invoice.userId,
       status: 'succeeded',
     })
       .sort({ paidAt: -1, createdAt: -1 })
@@ -156,6 +167,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
     }
 
+    const permission = await requireModulePermission({ companyId: me.user.companyId, role: me.user.role, moduleKey: 'invoices', action: 'manage' });
+    if (!permission.success) {
+      return NextResponse.json({ success: false, message: permission.message }, { status: permission.status });
+    }
+
     const { id } = await params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json({ success: false, message: 'Invoice not found' }, { status: 404 });
@@ -170,7 +186,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     await ConnectDb();
 
-    const invoice = await Invoice.findOne({ _id: id, userId: me.user.id }).select('_id invoiceNumber totalIncludingTax depositAmount status paymentToken paymentTokenExpiry');
+    const scopedUserObjectIds = await getCompanyUserObjectIds({ companyId: me.user.companyId, fallbackUserId: me.user.id });
+    const invoice = await Invoice.findOne({ _id: id, ...buildUserScopeQuery('userId', scopedUserObjectIds) }).select('_id userId invoiceNumber totalIncludingTax depositAmount status paymentToken paymentTokenExpiry');
     if (!invoice) {
       return NextResponse.json({ success: false, message: 'Invoice not found' }, { status: 404 });
     }
@@ -189,12 +206,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     const method = resolvedMethod.value;
-    const userObjectId = new mongoose.Types.ObjectId(me.user.id);
+    const invoiceOwnerId = String(invoice.userId);
+    const invoiceOwnerObjectId = new mongoose.Types.ObjectId(invoiceOwnerId);
 
     const existingTotals = await Payment.aggregate<{ _id: null; paidTotal: number }>([
       {
         $match: {
-          userId: userObjectId,
+          userId: invoiceOwnerObjectId,
           invoiceId: invoice._id,
           status: 'succeeded',
         },
@@ -218,7 +236,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         : 'remaining_balance';
 
     const payment = await Payment.create({
-      userId: me.user.id,
+      userId: invoiceOwnerId,
       invoiceId: invoice._id,
       stripePaymentId: `manual_${invoice._id}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       amount: normalizedAmount,
@@ -230,7 +248,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       paidAt: new Date(),
     });
 
-    const invoiceSnapshot = await recomputeInvoiceState(me.user.id, invoice);
+    const invoiceSnapshot = await recomputeInvoiceState(invoiceOwnerId, invoice);
 
     await createActivityLog(me.user.id, {
       action: 'invoice_payment_received',
@@ -277,6 +295,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
     }
 
+    const permission = await requireModulePermission({ companyId: me.user.companyId, role: me.user.role, moduleKey: 'invoices', action: 'manage' });
+    if (!permission.success) {
+      return NextResponse.json({ success: false, message: permission.message }, { status: permission.status });
+    }
+
     const { id } = await params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json({ success: false, message: 'Invoice not found' }, { status: 404 });
@@ -311,15 +334,17 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     await ConnectDb();
 
-    const invoice = await Invoice.findOne({ _id: id, userId: me.user.id }).select('_id invoiceNumber totalIncludingTax dueDate status paymentToken paymentTokenExpiry');
+    const scopedUserObjectIds = await getCompanyUserObjectIds({ companyId: me.user.companyId, fallbackUserId: me.user.id });
+    const invoice = await Invoice.findOne({ _id: id, ...buildUserScopeQuery('userId', scopedUserObjectIds) }).select('_id userId invoiceNumber totalIncludingTax dueDate status paymentToken paymentTokenExpiry');
     if (!invoice) {
       return NextResponse.json({ success: false, message: 'Invoice not found' }, { status: 404 });
     }
+    const invoiceOwnerId = String(invoice.userId);
 
     const payment = await Payment.findOne({
       _id: body.paymentId,
       invoiceId: invoice._id,
-      userId: me.user.id,
+      userId: invoiceOwnerId,
       status: 'succeeded',
     });
 
@@ -343,7 +368,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     payment.source = 'manual';
     await payment.save();
 
-    const invoiceSnapshot = await recomputeInvoiceState(me.user.id, invoice);
+    const invoiceSnapshot = await recomputeInvoiceState(invoiceOwnerId, invoice);
 
     await createActivityLog(me.user.id, {
       action: 'invoice_payment_updated',
@@ -386,6 +411,11 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
     }
 
+    const permission = await requireModulePermission({ companyId: me.user.companyId, role: me.user.role, moduleKey: 'invoices', action: 'manage' });
+    if (!permission.success) {
+      return NextResponse.json({ success: false, message: permission.message }, { status: permission.status });
+    }
+
     const { id } = await params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json({ success: false, message: 'Invoice not found' }, { status: 404 });
@@ -398,15 +428,17 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     await ConnectDb();
 
-    const invoice = await Invoice.findOne({ _id: id, userId: me.user.id }).select('_id invoiceNumber totalIncludingTax dueDate status paymentToken paymentTokenExpiry');
+    const scopedUserObjectIds = await getCompanyUserObjectIds({ companyId: me.user.companyId, fallbackUserId: me.user.id });
+    const invoice = await Invoice.findOne({ _id: id, ...buildUserScopeQuery('userId', scopedUserObjectIds) }).select('_id userId invoiceNumber totalIncludingTax dueDate status paymentToken paymentTokenExpiry');
     if (!invoice) {
       return NextResponse.json({ success: false, message: 'Invoice not found' }, { status: 404 });
     }
+    const invoiceOwnerId = String(invoice.userId);
 
     const payment = await Payment.findOne({
       _id: body.paymentId,
       invoiceId: invoice._id,
-      userId: me.user.id,
+      userId: invoiceOwnerId,
       status: 'succeeded',
     });
 
@@ -427,7 +459,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     };
 
     await payment.deleteOne();
-    const invoiceSnapshot = await recomputeInvoiceState(me.user.id, invoice);
+    const invoiceSnapshot = await recomputeInvoiceState(invoiceOwnerId, invoice);
 
     await createActivityLog(me.user.id, {
       action: 'invoice_payment_deleted',

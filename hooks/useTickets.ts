@@ -5,12 +5,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   TICKET_ALLOWED_MIME_TYPES,
   type TicketLinkedType,
+  type TicketStatusBucket,
   type TicketStatus,
   type TicketType,
 } from '@/lib/tickets/constants';
 import {
   getExpenseFileExtension,
-  isExpenseMimeTypeAllowed,
 } from '@/lib/expenses/upload';
 
 export type TicketUser = {
@@ -69,6 +69,7 @@ export type TicketThread = TicketListItem & {
 
 export type TicketFilters = {
   status?: TicketStatus;
+  statusBucket?: TicketStatusBucket;
   type?: TicketType;
   linkedType?: TicketLinkedType;
   linkedId?: string;
@@ -122,10 +123,11 @@ const extensionToMime: Record<string, (typeof TICKET_ALLOWED_MIME_TYPES)[number]
   jpeg: 'image/jpeg',
   png: 'image/png',
   heic: 'image/heic',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 };
 
 function inferTicketMimeType(file: File): (typeof TICKET_ALLOWED_MIME_TYPES)[number] | null {
-  if (isExpenseMimeTypeAllowed(file.type)) {
+  if (TICKET_ALLOWED_MIME_TYPES.includes(file.type as (typeof TICKET_ALLOWED_MIME_TYPES)[number])) {
     return file.type as (typeof TICKET_ALLOWED_MIME_TYPES)[number];
   }
 
@@ -145,6 +147,7 @@ export function useTickets(filters?: TicketFilters, enabled = true) {
     params.set('limit', String(filters?.limit || 20));
 
     if (filters?.status) params.set('status', filters.status);
+    if (filters?.statusBucket) params.set('statusBucket', filters.statusBucket);
     if (filters?.type) params.set('type', filters.type);
     if (filters?.linkedType) params.set('linkedType', filters.linkedType);
     if (filters?.linkedId) params.set('linkedId', filters.linkedId);

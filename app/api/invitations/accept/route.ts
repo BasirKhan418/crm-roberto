@@ -30,22 +30,46 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(result, { status: 400 });
     }
 
-    const token = signAuthToken(result.user);
     const cookieStore = await cookies();
-    cookieStore.set("token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: 7 * 24 * 60 * 60,
-      path: "/",
-    });
+    const isExternalAccountant = result.user.role === "external_accountant";
+
+    if (isExternalAccountant) {
+      const token = signAuthToken({
+        _id: result.user._id,
+        name: result.user.name,
+        email: result.user.email,
+        locale: result.user.locale,
+        isOnboardingComplete: result.user.isOnboardingComplete,
+        isEmailVerified: result.user.isEmailVerified,
+        role: result.user.role,
+        companyId: result.user.companyId ? String(result.user.companyId) : null,
+        kind: "accountant_portal",
+      });
+      cookieStore.delete("token");
+      cookieStore.set("accountant-token", token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        maxAge: 7 * 24 * 60 * 60,
+        path: "/",
+      });
+    } else {
+      const token = signAuthToken(result.user);
+      cookieStore.set("token", token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        maxAge: 7 * 24 * 60 * 60,
+        path: "/",
+      });
+    }
 
     return NextResponse.json({
       success: true,
       message: result.message,
       data: {
         isOnboardingComplete: result.user.isOnboardingComplete,
-        redirectTo: "/dashboard",
+        redirectTo: isExternalAccountant ? "/accountant-portal" : "/dashboard",
       },
     });
   } catch (error) {

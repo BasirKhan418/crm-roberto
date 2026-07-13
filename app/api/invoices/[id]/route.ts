@@ -6,8 +6,10 @@ import Client from '@/db/models/Client';
 import Invoice from '@/db/models/Invoice';
 import Payment from '@/db/models/Payment';
 import Quote from '@/db/models/Quote';
+import { buildUserScopeQuery, getCompanyUserObjectIds } from '@/lib/company-scope';
 import { computeQuoteLine, computeQuoteTotalsFromComputedLines } from '@/lib/quote-calculations';
 import { isInvoiceDueOnOrBeforeToday } from '@/lib/invoices/overdue';
+import { requireModulePermission } from '@/lib/role-matrix';
 import { buildValidationError } from '@/utils/api/validation';
 import getMe from '@/utils/middlewares/useMe';
 import { updateInvoiceSchema } from '@/validators/invoice.schema';
@@ -42,9 +44,17 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, message: 'Invoice not found' }, { status: 404 });
     }
 
-    await ConnectDb();
+    const permission = await requireModulePermission({ companyId: me.user.companyId, role: me.user.role, moduleKey: 'invoices', action: 'view' });
+    if (!permission.success) {
+      return NextResponse.json({ success: false, message: permission.message }, { status: permission.status });
+    }
 
-    const invoice = await Invoice.findOne({ _id: id, userId: me.user.id }).lean();
+    await ConnectDb();
+    const scopedUserObjectIds = await getCompanyUserObjectIds({ companyId: me.user.companyId, fallbackUserId: me.user.id });
+    const userScope = buildUserScopeQuery('userId', scopedUserObjectIds);
+    const linkedEntityUserScope = buildUserScopeQuery('user', scopedUserObjectIds);
+
+    const invoice = await Invoice.findOne({ _id: id, ...userScope }).lean();
     if (!invoice) {
       return NextResponse.json({ success: false, message: 'Invoice not found' }, { status: 404 });
     }
@@ -53,7 +63,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     // setting `ownerHasUnread` tells the schema hook not to auto-flip it
     // back to `true`.
     Invoice.updateOne(
-      { _id: invoice._id, userId: me.user.id },
+      { _id: invoice._id, ...userScope },
       { $set: { ownerHasUnread: false } },
       { timestamps: false, strict: false }
     ).catch(() => {
@@ -61,7 +71,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     });
 
     const normalized = withComputedInvoiceStatus(invoice);
-    const client = await Client.findOne({ _id: normalized.clientId, user: me.user.id })
+    const client = await Client.findOne({ _id: normalized.clientId, ...linkedEntityUserScope })
       .select('billingEmail')
       .lean<{ billingEmail?: string | null } | null>();
 
@@ -102,7 +112,15 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, message: 'Invoice not found' }, { status: 404 });
     }
 
+    const permission = await requireModulePermission({ companyId: me.user.companyId, role: me.user.role, moduleKey: 'invoices', action: 'edit' });
+    if (!permission.success) {
+      return NextResponse.json({ success: false, message: permission.message }, { status: permission.status });
+    }
+
     await ConnectDb();
+    const scopedUserObjectIds = await getCompanyUserObjectIds({ companyId: me.user.companyId, fallbackUserId: me.user.id });
+    const userScope = buildUserScopeQuery('userId', scopedUserObjectIds);
+    const linkedEntityUserScope = buildUserScopeQuery('user', scopedUserObjectIds);
 
     const payload: {
       subject?: string | null;
@@ -196,7 +214,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     if ('legalRecoveryCourtLocation' in parsed.data) {
       payload.legalRecoveryCourtLocation = parsed.data.legalRecoveryCourtLocation ?? null;
     }
-    const existing = await Invoice.findOne({ _id: id, userId: me.user.id }).select('status quoteId sentAt').lean();
+    const existing = await Invoice.findOne({ _id: id, ...userScope }).select('status quoteId sentAt').lean();
 
     if (!existing) {
       return NextResponse.json({ success: false, message: 'Invoice not found' }, { status: 404 });
@@ -221,7 +239,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     const updated = await Invoice.findOneAndUpdate(
-      { _id: id, userId: me.user.id },
+      { _id: id, ...userScope },
       payload,
       { returnDocument: 'after', runValidators: true }
     ).lean();
@@ -231,7 +249,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     const normalized = withComputedInvoiceStatus(updated);
-    const client = await Client.findOne({ _id: normalized.clientId, user: me.user.id })
+    const client = await Client.findOne({ _id: normalized.clientId, ...linkedEntityUserScope })
       .select('billingEmail')
       .lean<{ billingEmail?: string | null } | null>();
 
@@ -266,19 +284,27 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, message: 'Invoice not found' }, { status: 404 });
     }
 
-    await ConnectDb();
+    const permission = await requireModulePermission({ companyId: me.user.companyId, role: me.user.role, moduleKey: 'invoices', action: 'delete' });
+    if (!permission.success) {
+      return NextResponse.json({ success: false, message: permission.message }, { status: permission.status });
+    }
 
-    const invoice = await Invoice.findOne({ _id: id, userId: me.user.id }).select('_id quoteId invoiceNumber').lean();
+    await ConnectDb();
+    const scopedUserObjectIds = await getCompanyUserObjectIds({ companyId: me.user.companyId, fallbackUserId: me.user.id });
+    const userScope = buildUserScopeQuery('userId', scopedUserObjectIds);
+    const linkedEntityUserScope = buildUserScopeQuery('user', scopedUserObjectIds);
+
+    const invoice = await Invoice.findOne({ _id: id, ...userScope }).select('_id quoteId invoiceNumber').lean();
     if (!invoice) {
       return NextResponse.json({ success: false, message: 'Invoice not found' }, { status: 404 });
     }
 
-    await Invoice.deleteOne({ _id: invoice._id, userId: me.user.id });
-    await Payment.deleteMany({ invoiceId: invoice._id, userId: me.user.id });
+    await Invoice.deleteOne({ _id: invoice._id, ...userScope });
+    await Payment.deleteMany({ invoiceId: invoice._id, ...userScope });
 
     await Quote.updateMany(
       {
-        user: me.user.id,
+        ...linkedEntityUserScope,
         $or: [
           ...(invoice.quoteId ? [{ _id: invoice.quoteId }] : []),
           { invoiceId: invoice._id },

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Building2, ChevronRight, LayoutGrid, List, Mail, MapPin, Phone, PlusIcon, SearchIcon, User, Users } from 'lucide-react';
@@ -17,6 +18,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import type { QuoteStatus } from '@/components/ui/StatusBadge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useAuthMe } from '@/hooks/useAuthMe';
+import { getDefaultCrmLandingPath, hasModuleActionAccess } from '@/lib/route-access';
 
 interface Client {
   _id: string;
@@ -80,7 +83,9 @@ function getClientOperationalStatus(client: Client): 'due' | 'paid' | 'active' |
 }
 
 export default function ClientsPage() {
+  const router = useRouter();
   const { locale } = useLocale();
+  const { user, loading: authLoading } = useAuthMe();
   const t = {
     en: {
       fetchFailed: 'Failed to fetch clients',
@@ -169,8 +174,22 @@ export default function ClientsPage() {
   const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
 
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const canViewClients = hasModuleActionAccess({ role: user?.role, modulePermissions: user?.modulePermissions, moduleKey: 'clients', action: 'view' });
+  const canManageClients = hasModuleActionAccess({ role: user?.role, modulePermissions: user?.modulePermissions, moduleKey: 'clients', action: 'manage' });
 
   useEffect(() => {
+    if (authLoading || canViewClients) {
+      return;
+    }
+
+    router.replace(getDefaultCrmLandingPath(user?.role, user?.modulePermissions, user?.featureFlags));
+  }, [authLoading, canViewClients, router, user?.featureFlags, user?.modulePermissions, user?.role]);
+
+  useEffect(() => {
+    if (authLoading || !canViewClients) {
+      return;
+    }
+
     try {
       const raw = window.localStorage.getItem(CLIENTS_VIEW_STORAGE_KEY);
       if (raw === 'card' || raw === 'list') {
@@ -179,15 +198,19 @@ export default function ClientsPage() {
     } catch {
       // Ignore storage errors.
     }
-  }, []);
+  }, [authLoading, canViewClients]);
 
   useEffect(() => {
+    if (!canViewClients) {
+      return;
+    }
+
     try {
       window.localStorage.setItem(CLIENTS_VIEW_STORAGE_KEY, viewMode);
     } catch {
       // Ignore storage errors.
     }
-  }, [viewMode]);
+  }, [canViewClients, viewMode]);
 
   const query = useMemo(() => {
     const params = new URLSearchParams();
@@ -223,7 +246,28 @@ export default function ClientsPage() {
     }
   }, [query, t.fetchFailed]);
 
-  useEffect(() => { loadClients(); }, [loadClients]);
+  useEffect(() => {
+    if (!authLoading && canViewClients) {
+      void loadClients();
+    }
+  }, [authLoading, canViewClients, loadClients]);
+
+  if (authLoading) {
+    return (
+      <CrmShell title={t.shellTitle}>
+        <div className="space-y-4">
+          <Skeleton className="h-10 w-48" />
+          <Skeleton className="h-32 w-full rounded-2xl" />
+          <Skeleton className="h-72 w-full rounded-2xl" />
+        </div>
+      </CrmShell>
+    );
+  }
+
+  if (!canViewClients) {
+    return null;
+  }
+
   return (
     <CrmShell title={t.shellTitle}>
       {/* Page header */}
@@ -233,7 +277,7 @@ export default function ClientsPage() {
           <p className="mt-0.5 text-sm text-muted-foreground">{t.subtitle}</p>
         </div>
 
-        <Button className="h-10" data-tour-add-client onClick={() => setIsAddOpen(true)}>
+        <Button className="h-10" data-tour-add-client onClick={() => setIsAddOpen(true)} disabled={!canManageClients}>
           <PlusIcon />
           {t.addClient}
         </Button>
@@ -586,7 +630,7 @@ export default function ClientsPage() {
         </>
       )}
 
-      {isAddOpen ? (
+      {isAddOpen && canManageClients ? (
         <AddClientModal
           onClose={() => setIsAddOpen(false)}
           onSuccess={async () => {

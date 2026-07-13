@@ -16,6 +16,7 @@ import {
   EXPENSE_PAYMENT_METHODS,
   type ExpenseAttachmentDeleteReason,
 } from "@/lib/expenses/constants";
+import { buildExpenseAttachmentFileUrl } from "@/lib/storage/private-file-urls";
 import { normalizeRole } from "@/lib/permissions";
 import { isExpenseReadyForPayment } from "@/lib/expenses/payment-readiness";
 import type { ListQueryOptions, PaginationMeta } from "@/utils/api/query";
@@ -451,6 +452,18 @@ function addAccessScopeToQuery(query: Record<string, unknown>, access?: AccessSc
   return query;
 }
 
+function mapExpenseAttachmentForResponse<T extends { _id?: unknown; url?: unknown }>(attachment: T) {
+  const attachmentId = extractObjectIdString(attachment._id);
+  if (!attachmentId) {
+    return attachment;
+  }
+
+  return {
+    ...attachment,
+    url: buildExpenseAttachmentFileUrl(attachmentId),
+  };
+}
+
 function escapeRegex(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -502,7 +515,7 @@ function buildDuplicatedSupplierReference(sourceReference: unknown): string | nu
 
 function parseSort(options: ListQueryOptions) {
   const direction: 1 | -1 = options.sortOrder === "asc" ? 1 : -1;
-  const sortByAllowed = ["expenseDate", "amountInclVatCents", "supplierRef", "status", "createdAt"];
+  const sortByAllowed = ["expenseDate", "dueDate", "amountInclVatCents", "supplierRef", "status", "createdAt"];
   const sortBy = sortByAllowed.includes(options.sortBy) ? options.sortBy : "expenseDate";
   return { [sortBy]: direction } as Record<string, 1 | -1>;
 }
@@ -554,6 +567,7 @@ export async function createDraftFromAttachment(params: {
     notes: params.payload.notes ?? null,
     createdBy: params.createdBy,
     updatedBy: params.createdBy,
+    ocrStatus: "pending",
   });
 
   const attachment = await ExpenseAttachment.create({
@@ -726,7 +740,9 @@ export async function listExpenses(params: {
     query.status = { $ne: "archived" };
   }
 
-  if (params.filters?.paymentStatus) {
+  if (params.filters?.paymentStatusGroup === "open") {
+    query.paymentStatus = { $in: ["unpaid", "partial"] };
+  } else if (params.filters?.paymentStatus) {
     query.paymentStatus = params.filters.paymentStatus;
   }
 
@@ -747,6 +763,20 @@ export async function listExpenses(params: {
       dateQuery.$lte = params.filters.periodEnd;
     }
     query.expenseDate = dateQuery;
+  }
+
+  if (params.filters?.dueStart || params.filters?.dueEnd || params.filters?.dueBefore) {
+    const dueDateQuery: Record<string, Date> = {};
+    if (params.filters.dueStart) {
+      dueDateQuery.$gte = params.filters.dueStart;
+    }
+    if (params.filters.dueEnd) {
+      dueDateQuery.$lte = params.filters.dueEnd;
+    }
+    if (params.filters.dueBefore) {
+      dueDateQuery.$lt = params.filters.dueBefore;
+    }
+    query.dueDate = dueDateQuery;
   }
 
   if (params.options.search) {
@@ -833,6 +863,27 @@ export async function listExpenses(params: {
     }
 
     aggregateQuery.expenseDate = dateQuery;
+  }
+
+  if (aggregateQuery.dueDate && typeof aggregateQuery.dueDate === "object") {
+    const sourceDateQuery = aggregateQuery.dueDate as { $gte?: unknown; $lte?: unknown; $lt?: unknown };
+    const dateQuery: { $gte?: Date; $lte?: Date; $lt?: Date } = {};
+
+    const gte = toDateOrNull(sourceDateQuery.$gte);
+    const lte = toDateOrNull(sourceDateQuery.$lte);
+    const lt = toDateOrNull(sourceDateQuery.$lt);
+
+    if (gte) {
+      dateQuery.$gte = gte;
+    }
+    if (lte) {
+      dateQuery.$lte = lte;
+    }
+    if (lt) {
+      dateQuery.$lt = lt;
+    }
+
+    aggregateQuery.dueDate = dateQuery;
   }
 
   const skip = (params.options.page - 1) * params.options.limit;
@@ -1042,7 +1093,7 @@ export async function getExpenseById(params: {
         toPositiveCents(expense.amountInclVatCents),
         paymentSummary.amountPaidCents
       ),
-      attachments,
+      attachments: attachments.map((attachment) => mapExpenseAttachmentForResponse(attachment)),
       payments,
       linkedTickets: [],
       auditLogs,
@@ -1903,7 +1954,7 @@ export async function listExpenseAttachments(params: {
 
   return {
     success: true as const,
-    attachments,
+    attachments: attachments.map((attachment) => mapExpenseAttachmentForResponse(attachment)),
   };
 }
 
@@ -1996,7 +2047,7 @@ export async function createExpenseAttachment(params: {
 
   return {
     success: true as const,
-    attachment: refreshed || attachment.toObject(),
+    attachment: mapExpenseAttachmentForResponse(refreshed || attachment.toObject()),
   };
 }
 

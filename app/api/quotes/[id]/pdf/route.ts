@@ -7,9 +7,11 @@ import QuoteSignature from '@/db/models/QuoteSignature';
 import { getCompanyProfileByUserId } from '@/db/repository/cprofile';
 import { getQuoteById } from '@/db/repository/quote';
 import { extractClientSnapshot } from '@/lib/address';
+import { getCompanyUserIdStrings } from '@/lib/company-scope';
 import { computeQuoteLine } from '@/lib/quote-calculations';
 import { QuotePdfTemplate } from '@/lib/pdf/QuotePdfTemplate';
 import { resolveLocaleFromRequest } from '@/lib/i18n/locale';
+import { requireModulePermission } from '@/lib/role-matrix';
 import getMe from '@/utils/middlewares/useMe';
 
 export const runtime = 'nodejs';
@@ -25,11 +27,17 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
     }
 
+    const permission = await requireModulePermission({ companyId: me.user.companyId, role: me.user.role, moduleKey: 'quotes', action: 'view' });
+    if (!permission.success) {
+      return NextResponse.json({ success: false, message: permission.message }, { status: permission.status });
+    }
+
     const rawLocale = request.nextUrl.searchParams.get('locale');
     const locale = resolveLocaleFromRequest(request, { rawLocale });
 
     const { id } = await params;
-    const quote = await getQuoteById(me.user.id, id);
+    const scopedUserIds = await getCompanyUserIdStrings({ companyId: me.user.companyId, fallbackUserId: me.user.id });
+    const quote = await getQuoteById(scopedUserIds, id);
     if (!quote) {
       return NextResponse.json({ success: false, message: 'Quote not found' }, { status: 404 });
     }

@@ -72,17 +72,8 @@ function toInputDateFromDate(value: Date) {
   return `${year}-${month}-${day}`;
 }
 
-function openDateInputPicker(input: HTMLInputElement) {
-  try {
-    if (typeof input.showPicker === 'function') {
-      input.showPicker();
-      return;
-    }
-  } catch {
-    // Ignore and fallback below.
-  }
-
-  input.focus({ preventScroll: true });
+function sanitizeDecimalInput(value: string) {
+  return value.replace(/[^\d.,]/g, '');
 }
 
 export function ExpensePaymentDialog({
@@ -392,10 +383,11 @@ export function ExpensePaymentDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        data-disable-keyboard-scroll="true"
         className={cn(
-          'max-h-[92dvh] w-[calc(100%-1rem)] gap-3 p-4 pr-4 sm:gap-4 sm:p-5 sm:pr-12',
+          '[--app-keyboard-inset-height:0px] top-[calc(0.5rem+var(--app-safe-area-top))] h-[calc(var(--app-viewport-height)-1rem-var(--app-safe-area-top)-var(--app-safe-area-bottom))] w-[calc(100%-1rem)] translate-y-0 gap-3 overscroll-contain p-4 pr-4 sm:top-[50%] sm:h-auto sm:max-h-[92dvh] sm:translate-y-[-50%] sm:gap-4 sm:p-5 sm:pr-12',
           receiptAttachment
-            ? 'flex h-[92dvh] flex-col overflow-hidden sm:max-w-5xl lg:max-w-6xl'
+            ? 'flex min-h-0 flex-col overflow-x-hidden overflow-y-auto md:overflow-hidden sm:max-w-5xl lg:max-w-6xl'
             : 'overflow-y-auto sm:max-w-xl'
         )}
       >
@@ -407,7 +399,7 @@ export function ExpensePaymentDialog({
         <div
           className={cn(
             receiptAttachment
-              ? 'flex min-h-0 flex-1 flex-col gap-3 md:grid md:grid-cols-[minmax(0,1.1fr)_minmax(260px,0.9fr)] lg:grid-cols-[minmax(0,1fr)_minmax(340px,0.9fr)]'
+              ? 'space-y-3 md:grid md:min-h-0 md:flex-1 md:grid-cols-[minmax(0,1.1fr)_minmax(260px,0.9fr)] md:gap-3 md:space-y-0 lg:grid-cols-[minmax(0,1fr)_minmax(340px,0.9fr)]'
               : 'space-y-3'
           )}
         >
@@ -443,7 +435,7 @@ export function ExpensePaymentDialog({
             </aside>
           ) : null}
 
-          <div className={cn('space-y-3', receiptAttachment && 'order-2 min-h-0 overflow-y-auto pr-1 md:order-1')}>
+          <div className={cn('space-y-3', receiptAttachment && 'md:order-1 md:min-h-0 md:overflow-y-auto md:pr-1')}>
             <div className="rounded-xl border border-border/70 bg-muted/20 p-3">
               <p className="text-sm font-semibold">{contextTitle}</p>
               <div className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
@@ -507,11 +499,10 @@ export function ExpensePaymentDialog({
                     <div className="space-y-1.5">
                       <Label>{t.amountLabel}</Label>
                       <Input
-                        type="number"
-                        min="0"
-                        step="0.01"
+                        inputMode="decimal"
+                        autoComplete="off"
                         value={paymentAmount}
-                        onChange={(event) => setPaymentAmount(event.target.value)}
+                        onChange={(event) => setPaymentAmount(sanitizeDecimalInput(event.target.value))}
                         disabled={saving}
                       />
                       <p className="text-xs text-muted-foreground">{t.amountHint}</p>
@@ -524,7 +515,6 @@ export function ExpensePaymentDialog({
                       type="date"
                       value={paidAt}
                       onChange={(event) => setPaidAt(event.target.value)}
-                      onClick={(event) => openDateInputPicker(event.currentTarget)}
                       disabled={saving}
                     />
                   </div>

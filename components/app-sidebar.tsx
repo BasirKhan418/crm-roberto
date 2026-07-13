@@ -15,9 +15,12 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { Building2Icon, FileTextIcon, LayoutDashboardIcon, MessageSquareIcon, NotebookPenIcon, PackageSearchIcon, ReceiptTextIcon, SettingsIcon, TruckIcon, UsersIcon, WalletCardsIcon } from "lucide-react"
+import { Building2Icon, FileDownIcon, FileTextIcon, LayoutDashboardIcon, MessageSquareIcon, NotebookPenIcon, PackageSearchIcon, ReceiptTextIcon, SettingsIcon, TruckIcon, UsersIcon, WalletCardsIcon } from "lucide-react"
 import { useLocale } from "@/components/providers/locale-provider"
+import { useAuthMe } from "@/hooks/useAuthMe"
+import { canAccessCrmPath, getSettingsLandingPath } from "@/lib/route-access"
 import { useSidebarBadges } from "@/hooks/useSidebarBadges"
+import { CountBadgeRow } from "@/components/ui/count-badge"
 
 type NavKey =
   | "dashboard"
@@ -28,6 +31,7 @@ type NavKey =
   | "invoices"
   | "tickets"
   | "expenses"
+  | "exports"
   | "notes"
   | "settings"
   | "companyProfile"
@@ -45,6 +49,7 @@ const navItems: ReadonlyArray<{
   { key: "invoices", url: "/invoices", icon: <FileTextIcon /> },
   { key: "tickets", url: "/tickets", icon: <MessageSquareIcon /> },
   { key: "expenses", url: "/expenses", icon: <WalletCardsIcon /> },
+  { key: "exports", url: "/exports", icon: <FileDownIcon /> },
   { key: "notes", url: "/notes", icon: <NotebookPenIcon /> },
   { key: "settings", url: "/settings", icon: <SettingsIcon /> },
   { key: "companyProfile", url: "/profile", icon: <Building2Icon /> },
@@ -61,6 +66,8 @@ const sidebarMessages = {
       paid: (n: number) => `${n} new paid`,
       overdue: (n: number) => `${n} new overdue`,
       unreadTickets: (n: number) => `${n} unread tickets`,
+      unpaidExpenses: (n: number) => `${n} unpaid expenses`,
+      overdueExpenses: (n: number) => `${n} overdue expenses`,
     },
     nav: {
       dashboard: "Dashboard",
@@ -70,6 +77,7 @@ const sidebarMessages = {
       quotes: "Quotes",
       notes: "Notes",
       expenses: "Expenses",
+      exports: "Exports",
       settings: "Settings",
       invoices: "Invoices",
       tickets: "Tickets",
@@ -86,6 +94,8 @@ const sidebarMessages = {
       paid: (n: number) => `${n} nouvelle(s) payée(s)`,
       overdue: (n: number) => `${n} nouvelle(s) en retard`,
       unreadTickets: (n: number) => `${n} ticket(s) non lu(s)`,
+      unpaidExpenses: (n: number) => `${n} depense(s) impayee(s)`,
+      overdueExpenses: (n: number) => `${n} depense(s) en retard`,
     },
     nav: {
       dashboard: "Tableau de bord",
@@ -95,6 +105,7 @@ const sidebarMessages = {
       quotes: "Devis",
       notes: "Notes",
       expenses: "Dépenses",
+      exports: "Exports",
       settings: "Paramètres",
       invoices: "Factures",
       tickets: "Tickets",
@@ -103,32 +114,23 @@ const sidebarMessages = {
   },
 } as const
 
-type BadgeTone = "green" | "orange" | "red"
-
-const BADGE_TONE_CLASSES: Record<BadgeTone, string> = {
-  green: "bg-emerald-500",
-  orange: "bg-amber-500",
-  red: "bg-red-600",
-}
-
-function StatusBadge({ count, tone, title }: { count: number; tone: BadgeTone; title: string }) {
-  if (count <= 0) return null
-  return (
-    <span
-      className={`flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white ${BADGE_TONE_CLASSES[tone]}`}
-      title={title}
-      aria-label={title}
-    >
-      {count > 99 ? "99+" : count}
-    </span>
-  )
-}
-
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname()
   const { locale } = useLocale()
   const t = sidebarMessages[locale]
+  const { user } = useAuthMe()
   const { badges } = useSidebarBadges()
+  const settingsUrl = getSettingsLandingPath(user?.role, user?.modulePermissions, user?.featureFlags)
+  const resolvedNavItems = navItems.map((item) =>
+    item.key === "settings" && settingsUrl ? { ...item, url: settingsUrl } : item
+  )
+  const visibleNavItems = resolvedNavItems.filter((item) => {
+    if (item.key === "settings" && !settingsUrl) {
+      return false
+    }
+
+    return canAccessCrmPath(item.url, user?.role, user?.modulePermissions, user?.featureFlags)
+  })
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>
@@ -157,7 +159,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <SidebarGroup className="pt-1">
           <SidebarGroupLabel>{t.workspace}</SidebarGroupLabel>
           <SidebarMenu className="px-2">
-            {navItems.map((item) => {
+            {visibleNavItems.map((item) => {
               const isActive = pathname === item.url || pathname.startsWith(`${item.url}/`)
 
               let badgeNode: React.ReactNode = null
@@ -165,31 +167,45 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 const { accepted, pending, rejected } = badges.quotes
                 if (accepted + pending + rejected > 0) {
                   badgeNode = (
-                    <span className="ml-auto flex items-center gap-1">
-                      <StatusBadge count={accepted} tone="green" title={t.badgeTitles.accepted(accepted)} />
-                      <StatusBadge count={pending} tone="orange" title={t.badgeTitles.pending(pending)} />
-                      <StatusBadge count={rejected} tone="red" title={t.badgeTitles.rejected(rejected)} />
-                    </span>
+                    <CountBadgeRow
+                      items={[
+                        { count: accepted, tone: "green", title: t.badgeTitles.accepted(accepted) },
+                        { count: pending, tone: "orange", title: t.badgeTitles.pending(pending) },
+                        { count: rejected, tone: "red", title: t.badgeTitles.rejected(rejected) },
+                      ]}
+                    />
                   )
                 }
               } else if (item.key === "invoices") {
                 const { paid, pending, overdue } = badges.invoices
                 if (paid + pending + overdue > 0) {
                   badgeNode = (
-                    <span className="ml-auto flex items-center gap-1">
-                      <StatusBadge count={paid} tone="green" title={t.badgeTitles.paid(paid)} />
-                      <StatusBadge count={pending} tone="orange" title={t.badgeTitles.pending(pending)} />
-                      <StatusBadge count={overdue} tone="red" title={t.badgeTitles.overdue(overdue)} />
-                    </span>
+                    <CountBadgeRow
+                      items={[
+                        { count: paid, tone: "green", title: t.badgeTitles.paid(paid) },
+                        { count: pending, tone: "orange", title: t.badgeTitles.pending(pending) },
+                        { count: overdue, tone: "red", title: t.badgeTitles.overdue(overdue) },
+                      ]}
+                    />
                   )
                 }
               } else if (item.key === "tickets") {
                 const unread = badges.tickets.unread
                 if (unread > 0) {
                   badgeNode = (
-                    <span className="ml-auto flex items-center gap-1">
-                      <StatusBadge count={unread} tone="red" title={t.badgeTitles.unreadTickets(unread)} />
-                    </span>
+                    <CountBadgeRow items={[{ count: unread, tone: "red", title: t.badgeTitles.unreadTickets(unread) }]} />
+                  )
+                }
+              } else if (item.key === "expenses") {
+                const { unpaid, overdue } = badges.expenses
+                if (unpaid + overdue > 0) {
+                  badgeNode = (
+                    <CountBadgeRow
+                      items={[
+                        { count: unpaid, tone: "orange", title: t.badgeTitles.unpaidExpenses(unpaid) },
+                        { count: overdue, tone: "red", title: t.badgeTitles.overdueExpenses(overdue) },
+                      ]}
+                    />
                   )
                 }
               }

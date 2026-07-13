@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { useLocale } from '@/components/providers/locale-provider';
 import { useAuthMe } from '@/hooks/useAuthMe';
-import { hasPermission } from '@/lib/permissions';
+import { hasModuleActionAccess } from '@/lib/route-access';
 
 type GlobalTicketCreateProps = {
   trigger?: 'button' | 'menu-item';
@@ -20,7 +20,16 @@ export function GlobalTicketCreate({ trigger = 'button' }: GlobalTicketCreatePro
   const { locale } = useLocale();
   const { user, loading } = useAuthMe();
 
-  if (loading || !hasPermission(user?.role, 'tickets.manage')) {
+  if (
+    loading ||
+    user?.featureFlags?.tickets === false ||
+    !hasModuleActionAccess({
+      role: user?.role,
+      modulePermissions: user?.modulePermissions,
+      moduleKey: 'tickets',
+      action: 'manage',
+    })
+  ) {
     return null;
   }
 

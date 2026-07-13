@@ -7,6 +7,7 @@ import { ArrowLeftIcon, ExternalLinkIcon, Loader2Icon, PaperclipIcon, RefreshCwI
 import { toast } from 'sonner';
 
 import CrmShell from '@/components/crm-shell';
+import { AttachmentPreviewDialog } from '@/components/expenses/attachment-preview-dialog';
 import { useLocale } from '@/components/providers/locale-provider';
 import { TicketStatusBadge } from '@/components/tickets/ticket-status-badge';
 import { TicketUnreadIndicator } from '@/components/tickets/ticket-unread-indicator';
@@ -26,8 +27,11 @@ import {
   uploadTicketFiles,
   useTicketThread,
 } from '@/hooks/useTickets';
-import { TICKET_STATUSES, type TicketStatus, type TicketType } from '@/lib/tickets/constants';
-import { hasPermission } from '@/lib/permissions';
+import { formatInvoiceReferencesInText } from '@/lib/i18n/messages';
+import { normalizeRole } from '@/lib/permissions';
+import { getDefaultCrmLandingPath, hasModuleActionAccess } from '@/lib/route-access';
+import { getTicketStatusLabel, getTicketTypeLabel } from '@/lib/tickets/i18n';
+import { TICKET_STATUSES, type TicketStatus } from '@/lib/tickets/constants';
 
 const FILE_ACCEPT = '.pdf,.jpg,.jpeg,.png,.heic';
 
@@ -112,25 +116,6 @@ function resolveUserName(value: unknown, fallback: string) {
   return typed.name?.trim() || typed.email?.trim() || fallback;
 }
 
-function resolveTypeLabel(type: TicketType, locale: 'en' | 'fr') {
-  const labels = {
-    en: {
-      accounting: 'Accounting',
-      validation: 'Validation',
-      document: 'Document',
-      dispute: 'Dispute',
-    },
-    fr: {
-      accounting: 'Comptabilité',
-      validation: 'Validation',
-      document: 'Document',
-      dispute: 'Litige',
-    },
-  } as const;
-
-  return labels[locale][type] || type;
-}
-
 function resolveLinkedRecordPath(linkedType: string | null | undefined, linkedId: unknown): string | null {
   const id = resolveUserId(linkedId);
   if (!linkedType || !id) {
@@ -150,6 +135,110 @@ function resolveMessageAuthor(message: TicketMessage, locale: 'en' | 'fr') {
   return resolveUserName(message.author || message.authorId, fallback);
 }
 
+function resolveMessageRole(message: TicketMessage) {
+  const author = message.author && typeof message.author === 'object' ? message.author : null;
+  return typeof author?.role === 'string' ? normalizeRole(author.role) : null;
+}
+
+function getMessageTone(role: string | null) {
+  switch (role) {
+    case 'super_admin':
+      return {
+        card: 'border-fuchsia-200/90 bg-fuchsia-50/80',
+        body: 'border-fuchsia-100 bg-white/95',
+        attachments: 'border-fuchsia-200/70 bg-fuchsia-100/75',
+        attachmentButton: 'border-fuchsia-200/80 bg-white/95 hover:border-fuchsia-300 hover:bg-white',
+        badge: 'border-fuchsia-200 bg-fuchsia-100 text-fuchsia-800',
+      };
+    case 'administrator':
+      return {
+        card: 'border-rose-200/90 bg-rose-50/80',
+        body: 'border-rose-100 bg-white/95',
+        attachments: 'border-rose-200/70 bg-rose-100/75',
+        attachmentButton: 'border-rose-200/80 bg-white/95 hover:border-rose-300 hover:bg-white',
+        badge: 'border-rose-200 bg-rose-100 text-rose-800',
+      };
+    case 'manager':
+      return {
+        card: 'border-violet-200/90 bg-violet-50/80',
+        body: 'border-violet-100 bg-white/95',
+        attachments: 'border-violet-200/70 bg-violet-100/75',
+        attachmentButton: 'border-violet-200/80 bg-white/95 hover:border-violet-300 hover:bg-white',
+        badge: 'border-violet-200 bg-violet-100 text-violet-800',
+      };
+    case 'secretary':
+      return {
+        card: 'border-amber-200/90 bg-amber-50/80',
+        body: 'border-amber-100 bg-white/95',
+        attachments: 'border-amber-200/70 bg-amber-100/75',
+        attachmentButton: 'border-amber-200/80 bg-white/95 hover:border-amber-300 hover:bg-white',
+        badge: 'border-amber-200 bg-amber-100 text-amber-800',
+      };
+    case 'technician':
+      return {
+        card: 'border-cyan-200/90 bg-cyan-50/80',
+        body: 'border-cyan-100 bg-white/95',
+        attachments: 'border-cyan-200/70 bg-cyan-100/75',
+        attachmentButton: 'border-cyan-200/80 bg-white/95 hover:border-cyan-300 hover:bg-white',
+        badge: 'border-cyan-200 bg-cyan-100 text-cyan-800',
+      };
+    case 'read_only':
+      return {
+        card: 'border-slate-200/90 bg-slate-50/80',
+        body: 'border-slate-100 bg-white/95',
+        attachments: 'border-slate-200/70 bg-slate-100/80',
+        attachmentButton: 'border-slate-200/80 bg-white/95 hover:border-slate-300 hover:bg-white',
+        badge: 'border-slate-200 bg-slate-100 text-slate-700',
+      };
+    case 'external_accountant':
+      return {
+        card: 'border-emerald-200/90 bg-emerald-50/80',
+        body: 'border-emerald-100 bg-white/95',
+        attachments: 'border-emerald-200/70 bg-emerald-100/70',
+        attachmentButton: 'border-emerald-200/80 bg-white/95 hover:border-emerald-300 hover:bg-white',
+        badge: 'border-emerald-200 bg-emerald-100 text-emerald-800',
+      };
+    default:
+      return {
+        card: 'border-sky-200/90 bg-sky-50/80',
+        body: 'border-sky-100 bg-white/95',
+        attachments: 'border-sky-200/70 bg-sky-100/75',
+        attachmentButton: 'border-sky-200/80 bg-white/95 hover:border-sky-300 hover:bg-white',
+        badge: 'border-sky-200 bg-sky-100 text-sky-800',
+      };
+  }
+}
+
+function resolveRoleLabel(role: string | null, locale: 'en' | 'fr') {
+  switch (role) {
+    case 'super_admin':
+      return locale === 'fr' ? 'Super admin' : 'Super admin';
+    case 'administrator':
+      return locale === 'fr' ? 'Admin' : 'Admin';
+    case 'manager':
+      return locale === 'fr' ? 'Manager' : 'Manager';
+    case 'secretary':
+      return locale === 'fr' ? 'Secretaire' : 'Secretary';
+    case 'technician':
+      return locale === 'fr' ? 'Technicien' : 'Technician';
+    case 'read_only':
+      return locale === 'fr' ? 'Lecture seule' : 'Read-only';
+    case 'external_accountant':
+      return locale === 'fr' ? 'Comptable' : 'Accountant';
+    default:
+      return locale === 'fr' ? 'Client' : 'Client';
+  }
+}
+
+function resolveMessageMarker(message: TicketMessage, currentUserId: string | null | undefined, locale: 'en' | 'fr') {
+  const authorId = resolveUserId(message.authorId || message.author);
+  if (currentUserId && authorId === currentUserId) {
+    return locale === 'fr' ? 'Vous' : 'You';
+  }
+
+  return resolveRoleLabel(resolveMessageRole(message), locale);
+}
+
 export default function TicketDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -161,6 +250,7 @@ export default function TicketDetailPage() {
 
   const [replyBody, setReplyBody] = useState('');
   const [replyFiles, setReplyFiles] = useState<File[]>([]);
+  const [previewAttachment, setPreviewAttachment] = useState<TicketAttachment | null>(null);
   const [sendingReply, setSendingReply] = useState(false);
   const [statusDraft, setStatusDraft] = useState<TicketStatus>('open');
   const [updatingStatus, setUpdatingStatus] = useState(false);
@@ -202,15 +292,13 @@ export default function TicketDetailPage() {
       openLinkedRecord: 'Open linked record',
       createdAt: 'Created',
       updatedAt: 'Updated',
-      statusLabel: {
-        open: 'Open',
-        waiting: 'Waiting',
-        replied: 'Replied',
-        resolved: 'Resolved',
-        archived: 'Archived',
-      },
       unassigned: 'Unassigned',
       unreadLabel: 'Unread messages',
+      previewAttachment: 'Preview attachment',
+      conversationTitle: 'Conversation timeline',
+      conversationDescription: 'Read the thread first, then send the next clear action.',
+      accountantLabel: 'Accountant',
+      clientLabel: 'Client',
     },
     fr: {
       shellTitle: 'Détail Ticket',
@@ -244,22 +332,28 @@ export default function TicketDetailPage() {
       openLinkedRecord: 'Ouvrir la ressource liée',
       createdAt: 'Créé le',
       updatedAt: 'Mis à jour le',
-      statusLabel: {
-        open: 'Ouvert',
-        waiting: 'En attente',
-        replied: 'Répondu',
-        resolved: 'Résolu',
-        archived: 'Archivé',
-      },
       unassigned: 'Non assigné',
       unreadLabel: 'Messages non lus',
+      previewAttachment: 'Aperçu de la pièce jointe',
+      conversationTitle: 'Fil de conversation',
+      conversationDescription: 'Relisez d’abord le fil, puis envoyez la prochaine action clairement.',
+      accountantLabel: 'Comptable',
+      clientLabel: 'Client',
     },
   }[locale];
 
-  const canViewTickets = hasPermission(user?.role, 'tickets.view');
-  const canManageTickets = hasPermission(user?.role, 'tickets.manage');
+  const canViewTickets = hasModuleActionAccess({ role: user?.role, modulePermissions: user?.modulePermissions, moduleKey: 'tickets', action: 'view' });
+  const canManageTickets = hasModuleActionAccess({ role: user?.role, modulePermissions: user?.modulePermissions, moduleKey: 'tickets', action: 'manage' });
 
   const canReply = canManageTickets && ticket?.status !== 'archived';
+
+  useEffect(() => {
+    if (authLoading || canViewTickets) {
+      return;
+    }
+
+    router.replace(getDefaultCrmLandingPath(user?.role, user?.modulePermissions, user?.featureFlags));
+  }, [authLoading, canViewTickets, router, user?.featureFlags, user?.modulePermissions, user?.role]);
 
   useEffect(() => {
     if (!ticket?.status) {
@@ -277,7 +371,12 @@ export default function TicketDetailPage() {
     markedReadRef.current = ticket._id;
 
     void markTicketRead(ticket._id)
-      .then(() => refetch())
+      .then(() => {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('sidebar-badges:refresh'));
+        }
+        return refetch();
+      })
       .catch(() => {
         // Keep detail usable even if mark-read fails.
       });
@@ -334,6 +433,9 @@ export default function TicketDetailPage() {
       setReplyBody('');
       setReplyFiles([]);
       await refetch();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('sidebar-badges:refresh'));
+      }
     } catch (sendError) {
       console.error('[tickets] reply failed', sendError);
       toast.error(t.replyFailed);
@@ -358,6 +460,9 @@ export default function TicketDetailPage() {
       await changeTicketStatus({ ticketId: ticket._id, status: statusDraft });
       toast.success(t.statusUpdated);
       await refetch();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('sidebar-badges:refresh'));
+      }
     } catch (statusError) {
       console.error('[tickets] status update failed', statusError);
       toast.error(t.statusUpdateFailed);
@@ -408,7 +513,7 @@ export default function TicketDetailPage() {
           <section className="rounded-2xl border border-border/70 bg-card p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
-                <h2 className="text-lg font-semibold text-foreground">{ticket.title}</h2>
+                <h2 className="text-lg font-semibold text-foreground">{formatInvoiceReferencesInText(locale, ticket.title)}</h2>
                 <div className="mt-1 flex flex-wrap items-center gap-2">
                   <TicketStatusBadge status={ticket.status} locale={locale} />
                   <TicketUnreadIndicator unreadCount={ticket.unreadCount} locale={locale} />
@@ -424,10 +529,10 @@ export default function TicketDetailPage() {
 
             <div className="mt-3 grid gap-1.5 text-sm text-muted-foreground sm:grid-cols-2">
               <p>
-                {t.type}: <span className="font-medium text-foreground">{resolveTypeLabel(ticket.type, locale)}</span>
+                {t.type}: <span className="font-medium text-foreground">{getTicketTypeLabel(ticket.type, locale)}</span>
               </p>
               <p>
-                {t.status}: <span className="font-medium text-foreground">{t.statusLabel[ticket.status]}</span>
+                  {t.status}: <span className="font-medium text-foreground">{getTicketStatusLabel(ticket.status, locale)}</span>
               </p>
               <p>
                 {t.createdBy}: <span className="font-medium text-foreground">{resolveUserName(ticket.createdBy, '-')}</span>
@@ -455,7 +560,7 @@ export default function TicketDetailPage() {
                   className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm sm:w-48"
                 >
                   {TICKET_STATUSES.map((status) => (
-                    <option key={status} value={status}>{t.statusLabel[status]}</option>
+                    <option key={status} value={status}>{getTicketStatusLabel(status, locale)}</option>
                   ))}
                 </select>
               </div>
@@ -474,7 +579,11 @@ export default function TicketDetailPage() {
           </section>
 
           <section className="space-y-2 rounded-2xl border border-border/70 bg-card p-4">
-            <h3 className="text-sm font-semibold text-foreground">{t.replyTitle}</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-foreground">{t.replyTitle}</h3>
+              <TicketUnreadIndicator unreadCount={ticket.unreadCount} locale={locale} />
+            </div>
+            <p className="text-sm text-muted-foreground">{t.conversationDescription}</p>
             <Textarea
               value={replyBody}
               onChange={(event) => setReplyBody(event.target.value)}
@@ -516,34 +625,51 @@ export default function TicketDetailPage() {
             </div>
           </section>
 
-          <section className="space-y-2 rounded-2xl border border-border/70 bg-card p-4">
-            <div className="flex items-center gap-2">
-              <h3 className="text-sm font-semibold text-foreground">{t.unreadLabel}</h3>
+          <section className="space-y-3 rounded-2xl border border-border/70 bg-card p-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-sm font-semibold text-foreground">{t.conversationTitle}</h3>
               <TicketUnreadIndicator unreadCount={ticket.unreadCount} locale={locale} />
             </div>
+            <p className="text-sm text-muted-foreground">{t.conversationDescription}</p>
 
             {ticket.messages && ticket.messages.length > 0 ? (
-              <div className="space-y-2">
-                {ticket.messages.map((message) => {
-                  const authorId = resolveUserId(message.authorId || message.author);
-                  const isMine = !!user?.id && authorId === user.id;
+              <div className="space-y-3">
+                {ticket.messages.map((message, index) => {
                   const authorLabel = resolveMessageAuthor(message, locale);
+                  const role = resolveMessageRole(message);
+                  const tone = getMessageTone(role);
+                  const messageLabel = resolveMessageMarker(message, user?.id, locale);
 
                   return (
-                    <div key={message._id} className={`rounded-xl border p-3 ${isMine ? 'border-sky-200 bg-sky-50/40' : 'border-border/70 bg-background/70'}`}>
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <p className="text-xs font-semibold text-foreground">{authorLabel}</p>
-                        <p className="text-[11px] text-muted-foreground">{formatDateTime(message.createdAt, locale)}</p>
+                    <div key={message._id} className={`rounded-2xl border p-4 shadow-sm sm:p-5 ${tone.card}`}>
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="space-y-2">
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                            <p className="text-sm font-bold text-foreground sm:text-base">{authorLabel}</p>
+                            <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold ${tone.badge}`}>{messageLabel}</span>
+                            <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                              #{ticket.messages.length - index}
+                            </span>
+                          </div>
+                        </div>
+                        <p className="text-[11px] font-medium text-muted-foreground">{formatDateTime(message.createdAt, locale)}</p>
                       </div>
 
-                      {message.body ? <p className="mt-1 whitespace-pre-wrap wrap-break-word text-sm text-foreground">{message.body}</p> : null}
+                      {message.body ? (
+                        <div className={`mt-3 rounded-xl border px-3.5 py-3 ${tone.body}`}>
+                          <p className="whitespace-pre-wrap wrap-break-word text-sm leading-6 text-foreground">{formatInvoiceReferencesInText(locale, message.body)}</p>
+                        </div>
+                      ) : null}
 
                       {Array.isArray(message.attachments) && message.attachments.length > 0 ? (
-                        <div className="mt-2 rounded-lg border border-primary/20 bg-primary/5 p-2">
-                          <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-primary">
-                            {t.messageAttachments}
-                          </p>
-                          <div className="space-y-1.5">
+                        <div className={`mt-3 rounded-xl border p-3 ${tone.attachments}`}>
+                          <div className="mb-2 flex items-center justify-between gap-2">
+                            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-foreground/80">
+                              {t.messageAttachments}
+                            </p>
+                            <span className="text-[11px] font-medium text-muted-foreground">{message.attachments.length}</span>
+                          </div>
+                          <div className="space-y-2">
                             {message.attachments.map((attachment, index) => {
                               const fileName = attachment.displayName || attachment.originalName;
                               const fileMeta = [formatFileSize(attachment.sizeBytes), attachment.extension?.toUpperCase()]
@@ -551,24 +677,25 @@ export default function TicketDetailPage() {
                                 .join(' · ');
 
                               return (
-                                <a
+                                <button
+                                  type="button"
                                   key={`${attachment.url}-${index}`}
-                                  href={attachment.url}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="group flex items-center justify-between gap-2 rounded-md border border-border/60 bg-card px-2.5 py-1.5 hover:border-primary/40"
+                                  onClick={() => setPreviewAttachment(attachment)}
+                                  title={t.previewAttachment}
+                                  aria-label={`${t.previewAttachment}: ${fileName}`}
+                                  className={`group flex w-full items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-left shadow-sm transition-colors ${tone.attachmentButton}`}
                                 >
-                                  <span className="flex min-w-0 items-center gap-1.5">
-                                    <PaperclipIcon className="size-3.5 shrink-0 text-primary" />
-                                    <span className="truncate text-xs font-medium text-foreground group-hover:text-primary">
-                                      {fileName}
+                                  <span className="flex min-w-0 items-center gap-2">
+                                    <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-foreground/5">
+                                      <PaperclipIcon className="size-4 shrink-0 text-foreground" />
+                                    </span>
+                                    <span className="min-w-0">
+                                      <span className="block truncate text-sm font-semibold text-foreground">{fileName}</span>
+                                      {fileMeta ? <span className="block text-[11px] text-muted-foreground">{fileMeta}</span> : null}
                                     </span>
                                   </span>
-                                  <span className="flex shrink-0 items-center gap-1 text-[10px] text-muted-foreground">
-                                    {fileMeta ? <span>{fileMeta}</span> : null}
-                                    <ExternalLinkIcon className="size-3" />
-                                  </span>
-                                </a>
+                                  <ExternalLinkIcon className="size-3.5 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground" />
+                                </button>
                               );
                             })}
                           </div>
@@ -584,6 +711,25 @@ export default function TicketDetailPage() {
           </section>
         </div>
       )}
+
+      <AttachmentPreviewDialog
+        open={Boolean(previewAttachment)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPreviewAttachment(null);
+          }
+        }}
+        attachment={
+          previewAttachment
+            ? {
+                name: previewAttachment.displayName || previewAttachment.originalName,
+                url: previewAttachment.url,
+                mimeType: previewAttachment.mimeType,
+              }
+            : null
+        }
+        locale={locale}
+      />
     </CrmShell>
   );
 }

@@ -1,6 +1,6 @@
 # CRM Roberto
 
-CRM Roberto is a private, production-oriented CRM platform for client and supplier management, expenses, tickets, quotes, invoices, e-signature, reminders, and Stripe-powered payment collection.
+CRM Roberto is a private, production-oriented multi-workspace platform comprising the Company CRM, Super Admin portal, and Accountant Portal. It supports client and supplier management, expenses, tickets, quotes, invoices, e-signature, reminders, accounting exports, and Stripe-powered payment collection.
 
 This repository is now organized for technical handover. A new engineering team should start with the documents below before changing production infrastructure or business logic.
 
@@ -23,7 +23,21 @@ This repository is now organized for technical handover. A new engineering team 
 - Invoice lifecycle: issue, send, PDF generation, due dates, partial payments, reminders, legal recovery, recurrence, and payment history.
 - Expenses lifecycle: draft, active, archived, categories, suppliers, attachments, paid/unpaid status, duplicate detection, and audit trail.
 - Tickets lifecycle: company-scoped support/workflow tickets with assignees, messages, unread tracking, and attachments.
-- Authentication, onboarding, invitations, role-based permissions, company isolation, and admin access.
+- Company CRM: company-scoped operational workspace, financial dashboard, accounting exports, onboarding, invitations, and role-based permissions.
+- Accountant Portal: separate authenticated, feature-gated read-only accounting dashboard with sales invoices, purchase invoices, exports, and assigned tickets.
+- Super Admin portal: platform-wide company management, company status and feature/license controls, user management, audit logs, and connection logs.
+- Authentication, workspace bootstrap, invitation acceptance, onboarding, company isolation, and portal-specific sessions.
+
+## Portal Entry Points
+
+| Portal | Entry point | Authentication |
+|---|---|---|
+| Company CRM | `/login` | Standard `token` session for a company user. |
+| Workspace creation | `/workspace-setup` | Production bootstrap code plus new company owner credentials. |
+| Super Admin | `/admin/login` | Separate `admin-token` session for platform administrators. |
+| Accountant Portal | `/accountant-portal/login` | Separate `accountant-token` session for an `external_accountant` user when the company feature is enabled. |
+
+Invited users complete their account flow through the invitation link, then authenticate through the portal appropriate to their role. The Super Admin portal controls a company’s status and feature flags; a disabled feature prevents access to its corresponding company capability.
 
 ## Technology Stack
 
@@ -77,6 +91,8 @@ npm run build
 | `npm run start` | Serve production build. |
 | `npm run lint` | Run ESLint checks. |
 | `npm run cron:reminders` | Run the local reminder scheduler process. |
+
+The repository does not currently declare a runnable OCR worker script or a separate email worker. See the deployment guide before attempting to operate either as an independent process.
 
 ## Security Handover Notice
 

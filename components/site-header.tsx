@@ -23,6 +23,7 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { useAuthMe } from "@/hooks/useAuthMe"
+import { canAccessCrmPath, hasModuleActionAccess } from "@/lib/route-access"
 
 const NAVIGATION_STACK_KEY = "crm-navigation-stack"
 const MAX_STACK_LENGTH = 24
@@ -103,6 +104,16 @@ export function SiteHeader({ title = "Documents" }: { title?: string }) {
   const { locale } = useLocale()
   const t = headerMessages[locale]
   const isDashboard = pathname === "/dashboard"
+  const canUseDashboard = canAccessCrmPath("/dashboard", user?.role, user?.modulePermissions, user?.featureFlags)
+  const canUseExpenses = canAccessCrmPath("/expenses", user?.role, user?.modulePermissions, user?.featureFlags)
+  const canCreateExpense =
+    canUseExpenses &&
+    hasModuleActionAccess({
+      role: user?.role,
+      modulePermissions: user?.modulePermissions,
+      moduleKey: "expenses",
+      action: "manage",
+    })
 
   const backFallbackHref = useMemo(() => getBackFallbackHref(pathname), [pathname])
   const userDisplayName = user?.name?.trim() || t.userFallback
@@ -150,6 +161,10 @@ export function SiteHeader({ title = "Documents" }: { title?: string }) {
   }
 
   function handleCreateExpense() {
+    if (!canCreateExpense) {
+      return
+    }
+
     if (pathname === "/expenses") {
       window.dispatchEvent(new CustomEvent("expenses:new"))
       return
@@ -184,12 +199,14 @@ export function SiteHeader({ title = "Documents" }: { title?: string }) {
               <span>{t.back}</span>
             </Button>
 
-            <Button asChild variant="secondary" size="sm" className="h-9 shrink-0 rounded-full px-3">
-              <Link href="/dashboard" aria-label={t.dashboardLabel}>
-                <LayoutDashboardIcon />
-                <span>{t.dashboard}</span>
-              </Link>
-            </Button>
+            {canUseDashboard ? (
+              <Button asChild variant="secondary" size="sm" className="h-9 shrink-0 rounded-full px-3">
+                <Link href="/dashboard" aria-label={t.dashboardLabel}>
+                  <LayoutDashboardIcon />
+                  <span>{t.dashboard}</span>
+                </Link>
+              </Button>
+            ) : null}
           </div>
         ) : null}
 
@@ -209,26 +226,30 @@ export function SiteHeader({ title = "Documents" }: { title?: string }) {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48 lg:hidden">
               <DropdownMenuGroup>
-                <DropdownMenuItem onSelect={handleCreateExpense}>
-                  <PlusIcon className="size-4" />
-                  {t.newExpense}
-                </DropdownMenuItem>
+                {canUseExpenses ? (
+                  <DropdownMenuItem onSelect={handleCreateExpense}>
+                    <PlusIcon className="size-4" />
+                    {t.newExpense}
+                  </DropdownMenuItem>
+                ) : null}
                 <GlobalTicketCreate trigger="menu-item" />
               </DropdownMenuGroup>
             </DropdownMenuContent>
           </DropdownMenu>
 
           <div className="hidden items-center gap-2 lg:flex">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-9 shrink-0 rounded-full px-3"
-              onClick={handleCreateExpense}
-            >
-              <PlusIcon className="size-4" />
-              <span>{t.newExpense}</span>
-            </Button>
+            {canCreateExpense ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-9 shrink-0 rounded-full px-3"
+                onClick={handleCreateExpense}
+              >
+                <PlusIcon className="size-4" />
+                <span>{t.newExpense}</span>
+              </Button>
+            ) : null}
             <GlobalTicketCreate />
           </div>
 

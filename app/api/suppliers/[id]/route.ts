@@ -7,6 +7,8 @@ import {
   listSupplierTimelineNotes,
   updateSupplierById,
 } from '@/db/repository/supplier';
+import { getCompanyUserIdStrings } from '@/lib/company-scope';
+import { requireModulePermission } from '@/lib/role-matrix';
 import { parseListQuery } from '@/utils/api/query';
 import { buildValidationError } from '@/utils/api/validation';
 import getMe from '@/utils/middlewares/useMe';
@@ -23,9 +25,15 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
     }
 
-    const { id } = await params;
+    const permission = await requireModulePermission({ companyId: me.user.companyId, role: me.user.role, moduleKey: 'suppliers', action: 'view' });
+    if (!permission.success) {
+      return NextResponse.json({ success: false, message: permission.message }, { status: permission.status });
+    }
 
-    const supplier = await getSupplierById(me.user.id, id);
+    const { id } = await params;
+    const scopedUserIds = await getCompanyUserIdStrings({ companyId: me.user.companyId, fallbackUserId: me.user.id });
+
+    const supplier = await getSupplierById(scopedUserIds, id);
     if (!supplier) {
       return NextResponse.json({ success: false, message: 'Supplier not found' }, { status: 404 });
     }
@@ -37,7 +45,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       maxLimit: 100,
     });
 
-    const timeline = await listSupplierTimelineNotes(me.user.id, id, {
+    const timeline = await listSupplierTimelineNotes(scopedUserIds, id, {
       page: timelineOptions.page,
       limit: timelineOptions.limit,
       search: timelineOptions.search,
@@ -63,7 +71,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
     }
 
+    const permission = await requireModulePermission({ companyId: me.user.companyId, role: me.user.role, moduleKey: 'suppliers', action: 'edit' });
+    if (!permission.success) {
+      return NextResponse.json({ success: false, message: permission.message }, { status: permission.status });
+    }
+
     const { id } = await params;
+    const scopedUserIds = await getCompanyUserIdStrings({ companyId: me.user.companyId, fallbackUserId: me.user.id });
     const body = await request.json();
     const parsed = updateSupplierSchema.safeParse(body);
 
@@ -71,7 +85,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json(buildValidationError(parsed.error), { status: 400 });
     }
 
-    const updated = await updateSupplierById(me.user.id, id, parsed.data);
+    const updated = await updateSupplierById(scopedUserIds, id, parsed.data);
     if (!updated) {
       return NextResponse.json({ success: false, message: 'Supplier not found' }, { status: 404 });
     }
@@ -96,14 +110,20 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
     }
 
+    const permission = await requireModulePermission({ companyId: me.user.companyId, role: me.user.role, moduleKey: 'suppliers', action: 'delete' });
+    if (!permission.success) {
+      return NextResponse.json({ success: false, message: permission.message }, { status: permission.status });
+    }
+
     const { id } = await params;
-    const existing = await getSupplierById(me.user.id, id);
+    const scopedUserIds = await getCompanyUserIdStrings({ companyId: me.user.companyId, fallbackUserId: me.user.id });
+    const existing = await getSupplierById(scopedUserIds, id);
 
     if (!existing) {
       return NextResponse.json({ success: false, message: 'Supplier not found' }, { status: 404 });
     }
 
-    const removed = await deleteSupplierById(me.user.id, id);
+    const removed = await deleteSupplierById(scopedUserIds, id);
     if (!removed) {
       return NextResponse.json({ success: false, message: 'Supplier not found' }, { status: 404 });
     }

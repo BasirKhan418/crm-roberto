@@ -9,9 +9,11 @@ import Payment from '@/db/models/Payment';
 import Quote from '@/db/models/Quote';
 import { createActivityLog } from '@/db/repository/activity';
 import { ensureInvoiceIndexes } from '@/db/repository/ensureInvoiceIndexes';
+import { buildUserScopeQuery, getCompanyUserObjectIds } from '@/lib/company-scope';
 import { getStartOfTomorrow, isInvoiceDueOnOrBeforeToday } from '@/lib/invoices/overdue';
 import { getNextInvoiceNumberForYear, isInvoiceNumberDuplicateError } from '@/lib/invoice-number';
 import { normalizeInvoiceNumberSearchTerm } from '@/lib/i18n/messages';
+import { requireModulePermission } from '@/lib/role-matrix';
 import { computeQuoteLine, computeQuoteTotalsFromComputedLines } from '@/lib/quote-calculations';
 import { buildValidationError } from '@/utils/api/validation';
 import getMe from '@/utils/middlewares/useMe';
@@ -177,6 +179,16 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
     }
 
+    const permission = await requireModulePermission({
+      companyId: me.user.companyId,
+      role: me.user.role,
+      moduleKey: 'invoices',
+      action: 'view',
+    });
+    if (!permission.success) {
+      return NextResponse.json({ success: false, message: permission.message }, { status: permission.status });
+    }
+
     await ConnectDb();
     await ensureInvoiceIndexes();
 
@@ -214,7 +226,8 @@ export async function GET(request: NextRequest) {
     }
 
     const tomorrowStart = getStartOfTomorrow();
-    const query: Record<string, unknown> = { userId: me.user.id };
+    const scopedUserObjectIds = await getCompanyUserObjectIds({ companyId: me.user.companyId, fallbackUserId: me.user.id });
+    const query: Record<string, unknown> = buildUserScopeQuery('userId', scopedUserObjectIds);
 
     if (clientIdParam) {
       query.clientId = new mongoose.Types.ObjectId(clientIdParam);
@@ -313,7 +326,7 @@ export async function GET(request: NextRequest) {
 
     if (paymentInvoiceIds.length > 0) {
       const paymentTimeline = await Payment.find({
-        userId: me.user.id,
+        ...buildUserScopeQuery('userId', scopedUserObjectIds),
         invoiceId: { $in: paymentInvoiceIds },
         status: 'succeeded',
       })
@@ -398,6 +411,17 @@ export async function POST(request: NextRequest) {
     if (!me.success || !me.user) {
       return NextResponse.json({ message: me.message || 'Unauthorized' }, { status: 401 });
     }
+
+    const permission = await requireModulePermission({
+      companyId: me.user.companyId,
+      role: me.user.role,
+      moduleKey: 'invoices',
+      action: 'create',
+    });
+    if (!permission.success) {
+      return NextResponse.json({ success: false, message: permission.message }, { status: permission.status });
+    }
+
     const userId = me.user.id;
 
     const body = await request.json();

@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 
 import {
-  checkExpensePermission,
   getExpensePermissionState,
   type ExpensePermission,
 } from "@/lib/expenses/access";
+import { requireCompanyFeature } from "@/lib/company-features";
+import { requireModulePermission } from "@/lib/role-matrix";
 import getMe from "@/utils/middlewares/useMe";
 
 export type ExpenseRouteContext = {
@@ -39,18 +40,34 @@ export async function authorizeExpenseRoute(permission: ExpensePermission): Prom
     };
   }
 
-  const permissionCheck = checkExpensePermission(me.user.role, permission);
-  if (!permissionCheck.success) {
+  const featureCheck = await requireCompanyFeature(me.user.companyId, "expenses");
+  if (!featureCheck.success) {
     return {
       success: false,
-      response: NextResponse.json(
-        { success: false, message: permissionCheck.message },
-        { status: permissionCheck.status }
-      ),
+      response: NextResponse.json({ success: false, message: featureCheck.message }, { status: featureCheck.status }),
     };
   }
 
-  const permissionState = getExpensePermissionState(me.user.role);
+  const matrixCheck = await requireModulePermission({
+    companyId: me.user.companyId,
+    role: me.user.role,
+    moduleKey: "expenses",
+    action: permission === "view" ? "view" : permission === "delete" ? "delete" : "manage",
+  });
+  if (!matrixCheck.success) {
+    return {
+      success: false,
+      response: NextResponse.json({ success: false, message: matrixCheck.message }, { status: matrixCheck.status }),
+    };
+  }
+
+  const defaultPermissionState = getExpensePermissionState(me.user.role);
+  const permissionState = {
+    ...defaultPermissionState,
+    canView: matrixCheck.permissions.canView,
+    canManage: matrixCheck.permissions.canManage,
+    canDelete: matrixCheck.permissions.canDelete,
+  };
 
   return {
     success: true,

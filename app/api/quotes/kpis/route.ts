@@ -1,8 +1,9 @@
-import mongoose from 'mongoose';
 import { NextResponse } from 'next/server';
 
 import ConnectDb from '@/db/connectDb';
 import Quote from '@/db/models/Quote';
+import { getCompanyUserObjectIds } from '@/lib/company-scope';
+import { requireModulePermission } from '@/lib/role-matrix';
 import getMe from '@/utils/middlewares/useMe';
 
 export async function GET() {
@@ -12,9 +13,14 @@ export async function GET() {
       return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
     }
 
+    const permission = await requireModulePermission({ companyId: me.user.companyId, role: me.user.role, moduleKey: 'quotes', action: 'view' });
+    if (!permission.success) {
+      return NextResponse.json({ success: false, message: permission.message }, { status: permission.status });
+    }
+
     await ConnectDb();
 
-    const userObjectId = new mongoose.Types.ObjectId(me.user.id);
+    const userObjectIds = await getCompanyUserObjectIds({ companyId: me.user.companyId, fallbackUserId: me.user.id });
 
     const [result] = await Quote.aggregate<{
       all: Array<{ count: number; totalTTC: number }>;
@@ -23,7 +29,7 @@ export async function GET() {
       rejected: Array<{ count: number; totalTTC: number }>;
       totals: Array<{ totalHT: number; totalVat: number; totalTTC: number }>;
     }>([
-      { $match: { user: userObjectId } },
+      { $match: { user: { $in: userObjectIds } } },
       {
         $facet: {
           all: [

@@ -23,7 +23,7 @@ import { Switch } from '@/components/ui/switch';
 import { useAuthMe } from '@/hooks/useAuthMe';
 import { ExpenseCategoryItem, useExpenseCategories } from '@/hooks/useExpenses';
 import { resolveExpenseCategoryNameByLocale } from '@/lib/expenses/category-i18n';
-import { hasPermission } from '@/lib/permissions';
+import { hasModuleActionAccess } from '@/lib/route-access';
 
 type RowDraft = {
   nameEn: string;
@@ -158,7 +158,7 @@ export default function ExpenseCategoriesSettingsPage() {
   const t = pageMessages[locale];
 
   const { user } = useAuthMe();
-  const canManageExpenses = hasPermission(user?.role, 'expenses.manage');
+  const canManageExpenses = hasModuleActionAccess({ role: user?.role, modulePermissions: user?.modulePermissions, moduleKey: 'expenses', action: 'manage' });
 
   const { categories, loading, error, refetch } = useExpenseCategories();
 

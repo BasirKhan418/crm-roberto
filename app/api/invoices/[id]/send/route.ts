@@ -10,9 +10,11 @@ import Payment from '@/db/models/Payment';
 import StripeConnect from '@/db/models/StripeConnect';
 import { getCompanyProfileByUserId } from '@/db/repository/cprofile';
 import { extractClientSnapshot } from '@/lib/address';
+import { buildUserScopeQuery, getCompanyUserObjectIds } from '@/lib/company-scope';
 import { sendInvoice } from '@/lib/email';
 import { resolveLocaleFromValue } from '@/lib/i18n/locale';
 import { InvoicePdfTemplate } from '@/lib/pdf/InvoicePdfTemplate';
+import { requireModulePermission } from '@/lib/role-matrix';
 import { buildInvoicePayUrl, generatePaymentToken, generateTokenExpiry, isTokenExpired } from '@/lib/tokens';
 import getMe from '@/utils/middlewares/useMe';
 
@@ -29,6 +31,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const me = await getMe(true);
     if (!me.success || !me.user) {
       return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
+    }
+
+    const permission = await requireModulePermission({ companyId: me.user.companyId, role: me.user.role, moduleKey: 'invoices', action: 'manage' });
+    if (!permission.success) {
+      return NextResponse.json({ success: false, message: permission.message }, { status: permission.status });
     }
 
     const body = await request.json();
@@ -48,20 +55,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     await ConnectDb();
 
-    if (sendMode === 'online') {
-      const stripeConnect = await StripeConnect.findOne({ userId: me.user.id })
-        .select('onboardingComplete chargesEnabled payoutsEnabled')
-        .lean<{ onboardingComplete?: boolean; chargesEnabled?: boolean; payoutsEnabled?: boolean } | null>();
-
-      if (!stripeConnect?.onboardingComplete || !stripeConnect?.chargesEnabled) {
-        return NextResponse.json(
-          { success: false, message: 'Please connect Stripe before sending invoice with online payment.' },
-          { status: 422 }
-        );
-      }
-    }
-
-    const invoice = await Invoice.findOne({ _id: id, userId: me.user.id })
+    const scopedUserObjectIds = await getCompanyUserObjectIds({ companyId: me.user.companyId, fallbackUserId: me.user.id });
+    const invoice = await Invoice.findOne({ _id: id, ...buildUserScopeQuery('userId', scopedUserObjectIds) })
       .select(
         '_id userId clientId invoiceNumber quoteNumber date dueDate status lineItems totalExcludingTax totalVat totalIncludingTax depositPercentage notes paymentToken paymentTokenExpiry clientSnapshot'
       )
@@ -75,7 +70,22 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, message: 'Cannot send a paid invoice' }, { status: 403 });
     }
 
-    const clientDoc = await Client.findOne({ _id: invoice.clientId, user: me.user.id })
+    const invoiceOwnerId = String(invoice.userId);
+
+    if (sendMode === 'online') {
+      const stripeConnect = await StripeConnect.findOne({ userId: invoiceOwnerId })
+        .select('onboardingComplete chargesEnabled payoutsEnabled')
+        .lean<{ onboardingComplete?: boolean; chargesEnabled?: boolean; payoutsEnabled?: boolean } | null>();
+
+      if (!stripeConnect?.onboardingComplete || !stripeConnect?.chargesEnabled) {
+        return NextResponse.json(
+          { success: false, message: 'Please connect Stripe before sending invoice with online payment.' },
+          { status: 422 }
+        );
+      }
+    }
+
+    const clientDoc = await Client.findOne({ _id: invoice.clientId, user: invoiceOwnerId })
       .select('billingEmail')
       .lean<{ billingEmail?: string | null } | null>();
 
@@ -114,7 +124,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         paymentToken = generatePaymentToken();
         paymentTokenExpiry = generateTokenExpiry(30);
         await Invoice.updateOne(
-          { _id: invoice._id, userId: me.user.id },
+          { _id: invoice._id, userId: invoiceOwnerId },
           { $set: { paymentToken, paymentTokenExpiry } }
         );
       }
@@ -122,7 +132,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       paymentUrl = buildInvoicePayUrl(paymentToken, appUrl);
     }
 
-    const companyResult = await getCompanyProfileByUserId(me.user.id);
+    const companyResult = await getCompanyProfileByUserId(invoiceOwnerId);
     const profile = companyResult.success
       ? (companyResult.profile as {
           companyName?: string | null;
@@ -170,7 +180,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     const payments = await Payment.find({
       invoiceId: invoice._id,
-      userId: me.user.id,
+      userId: invoiceOwnerId,
       status: 'succeeded',
     })
       .sort({ paidAt: -1, createdAt: -1 })
@@ -254,7 +264,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     });
 
     await Invoice.updateOne(
-      { _id: invoice._id, userId: me.user.id },
+      { _id: invoice._id, userId: invoiceOwnerId },
       { $set: { sentAt: new Date() } }
     );
 

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { createActivityLog } from '@/db/repository/activity';
 import { duplicateQuoteById } from '@/db/repository/quote';
+import { getCompanyUserIdStrings } from '@/lib/company-scope';
+import { requireModulePermission } from '@/lib/role-matrix';
 import getMe from '@/utils/middlewares/useMe';
 
 interface RouteParams {
@@ -15,8 +17,14 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
     }
 
+    const permission = await requireModulePermission({ companyId: me.user.companyId, role: me.user.role, moduleKey: 'quotes', action: 'create' });
+    if (!permission.success) {
+      return NextResponse.json({ success: false, message: permission.message }, { status: permission.status });
+    }
+
     const { id } = await params;
-    const result = await duplicateQuoteById(me.user.id, id);
+    const scopedUserIds = await getCompanyUserIdStrings({ companyId: me.user.companyId, fallbackUserId: me.user.id });
+    const result = await duplicateQuoteById(scopedUserIds, id, me.user.id);
 
     if (result.kind === 'not-found') {
       return NextResponse.json({ success: false, message: 'Quote not found' }, { status: 404 });

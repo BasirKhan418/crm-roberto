@@ -9,6 +9,25 @@ export function centsToEuros(cents: number): string {
 }
 
 
+export function formatCurrencyFromCents(
+  cents: number,
+  locale: string = 'fr-FR',
+  currency: string = 'EUR',
+  options?: Intl.NumberFormatOptions
+) {
+  const minimumFractionDigits = options?.minimumFractionDigits ?? 2;
+  const maximumFractionDigits = options?.maximumFractionDigits ?? Math.max(2, minimumFractionDigits);
+
+  return new Intl.NumberFormat(locale, {
+    style: 'currency',
+    currency,
+    ...options,
+    minimumFractionDigits: Math.min(minimumFractionDigits, maximumFractionDigits),
+    maximumFractionDigits,
+  }).format((Number.isFinite(cents) ? cents : 0) / 100);
+}
+
+
 export function calcLineItem(unitPriceCents: number, quantity: number, vatRate: number) {
   const totalExclTax = unitPriceCents * quantity;
   const vatAmount = Math.round(totalExclTax * (vatRate / 100));

@@ -17,12 +17,17 @@ export interface SidebarBadges {
   tickets: {
     unread: number;
   };
+  expenses: {
+    unpaid: number;
+    overdue: number;
+  };
 }
 
 const EMPTY_BADGES: SidebarBadges = {
   quotes: { accepted: 0, pending: 0, rejected: 0 },
   invoices: { paid: 0, pending: 0, overdue: 0 },
   tickets: { unread: 0 },
+  expenses: { unpaid: 0, overdue: 0 },
 };
 
 interface SidebarQuoteItem {
@@ -42,6 +47,10 @@ interface SidebarBadgeItemsPayload {
   invoices: SidebarInvoiceItem[];
   tickets?: {
     unreadCount?: number;
+  };
+  expenses?: {
+    unpaidCount?: number;
+    overdueCount?: number;
   };
 }
 
@@ -87,6 +96,7 @@ function computeCounts(items: SidebarBadgeItemsPayload, seen: SidebarSeenState):
     quotes: { accepted: 0, pending: 0, rejected: 0 },
     invoices: { paid: 0, pending: 0, overdue: 0 },
     tickets: { unread: 0 },
+    expenses: { unpaid: 0, overdue: 0 },
   };
 
   for (const item of items.quotes) {
@@ -104,6 +114,8 @@ function computeCounts(items: SidebarBadgeItemsPayload, seen: SidebarSeenState):
   }
 
   next.tickets.unread = Math.max(0, Number(items.tickets?.unreadCount || 0));
+  next.expenses.unpaid = Math.max(0, Number(items.expenses?.unpaidCount || 0));
+  next.expenses.overdue = Math.max(0, Number(items.expenses?.overdueCount || 0));
 
   return next;
 }
@@ -111,7 +123,12 @@ function computeCounts(items: SidebarBadgeItemsPayload, seen: SidebarSeenState):
 export function useSidebarBadges() {
   const [badges, setBadges] = useState<SidebarBadges>(EMPTY_BADGES);
   const fetchRef = useRef<() => Promise<void>>(async () => {});
-  const itemsRef = useRef<SidebarBadgeItemsPayload>({ quotes: [], invoices: [], tickets: { unreadCount: 0 } });
+  const itemsRef = useRef<SidebarBadgeItemsPayload>({
+    quotes: [],
+    invoices: [],
+    tickets: { unreadCount: 0 },
+    expenses: { unpaidCount: 0, overdueCount: 0 },
+  });
   const pathname = usePathname();
 
   useEffect(() => {
@@ -128,6 +145,10 @@ export function useSidebarBadges() {
           invoices: payload.data.invoices ?? [],
           tickets: {
             unreadCount: payload.data.tickets?.unreadCount ?? 0,
+          },
+          expenses: {
+            unpaidCount: payload.data.expenses?.unpaidCount ?? 0,
+            overdueCount: payload.data.expenses?.overdueCount ?? 0,
           },
         };
         setBadges(computeCounts(itemsRef.current, readSeenState()));

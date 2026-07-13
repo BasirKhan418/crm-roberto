@@ -13,9 +13,9 @@ const globalForMongoose = globalThis as typeof globalThis & {
     _mongooseCache?: MongooseCache;
 };
 
-const mongoUri = process.env.MONGO_URI;
-
 async function ConnectDb() {
+    const mongoUri = process.env.MONGO_URI;
+
     if (!mongoUri) {
         throw new Error("MONGO_URI is not configured");
     }
