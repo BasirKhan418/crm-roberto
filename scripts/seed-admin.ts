@@ -1,16 +1,7 @@
-/**
- * Seed script — creates a separate admin account in the `admins` collection.
- *
- * Usage:
- *   npx tsx scripts/seed-admin.ts <email> <password> [name]
- *   npx tsx scripts/seed-admin.ts admin@crm.com MyStr0ngPass "Super Admin"
- */
-
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import argon2 from 'argon2';
 
-// Match Next.js env precedence so seeded password hashes are compatible with runtime login.
 dotenv.config({ path: '.env.local' });
 dotenv.config();
 
@@ -34,14 +25,6 @@ async function main() {
     { timestamps: true },
   );
   const Admin = mongoose.models.Admin ?? mongoose.model('Admin', AdminSchema);
-
-  // Revert any users that were previously given the role field
-  const UserSchema = new mongoose.Schema({}, { strict: false });
-  const User = mongoose.models.User ?? mongoose.model('User', UserSchema);
-  const reverted = await User.updateMany({ role: { $exists: true } }, { $unset: { role: '' } });
-  if (reverted.modifiedCount > 0) {
-    console.log(`✔  Cleaned up 'role' field from ${reverted.modifiedCount} user(s).`);
-  }
 
   const email = process.argv[2] || '';
   const password = process.argv[3] || '';

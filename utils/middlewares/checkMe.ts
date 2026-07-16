@@ -4,6 +4,7 @@ import ConnectDb from "@/db/connectDb";
 import Company from "@/db/models/Company";
 import User from "@/db/models/User";
 import { ensureUserCompanyContext } from "@/db/repository/company";
+import { getCompanyFeatureFlags } from "@/lib/company-features";
 import { createI18nKey as i18nKey } from "@/lib/i18n/messages";
 import { normalizeRole, type AppRole } from "@/lib/permissions";
 
@@ -127,10 +128,13 @@ const checkMe = async (fch:boolean) => {
                                 }
                             }
 
+                            const featureResult = companyId ? await getCompanyFeatureFlags(companyId) : null;
+                            const featureFlags = featureResult?.success ? featureResult.featureFlags : undefined;
+
                             if(fch){
-                                            return { message: i18nKey("auth.userFetched"), success: true, user: { id: String(user._id), name: user.name, email: user.email, locale: user.locale, isOnboardingComplete: user.isOnboardingComplete, isEmailVerified: user.isEmailVerified, role, companyId } };
+                                            return { message: i18nKey("auth.userFetched"), success: true, user: { id: String(user._id), name: user.name, email: user.email, locale: user.locale, isOnboardingComplete: user.isOnboardingComplete, isEmailVerified: user.isEmailVerified, role, companyId, featureFlags } };
                             }
-                            return { message: i18nKey("auth.userFetched"), success: true, user: { id: String(user._id), name: user.name, email: user.email, locale: user.locale, isOnboardingComplete: user.isOnboardingComplete, isEmailVerified: user.isEmailVerified, role, companyId } };
+                            return { message: i18nKey("auth.userFetched"), success: true, user: { id: String(user._id), name: user.name, email: user.email, locale: user.locale, isOnboardingComplete: user.isOnboardingComplete, isEmailVerified: user.isEmailVerified, role, companyId, featureFlags } };
           }
           catch(error){
               if (error instanceof TokenExpiredError || error instanceof NotBeforeError || error instanceof JsonWebTokenError) {

@@ -1,6 +1,6 @@
 # CRM Roberto Database Schema
 
-Last updated: 2026-07-13
+Last updated: 2026-05-25
 
 The database layer uses MongoDB with Mongoose models in `db/models`. Most financial amounts are stored as integer cents where the model name includes `Cents`; quote/invoice line-item totals are stored as numeric values used by existing calculation helpers.
 
@@ -9,8 +9,6 @@ The database layer uses MongoDB with Mongoose models in `db/models`. Most financ
 ```mermaid
 erDiagram
   Company ||--o{ User : has
-  Company ||--o{ RoleMatrix : configures
-  Company ||--o{ ConnectionLog : records
   User ||--o{ Client : owns
   User ||--o{ Supplier : owns
   User ||--o{ Catalogue : owns
@@ -70,8 +68,6 @@ Important fields:
 - `name`, `slug`
 - `status`: `active`, `suspended`
 - `ownerUserId`
-- `featureFlags`: `expenses`, `tickets`, `financialDashboard`, `accountantPortal`, `exports`, `advancedRoles`
-- `suspendedAt`, `deletedAt`
 
 Indexes:
 
@@ -80,47 +76,6 @@ Indexes:
 - `ownerUserId`
 - `{ ownerUserId, status }`
 - `{ createdAt: -1 }`
-
-`featureFlags` is the per-company license/module configuration managed from the Super Admin portal. It gates the corresponding Company CRM and Accountant Portal features.
-
-### Admin
-
-Purpose: Separate Super Admin portal identity. Admin users do not share the standard CRM `User` session model.
-
-Important fields:
-
-- `name`, unique normalized `email`
-- `password`: hidden from normal query selection
-
-### RoleMatrix
-
-Purpose: Per-company overrides for assignable Company CRM role permissions when the `advancedRoles` feature is enabled.
-
-Important fields:
-
-- `companyId`, `role`, `moduleKey`, `updatedBy`
-- `permissions`: `canView`, `canCreate`, `canEdit`, `canDelete`, `canExport`, `canManage`
-
-Indexes:
-
-- Unique `{ companyId, role, moduleKey }`
-
-### ConnectionLog
-
-Purpose: Platform-facing sign-in and access-event audit log, including Accountant Portal sign-in attempts.
-
-Important fields:
-
-- Optional `userId`, optional `companyId`, `role`
-- `eventType`: `login_success`, `login_failed`, `logout`, `portal_login_success`, `portal_login_failed`, `force_logout`, `revoke_access`, `impersonation_start`, `impersonation_stop`
-- `ipAddress`, `userAgent`, `deviceLabel`
-
-Indexes:
-
-- `{ companyId, createdAt: -1 }`
-- `{ userId, createdAt: -1 }`
-- `{ eventType, createdAt: -1 }`
-- `{ companyId, userId, eventType, createdAt: -1 }`
 
 ### CompanyProfile
 
