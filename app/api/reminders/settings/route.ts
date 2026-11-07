@@ -4,6 +4,7 @@ import ConnectDb from '@/db/connectDb';
 import ReminderSettings from '@/db/models/ReminderSettings';
 import { normalizeReminderTemplates } from '@/lib/reminders/templates';
 import { buildValidationError } from '@/utils/api/validation';
+import { COMPANY_ADMIN_ONLY_MESSAGE, getCompanyOwnerAccess } from '@/lib/company-owner-access';
 import getMe from '@/utils/middlewares/useMe';
 import {
   reminderOffsetsSchema,
@@ -45,12 +46,15 @@ export const GET = async () => {
       return NextResponse.json({ message: me.message || 'Unauthorized', success: false }, { status: 401 });
     }
 
+    // Reminder settings are company-wide, stored against the company owner.
+    const { ownerUserId } = await getCompanyOwnerAccess(me.user);
+
     await ConnectDb();
 
-    let settings = await ReminderSettings.findOne({ userId: me.user.id }).lean<Record<string, unknown> | null>();
+    let settings = await ReminderSettings.findOne({ userId: ownerUserId }).lean<Record<string, unknown> | null>();
 
     if (!settings) {
-      const created = await ReminderSettings.create({ userId: me.user.id });
+      const created = await ReminderSettings.create({ userId: ownerUserId });
       settings = created.toObject();
     }
 
@@ -61,7 +65,7 @@ export const GET = async () => {
     );
 
     if (changed) {
-      await ReminderSettings.updateOne({ userId: me.user.id }, { $set: { templates } });
+      await ReminderSettings.updateOne({ userId: ownerUserId }, { $set: { templates } });
       settings = { ...ensuredSettings, templates };
     }
 
@@ -78,6 +82,11 @@ export const PATCH = async (request: NextRequest) => {
       return NextResponse.json({ message: me.message || 'Unauthorized', success: false }, { status: 401 });
     }
 
+    const { ownerUserId, canManageCompany } = await getCompanyOwnerAccess(me.user);
+    if (!canManageCompany) {
+      return NextResponse.json({ message: COMPANY_ADMIN_ONLY_MESSAGE, success: false }, { status: 403 });
+    }
+
     const payload = (await request.json()) as UpdateReminderSettingsDTO;
     const parsed = updateReminderSettingsSchema.safeParse(payload);
 
@@ -88,7 +97,7 @@ export const PATCH = async (request: NextRequest) => {
     await ConnectDb();
 
     if (parsed.data.offsets) {
-      const current = await ReminderSettings.findOne({ userId: me.user.id })
+      const current = await ReminderSettings.findOne({ userId: ownerUserId })
         .select('offsets')
         .lean<{ offsets?: { soft?: number; medium?: number; firm?: number; formalNotice?: number } } | null>();
 
@@ -119,8 +128,8 @@ export const PATCH = async (request: NextRequest) => {
     }
 
     const updated = await ReminderSettings.findOneAndUpdate(
-      { userId: me.user.id },
-      { $set: setDoc, $setOnInsert: { userId: me.user.id } },
+      { userId: ownerUserId },
+      { $set: setDoc, $setOnInsert: { userId: ownerUserId } },
       {
         returnDocument: 'after',
         upsert: true,

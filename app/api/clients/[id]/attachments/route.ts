@@ -4,8 +4,8 @@ import { z } from 'zod';
 import { createAttachment, listClientAttachments } from '@/db/repository/attachment';
 import { getClientById } from '@/db/repository/client';
 import { buildValidationError } from '@/utils/api/validation';
-import getMe from '@/utils/middlewares/useMe';
 import { createI18nKey as i18nKey } from '@/lib/i18n/messages';
+import { authorizeCompanyRoute } from '@/lib/company-route-access';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -21,19 +21,20 @@ const createAttachmentSchema = z.object({
 
 export async function GET(_request: NextRequest, { params }: RouteParams) {
   try {
-    const me = await getMe(true);
-    if (!me.success || !me.user) {
-      return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
+    const access = await authorizeCompanyRoute({ moduleKey: 'clients', action: 'view' });
+    if (!access.success) {
+      return access.response;
     }
+    const companyUserIds = access.companyUserIds.map(String);
 
     const { id } = await params;
 
-    const client = await getClientById(me.user.id, id);
+    const client = await getClientById(companyUserIds, id);
     if (!client) {
       return NextResponse.json({ success: false, message: 'Client not found' }, { status: 404 });
     }
 
-    const attachments = await listClientAttachments(me.user.id, id);
+    const attachments = await listClientAttachments(companyUserIds, id);
 
     return NextResponse.json({ success: true, data: attachments });
   } catch (error) {
@@ -46,14 +47,16 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
-    const me = await getMe(true);
-    if (!me.success || !me.user) {
-      return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
+    const access = await authorizeCompanyRoute({ moduleKey: 'clients', action: 'edit' });
+    if (!access.success) {
+      return access.response;
     }
+    const { user } = access;
+    const companyUserIds = access.companyUserIds.map(String);
 
     const { id } = await params;
 
-    const client = await getClientById(me.user.id, id);
+    const client = await getClientById(companyUserIds, id);
     if (!client) {
       return NextResponse.json({ success: false, message: 'Client not found' }, { status: 404 });
     }
@@ -65,7 +68,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json(buildValidationError(parsed.error, i18nKey('validation.validationError')), { status: 400 });
     }
 
-    const attachment = await createAttachment(me.user.id, id, parsed.data);
+    const attachment = await createAttachment(user.id, companyUserIds, id, parsed.data);
 
     return NextResponse.json({ success: true, data: attachment }, { status: 201 });
   } catch (error) {

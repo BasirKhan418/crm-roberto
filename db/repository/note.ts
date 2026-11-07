@@ -112,10 +112,15 @@ async function hydrateNotesWithLinkedEntities(userId: UserScope, rawNotes: RawNo
   });
 }
 
-export const createNote = async (userId: string, payload: CreateNoteDTO): Promise<NoteRecord | null> => {
+export const createNote = async (
+  userId: string,
+  payload: CreateNoteDTO,
+  /** Company-wide scope for the linked client/supplier; defaults to the creator only. */
+  linkedScope: UserScope = userId
+): Promise<NoteRecord | null> => {
   await ConnectDb();
 
-  const linkedExists = await ensureLinkedEntityExists(userId, payload.linkedType, payload.linkedId);
+  const linkedExists = await ensureLinkedEntityExists(linkedScope, payload.linkedType, payload.linkedId);
   if (!linkedExists) {
     return null;
   }
@@ -130,7 +135,7 @@ export const createNote = async (userId: string, payload: CreateNoteDTO): Promis
     return null;
   }
 
-  const hydrated = await hydrateNotesWithLinkedEntities(userId, [raw]);
+  const hydrated = await hydrateNotesWithLinkedEntities(linkedScope, [raw]);
   return hydrated[0] ?? null;
 };
 

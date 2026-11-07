@@ -5,8 +5,8 @@ import { createNote } from '@/db/repository/note';
 import { listSupplierTimelineNotes, getSupplierById } from '@/db/repository/supplier';
 import { parseListQuery } from '@/utils/api/query';
 import { buildValidationError } from '@/utils/api/validation';
-import getMe from '@/utils/middlewares/useMe';
 import { createNoteSchema } from '@/validators/note.schema';
+import { authorizeCompanyRoute } from '@/lib/company-route-access';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -14,13 +14,14 @@ interface RouteParams {
 
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const me = await getMe(true);
-    if (!me.success || !me.user) {
-      return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
+    const access = await authorizeCompanyRoute({ moduleKey: 'suppliers', action: 'view' });
+    if (!access.success) {
+      return access.response;
     }
+    const companyUserIds = access.companyUserIds.map(String);
 
     const { id } = await params;
-    const existing = await getSupplierById(me.user.id, id);
+    const existing = await getSupplierById(companyUserIds, id);
 
     if (!existing) {
       return NextResponse.json({ success: false, message: 'Supplier not found' }, { status: 404 });
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       maxLimit: 100,
     });
 
-    const timeline = await listSupplierTimelineNotes(me.user.id, id, {
+    const timeline = await listSupplierTimelineNotes(companyUserIds, id, {
       page: options.page,
       limit: options.limit,
       search: options.search,
@@ -47,13 +48,15 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
-    const me = await getMe(true);
-    if (!me.success || !me.user) {
-      return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
+    const access = await authorizeCompanyRoute({ moduleKey: 'notes', action: 'create' });
+    if (!access.success) {
+      return access.response;
     }
+    const { user } = access;
+    const companyUserIds = access.companyUserIds.map(String);
 
     const { id } = await params;
-    const existing = await getSupplierById(me.user.id, id);
+    const existing = await getSupplierById(companyUserIds, id);
 
     if (!existing) {
       return NextResponse.json({ success: false, message: 'Supplier not found' }, { status: 404 });
@@ -66,12 +69,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json(buildValidationError(parsed.error), { status: 400 });
     }
 
-    const created = await createNote(me.user.id, parsed.data);
+    const created = await createNote(user.id, parsed.data, companyUserIds);
     if (!created) {
       return NextResponse.json({ success: false, message: 'Unable to create note for this supplier' }, { status: 400 });
     }
 
-    await createActivityLog(me.user.id, {
+    await createActivityLog(user.id, {
       action: 'note_created',
       entityType: 'note',
       entityName: created.title,

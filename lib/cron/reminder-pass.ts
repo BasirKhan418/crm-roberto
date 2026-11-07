@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 
 import ConnectDb from '@/db/connectDb';
 import CompanyProfile from '@/db/models/CompanyProfile';
+import { resolveCompanyOwnerUserId } from '@/db/repository/company-owner';
 import Invoice from '@/db/models/Invoice';
 import Notification from '@/db/models/Notification';
 import Payment from '@/db/models/Payment';
@@ -259,6 +260,17 @@ export async function runReminderPass(): Promise<ReminderPassTotals> {
   const profileCache = new Map<string, CompanyProfileForReminder | null>();
   const userLocaleCache = new Map<string, string | null>();
   const stripeConnectedCache = new Map<string, boolean>();
+  // Company-level records (settings, profile, Stripe) are keyed to the company owner.
+  const ownerUserIdCache = new Map<string, string>();
+  const getOwnerUserId = async (creatorUserId: mongoose.Types.ObjectId) => {
+    const key = String(creatorUserId);
+    let ownerUserId = ownerUserIdCache.get(key);
+    if (ownerUserId === undefined) {
+      ownerUserId = await resolveCompanyOwnerUserId({ userId: creatorUserId });
+      ownerUserIdCache.set(key, ownerUserId);
+    }
+    return ownerUserId;
+  };
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || '';
 
   let lastId: mongoose.Types.ObjectId | null = null;
@@ -320,8 +332,8 @@ export async function runReminderPass(): Promise<ReminderPassTotals> {
 
       let settings = settingsCache.get(userId);
       if (!settings) {
-        const loadedSettings = await ReminderSettings.findOne({ userId: invoice.userId }).lean<SettingsLike | null>();
-        const rawSettings = loadedSettings ?? (new ReminderSettings({ userId: invoice.userId }).toObject() as SettingsLike);
+        const loadedSettings = await ReminderSettings.findOne({ userId: await getOwnerUserId(invoice.userId) }).lean<SettingsLike | null>();
+        const rawSettings = loadedSettings ?? (new ReminderSettings({ userId: await getOwnerUserId(invoice.userId) }).toObject() as SettingsLike);
         settings = {
           ...rawSettings,
           templates: normalizeReminderTemplates(rawSettings.templates).templates,
@@ -354,7 +366,7 @@ export async function runReminderPass(): Promise<ReminderPassTotals> {
       try {
         let companyProfile = profileCache.get(userId);
         if (companyProfile === undefined) {
-          const loadedProfile = await CompanyProfile.findOne({ user: invoice.userId })
+          const loadedProfile = await CompanyProfile.findOne({ user: await getOwnerUserId(invoice.userId) })
             .select('companyName ownerName locale address streetNumber streetName postalCode city country phone businessEmail vatNumber rcsNumber businessAuthorizationNumber matriculeNumber iban bankName legalIdentifier logoUrl')
             .lean<CompanyProfileForReminder | null>();
           companyProfile = loadedProfile;
@@ -382,7 +394,7 @@ export async function runReminderPass(): Promise<ReminderPassTotals> {
 
         let stripeConnected = stripeConnectedCache.get(userId);
         if (stripeConnected === undefined) {
-          const stripeConnect = await StripeConnect.findOne({ userId: invoice.userId })
+          const stripeConnect = await StripeConnect.findOne({ userId: await getOwnerUserId(invoice.userId) })
             .select('onboardingComplete chargesEnabled')
             .lean<{ onboardingComplete?: boolean; chargesEnabled?: boolean } | null>();
           stripeConnected = Boolean(stripeConnect?.onboardingComplete && stripeConnect?.chargesEnabled);

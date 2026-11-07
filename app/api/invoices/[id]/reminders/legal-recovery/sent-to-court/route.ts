@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import ConnectDb from '@/db/connectDb';
 import Invoice from '@/db/models/Invoice';
 import { createActivityLog } from '@/db/repository/activity';
-import getMe from '@/utils/middlewares/useMe';
+import { authorizeCompanyRoute } from '@/lib/company-route-access';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -23,10 +23,12 @@ type InvoiceDoc = {
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
-    const me = await getMe(true);
-    if (!me.success || !me.user) {
-      return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
+    const access = await authorizeCompanyRoute({ moduleKey: 'invoices', action: 'manage' });
+    if (!access.success) {
+      return access.response;
     }
+    const { user } = access;
+    const invoiceScope = access.scope('userId');
 
     const { id } = await params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -77,7 +79,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     await ConnectDb();
 
-    const invoice = await Invoice.findOne({ _id: id, userId: me.user.id })
+    const invoice = await Invoice.findOne({ _id: id, ...invoiceScope })
       .select('_id invoiceNumber reminderState')
       .lean<InvoiceDoc>();
 
@@ -110,7 +112,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const updateResult = await Invoice.updateOne(
       {
         _id: id,
-        userId: me.user.id,
+        ...invoiceScope,
         $or: [
           { 'reminderState.legalRecoverySentToCourtAt': null },
           { 'reminderState.legalRecoverySentToCourtAt': { $exists: false } },
@@ -129,13 +131,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const sentToCourtAt = firstTime
       ? now
       : (
-          await Invoice.findOne({ _id: id, userId: me.user.id })
+          await Invoice.findOne({ _id: id, ...invoiceScope })
             .select('reminderState.legalRecoverySentToCourtAt')
             .lean<{ reminderState?: { legalRecoverySentToCourtAt?: Date | null } | null } | null>()
         )?.reminderState?.legalRecoverySentToCourtAt ?? now;
 
     if (firstTime) {
-      await createActivityLog(me.user.id, {
+      await createActivityLog(user.id, {
         action: 'invoice_legal_recovery_sent_to_court',
         entityType: 'invoice',
         entityName: invoice.invoiceNumber,

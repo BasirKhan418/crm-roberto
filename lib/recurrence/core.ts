@@ -6,13 +6,14 @@ import React from 'react';
 
 import ConnectDb from '@/db/connectDb';
 import CompanyProfile from '@/db/models/CompanyProfile';
+import { resolveCompanyMemberUserIds, resolveCompanyOwnerUserId } from '@/db/repository/company-owner';
 import Invoice from '@/db/models/Invoice';
 import StripeConnect from '@/db/models/StripeConnect';
 import User from '@/db/models/User';
 import { ensureInvoiceIndexes } from '@/db/repository/ensureInvoiceIndexes';
 import ConnectEmailClient from '@/emails/connectEmailClient';
 import { sendInvoice } from '@/lib/email';
-import { getNextInvoiceNumberForYear, isInvoiceNumberDuplicateError } from '@/lib/invoice-number';
+import { createInvoiceWithUniqueNumber as createInvoiceWithCompanyUniqueNumber } from '@/lib/invoice-number';
 import { InvoicePdfTemplate } from '@/lib/pdf/InvoicePdfTemplate';
 import { computeQuoteLine, computeQuoteTotalsFromComputedLines } from '@/lib/quote-calculations';
 import { resolveReminderLocalePreference } from '@/lib/reminders/formal-notice';
@@ -281,20 +282,10 @@ async function createInvoiceWithUniqueNumber(
   year: number,
   payloadFactory: (invoiceNumber: string) => Record<string, unknown>
 ): Promise<RecurrenceInvoiceLike> {
-  for (let attempt = 0; attempt < 5; attempt += 1) {
-    const invoiceNumber = await getNextInvoiceNumberForYear(userId, year);
-
-    try {
-      const created = await Invoice.create(payloadFactory(invoiceNumber));
-      return created.toObject() as RecurrenceInvoiceLike;
-    } catch (error) {
-      if (!isInvoiceNumberDuplicateError(error) || attempt === 4) {
-        throw error;
-      }
-    }
-  }
-
-  throw new Error('Could not generate a unique invoice number');
+  // Numbering is sequential across the whole company, not per invoice creator.
+  const numberScope = await resolveCompanyMemberUserIds({ userId });
+  const created = await createInvoiceWithCompanyUniqueNumber({ numberScope, year, payloadFactory });
+  return created.toObject() as RecurrenceInvoiceLike;
 }
 
 export async function duplicateInvoiceForRecurrence({
@@ -503,12 +494,12 @@ export async function autoSendRecurringInvoiceToClient({
   }
 
   const [companyProfile, user] = await Promise.all([
-    CompanyProfile.findOne({ user: userId }).lean<Record<string, unknown> | null>(),
+    CompanyProfile.findOne({ user: await resolveCompanyOwnerUserId({ userId }) }).lean<Record<string, unknown> | null>(),
     User.findById(userId).select('locale').lean<{ locale?: string | null } | null>(),
   ]);
   const locale = resolveReminderLocalePreference(user?.locale, companyProfile?.locale);
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || '';
-  const stripeConnect = await StripeConnect.findOne({ userId })
+  const stripeConnect = await StripeConnect.findOne({ userId: await resolveCompanyOwnerUserId({ userId }) })
     .select('onboardingComplete chargesEnabled')
     .lean<{ onboardingComplete?: boolean; chargesEnabled?: boolean } | null>();
   const stripeConnected = Boolean(stripeConnect?.onboardingComplete && stripeConnect?.chargesEnabled);

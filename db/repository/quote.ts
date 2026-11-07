@@ -2,6 +2,7 @@ import ConnectDb from '@/db/connectDb';
 import Client from '@/db/models/Client';
 import Quote from '@/db/models/Quote';
 import QuoteSequence from '../models/QuoteSequence';
+import { resolveCompanyMemberUserIds, resolveCompanyOwnerUserId } from '@/db/repository/company-owner';
 import mongoose from 'mongoose';
 import { computeQuoteLine, computeQuoteTotalsFromComputedLines } from '@/lib/quote-calculations';
 import type { AddressDetails } from '@/lib/address';
@@ -487,18 +488,17 @@ function parseQuoteCounter(quoteNumber: string, year: number): number | null {
   return parsed.sequence;
 }
 
-async function getMaxExistingQuoteCounter(userId: string, year: number): Promise<number> {
-  if (!isValidObjectId(userId)) {
+async function getMaxExistingQuoteCounter(companyUserIds: mongoose.Types.ObjectId[], year: number): Promise<number> {
+  if (companyUserIds.length === 0) {
     return 0;
   }
 
-  const userObjectId = new mongoose.Types.ObjectId(userId);
   const prefix = getQuotePrefix(year);
 
   const rows = await Quote.aggregate<{ counter: number }>([
     {
       $match: {
-        user: userObjectId,
+        user: { $in: companyUserIds },
         quoteNumber: { $regex: `^${prefix}\\d+$` },
       },
     },
@@ -519,16 +519,23 @@ async function getMaxExistingQuoteCounter(userId: string, year: number): Promise
   return rows[0]?.counter ?? 0;
 }
 
-async function ensureQuoteSequenceSeeded(userId: string, year: number): Promise<void> {
-  const existing = await QuoteSequence.findOne({ user: userId, year }).select('_id').lean();
+async function ensureQuoteSequenceSeeded(
+  sequenceOwnerId: string,
+  year: number,
+  companyUserIds: mongoose.Types.ObjectId[]
+): Promise<void> {
+  const maxExistingCounter = await getMaxExistingQuoteCounter(companyUserIds, year);
+
+  const existing = await QuoteSequence.findOne({ user: sequenceOwnerId, year }).select('_id').lean();
   if (existing) {
+    // Raise the floor so the company sequence never re-issues a number a teammate already used
+    // (e.g. quotes created before numbering became company-wide).
+    await QuoteSequence.updateOne({ user: sequenceOwnerId, year }, { $max: { lastCounter: maxExistingCounter } });
     return;
   }
 
-  const maxExistingCounter = await getMaxExistingQuoteCounter(userId, year);
-
   try {
-    await QuoteSequence.create({ user: userId, year, lastCounter: maxExistingCounter });
+    await QuoteSequence.create({ user: sequenceOwnerId, year, lastCounter: maxExistingCounter });
   } catch (error) {
     if (!isDuplicateKeyError(error)) {
       throw error;
@@ -536,16 +543,24 @@ async function ensureQuoteSequenceSeeded(userId: string, year: number): Promise<
   }
 }
 
+/**
+ * Quote numbers are sequential per company: one sequence per year, held against the
+ * company owner, shared by every member.
+ */
 async function allocateNextQuoteNumber(userId: string): Promise<string> {
   const year = getCurrentQuoteYear();
+  const [sequenceOwnerId, companyUserIds] = await Promise.all([
+    resolveCompanyOwnerUserId({ userId }),
+    resolveCompanyMemberUserIds({ userId }),
+  ]);
 
-  await ensureQuoteSequenceSeeded(userId, year);
+  await ensureQuoteSequenceSeeded(sequenceOwnerId, year, companyUserIds);
 
   const sequence = await QuoteSequence.findOneAndUpdate(
-    { user: userId, year },
+    { user: sequenceOwnerId, year },
     {
       $inc: { lastCounter: 1 },
-      $setOnInsert: { user: userId, year },
+      $setOnInsert: { user: sequenceOwnerId, year },
     },
     { returnDocument: 'after', upsert: true }
   )
@@ -564,17 +579,21 @@ export const getLastQuoteNumber = async (userId: string): Promise<string | null>
   await ConnectDb();
 
   const year = getCurrentQuoteYear();
+  const [sequenceOwnerId, companyUserIds] = await Promise.all([
+    resolveCompanyOwnerUserId({ userId }),
+    resolveCompanyMemberUserIds({ userId }),
+  ]);
 
   const [lastQuote, sequence, maxExistingCounter] = await Promise.all([
     Quote.findOne({
-      user: userId,
+      user: { $in: companyUserIds },
       quoteNumber: { $regex: `^${getQuotePrefix(year)}\\d+$` },
     })
       .sort({ createdAt: -1 })
       .select('quoteNumber')
       .lean(),
-    QuoteSequence.findOne({ user: userId, year }).select('lastCounter').lean(),
-    getMaxExistingQuoteCounter(userId, year),
+    QuoteSequence.findOne({ user: sequenceOwnerId, year }).select('lastCounter').lean(),
+    getMaxExistingQuoteCounter(companyUserIds, year),
   ]);
 
   const lastFromQuotes = parseQuoteCounter((lastQuote as LastQuoteNumberRecord | null)?.quoteNumber ?? '', year) ?? 0;
@@ -712,8 +731,8 @@ export const getQuoteById = async (userId: UserScope, quoteId: string): Promise<
   return quote ? toQuoteRecord(quote as QuoteRecordSource) : null;
 };
 
-async function getClientSnapshot(userId: string, clientId: string): Promise<ClientSnapshotRecord | null> {
-  const client = await Client.findOne({ _id: clientId, user: userId }).lean();
+async function getClientSnapshot(clientScope: UserScope, clientId: string): Promise<ClientSnapshotRecord | null> {
+  const client = await Client.findOne({ _id: clientId, ...userScopeQuery(clientScope) }).lean();
   if (!client) {
     return null;
   }
@@ -739,11 +758,16 @@ async function getClientSnapshot(userId: string, clientId: string): Promise<Clie
   };
 }
 
-export const createQuote = async (userId: string, payload: CreateQuoteDTO): Promise<CreateQuoteResult> => {
+export const createQuote = async (
+  userId: string,
+  payload: CreateQuoteDTO,
+  /** Company-wide scope for the client lookup; defaults to the creator only. */
+  clientScope: UserScope = userId
+): Promise<CreateQuoteResult> => {
   await ConnectDb();
   await ensureTenantScopedQuoteNumberIndex();
 
-  const clientSnapshot = await getClientSnapshot(userId, payload.clientId);
+  const clientSnapshot = await getClientSnapshot(clientScope, payload.clientId);
   if (!clientSnapshot) {
     return { kind: 'client-not-found' };
   }
@@ -823,7 +847,7 @@ export const updateQuoteById = async (
   }
 
   if (payload.clientId && payload.clientId !== String(quote.clientId)) {
-    const clientSnapshot = await getClientSnapshot(Array.isArray(userId) ? String(quote.user) : userId, payload.clientId);
+    const clientSnapshot = await getClientSnapshot(userId, payload.clientId);
     if (!clientSnapshot) {
       return { kind: 'client-not-found' };
     }

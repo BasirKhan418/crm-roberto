@@ -8,6 +8,7 @@ import Client from '@/db/models/Client';
 import Invoice from '@/db/models/Invoice';
 import Payment from '@/db/models/Payment';
 import StripeConnect from '@/db/models/StripeConnect';
+import { resolveCompanyOwnerUserId } from '@/db/repository/company-owner';
 import { getCompanyProfileByUserId } from '@/db/repository/cprofile';
 import { extractClientSnapshot } from '@/lib/address';
 import { buildUserScopeQuery, getCompanyUserObjectIds } from '@/lib/company-scope';
@@ -73,7 +74,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const invoiceOwnerId = String(invoice.userId);
 
     if (sendMode === 'online') {
-      const stripeConnect = await StripeConnect.findOne({ userId: invoiceOwnerId })
+      const stripeConnect = await StripeConnect.findOne({ userId: await resolveCompanyOwnerUserId({ userId: invoiceOwnerId, companyId: me.user.companyId }) })
         .select('onboardingComplete chargesEnabled payoutsEnabled')
         .lean<{ onboardingComplete?: boolean; chargesEnabled?: boolean; payoutsEnabled?: boolean } | null>();
 
@@ -132,7 +133,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       paymentUrl = buildInvoicePayUrl(paymentToken, appUrl);
     }
 
-    const companyResult = await getCompanyProfileByUserId(invoiceOwnerId);
+    const companyResult = await getCompanyProfileByUserId(await resolveCompanyOwnerUserId({ userId: invoiceOwnerId, companyId: me.user.companyId }));
     const profile = companyResult.success
       ? (companyResult.profile as {
           companyName?: string | null;

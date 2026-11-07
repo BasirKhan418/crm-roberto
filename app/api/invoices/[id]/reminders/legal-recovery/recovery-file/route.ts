@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import ConnectDb from '@/db/connectDb';
 import CompanyProfile from '@/db/models/CompanyProfile';
+import { resolveCompanyOwnerUserId } from '@/db/repository/company-owner';
 import Invoice from '@/db/models/Invoice';
 import Payment from '@/db/models/Payment';
 import ReminderLog from '@/db/models/ReminderLog';
@@ -32,7 +33,7 @@ import {
   type InvoiceForPdf,
   type PaymentHistoryItem,
 } from '@/lib/reminders/formal-notice';
-import getMe from '@/utils/middlewares/useMe';
+import { authorizeCompanyRoute } from '@/lib/company-route-access';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -119,10 +120,12 @@ async function loadPaymentHistory(invoiceId: mongoose.Types.ObjectId, userId: st
 
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const me = await getMe(true);
-    if (!me.success || !me.user) {
-      return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
+    const access = await authorizeCompanyRoute({ moduleKey: 'invoices', action: 'manage' });
+    if (!access.success) {
+      return access.response;
     }
+    const { user } = access;
+    const ownerUserId = await resolveCompanyOwnerUserId({ userId: user.id, companyId: user.companyId });
 
     const { id } = await params;
     const allowBeforeDeadline = request.nextUrl.searchParams.get('allowBeforeDeadline') === '1';
@@ -132,7 +135,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     await ConnectDb();
 
-    const invoice = await Invoice.findOne({ _id: id, userId: me.user.id })
+    const invoice = await Invoice.findOne({ _id: id, ...access.scope('userId') })
       .select('_id userId legalRecoveryCourtLocation invoiceNumber quoteNumber date dueDate status lineItems totalExcludingTax totalVat totalIncludingTax depositPercentage notes clientSnapshot reminderState paymentToken')
       .lean<InvoiceForLegalRecovery | null>();
 
@@ -141,19 +144,19 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     const [settingsDoc, companyProfile, totals, logs, paymentHistory] = await Promise.all([
-      ReminderSettings.findOne({ userId: me.user.id }).lean<ReminderSettingsDoc>(),
-      CompanyProfile.findOne({ user: me.user.id })
+      ReminderSettings.findOne({ userId: ownerUserId }).lean<ReminderSettingsDoc>(),
+      CompanyProfile.findOne({ user: ownerUserId })
         .select('companyName ownerName locale address streetNumber streetName postalCode city country phone businessEmail vatNumber rcsNumber businessAuthorizationNumber matriculeNumber iban bankName legalIdentifier logoUrl')
         .lean<CompanyProfileForReminder | null>(),
       Payment.aggregate<{ _id: null; totalPaid: number }>([
-        { $match: { invoiceId: invoice._id, userId: new mongoose.Types.ObjectId(me.user.id), status: 'succeeded' } },
+        { $match: { invoiceId: invoice._id, userId: invoice.userId, status: 'succeeded' } },
         { $group: { _id: null, totalPaid: { $sum: '$amount' } } },
       ]),
-      ReminderLog.find({ invoiceId: invoice._id, userId: me.user.id })
+      ReminderLog.find({ invoiceId: invoice._id, userId: invoice.userId })
         .sort({ sentAt: 1, createdAt: 1 })
         .select('level channel status sentAt subject recipientEmail lateFeeAmount')
         .lean<ReminderLogDoc[]>(),
-      loadPaymentHistory(invoice._id, me.user.id),
+      loadPaymentHistory(invoice._id, String(invoice.userId)),
     ]);
 
     const totalPaid = Math.max(0, Math.round(totals[0]?.totalPaid ?? 0));
@@ -228,7 +231,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     );
 
     const rawLocale = request.nextUrl.searchParams.get('locale');
-    const locale = resolveReminderLocalePreference(rawLocale, me.user.locale, companyProfile?.locale);
+    const locale = resolveReminderLocalePreference(rawLocale, user.locale, companyProfile?.locale);
 
     const legalNoticeSettings = settingsDoc?.legalNotice;
     const delayDays = legalNoticeSettings?.delayDays === 15 ? 15 : 8;
@@ -329,12 +332,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const { firstTime } = await markLegalRecoveryInitiatedIfNeeded({
       InvoiceModel: Invoice as unknown as mongoose.Model<unknown>,
       invoiceId: invoice._id,
-      userId: me.user.id,
+      userId: invoice.userId,
       claimAmountCents: eligibility.claimAmountCents,
     });
 
     if (firstTime && !wasAlreadyInitiated) {
-      await createActivityLog(me.user.id, {
+      await createActivityLog(user.id, {
         action: 'invoice_legal_recovery_initiated',
         entityType: 'invoice',
         entityName: invoice.invoiceNumber,

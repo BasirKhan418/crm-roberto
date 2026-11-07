@@ -6,6 +6,7 @@ import React from 'react';
 import ConnectDb from '@/db/connectDb';
 import Invoice from '@/db/models/Invoice';
 import Payment from '@/db/models/Payment';
+import { resolveCompanyOwnerUserId } from '@/db/repository/company-owner';
 import { getCompanyProfileByUserId } from '@/db/repository/cprofile';
 import { extractClientSnapshot } from '@/lib/address';
 import { buildUserScopeQuery, getCompanyUserObjectIds } from '@/lib/company-scope';
@@ -53,7 +54,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     const invoiceOwnerId = String(invoice.userId);
-    const companyResult = await getCompanyProfileByUserId(invoiceOwnerId);
+    const companyResult = await getCompanyProfileByUserId(await resolveCompanyOwnerUserId({ userId: invoiceOwnerId, companyId: me.user.companyId }));
     const profile = companyResult.success
       ? (companyResult.profile as {
           companyName?: string | null;

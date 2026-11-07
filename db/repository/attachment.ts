@@ -25,12 +25,19 @@ export interface CreateAttachmentDTO {
   s3Key?: string | null;
 }
 
+type UserScope = string | string[];
+
+function userScopeQuery(userScope: UserScope) {
+  return Array.isArray(userScope) ? { $in: userScope } : userScope;
+}
+
 function isValidObjectId(value: string): boolean {
   return mongoose.Types.ObjectId.isValid(value);
 }
 
 export async function createAttachment(
   userId: string,
+  userScope: UserScope,
   clientId: string,
   payload: CreateAttachmentDTO,
 ): Promise<AttachmentRecord> {
@@ -40,7 +47,7 @@ export async function createAttachment(
     throw new Error('Invalid client ID');
   }
 
-  const client = await Client.exists({ _id: clientId, user: userId });
+  const client = await Client.exists({ _id: clientId, user: userScopeQuery(userScope) });
   if (!client) {
     throw new Error('Client not found');
   }
@@ -59,7 +66,7 @@ export async function createAttachment(
 }
 
 export async function listClientAttachments(
-  userId: string,
+  userScope: UserScope,
   clientId: string,
 ): Promise<AttachmentRecord[]> {
   await ConnectDb();
@@ -68,7 +75,7 @@ export async function listClientAttachments(
     return [];
   }
 
-  const items = await ClientAttachment.find({ user: userId, clientId })
+  const items = await ClientAttachment.find({ user: userScopeQuery(userScope), clientId })
     .sort({ createdAt: -1 })
     .lean();
 
@@ -76,7 +83,8 @@ export async function listClientAttachments(
 }
 
 export async function deleteAttachment(
-  userId: string,
+  userScope: UserScope,
+  clientId: string,
   attachmentId: string,
 ): Promise<boolean> {
   await ConnectDb();
@@ -85,12 +93,12 @@ export async function deleteAttachment(
     return false;
   }
 
-  const result = await ClientAttachment.deleteOne({ _id: attachmentId, user: userId });
+  const result = await ClientAttachment.deleteOne({ _id: attachmentId, clientId, user: userScopeQuery(userScope) });
   return result.deletedCount > 0;
 }
 
 export async function getAttachmentById(
-  userId: string,
+  userScope: UserScope,
   attachmentId: string,
 ): Promise<AttachmentRecord | null> {
   await ConnectDb();
@@ -99,6 +107,6 @@ export async function getAttachmentById(
     return null;
   }
 
-  const item = await ClientAttachment.findOne({ _id: attachmentId, user: userId }).lean();
+  const item = await ClientAttachment.findOne({ _id: attachmentId, user: userScopeQuery(userScope) }).lean();
   return item ? (item as AttachmentRecord) : null;
 }

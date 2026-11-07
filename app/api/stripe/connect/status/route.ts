@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import ConnectDb from '@/db/connectDb';
 import StripeConnect from '@/db/models/StripeConnect';
+import { resolveCompanyOwnerUserId } from '@/db/repository/company-owner';
 import { stripe } from '@/lib/stripe';
 import getMe from '@/utils/middlewares/useMe';
 
@@ -15,7 +16,7 @@ async function getStatus() {
 
   await ConnectDb();
 
-  const connect = await StripeConnect.findOne({ userId: me.user.id });
+  const connect = await StripeConnect.findOne({ userId: await resolveCompanyOwnerUserId({ userId: me.user.id, companyId: me.user.companyId }) });
   if (!connect) {
     return NextResponse.json({ connected: false, chargesEnabled: false, payoutsEnabled: false, onboardingComplete: false });
   }

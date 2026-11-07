@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import ConnectDb from '@/db/connectDb';
 import Client from '@/db/models/Client';
 import CompanyProfile from '@/db/models/CompanyProfile';
+import { resolveCompanyMemberUserIds, resolveCompanyOwnerUserId } from '@/db/repository/company-owner';
 import Invoice from '@/db/models/Invoice';
 import Payment from '@/db/models/Payment';
 import User from '@/db/models/User';
@@ -170,10 +171,10 @@ export async function sendPaymentReceiptForSucceededPayment({
     }
 
     const [clientDoc, companyProfile, user, payments] = await Promise.all([
-      Client.findOne({ _id: invoice.clientId, user: claimedPayment.userId })
+      Client.findOne({ _id: invoice.clientId, user: { $in: await resolveCompanyMemberUserIds({ userId: claimedPayment.userId }) } })
         .select('billingEmail')
         .lean<{ billingEmail?: string | null } | null>(),
-      CompanyProfile.findOne({ user: claimedPayment.userId })
+      CompanyProfile.findOne({ user: await resolveCompanyOwnerUserId({ userId: claimedPayment.userId }) })
         .select('companyName ownerName locale address streetNumber streetName postalCode city country phone businessEmail vatNumber rcsNumber businessAuthorizationNumber matriculeNumber iban bankName legalIdentifier logoUrl')
         .lean<CompanyProfileForReminder | null>(),
       User.findById(claimedPayment.userId).select('locale').lean<{ locale?: string | null } | null>(),

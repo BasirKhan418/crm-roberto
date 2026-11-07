@@ -11,7 +11,7 @@ import { createActivityLog } from '@/db/repository/activity';
 import { ensureInvoiceIndexes } from '@/db/repository/ensureInvoiceIndexes';
 import { buildUserScopeQuery, getCompanyUserObjectIds } from '@/lib/company-scope';
 import { getStartOfTomorrow, isInvoiceDueOnOrBeforeToday } from '@/lib/invoices/overdue';
-import { getNextInvoiceNumberForYear, isInvoiceNumberDuplicateError } from '@/lib/invoice-number';
+import { createInvoiceWithUniqueNumber as createInvoiceWithCompanyUniqueNumber } from '@/lib/invoice-number';
 import { normalizeInvoiceNumberSearchTerm } from '@/lib/i18n/messages';
 import { requireModulePermission } from '@/lib/role-matrix';
 import { computeQuoteLine, computeQuoteTotalsFromComputedLines } from '@/lib/quote-calculations';
@@ -135,23 +135,12 @@ function getInvoiceDepositTarget(invoice: {
 }
 
 async function createInvoiceWithUniqueNumber(
-  userId: string,
+  numberScope: mongoose.Types.ObjectId[],
   year: number,
   payloadFactory: (invoiceNumber: string) => Record<string, unknown>
 ): Promise<CreatedInvoiceLike> {
-  for (let attempt = 0; attempt < 5; attempt += 1) {
-    const invoiceNumber = await getNextInvoiceNumberForYear(userId, year);
-    try {
-      const created = await Invoice.create(payloadFactory(invoiceNumber));
-      return created as unknown as CreatedInvoiceLike;
-    } catch (creationError) {
-      if (!isInvoiceNumberDuplicateError(creationError) || attempt === 4) {
-        throw creationError;
-      }
-    }
-  }
-
-  throw new Error('Could not generate a unique invoice number');
+  const created = await createInvoiceWithCompanyUniqueNumber({ numberScope, year, payloadFactory });
+  return created as unknown as CreatedInvoiceLike;
 }
 
 function withComputedInvoiceStatus<T extends { status: string; dueDate?: Date | string | null }>(invoice: T): T {
@@ -423,6 +412,9 @@ export async function POST(request: NextRequest) {
     }
 
     const userId = me.user.id;
+    // Quotes, clients and invoice numbers are shared across the whole company.
+    const scopedUserObjectIds = await getCompanyUserObjectIds({ companyId: me.user.companyId, fallbackUserId: me.user.id });
+    const companyScope = (field: string) => buildUserScopeQuery(field, scopedUserObjectIds);
 
     const body = await request.json();
     const shouldConvertFromQuote = typeof body?.quoteId === 'string' && body.quoteId.trim().length > 0;
@@ -436,7 +428,7 @@ export async function POST(request: NextRequest) {
       await ConnectDb();
       await ensureInvoiceIndexes();
 
-      const quote = await Quote.findOne({ _id: parsed.data.quoteId, user: userId });
+      const quote = await Quote.findOne({ _id: parsed.data.quoteId, ...companyScope('user') });
       if (!quote) {
         return NextResponse.json({ message: 'Quote not found' }, { status: 404 });
       }
@@ -449,7 +441,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ message: 'This quote has already been converted to an invoice' }, { status: 409 });
       }
 
-      const existingInvoice = await Invoice.findOne({ userId, quoteId: quote._id }).select('_id');
+      const existingInvoice = await Invoice.findOne({ ...companyScope('userId'), quoteId: quote._id }).select('_id');
       if (existingInvoice) {
         quote.convertedToInvoice = true;
         quote.invoiceId = existingInvoice._id;
@@ -457,14 +449,14 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ message: 'This quote has already been converted to an invoice' }, { status: 409 });
       }
 
-      const sourceClient = await Client.findOne({ _id: quote.clientId, user: userId })
+      const sourceClient = await Client.findOne({ _id: quote.clientId, ...companyScope('user') })
         .select('billingEmail email')
         .lean<{ billingEmail?: string | null; email?: string | null } | null>();
 
       const preferredInvoiceEmail = sourceClient?.billingEmail ?? sourceClient?.email ?? quote.clientSnapshot.email ?? null;
 
       const currentYear = new Date().getFullYear();
-      const invoice = await createInvoiceWithUniqueNumber(userId, currentYear, (invoiceNumber) => ({
+      const invoice = await createInvoiceWithUniqueNumber(scopedUserObjectIds, currentYear, (invoiceNumber) => ({
             userId,
             invoiceNumber,
             quoteId: quote._id,
@@ -525,7 +517,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'Client not found' }, { status: 404 });
     }
 
-    const client = await Client.findOne({ _id: parsed.data.clientId, user: userId })
+    const client = await Client.findOne({ _id: parsed.data.clientId, ...companyScope('user') })
       .select('fullName email billingEmail phone address addressDetails companyName vatNumber')
       .lean<{
         _id: mongoose.Types.ObjectId;
@@ -597,7 +589,7 @@ export async function POST(request: NextRequest) {
 
     const totals = computeQuoteTotalsFromComputedLines(computedLineItems);
     const currentYear = new Date().getFullYear();
-    const invoice = await createInvoiceWithUniqueNumber(userId, currentYear, (invoiceNumber) => ({
+    const invoice = await createInvoiceWithUniqueNumber(scopedUserObjectIds, currentYear, (invoiceNumber) => ({
           userId,
           invoiceNumber,
           date: parsed.data.date ?? new Date(),

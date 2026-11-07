@@ -3,6 +3,7 @@ import type Stripe from 'stripe';
 
 import ConnectDb from '@/db/connectDb';
 import StripeConnect from '@/db/models/StripeConnect';
+import { getCompanyOwnerAccess } from '@/lib/company-owner-access';
 import { stripe } from '@/lib/stripe';
 import getMe from '@/utils/middlewares/useMe';
 
@@ -32,14 +33,21 @@ async function startConnectOnboarding(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
+  const { ownerUserId, canManageCompany } = await getCompanyOwnerAccess(me.user);
+  if (!canManageCompany) {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
+    return NextResponse.redirect(new URL('/settings/stripe?status=forbidden', appUrl));
+  }
+
   await ConnectDb();
 
-  let connect = await StripeConnect.findOne({ userId: me.user.id });
+  // One Stripe account per company, held against the company owner.
+  let connect = await StripeConnect.findOne({ userId: ownerUserId });
 
   if (!connect) {
     const account = await createConnectedAccountWithFallback();
     connect = await StripeConnect.create({
-      userId: me.user.id,
+      userId: ownerUserId,
       stripeAccountId: account.id,
     });
   }
@@ -88,8 +96,13 @@ export async function DELETE() {
       return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
     }
 
+    const { ownerUserId, canManageCompany } = await getCompanyOwnerAccess(me.user);
+    if (!canManageCompany) {
+      return NextResponse.json({ success: false, message: 'Only company administrators can change company settings' }, { status: 403 });
+    }
+
     await ConnectDb();
-    await StripeConnect.deleteOne({ userId: me.user.id });
+    await StripeConnect.deleteOne({ userId: ownerUserId });
 
     return NextResponse.json({ success: true, message: 'Stripe disconnected' });
   } catch {

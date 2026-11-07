@@ -3,10 +3,11 @@ import { renderToBuffer } from '@react-pdf/renderer';
 import React from 'react';
 import type { DocumentProps } from '@react-pdf/renderer';
 import Quote from '@/db/models/Quote';
+import { resolveCompanyOwnerUserId } from '@/db/repository/company-owner';
 import { getCompanyProfileByUserId } from '@/db/repository/cprofile';
 import { getQuoteById, updateQuoteStatusById } from '@/db/repository/quote';
 import { createActivityLog } from '@/db/repository/activity';
-import { getCompanyUserIdStrings } from '@/lib/company-scope';
+import { buildUserScopeQuery, getCompanyUserIdStrings } from '@/lib/company-scope';
 import { sendQuoteEmail } from '@/lib/email';
 import { extractClientSnapshot } from '@/lib/address';
 import { computeQuoteLine } from '@/lib/quote-calculations';
@@ -71,7 +72,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, message: 'Invalid email address' }, { status: 400 });
     }
 
-    const companyResult = await getCompanyProfileByUserId(me.user.id);
+    const companyResult = await getCompanyProfileByUserId(await resolveCompanyOwnerUserId({ userId: me.user.id, companyId: me.user.companyId }));
     const company = companyResult.success ? (companyResult.profile as Record<string, unknown>) : null;
 
  // gen pdf
@@ -181,7 +182,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const signUrl = buildSignUrl(signatureToken, baseUrl);
 
     const tokenUpdateResult = await Quote.updateOne(
-      { _id: id, user: me.user.id },
+      { _id: id, ...buildUserScopeQuery('user', scopedUserIds) },
       {
         $set: {
           signatureToken,

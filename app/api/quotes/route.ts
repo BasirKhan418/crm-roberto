@@ -88,7 +88,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(buildValidationError(parsed.error), { status: 400 });
     }
 
-    const result = await createQuote(me.user.id, parsed.data);
+    const scopedUserIds = await getCompanyUserIdStrings({ companyId: me.user.companyId, fallbackUserId: me.user.id });
+    const result = await createQuote(me.user.id, parsed.data, scopedUserIds);
     if (result.kind === 'client-not-found') {
       return NextResponse.json({ success: false, message: 'Client not found' }, { status: 404 });
     }

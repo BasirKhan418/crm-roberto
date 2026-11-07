@@ -14,7 +14,8 @@ import {
   type LegalRecoveryCourtLocation,
   type LegalRecoverySettings,
 } from '@/lib/reminders/legal-recovery';
-import getMe from '@/utils/middlewares/useMe';
+import { resolveCompanyOwnerUserId } from '@/db/repository/company-owner';
+import { authorizeCompanyRoute } from '@/lib/company-route-access';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -22,6 +23,7 @@ interface RouteParams {
 
 type InvoiceDoc = {
   _id: mongoose.Types.ObjectId;
+  userId: mongoose.Types.ObjectId;
   status?: 'unpaid' | 'partial_paid' | 'paid' | 'overdue';
   totalIncludingTax?: number | null;
   legalRecoveryCourtLocation?: LegalRecoveryCourtLocation | null;
@@ -39,10 +41,11 @@ type InvoiceDoc = {
 
 export async function GET(_request: NextRequest, { params }: RouteParams) {
   try {
-    const me = await getMe(true);
-    if (!me.success || !me.user) {
-      return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
+    const access = await authorizeCompanyRoute({ moduleKey: 'invoices', action: 'view' });
+    if (!access.success) {
+      return access.response;
     }
+    const { user } = access;
 
     const { id } = await params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -51,8 +54,8 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 
     await ConnectDb();
 
-    const invoice = await Invoice.findOne({ _id: id, userId: me.user.id })
-      .select('_id status totalIncludingTax legalRecoveryCourtLocation reminderState')
+    const invoice = await Invoice.findOne({ _id: id, ...access.scope('userId') })
+      .select('_id userId status totalIncludingTax legalRecoveryCourtLocation reminderState')
       .lean<InvoiceDoc | null>();
 
     if (!invoice) {
@@ -60,11 +63,11 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     }
 
     const [settingsDoc, totals] = await Promise.all([
-      ReminderSettings.findOne({ userId: me.user.id }).lean<{
+      ReminderSettings.findOne({ userId: await resolveCompanyOwnerUserId({ userId: user.id, companyId: user.companyId }) }).lean<{
         legalRecovery?: LegalRecoverySettings | null;
       } | null>(),
       Payment.aggregate<{ _id: null; totalPaid: number }>([
-        { $match: { invoiceId: invoice._id, userId: new mongoose.Types.ObjectId(me.user.id), status: 'succeeded' } },
+        { $match: { invoiceId: invoice._id, userId: invoice.userId, status: 'succeeded' } },
         { $group: { _id: null, totalPaid: { $sum: '$amount' } } },
       ]),
     ]);
