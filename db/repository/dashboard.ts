@@ -40,12 +40,19 @@ export interface DashboardFollowUpItem {
   } | null;
 }
 
+// Dashboard widgets aggregate data from every member of the company.
+type CompanyScope = { $in: mongoose.Types.ObjectId[] };
+
+function toCompanyScope(companyUserIds: mongoose.Types.ObjectId[]): CompanyScope {
+  return { $in: companyUserIds };
+}
+
 interface LinkedEntityRecord {
   _id: string;
   fullName?: string;
 }
 
-async function hydrateFollowUps(userId: string, rows: DashboardFollowUpItem[]): Promise<DashboardFollowUpItem[]> {
+async function hydrateFollowUps(scope: CompanyScope, rows: DashboardFollowUpItem[]): Promise<DashboardFollowUpItem[]> {
   const clientIds = new Set<string>();
   const supplierIds = new Set<string>();
 
@@ -68,10 +75,10 @@ async function hydrateFollowUps(userId: string, rows: DashboardFollowUpItem[]): 
 
   const [clients, suppliers] = await Promise.all([
     clientIds.size > 0
-      ? Client.find({ user: userId, _id: { $in: Array.from(clientIds) } }).select('_id fullName').lean()
+      ? Client.find({ user: scope, _id: { $in: Array.from(clientIds) } }).select('_id fullName').lean()
       : Promise.resolve([]),
     supplierIds.size > 0
-      ? Supplier.find({ user: userId, _id: { $in: Array.from(supplierIds) } }).select('_id fullName').lean()
+      ? Supplier.find({ user: scope, _id: { $in: Array.from(supplierIds) } }).select('_id fullName').lean()
       : Promise.resolve([]),
   ]);
 
@@ -101,8 +108,10 @@ async function hydrateFollowUps(userId: string, rows: DashboardFollowUpItem[]): 
   });
 }
 
-export const getDashboardStats = async (userId: string): Promise<DashboardStats> => {
+export const getDashboardStats = async (companyUserIds: mongoose.Types.ObjectId[]): Promise<DashboardStats> => {
   await ConnectDb();
+
+  const scope = toCompanyScope(companyUserIds);
 
   const now = new Date();
 
@@ -118,14 +127,14 @@ export const getDashboardStats = async (userId: string): Promise<DashboardStats>
     unpaidInvoices,
     nextAction,
   ] = await Promise.all([
-    Client.countDocuments({ user: userId }),
-    Supplier.countDocuments({ user: userId }),
-    Note.countDocuments({ user: userId }),
-    Quote.countDocuments({ user: userId }),
+    Client.countDocuments({ user: scope }),
+    Supplier.countDocuments({ user: scope }),
+    Note.countDocuments({ user: scope }),
+    Quote.countDocuments({ user: scope }),
     Quote.aggregate<{ total: number }>([
       {
         $match: {
-          user: new mongoose.Types.ObjectId(userId),
+          user: scope,
           status: 'accepted',
         },
       },
@@ -136,15 +145,15 @@ export const getDashboardStats = async (userId: string): Promise<DashboardStats>
         },
       },
     ]),
-    Note.countDocuments({ user: userId, followUpDate: { $ne: null, $lt: now } }),
-    Invoice.countDocuments({ userId: new mongoose.Types.ObjectId(userId), dueDate: { $lt: now }, status: { $ne: 'paid' } }),
+    Note.countDocuments({ user: scope, followUpDate: { $ne: null, $lt: now } }),
+    Invoice.countDocuments({ userId: scope, dueDate: { $lt: now }, status: { $ne: 'paid' } }),
     Quote.countDocuments({
-      user: userId,
+      user: scope,
       status: 'accepted',
       $or: [{ invoiceId: null }, { invoiceId: { $exists: false } }],
     }),
-    Invoice.countDocuments({ userId: new mongoose.Types.ObjectId(userId), status: { $in: ['unpaid', 'partial_paid', 'overdue'] } }),
-    Note.findOne({ user: userId, followUpDate: { $ne: null } }).sort({ followUpDate: 1 }).select('followUpDate').lean(),
+    Invoice.countDocuments({ userId: scope, status: { $in: ['unpaid', 'partial_paid', 'overdue'] } }),
+    Note.findOne({ user: scope, followUpDate: { $ne: null } }).sort({ followUpDate: 1 }).select('followUpDate').lean(),
   ]);
 
   const acceptedQuotesValue = acceptedTotals[0]?.total ?? 0;
@@ -166,10 +175,10 @@ export const getDashboardStats = async (userId: string): Promise<DashboardStats>
   };
 };
 
-export const getDashboardActivity = async (userId: string): Promise<DashboardActivityItem[]> => {
+export const getDashboardActivity = async (companyUserIds: mongoose.Types.ObjectId[]): Promise<DashboardActivityItem[]> => {
   await ConnectDb();
 
-  const rows = await ActivityLog.find({ user: userId })
+  const rows = await ActivityLog.find({ user: toCompanyScope(companyUserIds) })
     .sort({ createdAt: -1 })
     .limit(10)
     .select('_id action entityType entityName entityId createdAt')
@@ -178,11 +187,12 @@ export const getDashboardActivity = async (userId: string): Promise<DashboardAct
   return rows as DashboardActivityItem[];
 };
 
-export const getDashboardFollowUps = async (userId: string): Promise<DashboardFollowUpItem[]> => {
+export const getDashboardFollowUps = async (companyUserIds: mongoose.Types.ObjectId[]): Promise<DashboardFollowUpItem[]> => {
   await ConnectDb();
 
+  const scope = toCompanyScope(companyUserIds);
   const rows = await Note.find({
-    user: userId,
+    user: scope,
     followUpDate: { $ne: null },
   })
     .sort({ followUpDate: 1 })
@@ -190,5 +200,5 @@ export const getDashboardFollowUps = async (userId: string): Promise<DashboardFo
     .select('_id title followUpDate linkedType linkedId')
     .lean();
 
-  return hydrateFollowUps(userId, rows as DashboardFollowUpItem[]);
+  return hydrateFollowUps(scope, rows as DashboardFollowUpItem[]);
 };

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import ConnectDb from '@/db/connectDb';
 import CompanyProfile from '@/db/models/CompanyProfile';
+import { resolveCompanyOwnerUserId } from '@/db/repository/company-owner';
 import Invoice from '@/db/models/Invoice';
 import Payment from '@/db/models/Payment';
 import ReminderSettings from '@/db/models/ReminderSettings';
@@ -13,7 +14,7 @@ import {
   type CompanyProfileForReminder,
   type InvoiceForPdf,
 } from '@/lib/reminders/formal-notice';
-import getMe from '@/utils/middlewares/useMe';
+import { authorizeCompanyRoute } from '@/lib/company-route-access';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -64,10 +65,12 @@ type InvoiceForLegalNotice = {
 
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const me = await getMe(true);
-    if (!me.success || !me.user) {
-      return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
+    const access = await authorizeCompanyRoute({ moduleKey: 'invoices', action: 'view' });
+    if (!access.success) {
+      return access.response;
     }
+    const { user } = access;
+    const ownerUserId = await resolveCompanyOwnerUserId({ userId: user.id, companyId: user.companyId });
 
     const { id } = await params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -76,7 +79,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     await ConnectDb();
 
-    const invoice = await Invoice.findOne({ _id: id, userId: me.user.id })
+    const invoice = await Invoice.findOne({ _id: id, ...access.scope('userId') })
       .select('_id userId invoiceNumber quoteNumber date dueDate status lineItems totalExcludingTax totalVat totalIncludingTax depositPercentage notes clientSnapshot reminderState')
       .lean<InvoiceForLegalNotice | null>();
 
@@ -85,20 +88,20 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     const [settingsDoc, companyProfile, totals] = await Promise.all([
-      ReminderSettings.findOne({ userId: me.user.id }).lean<{
+      ReminderSettings.findOne({ userId: ownerUserId }).lean<{
         legalNotice?: { delayDays?: 8 | 15; includeInterestClause?: boolean; customFooter?: string | null };
       } | null>(),
-      CompanyProfile.findOne({ user: me.user.id })
+      CompanyProfile.findOne({ user: ownerUserId })
         .select('companyName ownerName locale address streetNumber streetName postalCode city country phone businessEmail vatNumber rcsNumber businessAuthorizationNumber matriculeNumber iban bankName legalIdentifier logoUrl')
         .lean<CompanyProfileForReminder | null>(),
       Payment.aggregate<{ _id: null; totalPaid: number }>([
-        { $match: { invoiceId: invoice._id, userId: new mongoose.Types.ObjectId(me.user.id), status: 'succeeded' } },
+        { $match: { invoiceId: invoice._id, userId: invoice.userId, status: 'succeeded' } },
         { $group: { _id: null, totalPaid: { $sum: '$amount' } } },
       ]),
     ]);
 
     const rawLocale = request.nextUrl.searchParams.get('locale');
-    const locale = resolveReminderLocalePreference(rawLocale, me.user.locale, companyProfile?.locale);
+    const locale = resolveReminderLocalePreference(rawLocale, user.locale, companyProfile?.locale);
     const totalPaid = Math.max(0, Math.round(totals[0]?.totalPaid ?? 0));
     const remainingAmount = Math.max(0, Math.round(invoice.totalIncludingTax ?? 0) - totalPaid);
     const lateFeeAmount = Math.max(0, Math.round(invoice.reminderState?.lateFeeAmount ?? 0));

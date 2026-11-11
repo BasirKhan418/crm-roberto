@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 
 import { getDashboardActivity } from '@/db/repository/dashboard';
+import { getCompanyUserObjectIds } from '@/lib/company-scope';
+import { requireModulePermission } from '@/lib/role-matrix';
 import getMe from '@/utils/middlewares/useMe';
 
 export async function GET() {
@@ -11,7 +13,14 @@ export async function GET() {
       return NextResponse.json({ message: me.message || 'Unauthorized', success: false }, { status: 401 });
     }
 
-    const activity = await getDashboardActivity(me.user.id);
+    const permission = await requireModulePermission({ companyId: me.user.companyId, role: me.user.role, moduleKey: 'financialDashboard', action: 'view' });
+    if (!permission.success) {
+      return NextResponse.json({ message: permission.message, success: false }, { status: permission.status });
+    }
+
+    const activity = await getDashboardActivity(
+      await getCompanyUserObjectIds({ companyId: me.user.companyId, fallbackUserId: me.user.id })
+    );
     return NextResponse.json(activity);
   } catch (error) {
     return NextResponse.json(

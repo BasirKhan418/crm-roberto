@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "cron:reminders": "node cron/reminders-scheduler.js",
-    "worker:expenses-ocr": "tsx workers/expense-draft-ocr-worker.ts"
+    "worker:expenses-ocr": "tsx workers/expense-draft-ocr-worker.ts",
+    "export:mongodb-json": "tsx scripts/export-mongodb-json.ts",
+    "migrate:company-owner-records": "tsx scripts/migrate-company-owner-records.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1019.0",

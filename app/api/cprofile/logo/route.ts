@@ -2,6 +2,7 @@ import { DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { NextRequest, NextResponse } from 'next/server';
 
 import { getCompanyProfileByUserId, updateCompanyLogoByUserId } from '@/db/repository/cprofile';
+import { getCompanyOwnerAccess } from '@/lib/company-owner-access';
 import { getS3Client } from '@/utils/s3/s3Client';
 import getMe from '@/utils/middlewares/useMe';
 
@@ -12,6 +13,14 @@ export async function POST(request: NextRequest) {
     const me = await getMe(true);
     if (!me.success || !me.user) {
       return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
+    }
+
+    const { ownerUserId: profileUserId, canManageCompany: canEdit } = await getCompanyOwnerAccess(me.user);
+    if (!canEdit) {
+      return NextResponse.json(
+        { success: false, message: 'Only company administrators can modify the company profile' },
+        { status: 403 }
+      );
     }
 
     const body = (await request.json()) as { logoUrl?: string; logoKey?: string };
@@ -25,7 +34,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const existing = await getCompanyProfileByUserId(me.user.id);
+    const existing = await getCompanyProfileByUserId(profileUserId);
     if (
       existing.success &&
       existing.profile &&
@@ -41,7 +50,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result = await updateCompanyLogoByUserId(me.user.id, logoUrl, logoKey);
+    const result = await updateCompanyLogoByUserId(profileUserId, logoUrl, logoKey);
     if (!result.success) {
       return NextResponse.json(result, { status: 500 });
     }
@@ -62,7 +71,15 @@ export async function DELETE() {
       return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
     }
 
-    const existing = await getCompanyProfileByUserId(me.user.id);
+    const { ownerUserId: profileUserId, canManageCompany: canEdit } = await getCompanyOwnerAccess(me.user);
+    if (!canEdit) {
+      return NextResponse.json(
+        { success: false, message: 'Only company administrators can modify the company profile' },
+        { status: 403 }
+      );
+    }
+
+    const existing = await getCompanyProfileByUserId(profileUserId);
     if (!existing.success || !existing.profile) {
       return NextResponse.json({ success: false, message: 'Company profile not found' }, { status: 404 });
     }
@@ -75,7 +92,7 @@ export async function DELETE() {
 
     await getS3Client().send(new DeleteObjectCommand({ Bucket: BUCKET, Key: logoKey }));
 
-    const result = await updateCompanyLogoByUserId(me.user.id, null, null);
+    const result = await updateCompanyLogoByUserId(profileUserId, null, null);
     if (!result.success) {
       return NextResponse.json(result, { status: 500 });
     }

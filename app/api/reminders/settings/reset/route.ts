@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import ConnectDb from '@/db/connectDb';
 import ReminderSettings from '@/db/models/ReminderSettings';
 import { buildValidationError } from '@/utils/api/validation';
+import { COMPANY_ADMIN_ONLY_MESSAGE, getCompanyOwnerAccess } from '@/lib/company-owner-access';
 import getMe from '@/utils/middlewares/useMe';
 import { resetReminderSettingsSchema } from '@/validators/reminder-settings.schema';
 
@@ -15,6 +16,11 @@ export const POST = async (request: NextRequest) => {
       return NextResponse.json({ message: me.message || 'Unauthorized', success: false }, { status: 401 });
     }
 
+    const { ownerUserId, canManageCompany } = await getCompanyOwnerAccess(me.user);
+    if (!canManageCompany) {
+      return NextResponse.json({ message: COMPANY_ADMIN_ONLY_MESSAGE, success: false }, { status: 403 });
+    }
+
     const payload = (await request.json()) as { section?: ResetSection };
     const parsed = resetReminderSettingsSchema.safeParse(payload);
 
@@ -24,13 +30,13 @@ export const POST = async (request: NextRequest) => {
 
     await ConnectDb();
 
-    const defaultDoc = new ReminderSettings({ userId: me.user.id }).toObject() as Record<string, unknown>;
+    const defaultDoc = new ReminderSettings({ userId: ownerUserId }).toObject() as Record<string, unknown>;
     const section = parsed.data.section;
     const sectionDefaults = defaultDoc[section];
 
     const updated = await ReminderSettings.findOneAndUpdate(
-      { userId: me.user.id },
-      { $set: { [section]: sectionDefaults }, $setOnInsert: { userId: me.user.id } },
+      { userId: ownerUserId },
+      { $set: { [section]: sectionDefaults }, $setOnInsert: { userId: ownerUserId } },
       { returnDocument: 'after', upsert: true, setDefaultsOnInsert: true, runValidators: true }
     ).lean();
 

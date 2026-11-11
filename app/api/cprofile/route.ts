@@ -9,6 +9,11 @@ import { sendWelcomeEmail } from "@/emails/auth/sendWelcomeEmail";
 import { cookies } from "next/headers";
 import { resolveLocaleFromRequest } from "@/lib/i18n/locale";
 import { signAuthToken } from "@/lib/auth-session";
+import { getCompanyOwnerAccess } from "@/lib/company-owner-access";
+
+const forbiddenResponse = () =>
+    NextResponse.json({ message: "Only company administrators can modify the company profile", success: false }, { status: 403 });
+
 export const POST = async (request: NextRequest) => {
     try{
         const data = await request.json() as Record<string, unknown>;
@@ -21,18 +26,23 @@ export const POST = async (request: NextRequest) => {
             return NextResponse.json({ message: me.message || "Unauthorized", success: false }, { status: 401 });
         }
 
+        const { ownerUserId: profileUserId, canManageCompany: canEdit } = await getCompanyOwnerAccess(me.user);
+        if (!canEdit) {
+            return forbiddenResponse();
+        }
+
         const parsedInput = createCompanyProfileInputSchema.safeParse(data);
         if (!parsedInput.success) {
             return NextResponse.json(buildValidationError(parsedInput.error), { status: 400 });
         }
 
-        const validatedData = createCompanyProfileSchema.safeParse({ ...parsedInput.data, user: me.user.id });
+        const validatedData = createCompanyProfileSchema.safeParse({ ...parsedInput.data, user: profileUserId });
 
         if (!validatedData.success) {
             return NextResponse.json(buildValidationError(validatedData.error), { status: 400 });
         }
 
-        const existing = await getCompanyProfileByUserId(me.user.id);
+        const existing = await getCompanyProfileByUserId(profileUserId);
         const profileExists = existing.success && !!existing.profile;
         const isNotFound = !existing.success && existing.message === "Company profile not found";
 
@@ -42,7 +52,7 @@ export const POST = async (request: NextRequest) => {
 
         let result;
         if (profileExists) {
-            result = await updateCompanyProfileByUserId(me.user.id, parsedInput.data);
+            result = await updateCompanyProfileByUserId(profileUserId, parsedInput.data);
         } else {
             result = await createCompanyProfile(validatedData.data);
         }
@@ -90,12 +100,13 @@ export const GET = async () => {
             return NextResponse.json({ message: me.message || "Unauthorized", success: false }, { status: 401 });
         }
 
-        const result = await getCompanyProfileByUserId(me.user.id);
+        const { ownerUserId: profileUserId, canManageCompany: canEdit } = await getCompanyOwnerAccess(me.user);
+        const result = await getCompanyProfileByUserId(profileUserId);
         if (!result.success) {
-            return NextResponse.json(result, { status: 404 });
+            return NextResponse.json({ ...result, canEdit }, { status: 404 });
         }
 
-        return NextResponse.json(result);
+        return NextResponse.json({ ...result, canEdit });
     }
     catch (error) {
         return NextResponse.json({ message: "Error fetching company profile" + error, success: false }, { status: 500 });
@@ -109,6 +120,11 @@ export const PATCH = async (request: NextRequest) => {
             return NextResponse.json({ message: me.message || "Unauthorized", success: false }, { status: 401 });
         }
 
+        const { ownerUserId: profileUserId, canManageCompany: canEdit } = await getCompanyOwnerAccess(me.user);
+        if (!canEdit) {
+            return forbiddenResponse();
+        }
+
         const data = await request.json();
         const sanitizedData = { ...data };
         delete sanitizedData.user;
@@ -120,7 +136,7 @@ export const PATCH = async (request: NextRequest) => {
             return NextResponse.json(buildValidationError(parsedUpdate.error), { status: 400 });
         }
 
-        const result = await updateCompanyProfileByUserId(me.user.id, parsedUpdate.data);
+        const result = await updateCompanyProfileByUserId(profileUserId, parsedUpdate.data);
         if (!result.success) {
             return NextResponse.json(result, { status: 404 });
         }

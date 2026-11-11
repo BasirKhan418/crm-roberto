@@ -1,0 +1,158 @@
+{
+  "generatedAt": "2026-07-09T19:55:42.587Z",
+  "database": "CRMAPP",
+  "totalCollections": 30,
+  "totalDocuments": 2205,
+  "collections": [
+    {
+      "name": "activitylogs",
+      "documents": 519,
+      "file": "activitylogs.json"
+    },
+    {
+      "name": "admins",
+      "documents": 3,
+      "file": "admins.json"
+    },
+    {
+      "name": "auditlogs",
+      "documents": 730,
+      "file": "auditlogs.json"
+    },
+    {
+      "name": "catalogues",
+      "documents": 22,
+      "file": "catalogues.json"
+    },
+    {
+      "name": "clientattachments",
+      "documents": 2,
+      "file": "clientattachments.json"
+    },
+    {
+      "name": "clients",
+      "documents": 20,
+      "file": "clients.json"
+    },
+    {
+      "name": "companies",
+      "documents": 3,
+      "file": "companies.json"
+    },
+    {
+      "name": "companyprofiles",
+      "documents": 10,
+      "file": "companyprofiles.json"
+    },
+    {
+      "name": "connectionlogs",
+      "documents": 107,
+      "file": "connectionlogs.json"
+    },
+    {
+      "name": "expenseattachments",
+      "documents": 56,
+      "file": "expenseattachments.json"
+    },
+    {
+      "name": "expensecategories",
+      "documents": 36,
+      "file": "expensecategories.json"
+    },
+    {
+      "name": "expensepaymentlines",
+      "documents": 33,
+      "file": "expensepaymentlines.json"
+    },
+    {
+      "name": "expenses",
+      "documents": 66,
+      "file": "expenses.json"
+    },
+    {
+      "name": "interactions",
+      "documents": 4,
+      "file": "interactions.json"
+    },
+    {
+      "name": "invoices",
+      "documents": 41,
+      "file": "invoices.json"
+    },
+    {
+      "name": "notes",
+      "documents": 7,
+      "file": "notes.json"
+    },
+    {
+      "name": "notifications",
+      "documents": 57,
+      "file": "notifications.json"
+    },
+    {
+      "name": "payments",
+      "documents": 19,
+      "file": "payments.json"
+    },
+    {
+      "name": "quotes",
+      "documents": 28,
+      "file": "quotes.json"
+    },
+    {
+      "name": "quotesequences",
+      "documents": 6,
+      "file": "quotesequences.json"
+    },
+    {
+      "name": "quotesignatures",
+      "documents": 24,
+      "file": "quotesignatures.json"
+    },
+    {
+      "name": "reminderlogs",
+      "documents": 251,
+      "file": "reminderlogs.json"
+    },
+    {
+      "name": "remindersettings",
+      "documents": 3,
+      "file": "remindersettings.json"
+    },
+    {
+      "name": "rolematrixes",
+      "documents": 33,
+      "file": "rolematrixes.json"
+    },
+    {
+      "name": "stripeconnects",
+      "documents": 4,
+      "file": "stripeconnects.json"
+    },
+    {
+      "name": "suppliers",
+      "documents": 25,
+      "file": "suppliers.json"
+    },
+    {
+      "name": "ticketattachments",
+      "documents": 20,
+      "file": "ticketattachments.json"
+    },
+    {
+      "name": "ticketmessages",
+      "documents": 43,
+      "file": "ticketmessages.json"
+    },
+    {
+      "name": "tickets",
+      "documents": 16,
+      "file": "tickets.json"
+    },
+    {
+      "name": "users",
+      "documents": 17,
+      "file": "users.json"
+    }
+  ]
+}

@@ -5,7 +5,7 @@ import ConnectDb from '@/db/connectDb';
 import Invoice from '@/db/models/Invoice';
 import ReminderLog from '@/db/models/ReminderLog';
 import { createActivityLog } from '@/db/repository/activity';
-import getMe from '@/utils/middlewares/useMe';
+import { authorizeCompanyRoute } from '@/lib/company-route-access';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -23,10 +23,12 @@ const DEFAULT_REMINDER_STATE = {
 
 export async function POST(_request: NextRequest, { params }: RouteParams) {
   try {
-    const me = await getMe(true);
-    if (!me.success || !me.user) {
-      return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
+    const access = await authorizeCompanyRoute({ moduleKey: 'invoices', action: 'manage' });
+    if (!access.success) {
+      return access.response;
     }
+    const { user } = access;
+    const invoiceScope = access.scope('userId');
 
     const { id } = await params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -38,14 +40,14 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
     await Invoice.updateOne(
       {
         _id: id,
-        userId: me.user.id,
+        ...invoiceScope,
         $or: [{ reminderState: null }, { reminderState: { $exists: false } }],
       },
       { $set: { reminderState: DEFAULT_REMINDER_STATE } }
     );
 
     const invoice = await Invoice.findOneAndUpdate(
-      { _id: id, userId: me.user.id },
+      { _id: id, ...invoiceScope },
       {
         $set: {
           'reminderState.isPaused': true,
@@ -67,7 +69,7 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
     const now = new Date();
 
     await ReminderLog.create({
-      userId: me.user.id,
+      userId: invoice.userId,
       invoiceId: invoice._id,
       level: currentLevel,
       channel: 'email',
@@ -82,7 +84,7 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
       pdfAttached: false,
     });
 
-    await createActivityLog(me.user.id, {
+    await createActivityLog(user.id, {
       action: 'invoice_reminder_paused',
       entityType: 'invoice',
       entityName: invoice.invoiceNumber,

@@ -69,7 +69,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(buildValidationError(parsed.error), { status: 400 });
     }
 
-    const created = await createNote(me.user.id, parsed.data);
+    const scopedUserIds = await getCompanyUserIdStrings({ companyId: me.user.companyId, fallbackUserId: me.user.id });
+    const created = await createNote(me.user.id, parsed.data, scopedUserIds);
 
     if (!created) {
       return NextResponse.json(

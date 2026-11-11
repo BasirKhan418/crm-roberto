@@ -11,7 +11,7 @@ import {
   duplicateInvoiceForRecurrence,
   type RecurrenceInvoiceLike,
 } from '@/lib/recurrence/core';
-import getMe from '@/utils/middlewares/useMe';
+import { authorizeCompanyRoute } from '@/lib/company-route-access';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -19,10 +19,11 @@ interface RouteParams {
 
 export async function POST(_request: NextRequest, { params }: RouteParams) {
   try {
-    const me = await getMe(true);
-    if (!me.success || !me.user) {
-      return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
+    const access = await authorizeCompanyRoute({ moduleKey: 'invoices', action: 'create' });
+    if (!access.success) {
+      return access.response;
     }
+    const { user } = access;
 
     const { id } = await params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -31,7 +32,7 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
 
     await ConnectDb();
 
-    const sourceInvoice = await Invoice.findOne({ _id: id, userId: me.user.id })
+    const sourceInvoice = await Invoice.findOne({ _id: id, ...access.scope('userId') })
       .select(
         '_id userId invoiceNumber quoteNumber date dueDate status clientId clientSnapshot lineItems totalExcludingTax totalVat totalIncludingTax depositPercentage notes recurrence'
       )
@@ -48,7 +49,7 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
       const stoppedAt = new Date();
 
       await Invoice.updateOne(
-        { _id: sourceInvoice._id, userId: me.user.id },
+        { _id: sourceInvoice._id, userId: sourceInvoice.userId },
         {
           $set: {
             'recurrence.isActive': false,
@@ -113,7 +114,7 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
           };
 
       await Invoice.updateOne(
-        { _id: sourceInvoice._id, userId: me.user.id },
+        { _id: sourceInvoice._id, userId: sourceInvoice.userId },
         {
           $set: {
             'recurrence.lastGeneratedAt': generatedAt,
@@ -126,11 +127,11 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
       if (recurrence.autoSend === true) {
         await autoSendRecurringInvoiceToClient({
           invoice: newInvoice,
-          userId: me.user.id,
+          userId: String(sourceInvoice.userId),
         });
       }
 
-      await createActivityLog(me.user.id, {
+      await createActivityLog(user.id, {
         action: 'invoice_recurrence_generated',
         entityType: 'invoice',
         entityName: sourceInvoice.invoiceNumber,

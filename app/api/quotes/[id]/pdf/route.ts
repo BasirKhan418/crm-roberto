@@ -4,6 +4,7 @@ import React from 'react';
 import type { DocumentProps } from '@react-pdf/renderer';
 
 import QuoteSignature from '@/db/models/QuoteSignature';
+import { resolveCompanyOwnerUserId } from '@/db/repository/company-owner';
 import { getCompanyProfileByUserId } from '@/db/repository/cprofile';
 import { getQuoteById } from '@/db/repository/quote';
 import { extractClientSnapshot } from '@/lib/address';
@@ -42,7 +43,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, message: 'Quote not found' }, { status: 404 });
     }
 
-    const companyResult = await getCompanyProfileByUserId(me.user.id);
+    const companyResult = await getCompanyProfileByUserId(await resolveCompanyOwnerUserId({ userId: me.user.id, companyId: me.user.companyId }));
     const company = companyResult.success ? (companyResult.profile as Record<string, unknown>) : null;
 
     const latestSignature = quote.signedStatus === 'signed'

@@ -67,6 +67,7 @@ export default function StripeSettingsPage({ embedded = false }: StripeSettingsP
       statusIndiaRestricted:
         'India platform restriction: Express onboarding is limited for loss-liable platforms. We switched to Standard where possible. Please continue in Stripe Dashboard if needed.',
       statusConnectError: 'Unable to start Stripe onboarding. Please try again.',
+      statusForbidden: 'Only company administrators can connect or disconnect Stripe.',
     },
     fr: {
       title: 'Stripe Connect',
@@ -106,6 +107,7 @@ export default function StripeSettingsPage({ embedded = false }: StripeSettingsP
       statusIndiaRestricted:
         "Restriction plateforme Inde\u00a0: l'onboarding Express est limit\u00e9 pour les plateformes responsables des pertes. Nous basculons vers Standard si possible. Continuez dans Stripe si n\u00e9cessaire.",
       statusConnectError: "Impossible de d\u00e9marrer l'onboarding Stripe. Veuillez r\u00e9essayer.",
+      statusForbidden: "Seuls les administrateurs de l'entreprise peuvent connecter ou d\u00e9connecter Stripe.",
     },
   }[locale];
 
@@ -172,10 +174,15 @@ export default function StripeSettingsPage({ embedded = false }: StripeSettingsP
     }
     if (statusParam === 'connect_error') {
       toast.error(t.statusConnectError);
+      return;
+    }
+    if (statusParam === 'forbidden') {
+      toast.error(t.statusForbidden);
     }
   }, [
     t.statusComplete,
     t.statusConnectError,
+    t.statusForbidden,
     t.statusConnectNotEnabled,
     t.statusError,
     t.statusIndiaRestricted,

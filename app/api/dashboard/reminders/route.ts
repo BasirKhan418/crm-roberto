@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
-import mongoose from 'mongoose';
 
 import ConnectDb from '@/db/connectDb';
 import ActivityLog from '@/db/models/Activity';
 import Invoice from '@/db/models/Invoice';
 import ReminderLog from '@/db/models/ReminderLog';
+import { getCompanyUserObjectIds } from '@/lib/company-scope';
+import { requireModulePermission } from '@/lib/role-matrix';
 import getMe from '@/utils/middlewares/useMe';
 
 type LevelBucket = {
@@ -29,9 +30,16 @@ export async function GET() {
       return NextResponse.json({ message: me.message || 'Unauthorized', success: false }, { status: 401 });
     }
 
+    const permission = await requireModulePermission({ companyId: me.user.companyId, role: me.user.role, moduleKey: 'financialDashboard', action: 'view' });
+    if (!permission.success) {
+      return NextResponse.json({ message: permission.message, success: false }, { status: permission.status });
+    }
+
     await ConnectDb();
 
-    const userObjectId = new mongoose.Types.ObjectId(me.user.id);
+    // Collection stats are company-wide, like the rest of the financial dashboard.
+    const companyUserIds = await getCompanyUserObjectIds({ companyId: me.user.companyId, fallbackUserId: me.user.id });
+    const scope = { $in: companyUserIds };
 
     const now = new Date();
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
@@ -53,7 +61,7 @@ export async function GET() {
       Invoice.aggregate<LevelBucket>([
         {
           $match: {
-            userId: userObjectId,
+            userId: scope,
             status: { $in: COLLECTION_STATUSES },
           },
         },
@@ -65,17 +73,17 @@ export async function GET() {
         },
       ]),
       Invoice.countDocuments({
-        userId: me.user.id,
+        userId: scope,
         status: { $in: COLLECTION_STATUSES },
         'reminderState.isPaused': true,
       }),
       Invoice.countDocuments({
-        userId: me.user.id,
+        userId: scope,
         status: { $in: ['unpaid', 'partial_paid', 'deposit_paid', 'initial_paid'] },
         'reminderState.formalNoticeDeadline': { $lt: now },
       }),
       Invoice.find({
-        userId: me.user.id,
+        userId: scope,
         'recurrence.isActive': true,
         'recurrence.nextOccurrenceAt': {
           $gte: now,
@@ -92,18 +100,18 @@ export async function GET() {
           recurrence?: { nextOccurrenceAt?: Date | null } | null;
         }>>(),
       ReminderLog.countDocuments({
-        userId: me.user.id,
+        userId: scope,
         status: 'sent',
         sentAt: { $gte: thirtyDaysAgo },
       }),
       ReminderLog.countDocuments({
-        userId: me.user.id,
+        userId: scope,
         status: 'sent',
       }),
       ReminderLog.aggregate<SentLevelBucket>([
         {
           $match: {
-            userId: userObjectId,
+            userId: scope,
             status: 'sent',
           },
         },
@@ -115,22 +123,22 @@ export async function GET() {
         },
       ]),
       ActivityLog.countDocuments({
-        user: me.user.id,
+        user: scope,
         action: 'invoice_reminder_sent',
         'metadata.level': { $in: [1, '1'] },
       }),
       ActivityLog.countDocuments({
-        user: me.user.id,
+        user: scope,
         action: 'invoice_reminder_sent',
         'metadata.level': { $in: [2, '2'] },
       }),
       ActivityLog.countDocuments({
-        user: me.user.id,
+        user: scope,
         action: 'invoice_reminder_sent',
         'metadata.level': { $in: [3, '3'] },
       }),
       ActivityLog.countDocuments({
-        user: me.user.id,
+        user: scope,
         action: 'invoice_formal_notice_sent',
       }),
     ]);

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { deleteAttachment } from '@/db/repository/attachment';
-import getMe from '@/utils/middlewares/useMe';
+import { authorizeCompanyRoute } from '@/lib/company-route-access';
 
 interface RouteParams {
   params: Promise<{ id: string; attachmentId: string }>;
@@ -9,14 +9,14 @@ interface RouteParams {
 
 export async function DELETE(_request: NextRequest, { params }: RouteParams) {
   try {
-    const me = await getMe(true);
-    if (!me.success || !me.user) {
-      return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
+    const access = await authorizeCompanyRoute({ moduleKey: 'clients', action: 'edit' });
+    if (!access.success) {
+      return access.response;
     }
 
-    const { attachmentId } = await params;
+    const { id, attachmentId } = await params;
 
-    const deleted = await deleteAttachment(me.user.id, attachmentId);
+    const deleted = await deleteAttachment(access.companyUserIds.map(String), id, attachmentId);
     if (!deleted) {
       return NextResponse.json({ success: false, message: 'Attachment not found' }, { status: 404 });
     }

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { deleteInteraction } from '@/db/repository/interaction';
-import getMe from '@/utils/middlewares/useMe';
+import { authorizeCompanyRoute } from '@/lib/company-route-access';
 
 interface RouteParams {
   params: Promise<{ id: string; interactionId: string }>;
@@ -9,14 +9,14 @@ interface RouteParams {
 
 export async function DELETE(_request: NextRequest, { params }: RouteParams) {
   try {
-    const me = await getMe(true);
-    if (!me.success || !me.user) {
-      return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
+    const access = await authorizeCompanyRoute({ moduleKey: 'clients', action: 'edit' });
+    if (!access.success) {
+      return access.response;
     }
 
-    const { interactionId } = await params;
+    const { id, interactionId } = await params;
 
-    const deleted = await deleteInteraction(me.user.id, interactionId);
+    const deleted = await deleteInteraction(access.companyUserIds.map(String), id, interactionId);
     if (!deleted) {
       return NextResponse.json({ success: false, message: 'Interaction not found' }, { status: 404 });
     }

@@ -6,6 +6,7 @@ export interface RecurrencePassTotals {
 
 import ConnectDb from '@/db/connectDb';
 import CompanyProfile from '@/db/models/CompanyProfile';
+import { resolveCompanyOwnerUserId } from '@/db/repository/company-owner';
 import Invoice from '@/db/models/Invoice';
 import Notification from '@/db/models/Notification';
 import ReminderSettings from '@/db/models/ReminderSettings';
@@ -50,6 +51,7 @@ export async function runRecurrencePass(): Promise<RecurrencePassTotals> {
   const remindersCache = new Map<string, unknown>();
   const companyCache = new Map<string, CompanyProfileLite | null>();
   const userCache = new Map<string, { email?: string | null; name?: string | null } | null>();
+  const ownerCache = new Map<string, string>();
 
   const invoices = await Invoice.find({
     'recurrence.isActive': true,
@@ -81,14 +83,21 @@ export async function runRecurrencePass(): Promise<RecurrencePassTotals> {
     try {
       const userId = String(invoice.userId);
 
+      // Company-level records are keyed to the company owner, not the invoice creator.
+      let ownerUserId = ownerCache.get(userId);
+      if (ownerUserId === undefined) {
+        ownerUserId = await resolveCompanyOwnerUserId({ userId: invoice.userId });
+        ownerCache.set(userId, ownerUserId);
+      }
+
       if (!remindersCache.has(userId)) {
-        const reminderSettings = await ReminderSettings.findOne({ userId: invoice.userId }).lean();
+        const reminderSettings = await ReminderSettings.findOne({ userId: ownerUserId }).lean();
         remindersCache.set(userId, reminderSettings ?? null);
       }
 
       let companyProfile = companyCache.get(userId);
       if (companyProfile === undefined) {
-        const loadedProfile = await CompanyProfile.findOne({ user: invoice.userId })
+        const loadedProfile = await CompanyProfile.findOne({ user: ownerUserId })
           .select('companyName ownerName businessEmail')
           .lean<CompanyProfileLite | null>();
         companyProfile = loadedProfile;

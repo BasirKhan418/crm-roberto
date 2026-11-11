@@ -53,9 +53,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         limit: timelineOptions.limit,
         search: timelineOptions.search,
       }),
-      listClientInteractions(me.user.id, id),
-      listClientAttachments(me.user.id, id),
-      listClientActivities(me.user.id, id),
+      listClientInteractions(scopedUserIds, id),
+      listClientAttachments(scopedUserIds, id),
+      listClientActivities(scopedUserIds, id),
     ]);
 
     return NextResponse.json({

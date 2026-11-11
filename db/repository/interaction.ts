@@ -35,12 +35,19 @@ export interface UpdateInteractionDTO {
   followUpDate?: string | null;
 }
 
+type UserScope = string | string[];
+
+function userScopeQuery(userScope: UserScope) {
+  return Array.isArray(userScope) ? { $in: userScope } : userScope;
+}
+
 function isValidObjectId(value: string): boolean {
   return mongoose.Types.ObjectId.isValid(value);
 }
 
 export async function createInteraction(
   userId: string,
+  userScope: UserScope,
   clientId: string,
   payload: CreateInteractionDTO,
 ): Promise<InteractionRecord> {
@@ -50,7 +57,7 @@ export async function createInteraction(
     throw new Error('Invalid client ID');
   }
 
-  const client = await Client.exists({ _id: clientId, user: userId });
+  const client = await Client.exists({ _id: clientId, user: userScopeQuery(userScope) });
   if (!client) {
     throw new Error('Client not found');
   }
@@ -69,7 +76,7 @@ export async function createInteraction(
 }
 
 export async function listClientInteractions(
-  userId: string,
+  userScope: UserScope,
   clientId: string,
 ): Promise<InteractionRecord[]> {
   await ConnectDb();
@@ -78,7 +85,7 @@ export async function listClientInteractions(
     return [];
   }
 
-  const items = await Interaction.find({ user: userId, clientId })
+  const items = await Interaction.find({ user: userScopeQuery(userScope), clientId })
     .sort({ date: -1 })
     .limit(200)
     .lean();
@@ -87,7 +94,8 @@ export async function listClientInteractions(
 }
 
 export async function deleteInteraction(
-  userId: string,
+  userScope: UserScope,
+  clientId: string,
   interactionId: string,
 ): Promise<boolean> {
   await ConnectDb();
@@ -96,6 +104,6 @@ export async function deleteInteraction(
     return false;
   }
 
-  const result = await Interaction.deleteOne({ _id: interactionId, user: userId });
+  const result = await Interaction.deleteOne({ _id: interactionId, clientId, user: userScopeQuery(userScope) });
   return result.deletedCount > 0;
 }

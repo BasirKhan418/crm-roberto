@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import ConnectDb from '@/db/connectDb';
 import CompanyProfile from '@/db/models/CompanyProfile';
+import { resolveCompanyOwnerUserId } from '@/db/repository/company-owner';
 import Invoice from '@/db/models/Invoice';
 import Payment from '@/db/models/Payment';
 import ReminderLog from '@/db/models/ReminderLog';
@@ -35,8 +36,8 @@ import { buildReminderVars, ensureReminderBodyHasPaymentLink, substituteVariable
 import { normalizeReminderTemplates } from '@/lib/reminders/templates';
 import { buildInvoicePayUrl, generatePaymentToken, generateTokenExpiry, isTokenExpired } from '@/lib/tokens';
 import { buildValidationError } from '@/utils/api/validation';
-import getMe from '@/utils/middlewares/useMe';
 import { sendReminderBodySchema } from '@/validators/reminder-actions.schema';
+import { authorizeCompanyRoute } from '@/lib/company-route-access';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -137,10 +138,12 @@ function toInvoicePdfInput(invoice: InvoiceForReminder): InvoiceForPdf {
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
-    const me = await getMe(true);
-    if (!me.success || !me.user) {
-      return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
+    const access = await authorizeCompanyRoute({ moduleKey: 'invoices', action: 'manage' });
+    if (!access.success) {
+      return access.response;
     }
+    const { user } = access;
+    const ownerUserId = await resolveCompanyOwnerUserId({ userId: user.id, companyId: user.companyId });
 
     const { id } = await params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -155,7 +158,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     await ConnectDb();
 
-    const invoice = await Invoice.findOne({ _id: id, userId: me.user.id })
+    const invoice = await Invoice.findOne({ _id: id, ...access.scope('userId') })
       .select('_id userId invoiceNumber quoteNumber date dueDate status lineItems totalExcludingTax totalVat totalIncludingTax depositPercentage notes clientSnapshot paymentToken paymentTokenExpiry reminderState')
       .lean<InvoiceForReminder | null>();
 
@@ -166,7 +169,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     await Invoice.updateOne(
       {
         _id: invoice._id,
-        userId: me.user.id,
+        userId: invoice.userId,
         $or: [{ reminderState: null }, { reminderState: { $exists: false } }],
       },
       { $set: { reminderState: DEFAULT_REMINDER_STATE } }
@@ -176,8 +179,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, message: 'Invoice is already paid' }, { status: 400 });
     }
 
-    const settingsDoc = await ReminderSettings.findOne({ userId: me.user.id }).lean<Record<string, unknown> | null>();
-    const rawSettings = settingsDoc ?? (new ReminderSettings({ userId: me.user.id }).toObject() as Record<string, unknown>);
+    const settingsDoc = await ReminderSettings.findOne({ userId: ownerUserId }).lean<Record<string, unknown> | null>();
+    const rawSettings = settingsDoc ?? (new ReminderSettings({ userId: ownerUserId }).toObject() as Record<string, unknown>);
     const settings = {
       ...rawSettings,
       templates: normalizeReminderTemplates(
@@ -185,11 +188,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       ).templates,
     };
 
-    const companyProfile = await CompanyProfile.findOne({ user: me.user.id })
+    const companyProfile = await CompanyProfile.findOne({ user: ownerUserId })
       .select('companyName ownerName locale address streetNumber streetName postalCode city country phone businessEmail vatNumber rcsNumber businessAuthorizationNumber matriculeNumber iban bankName legalIdentifier logoUrl')
       .lean<CompanyProfileForReminder | null>();
 
-    const locale = parsed.data.locale ?? resolveReminderLocalePreference(me.user.locale, companyProfile?.locale);
+    const locale = parsed.data.locale ?? resolveReminderLocalePreference(user.locale, companyProfile?.locale);
     const offsets = normalizeOffsets((settings as { offsets?: { soft?: number; medium?: number; firm?: number; formalNotice?: number } }).offsets);
 
     const level = parsed.data.level as ReminderLevel;
@@ -209,7 +212,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       (settings as { lateFee?: LateFeeConfig }).lateFee
     );
 
-    const stripeConnect = await StripeConnect.findOne({ userId: me.user.id })
+    const stripeConnect = await StripeConnect.findOne({ userId: ownerUserId })
       .select('onboardingComplete chargesEnabled')
       .lean<{ onboardingComplete?: boolean; chargesEnabled?: boolean } | null>();
     const stripeConnected = Boolean(stripeConnect?.onboardingComplete && stripeConnect?.chargesEnabled);
@@ -224,7 +227,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         paymentToken = generatePaymentToken();
         paymentTokenExpiry = generateTokenExpiry(30);
         await Invoice.updateOne(
-          { _id: invoice._id, userId: me.user.id },
+          { _id: invoice._id, userId: invoice.userId },
           { $set: { paymentToken, paymentTokenExpiry } }
         );
       }
@@ -264,7 +267,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     const invoicePdfInput = toInvoicePdfInput(invoice);
-    const paymentHistory = await loadPaymentHistory(invoice._id, me.user.id);
+    const paymentHistory = await loadPaymentHistory(invoice._id, String(invoice.userId));
     const invoicePdfBuffer = await renderInvoicePdfForReminder({
       invoice: invoicePdfInput,
       companyProfile,
@@ -327,7 +330,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         });
       } catch (sendError) {
         await ReminderLog.create({
-          userId: me.user.id,
+          userId: invoice.userId,
           invoiceId: invoice._id,
           level: 4,
           channel: 'email',
@@ -342,7 +345,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           pdfAttached: false,
         });
 
-        await createActivityLog(me.user.id, {
+        await createActivityLog(user.id, {
           action: 'invoice_reminder_failed',
           entityType: 'invoice',
           entityName: invoice.invoiceNumber,
@@ -354,7 +357,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
 
       await Invoice.updateOne(
-        { _id: invoice._id, userId: me.user.id },
+        { _id: invoice._id, userId: invoice.userId },
         {
           $set: {
             'reminderState.level': 4,
@@ -369,7 +372,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
 
       log = await ReminderLog.create({
-        userId: me.user.id,
+        userId: invoice.userId,
         invoiceId: invoice._id,
         level: 4,
         channel: 'email',
@@ -384,7 +387,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         pdfAttached: true,
       });
 
-      await createActivityLog(me.user.id, {
+      await createActivityLog(user.id, {
         action: 'invoice_formal_notice_sent',
         entityType: 'invoice',
         entityName: invoice.invoiceNumber,
@@ -415,7 +418,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         });
       } catch (sendError) {
         await ReminderLog.create({
-          userId: me.user.id,
+          userId: invoice.userId,
           invoiceId: invoice._id,
           level,
           channel: 'email',
@@ -430,7 +433,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           pdfAttached: false,
         });
 
-        await createActivityLog(me.user.id, {
+        await createActivityLog(user.id, {
           action: 'invoice_reminder_failed',
           entityType: 'invoice',
           entityName: invoice.invoiceNumber,
@@ -444,7 +447,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       const nextScheduledAt = computeNextScheduledAt(invoice.dueDate, level, offsets);
 
       await Invoice.updateOne(
-        { _id: invoice._id, userId: me.user.id },
+        { _id: invoice._id, userId: invoice.userId },
         {
           $set: {
             'reminderState.level': level,
@@ -457,7 +460,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
 
       log = await ReminderLog.create({
-        userId: me.user.id,
+        userId: invoice.userId,
         invoiceId: invoice._id,
         level,
         channel: 'email',
@@ -472,7 +475,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         pdfAttached: true,
       });
 
-      await createActivityLog(me.user.id, {
+      await createActivityLog(user.id, {
         action: 'invoice_reminder_sent',
         entityType: 'invoice',
         entityName: invoice.invoiceNumber,

@@ -8,13 +8,16 @@ import Client from '@/db/models/Client';
 import Invoice from '@/db/models/Invoice';
 import Note from '@/db/models/Note';
 import Quote from '@/db/models/Quote';
+import { resolveCompanyOwnerUserId } from '@/db/repository/company-owner';
 import { getCompanyProfileByUserId } from '@/db/repository/cprofile';
 import { listTicketsWithoutReplyForReminder } from '@/db/repository/ticket';
 import { extractClientSnapshot } from '@/lib/address';
 import { sendInvoice } from '@/lib/email';
 import { resolveLocaleFromRequest } from '@/lib/i18n/locale';
-import { getNextInvoiceNumberForYear, isInvoiceNumberDuplicateError } from '@/lib/invoice-number';
+import { getCompanyUserObjectIds } from '@/lib/company-scope';
+import { createInvoiceWithUniqueNumber } from '@/lib/invoice-number';
 import { InvoicePdfTemplate } from '@/lib/pdf/InvoicePdfTemplate';
+import { requireModulePermission } from '@/lib/role-matrix';
 import getMe from '@/utils/middlewares/useMe';
 
 export const runtime = 'nodejs';
@@ -127,20 +130,24 @@ function getLastDateMapFromAggregation(rows: Array<{ _id: mongoose.Types.ObjectI
   return map;
 }
 
-async function buildSmartActions(userId: string, companyId?: string | null): Promise<SmartActionsResponse> {
+async function buildSmartActions(
+  companyId: string | null | undefined,
+  companyUserIds: mongoose.Types.ObjectId[]
+): Promise<SmartActionsResponse> {
   await ConnectDb();
 
-  const userObjectId = toObjectId(userId);
+  // Suggestions cover the whole company's quotes, invoices and clients.
+  const scope = { $in: companyUserIds };
   const now = Date.now();
   const sevenDaysAgo = now - 7 * DAY_IN_MS;
   const thirtyDaysAgo = now - 30 * DAY_IN_MS;
 
   const [sentQuotesRaw, acceptedQuotesRaw, overdueInvoicesRaw, clientsRaw, quoteActivityRaw, invoiceActivityRaw, noteActivityRaw] = await Promise.all([
-    Quote.find({ user: userId, status: 'sent' })
+    Quote.find({ user: scope, status: 'sent' })
       .select('_id quoteNumber clientSnapshot statusHistory.to statusHistory.changedAt updatedAt date')
       .lean(),
     Quote.find({
-      user: userId,
+      user: scope,
       status: 'accepted',
       $or: [
         { invoiceId: null },
@@ -150,25 +157,25 @@ async function buildSmartActions(userId: string, companyId?: string | null): Pro
       .select('_id quoteNumber clientId date')
       .lean(),
     Invoice.find({
-      userId: userObjectId,
+      userId: scope,
       status: { $in: ['unpaid', 'overdue'] },
     })
       .sort({ dueDate: 1, createdAt: -1 })
       .select('_id invoiceNumber clientSnapshot.fullName clientSnapshot.email dueDate status recurrence.isActive reminderState.level')
       .lean(),
-    Client.find({ user: userId })
+    Client.find({ user: scope })
       .select('_id fullName email createdAt updatedAt')
       .lean(),
     Quote.aggregate<{ _id: mongoose.Types.ObjectId; lastDate: Date }>([
-      { $match: { user: userObjectId } },
+      { $match: { user: scope } },
       { $group: { _id: '$clientId', lastDate: { $max: '$createdAt' } } },
     ]),
     Invoice.aggregate<{ _id: mongoose.Types.ObjectId; lastDate: Date }>([
-      { $match: { userId: userObjectId } },
+      { $match: { userId: scope } },
       { $group: { _id: '$clientId', lastDate: { $max: '$createdAt' } } },
     ]),
     Note.aggregate<{ _id: mongoose.Types.ObjectId; lastDate: Date }>([
-      { $match: { user: userObjectId, linkedType: 'client' } },
+      { $match: { user: scope, linkedType: 'client' } },
       { $group: { _id: '$linkedId', lastDate: { $max: '$createdAt' } } },
     ]),
   ]);
@@ -343,14 +350,15 @@ async function buildSmartActions(userId: string, companyId?: string | null): Pro
   };
 }
 
-async function createInvoiceFromQuote(userId: string, quoteId: string) {
+async function createInvoiceFromQuote(userId: string, quoteId: string, companyUserIds: mongoose.Types.ObjectId[]) {
+  const scope = { $in: companyUserIds };
   await ConnectDb();
 
   if (!mongoose.Types.ObjectId.isValid(quoteId)) {
     return { ok: false, status: 400, message: 'Invalid quote id' };
   }
 
-  const quote = await Quote.findOne({ _id: quoteId, user: userId }).lean();
+  const quote = await Quote.findOne({ _id: quoteId, user: scope }).lean();
   if (!quote) {
     return { ok: false, status: 404, message: 'Quote not found' };
   }
@@ -399,10 +407,10 @@ async function createInvoiceFromQuote(userId: string, quoteId: string) {
     return { ok: false, status: 409, message: 'Quote already linked to an invoice' };
   }
 
-  const existing = await Invoice.findOne({ userId: toObjectId(userId), quoteId: quoteDoc._id }).select('_id').lean();
+  const existing = await Invoice.findOne({ userId: scope, quoteId: quoteDoc._id }).select('_id').lean();
   if (existing) {
     await Quote.updateOne(
-      { _id: quoteDoc._id, user: userId },
+      { _id: quoteDoc._id, user: scope },
       { $set: { convertedToInvoice: true, invoiceId: (existing as { _id: mongoose.Types.ObjectId })._id } }
     );
     return {
@@ -417,42 +425,30 @@ async function createInvoiceFromQuote(userId: string, quoteId: string) {
   const date = new Date();
   const dueDate = new Date(date.getTime() + 30 * DAY_IN_MS);
 
-  let created: (mongoose.Document & { _id: mongoose.Types.ObjectId }) | null = null;
-  for (let attempt = 0; attempt < 5; attempt += 1) {
-    const invoiceNumber = await getNextInvoiceNumberForYear(userId, date.getFullYear());
-
-    try {
-      created = await Invoice.create({
-        invoiceNumber,
-        quoteId: quoteDoc._id,
-        quoteNumber: quoteDoc.quoteNumber,
-        date,
-        dueDate,
-        status: 'unpaid',
-        clientId: quoteDoc.clientId,
-        clientSnapshot: quoteDoc.clientSnapshot,
-        lineItems: quoteDoc.lineItems,
-        totalExcludingTax: quoteDoc.totalExcludingTax,
-        totalVat: quoteDoc.totalVat,
-        totalIncludingTax: quoteDoc.totalIncludingTax,
-        depositPercentage: 100,
-        notes: quoteDoc.notes ?? null,
-        userId: toObjectId(userId),
-      });
-      break;
-    } catch (error) {
-      if (!isInvoiceNumberDuplicateError(error) || attempt === 4) {
-        throw error;
-      }
-    }
-  }
-
-  if (!created) {
-    throw new Error('Could not allocate invoice number');
-  }
+  const created = await createInvoiceWithUniqueNumber({
+    numberScope: companyUserIds,
+    year: date.getFullYear(),
+    payloadFactory: (invoiceNumber) => ({
+      invoiceNumber,
+      quoteId: quoteDoc._id,
+      quoteNumber: quoteDoc.quoteNumber,
+      date,
+      dueDate,
+      status: 'unpaid',
+      clientId: quoteDoc.clientId,
+      clientSnapshot: quoteDoc.clientSnapshot,
+      lineItems: quoteDoc.lineItems,
+      totalExcludingTax: quoteDoc.totalExcludingTax,
+      totalVat: quoteDoc.totalVat,
+      totalIncludingTax: quoteDoc.totalIncludingTax,
+      depositPercentage: 100,
+      notes: quoteDoc.notes ?? null,
+      userId: toObjectId(userId),
+    }),
+  });
 
   await Quote.updateOne(
-    { _id: quoteDoc._id, user: userId },
+    { _id: quoteDoc._id, user: scope },
     { $set: { convertedToInvoice: true, invoiceId: created._id } }
   );
 
@@ -465,14 +461,15 @@ async function createInvoiceFromQuote(userId: string, quoteId: string) {
   };
 }
 
-async function sendInvoiceReminder(userId: string, invoiceId: string, locale: Locale) {
+async function sendInvoiceReminder(userId: string, invoiceId: string, locale: Locale, companyUserIds: mongoose.Types.ObjectId[]) {
+  const scope = { $in: companyUserIds };
   await ConnectDb();
 
   if (!mongoose.Types.ObjectId.isValid(invoiceId)) {
     return { ok: false, status: 400, message: 'Invalid invoice id' };
   }
 
-  const invoice = await Invoice.findOne({ _id: invoiceId, userId: toObjectId(userId) })
+  const invoice = await Invoice.findOne({ _id: invoiceId, userId: scope })
     .select(
       '_id invoiceNumber quoteNumber date dueDate status lineItems totalExcludingTax totalVat totalIncludingTax depositPercentage notes stripePaymentLinkId stripeDepositLinkId clientId clientSnapshot'
     )
@@ -520,7 +517,7 @@ async function sendInvoiceReminder(userId: string, invoiceId: string, locale: Lo
     return { ok: false, status: 400, message: 'Invoice is already paid' };
   }
 
-  const clientDoc = await Client.findOne({ _id: invoiceDoc.clientId, user: toObjectId(userId) })
+  const clientDoc = await Client.findOne({ _id: invoiceDoc.clientId, user: scope })
     .select('billingEmail')
     .lean<{ billingEmail?: string | null } | null>();
 
@@ -543,7 +540,7 @@ async function sendInvoiceReminder(userId: string, invoiceId: string, locale: Lo
     currency: 'EUR',
   }).format(invoiceDoc.totalIncludingTax / 100);
 
-  const companyResult = await getCompanyProfileByUserId(userId);
+  const companyResult = await getCompanyProfileByUserId(await resolveCompanyOwnerUserId({ userId }));
   const profile = companyResult.success
     ? (companyResult.profile as {
         companyName?: string | null;
@@ -630,7 +627,13 @@ export async function GET() {
       return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
     }
 
-    const data = await buildSmartActions(me.user.id, me.user.companyId ?? null);
+    const permission = await requireModulePermission({ companyId: me.user.companyId, role: me.user.role, moduleKey: 'financialDashboard', action: 'view' });
+    if (!permission.success) {
+      return NextResponse.json({ success: false, message: permission.message }, { status: permission.status });
+    }
+
+    const companyUserIds = await getCompanyUserObjectIds({ companyId: me.user.companyId, fallbackUserId: me.user.id });
+    const data = await buildSmartActions(me.user.companyId ?? null, companyUserIds);
     return NextResponse.json({ success: true, data });
   } catch (error) {
     return NextResponse.json({ success: false, message: `Error loading smart actions: ${String(error)}` }, { status: 500 });
@@ -657,7 +660,13 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: false, message: 'quoteId is required' }, { status: 400 });
       }
 
-      const result = await createInvoiceFromQuote(me.user.id, quoteId);
+      const permission = await requireModulePermission({ companyId: me.user.companyId, role: me.user.role, moduleKey: 'invoices', action: 'create' });
+      if (!permission.success) {
+        return NextResponse.json({ success: false, message: permission.message }, { status: permission.status });
+      }
+
+      const companyUserIds = await getCompanyUserObjectIds({ companyId: me.user.companyId, fallbackUserId: me.user.id });
+      const result = await createInvoiceFromQuote(me.user.id, quoteId, companyUserIds);
       return NextResponse.json(
         { success: result.ok, message: result.message, invoiceId: result.invoiceId, created: result.created },
         { status: result.status }
@@ -671,7 +680,13 @@ export async function POST(request: NextRequest) {
       }
 
       const locale = resolveLocaleFromRequest(request, { rawLocale: body.locale }) as Locale;
-      const result = await sendInvoiceReminder(me.user.id, invoiceId, locale);
+      const permission = await requireModulePermission({ companyId: me.user.companyId, role: me.user.role, moduleKey: 'invoices', action: 'manage' });
+      if (!permission.success) {
+        return NextResponse.json({ success: false, message: permission.message }, { status: permission.status });
+      }
+
+      const companyUserIds = await getCompanyUserObjectIds({ companyId: me.user.companyId, fallbackUserId: me.user.id });
+      const result = await sendInvoiceReminder(me.user.id, invoiceId, locale, companyUserIds);
       return NextResponse.json({ success: result.ok, message: result.message }, { status: result.status });
     }
 

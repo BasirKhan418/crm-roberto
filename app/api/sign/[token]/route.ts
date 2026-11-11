@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import ConnectDb from "@/db/connectDb";
 import CompanyProfile from "@/db/models/CompanyProfile";
+import { resolveCompanyOwnerUserId } from "@/db/repository/company-owner";
 import Quote from "@/db/models/Quote";
 import QuoteSignature from "@/db/models/QuoteSignature";
 import { createActivityLog } from '@/db/repository/activity';
@@ -35,7 +36,7 @@ async function findRejectedQuoteByToken(token: string) {
 type QuoteDocument = NonNullable<Awaited<ReturnType<typeof findQuoteByToken>>>;
 
 async function buildQuotePayload(quote: QuoteDocument) {
-  const companyProfile = await CompanyProfile.findOne({ user: quote.user })
+  const companyProfile = await CompanyProfile.findOne({ user: await resolveCompanyOwnerUserId({ userId: quote.user }) })
     .select({ companyName: 1, ownerName: 1, logoUrl: 1, address: 1, streetNumber: 1, streetName: 1, postalCode: 1, city: 1, country: 1, phone: 1, businessEmail: 1, vatNumber: 1 })
     .lean();
 
@@ -111,7 +112,7 @@ async function buildAlreadySignedPayloadByToken(token: string) {
 }
 
 async function buildRejectedPayload(quote: QuoteDocument) {
-  const companyProfile = await CompanyProfile.findOne({ user: quote.user })
+  const companyProfile = await CompanyProfile.findOne({ user: await resolveCompanyOwnerUserId({ userId: quote.user }) })
     .select({ companyName: 1, ownerName: 1, logoUrl: 1, address: 1, phone: 1, businessEmail: 1, vatNumber: 1 })
     .lean();
 
@@ -168,7 +169,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     if (rejectedQuote) {
       // Quote was resent (or otherwise moved out of rejected state) — old link is stale
       if (rejectedQuote.status !== "rejected") {
-        const cpDoc = await CompanyProfile.findOne({ user: rejectedQuote.user })
+        const cpDoc = await CompanyProfile.findOne({ user: await resolveCompanyOwnerUserId({ userId: rejectedQuote.user }) })
           .select({ companyName: 1, ownerName: 1 })
           .lean();
         const companyName =
@@ -379,7 +380,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       const adminName = (adminUser as { name?: string } | null)?.name ?? "Admin";
       if (!adminEmail) return;
 
-      const companyProfile = await CompanyProfile.findOne({ user: quote.user })
+      const companyProfile = await CompanyProfile.findOne({ user: await resolveCompanyOwnerUserId({ userId: quote.user }) })
         .select("companyName ownerName")
         .lean();
       const companyName =

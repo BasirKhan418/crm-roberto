@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import ConnectDb from '@/db/connectDb';
 import CompanyProfile from '@/db/models/CompanyProfile';
+import { resolveCompanyOwnerUserId } from '@/db/repository/company-owner';
 import Quote from '@/db/models/Quote';
 import User from '@/db/models/User';
 import { createActivityLog } from '@/db/repository/activity';
@@ -79,7 +80,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       if (adminEmail) {
         const adminName = (adminUser as { name?: string } | null)?.name ?? 'Admin';
 
-        const companyProfile = await CompanyProfile.findOne({ user: quote.user })
+        const companyProfile = await CompanyProfile.findOne({ user: await resolveCompanyOwnerUserId({ userId: quote.user }) })
           .select('companyName ownerName')
           .lean();
         const companyName =

@@ -8,7 +8,8 @@ import ReminderLog from '@/db/models/ReminderLog';
 import ReminderSettings from '@/db/models/ReminderSettings';
 import { createActivityLog } from '@/db/repository/activity';
 import { normalizeOffsets } from '@/lib/reminders/core';
-import getMe from '@/utils/middlewares/useMe';
+import { resolveCompanyOwnerUserId } from '@/db/repository/company-owner';
+import { authorizeCompanyRoute } from '@/lib/company-route-access';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -26,10 +27,12 @@ const DEFAULT_REMINDER_STATE = {
 
 export async function POST(_request: NextRequest, { params }: RouteParams) {
   try {
-    const me = await getMe(true);
-    if (!me.success || !me.user) {
-      return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
+    const access = await authorizeCompanyRoute({ moduleKey: 'invoices', action: 'manage' });
+    if (!access.success) {
+      return access.response;
     }
+    const { user } = access;
+    const invoiceScope = access.scope('userId');
 
     const { id } = await params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -41,16 +44,17 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
     await Invoice.updateOne(
       {
         _id: id,
-        userId: me.user.id,
+        ...invoiceScope,
         $or: [{ reminderState: null }, { reminderState: { $exists: false } }],
       },
       { $set: { reminderState: DEFAULT_REMINDER_STATE } }
     );
 
-    const invoice = await Invoice.findOne({ _id: id, userId: me.user.id })
-      .select('_id invoiceNumber dueDate clientSnapshot reminderState')
+    const invoice = await Invoice.findOne({ _id: id, ...invoiceScope })
+      .select('_id userId invoiceNumber dueDate clientSnapshot reminderState')
       .lean<{
         _id: mongoose.Types.ObjectId;
+        userId: mongoose.Types.ObjectId;
         invoiceNumber: string;
         dueDate?: Date | null;
         clientSnapshot?: { email?: string | null } | null;
@@ -61,7 +65,7 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, message: 'Invoice not found' }, { status: 404 });
     }
 
-    const settings = await ReminderSettings.findOne({ userId: me.user.id }).select('offsets').lean<{
+    const settings = await ReminderSettings.findOne({ userId: await resolveCompanyOwnerUserId({ userId: user.id, companyId: user.companyId }) }).select('offsets').lean<{
       offsets?: { soft?: number; medium?: number; firm?: number; formalNotice?: number };
     } | null>();
 
@@ -80,7 +84,7 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
     const nextScheduledAt = invoice.dueDate && nextOffset !== null ? dayjs(invoice.dueDate).add(nextOffset, 'day').toDate() : null;
 
     const updated = await Invoice.findOneAndUpdate(
-      { _id: id, userId: me.user.id },
+      { _id: invoice._id, userId: invoice.userId },
       {
         $set: {
           'reminderState.isPaused': false,
@@ -98,7 +102,7 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
     const resumeLevel = Math.max(1, currentLevel || 1) as 1 | 2 | 3 | 4;
 
     await ReminderLog.create({
-      userId: me.user.id,
+      userId: invoice.userId,
       invoiceId: invoice._id,
       level: resumeLevel,
       channel: 'email',
@@ -113,7 +117,7 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
       pdfAttached: false,
     });
 
-    await createActivityLog(me.user.id, {
+    await createActivityLog(user.id, {
       action: 'invoice_reminder_resumed',
       entityType: 'invoice',
       entityName: invoice.invoiceNumber,

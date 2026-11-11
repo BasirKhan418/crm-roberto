@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import ConnectDb from '@/db/connectDb';
 import Quote from '@/db/models/Quote';
+import { resolveCompanyOwnerUserId } from '@/db/repository/company-owner';
 import { getCompanyProfileByUserId } from '@/db/repository/cprofile';
 import { getQuoteById } from '@/db/repository/quote';
 import { sendRejectionReplyToClient } from '@/lib/email';
 import { buildQuoteConversation } from '@/lib/quote-conversation';
-import getMe from '@/utils/middlewares/useMe';
+import { authorizeCompanyRoute } from '@/lib/company-route-access';
 
 export const runtime = 'nodejs';
 
@@ -18,10 +19,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     await ConnectDb();
 
-    const me = await getMe(true);
-    if (!me.success || !me.user) {
-      return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
+    const access = await authorizeCompanyRoute({ moduleKey: 'quotes', action: 'manage' });
+    if (!access.success) {
+      return access.response;
     }
+    const { user } = access;
+    const quoteScope = access.scope('user');
 
     const body = await request.json() as { message?: string; locale?: string };
     const message = typeof body.message === 'string' ? body.message.trim() : '';
@@ -37,7 +40,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     const { id } = await params;
 
-    const quote = await getQuoteById(me.user.id, id);
+    const quote = await getQuoteById(access.companyUserIds.map(String), id);
     if (!quote) {
       return NextResponse.json({ success: false, message: 'Quote not found' }, { status: 404 });
     }
@@ -59,7 +62,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, message: 'Invalid client email address' }, { status: 400 });
     }
 
-    const companyResult = await getCompanyProfileByUserId(me.user.id);
+    const companyResult = await getCompanyProfileByUserId(await resolveCompanyOwnerUserId({ userId: user.id, companyId: user.companyId }));
     const company = companyResult.success ? (companyResult.profile as Record<string, unknown>) : null;
     const companyName =
       (company?.companyName as string | undefined) ||
@@ -74,7 +77,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const now = new Date();
 
     const updated = await Quote.findOneAndUpdate(
-      { _id: id, user: me.user.id },
+      { _id: id, ...quoteScope },
       {
         $set: { adminReplyMessage: message },
         $push: { conversationMessages: { role: 'admin', text: message, sentAt: now } },
@@ -87,7 +90,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     await Quote.updateOne(
-      { _id: id, user: me.user.id, rejectionAcknowledgedAt: null },
+      { _id: id, ...quoteScope, rejectionAcknowledgedAt: null },
       { $set: { rejectionAcknowledgedAt: now } }
     );
 

@@ -5,6 +5,7 @@ import ConnectDb from '@/db/connectDb';
 import Invoice from '@/db/models/Invoice';
 import Payment from '@/db/models/Payment';
 import StripeConnect from '@/db/models/StripeConnect';
+import { resolveCompanyOwnerUserId } from '@/db/repository/company-owner';
 import { resolveLocaleFromRequest } from '@/lib/i18n/locale';
 import { getCheckoutLineItemLabel } from '@/lib/payments';
 import { stripe } from '@/lib/stripe';
@@ -114,7 +115,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ message: 'Invalid payment type' }, { status: 400 });
     }
 
-    const connect = await StripeConnect.findOne({ userId: invoice.userId })
+    const connect = await StripeConnect.findOne({ userId: await resolveCompanyOwnerUserId({ userId: invoice.userId }) })
       .select('stripeAccountId chargesEnabled')
       .lean<{ stripeAccountId?: string; chargesEnabled?: boolean } | null>();
 

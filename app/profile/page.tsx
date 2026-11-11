@@ -94,6 +94,9 @@ export default function ProfilePage() {
       subtitle: 'Configure your business identity and contact details.',
       updateTitle: 'Update company profile',
       createTitle: 'Create company profile',
+      viewTitle: 'Company information',
+      readOnlyNotice: 'Only company administrators can edit the company profile.',
+      notConfiguredNotice: 'Your company administrator has not completed the company profile yet.',
       companyName: 'Company name',
       ownerName: 'Owner name',
       phone: 'Phone',
@@ -164,6 +167,9 @@ export default function ProfilePage() {
       subtitle: "Configurez l'identit\u00e9 de votre entreprise et les coordonn\u00e9es.",
       updateTitle: 'Mettre \u00e0 jour le profil entreprise',
       createTitle: 'Cr\u00e9er le profil entreprise',
+      viewTitle: 'Informations entreprise',
+      readOnlyNotice: 'Seuls les administrateurs de l\'entreprise peuvent modifier le profil entreprise.',
+      notConfiguredNotice: 'L\'administrateur de votre entreprise n\'a pas encore complété le profil entreprise.',
       companyName: "Nom de l'entreprise",
       ownerName: 'Nom du propri\u00e9taire',
       phone: 'T\u00e9l\u00e9phone',
@@ -229,6 +235,7 @@ export default function ProfilePage() {
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [exists, setExists] = useState(false);
+  const [canEdit, setCanEdit] = useState(false);
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: '',
     newPassword: '',
@@ -279,7 +286,10 @@ export default function ProfilePage() {
           success: boolean;
           message?: string;
           profile?: Partial<ProfileForm>;
+          canEdit?: boolean;
         };
+
+        setCanEdit(data.canEdit === true);
 
         if (!response.ok || !data.success) {
           setExists(false);
@@ -550,6 +560,7 @@ export default function ProfilePage() {
               </div>
 
               {/* Actions */}
+              {canEdit ? (
               <div className="flex flex-wrap gap-2">
                 <Button
                   variant="outline"
@@ -575,6 +586,7 @@ export default function ProfilePage() {
                   </Button>
                 )}
               </div>
+              ) : null}
 
               <div className="w-full rounded-xl border border-sky-300/70 bg-sky-50/70 p-3 dark:border-sky-900/50 dark:bg-sky-950/20">
                 <p className="mb-2 text-xs text-sky-800 dark:text-sky-200">{t.restartTourHint}</p>
@@ -595,6 +607,7 @@ export default function ProfilePage() {
         </CardContent>
       </Card>
 
+      {canEdit ? (
       <Card id="stripe-payments" data-tour-profile-stripe-card className="scroll-mt-20 overflow-hidden border-primary/20 bg-linear-to-br from-sky-50/70 via-background to-indigo-50/40 pt-0 dark:from-sky-950/20 dark:to-indigo-950/20">
         <CardHeader className="border-b">
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -656,6 +669,7 @@ export default function ProfilePage() {
           </div>
         </CardContent>
       </Card>
+      ) : null}
 
       {/* Delete logo confirmation */}
       <AlertDialog open={showDeleteLogoDialog} onOpenChange={setShowDeleteLogoDialog}>
@@ -683,10 +697,16 @@ export default function ProfilePage() {
 
       <Card id="company-profile" data-tour-profile-company-card className="scroll-mt-20">
         <CardHeader className="border-b">
-          <CardTitle>{exists ? t.updateTitle : t.createTitle}</CardTitle>
+          <CardTitle>{!canEdit ? t.viewTitle : exists ? t.updateTitle : t.createTitle}</CardTitle>
         </CardHeader>
         <CardContent className="pt-4">
           {error ? <ErrorMessage message={error} /> : null}
+
+          {!loading && !canEdit ? (
+            <p className="mb-4 rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
+              {exists ? t.readOnlyNotice : t.notConfiguredNotice}
+            </p>
+          ) : null}
 
           {loading ? (
             <div className="space-y-2">
@@ -698,79 +718,81 @@ export default function ProfilePage() {
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <div className="space-y-1.5">
                 <Label>{t.companyName}</Label>
-                <Input value={form.companyName} onChange={(e) => setForm((p) => ({ ...p, companyName: e.target.value }))} />
+                <Input disabled={!canEdit} value={form.companyName} onChange={(e) => setForm((p) => ({ ...p, companyName: e.target.value }))} />
               </div>
               <div className="space-y-1.5">
                 <Label>{t.ownerName}</Label>
-                <Input value={form.ownerName} onChange={(e) => setForm((p) => ({ ...p, ownerName: e.target.value }))} />
+                <Input disabled={!canEdit} value={form.ownerName} onChange={(e) => setForm((p) => ({ ...p, ownerName: e.target.value }))} />
               </div>
               <div className="space-y-1.5">
                 <Label>{t.phone}</Label>
-                <Input value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} />
+                <Input disabled={!canEdit} value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} />
               </div>
               <div className="space-y-1.5">
                 <Label>{t.businessEmail}</Label>
-                <Input type="email" value={form.businessEmail} onChange={(e) => setForm((p) => ({ ...p, businessEmail: e.target.value }))} />
+                <Input type="email" disabled={!canEdit} value={form.businessEmail} onChange={(e) => setForm((p) => ({ ...p, businessEmail: e.target.value }))} />
               </div>
               <div className="space-y-1.5">
                 <Label>{t.streetNumber}</Label>
-                <Input value={form.streetNumber} onChange={(e) => setForm((p) => ({ ...p, streetNumber: e.target.value }))} />
+                <Input disabled={!canEdit} value={form.streetNumber} onChange={(e) => setForm((p) => ({ ...p, streetNumber: e.target.value }))} />
               </div>
               <div className="space-y-1.5">
                 <Label>{t.streetName}</Label>
-                <Input value={form.streetName} onChange={(e) => setForm((p) => ({ ...p, streetName: e.target.value }))} />
+                <Input disabled={!canEdit} value={form.streetName} onChange={(e) => setForm((p) => ({ ...p, streetName: e.target.value }))} />
               </div>
               <div className="space-y-1.5">
                 <Label>{t.postalCode}</Label>
-                <Input value={form.postalCode} onChange={(e) => setForm((p) => ({ ...p, postalCode: e.target.value }))} />
+                <Input disabled={!canEdit} value={form.postalCode} onChange={(e) => setForm((p) => ({ ...p, postalCode: e.target.value }))} />
               </div>
               <div className="space-y-1.5">
                 <Label>{t.city}</Label>
-                <Input value={form.city} onChange={(e) => setForm((p) => ({ ...p, city: e.target.value }))} />
+                <Input disabled={!canEdit} value={form.city} onChange={(e) => setForm((p) => ({ ...p, city: e.target.value }))} />
               </div>
               <div className="space-y-1.5">
                 <Label>{t.country}</Label>
-                <Input value={form.country} onChange={(e) => setForm((p) => ({ ...p, country: e.target.value }))} />
+                <Input disabled={!canEdit} value={form.country} onChange={(e) => setForm((p) => ({ ...p, country: e.target.value }))} />
               </div>
               <div data-tour-profile-legal-fields className="grid grid-cols-1 gap-3 md:col-span-2 md:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label>{t.vat}</Label>
-                  <Input value={form.vatNumber} onChange={(e) => setForm((p) => ({ ...p, vatNumber: e.target.value }))} />
+                  <Input disabled={!canEdit} value={form.vatNumber} onChange={(e) => setForm((p) => ({ ...p, vatNumber: e.target.value }))} />
                 </div>
                 <div className="space-y-1.5">
                   <Label>{t.rcsNumber}</Label>
-                  <Input value={form.rcsNumber} onChange={(e) => setForm((p) => ({ ...p, rcsNumber: e.target.value }))} />
+                  <Input disabled={!canEdit} value={form.rcsNumber} onChange={(e) => setForm((p) => ({ ...p, rcsNumber: e.target.value }))} />
                 </div>
                 <div className="space-y-1.5">
                   <Label>{t.businessAuthorizationNumber}</Label>
-                  <Input value={form.businessAuthorizationNumber} onChange={(e) => setForm((p) => ({ ...p, businessAuthorizationNumber: e.target.value }))} />
+                  <Input disabled={!canEdit} value={form.businessAuthorizationNumber} onChange={(e) => setForm((p) => ({ ...p, businessAuthorizationNumber: e.target.value }))} />
                 </div>
                 <div className="space-y-1.5">
                   <Label>{t.matriculeNumber}</Label>
-                  <Input value={form.matriculeNumber} onChange={(e) => setForm((p) => ({ ...p, matriculeNumber: e.target.value }))} />
+                  <Input disabled={!canEdit} value={form.matriculeNumber} onChange={(e) => setForm((p) => ({ ...p, matriculeNumber: e.target.value }))} />
                 </div>
                 <div className="space-y-1.5">
                   <Label>{t.iban}</Label>
-                  <Input value={form.iban} onChange={(e) => setForm((p) => ({ ...p, iban: e.target.value }))} />
+                  <Input disabled={!canEdit} value={form.iban} onChange={(e) => setForm((p) => ({ ...p, iban: e.target.value }))} />
                 </div>
                 <div className="space-y-1.5">
                   <Label>{t.bankName}</Label>
-                  <Input value={form.bankName} onChange={(e) => setForm((p) => ({ ...p, bankName: e.target.value }))} />
+                  <Input disabled={!canEdit} value={form.bankName} onChange={(e) => setForm((p) => ({ ...p, bankName: e.target.value }))} />
                 </div>
                 <div className="space-y-1.5 md:col-span-2">
                   <Label>{t.legalIdentifier}</Label>
-                  <Input value={form.legalIdentifier} onChange={(e) => setForm((p) => ({ ...p, legalIdentifier: e.target.value }))} />
+                  <Input disabled={!canEdit} value={form.legalIdentifier} onChange={(e) => setForm((p) => ({ ...p, legalIdentifier: e.target.value }))} />
                 </div>
               </div>
             </div>
           )}
 
-          <div className="mt-4">
-            <Button data-tour-profile-save onClick={saveProfile} disabled={saving || loading} className='h-10 w-full lg:w-auto md:w-auto '>
-              <SaveIcon />
-              {saving ? t.saving : t.saveProfile}
-            </Button>
-          </div>
+          {canEdit ? (
+            <div className="mt-4">
+              <Button data-tour-profile-save onClick={saveProfile} disabled={saving || loading} className='h-10 w-full lg:w-auto md:w-auto '>
+                <SaveIcon />
+                {saving ? t.saving : t.saveProfile}
+              </Button>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 

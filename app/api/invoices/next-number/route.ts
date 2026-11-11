@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import ConnectDb from '@/db/connectDb';
 import { ensureInvoiceIndexes } from '@/db/repository/ensureInvoiceIndexes';
+import { getCompanyUserObjectIds } from '@/lib/company-scope';
 import { getNextInvoiceNumberForYear } from '@/lib/invoice-number';
 import { requireModulePermission } from '@/lib/role-matrix';
 import getMe from '@/utils/middlewares/useMe';
@@ -22,7 +23,8 @@ export async function GET() {
     await ensureInvoiceIndexes();
 
     const year = new Date().getFullYear();
-    const invoiceNumber = await getNextInvoiceNumberForYear(me.user.id, year);
+    const scopedUserObjectIds = await getCompanyUserObjectIds({ companyId: me.user.companyId, fallbackUserId: me.user.id });
+    const invoiceNumber = await getNextInvoiceNumberForYear(scopedUserObjectIds, year);
 
     return NextResponse.json({ invoiceNumber });
   } catch (error) {

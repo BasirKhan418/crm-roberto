@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import ConnectDb from '@/db/connectDb';
 import Quote from '@/db/models/Quote';
-import getMe from '@/utils/middlewares/useMe';
 import mongoose from 'mongoose';
+import { authorizeCompanyRoute } from '@/lib/company-route-access';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -21,9 +21,9 @@ interface RouteParams {
  */
 export async function POST(_request: NextRequest, { params }: RouteParams) {
   try {
-    const me = await getMe(true);
-    if (!me.success || !me.user) {
-      return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
+    const access = await authorizeCompanyRoute({ moduleKey: 'quotes', action: 'edit' });
+    if (!access.success) {
+      return access.response;
     }
 
     const { id } = await params;
@@ -37,7 +37,7 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
     const updated = await Quote.findOneAndUpdate(
       {
         _id: id,
-        user: me.user.id,
+        ...access.scope('user'),
         status: { $in: ['rejected', 'refused'] },
         rejectionAcknowledgedAt: null, // Only acknowledge if not already done
       },

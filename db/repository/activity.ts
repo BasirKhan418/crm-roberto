@@ -94,8 +94,10 @@ export const listActivities = async (userId: string, options: ActivityListQueryO
   };
 };
 
-export const listClientActivities = async (userId: string, clientId: string, limit = 200): Promise<ActivityRecord[]> => {
+export const listClientActivities = async (userScope: string | string[], clientId: string, limit = 200): Promise<ActivityRecord[]> => {
   await ConnectDb();
+
+  const scope = Array.isArray(userScope) ? { $in: userScope } : userScope;
 
   if (!isValidObjectId(clientId)) {
     return [];
@@ -104,8 +106,8 @@ export const listClientActivities = async (userId: string, clientId: string, lim
   const clientObjectId = new mongoose.Types.ObjectId(clientId);
 
   const [invoiceIds, quoteIds] = await Promise.all([
-    Invoice.find({ userId, clientId: clientObjectId }).distinct('_id'),
-    Quote.find({ user: userId, clientId: clientObjectId }).distinct('_id'),
+    Invoice.find({ userId: scope, clientId: clientObjectId }).distinct('_id'),
+    Quote.find({ user: scope, clientId: clientObjectId }).distinct('_id'),
   ]);
 
   const orClauses: Record<string, unknown>[] = [
@@ -118,7 +120,7 @@ export const listClientActivities = async (userId: string, clientId: string, lim
     orClauses.push({ entityId: { $in: relatedEntityIds } });
   }
 
-  const items = await ActivityLog.find({ user: userId, $or: orClauses })
+  const items = await ActivityLog.find({ user: scope, $or: orClauses })
     .sort({ createdAt: -1 })
     .limit(Math.max(1, Math.min(limit, 500)))
     .lean();

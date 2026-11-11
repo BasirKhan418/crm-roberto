@@ -5,8 +5,8 @@ import ConnectDb from '@/db/connectDb';
 import Invoice from '@/db/models/Invoice';
 import ReminderLog from '@/db/models/ReminderLog';
 import { appendLegalRecoveryTrackingEntries, type ReminderLogEntry } from '@/lib/reminders/legal-recovery';
-import getMe from '@/utils/middlewares/useMe';
 import { logsQuerySchema } from '@/validators/reminder-actions.schema';
+import { authorizeCompanyRoute } from '@/lib/company-route-access';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -14,9 +14,9 @@ interface RouteParams {
 
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const me = await getMe(true);
-    if (!me.success || !me.user) {
-      return NextResponse.json({ success: false, message: me.message || 'Unauthorized' }, { status: 401 });
+    const access = await authorizeCompanyRoute({ moduleKey: 'invoices', action: 'view' });
+    if (!access.success) {
+      return access.response;
     }
 
     const { id } = await params;
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const skip = (page - 1) * limit;
 
     const [invoice, rawLogs] = await Promise.all([
-      Invoice.findOne({ _id: id, userId: me.user.id })
+      Invoice.findOne({ _id: id, ...access.scope('userId') })
         .select('reminderState')
         .lean<{
           reminderState?: {
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
             legalRecoverySentToCourtAt?: Date | null;
           } | null;
         } | null>(),
-      ReminderLog.find({ userId: me.user.id, invoiceId: id }).sort({ sentAt: -1 }).lean<ReminderLogEntry[]>(),
+      ReminderLog.find({ ...access.scope('userId'), invoiceId: id }).sort({ sentAt: -1 }).lean<ReminderLogEntry[]>(),
     ]);
 
     if (!invoice) {

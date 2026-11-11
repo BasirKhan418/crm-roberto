@@ -7,7 +7,8 @@ import StripeConnect from '@/db/models/StripeConnect';
 import { resolveLocaleFromValue } from '@/lib/i18n/locale';
 import { getCheckoutLineItemLabel } from '@/lib/payments';
 import { stripe } from '@/lib/stripe';
-import getMe from '@/utils/middlewares/useMe';
+import { resolveCompanyOwnerUserId } from '@/db/repository/company-owner';
+import { authorizeCompanyRoute } from '@/lib/company-route-access';
 
 export const runtime = 'nodejs';
 
@@ -23,10 +24,11 @@ interface CheckoutBody {
 
 export async function POST(req: NextRequest) {
   try {
-    const me = await getMe(true);
-    if (!me.success || !me.user) {
-      return NextResponse.json({ message: me.message || 'Unauthorized' }, { status: 401 });
+    const access = await authorizeCompanyRoute({ moduleKey: 'invoices', action: 'manage' });
+    if (!access.success) {
+      return access.response;
     }
+    const { user } = access;
 
     const body = (await req.json()) as CheckoutBody;
     const invoiceId = typeof body.invoiceId === 'string' ? body.invoiceId.trim() : '';
@@ -39,7 +41,7 @@ export async function POST(req: NextRequest) {
       typeof body.idempotencyKey === 'string' && body.idempotencyKey.trim()
         ? body.idempotencyKey.trim().slice(0, 120)
         : null;
-    const locale = resolveLocaleFromValue(body.locale, resolveLocaleFromValue(me.user.locale, 'fr'));
+    const locale = resolveLocaleFromValue(body.locale, resolveLocaleFromValue(user.locale, 'fr'));
 
     if (!invoiceId || (paymentType !== 'full' && paymentType !== 'deposit')) {
       return NextResponse.json({ message: 'Invalid request body' }, { status: 400 });
@@ -47,7 +49,7 @@ export async function POST(req: NextRequest) {
 
     await ConnectDb();
 
-    const invoice = await Invoice.findOne({ _id: invoiceId, userId: me.user.id })
+    const invoice = await Invoice.findOne({ _id: invoiceId, ...access.scope('userId') })
       .select('_id userId invoiceNumber totalIncludingTax depositAmount status')
       .lean<{
         _id: string;
@@ -62,7 +64,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Invoice not found' }, { status: 404 });
     }
 
-    const connect = await StripeConnect.findOne({ userId: me.user.id })
+    const connect = await StripeConnect.findOne({ userId: await resolveCompanyOwnerUserId({ userId: user.id, companyId: user.companyId }) })
       .select('stripeAccountId chargesEnabled')
       .lean<{ stripeAccountId?: string; chargesEnabled?: boolean } | null>();
 
